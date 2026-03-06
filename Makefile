@@ -1,4 +1,4 @@
-.PHONY: run build test clean
+.PHONY: run build test clean up down logs
 
 run:
 	go run ./cmd/server
@@ -11,3 +11,12 @@ test:
 
 clean:
 	rm -rf bin/
+
+up:
+	docker compose up -d --build
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f

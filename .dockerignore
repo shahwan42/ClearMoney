@@ -1,0 +1,13 @@
+bin/
+server
+*.exe
+*.test
+*.out
+.env
+.git
+.gitignore
+.claude/
+.github/
+README.md
+TASKS.md
+clearmoney-prd.md
