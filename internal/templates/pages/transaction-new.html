@@ -1,0 +1,137 @@
+{{define "title"}}ClearMoney - New Transaction{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto py-4">
+
+    <h2 class="text-lg font-bold text-slate-800 mb-4">New Transaction</h2>
+
+    <!-- Response area: HTMX swaps success/error messages here -->
+    <div id="transaction-result"></div>
+
+    <form
+        hx-post="/transactions"
+        hx-target="#transaction-result"
+        hx-swap="innerHTML"
+        class="bg-white rounded-2xl shadow-sm p-5 space-y-4"
+    >
+        <!-- Type selector: expense or income -->
+        <div class="flex gap-2">
+            <label class="flex-1">
+                <input type="radio" name="type" value="expense" checked class="peer hidden">
+                <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-200 rounded-xl py-3 text-center text-sm font-medium cursor-pointer transition-all"
+                     id="type-expense-label">
+                    Expense
+                </div>
+            </label>
+            <label class="flex-1">
+                <input type="radio" name="type" value="income" class="peer hidden">
+                <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-200 rounded-xl py-3 text-center text-sm font-medium cursor-pointer transition-all"
+                     id="type-income-label">
+                    Income
+                </div>
+            </label>
+        </div>
+
+        <!-- Amount: large, prominent input — the most important field -->
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Amount</label>
+            <input type="number" name="amount" step="0.01" min="0.01" required autofocus
+                placeholder="0.00"
+                class="w-full text-3xl font-bold text-center border border-gray-300 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                inputmode="decimal">
+        </div>
+
+        <!-- Account selector -->
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Account</label>
+            <select name="account_id" required
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                <option value="">Select account...</option>
+                {{with .Data}}
+                {{range .Accounts}}
+                <option value="{{.ID}}">{{.Name}} ({{.Currency}})</option>
+                {{end}}
+                {{end}}
+            </select>
+        </div>
+
+        <!-- Currency (hidden, set from selected account — for now default to EGP) -->
+        <input type="hidden" name="currency" value="EGP" id="currency-input">
+
+        <!-- Category selector — shows expense categories by default, switches on type change -->
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Category</label>
+            <select name="category_id"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                id="category-select">
+                <option value="">None</option>
+                {{with .Data}}
+                {{range .ExpenseCategories}}
+                <option value="{{.ID}}" class="category-expense">{{.Name}}</option>
+                {{end}}
+                {{range .IncomeCategories}}
+                <option value="{{.ID}}" class="category-income" style="display:none">{{.Name}}</option>
+                {{end}}
+                {{end}}
+            </select>
+        </div>
+
+        <!-- Date: defaults to today -->
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Date</label>
+            <input type="date" name="date"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+
+        <!-- Optional note -->
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Note (optional)</label>
+            <input type="text" name="note" placeholder="What was this for?"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+
+        <!-- Submit button -->
+        <button type="submit"
+            class="w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+            Save Transaction
+        </button>
+    </form>
+
+</div>
+
+<!-- Set today's date as default and handle type/category switching -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Default date to today
+    const dateInput = document.querySelector('input[name="date"]');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    // Switch categories when type changes
+    document.querySelectorAll('input[name="type"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            const isExpense = this.value === 'expense';
+            document.querySelectorAll('.category-expense').forEach(function(opt) {
+                opt.style.display = isExpense ? '' : 'none';
+            });
+            document.querySelectorAll('.category-income').forEach(function(opt) {
+                opt.style.display = isExpense ? 'none' : '';
+            });
+            // Reset category selection
+            document.getElementById('category-select').value = '';
+        });
+    });
+
+    // Update currency when account changes
+    document.querySelector('select[name="account_id"]').addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        if (selected && selected.text.includes('USD')) {
+            document.getElementById('currency-input').value = 'USD';
+        } else {
+            document.getElementById('currency-input').value = 'EGP';
+        }
+    });
+});
+</script>
+{{end}}

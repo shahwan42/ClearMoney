@@ -49,7 +49,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	// Home page works without a database
-	pages := NewPageHandler(tmpl, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
 	r.Get("/", pages.Home)
 
 	// Only register database-dependent routes if DB is available.
@@ -85,10 +85,12 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Route("/api/transactions", txHandler.Routes)
 
 		// Page routes that require database access
-		dbPages := NewPageHandler(tmpl, institutionSvc, accountSvc)
+		dbPages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc)
 		r.Get("/accounts", dbPages.Accounts)
 		r.Get("/accounts/form", dbPages.AccountForm)
 		r.Get("/accounts/list", dbPages.InstitutionList)
+		r.Get("/transactions/new", dbPages.TransactionNew)
+		r.Post("/transactions", dbPages.TransactionCreate)
 	}
 
 	return r

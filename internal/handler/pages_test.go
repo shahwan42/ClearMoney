@@ -17,7 +17,7 @@ func TestHomePage_Renders(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -50,7 +50,7 @@ func TestHomePage_ContentType(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -67,7 +67,7 @@ func TestHomePage_ActiveTab(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -134,6 +134,83 @@ func TestAccountsPage_Empty(t *testing.T) {
 	body := w.Body.String()
 	if !strings.Contains(body, "No institutions yet") {
 		t.Error("expected empty state message")
+	}
+}
+
+func TestTransactionNewPage_Renders(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	// Create an account so the dropdown has data
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID,
+		Name:          "Savings",
+		Type:          models.AccountTypeSavings,
+		Currency:      models.CurrencyEGP,
+	})
+
+	router := NewRouter(db)
+	req := httptest.NewRequest(http.MethodGet, "/transactions/new", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	checks := []string{
+		"New Transaction",     // page title
+		"Savings",             // account in dropdown
+		"Expense",             // type selector
+		"Income",              // type selector
+		"Save Transaction",    // submit button
+		`name="amount"`,       // amount input
+		`name="category_id"`,  // category selector
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected transaction form to contain %q", check)
+		}
+	}
+}
+
+func TestTransactionCreatePage_Success(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Type:           models.AccountTypeChecking,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	router := NewRouter(db)
+
+	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&date=2026-03-06")
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Transaction saved") {
+		t.Error("expected success message")
+	}
+	if !strings.Contains(body, "9,500.00") {
+		t.Errorf("expected new balance 9,500.00 in response, got: %s", body)
 	}
 }
 
