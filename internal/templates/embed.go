@@ -9,5 +9,5 @@ import "embed"
 // The //go:embed directive tells the Go compiler to include these files
 // in the binary — similar to how Laravel Mix bundles assets.
 //
-//go:embed layouts/*.html components/*.html pages/*.html
+//go:embed layouts/*.html components/*.html pages/*.html partials/*.html
 var FS embed.FS

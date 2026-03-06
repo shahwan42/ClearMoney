@@ -33,9 +33,11 @@ func TemplateFuncs() template.FuncMap {
 		"formatUSD": func(amount float64) string {
 			return "$" + formatNumber(amount)
 		},
-		// formatCurrency formats an amount with the appropriate currency symbol
-		"formatCurrency": func(amount float64, currency string) string {
-			switch strings.ToUpper(currency) {
+		// formatCurrency formats an amount with the appropriate currency symbol.
+		// Accepts any string-like type (including models.Currency).
+		"formatCurrency": func(amount float64, currency any) string {
+			cur := strings.ToUpper(fmt.Sprintf("%v", currency))
+			switch cur {
 			case "USD":
 				return "$" + formatNumber(amount)
 			default:
@@ -87,12 +89,19 @@ func formatNumber(n float64) string {
 // This lets each page redefine {{define "content"}} and {{define "title"}}
 // blocks, overriding the defaults from the base layout.
 func ParseTemplates(templateFS fs.FS) (TemplateMap, error) {
-	// Shared files: layout + components (parsed once, cloned per page)
+	// Shared files: layout + components + partials (parsed once, cloned per page)
 	sharedFiles := []string{
 		"layouts/base.html",
 		"components/header.html",
 		"components/bottom-nav.html",
 	}
+
+	// Add all partial files dynamically
+	partialFiles, err := fs.Glob(templateFS, "partials/*.html")
+	if err != nil {
+		return nil, fmt.Errorf("finding partial templates: %w", err)
+	}
+	sharedFiles = append(sharedFiles, partialFiles...)
 
 	// Parse shared templates
 	base, err := template.New("").Funcs(TemplateFuncs()).ParseFS(templateFS, sharedFiles...)

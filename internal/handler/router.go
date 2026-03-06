@@ -43,14 +43,14 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		log.Fatalf("parsing templates: %v", err)
 	}
 
-	// Page routes (HTML pages, like Laravel's web routes)
-	pages := NewPageHandler(tmpl)
-	r.Get("/", pages.Home)
-
 	// Serve static files (CSS, JS, images) from the static/ directory.
 	// Like Laravel's public/ directory or Django's STATIC_URL.
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
+
+	// Home page works without a database
+	pages := NewPageHandler(tmpl, nil, nil)
+	r.Get("/", pages.Home)
 
 	// Only register database-dependent routes if DB is available.
 	// This is Go's approach to dependency injection — explicit parameter passing
@@ -83,6 +83,12 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		txHandler := NewTransactionHandler(txSvc)
 
 		r.Route("/api/transactions", txHandler.Routes)
+
+		// Page routes that require database access
+		dbPages := NewPageHandler(tmpl, institutionSvc, accountSvc)
+		r.Get("/accounts", dbPages.Accounts)
+		r.Get("/accounts/form", dbPages.AccountForm)
+		r.Get("/accounts/list", dbPages.InstitutionList)
 	}
 
 	return r

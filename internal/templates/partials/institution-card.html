@@ -1,0 +1,48 @@
+{{define "institution-card"}}
+<!-- Single institution card with its accounts. Expandable/collapsible via details/summary. -->
+<div class="bg-white rounded-xl shadow-sm overflow-hidden" id="institution-{{.Institution.ID}}">
+    <details open>
+        <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white text-sm font-bold">
+                    {{slice .Institution.Name 0 1}}
+                </div>
+                <div>
+                    <h3 class="font-semibold text-slate-800">{{.Institution.Name}}</h3>
+                    <span class="text-xs text-gray-400">{{.Institution.Type}}</span>
+                </div>
+            </div>
+            <button
+                class="text-xs text-teal-600 hover:text-teal-700 px-2 py-1"
+                hx-get="/accounts/form?institution_id={{.Institution.ID}}"
+                hx-target="#account-form-area"
+                hx-swap="innerHTML"
+                onclick="event.stopPropagation()"
+            >+ Account</button>
+        </summary>
+
+        <div class="border-t border-gray-100">
+            {{if .Accounts}}
+                {{range .Accounts}}
+                <div class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                    <div>
+                        <p class="text-sm font-medium text-slate-700">{{.Name}}</p>
+                        <p class="text-xs text-gray-400">{{.Type}} &middot; {{.Currency}}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-semibold {{if lt .CurrentBalance 0}}text-red-600{{else}}text-slate-800{{end}}">
+                            {{formatCurrency .CurrentBalance .Currency}}
+                        </p>
+                        {{if .IsCreditType}}
+                        <p class="text-xs text-gray-400">avail: {{formatCurrency .AvailableCredit .Currency}}</p>
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+            {{else}}
+                <p class="px-4 py-3 text-sm text-gray-400">No accounts yet</p>
+            {{end}}
+        </div>
+    </details>
+</div>
+{{end}}

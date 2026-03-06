@@ -1,0 +1,30 @@
+{{define "title"}}ClearMoney - Accounts{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+
+    <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-800">Accounts</h2>
+    </div>
+
+    <!-- Institution form (always visible at top) -->
+    {{template "institution-form" .}}
+
+    <!-- Area where account form appears when "Add Account" is clicked -->
+    <div id="account-form-area"></div>
+
+    <!-- Institution list with their accounts -->
+    <div id="institution-list" class="space-y-3">
+        {{if .Data}}
+            {{range .Data}}
+                {{template "institution-card" .}}
+            {{end}}
+        {{else}}
+            <div class="bg-white rounded-xl shadow-sm p-6 text-center">
+                <p class="text-gray-400 text-sm">No institutions yet. Add one above to get started.</p>
+            </div>
+        {{end}}
+    </div>
+
+</div>
+{{end}}
