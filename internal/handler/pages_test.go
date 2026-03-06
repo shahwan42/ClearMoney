@@ -17,7 +17,7 @@ func TestHomePage_Renders(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -28,13 +28,12 @@ func TestHomePage_Renders(t *testing.T) {
 
 	body := w.Body.String()
 
-	// Verify key layout elements are present
+	// Verify key layout elements are present (no DB = empty state)
 	checks := []string{
 		"ClearMoney",          // header
 		"tailwindcss",         // Tailwind CDN
 		"htmx.org",            // HTMX script
-		"Net Worth",           // dashboard section
-		"Recent Transactions", // transactions section
+		"Net Worth",           // dashboard section (empty state)
 		"/static/css/app.css", // custom CSS link
 	}
 	for _, check := range checks {
@@ -50,7 +49,7 @@ func TestHomePage_ContentType(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -67,7 +66,7 @@ func TestHomePage_ActiveTab(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -211,6 +210,44 @@ func TestTransactionCreatePage_Success(t *testing.T) {
 	}
 	if !strings.Contains(body, "9,500.00") {
 		t.Errorf("expected new balance 9,500.00 in response, got: %s", body)
+	}
+}
+
+func TestDashboardPage_WithData(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Type:           models.AccountTypeChecking,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 100000,
+	})
+
+	router := NewRouter(db)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	checks := []string{
+		"Net Worth",           // section header
+		"HSBC",                // institution name
+		"Checking",            // account name
+		"100,000.00",          // balance formatted
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected dashboard to contain %q", check)
+		}
 	}
 }
 

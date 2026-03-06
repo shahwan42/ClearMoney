@@ -3,45 +3,111 @@
 {{define "content"}}
 <div class="max-w-lg mx-auto space-y-6 py-4">
 
-    <!-- Net Worth Summary (placeholder — populated by TASK-016) -->
+    {{if .Data}}
+
+    <!-- Net Worth Summary -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
+        <p class="text-3xl font-bold {{if lt .Data.NetWorth 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
+            {{formatEGP .Data.NetWorth}}
+        </p>
+    </section>
+
+    <!-- Quick Summary Cards -->
+    <section class="grid grid-cols-3 gap-3">
+        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
+            <p class="text-xs text-gray-500">Cash</p>
+            <p class="text-lg font-semibold text-teal-700">{{formatEGP .Data.CashTotal}}</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
+            <p class="text-xs text-gray-500">Credit</p>
+            <p class="text-lg font-semibold {{if lt .Data.CreditUsed 0.0}}text-red-600{{else}}text-slate-800{{end}}">
+                {{formatEGP .Data.CreditUsed}}
+            </p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
+            <p class="text-xs text-gray-500">Debt</p>
+            <p class="text-lg font-semibold text-slate-800">{{formatEGP .Data.DebtTotal}}</p>
+        </div>
+    </section>
+
+    <!-- Accounts by Institution -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Accounts</h2>
+            <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
+        </div>
+
+        {{if .Data.Institutions}}
+            <div class="space-y-2">
+            {{range .Data.Institutions}}
+                <details class="group">
+                    <summary class="flex items-center justify-between py-2 cursor-pointer hover:bg-gray-50 rounded-lg px-2 -mx-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-white text-xs font-bold">
+                                {{slice .Institution.Name 0 1}}
+                            </div>
+                            <span class="font-medium text-slate-700 text-sm">{{.Institution.Name}}</span>
+                        </div>
+                        <span class="text-sm font-semibold {{if lt .Total 0.0}}text-red-600{{else}}text-slate-800{{end}}">
+                            {{formatEGP .Total}}
+                        </span>
+                    </summary>
+                    <div class="ml-8 mt-1 space-y-1">
+                        {{range .Accounts}}
+                        <div class="flex justify-between py-1 text-sm">
+                            <span class="text-gray-600">{{.Name}} <span class="text-gray-400">{{.Currency}}</span></span>
+                            <span class="{{if lt .CurrentBalance 0.0}}text-red-600{{else}}text-slate-700{{end}}">
+                                {{formatCurrency .CurrentBalance .Currency}}
+                            </span>
+                        </div>
+                        {{end}}
+                    </div>
+                </details>
+            {{end}}
+            </div>
+        {{else}}
+            <p class="text-sm text-gray-400">No accounts yet. <a href="/accounts" class="text-teal-600 underline">Add your first account</a></p>
+        {{end}}
+    </section>
+
+    <!-- Recent Transactions -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Recent Transactions</h2>
+        </div>
+
+        {{if .Data.RecentTransactions}}
+            <div class="space-y-2">
+            {{range .Data.RecentTransactions}}
+                <div class="flex items-center justify-between py-1.5">
+                    <div>
+                        <p class="text-sm text-slate-700">
+                            {{if .Note}}{{deref .Note}}{{else}}{{.Type}}{{end}}
+                        </p>
+                        <p class="text-xs text-gray-400">{{formatDateShort .Date}}</p>
+                    </div>
+                    <span class="text-sm font-semibold {{if eq (string .Type) "expense"}}text-red-600{{else}}text-teal-600{{end}}">
+                        {{if eq (string .Type) "expense"}}-{{end}}{{formatCurrency .Amount .Currency}}
+                    </span>
+                </div>
+            {{end}}
+            </div>
+        {{else}}
+            <p class="text-sm text-gray-400">No transactions yet. Tap the + button to add one.</p>
+        {{end}}
+    </section>
+
+    {{else}}
+
+    <!-- Empty state — no database or no data -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
         <p class="text-3xl font-bold text-slate-900 mt-1">--</p>
         <p class="text-sm text-gray-400 mt-1">Set up your accounts to see your balance</p>
     </section>
 
-    <!-- Quick Summary Cards (placeholder) -->
-    <section class="grid grid-cols-3 gap-3">
-        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p class="text-xs text-gray-500">Cash</p>
-            <p class="text-lg font-semibold text-slate-800">--</p>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p class="text-xs text-gray-500">Credit</p>
-            <p class="text-lg font-semibold text-slate-800">--</p>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p class="text-xs text-gray-500">Debt</p>
-            <p class="text-lg font-semibold text-slate-800">--</p>
-        </div>
-    </section>
-
-    <!-- Accounts Section (placeholder — populated by TASK-014/016) -->
-    <section class="bg-white rounded-2xl shadow-sm p-5">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Accounts</h2>
-            <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
-        </div>
-        <p class="text-sm text-gray-400">No accounts yet. <a href="/accounts" class="text-teal-600 underline">Add your first account</a></p>
-    </section>
-
-    <!-- Recent Transactions (placeholder — populated by TASK-016) -->
-    <section class="bg-white rounded-2xl shadow-sm p-5">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Recent Transactions</h2>
-        </div>
-        <p class="text-sm text-gray-400">No transactions yet. Tap the + button to add one.</p>
-    </section>
+    {{end}}
 
 </div>
 {{end}}

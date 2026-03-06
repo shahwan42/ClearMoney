@@ -21,77 +21,64 @@ import (
 // chi is a lightweight router — think of it like Laravel's Route facade
 // but without the framework overhead. It implements Go's http.Handler interface.
 //
-// Middleware in chi works like Laravel middleware or Django middleware:
-// each request passes through the middleware stack before reaching the handler.
-//
 // The db parameter can be nil (when running without a database).
 // When nil, database-dependent routes are not registered.
 func NewRouter(db *sql.DB) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middleware stack (runs on every request, top to bottom)
-	r.Use(middleware.Logger)    // logs every request (like Laravel's logging middleware)
-	r.Use(middleware.Recoverer) // catches panics and returns 500 (like exception handlers)
-	r.Use(middleware.RequestID) // adds a unique X-Request-Id header for tracing
+	r.Use(middleware.Logger)    // logs every request
+	r.Use(middleware.Recoverer) // catches panics and returns 500
+	r.Use(middleware.RequestID) // adds a unique X-Request-Id header
 
 	r.Get("/healthz", Healthz)
 
 	// Parse HTML templates from embedded filesystem.
-	// Templates are compiled into the binary — no file I/O at runtime.
 	tmpl, err := ParseTemplates(templates.FS)
 	if err != nil {
 		log.Fatalf("parsing templates: %v", err)
 	}
 
 	// Serve static files (CSS, JS, images) from the static/ directory.
-	// Like Laravel's public/ directory or Django's STATIC_URL.
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
-	// Home page works without a database
-	pages := NewPageHandler(tmpl, nil, nil, nil, nil)
-	r.Get("/", pages.Home)
-
-	// Only register database-dependent routes if DB is available.
-	// This is Go's approach to dependency injection — explicit parameter passing
-	// instead of a service container like Laravel's app()->make().
-	if db != nil {
-		// Institution routes: /api/institutions
-		institutionRepo := repository.NewInstitutionRepo(db)
-		institutionSvc := service.NewInstitutionService(institutionRepo)
-		institutionHandler := NewInstitutionHandler(institutionSvc)
-
-		r.Route("/api/institutions", institutionHandler.Routes)
-
-		// Account routes: /api/accounts
-		accountRepo := repository.NewAccountRepo(db)
-		accountSvc := service.NewAccountService(accountRepo)
-		accountHandler := NewAccountHandler(accountSvc)
-
-		r.Route("/api/accounts", accountHandler.Routes)
-
-		// Category routes: /api/categories
-		categoryRepo := repository.NewCategoryRepo(db)
-		categorySvc := service.NewCategoryService(categoryRepo)
-		categoryHandler := NewCategoryHandler(categorySvc)
-
-		r.Route("/api/categories", categoryHandler.Routes)
-
-		// Transaction routes: /api/transactions
-		txRepo := repository.NewTransactionRepo(db)
-		txSvc := service.NewTransactionService(txRepo, accountRepo)
-		txHandler := NewTransactionHandler(txSvc)
-
-		r.Route("/api/transactions", txHandler.Routes)
-
-		// Page routes that require database access
-		dbPages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc)
-		r.Get("/accounts", dbPages.Accounts)
-		r.Get("/accounts/form", dbPages.AccountForm)
-		r.Get("/accounts/list", dbPages.InstitutionList)
-		r.Get("/transactions/new", dbPages.TransactionNew)
-		r.Post("/transactions", dbPages.TransactionCreate)
+	if db == nil {
+		// Without DB: only home page with empty state
+		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
+		r.Get("/", pages.Home)
+		return r
 	}
+
+	// -- Database-dependent routes --
+
+	// Create repos
+	institutionRepo := repository.NewInstitutionRepo(db)
+	accountRepo := repository.NewAccountRepo(db)
+	categoryRepo := repository.NewCategoryRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+
+	// Create services
+	institutionSvc := service.NewInstitutionService(institutionRepo)
+	accountSvc := service.NewAccountService(accountRepo)
+	categorySvc := service.NewCategoryService(categoryRepo)
+	txSvc := service.NewTransactionService(txRepo, accountRepo)
+	dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
+
+	// API routes (JSON)
+	r.Route("/api/institutions", NewInstitutionHandler(institutionSvc).Routes)
+	r.Route("/api/accounts", NewAccountHandler(accountSvc).Routes)
+	r.Route("/api/categories", NewCategoryHandler(categorySvc).Routes)
+	r.Route("/api/transactions", NewTransactionHandler(txSvc).Routes)
+
+	// Page routes (HTML)
+	pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc)
+	r.Get("/", pages.Home)
+	r.Get("/accounts", pages.Accounts)
+	r.Get("/accounts/form", pages.AccountForm)
+	r.Get("/accounts/list", pages.InstitutionList)
+	r.Get("/transactions/new", pages.TransactionNew)
+	r.Post("/transactions", pages.TransactionCreate)
 
 	return r
 }

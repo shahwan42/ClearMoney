@@ -52,6 +52,17 @@ func TemplateFuncs() template.FuncMap {
 		"formatDateShort": func(t time.Time) string {
 			return t.Format("Jan 2")
 		},
+		// deref safely dereferences a string pointer, returning "" if nil
+		"deref": func(s *string) string {
+			if s == nil {
+				return ""
+			}
+			return *s
+		},
+		// string converts any value to string (for use in template comparisons)
+		"string": func(v any) string {
+			return fmt.Sprintf("%v", v)
+		},
 	}
 }
 

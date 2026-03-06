@@ -53,22 +53,31 @@ type PageHandler struct {
 	accountSvc     *service.AccountService
 	categorySvc    *service.CategoryService
 	txSvc          *service.TransactionService
+	dashboardSvc   *service.DashboardService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService) *PageHandler {
 	return &PageHandler{
 		templates:      templates,
 		institutionSvc: institutionSvc,
 		accountSvc:     accountSvc,
 		categorySvc:    categorySvc,
 		txSvc:          txSvc,
+		dashboardSvc:   dashboardSvc,
 	}
 }
 
 // Home renders the dashboard page.
 // GET /
 func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
-	RenderPage(h.templates, w, "home", PageData{ActiveTab: "home"})
+	var data any
+	if h.dashboardSvc != nil {
+		dashData, err := h.dashboardSvc.GetDashboard(r.Context())
+		if err == nil {
+			data = dashData
+		}
+	}
+	RenderPage(h.templates, w, "home", PageData{ActiveTab: "home", Data: data})
 }
 
 // Accounts renders the accounts management page.
