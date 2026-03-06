@@ -9,11 +9,27 @@ import (
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/config"
+	"github.com/ahmedelsamadisi/clearmoney/internal/database"
 	"github.com/ahmedelsamadisi/clearmoney/internal/handler"
 )
 
 func main() {
 	cfg := config.Load()
+
+	// Database
+	if cfg.DatabaseURL != "" {
+		db, err := database.Connect(cfg.DatabaseURL)
+		if err != nil {
+			log.Fatalf("database connection: %v", err)
+		}
+		defer db.Close()
+		log.Println("database connected")
+
+		if err := database.RunMigrations(db); err != nil {
+			log.Fatalf("migrations: %v", err)
+		}
+		log.Println("migrations complete")
+	}
 
 	r := handler.NewRouter()
 
