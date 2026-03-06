@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"os/signal"
@@ -27,8 +28,10 @@ func main() {
 	// 2. Connect to PostgreSQL and run migrations (if DATABASE_URL is set).
 	// In development without Docker, you can run without a DB — the app
 	// will start but database-dependent routes won't work.
+	var db *sql.DB
 	if cfg.DatabaseURL != "" {
-		db, err := database.Connect(cfg.DatabaseURL)
+		var err error
+		db, err = database.Connect(cfg.DatabaseURL)
 		if err != nil {
 			log.Fatalf("database connection: %v", err)
 		}
@@ -41,8 +44,9 @@ func main() {
 		log.Println("migrations complete")
 	}
 
-	// 3. Create the HTTP router with all routes and middleware
-	r := handler.NewRouter()
+	// 3. Create the HTTP router with all routes and middleware.
+	// Pass db (may be nil) — router only registers DB routes when db != nil.
+	r := handler.NewRouter(db)
 
 	// 4. Configure the HTTP server with timeouts to prevent slow clients
 	// from holding connections forever (a security best practice).

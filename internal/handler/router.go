@@ -5,8 +5,13 @@
 package handler
 
 import (
+	"database/sql"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/ahmedelsamadisi/clearmoney/internal/service"
 )
 
 // NewRouter creates the chi router with middleware and all routes.
@@ -15,7 +20,10 @@ import (
 //
 // Middleware in chi works like Laravel middleware or Django middleware:
 // each request passes through the middleware stack before reaching the handler.
-func NewRouter() *chi.Mux {
+//
+// The db parameter can be nil (when running without a database).
+// When nil, database-dependent routes are not registered.
+func NewRouter(db *sql.DB) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Middleware stack (runs on every request, top to bottom)
@@ -24,6 +32,18 @@ func NewRouter() *chi.Mux {
 	r.Use(middleware.RequestID) // adds a unique X-Request-Id header for tracing
 
 	r.Get("/healthz", Healthz)
+
+	// Only register database-dependent routes if DB is available.
+	// This is Go's approach to dependency injection — explicit parameter passing
+	// instead of a service container like Laravel's app()->make().
+	if db != nil {
+		// Institution routes: /api/institutions
+		institutionRepo := repository.NewInstitutionRepo(db)
+		institutionSvc := service.NewInstitutionService(institutionRepo)
+		institutionHandler := NewInstitutionHandler(institutionSvc)
+
+		r.Route("/api/institutions", institutionHandler.Routes)
+	}
 
 	return r
 }

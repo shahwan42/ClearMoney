@@ -7,7 +7,8 @@ import (
 )
 
 func TestNewRouter_HealthzEndpoint(t *testing.T) {
-	r := NewRouter()
+	// Pass nil for db — healthz doesn't need a database
+	r := NewRouter(nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	w := httptest.NewRecorder()
@@ -23,7 +24,7 @@ func TestNewRouter_HealthzEndpoint(t *testing.T) {
 }
 
 func TestNewRouter_NotFound(t *testing.T) {
-	r := NewRouter()
+	r := NewRouter(nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/nonexistent", nil)
 	w := httptest.NewRecorder()
