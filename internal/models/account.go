@@ -5,17 +5,19 @@ import (
 	"time"
 )
 
+// AccountType represents the kind of bank account.
 type AccountType string
 
 const (
-	AccountTypeChecking    AccountType = "checking"
-	AccountTypeSavings     AccountType = "savings"
-	AccountTypeCurrent     AccountType = "current"
-	AccountTypePrepaid     AccountType = "prepaid"
-	AccountTypeCreditCard  AccountType = "credit_card"
-	AccountTypeCreditLimit AccountType = "credit_limit"
+	AccountTypeChecking    AccountType = "checking"     // standard debit account
+	AccountTypeSavings     AccountType = "savings"      // savings account
+	AccountTypeCurrent     AccountType = "current"      // current/business account
+	AccountTypePrepaid     AccountType = "prepaid"      // prepaid card (e.g., Fawry)
+	AccountTypeCreditCard  AccountType = "credit_card"  // credit card (balance goes negative)
+	AccountTypeCreditLimit AccountType = "credit_limit" // credit line (e.g., TRU EPP)
 )
 
+// Currency represents the supported currencies.
 type Currency string
 
 const (
@@ -23,30 +25,47 @@ const (
 	CurrencyUSD Currency = "USD"
 )
 
+// Account represents a single financial account within an institution.
+// For example, "HSBC USD Checking" or "CIB Savings".
+//
+// Balance conventions:
+//   - Debit accounts (checking, savings): positive balance = money you have
+//   - Credit accounts (credit_card): negative balance = money you owe
+//     e.g., -120,000 means you've used 120K of your credit limit
+//
+// json.RawMessage for Metadata lets us store arbitrary JSON (like billing
+// cycle info) without defining a rigid struct — similar to a JSON column
+// in Laravel or Django's JSONField.
 type Account struct {
 	ID             string          `json:"id" db:"id"`
 	InstitutionID  string          `json:"institution_id" db:"institution_id"`
 	Name           string          `json:"name" db:"name"`
 	Type           AccountType     `json:"type" db:"type"`
 	Currency       Currency        `json:"currency" db:"currency"`
-	CurrentBalance float64         `json:"current_balance" db:"current_balance"`
-	InitialBalance float64         `json:"initial_balance" db:"initial_balance"`
-	CreditLimit    *float64        `json:"credit_limit,omitempty" db:"credit_limit"`
+	CurrentBalance float64         `json:"current_balance" db:"current_balance"` // cached, updated on every transaction
+	InitialBalance float64         `json:"initial_balance" db:"initial_balance"` // set once at account creation
+	CreditLimit    *float64        `json:"credit_limit,omitempty" db:"credit_limit"` // nil for debit accounts
 	IsDormant      bool            `json:"is_dormant" db:"is_dormant"`
-	RoleTags       []string        `json:"role_tags" db:"role_tags"`
+	RoleTags       []string        `json:"role_tags" db:"role_tags"` // e.g., ["primary-income", "building-fund"]
 	DisplayOrder   int             `json:"display_order" db:"display_order"`
-	Metadata       json.RawMessage `json:"metadata" db:"metadata"`
+	Metadata       json.RawMessage `json:"metadata" db:"metadata"` // flexible JSONB for billing cycle info, etc.
 	CreatedAt      time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at" db:"updated_at"`
 }
 
+// IsCreditType returns true for credit cards and credit limit accounts.
+// These accounts have special balance behavior (goes negative on spending).
 func (a Account) IsCreditType() bool {
 	return a.Type == AccountTypeCreditCard || a.Type == AccountTypeCreditLimit
 }
 
+// AvailableCredit returns how much credit is still available.
+// For a card with 500K limit and -120K balance: available = 500K + (-120K) = 380K.
 func (a Account) AvailableCredit() float64 {
 	if a.CreditLimit == nil {
 		return 0
 	}
+	// CurrentBalance is negative for credit accounts, so addition is correct:
+	// limit(500000) + balance(-120000) = 380000 available
 	return *a.CreditLimit + a.CurrentBalance
 }

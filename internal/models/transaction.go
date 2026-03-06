@@ -2,18 +2,27 @@ package models
 
 import "time"
 
+// TransactionType defines what kind of money movement this is.
 type TransactionType string
 
 const (
-	TransactionTypeExpense       TransactionType = "expense"
-	TransactionTypeIncome        TransactionType = "income"
-	TransactionTypeTransfer      TransactionType = "transfer"
-	TransactionTypeExchange      TransactionType = "exchange"
-	TransactionTypeLoanOut       TransactionType = "loan_out"
-	TransactionTypeLoanIn        TransactionType = "loan_in"
-	TransactionTypeLoanRepayment TransactionType = "loan_repayment"
+	TransactionTypeExpense       TransactionType = "expense"        // money going out
+	TransactionTypeIncome        TransactionType = "income"         // money coming in
+	TransactionTypeTransfer      TransactionType = "transfer"       // between own accounts (same currency)
+	TransactionTypeExchange      TransactionType = "exchange"       // USD ↔ EGP conversion
+	TransactionTypeLoanOut       TransactionType = "loan_out"       // I lent money to someone
+	TransactionTypeLoanIn        TransactionType = "loan_in"        // I borrowed money from someone
+	TransactionTypeLoanRepayment TransactionType = "loan_repayment" // partial or full loan repayment
 )
 
+// Transaction is the core record — every money movement creates one (or two, for transfers).
+//
+// Key design patterns:
+//   - Amount is always positive. The Type determines if it's a debit or credit.
+//   - Transfers and exchanges create TWO linked transactions (one per account),
+//     connected via LinkedTransactionID — like double-entry bookkeeping.
+//   - Pointer fields (*string, *float64) are nullable — nil means "not applicable".
+//     e.g., ExchangeRate is only set for exchange transactions.
 type Transaction struct {
 	ID                  string          `json:"id" db:"id"`
 	Type                TransactionType `json:"type" db:"type"`
