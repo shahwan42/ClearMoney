@@ -6,12 +6,15 @@ package handler
 
 import (
 	"database/sql"
+	"log"
+	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	"github.com/ahmedelsamadisi/clearmoney/internal/templates"
 )
 
 // NewRouter creates the chi router with middleware and all routes.
@@ -32,6 +35,22 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Use(middleware.RequestID) // adds a unique X-Request-Id header for tracing
 
 	r.Get("/healthz", Healthz)
+
+	// Parse HTML templates from embedded filesystem.
+	// Templates are compiled into the binary — no file I/O at runtime.
+	tmpl, err := ParseTemplates(templates.FS)
+	if err != nil {
+		log.Fatalf("parsing templates: %v", err)
+	}
+
+	// Page routes (HTML pages, like Laravel's web routes)
+	pages := NewPageHandler(tmpl)
+	r.Get("/", pages.Home)
+
+	// Serve static files (CSS, JS, images) from the static/ directory.
+	// Like Laravel's public/ directory or Django's STATIC_URL.
+	fileServer := http.FileServer(http.Dir("static"))
+	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	// Only register database-dependent routes if DB is available.
 	// This is Go's approach to dependency injection — explicit parameter passing

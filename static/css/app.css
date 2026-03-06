@@ -1,0 +1,31 @@
+/* ClearMoney custom styles — beyond what Tailwind provides.
+   Keep this minimal; prefer Tailwind utility classes in HTML. */
+
+/* Safe area padding for iOS devices with home indicator / notch */
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* FAB press animation */
+.fab-button:active {
+    transform: scale(0.92);
+}
+
+/* Smooth page transitions for HTMX-boosted navigation */
+.htmx-settling {
+    opacity: 0.8;
+    transition: opacity 150ms ease-in;
+}
+
+/* Amount display — large, bold numbers for financial data */
+.amount-positive { color: #0d9488; } /* teal-600 */
+.amount-negative { color: #dc2626; } /* red-600 */
+
+/* Hide scrollbar on main content for a cleaner mobile look */
+main::-webkit-scrollbar {
+    display: none;
+}
+main {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}

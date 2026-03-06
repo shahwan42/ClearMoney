@@ -1,0 +1,47 @@
+{{define "title"}}ClearMoney - Dashboard{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-6 py-4">
+
+    <!-- Net Worth Summary (placeholder — populated by TASK-016) -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
+        <p class="text-3xl font-bold text-slate-900 mt-1">--</p>
+        <p class="text-sm text-gray-400 mt-1">Set up your accounts to see your balance</p>
+    </section>
+
+    <!-- Quick Summary Cards (placeholder) -->
+    <section class="grid grid-cols-3 gap-3">
+        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
+            <p class="text-xs text-gray-500">Cash</p>
+            <p class="text-lg font-semibold text-slate-800">--</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
+            <p class="text-xs text-gray-500">Credit</p>
+            <p class="text-lg font-semibold text-slate-800">--</p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
+            <p class="text-xs text-gray-500">Debt</p>
+            <p class="text-lg font-semibold text-slate-800">--</p>
+        </div>
+    </section>
+
+    <!-- Accounts Section (placeholder — populated by TASK-014/016) -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Accounts</h2>
+            <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
+        </div>
+        <p class="text-sm text-gray-400">No accounts yet. <a href="/accounts" class="text-teal-600 underline">Add your first account</a></p>
+    </section>
+
+    <!-- Recent Transactions (placeholder — populated by TASK-016) -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Recent Transactions</h2>
+        </div>
+        <p class="text-sm text-gray-400">No transactions yet. Tap the + button to add one.</p>
+    </section>
+
+</div>
+{{end}}
