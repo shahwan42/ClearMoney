@@ -43,6 +43,13 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		institutionHandler := NewInstitutionHandler(institutionSvc)
 
 		r.Route("/api/institutions", institutionHandler.Routes)
+
+		// Account routes: /api/accounts
+		accountRepo := repository.NewAccountRepo(db)
+		accountSvc := service.NewAccountService(accountRepo)
+		accountHandler := NewAccountHandler(accountSvc)
+
+		r.Route("/api/accounts", accountHandler.Routes)
 	}
 
 	return r

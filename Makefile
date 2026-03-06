@@ -10,7 +10,7 @@ test:
 	go test ./... -v
 
 test-integration:
-	TEST_DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable" go test ./... -v -count=1
+	TEST_DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable" go test ./... -v -count=1 -p 1
 
 clean:
 	rm -rf bin/
