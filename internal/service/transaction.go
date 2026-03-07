@@ -73,6 +73,51 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 	return created, acc.CurrentBalance, nil
 }
 
+// Update modifies a transaction and recalculates the balance delta.
+// The balance adjustment is: reverse old delta + apply new delta.
+func (s *TransactionService) Update(ctx context.Context, updated models.Transaction) (models.Transaction, float64, error) {
+	if err := s.validateBasic(updated); err != nil {
+		return models.Transaction{}, 0, err
+	}
+
+	// Get the old transaction to calculate the balance diff
+	old, err := s.txRepo.GetByID(ctx, updated.ID)
+	if err != nil {
+		return models.Transaction{}, 0, err
+	}
+
+	oldDelta := s.balanceDelta(old)
+	newDelta := s.balanceDelta(updated)
+	balanceAdjustment := newDelta - oldDelta // net change to apply
+
+	dbTx, err := s.txRepo.BeginTx(ctx)
+	if err != nil {
+		return models.Transaction{}, 0, fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer dbTx.Rollback()
+
+	result, err := s.txRepo.UpdateTx(ctx, dbTx, updated)
+	if err != nil {
+		return models.Transaction{}, 0, err
+	}
+
+	if balanceAdjustment != 0 {
+		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, old.AccountID, balanceAdjustment); err != nil {
+			return models.Transaction{}, 0, fmt.Errorf("adjusting balance: %w", err)
+		}
+	}
+
+	if err := dbTx.Commit(); err != nil {
+		return models.Transaction{}, 0, fmt.Errorf("committing: %w", err)
+	}
+
+	acc, err := s.accRepo.GetByID(ctx, old.AccountID)
+	if err != nil {
+		return result, 0, nil
+	}
+	return result, acc.CurrentBalance, nil
+}
+
 // Delete removes a transaction and reverses its balance impact.
 func (s *TransactionService) Delete(ctx context.Context, id string) error {
 	// Get the transaction to know the reversal amount

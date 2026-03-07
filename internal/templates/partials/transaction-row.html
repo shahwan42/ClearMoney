@@ -1,5 +1,5 @@
 {{define "transaction-row"}}
-<div class="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center justify-between"
+<div class="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center justify-between group"
      id="tx-{{.ID}}">
     <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
@@ -18,12 +18,22 @@
             {{formatDateShort .Date}}
         </div>
     </div>
-    <div class="text-right flex-shrink-0 ml-3">
-        {{if eq (string .Type) "expense"}}
-        <span class="text-sm font-semibold text-red-600">-{{formatCurrency .Amount .Currency}}</span>
-        {{else}}
-        <span class="text-sm font-semibold text-green-600">+{{formatCurrency .Amount .Currency}}</span>
-        {{end}}
+    <div class="flex items-center gap-2">
+        <div class="text-right flex-shrink-0">
+            {{if eq (string .Type) "expense"}}
+            <span class="text-sm font-semibold text-red-600">-{{formatCurrency .Amount .Currency}}</span>
+            {{else}}
+            <span class="text-sm font-semibold text-green-600">+{{formatCurrency .Amount .Currency}}</span>
+            {{end}}
+        </div>
+        <!-- Edit/delete buttons (visible on hover/tap) -->
+        <div class="hidden group-hover:flex gap-1 flex-shrink-0">
+            <button hx-get="/transactions/edit/{{.ID}}" hx-target="#tx-{{.ID}}" hx-swap="outerHTML"
+                    class="text-xs text-gray-400 hover:text-teal-600 px-1">Edit</button>
+            <button hx-delete="/transactions/{{.ID}}" hx-target="#tx-{{.ID}}" hx-swap="outerHTML"
+                    hx-confirm="Delete this transaction?"
+                    class="text-xs text-gray-400 hover:text-red-600 px-1">Del</button>
+        </div>
     </div>
 </div>
 {{end}}

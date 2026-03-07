@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
@@ -52,6 +54,13 @@ type TransactionListData struct {
 	Type       string
 	DateFrom   string
 	DateTo     string
+}
+
+// TransactionEditData holds data for the inline edit form.
+type TransactionEditData struct {
+	Transaction        models.Transaction
+	Categories         []models.Category
+	SelectedCategoryID string
 }
 
 // TransactionSuccessData is shown after a successful transaction creation.
@@ -302,6 +311,114 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 	}
 
 	return f
+}
+
+// TransactionEditForm renders the inline edit form for a transaction.
+// GET /transactions/edit/{id} — called by HTMX.
+func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	tx, err := h.txSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "transaction not found", http.StatusNotFound)
+		return
+	}
+
+	categories, _ := h.categorySvc.GetAll(r.Context())
+
+	selectedCatID := ""
+	if tx.CategoryID != nil {
+		selectedCatID = *tx.CategoryID
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["transactions"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "transaction-edit-form", TransactionEditData{
+		Transaction:        tx,
+		Categories:         categories,
+		SelectedCategoryID: selectedCatID,
+	})
+}
+
+// TransactionUpdate handles the inline edit form submission.
+// PUT /transactions/{id} — called by HTMX, returns updated row partial.
+func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	tx := models.Transaction{
+		ID:        id,
+		Type:      models.TransactionType(r.FormValue("type")),
+		Amount:    amount,
+		Currency:  models.Currency(r.FormValue("currency")),
+		AccountID: r.FormValue("account_id"),
+	}
+	if catID := r.FormValue("category_id"); catID != "" {
+		tx.CategoryID = &catID
+	}
+	if note := r.FormValue("note"); note != "" {
+		tx.Note = &note
+	}
+	if dateStr := r.FormValue("date"); dateStr != "" {
+		if parsed, err := parseDate(dateStr); err == nil {
+			tx.Date = parsed
+		}
+	}
+
+	updated, _, err := h.txSvc.Update(r.Context(), tx)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["transactions"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "transaction-row", updated)
+}
+
+// TransactionDelete handles transaction deletion from the UI.
+// DELETE /transactions/{id} — called by HTMX, returns empty (row removed).
+func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.txSvc.Delete(r.Context(), id); err != nil {
+		http.Error(w, "failed to delete", http.StatusInternalServerError)
+		return
+	}
+	// Return empty content — HTMX will remove the row from the DOM
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+}
+
+// TransactionRow renders a single transaction row partial.
+// GET /transactions/row/{id} — used by HTMX to cancel edit (swap back to row).
+func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	tx, err := h.txSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["transactions"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "transaction-row", tx)
 }
 
 // InstitutionList renders just the institution list partial.

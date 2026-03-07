@@ -118,6 +118,58 @@ func (r *TransactionRepo) GetByAccount(ctx context.Context, accountID string, li
 	`, accountID, limit)
 }
 
+// Update modifies a transaction's editable fields.
+func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
+	err := r.db.QueryRowContext(ctx, `
+		UPDATE transactions SET
+			type = $2, amount = $3, currency = $4, category_id = $5,
+			note = $6, date = $7, updated_at = now()
+		WHERE id = $1
+		RETURNING id, type, amount, currency, account_id, counter_account_id,
+			category_id, date, time, note, tags, exchange_rate, counter_amount,
+			fee_amount, fee_account_id, person_id, linked_transaction_id,
+			is_building_fund, recurring_rule_id, created_at, updated_at
+	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
+		tx.Note, tx.Date,
+	).Scan(
+		&tx.ID, &tx.Type, &tx.Amount, &tx.Currency, &tx.AccountID,
+		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
+		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
+		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
+		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.CreatedAt, &tx.UpdatedAt,
+	)
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("updating transaction: %w", err)
+	}
+	return tx, nil
+}
+
+// UpdateTx modifies a transaction within an existing database transaction.
+func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
+	err := dbTx.QueryRowContext(ctx, `
+		UPDATE transactions SET
+			type = $2, amount = $3, currency = $4, category_id = $5,
+			note = $6, date = $7, updated_at = now()
+		WHERE id = $1
+		RETURNING id, type, amount, currency, account_id, counter_account_id,
+			category_id, date, time, note, tags, exchange_rate, counter_amount,
+			fee_amount, fee_account_id, person_id, linked_transaction_id,
+			is_building_fund, recurring_rule_id, created_at, updated_at
+	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
+		tx.Note, tx.Date,
+	).Scan(
+		&tx.ID, &tx.Type, &tx.Amount, &tx.Currency, &tx.AccountID,
+		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
+		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
+		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
+		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.CreatedAt, &tx.UpdatedAt,
+	)
+	if err != nil {
+		return models.Transaction{}, fmt.Errorf("updating transaction: %w", err)
+	}
+	return tx, nil
+}
+
 // Delete removes a transaction by ID.
 func (r *TransactionRepo) Delete(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx, `DELETE FROM transactions WHERE id = $1`, id)

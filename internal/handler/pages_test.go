@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -377,6 +378,179 @@ func TestTransactionsPage_FilterByType(t *testing.T) {
 	}
 	if strings.Contains(body, "income item") {
 		t.Error("expected filtered list NOT to contain 'income item'")
+	}
+}
+
+func TestTransactionEditForm_Renders(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Type:           models.AccountTypeChecking,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create a transaction
+	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&note=Test")
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Get a transaction ID from the API
+	req = httptest.NewRequest(http.MethodGet, "/api/transactions?limit=1", nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var txns []models.Transaction
+	json.NewDecoder(w.Body).Decode(&txns)
+	if len(txns) == 0 {
+		t.Fatal("expected at least 1 transaction")
+	}
+	txID := txns[0].ID
+
+	// Request edit form
+	req = httptest.NewRequest(http.MethodGet, "/transactions/edit/"+txID, nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Save") {
+		t.Error("expected edit form to contain Save button")
+	}
+	if !strings.Contains(body, `name="amount"`) {
+		t.Error("expected edit form to contain amount input")
+	}
+}
+
+func TestTransactionUpdate_ChangesBalance(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Type:           models.AccountTypeChecking,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create expense of 500 (balance → 9500)
+	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID)
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Get the transaction ID
+	req = httptest.NewRequest(http.MethodGet, "/api/transactions?limit=1", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var txns []models.Transaction
+	json.NewDecoder(w.Body).Decode(&txns)
+	txID := txns[0].ID
+
+	// Update amount from 500 to 800 (additional 300 deduction, balance → 9200)
+	formData = strings.NewReader("type=expense&amount=800&currency=EGP&account_id=" + acc.ID + "&date=2026-03-07")
+	req = httptest.NewRequest(http.MethodPut, "/transactions/"+txID, formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify balance by creating another 1 expense
+	formData = strings.NewReader("type=expense&amount=1&currency=EGP&account_id=" + acc.ID)
+	req = httptest.NewRequest(http.MethodPost, "/api/transactions", strings.NewReader(`{"type":"expense","amount":1,"currency":"EGP","account_id":"`+acc.ID+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct{ NewBalance float64 `json:"new_balance"` }
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.NewBalance != 9199 {
+		t.Errorf("expected balance 9199 (10000-800-1), got %f", resp.NewBalance)
+	}
+}
+
+func TestTransactionDelete_FromUI(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Type:           models.AccountTypeChecking,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create expense
+	formData := strings.NewReader("type=expense&amount=2000&currency=EGP&account_id=" + acc.ID)
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Get the transaction ID
+	req = httptest.NewRequest(http.MethodGet, "/api/transactions?limit=1", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var txns []models.Transaction
+	json.NewDecoder(w.Body).Decode(&txns)
+	txID := txns[0].ID
+
+	// Delete via page handler
+	req = httptest.NewRequest(http.MethodDelete, "/transactions/"+txID, nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// Verify balance restored (10000)
+	req = httptest.NewRequest(http.MethodPost, "/api/transactions", strings.NewReader(`{"type":"expense","amount":1,"currency":"EGP","account_id":"`+acc.ID+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp struct{ NewBalance float64 `json:"new_balance"` }
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.NewBalance != 9999 {
+		t.Errorf("expected balance 9999 (10000-1), got %f", resp.NewBalance)
 	}
 }
 
