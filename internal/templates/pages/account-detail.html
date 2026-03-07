@@ -30,6 +30,10 @@
         </div>
     </div>
 
+    {{if .Data.BillingCycle}}
+    {{template "credit-card-info" .Data.BillingCycle}}
+    {{end}}
+
     <!-- Transaction list for this account -->
     <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold text-slate-700">Transaction History</h2>

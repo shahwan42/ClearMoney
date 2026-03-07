@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
@@ -37,6 +38,9 @@ type DashboardData struct {
 	// Building fund balance (sum of is_building_fund transactions)
 	BuildingFundBalance float64
 
+	// Upcoming credit card due dates (within 7 days)
+	DueSoonCards []DueSoonCard
+
 	// Recent transactions for the feed
 	RecentTransactions []models.Transaction
 }
@@ -46,6 +50,14 @@ type InstitutionGroup struct {
 	Institution models.Institution
 	Accounts    []models.Account
 	Total       float64 // sum of account balances under this institution
+}
+
+// DueSoonCard holds credit card info for the dashboard due date warning.
+type DueSoonCard struct {
+	AccountName  string
+	DueDate      time.Time
+	DaysUntilDue int
+	Balance      float64
 }
 
 // DashboardService computes the dashboard view data.
@@ -114,6 +126,29 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 			Accounts:    accounts,
 			Total:       instTotal,
 		})
+	}
+
+	// Check for credit cards with upcoming due dates
+	now := time.Now()
+	for _, group := range data.Institutions {
+		for _, acc := range group.Accounts {
+			if !acc.IsCreditType() {
+				continue
+			}
+			meta := ParseBillingCycle(acc)
+			if meta == nil {
+				continue
+			}
+			info := GetBillingCycleInfo(*meta, now)
+			if info.IsDueSoon {
+				data.DueSoonCards = append(data.DueSoonCards, DueSoonCard{
+					AccountName:  acc.Name,
+					DueDate:      info.DueDate,
+					DaysUntilDue: info.DaysUntilDue,
+					Balance:      acc.CurrentBalance,
+				})
+			}
+		}
 	}
 
 	// Get latest exchange rate for USD → EGP conversion

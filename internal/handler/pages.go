@@ -85,6 +85,7 @@ type QuickEntryData struct {
 type AccountDetailData struct {
 	Account             models.Account
 	InstitutionName     string
+	BillingCycle        *service.BillingCycleInfo
 	TransactionListData TransactionListData
 }
 
@@ -810,9 +811,19 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
 
+	// Parse billing cycle for credit cards
+	var billingCycle *service.BillingCycleInfo
+	if acc.IsCreditType() {
+		if meta := service.ParseBillingCycle(acc); meta != nil {
+			info := service.GetBillingCycleInfo(*meta, time.Now())
+			billingCycle = &info
+		}
+	}
+
 	data := AccountDetailData{
 		Account:         acc,
 		InstitutionName: instName,
+		BillingCycle:    billingCycle,
 		TransactionListData: TransactionListData{
 			Transactions: txns,
 			HasMore:      len(txns) >= filter.Limit,

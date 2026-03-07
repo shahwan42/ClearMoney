@@ -24,6 +24,9 @@
         {{end}}
     </section>
 
+    <!-- Due Date Warnings -->
+    {{template "due-date-warning" .Data.DueSoonCards}}
+
     <!-- Summary Cards -->
     {{template "summary-cards" .Data}}
 
