@@ -170,6 +170,23 @@ func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 	return tx, nil
 }
 
+// LinkTransactionsTx links two transactions to each other within a DB transaction.
+func (r *TransactionRepo) LinkTransactionsTx(ctx context.Context, dbTx *sql.Tx, id1, id2 string) error {
+	_, err := dbTx.ExecContext(ctx, `
+		UPDATE transactions SET linked_transaction_id = $2 WHERE id = $1
+	`, id1, id2)
+	if err != nil {
+		return fmt.Errorf("linking %s → %s: %w", id1, id2, err)
+	}
+	_, err = dbTx.ExecContext(ctx, `
+		UPDATE transactions SET linked_transaction_id = $2 WHERE id = $1
+	`, id2, id1)
+	if err != nil {
+		return fmt.Errorf("linking %s → %s: %w", id2, id1, err)
+	}
+	return nil
+}
+
 // Delete removes a transaction by ID.
 func (r *TransactionRepo) Delete(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx, `DELETE FROM transactions WHERE id = $1`, id)

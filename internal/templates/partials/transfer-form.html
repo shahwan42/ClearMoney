@@ -1,0 +1,52 @@
+{{define "transfer-form"}}
+<div class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+    <h2 class="text-base font-bold text-slate-800">Transfer Between Accounts</h2>
+    <form hx-post="/transactions/transfer" hx-target="#transfer-result" hx-swap="innerHTML" class="space-y-3">
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">From Account</label>
+            <select name="source_account_id" required
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                <option value="">Select source...</option>
+                {{range .Accounts}}
+                <option value="{{.ID}}">{{.Name}} ({{string .Currency}})</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">To Account</label>
+            <select name="dest_account_id" required
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                <option value="">Select destination...</option>
+                {{range .Accounts}}
+                <option value="{{.ID}}">{{.Name}} ({{string .Currency}})</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Amount</label>
+            <input type="number" name="amount" step="0.01" min="0.01" required
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Note (optional)</label>
+            <input type="text" name="note"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Date</label>
+            <input type="date" name="date"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+        </div>
+
+        <button type="submit"
+                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+            Transfer
+        </button>
+    </form>
+    <div id="transfer-result"></div>
+</div>
+{{end}}

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
@@ -187,5 +188,123 @@ func TestTransactionService_GetByAccount(t *testing.T) {
 	}
 	if len(txns) != 1 {
 		t.Errorf("expected 1, got %d", len(txns))
+	}
+}
+
+func TestTransactionService_CreateTransfer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	src := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Checking", Currency: models.CurrencyEGP, InitialBalance: 10000,
+	})
+	dst := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP, InitialBalance: 5000,
+	})
+
+	debit, credit, err := svc.CreateTransfer(context.Background(), src.ID, dst.ID, 3000, models.CurrencyEGP, nil, time.Time{})
+	if err != nil {
+		t.Fatalf("create transfer: %v", err)
+	}
+
+	// Both should be transfer type
+	if debit.Type != models.TransactionTypeTransfer || credit.Type != models.TransactionTypeTransfer {
+		t.Error("expected both legs to be transfer type")
+	}
+
+	// They should be linked
+	if debit.LinkedTransactionID == nil || credit.LinkedTransactionID == nil {
+		t.Fatal("expected linked transaction IDs")
+	}
+
+	// Verify balances: src = 10000 - 3000 = 7000, dst = 5000 + 3000 = 8000
+	srcAcc, _ := accRepo.GetByID(context.Background(), src.ID)
+	dstAcc, _ := accRepo.GetByID(context.Background(), dst.ID)
+
+	if srcAcc.CurrentBalance != 7000 {
+		t.Errorf("source balance: expected 7000, got %f", srcAcc.CurrentBalance)
+	}
+	if dstAcc.CurrentBalance != 8000 {
+		t.Errorf("dest balance: expected 8000, got %f", dstAcc.CurrentBalance)
+	}
+}
+
+func TestTransactionService_CreateTransfer_SameAccount(t *testing.T) {
+	svc, acc, _ := setupTransactionServiceTest(t)
+
+	_, _, err := svc.CreateTransfer(context.Background(), acc.ID, acc.ID, 1000, models.CurrencyEGP, nil, time.Time{})
+	if err == nil {
+		t.Error("expected error for same-account transfer")
+	}
+}
+
+func TestTransactionService_CreateTransfer_CrossCurrency(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	egp := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 10000,
+	})
+	usd := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 5000,
+	})
+
+	_, _, err := svc.CreateTransfer(context.Background(), egp.ID, usd.ID, 1000, models.CurrencyEGP, nil, time.Time{})
+	if err == nil {
+		t.Error("expected error for cross-currency transfer")
+	}
+}
+
+func TestTransactionService_DeleteTransfer_ReversesBothBalances(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	src := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Checking", Currency: models.CurrencyEGP, InitialBalance: 10000,
+	})
+	dst := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP, InitialBalance: 5000,
+	})
+
+	debit, _, err := svc.CreateTransfer(context.Background(), src.ID, dst.ID, 3000, models.CurrencyEGP, nil, time.Time{})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Delete the debit leg — should also delete credit and reverse both
+	if err := svc.Delete(context.Background(), debit.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	// Balances should be restored
+	srcAcc, _ := accRepo.GetByID(context.Background(), src.ID)
+	dstAcc, _ := accRepo.GetByID(context.Background(), dst.ID)
+
+	if srcAcc.CurrentBalance != 10000 {
+		t.Errorf("source: expected 10000, got %f", srcAcc.CurrentBalance)
+	}
+	if dstAcc.CurrentBalance != 5000 {
+		t.Errorf("dest: expected 5000, got %f", dstAcc.CurrentBalance)
 	}
 }

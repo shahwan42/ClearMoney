@@ -313,6 +313,60 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 	return f
 }
 
+// TransferNew renders the transfer form page.
+// GET /transfers/new
+func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	RenderPage(h.templates, w, "transaction-new", PageData{
+		ActiveTab: "home",
+		Data: TransactionFormData{
+			Accounts: accounts,
+		},
+	})
+}
+
+// TransferCreate handles the transfer form submission.
+// POST /transactions/transfer — returns success or error partial.
+func (h *PageHandler) TransferCreate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	sourceID := r.FormValue("source_account_id")
+	destID := r.FormValue("dest_account_id")
+	currency := models.Currency(r.FormValue("currency"))
+
+	var note *string
+	if n := r.FormValue("note"); n != "" {
+		note = &n
+	}
+
+	var date time.Time
+	if d := r.FormValue("date"); d != "" {
+		date, _ = parseDate(d)
+	}
+
+	// If currency not provided, look it up from the source account
+	if currency == "" {
+		if acc, err := h.accountSvc.GetByID(r.Context(), sourceID); err == nil {
+			currency = acc.Currency
+		}
+	}
+
+	_, _, err := h.txSvc.CreateTransfer(r.Context(), sourceID, destID, amount, currency, note, date)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Transfer completed successfully!</div>`))
+}
+
 // TransactionEditForm renders the inline edit form for a transaction.
 // GET /transactions/edit/{id} — called by HTMX.
 func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request) {

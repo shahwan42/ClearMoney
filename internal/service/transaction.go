@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
@@ -73,6 +74,97 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 	return created, acc.CurrentBalance, nil
 }
 
+// CreateTransfer creates a transfer between two accounts (same currency).
+// Creates two linked transactions: debit from source, credit to destination.
+// Both accounts' balances are updated atomically.
+func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, models.Transaction, error) {
+	if amount <= 0 {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("amount must be positive")
+	}
+	if sourceAccountID == "" || destAccountID == "" {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("both source and destination account_id required")
+	}
+	if sourceAccountID == destAccountID {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("cannot transfer to the same account")
+	}
+
+	// Verify same currency
+	srcAcc, err := s.accRepo.GetByID(ctx, sourceAccountID)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("source account not found: %w", err)
+	}
+	destAcc, err := s.accRepo.GetByID(ctx, destAccountID)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("destination account not found: %w", err)
+	}
+	if srcAcc.Currency != destAcc.Currency {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("transfer requires same currency; use exchange for cross-currency")
+	}
+
+	if date.IsZero() {
+		date = time.Now()
+	}
+
+	dbTx, err := s.txRepo.BeginTx(ctx)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer dbTx.Rollback()
+
+	// Create debit leg (source)
+	debit := models.Transaction{
+		Type:             models.TransactionTypeTransfer,
+		Amount:           amount,
+		Currency:         currency,
+		AccountID:        sourceAccountID,
+		CounterAccountID: &destAccountID,
+		Note:             note,
+		Date:             date,
+	}
+	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating debit: %w", err)
+	}
+
+	// Create credit leg (destination)
+	credit := models.Transaction{
+		Type:             models.TransactionTypeTransfer,
+		Amount:           amount,
+		Currency:         currency,
+		AccountID:        destAccountID,
+		CounterAccountID: &sourceAccountID,
+		Note:             note,
+		Date:             date,
+	}
+	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating credit: %w", err)
+	}
+
+	// Link the two transactions
+	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
+		return models.Transaction{}, models.Transaction{}, err
+	}
+
+	// Update balances: source loses, destination gains
+	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, sourceAccountID, -amount); err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("debiting source: %w", err)
+	}
+	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, destAccountID, amount); err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("crediting destination: %w", err)
+	}
+
+	if err := dbTx.Commit(); err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("committing: %w", err)
+	}
+
+	// Set linked IDs on the returned structs (DB was updated by LinkTransactionsTx)
+	createdDebit.LinkedTransactionID = &createdCredit.ID
+	createdCredit.LinkedTransactionID = &createdDebit.ID
+
+	return createdDebit, createdCredit, nil
+}
+
 // Update modifies a transaction and recalculates the balance delta.
 // The balance adjustment is: reverse old delta + apply new delta.
 func (s *TransactionService) Update(ctx context.Context, updated models.Transaction) (models.Transaction, float64, error) {
@@ -119,15 +211,12 @@ func (s *TransactionService) Update(ctx context.Context, updated models.Transact
 }
 
 // Delete removes a transaction and reverses its balance impact.
+// For linked transactions (transfers/exchanges), both legs are deleted.
 func (s *TransactionService) Delete(ctx context.Context, id string) error {
-	// Get the transaction to know the reversal amount
 	tx, err := s.txRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
-
-	// Reverse the balance delta
-	reverseDelta := -s.balanceDelta(tx)
 
 	dbTx, err := s.txRepo.BeginTx(ctx)
 	if err != nil {
@@ -135,12 +224,35 @@ func (s *TransactionService) Delete(ctx context.Context, id string) error {
 	}
 	defer dbTx.Rollback()
 
+	// Delete this transaction
 	if err := s.txRepo.DeleteTx(ctx, dbTx, id); err != nil {
 		return err
 	}
 
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, tx.AccountID, reverseDelta); err != nil {
-		return fmt.Errorf("reversing balance: %w", err)
+	isLinked := tx.LinkedTransactionID != nil && *tx.LinkedTransactionID != ""
+
+	if isLinked {
+		// Transfer/exchange: this leg's account was debited, linked leg's was credited.
+		// Reverse: add amount back to this account, subtract from linked account.
+		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, tx.AccountID, tx.Amount); err != nil {
+			return fmt.Errorf("reversing balance: %w", err)
+		}
+
+		linked, err := s.txRepo.GetByID(ctx, *tx.LinkedTransactionID)
+		if err == nil {
+			if err := s.txRepo.DeleteTx(ctx, dbTx, linked.ID); err != nil {
+				return fmt.Errorf("deleting linked: %w", err)
+			}
+			if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, linked.AccountID, -linked.Amount); err != nil {
+				return fmt.Errorf("reversing linked balance: %w", err)
+			}
+		}
+	} else {
+		// Simple expense/income reversal
+		reverseDelta := -s.balanceDelta(tx)
+		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, tx.AccountID, reverseDelta); err != nil {
+			return fmt.Errorf("reversing balance: %w", err)
+		}
 	}
 
 	return dbTx.Commit()
@@ -164,15 +276,17 @@ func (s *TransactionService) GetByAccount(ctx context.Context, accountID string,
 	return s.txRepo.GetByAccount(ctx, accountID, limit)
 }
 
-// balanceDelta calculates how a transaction affects the account balance.
+// balanceDelta calculates how a transaction affects its account's balance.
+// For expense/income only. Transfer/exchange deltas are handled directly
+// in CreateTransfer/Delete since they involve two accounts.
 func (s *TransactionService) balanceDelta(tx models.Transaction) float64 {
 	switch tx.Type {
 	case models.TransactionTypeExpense:
-		return -tx.Amount // expenses decrease balance
+		return -tx.Amount
 	case models.TransactionTypeIncome:
-		return tx.Amount // income increases balance
+		return tx.Amount
 	default:
-		return 0 // transfers/exchanges handled separately
+		return 0 // transfers/exchanges handle their own deltas
 	}
 }
 
