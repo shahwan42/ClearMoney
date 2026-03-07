@@ -554,6 +554,105 @@ func TestTransactionDelete_FromUI(t *testing.T) {
 	}
 }
 
+func TestQuickEntryForm_Renders(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID,
+		Name:          "Savings",
+		Currency:      models.CurrencyEGP,
+	})
+
+	router, addAuth := testRouter(t, db)
+	req := httptest.NewRequest(http.MethodGet, "/transactions/quick-form", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	checks := []string{
+		"Quick Entry",
+		"Savings",
+		"Expense",
+		"Income",
+		`name="amount"`,
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected quick-entry form to contain %q", check)
+		}
+	}
+}
+
+func TestQuickEntryCreate_Success(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 5000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("type=expense&amount=300&currency=EGP&account_id=" + acc.ID + "&date=2026-03-07")
+	req := httptest.NewRequest(http.MethodPost, "/transactions/quick", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Saved") {
+		t.Error("expected success toast with 'Saved'")
+	}
+	if !strings.Contains(body, "4,700.00") {
+		t.Errorf("expected new balance 4,700.00, got: %s", body)
+	}
+}
+
+func TestQuickEntryCreate_Error(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	router, addAuth := testRouter(t, db)
+
+	// Submit with invalid account_id
+	formData := strings.NewReader("type=expense&amount=100&currency=EGP&account_id=nonexistent&date=2026-03-07")
+	req := httptest.NewRequest(http.MethodPost, "/transactions/quick", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+
+	if !strings.Contains(w.Body.String(), "bg-red-50") {
+		t.Error("expected error message in response")
+	}
+}
+
 func TestTemplateFuncs_FormatNumber(t *testing.T) {
 	tests := []struct {
 		input    float64

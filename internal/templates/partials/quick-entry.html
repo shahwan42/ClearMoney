@@ -1,0 +1,111 @@
+{{define "quick-entry-form"}}
+<!-- Quick-entry form — loaded into the bottom sheet via HTMX.
+     Streamlined version of the full transaction form, optimised for speed. -->
+<h3 class="text-lg font-bold text-slate-800 mb-4">Quick Entry</h3>
+
+<!-- Result area for success/error messages -->
+<div id="quick-entry-result"></div>
+
+<form
+    hx-post="/transactions/quick"
+    hx-target="#quick-entry-result"
+    hx-swap="innerHTML"
+    class="space-y-4"
+    id="quick-entry-form"
+>
+    <!-- Type selector -->
+    <div class="flex gap-2">
+        <label class="flex-1">
+            <input type="radio" name="type" value="expense" checked class="peer hidden">
+            <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-200 rounded-xl py-2.5 text-center text-sm font-medium cursor-pointer transition-all">
+                Expense
+            </div>
+        </label>
+        <label class="flex-1">
+            <input type="radio" name="type" value="income" class="peer hidden">
+            <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-200 rounded-xl py-2.5 text-center text-sm font-medium cursor-pointer transition-all">
+                Income
+            </div>
+        </label>
+    </div>
+
+    <!-- Amount -->
+    <div>
+        <input type="number" name="amount" step="0.01" min="0.01" required autofocus
+            placeholder="0.00"
+            class="w-full text-3xl font-bold text-center border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            inputmode="decimal">
+    </div>
+
+    <!-- Account -->
+    <div>
+        <select name="account_id" required
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            id="qe-account-select">
+            <option value="">Select account...</option>
+            {{range .Accounts}}
+            <option value="{{.ID}}">{{.Name}} ({{.Currency}})</option>
+            {{end}}
+        </select>
+    </div>
+
+    <!-- Hidden currency (derived from account) -->
+    <input type="hidden" name="currency" value="EGP" id="qe-currency-input">
+
+    <!-- Category -->
+    <div>
+        <select name="category_id"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            id="qe-category-select">
+            <option value="">No category</option>
+            {{range .ExpenseCategories}}
+            <option value="{{.ID}}" class="qe-category-expense">{{.Name}}</option>
+            {{end}}
+            {{range .IncomeCategories}}
+            <option value="{{.ID}}" class="qe-category-income" style="display:none">{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+
+    <!-- Date (defaults to today via JS) -->
+    <input type="hidden" name="date" id="qe-date-input">
+
+    <!-- Optional note -->
+    <div>
+        <input type="text" name="note" placeholder="Note (optional)"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    <!-- Submit -->
+    <button type="submit"
+        class="w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+        Save
+    </button>
+</form>
+
+<script>
+(function() {
+    // Set date to today
+    document.getElementById('qe-date-input').value = new Date().toISOString().split('T')[0];
+
+    // Switch categories on type change
+    document.querySelectorAll('#quick-entry-form input[name="type"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            var isExpense = this.value === 'expense';
+            document.querySelectorAll('.qe-category-expense').forEach(function(opt) { opt.style.display = isExpense ? '' : 'none'; });
+            document.querySelectorAll('.qe-category-income').forEach(function(opt) { opt.style.display = isExpense ? 'none' : ''; });
+            document.getElementById('qe-category-select').value = '';
+        });
+    });
+
+    // Update currency from account selection
+    var acctSelect = document.getElementById('qe-account-select');
+    if (acctSelect) {
+        acctSelect.addEventListener('change', function() {
+            var sel = this.options[this.selectedIndex];
+            document.getElementById('qe-currency-input').value = (sel && sel.text.includes('USD')) ? 'USD' : 'EGP';
+        });
+    }
+})();
+</script>
+{{end}}

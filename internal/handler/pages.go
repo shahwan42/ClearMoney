@@ -522,6 +522,79 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 	tmpl.ExecuteTemplate(w, "transaction-row", tx)
 }
 
+// QuickEntryForm serves the quick-entry form partial into the bottom sheet.
+// GET /transactions/quick-form — loaded by HTMX when the FAB is tapped.
+func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
+	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeIncome)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["home"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "quick-entry-form", TransactionFormData{
+		Accounts:          accounts,
+		ExpenseCategories: expenseCategories,
+		IncomeCategories:  incomeCategories,
+	})
+}
+
+// QuickEntryCreate handles the quick-entry form submission.
+// POST /transactions/quick — returns success toast or error message.
+func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	tx := models.Transaction{
+		Type:      models.TransactionType(r.FormValue("type")),
+		Amount:    amount,
+		Currency:  models.Currency(r.FormValue("currency")),
+		AccountID: r.FormValue("account_id"),
+	}
+	if catID := r.FormValue("category_id"); catID != "" {
+		tx.CategoryID = &catID
+	}
+	if note := r.FormValue("note"); note != "" {
+		tx.Note = &note
+	}
+	if dateStr := r.FormValue("date"); dateStr != "" {
+		if parsed, err := parseDate(dateStr); err == nil {
+			tx.Date = parsed
+		}
+	}
+
+	created, newBalance, err := h.txSvc.Create(r.Context(), tx)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	cur := "EGP"
+	if tx.Currency == models.CurrencyUSD {
+		cur = "USD"
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["home"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "success-toast", TransactionSuccessData{
+		Transaction: created,
+		NewBalance:  newBalance,
+		Currency:    cur,
+	})
+}
+
 // InstitutionList renders just the institution list partial.
 // Used by HTMX after creating an institution or account to refresh the list.
 func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {

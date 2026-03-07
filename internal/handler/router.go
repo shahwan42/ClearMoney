@@ -88,6 +88,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Get("/transactions", pages.Transactions)
 		r.Get("/transactions/list", pages.TransactionList)
 		r.Get("/transactions/new", pages.TransactionNew)
+		r.Get("/transactions/quick-form", pages.QuickEntryForm)
+		r.Post("/transactions/quick", pages.QuickEntryCreate)
 		r.Post("/transactions", pages.TransactionCreate)
 		r.Get("/transactions/edit/{id}", pages.TransactionEditForm)
 		r.Put("/transactions/{id}", pages.TransactionUpdate)
