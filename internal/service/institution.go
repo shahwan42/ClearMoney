@@ -65,3 +65,8 @@ func (s *InstitutionService) Update(ctx context.Context, inst models.Institution
 func (s *InstitutionService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
+
+// UpdateDisplayOrder sets the display order for an institution.
+func (s *InstitutionService) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
+	return s.repo.UpdateDisplayOrder(ctx, id, order)
+}

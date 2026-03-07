@@ -1720,6 +1720,42 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 	}())
 }
 
+// ToggleDormant toggles the dormant status of an account.
+// POST /accounts/{id}/dormant
+func (h *PageHandler) ToggleDormant(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.accountSvc.ToggleDormant(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("HX-Redirect", "/accounts/"+id)
+	w.WriteHeader(http.StatusOK)
+}
+
+// ReorderAccounts updates display_order for a list of account IDs.
+// POST /accounts/reorder
+func (h *PageHandler) ReorderAccounts(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	ids := r.Form["id[]"]
+	for i, id := range ids {
+		h.accountSvc.UpdateDisplayOrder(r.Context(), id, i)
+	}
+	w.Header().Set("HX-Redirect", "/accounts")
+	w.WriteHeader(http.StatusOK)
+}
+
+// ReorderInstitutions updates display_order for a list of institution IDs.
+// POST /institutions/reorder
+func (h *PageHandler) ReorderInstitutions(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	ids := r.Form["id[]"]
+	for i, id := range ids {
+		h.institutionSvc.UpdateDisplayOrder(r.Context(), id, i)
+	}
+	w.Header().Set("HX-Redirect", "/accounts")
+	w.WriteHeader(http.StatusOK)
+}
+
 // ExchangeRatePageData holds data for the exchange rate history page.
 type ExchangeRatePageData struct {
 	Rates []repository.ExchangeRateLog

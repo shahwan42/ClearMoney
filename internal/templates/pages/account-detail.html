@@ -30,6 +30,18 @@
         </div>
     </div>
 
+    <!-- Dormant toggle -->
+    <div class="flex items-center justify-between bg-white rounded-xl shadow-sm px-4 py-3">
+        <div>
+            <p class="text-sm font-medium text-slate-700">Dormant Account</p>
+            <p class="text-xs text-gray-400">Dormant accounts are collapsed on the dashboard</p>
+        </div>
+        <button hx-post="/accounts/{{.Data.Account.ID}}/dormant"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold {{if .Data.Account.IsDormant}}bg-amber-100 text-amber-700{{else}}bg-gray-100 text-gray-600{{end}}">
+            {{if .Data.Account.IsDormant}}Active{{else}}Dormant{{end}}
+        </button>
+    </div>
+
     {{if .Data.BillingCycle}}
     {{template "credit-card-info" .Data.BillingCycle}}
     {{end}}

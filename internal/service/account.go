@@ -135,3 +135,13 @@ func (s *AccountService) Update(ctx context.Context, acc models.Account) (models
 func (s *AccountService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
+
+// ToggleDormant flips the dormant status for an account.
+func (s *AccountService) ToggleDormant(ctx context.Context, id string) error {
+	return s.repo.ToggleDormant(ctx, id)
+}
+
+// UpdateDisplayOrder sets the display order for an account.
+func (s *AccountService) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
+	return s.repo.UpdateDisplayOrder(ctx, id, order)
+}

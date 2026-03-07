@@ -136,6 +136,23 @@ func (r *AccountRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// ToggleDormant flips the is_dormant flag for an account.
+func (r *AccountRepo) ToggleDormant(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE accounts SET is_dormant = NOT is_dormant, updated_at = now()
+		WHERE id = $1
+	`, id)
+	return err
+}
+
+// UpdateDisplayOrder sets the display_order for an account.
+func (r *AccountRepo) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE accounts SET display_order = $2, updated_at = now() WHERE id = $1
+	`, id, order)
+	return err
+}
+
 // queryAccounts is a DRY helper that executes a query and scans the results
 // into a slice of Account models. Used by GetAll and GetByInstitution.
 func (r *AccountRepo) queryAccounts(ctx context.Context, query string, args ...any) ([]models.Account, error) {

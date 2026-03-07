@@ -119,6 +119,14 @@ func (r *InstitutionRepo) Update(ctx context.Context, inst models.Institution) (
 	return inst, nil
 }
 
+// UpdateDisplayOrder sets the display_order for an institution.
+func (r *InstitutionRepo) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE institutions SET display_order = $2, updated_at = now() WHERE id = $1
+	`, id, order)
+	return err
+}
+
 // Delete removes an institution by ID.
 // Due to CASCADE on the accounts FK, this also deletes all accounts under it.
 func (r *InstitutionRepo) Delete(ctx context.Context, id string) error {
