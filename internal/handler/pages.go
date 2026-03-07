@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -99,6 +100,26 @@ type PeoplePageData struct {
 	Accounts []models.Account
 }
 
+// SalaryStepData holds data passed between salary wizard steps.
+type SalaryStepData struct {
+	Accounts     []models.Account
+	EGPAccounts  []models.Account
+	SalaryUSD    float64
+	ExchangeRate float64
+	SalaryEGP    float64
+	USDAccountID string
+	EGPAccountID string
+	Date         string
+}
+
+// SalarySuccessData holds data for the salary success confirmation.
+type SalarySuccessData struct {
+	SalaryUSD    float64
+	ExchangeRate float64
+	SalaryEGP    float64
+	AllocCount   int
+}
+
 // PageHandler serves full HTML pages (as opposed to JSON API endpoints).
 // Think of it like Laravel's web routes vs API routes — same data, different format.
 type PageHandler struct {
@@ -109,9 +130,10 @@ type PageHandler struct {
 	txSvc          *service.TransactionService
 	dashboardSvc   *service.DashboardService
 	personSvc      *service.PersonService
+	salarySvc      *service.SalaryService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService) *PageHandler {
 	return &PageHandler{
 		templates:      templates,
 		institutionSvc: institutionSvc,
@@ -120,6 +142,7 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		txSvc:          txSvc,
 		dashboardSvc:   dashboardSvc,
 		personSvc:      personSvc,
+		salarySvc:      salarySvc,
 	}
 }
 
@@ -880,6 +903,143 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 		Transaction: created,
 		NewBalance:  newBalance,
 		Currency:    cur,
+	})
+}
+
+// Salary renders the salary distribution wizard page.
+// GET /salary
+func (h *PageHandler) Salary(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	RenderPage(h.templates, w, "salary", PageData{
+		ActiveTab: "home",
+		Data:      SalaryStepData{Accounts: accounts},
+	})
+}
+
+// SalaryStep2 processes step 1 and renders the exchange rate step.
+// POST /salary/step2
+func (h *PageHandler) SalaryStep2(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	salaryUSD, _ := parseFloat(r.FormValue("salary_usd"))
+	data := SalaryStepData{
+		SalaryUSD:    salaryUSD,
+		USDAccountID: r.FormValue("usd_account_id"),
+		EGPAccountID: r.FormValue("egp_account_id"),
+		Date:         r.FormValue("date"),
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["salary"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "salary-step2", data)
+}
+
+// SalaryStep3 processes step 2 and renders the allocation step.
+// POST /salary/step3
+func (h *PageHandler) SalaryStep3(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	salaryUSD, _ := parseFloat(r.FormValue("salary_usd"))
+	exchangeRate, _ := parseFloat(r.FormValue("exchange_rate"))
+	salaryEGP := salaryUSD * exchangeRate
+
+	// Get all EGP accounts for allocation targets
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	var egpAccounts []models.Account
+	for _, a := range accounts {
+		if a.Currency == models.CurrencyEGP {
+			egpAccounts = append(egpAccounts, a)
+		}
+	}
+
+	data := SalaryStepData{
+		SalaryUSD:    salaryUSD,
+		ExchangeRate: exchangeRate,
+		SalaryEGP:    salaryEGP,
+		USDAccountID: r.FormValue("usd_account_id"),
+		EGPAccountID: r.FormValue("egp_account_id"),
+		Date:         r.FormValue("date"),
+		EGPAccounts:  egpAccounts,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["salary"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "salary-step3", data)
+}
+
+// SalaryConfirm processes the final step and creates all salary transactions.
+// POST /salary/confirm
+func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	salaryUSD, _ := parseFloat(r.FormValue("salary_usd"))
+	exchangeRate, _ := parseFloat(r.FormValue("exchange_rate"))
+
+	var date time.Time
+	if d := r.FormValue("date"); d != "" {
+		date, _ = parseDate(d)
+	}
+
+	// Collect allocations from form fields named alloc_<account_id>
+	var allocations []service.SalaryAllocation
+	for key, values := range r.Form {
+		if !strings.HasPrefix(key, "alloc_") || len(values) == 0 {
+			continue
+		}
+		accountID := strings.TrimPrefix(key, "alloc_")
+		amount, _ := parseFloat(values[0])
+		if amount > 0 {
+			allocations = append(allocations, service.SalaryAllocation{
+				AccountID: accountID,
+				Amount:    amount,
+			})
+		}
+	}
+
+	dist := service.SalaryDistribution{
+		SalaryUSD:    salaryUSD,
+		ExchangeRate: exchangeRate,
+		USDAccountID: r.FormValue("usd_account_id"),
+		EGPAccountID: r.FormValue("egp_account_id"),
+		Allocations:  allocations,
+		Date:         date,
+	}
+
+	if err := h.salarySvc.DistributeSalary(r.Context(), dist); err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["salary"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "salary-success", SalarySuccessData{
+		SalaryUSD:    salaryUSD,
+		ExchangeRate: exchangeRate,
+		SalaryEGP:    salaryUSD * exchangeRate,
+		AllocCount:   len(allocations),
 	})
 }
 

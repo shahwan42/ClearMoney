@@ -1,0 +1,67 @@
+{{define "salary-step3"}}
+<!-- Step 3: Allocate to accounts -->
+<div class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+    <div class="flex items-center gap-2 text-sm text-gray-500">
+        <span class="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">3</span>
+        <span>Allocations</span>
+    </div>
+
+    <div class="bg-gray-50 rounded-lg p-3 text-sm">
+        Salary: <span class="font-bold">${{.SalaryUSD}}</span>
+        @ <span class="font-bold">{{.ExchangeRate}}</span>
+        = <span class="font-bold">EGP {{.SalaryEGP}}</span>
+    </div>
+
+    <form hx-post="/salary/confirm" hx-target="#salary-wizard" hx-swap="innerHTML" class="space-y-3">
+        <input type="hidden" name="salary_usd" value="{{.SalaryUSD}}">
+        <input type="hidden" name="usd_account_id" value="{{.USDAccountID}}">
+        <input type="hidden" name="egp_account_id" value="{{.EGPAccountID}}">
+        <input type="hidden" name="exchange_rate" value="{{.ExchangeRate}}">
+        <input type="hidden" name="date" value="{{.Date}}">
+
+        <p class="text-xs text-gray-500">Allocate salary to accounts. Remainder stays in your main EGP account.</p>
+
+        <div class="space-y-2" id="allocation-rows">
+            {{range .EGPAccounts}}
+            {{if ne .ID $.EGPAccountID}}
+            <div class="flex items-center gap-2">
+                <label class="flex-1 text-sm text-slate-700">{{.Name}}</label>
+                <input type="number" name="alloc_{{.ID}}" step="0.01" min="0" placeholder="0"
+                       class="w-28 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right salary-alloc"
+                       oninput="updateRemainder()">
+            </div>
+            {{end}}
+            {{end}}
+        </div>
+
+        <div class="bg-teal-50 rounded-lg p-3 flex justify-between items-center">
+            <span class="text-sm text-teal-700">Remaining (discretionary)</span>
+            <span class="text-lg font-bold text-teal-700" id="salary-remainder">EGP {{.SalaryEGP}}</span>
+        </div>
+
+        <button type="submit"
+                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+            Confirm Distribution
+        </button>
+    </form>
+</div>
+
+<script>
+function updateRemainder() {
+    var total = {{.SalaryEGP}};
+    var allocated = 0;
+    document.querySelectorAll('.salary-alloc').forEach(function(input) {
+        allocated += parseFloat(input.value) || 0;
+    });
+    var remainder = total - allocated;
+    document.getElementById('salary-remainder').textContent = 'EGP ' + remainder.toFixed(2);
+    if (remainder < 0) {
+        document.getElementById('salary-remainder').classList.add('text-red-600');
+        document.getElementById('salary-remainder').classList.remove('text-teal-700');
+    } else {
+        document.getElementById('salary-remainder').classList.remove('text-red-600');
+        document.getElementById('salary-remainder').classList.add('text-teal-700');
+    }
+}
+</script>
+{{end}}

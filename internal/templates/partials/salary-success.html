@@ -1,0 +1,24 @@
+{{define "salary-success"}}
+<div class="bg-white rounded-2xl shadow-sm p-5 space-y-4 text-center">
+    <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <svg class="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+    </div>
+
+    <h3 class="text-lg font-bold text-slate-800">Salary Distributed!</h3>
+
+    <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+        <p>Salary: <span class="font-bold">${{.SalaryUSD}}</span></p>
+        <p>Rate: <span class="font-bold">{{.ExchangeRate}}</span></p>
+        <p>Total EGP: <span class="font-bold">EGP {{.SalaryEGP}}</span></p>
+        {{if .AllocCount}}
+        <p>Allocations: <span class="font-bold">{{.AllocCount}} accounts</span></p>
+        {{end}}
+    </div>
+
+    <a href="/" class="block w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700 text-center">
+        Back to Dashboard
+    </a>
+</div>
+{{end}}

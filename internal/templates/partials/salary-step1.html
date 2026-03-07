@@ -1,0 +1,53 @@
+{{define "salary-step1"}}
+<!-- Step 1: Confirm salary amount and select USD account -->
+<div class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+    <div class="flex items-center gap-2 text-sm text-gray-500">
+        <span class="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+        <span>Salary Amount</span>
+    </div>
+
+    <form hx-post="/salary/step2" hx-target="#salary-wizard" hx-swap="innerHTML" class="space-y-3">
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Salary (USD)</label>
+            <input type="number" name="salary_usd" step="0.01" min="0.01" required autofocus
+                   placeholder="0.00"
+                   class="w-full text-2xl font-bold text-center border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                   inputmode="decimal">
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">USD Account</label>
+            <select name="usd_account_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm">
+                <option value="">Select USD account...</option>
+                {{range .Accounts}}
+                {{if eq (string .Currency) "USD"}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Main EGP Account</label>
+            <select name="egp_account_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm">
+                <option value="">Select EGP account...</option>
+                {{range .Accounts}}
+                {{if eq (string .Currency) "EGP"}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Date</label>
+            <input type="date" name="date" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm">
+        </div>
+
+        <button type="submit"
+                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+            Next: Exchange Rate
+        </button>
+    </form>
+</div>
+{{end}}

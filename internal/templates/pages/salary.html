@@ -1,0 +1,11 @@
+{{define "title"}}ClearMoney - Salary Distribution{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <h2 class="text-lg font-bold text-slate-800">Salary Distribution</h2>
+
+    <div id="salary-wizard">
+        {{template "salary-step1" .Data}}
+    </div>
+</div>
+{{end}}

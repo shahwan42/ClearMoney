@@ -37,7 +37,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	if db == nil {
-		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil)
+		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil, nil)
 		r.Get("/", pages.Home)
 		return r
 	}
@@ -60,6 +60,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	txSvc := service.NewTransactionService(txRepo, accountRepo)
 	txSvc.SetExchangeRateRepo(exchangeRateRepo)
 	personSvc := service.NewPersonService(personRepo, txRepo)
+	salarySvc := service.NewSalaryService(txRepo, accountRepo)
 	dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
 	authSvc := service.NewAuthService(db)
 
@@ -84,7 +85,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Route("/api/persons", NewPersonHandler(personSvc).Routes)
 
 		// Page routes (HTML)
-		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc)
+		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/accounts", pages.Accounts)
@@ -108,6 +109,10 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Post("/people/add", pages.PeopleAdd)
 		r.Post("/people/{id}/loan", pages.PeopleLoan)
 		r.Post("/people/{id}/repay", pages.PeopleRepay)
+		r.Get("/salary", pages.Salary)
+		r.Post("/salary/step2", pages.SalaryStep2)
+		r.Post("/salary/step3", pages.SalaryStep3)
+		r.Post("/salary/confirm", pages.SalaryConfirm)
 	})
 
 	return r
