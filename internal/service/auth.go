@@ -76,6 +76,27 @@ func (s *AuthService) GetSessionKey(ctx context.Context) (string, error) {
 	return key, nil
 }
 
+// ChangePin verifies the current PIN and updates to a new one.
+func (s *AuthService) ChangePin(ctx context.Context, currentPin, newPin string) error {
+	if !s.VerifyPIN(ctx, currentPin) {
+		return fmt.Errorf("current PIN is incorrect")
+	}
+	if len(newPin) < 4 || len(newPin) > 6 {
+		return fmt.Errorf("new PIN must be 4-6 digits")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPin), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hashing PIN: %w", err)
+	}
+
+	_, err = s.db.ExecContext(ctx, `UPDATE user_config SET pin_hash = $1`, string(hash))
+	if err != nil {
+		return fmt.Errorf("updating PIN: %w", err)
+	}
+	return nil
+}
+
 // SessionCookieName is the name of the auth session cookie.
 const SessionCookieName = "clearmoney_session"
 

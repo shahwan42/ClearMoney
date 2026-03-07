@@ -418,6 +418,18 @@ func (r *TransactionRepo) GetBuildingFundTransactions(ctx context.Context, limit
 	`, limit)
 }
 
+// GetByDateRange retrieves all transactions within a date range (for CSV export).
+func (r *TransactionRepo) GetByDateRange(ctx context.Context, from, to time.Time) ([]models.Transaction, error) {
+	return r.queryTransactions(ctx, `
+		SELECT id, type, amount, currency, account_id, counter_account_id, category_id,
+			date, time, note, tags, exchange_rate, counter_amount, fee_amount, fee_account_id,
+			person_id, linked_transaction_id,
+			is_building_fund, recurring_rule_id, created_at, updated_at
+		FROM transactions WHERE date >= $1 AND date <= $2
+		ORDER BY date DESC, created_at DESC
+	`, from, to)
+}
+
 func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, args ...any) ([]models.Transaction, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

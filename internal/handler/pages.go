@@ -162,9 +162,11 @@ type PageHandler struct {
 	recurringSvc   *service.RecurringService
 	investmentSvc   *service.InvestmentService
 	installmentSvc  *service.InstallmentService
+	exportSvc       *service.ExportService
+	authSvc         *service.AuthService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService) *PageHandler {
 	return &PageHandler{
 		templates:       templates,
 		institutionSvc:  institutionSvc,
@@ -178,6 +180,8 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		recurringSvc:    recurringSvc,
 		investmentSvc:   investmentSvc,
 		installmentSvc:  installmentSvc,
+		exportSvc:       exportSvc,
+		authSvc:         authSvc,
 	}
 }
 
@@ -1707,6 +1711,62 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		return ""
 	}())
+}
+
+// Settings renders the settings page.
+// GET /settings
+func (h *PageHandler) Settings(w http.ResponseWriter, r *http.Request) {
+	RenderPage(h.templates, w, "settings", PageData{ActiveTab: "more"})
+}
+
+// ChangePin handles PIN change from the settings page.
+// POST /settings/pin
+func (h *PageHandler) ChangePin(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	currentPin := r.FormValue("current_pin")
+	newPin := r.FormValue("new_pin")
+
+	if len(newPin) < 4 {
+		w.Write([]byte(`<p class="text-red-600 text-sm">PIN must be at least 4 digits</p>`))
+		return
+	}
+
+	if h.authSvc == nil {
+		w.Write([]byte(`<p class="text-red-600 text-sm">Auth service not available</p>`))
+		return
+	}
+
+	if err := h.authSvc.ChangePin(r.Context(), currentPin, newPin); err != nil {
+		w.Write([]byte(`<p class="text-red-600 text-sm">` + err.Error() + `</p>`))
+		return
+	}
+
+	w.Write([]byte(`<p class="text-teal-600 text-sm font-medium">PIN changed successfully</p>`))
+}
+
+// ExportTransactions exports transactions as CSV.
+// GET /export/transactions?from=2026-01-01&to=2026-03-31
+func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request) {
+	fromStr := r.URL.Query().Get("from")
+	toStr := r.URL.Query().Get("to")
+
+	from, err := parseDate(fromStr)
+	if err != nil {
+		http.Error(w, "invalid 'from' date", http.StatusBadRequest)
+		return
+	}
+	to, err := parseDate(toStr)
+	if err != nil {
+		http.Error(w, "invalid 'to' date", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=transactions_%s_%s.csv", fromStr, toStr))
+
+	if err := h.exportSvc.ExportTransactionsCSV(r.Context(), w, from, to); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 // InstitutionList renders just the institution list partial.
