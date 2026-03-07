@@ -426,7 +426,19 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 // GET /transfers/new
 func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
-	RenderPage(h.templates, w, "transaction-new", PageData{
+	RenderPage(h.templates, w, "transfer", PageData{
+		ActiveTab: "home",
+		Data: TransactionFormData{
+			Accounts: accounts,
+		},
+	})
+}
+
+// ExchangeNew renders the currency exchange form page.
+// GET /exchange/new
+func (h *PageHandler) ExchangeNew(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	RenderPage(h.templates, w, "exchange", PageData{
 		ActiveTab: "home",
 		Data: TransactionFormData{
 			Accounts: accounts,
@@ -1102,13 +1114,10 @@ func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
 // GET /fawry-cashout
 func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	tmpl, ok := h.templates["transaction-new"]
-	if !ok {
-		http.Error(w, "template not found", http.StatusInternalServerError)
-		return
-	}
-	tmpl.ExecuteTemplate(w, "fawry-cashout-form", TransactionFormData{Accounts: accounts})
+	RenderPage(h.templates, w, "fawry-cashout", PageData{
+		ActiveTab: "home",
+		Data:      TransactionFormData{Accounts: accounts},
+	})
 }
 
 // FawryCashoutCreate handles the Fawry cash-out form submission.
