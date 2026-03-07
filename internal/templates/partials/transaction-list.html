@@ -1,0 +1,22 @@
+{{define "transaction-list"}}
+{{if .Transactions}}
+<div class="space-y-2">
+    {{range .Transactions}}
+    {{template "transaction-row" .}}
+    {{end}}
+</div>
+{{if .HasMore}}
+<div class="text-center mt-4">
+    <button hx-get="/transactions/list?offset={{.NextOffset}}&account_id={{.AccountID}}&type={{.Type}}&category_id={{.CategoryID}}&date_from={{.DateFrom}}&date_to={{.DateTo}}"
+            hx-target="#transaction-list" hx-swap="innerHTML"
+            class="text-sm text-teal-600 font-medium py-2">
+        Load more...
+    </button>
+</div>
+{{end}}
+{{else}}
+<div class="text-center py-12 text-gray-400">
+    <p class="text-sm">No transactions found</p>
+</div>
+{{end}}
+{{end}}

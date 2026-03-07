@@ -131,6 +131,14 @@ func (s *TransactionService) balanceDelta(tx models.Transaction) float64 {
 	}
 }
 
+// GetFiltered retrieves transactions matching the given filters.
+func (s *TransactionService) GetFiltered(ctx context.Context, f repository.TransactionFilter) ([]models.Transaction, error) {
+	if f.Limit <= 0 {
+		f.Limit = 50
+	}
+	return s.txRepo.GetFiltered(ctx, f)
+}
+
 func (s *TransactionService) validateBasic(tx models.Transaction) error {
 	if tx.Amount <= 0 {
 		return fmt.Errorf("amount must be positive")

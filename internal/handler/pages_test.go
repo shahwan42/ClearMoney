@@ -258,6 +258,128 @@ func TestDashboardPage_WithData(t *testing.T) {
 	}
 }
 
+func TestTransactionsPage_Renders(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	// Create an institution, account, and a transaction
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Type:           models.AccountTypeChecking,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	// Create a transaction via the service (to update balance atomically)
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&date=2026-03-06&note=Test+expense")
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Now fetch the transactions page
+	req = httptest.NewRequest(http.MethodGet, "/transactions", nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	checks := []string{
+		"Transactions",      // page title
+		"All Accounts",      // filter dropdown
+		"All Types",         // type filter
+		"Test expense",      // transaction note
+		"+ New",             // new transaction button
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected transactions page to contain %q", check)
+		}
+	}
+}
+
+func TestTransactionsPage_Empty(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	router, addAuth := testRouter(t, db)
+	req := httptest.NewRequest(http.MethodGet, "/transactions", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	if !strings.Contains(w.Body.String(), "No transactions found") {
+		t.Error("expected empty state message")
+	}
+}
+
+func TestTransactionsPage_FilterByType(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Type:           models.AccountTypeSavings,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 50000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create an expense
+	formData := strings.NewReader("type=expense&amount=100&currency=EGP&account_id=" + acc.ID + "&note=expense+item")
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Create an income
+	formData = strings.NewReader("type=income&amount=200&currency=EGP&account_id=" + acc.ID + "&note=income+item")
+	req = httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Filter by expense via the HTMX partial endpoint
+	req = httptest.NewRequest(http.MethodGet, "/transactions/list?type=expense", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "expense item") {
+		t.Error("expected filtered list to contain 'expense item'")
+	}
+	if strings.Contains(body, "income item") {
+		t.Error("expected filtered list NOT to contain 'income item'")
+	}
+}
+
 func TestTemplateFuncs_FormatNumber(t *testing.T) {
 	tests := []struct {
 		input    float64

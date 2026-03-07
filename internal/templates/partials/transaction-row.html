@@ -1,0 +1,29 @@
+{{define "transaction-row"}}
+<div class="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center justify-between"
+     id="tx-{{.ID}}">
+    <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+            {{if eq (string .Type) "expense"}}
+            <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
+            {{else if eq (string .Type) "income"}}
+            <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
+            {{else}}
+            <span class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span>
+            {{end}}
+            <span class="text-sm font-medium text-slate-800 truncate">
+                {{if .Note}}{{deref .Note}}{{else}}{{string .Type}}{{end}}
+            </span>
+        </div>
+        <div class="text-xs text-gray-400 ml-4 mt-0.5">
+            {{formatDateShort .Date}}
+        </div>
+    </div>
+    <div class="text-right flex-shrink-0 ml-3">
+        {{if eq (string .Type) "expense"}}
+        <span class="text-sm font-semibold text-red-600">-{{formatCurrency .Amount .Currency}}</span>
+        {{else}}
+        <span class="text-sm font-semibold text-green-600">+{{formatCurrency .Amount .Currency}}</span>
+        {{end}}
+    </div>
+</div>
+{{end}}

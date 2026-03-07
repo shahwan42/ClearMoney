@@ -167,6 +167,75 @@ func (r *TransactionRepo) UpdateBalanceTx(ctx context.Context, dbTx *sql.Tx, acc
 	return nil
 }
 
+// TransactionFilter holds optional filter parameters for listing transactions.
+// Like Laravel's query scopes or Django's Q objects — build up filters dynamically.
+type TransactionFilter struct {
+	AccountID  string
+	CategoryID string
+	Type       string // "expense", "income", etc.
+	DateFrom   *time.Time
+	DateTo     *time.Time
+	Limit      int
+	Offset     int
+}
+
+// GetFiltered retrieves transactions matching the given filters.
+// Builds a dynamic WHERE clause based on which filters are set.
+func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) ([]models.Transaction, error) {
+	query := `
+		SELECT id, type, amount, currency, account_id, counter_account_id,
+			category_id, date, time, note, tags, exchange_rate, counter_amount,
+			fee_amount, fee_account_id, person_id, linked_transaction_id,
+			is_building_fund, recurring_rule_id, created_at, updated_at
+		FROM transactions WHERE 1=1`
+
+	var args []any
+	argN := 1
+
+	if f.AccountID != "" {
+		query += fmt.Sprintf(" AND account_id = $%d", argN)
+		args = append(args, f.AccountID)
+		argN++
+	}
+	if f.CategoryID != "" {
+		query += fmt.Sprintf(" AND category_id = $%d", argN)
+		args = append(args, f.CategoryID)
+		argN++
+	}
+	if f.Type != "" {
+		query += fmt.Sprintf(" AND type = $%d", argN)
+		args = append(args, f.Type)
+		argN++
+	}
+	if f.DateFrom != nil {
+		query += fmt.Sprintf(" AND date >= $%d", argN)
+		args = append(args, *f.DateFrom)
+		argN++
+	}
+	if f.DateTo != nil {
+		query += fmt.Sprintf(" AND date <= $%d", argN)
+		args = append(args, *f.DateTo)
+		argN++
+	}
+
+	query += " ORDER BY date DESC, created_at DESC"
+
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	query += fmt.Sprintf(" LIMIT $%d", argN)
+	args = append(args, limit)
+	argN++
+
+	if f.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argN)
+		args = append(args, f.Offset)
+	}
+
+	return r.queryTransactions(ctx, query, args...)
+}
+
 func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, args ...any) ([]models.Transaction, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
 )
 
@@ -36,6 +37,21 @@ type TransactionFormData struct {
 	Accounts           []models.Account
 	ExpenseCategories  []models.Category
 	IncomeCategories   []models.Category
+}
+
+// TransactionListData holds data for the transaction list page and partial.
+type TransactionListData struct {
+	Transactions []models.Transaction
+	Accounts     []models.Account
+	Categories   []models.Category
+	HasMore      bool
+	NextOffset   int
+	// Current filter values (for "load more" links)
+	AccountID  string
+	CategoryID string
+	Type       string
+	DateFrom   string
+	DateTo     string
 }
 
 // TransactionSuccessData is shown after a successful transaction creation.
@@ -206,6 +222,86 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 		NewBalance:  newBalance,
 		Currency:    cur,
 	})
+}
+
+// Transactions renders the full transaction list page with filters.
+// GET /transactions
+func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
+	filter := h.parseTransactionFilter(r)
+
+	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	categories, _ := h.categorySvc.GetAll(r.Context())
+
+	data := TransactionListData{
+		Transactions: txns,
+		Accounts:     accounts,
+		Categories:   categories,
+		HasMore:      len(txns) >= filter.Limit,
+		NextOffset:   filter.Offset + filter.Limit,
+		AccountID:    filter.AccountID,
+		CategoryID:   filter.CategoryID,
+		Type:         filter.Type,
+		DateFrom:     r.URL.Query().Get("date_from"),
+		DateTo:       r.URL.Query().Get("date_to"),
+	}
+
+	RenderPage(h.templates, w, "transactions", PageData{ActiveTab: "home", Data: data})
+}
+
+// TransactionList renders just the transaction list partial (for HTMX filter updates).
+// GET /transactions/list
+func (h *PageHandler) TransactionList(w http.ResponseWriter, r *http.Request) {
+	filter := h.parseTransactionFilter(r)
+	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
+
+	data := TransactionListData{
+		Transactions: txns,
+		HasMore:      len(txns) >= filter.Limit,
+		NextOffset:   filter.Offset + filter.Limit,
+		AccountID:    filter.AccountID,
+		CategoryID:   filter.CategoryID,
+		Type:         filter.Type,
+		DateFrom:     r.URL.Query().Get("date_from"),
+		DateTo:       r.URL.Query().Get("date_to"),
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["transactions"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "transaction-list", data)
+}
+
+// parseTransactionFilter extracts filter parameters from query string.
+func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.TransactionFilter {
+	q := r.URL.Query()
+	f := repository.TransactionFilter{
+		AccountID:  q.Get("account_id"),
+		CategoryID: q.Get("category_id"),
+		Type:       q.Get("type"),
+		Limit:      50,
+	}
+
+	if v := q.Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			f.Offset = n
+		}
+	}
+	if v := q.Get("date_from"); v != "" {
+		if t, err := parseDate(v); err == nil {
+			f.DateFrom = &t
+		}
+	}
+	if v := q.Get("date_to"); v != "" {
+		if t, err := parseDate(v); err == nil {
+			f.DateTo = &t
+		}
+	}
+
+	return f
 }
 
 // InstitutionList renders just the institution list partial.

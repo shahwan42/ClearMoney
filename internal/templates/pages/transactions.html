@@ -1,0 +1,51 @@
+{{define "title"}}ClearMoney - Transactions{{end}}
+
+{{define "content"}}
+<div class="space-y-4 py-4">
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-bold text-slate-800">Transactions</h1>
+        <a href="/transactions/new"
+           class="bg-teal-600 text-white text-sm px-4 py-2 rounded-xl font-medium hover:bg-teal-700">
+            + New
+        </a>
+    </div>
+
+    <!-- Filter bar -->
+    <form id="tx-filters" hx-get="/transactions/list" hx-target="#transaction-list" hx-trigger="change"
+          class="bg-white rounded-xl shadow-sm p-3 space-y-2">
+        <div class="grid grid-cols-2 gap-2">
+            <select name="account_id" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                <option value="">All Accounts</option>
+                {{range .Data.Accounts}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+            </select>
+
+            <select name="type" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                <option value="">All Types</option>
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+            </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+            <input type="date" name="date_from" placeholder="From"
+                   class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            <input type="date" name="date_to" placeholder="To"
+                   class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+        </div>
+
+        <select name="category_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            <option value="">All Categories</option>
+            {{range .Data.Categories}}
+            <option value="{{.ID}}">{{.Name}}</option>
+            {{end}}
+        </select>
+    </form>
+
+    <!-- Transaction list (HTMX swappable) -->
+    <div id="transaction-list">
+        {{template "transaction-list" .Data}}
+    </div>
+</div>
+{{end}}
