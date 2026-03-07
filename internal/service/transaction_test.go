@@ -544,6 +544,69 @@ func TestTransactionService_CreateExchange_SameCurrency(t *testing.T) {
 	}
 }
 
+func TestCalculateInstapayFee(t *testing.T) {
+	tests := []struct {
+		amount   float64
+		expected float64
+	}{
+		{100, 0.5},       // 0.1% = 0.1, below minimum → 0.5
+		{500, 0.5},       // 0.1% = 0.5, at minimum → 0.5
+		{10000, 10},      // 0.1% = 10
+		{20000, 20},      // 0.1% = 20, at maximum
+		{50000, 20},      // 0.1% = 50, above maximum → 20
+		{1000, 1},        // 0.1% = 1
+	}
+	for _, tt := range tests {
+		got := CalculateInstapayFee(tt.amount)
+		if got != tt.expected {
+			t.Errorf("CalculateInstapayFee(%v) = %v, want %v", tt.amount, got, tt.expected)
+		}
+	}
+}
+
+func TestTransactionService_CreateInstapayTransfer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	src := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Source", Currency: models.CurrencyEGP, InitialBalance: 50000,
+	})
+	dest := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Dest", Currency: models.CurrencyEGP, InitialBalance: 10000,
+	})
+
+	feesCatID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
+
+	_, _, fee, err := svc.CreateInstapayTransfer(
+		context.Background(), src.ID, dest.ID, 10000, models.CurrencyEGP, nil, time.Now(), feesCatID,
+	)
+	if err != nil {
+		t.Fatalf("instapay transfer: %v", err)
+	}
+	if fee != 10 {
+		t.Errorf("expected fee 10, got %f", fee)
+	}
+
+	// Source balance: 50000 - 10000 (transfer) - 10 (fee) = 39990
+	srcAcc, _ := accRepo.GetByID(context.Background(), src.ID)
+	if srcAcc.CurrentBalance != 39990 {
+		t.Errorf("expected source balance 39990, got %f", srcAcc.CurrentBalance)
+	}
+
+	// Dest balance: 10000 + 10000 = 20000
+	destAcc, _ := accRepo.GetByID(context.Background(), dest.ID)
+	if destAcc.CurrentBalance != 20000 {
+		t.Errorf("expected dest balance 20000, got %f", destAcc.CurrentBalance)
+	}
+}
+
 func TestTransactionService_SmartDefaults_LastAccount(t *testing.T) {
 	svc, acc, catID := setupTransactionServiceTest(t)
 	ctx := context.Background()

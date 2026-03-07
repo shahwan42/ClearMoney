@@ -1,7 +1,8 @@
 {{define "transfer-form"}}
 <div class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
     <h2 class="text-base font-bold text-slate-800">Transfer Between Accounts</h2>
-    <form hx-post="/transactions/transfer" hx-target="#transfer-result" hx-swap="innerHTML" class="space-y-3">
+    <form hx-post="/transactions/transfer" hx-target="#transfer-result" hx-swap="innerHTML"
+          class="space-y-3" id="transfer-form">
         <div>
             <label class="block text-xs text-gray-500 mb-1">From Account</label>
             <select name="source_account_id" required
@@ -27,7 +28,27 @@
         <div>
             <label class="block text-xs text-gray-500 mb-1">Amount</label>
             <input type="number" name="amount" step="0.01" min="0.01" required
+                   id="transfer-amount"
                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+        </div>
+
+        <!-- InstaPay toggle -->
+        <div class="flex items-center justify-between py-1">
+            <label class="text-sm text-slate-700 font-medium" for="instapay-toggle">InstaPay</label>
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" name="instapay" id="instapay-toggle" class="sr-only peer"
+                       onchange="toggleInstapay()">
+                <div class="w-9 h-5 bg-gray-200 rounded-full peer-checked:bg-teal-600 transition-colors
+                            after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                            after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                            peer-checked:after:translate-x-full"></div>
+            </label>
+        </div>
+
+        <!-- Fee display (shown when InstaPay is active) -->
+        <div id="instapay-fee" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700">
+            InstaPay fee: <span id="instapay-fee-amount" class="font-semibold">EGP 0.00</span>
+            <span class="text-amber-500">(0.1%, min 0.5, max 20 EGP)</span>
         </div>
 
         <div>
@@ -49,4 +70,36 @@
     </form>
     <div id="transfer-result"></div>
 </div>
+
+<script>
+function toggleInstapay() {
+    var feeDiv = document.getElementById('instapay-fee');
+    var toggle = document.getElementById('instapay-toggle');
+    var form = document.getElementById('transfer-form');
+
+    if (toggle.checked) {
+        feeDiv.classList.remove('hidden');
+        form.setAttribute('hx-post', '/transactions/instapay-transfer');
+        htmx.process(form);
+        updateFee();
+    } else {
+        feeDiv.classList.add('hidden');
+        form.setAttribute('hx-post', '/transactions/transfer');
+        htmx.process(form);
+    }
+}
+
+function updateFee() {
+    var amount = parseFloat(document.getElementById('transfer-amount').value) || 0;
+    var fee = Math.max(0.5, Math.min(amount * 0.001, 20));
+    if (amount <= 0) fee = 0;
+    document.getElementById('instapay-fee-amount').textContent = 'EGP ' + fee.toFixed(2);
+}
+
+document.getElementById('transfer-amount').addEventListener('input', function() {
+    if (document.getElementById('instapay-toggle').checked) {
+        updateFee();
+    }
+});
+</script>
 {{end}}

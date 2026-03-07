@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -379,6 +380,62 @@ func (h *PageHandler) TransferCreate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Transfer completed successfully!</div>`))
+}
+
+// InstapayTransferCreate handles an InstaPay transfer with auto-calculated fee.
+// POST /transactions/instapay-transfer
+func (h *PageHandler) InstapayTransferCreate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	sourceID := r.FormValue("source_account_id")
+	destID := r.FormValue("dest_account_id")
+	currency := models.Currency(r.FormValue("currency"))
+
+	var note *string
+	if n := r.FormValue("note"); n != "" {
+		note = &n
+	}
+
+	var date time.Time
+	if d := r.FormValue("date"); d != "" {
+		date, _ = parseDate(d)
+	}
+
+	// If currency not provided, look it up from source account
+	if currency == "" {
+		if acc, err := h.accountSvc.GetByID(r.Context(), sourceID); err == nil {
+			currency = acc.Currency
+		}
+	}
+
+	// Look up "Fees & Charges" category ID
+	feesCatID := ""
+	if cats, err := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense); err == nil {
+		for _, c := range cats {
+			if c.Name == "Fees & Charges" {
+				feesCatID = c.ID
+				break
+			}
+		}
+	}
+
+	_, _, fee, err := h.txSvc.CreateInstapayTransfer(r.Context(), sourceID, destID, amount, currency, note, date, feesCatID)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(fmt.Sprintf(
+		`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">InstaPay transfer completed! Fee: EGP %.2f</div>`,
+		fee,
+	)))
 }
 
 // ExchangeCreate handles the exchange form submission.

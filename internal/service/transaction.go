@@ -298,6 +298,132 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 	return createdDebit, createdCredit, nil
 }
 
+// CalculateInstapayFee computes the InstaPay fee: 0.1% of amount, min 0.5, max 20 EGP.
+func CalculateInstapayFee(amount float64) float64 {
+	fee := amount * 0.001
+	if fee < 0.5 {
+		fee = 0.5
+	}
+	if fee > 20 {
+		fee = 20
+	}
+	return fee
+}
+
+// CreateInstapayTransfer creates a transfer with an automatic InstaPay fee.
+// The fee is a separate expense transaction (category: Fees & Charges) on the source account.
+func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, float64, error) {
+	if amount <= 0 {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("amount must be positive")
+	}
+	if sourceAccountID == "" || destAccountID == "" {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("both source and destination account_id required")
+	}
+	if sourceAccountID == destAccountID {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("cannot transfer to the same account")
+	}
+
+	fee := CalculateInstapayFee(amount)
+
+	if date.IsZero() {
+		date = time.Now()
+	}
+
+	// Verify same currency
+	srcAcc, err := s.accRepo.GetByID(ctx, sourceAccountID)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("source account not found: %w", err)
+	}
+	destAcc, err := s.accRepo.GetByID(ctx, destAccountID)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("destination account not found: %w", err)
+	}
+	if srcAcc.Currency != destAcc.Currency {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("InstaPay requires same currency")
+	}
+
+	dbTx, err := s.txRepo.BeginTx(ctx)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer dbTx.Rollback()
+
+	// Debit leg (source)
+	instapayNote := "InstaPay transfer"
+	if note != nil && *note != "" {
+		instapayNote = *note + " (InstaPay)"
+	}
+	debit := models.Transaction{
+		Type:             models.TransactionTypeTransfer,
+		Amount:           amount,
+		Currency:         currency,
+		AccountID:        sourceAccountID,
+		CounterAccountID: &destAccountID,
+		Note:             &instapayNote,
+		FeeAmount:        &fee,
+		Date:             date,
+	}
+	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("creating debit: %w", err)
+	}
+
+	// Credit leg (destination)
+	credit := models.Transaction{
+		Type:             models.TransactionTypeTransfer,
+		Amount:           amount,
+		Currency:         currency,
+		AccountID:        destAccountID,
+		CounterAccountID: &sourceAccountID,
+		Note:             &instapayNote,
+		Date:             date,
+	}
+	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("creating credit: %w", err)
+	}
+
+	// Link the two legs
+	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, err
+	}
+
+	// Fee transaction (separate expense on source account)
+	feeNote := "InstaPay fee"
+	feeTx := models.Transaction{
+		Type:      models.TransactionTypeExpense,
+		Amount:    fee,
+		Currency:  currency,
+		AccountID: sourceAccountID,
+		Note:      &feeNote,
+		Date:      date,
+	}
+	if feesCategoryID != "" {
+		feeTx.CategoryID = &feesCategoryID
+	}
+	_, err = s.txRepo.CreateTx(ctx, dbTx, feeTx)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("creating fee: %w", err)
+	}
+
+	// Update balances: source loses amount + fee, destination gains amount
+	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, sourceAccountID, -(amount + fee)); err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("debiting source: %w", err)
+	}
+	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, destAccountID, amount); err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("crediting destination: %w", err)
+	}
+
+	if err := dbTx.Commit(); err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("committing: %w", err)
+	}
+
+	createdDebit.LinkedTransactionID = &createdCredit.ID
+	createdCredit.LinkedTransactionID = &createdDebit.ID
+
+	return createdDebit, createdCredit, fee, nil
+}
+
 // resolveExchangeFields computes the missing field from two provided values.
 // amount * rate = counterAmount
 func resolveExchangeFields(amount, rate, counterAmount *float64) (float64, float64, float64, error) {
