@@ -536,6 +536,20 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 	tmpl.ExecuteTemplate(w, "transaction-row", tx)
 }
 
+// RecentTransactions renders just the recent transactions partial.
+// GET /partials/recent-transactions — used by HTMX to refresh the dashboard feed.
+func (h *PageHandler) RecentTransactions(w http.ResponseWriter, r *http.Request) {
+	txns, _ := h.txSvc.GetRecent(r.Context(), 15)
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["home"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "recent-transactions", txns)
+}
+
 // AccountDetail renders the account detail page with transaction history.
 // GET /accounts/{id}
 func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {

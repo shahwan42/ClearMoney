@@ -82,6 +82,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		// Page routes (HTML)
 		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc)
 		r.Get("/", pages.Home)
+		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/accounts", pages.Accounts)
 		r.Get("/accounts/form", pages.AccountForm)
 		r.Get("/accounts/list", pages.InstitutionList)

@@ -1,0 +1,23 @@
+{{define "recent-transactions"}}
+<!-- Recent transactions feed — used in the dashboard and as an HTMX partial.
+     Shows the last 10-15 transactions with type, note, date, and color-coded amount. -->
+{{if .}}
+<div class="space-y-2">
+    {{range .}}
+    <div class="flex items-center justify-between py-1.5">
+        <div>
+            <p class="text-sm text-slate-700">
+                {{if .Note}}{{deref .Note}}{{else}}{{.Type}}{{end}}
+            </p>
+            <p class="text-xs text-gray-400">{{formatDateShort .Date}}</p>
+        </div>
+        <span class="text-sm font-semibold {{if eq (string .Type) "expense"}}text-red-600{{else}}text-teal-600{{end}}">
+            {{if eq (string .Type) "expense"}}-{{end}}{{formatCurrency .Amount .Currency}}
+        </span>
+    </div>
+    {{end}}
+</div>
+{{else}}
+<p class="text-sm text-gray-400">No transactions yet. Tap the + button to add one.</p>
+{{end}}
+{{end}}

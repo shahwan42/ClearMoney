@@ -71,31 +71,16 @@
         {{end}}
     </section>
 
-    <!-- Recent Transactions -->
+    <!-- Recent Transactions (refreshable via HTMX) -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Recent Transactions</h2>
+            <a href="/transactions" class="text-sm text-teal-600 hover:text-teal-700">View All</a>
         </div>
 
-        {{if .Data.RecentTransactions}}
-            <div class="space-y-2">
-            {{range .Data.RecentTransactions}}
-                <div class="flex items-center justify-between py-1.5">
-                    <div>
-                        <p class="text-sm text-slate-700">
-                            {{if .Note}}{{deref .Note}}{{else}}{{.Type}}{{end}}
-                        </p>
-                        <p class="text-xs text-gray-400">{{formatDateShort .Date}}</p>
-                    </div>
-                    <span class="text-sm font-semibold {{if eq (string .Type) "expense"}}text-red-600{{else}}text-teal-600{{end}}">
-                        {{if eq (string .Type) "expense"}}-{{end}}{{formatCurrency .Amount .Currency}}
-                    </span>
-                </div>
-            {{end}}
-            </div>
-        {{else}}
-            <p class="text-sm text-gray-400">No transactions yet. Tap the + button to add one.</p>
-        {{end}}
+        <div id="recent-transactions">
+            {{template "recent-transactions" .Data.RecentTransactions}}
+        </div>
     </section>
 
     {{else}}

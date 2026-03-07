@@ -1,5 +1,6 @@
 {{define "success-toast"}}
-<!-- Inline success message for the quick-entry sheet -->
+<!-- Inline success message for the quick-entry sheet.
+     Also triggers a dashboard feed refresh via HTMX OOB swap. -->
 <div class="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center space-y-2">
     <div class="text-2xl text-teal-600">&#10003;</div>
     <p class="text-teal-800 font-semibold text-sm">Saved!</p>
@@ -11,4 +12,6 @@
         Done
     </button>
 </div>
+<!-- Refresh dashboard recent transactions via HTMX out-of-band swap -->
+<div id="recent-transactions" hx-get="/partials/recent-transactions" hx-trigger="load" hx-swap-oob="true"></div>
 {{end}}
