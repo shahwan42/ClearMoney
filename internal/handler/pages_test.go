@@ -34,7 +34,9 @@ func TestHomePage_Renders(t *testing.T) {
 		"tailwindcss",         // Tailwind CDN
 		"htmx.org",            // HTMX script
 		"Net Worth",           // dashboard section (empty state)
-		"/static/css/app.css", // custom CSS link
+		"/static/css/app.css",      // custom CSS link
+		"/static/manifest.json",    // PWA manifest
+		"serviceWorker",            // SW registration
 	}
 	for _, check := range checks {
 		if !strings.Contains(body, check) {

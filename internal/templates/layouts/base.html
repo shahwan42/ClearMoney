@@ -17,6 +17,11 @@
 
     <!-- Custom styles beyond Tailwind -->
     <link rel="stylesheet" href="/static/css/app.css">
+
+    <!-- PWA manifest and icons -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" href="/static/icons/icon-192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
 </head>
 <body class="h-full flex flex-col" hx-boost="true">
 
@@ -29,6 +34,13 @@
 
     {{template "bottom-nav" .}}
 
+    <!-- Register service worker for PWA caching -->
+    <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/js/sw.js')
+        .catch(function(err) { console.warn('SW registration failed:', err); });
+    }
+    </script>
 </body>
 </html>
 {{end}}
