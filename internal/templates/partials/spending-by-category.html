@@ -1,0 +1,23 @@
+{{define "spending-by-category"}}
+<div class="space-y-2" id="spending-by-category">
+    {{if .SpendingByCategory}}
+    {{range .SpendingByCategory}}
+    <div>
+        <div class="flex justify-between text-sm mb-1">
+            <span class="text-slate-700">{{.CategoryName}}</span>
+            <span class="font-medium text-slate-800">{{formatEGP .Amount}}</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="bg-teal-500 h-2 rounded-full" style="width: {{printf "%.1f" .Percentage}}%"></div>
+        </div>
+    </div>
+    {{end}}
+    <div class="flex justify-between text-sm font-bold pt-2 border-t border-gray-200">
+        <span class="text-slate-800">Total</span>
+        <span class="text-slate-900">{{formatEGP .TotalSpending}}</span>
+    </div>
+    {{else}}
+    <p class="text-sm text-gray-400 text-center py-4">No expenses this month.</p>
+    {{end}}
+</div>
+{{end}}

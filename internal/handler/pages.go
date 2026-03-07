@@ -139,9 +139,10 @@ type PageHandler struct {
 	dashboardSvc   *service.DashboardService
 	personSvc      *service.PersonService
 	salarySvc      *service.SalaryService
+	reportsSvc     *service.ReportsService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService) *PageHandler {
 	return &PageHandler{
 		templates:      templates,
 		institutionSvc: institutionSvc,
@@ -151,6 +152,7 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		dashboardSvc:   dashboardSvc,
 		personSvc:      personSvc,
 		salarySvc:      salarySvc,
+		reportsSvc:     reportsSvc,
 	}
 }
 
@@ -1122,6 +1124,38 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 		`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Fawry cash-out completed! Amount: EGP %.2f, Fee: EGP %.2f</div>`,
 		amount, fee,
 	)))
+}
+
+// Reports renders the reports page with monthly spending breakdown.
+// GET /reports
+func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	year, month := now.Year(), now.Month()
+
+	// Parse optional year/month query params
+	if v := r.URL.Query().Get("year"); v != "" {
+		if y, err := strconv.Atoi(v); err == nil {
+			year = y
+		}
+	}
+	if v := r.URL.Query().Get("month"); v != "" {
+		if m, err := strconv.Atoi(v); err == nil && m >= 1 && m <= 12 {
+			month = time.Month(m)
+		}
+	}
+
+	var data *service.ReportsData
+	if h.reportsSvc != nil {
+		report, err := h.reportsSvc.GetMonthlyReport(r.Context(), year, month)
+		if err == nil {
+			data = &report
+		}
+	}
+
+	RenderPage(h.templates, w, "reports", PageData{
+		ActiveTab: "reports",
+		Data:      data,
+	})
 }
 
 // BuildingFundPage renders the building fund sub-ledger page.
