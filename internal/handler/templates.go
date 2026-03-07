@@ -63,6 +63,13 @@ func TemplateFuncs() template.FuncMap {
 		"string": func(v any) string {
 			return fmt.Sprintf("%v", v)
 		},
+		// percentage computes (part / total) * 100 for progress bars
+		"percentage": func(part, total int) float64 {
+			if total == 0 {
+				return 0
+			}
+			return float64(part) / float64(total) * 100
+		},
 	}
 }
 

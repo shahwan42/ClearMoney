@@ -1,0 +1,66 @@
+{{define "title"}}ClearMoney - Batch Entry{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <h2 class="text-lg font-bold text-slate-800">Batch Entry</h2>
+    <p class="text-sm text-gray-500">Add multiple transactions at once — useful for catching up on missed days.</p>
+
+    {{if .Data}}
+
+    <form hx-post="/transactions/batch" hx-target="#batch-result" class="space-y-3">
+        <div id="batch-rows" class="space-y-3">
+            <!-- Row template (cloned by JS) -->
+            <div class="batch-row bg-white rounded-xl shadow-sm p-4 space-y-2">
+                <div class="flex gap-2">
+                    <select name="type[]" class="border rounded-lg px-2 py-1.5 text-sm">
+                        <option value="expense">Expense</option>
+                        <option value="income">Income</option>
+                    </select>
+                    <input type="number" name="amount[]" step="0.01" placeholder="Amount" required
+                           class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
+                </div>
+                <div class="flex gap-2">
+                    <select name="account_id[]" class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
+                        {{range .Data.Accounts}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                    <select name="category_id[]" class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
+                        <option value="">-- Category --</option>
+                        {{range .Data.ExpenseCategories}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <input type="date" name="date[]" required class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
+                    <input type="text" name="note[]" placeholder="Note" class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
+                </div>
+            </div>
+        </div>
+
+        <button type="button" onclick="addBatchRow()" class="w-full border-2 border-dashed border-gray-300 text-gray-500 py-2 rounded-lg text-sm">
+            + Add Another Row
+        </button>
+
+        <button type="submit" class="w-full bg-teal-600 text-white py-2.5 rounded-lg text-sm font-semibold">
+            Submit All
+        </button>
+    </form>
+
+    <div id="batch-result"></div>
+
+    <script>
+    function addBatchRow() {
+        const rows = document.getElementById('batch-rows');
+        const first = rows.querySelector('.batch-row');
+        const clone = first.cloneNode(true);
+        // Clear input values in clone
+        clone.querySelectorAll('input').forEach(i => { if(i.type !== 'date') i.value = ''; });
+        rows.appendChild(clone);
+    }
+    </script>
+
+    {{end}}
+</div>
+{{end}}

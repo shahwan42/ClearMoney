@@ -160,22 +160,24 @@ type PageHandler struct {
 	salarySvc      *service.SalaryService
 	reportsSvc     *service.ReportsService
 	recurringSvc   *service.RecurringService
-	investmentSvc  *service.InvestmentService
+	investmentSvc   *service.InvestmentService
+	installmentSvc  *service.InstallmentService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService) *PageHandler {
 	return &PageHandler{
-		templates:      templates,
-		institutionSvc: institutionSvc,
-		accountSvc:     accountSvc,
-		categorySvc:    categorySvc,
-		txSvc:          txSvc,
-		dashboardSvc:   dashboardSvc,
-		personSvc:      personSvc,
-		salarySvc:      salarySvc,
-		reportsSvc:     reportsSvc,
-		recurringSvc:   recurringSvc,
-		investmentSvc:  investmentSvc,
+		templates:       templates,
+		institutionSvc:  institutionSvc,
+		accountSvc:      accountSvc,
+		categorySvc:     categorySvc,
+		txSvc:           txSvc,
+		dashboardSvc:    dashboardSvc,
+		personSvc:       personSvc,
+		salarySvc:       salarySvc,
+		reportsSvc:      reportsSvc,
+		recurringSvc:    recurringSvc,
+		investmentSvc:   investmentSvc,
+		installmentSvc:  installmentSvc,
 	}
 }
 
@@ -1562,6 +1564,149 @@ func (h *PageHandler) InvestmentDelete(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("HX-Redirect", "/investments")
 	w.WriteHeader(http.StatusOK)
+}
+
+// InstallmentPageData holds data for the installment plans page.
+type InstallmentPageData struct {
+	Plans    []models.InstallmentPlan
+	Accounts []models.Account
+}
+
+// Installments renders the installment plans page.
+// GET /installments
+func (h *PageHandler) Installments(w http.ResponseWriter, r *http.Request) {
+	plans, _ := h.installmentSvc.GetAll(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+
+	data := InstallmentPageData{Plans: plans, Accounts: accounts}
+	RenderPage(h.templates, w, "installments", PageData{ActiveTab: "more", Data: data})
+}
+
+// InstallmentAdd creates a new installment plan.
+// POST /installments/add
+func (h *PageHandler) InstallmentAdd(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	totalAmount, _ := parseFloat(r.FormValue("total_amount"))
+	numInstallments, _ := strconv.Atoi(r.FormValue("num_installments"))
+	startDate, _ := parseDate(r.FormValue("start_date"))
+
+	plan := models.InstallmentPlan{
+		AccountID:       r.FormValue("account_id"),
+		Description:     r.FormValue("description"),
+		TotalAmount:     totalAmount,
+		NumInstallments: numInstallments,
+		StartDate:       startDate,
+	}
+
+	if _, err := h.installmentSvc.Create(r.Context(), plan); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/installments")
+	w.WriteHeader(http.StatusOK)
+}
+
+// InstallmentPay records a payment on an installment plan.
+// POST /installments/{id}/pay
+func (h *PageHandler) InstallmentPay(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.installmentSvc.RecordPayment(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/installments")
+	w.WriteHeader(http.StatusOK)
+}
+
+// InstallmentDelete removes an installment plan.
+// DELETE /installments/{id}
+func (h *PageHandler) InstallmentDelete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.installmentSvc.Delete(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("HX-Redirect", "/installments")
+	w.WriteHeader(http.StatusOK)
+}
+
+// BatchEntryData holds data for the batch entry page.
+type BatchEntryData struct {
+	Accounts          []models.Account
+	ExpenseCategories []models.Category
+}
+
+// BatchEntry renders the batch entry page.
+// GET /batch-entry
+func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	expCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
+
+	data := BatchEntryData{Accounts: accounts, ExpenseCategories: expCategories}
+	RenderPage(h.templates, w, "batch-entry", PageData{ActiveTab: "transactions", Data: data})
+}
+
+// BatchCreate processes multiple transactions from the batch entry form.
+// POST /transactions/batch
+func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+
+	types := r.Form["type[]"]
+	amounts := r.Form["amount[]"]
+	accountIDs := r.Form["account_id[]"]
+	categoryIDs := r.Form["category_id[]"]
+	dates := r.Form["date[]"]
+	notes := r.Form["note[]"]
+
+	var created, failed int
+	for i := range types {
+		if i >= len(amounts) || i >= len(accountIDs) || i >= len(dates) {
+			break
+		}
+		amount, err := parseFloat(amounts[i])
+		if err != nil || amount <= 0 {
+			failed++
+			continue
+		}
+		date, err := parseDate(dates[i])
+		if err != nil {
+			failed++
+			continue
+		}
+
+		tx := models.Transaction{
+			Type:      models.TransactionType(types[i]),
+			Amount:    amount,
+			Currency:  models.CurrencyEGP,
+			AccountID: accountIDs[i],
+			Date:      date,
+		}
+		if i < len(categoryIDs) && categoryIDs[i] != "" {
+			tx.CategoryID = &categoryIDs[i]
+		}
+		if i < len(notes) && notes[i] != "" {
+			tx.Note = &notes[i]
+		}
+
+		if _, _, err := h.txSvc.Create(r.Context(), tx); err != nil {
+			failed++
+		} else {
+			created++
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<div class="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center">
+		<p class="text-sm font-medium text-teal-800">Created %d transaction(s)</p>
+		%s
+	</div>`, created, func() string {
+		if failed > 0 {
+			return fmt.Sprintf(`<p class="text-xs text-red-600 mt-1">%d failed</p>`, failed)
+		}
+		return ""
+	}())
 }
 
 // InstitutionList renders just the institution list partial.
