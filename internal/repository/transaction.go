@@ -389,6 +389,20 @@ func (r *TransactionRepo) GetConsecutiveCategoryID(ctx context.Context, txType s
 	return "", nil
 }
 
+// GetBuildingFundBalance sums all building fund transactions.
+// Income adds to the fund, expenses subtract from it.
+func (r *TransactionRepo) GetBuildingFundBalance(ctx context.Context) (float64, error) {
+	var balance float64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0)
+		FROM transactions WHERE is_building_fund = true
+	`).Scan(&balance)
+	if err != nil {
+		return 0, fmt.Errorf("querying building fund balance: %w", err)
+	}
+	return balance, nil
+}
+
 func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, args ...any) ([]models.Transaction, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

@@ -17,9 +17,10 @@ type DashboardData struct {
 	NetWorthEGP float64
 
 	// Breakdown by category: cash (debit accounts), credit (used credit), debt
-	CashTotal   float64 // sum of debit account balances
-	CreditUsed  float64 // sum of credit account balances (negative)
-	DebtTotal   float64 // placeholder for loans (future)
+	CashTotal      float64 // sum of debit account balances
+	CreditUsed     float64 // sum of credit account balances (negative)
+	CreditAvail    float64 // total available credit across all credit accounts
+	DebtTotal      float64 // placeholder for loans (future)
 
 	// USD totals and conversion
 	USDTotal     float64 // sum of all USD account balances
@@ -28,6 +29,13 @@ type DashboardData struct {
 
 	// Institutions with their accounts for the expandable list
 	Institutions []InstitutionGroup
+
+	// People ledger summary
+	PeopleOwedToMe float64 // sum of positive net_balance (they owe me)
+	PeopleIOwe     float64 // sum of negative net_balance (I owe them)
+
+	// Building fund balance (sum of is_building_fund transactions)
+	BuildingFundBalance float64
 
 	// Recent transactions for the feed
 	RecentTransactions []models.Transaction
@@ -46,6 +54,7 @@ type DashboardService struct {
 	accountRepo      *repository.AccountRepo
 	txRepo           *repository.TransactionRepo
 	exchangeRateRepo *repository.ExchangeRateRepo
+	personRepo       *repository.PersonRepo
 }
 
 func NewDashboardService(institutionRepo *repository.InstitutionRepo, accountRepo *repository.AccountRepo, txRepo *repository.TransactionRepo) *DashboardService {
@@ -59,6 +68,11 @@ func NewDashboardService(institutionRepo *repository.InstitutionRepo, accountRep
 // SetExchangeRateRepo sets the exchange rate repository for USD conversion.
 func (s *DashboardService) SetExchangeRateRepo(repo *repository.ExchangeRateRepo) {
 	s.exchangeRateRepo = repo
+}
+
+// SetPersonRepo sets the person repository for people summary.
+func (s *DashboardService) SetPersonRepo(repo *repository.PersonRepo) {
+	s.personRepo = repo
 }
 
 // GetDashboard computes the full dashboard data in a single call.
@@ -89,6 +103,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 
 			if acc.IsCreditType() {
 				data.CreditUsed += acc.CurrentBalance // negative values
+				data.CreditAvail += acc.AvailableCredit()
 			} else {
 				data.CashTotal += acc.CurrentBalance
 			}
@@ -112,6 +127,24 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		}
 	}
 	// If no rate available, NetWorthEGP stays 0 (template checks this)
+
+	// People ledger summary
+	if s.personRepo != nil {
+		if persons, err := s.personRepo.GetAll(ctx); err == nil {
+			for _, p := range persons {
+				if p.NetBalance > 0 {
+					data.PeopleOwedToMe += p.NetBalance
+				} else if p.NetBalance < 0 {
+					data.PeopleIOwe += p.NetBalance // negative
+				}
+			}
+		}
+	}
+
+	// Building fund balance: sum of all is_building_fund income minus expenses
+	if balance, err := s.txRepo.GetBuildingFundBalance(ctx); err == nil {
+		data.BuildingFundBalance = balance
+	}
 
 	// Load recent transactions
 	data.RecentTransactions, _ = s.txRepo.GetRecent(ctx, 10)

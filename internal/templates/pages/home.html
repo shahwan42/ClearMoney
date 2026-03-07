@@ -24,23 +24,14 @@
         {{end}}
     </section>
 
-    <!-- Quick Summary Cards -->
-    <section class="grid grid-cols-3 gap-3">
-        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p class="text-xs text-gray-500">Cash</p>
-            <p class="text-lg font-semibold text-teal-700">{{formatEGP .Data.CashTotal}}</p>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p class="text-xs text-gray-500">Credit</p>
-            <p class="text-lg font-semibold {{if lt .Data.CreditUsed 0.0}}text-red-600{{else}}text-slate-800{{end}}">
-                {{formatEGP .Data.CreditUsed}}
-            </p>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-3 text-center">
-            <p class="text-xs text-gray-500">Debt</p>
-            <p class="text-lg font-semibold text-slate-800">{{formatEGP .Data.DebtTotal}}</p>
-        </div>
-    </section>
+    <!-- Summary Cards -->
+    {{template "summary-cards" .Data}}
+
+    <!-- People Summary & Building Fund -->
+    <div class="grid grid-cols-2 gap-3">
+        {{template "people-summary" .Data}}
+        {{template "building-fund" .Data}}
+    </div>
 
     <!-- Accounts by Institution -->
     <section class="bg-white rounded-2xl shadow-sm p-5">

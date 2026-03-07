@@ -1106,6 +1106,42 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 	)))
 }
 
+// PeopleSummary renders the people summary partial for the dashboard.
+// GET /partials/people-summary
+func (h *PageHandler) PeopleSummary(w http.ResponseWriter, r *http.Request) {
+	if h.dashboardSvc == nil {
+		return
+	}
+	data, err := h.dashboardSvc.GetDashboard(r.Context())
+	if err != nil {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["home"]
+	if !ok {
+		return
+	}
+	tmpl.ExecuteTemplate(w, "people-summary", data)
+}
+
+// BuildingFund renders the building fund partial for the dashboard.
+// GET /partials/building-fund
+func (h *PageHandler) BuildingFund(w http.ResponseWriter, r *http.Request) {
+	if h.dashboardSvc == nil {
+		return
+	}
+	data, err := h.dashboardSvc.GetDashboard(r.Context())
+	if err != nil {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["home"]
+	if !ok {
+		return
+	}
+	tmpl.ExecuteTemplate(w, "building-fund", data)
+}
+
 // InstitutionList renders just the institution list partial.
 // Used by HTMX after creating an institution or account to refresh the list.
 func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {

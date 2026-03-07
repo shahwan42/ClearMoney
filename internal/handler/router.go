@@ -63,6 +63,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	salarySvc := service.NewSalaryService(txRepo, accountRepo)
 	dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
 	dashboardSvc.SetExchangeRateRepo(exchangeRateRepo)
+	dashboardSvc.SetPersonRepo(personRepo)
 	authSvc := service.NewAuthService(db)
 
 	// Auth routes (public — no auth middleware)
@@ -89,6 +90,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
+		r.Get("/partials/people-summary", pages.PeopleSummary)
+		r.Get("/partials/building-fund", pages.BuildingFund)
 		r.Get("/accounts", pages.Accounts)
 		r.Get("/accounts/form", pages.AccountForm)
 		r.Get("/accounts/list", pages.InstitutionList)
