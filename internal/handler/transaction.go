@@ -28,6 +28,7 @@ func NewTransactionHandler(svc *service.TransactionService) *TransactionHandler 
 func (h *TransactionHandler) Routes(r chi.Router) {
 	r.Post("/", h.Create)
 	r.Post("/transfer", h.Transfer)
+	r.Post("/exchange", h.Exchange)
 	r.Get("/", h.List)
 	r.Get("/{id}", h.Get)
 	r.Delete("/{id}", h.Delete)
@@ -89,6 +90,52 @@ func (h *TransactionHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	debit, credit, err := h.svc.CreateTransfer(r.Context(), req.SourceAccountID, req.DestAccountID, req.Amount, req.Currency, req.Note, date)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, map[string]any{
+		"debit":  debit,
+		"credit": credit,
+	})
+}
+
+// exchangeRequest holds the JSON body for creating a currency exchange.
+type exchangeRequest struct {
+	SourceAccountID string   `json:"source_account_id"`
+	DestAccountID   string   `json:"dest_account_id"`
+	Amount          *float64 `json:"amount,omitempty"`
+	Rate            *float64 `json:"rate,omitempty"`
+	CounterAmount   *float64 `json:"counter_amount,omitempty"`
+	Note            *string  `json:"note,omitempty"`
+	Date            string   `json:"date,omitempty"`
+}
+
+// Exchange creates a currency exchange between two accounts.
+// POST /api/transactions/exchange
+func (h *TransactionHandler) Exchange(w http.ResponseWriter, r *http.Request) {
+	var req exchangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	params := service.ExchangeParams{
+		SourceAccountID: req.SourceAccountID,
+		DestAccountID:   req.DestAccountID,
+		Amount:          req.Amount,
+		Rate:            req.Rate,
+		CounterAmount:   req.CounterAmount,
+		Note:            req.Note,
+	}
+	if req.Date != "" {
+		if parsed, err := time.Parse("2006-01-02", req.Date); err == nil {
+			params.Date = parsed
+		}
+	}
+
+	debit, credit, err := h.svc.CreateExchange(r.Context(), params)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, err.Error())
 		return

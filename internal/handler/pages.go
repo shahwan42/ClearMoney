@@ -367,6 +367,53 @@ func (h *PageHandler) TransferCreate(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Transfer completed successfully!</div>`))
 }
 
+// ExchangeCreate handles the exchange form submission.
+// POST /transactions/exchange-submit — returns success or error partial.
+func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	params := service.ExchangeParams{
+		SourceAccountID: r.FormValue("source_account_id"),
+		DestAccountID:   r.FormValue("dest_account_id"),
+		Note:            nil,
+	}
+
+	if v := r.FormValue("amount"); v != "" {
+		f, _ := parseFloat(v)
+		params.Amount = &f
+	}
+	if v := r.FormValue("rate"); v != "" {
+		f, _ := parseFloat(v)
+		params.Rate = &f
+	}
+	if v := r.FormValue("counter_amount"); v != "" {
+		f, _ := parseFloat(v)
+		params.CounterAmount = &f
+	}
+	if v := r.FormValue("note"); v != "" {
+		params.Note = &v
+	}
+	if v := r.FormValue("date"); v != "" {
+		if t, err := parseDate(v); err == nil {
+			params.Date = t
+		}
+	}
+
+	_, _, err := h.txSvc.CreateExchange(r.Context(), params)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Exchange completed successfully!</div>`))
+}
+
 // TransactionEditForm renders the inline edit form for a transaction.
 // GET /transactions/edit/{id} — called by HTMX.
 func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request) {

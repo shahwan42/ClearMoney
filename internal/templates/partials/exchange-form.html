@@ -1,0 +1,68 @@
+{{define "exchange-form"}}
+<div class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+    <h2 class="text-base font-bold text-slate-800">Currency Exchange</h2>
+    <form hx-post="/transactions/exchange-submit" hx-target="#exchange-result" hx-swap="innerHTML" class="space-y-3">
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">From Account (source currency)</label>
+            <select name="source_account_id" required id="exchange-src"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                <option value="">Select source...</option>
+                {{range .Accounts}}
+                <option value="{{.ID}}" data-currency="{{string .Currency}}">{{.Name}} ({{string .Currency}})</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">To Account (destination currency)</label>
+            <select name="dest_account_id" required id="exchange-dst"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+                <option value="">Select destination...</option>
+                {{range .Accounts}}
+                <option value="{{.ID}}" data-currency="{{string .Currency}}">{{.Name}} ({{string .Currency}})</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Amount</label>
+                <input type="number" name="amount" id="exchange-amount" step="0.01" min="0.01"
+                       class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm"
+                       oninput="calcExchange('amount')">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Rate</label>
+                <input type="number" name="rate" id="exchange-rate" step="0.0001" min="0.0001"
+                       class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm"
+                       oninput="calcExchange('rate')">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Result</label>
+                <input type="number" name="counter_amount" id="exchange-counter" step="0.01" min="0.01"
+                       class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm"
+                       oninput="calcExchange('counter')">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Note (optional)</label>
+            <input type="text" name="note"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Date</label>
+            <input type="date" name="date"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm">
+        </div>
+
+        <button type="submit"
+                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+            Exchange
+        </button>
+    </form>
+    <div id="exchange-result"></div>
+</div>
+<script src="/static/js/exchange.js"></script>
+{{end}}

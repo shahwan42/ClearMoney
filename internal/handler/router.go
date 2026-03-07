@@ -54,7 +54,9 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	institutionSvc := service.NewInstitutionService(institutionRepo)
 	accountSvc := service.NewAccountService(accountRepo)
 	categorySvc := service.NewCategoryService(categoryRepo)
+	exchangeRateRepo := repository.NewExchangeRateRepo(db)
 	txSvc := service.NewTransactionService(txRepo, accountRepo)
+	txSvc.SetExchangeRateRepo(exchangeRateRepo)
 	dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
 	authSvc := service.NewAuthService(db)
 
@@ -92,6 +94,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Delete("/transactions/{id}", pages.TransactionDelete)
 		r.Get("/transactions/row/{id}", pages.TransactionRow)
 		r.Post("/transactions/transfer", pages.TransferCreate)
+		r.Post("/transactions/exchange-submit", pages.ExchangeCreate)
 	})
 
 	return r

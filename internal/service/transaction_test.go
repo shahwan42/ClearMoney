@@ -308,3 +308,127 @@ func TestTransactionService_DeleteTransfer_ReversesBothBalances(t *testing.T) {
 		t.Errorf("dest: expected 5000, got %f", dstAcc.CurrentBalance)
 	}
 }
+
+func TestTransactionService_CreateExchange(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	rateRepo := repository.NewExchangeRateRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+	svc.SetExchangeRateRepo(rateRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	usd := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD Account", Currency: models.CurrencyUSD, InitialBalance: 5000,
+	})
+	egp := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "EGP Account", Currency: models.CurrencyEGP, InitialBalance: 100000,
+	})
+
+	// Exchange 1000 USD at rate 50.5 → 50500 EGP
+	amount := 1000.0
+	rate := 50.5
+	debit, credit, err := svc.CreateExchange(context.Background(), ExchangeParams{
+		SourceAccountID: usd.ID,
+		DestAccountID:   egp.ID,
+		Amount:          &amount,
+		Rate:            &rate,
+	})
+	if err != nil {
+		t.Fatalf("create exchange: %v", err)
+	}
+
+	if debit.Type != models.TransactionTypeExchange {
+		t.Error("expected exchange type")
+	}
+	if debit.Amount != 1000 {
+		t.Errorf("debit amount: expected 1000, got %f", debit.Amount)
+	}
+	if credit.Amount != 50500 {
+		t.Errorf("credit amount: expected 50500, got %f", credit.Amount)
+	}
+
+	// Verify balances
+	usdAcc, _ := accRepo.GetByID(context.Background(), usd.ID)
+	egpAcc, _ := accRepo.GetByID(context.Background(), egp.ID)
+
+	if usdAcc.CurrentBalance != 4000 {
+		t.Errorf("USD balance: expected 4000, got %f", usdAcc.CurrentBalance)
+	}
+	if egpAcc.CurrentBalance != 150500 {
+		t.Errorf("EGP balance: expected 150500, got %f", egpAcc.CurrentBalance)
+	}
+}
+
+func TestTransactionService_CreateExchange_AutoCalcRate(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	usd := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 5000,
+	})
+	egp := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 100000,
+	})
+
+	// Provide amount + counter_amount, rate should be auto-calculated
+	amount := 100.0
+	counterAmount := 5050.0
+	_, _, err := svc.CreateExchange(context.Background(), ExchangeParams{
+		SourceAccountID: usd.ID,
+		DestAccountID:   egp.ID,
+		Amount:          &amount,
+		CounterAmount:   &counterAmount,
+	})
+	if err != nil {
+		t.Fatalf("create exchange: %v", err)
+	}
+
+	// Rate should be 5050/100 = 50.5
+	usdAcc, _ := accRepo.GetByID(context.Background(), usd.ID)
+	if usdAcc.CurrentBalance != 4900 {
+		t.Errorf("expected 4900, got %f", usdAcc.CurrentBalance)
+	}
+}
+
+func TestTransactionService_CreateExchange_SameCurrency(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	acc1 := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "A1", Currency: models.CurrencyEGP, InitialBalance: 1000,
+	})
+	acc2 := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "A2", Currency: models.CurrencyEGP, InitialBalance: 1000,
+	})
+
+	amount := 100.0
+	rate := 1.0
+	_, _, err := svc.CreateExchange(context.Background(), ExchangeParams{
+		SourceAccountID: acc1.ID,
+		DestAccountID:   acc2.ID,
+		Amount:          &amount,
+		Rate:            &rate,
+	})
+	if err == nil {
+		t.Error("expected error for same-currency exchange")
+	}
+}
