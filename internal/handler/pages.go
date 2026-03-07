@@ -96,9 +96,10 @@ type PageHandler struct {
 	categorySvc    *service.CategoryService
 	txSvc          *service.TransactionService
 	dashboardSvc   *service.DashboardService
+	personSvc      *service.PersonService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService) *PageHandler {
 	return &PageHandler{
 		templates:      templates,
 		institutionSvc: institutionSvc,
@@ -106,6 +107,7 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		categorySvc:    categorySvc,
 		txSvc:          txSvc,
 		dashboardSvc:   dashboardSvc,
+		personSvc:      personSvc,
 	}
 }
 

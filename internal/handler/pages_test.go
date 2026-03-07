@@ -18,7 +18,7 @@ func TestHomePage_Renders(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -52,7 +52,7 @@ func TestHomePage_ContentType(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)
@@ -69,7 +69,7 @@ func TestHomePage_ActiveTab(t *testing.T) {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
-	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
+	pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	pages.Home(w, req)

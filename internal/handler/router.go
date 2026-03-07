@@ -37,7 +37,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	if db == nil {
-		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil)
+		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil)
 		r.Get("/", pages.Home)
 		return r
 	}
@@ -50,6 +50,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	categoryRepo := repository.NewCategoryRepo(db)
 	txRepo := repository.NewTransactionRepo(db)
 
+	personRepo := repository.NewPersonRepo(db)
+
 	// Services
 	institutionSvc := service.NewInstitutionService(institutionRepo)
 	accountSvc := service.NewAccountService(accountRepo)
@@ -57,6 +59,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	exchangeRateRepo := repository.NewExchangeRateRepo(db)
 	txSvc := service.NewTransactionService(txRepo, accountRepo)
 	txSvc.SetExchangeRateRepo(exchangeRateRepo)
+	personSvc := service.NewPersonService(personRepo, txRepo)
 	dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
 	authSvc := service.NewAuthService(db)
 
@@ -78,9 +81,10 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Route("/api/accounts", NewAccountHandler(accountSvc).Routes)
 		r.Route("/api/categories", NewCategoryHandler(categorySvc).Routes)
 		r.Route("/api/transactions", NewTransactionHandler(txSvc).Routes)
+		r.Route("/api/persons", NewPersonHandler(personSvc).Routes)
 
 		// Page routes (HTML)
-		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc)
+		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/accounts", pages.Accounts)
