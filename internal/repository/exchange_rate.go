@@ -37,6 +37,28 @@ func (r *ExchangeRateRepo) Log(ctx context.Context, date time.Time, rate float64
 	return nil
 }
 
+// GetAll retrieves all exchange rate records, newest first.
+func (r *ExchangeRateRepo) GetAll(ctx context.Context) ([]ExchangeRateLog, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, date, rate, source, note, created_at
+		FROM exchange_rate_log ORDER BY date DESC, created_at DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("querying exchange rates: %w", err)
+	}
+	defer rows.Close()
+
+	var rates []ExchangeRateLog
+	for rows.Next() {
+		var rate ExchangeRateLog
+		if err := rows.Scan(&rate.ID, &rate.Date, &rate.Rate, &rate.Source, &rate.Note, &rate.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scanning exchange rate: %w", err)
+		}
+		rates = append(rates, rate)
+	}
+	return rates, rows.Err()
+}
+
 // GetLatest retrieves the most recent exchange rate.
 func (r *ExchangeRateRepo) GetLatest(ctx context.Context) (float64, error) {
 	var rate float64

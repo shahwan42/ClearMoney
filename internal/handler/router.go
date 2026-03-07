@@ -38,7 +38,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	if db == nil {
-		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		r.Get("/", pages.Home)
 		return r
 	}
@@ -98,7 +98,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Route("/api/persons", NewPersonHandler(personSvc).Routes)
 
 		// Page routes (HTML)
-		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc)
+		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)
@@ -150,6 +150,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Get("/batch-entry", pages.BatchEntry)
 		r.Post("/transactions/batch", pages.BatchCreate)
 
+		r.Get("/exchange-rates", pages.ExchangeRates)
 		r.Get("/settings", pages.Settings)
 		r.Post("/settings/pin", pages.ChangePin)
 		r.Get("/export/transactions", pages.ExportTransactions)

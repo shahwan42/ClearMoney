@@ -28,11 +28,20 @@ type MonthSummary struct {
 	Net      float64 // Income - Expenses
 }
 
+// ReportFilter holds optional filters for the reports query.
+type ReportFilter struct {
+	AccountID string // filter by specific account
+	Currency  string // filter by currency (EGP or USD)
+}
+
 // ReportsData holds all data for the reports page.
 type ReportsData struct {
 	// Selected month
 	Year  int
 	Month time.Month
+
+	// Active filters
+	Filter ReportFilter
 
 	// Spending by category for the selected month
 	SpendingByCategory []CategorySpending
@@ -52,15 +61,16 @@ func NewReportsService(db *sql.DB) *ReportsService {
 	return &ReportsService{db: db}
 }
 
-// GetMonthlyReport generates the full report for a given month.
-func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month time.Month) (ReportsData, error) {
+// GetMonthlyReport generates the full report for a given month with optional filters.
+func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month time.Month, filter ReportFilter) (ReportsData, error) {
 	data := ReportsData{
-		Year:  year,
-		Month: month,
+		Year:   year,
+		Month:  month,
+		Filter: filter,
 	}
 
 	// Spending by category
-	spending, total, err := s.getSpendingByCategory(ctx, year, month)
+	spending, total, err := s.getSpendingByCategory(ctx, year, month, filter)
 	if err != nil {
 		return data, fmt.Errorf("spending by category: %w", err)
 	}
@@ -68,7 +78,7 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 	data.TotalSpending = total
 
 	// Current month summary
-	data.CurrentMonth, _ = s.getMonthSummary(ctx, year, month)
+	data.CurrentMonth, _ = s.getMonthSummary(ctx, year, month, filter)
 
 	// Previous month summary
 	prevYear, prevMonth := year, month-1
@@ -76,24 +86,38 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 		prevMonth = 12
 		prevYear--
 	}
-	data.PreviousMonth, _ = s.getMonthSummary(ctx, prevYear, prevMonth)
+	data.PreviousMonth, _ = s.getMonthSummary(ctx, prevYear, prevMonth, filter)
 
 	return data, nil
 }
 
 // getSpendingByCategory returns expense totals grouped by category for a month.
-func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, month time.Month) ([]CategorySpending, float64, error) {
+func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, month time.Month, filter ReportFilter) ([]CategorySpending, float64, error) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)
 
-	rows, err := s.db.QueryContext(ctx, `
+	query := `
 		SELECT COALESCE(t.category_id::text, ''), COALESCE(c.name, 'Uncategorized'), SUM(t.amount)
 		FROM transactions t
 		LEFT JOIN categories c ON t.category_id = c.id
-		WHERE t.type = 'expense' AND t.date >= $1 AND t.date < $2
-		GROUP BY t.category_id, c.name
-		ORDER BY SUM(t.amount) DESC
-	`, startDate, endDate)
+		WHERE t.type = 'expense' AND t.date >= $1 AND t.date < $2`
+	args := []any{startDate, endDate}
+	argN := 3
+
+	if filter.AccountID != "" {
+		query += fmt.Sprintf(" AND t.account_id = $%d", argN)
+		args = append(args, filter.AccountID)
+		argN++
+	}
+	if filter.Currency != "" {
+		query += fmt.Sprintf(" AND t.currency = $%d", argN)
+		args = append(args, filter.Currency)
+		argN++
+	}
+
+	query += ` GROUP BY t.category_id, c.name ORDER BY SUM(t.amount) DESC`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("querying spending: %w", err)
 	}
@@ -121,19 +145,33 @@ func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, mo
 }
 
 // getMonthSummary returns income and expense totals for a month.
-func (s *ReportsService) getMonthSummary(ctx context.Context, year int, month time.Month) (MonthSummary, error) {
+func (s *ReportsService) getMonthSummary(ctx context.Context, year int, month time.Month, filter ReportFilter) (MonthSummary, error) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)
 
 	summary := MonthSummary{Year: year, Month: month}
 
-	err := s.db.QueryRowContext(ctx, `
+	query := `
 		SELECT
 			COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)
 		FROM transactions
-		WHERE date >= $1 AND date < $2
-	`, startDate, endDate).Scan(&summary.Income, &summary.Expenses)
+		WHERE date >= $1 AND date < $2`
+	args := []any{startDate, endDate}
+	argN := 3
+
+	if filter.AccountID != "" {
+		query += fmt.Sprintf(" AND account_id = $%d", argN)
+		args = append(args, filter.AccountID)
+		argN++
+	}
+	if filter.Currency != "" {
+		query += fmt.Sprintf(" AND currency = $%d", argN)
+		args = append(args, filter.Currency)
+		argN++
+	}
+
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&summary.Income, &summary.Expenses)
 	if err != nil {
 		return summary, err
 	}

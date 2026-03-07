@@ -162,11 +162,12 @@ type PageHandler struct {
 	recurringSvc   *service.RecurringService
 	investmentSvc   *service.InvestmentService
 	installmentSvc  *service.InstallmentService
-	exportSvc       *service.ExportService
-	authSvc         *service.AuthService
+	exportSvc        *service.ExportService
+	authSvc          *service.AuthService
+	exchangeRateRepo *repository.ExchangeRateRepo
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService, exchangeRateRepo *repository.ExchangeRateRepo) *PageHandler {
 	return &PageHandler{
 		templates:       templates,
 		institutionSvc:  institutionSvc,
@@ -180,8 +181,9 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		recurringSvc:    recurringSvc,
 		investmentSvc:   investmentSvc,
 		installmentSvc:  installmentSvc,
-		exportSvc:       exportSvc,
-		authSvc:         authSvc,
+		exportSvc:        exportSvc,
+		authSvc:          authSvc,
+		exchangeRateRepo: exchangeRateRepo,
 	}
 }
 
@@ -1173,9 +1175,14 @@ func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	filter := service.ReportFilter{
+		AccountID: r.URL.Query().Get("account_id"),
+		Currency:  r.URL.Query().Get("currency"),
+	}
+
 	var data *service.ReportsData
 	if h.reportsSvc != nil {
-		report, err := h.reportsSvc.GetMonthlyReport(r.Context(), year, month)
+		report, err := h.reportsSvc.GetMonthlyReport(r.Context(), year, month, filter)
 		if err == nil {
 			data = &report
 		}
@@ -1711,6 +1718,22 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		return ""
 	}())
+}
+
+// ExchangeRatePageData holds data for the exchange rate history page.
+type ExchangeRatePageData struct {
+	Rates []repository.ExchangeRateLog
+}
+
+// ExchangeRates renders the exchange rate history page.
+// GET /exchange-rates
+func (h *PageHandler) ExchangeRates(w http.ResponseWriter, r *http.Request) {
+	var data ExchangeRatePageData
+	if h.exchangeRateRepo != nil {
+		rates, _ := h.exchangeRateRepo.GetAll(r.Context())
+		data.Rates = rates
+	}
+	RenderPage(h.templates, w, "exchange-rates", PageData{ActiveTab: "reports", Data: data})
 }
 
 // Settings renders the settings page.

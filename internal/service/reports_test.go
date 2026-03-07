@@ -49,7 +49,7 @@ func TestReportsService_GetMonthlyReport(t *testing.T) {
 		Date: now,
 	})
 
-	report, err := reportsSvc.GetMonthlyReport(ctx, now.Year(), now.Month())
+	report, err := reportsSvc.GetMonthlyReport(ctx, now.Year(), now.Month(), ReportFilter{})
 	if err != nil {
 		t.Fatalf("GetMonthlyReport: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestReportsService_GetMonthlyReport_EmptyMonth(t *testing.T) {
 
 	reportsSvc := NewReportsService(db)
 
-	report, err := reportsSvc.GetMonthlyReport(context.Background(), 2025, 1)
+	report, err := reportsSvc.GetMonthlyReport(context.Background(), 2025, 1, ReportFilter{})
 	if err != nil {
 		t.Fatalf("GetMonthlyReport: %v", err)
 	}
