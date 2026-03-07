@@ -75,22 +75,7 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 	}
 	defer dbTx.Rollback()
 
-	tx := models.Transaction{
-		Type:      txType,
-		Amount:    amount,
-		Currency:  currency,
-		AccountID: accountID,
-		PersonID:  &personID,
-		Note:      note,
-		Date:      date,
-	}
-
-	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
-	if err != nil {
-		return models.Transaction{}, err
-	}
-
-	// Update account balance and person net_balance
+	// Compute balance deltas before creating the transaction
 	var accountDelta, personDelta float64
 	if txType == models.TransactionTypeLoanOut {
 		// I lent money → money leaves my account, they owe me
@@ -100,6 +85,22 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 		// I borrowed → money enters my account, I owe them
 		accountDelta = amount
 		personDelta = -amount
+	}
+
+	tx := models.Transaction{
+		Type:         txType,
+		Amount:       amount,
+		Currency:     currency,
+		AccountID:    accountID,
+		PersonID:     &personID,
+		Note:         note,
+		Date:         date,
+		BalanceDelta: accountDelta,
+	}
+
+	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
+	if err != nil {
+		return models.Transaction{}, err
 	}
 
 	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, accountID, accountDelta); err != nil {
@@ -144,21 +145,6 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 	}
 	defer dbTx.Rollback()
 
-	tx := models.Transaction{
-		Type:      models.TransactionTypeLoanRepayment,
-		Amount:    amount,
-		Currency:  currency,
-		AccountID: accountID,
-		PersonID:  &personID,
-		Note:      note,
-		Date:      date,
-	}
-
-	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
-	if err != nil {
-		return models.Transaction{}, err
-	}
-
 	// Determine direction based on who owes whom
 	var accountDelta, personDelta float64
 	if person.NetBalance > 0 {
@@ -169,6 +155,22 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 		// I owe them → I'm paying back → money leaves my account
 		accountDelta = -amount
 		personDelta = amount
+	}
+
+	tx := models.Transaction{
+		Type:         models.TransactionTypeLoanRepayment,
+		Amount:       amount,
+		Currency:     currency,
+		AccountID:    accountID,
+		PersonID:     &personID,
+		Note:         note,
+		Date:         date,
+		BalanceDelta: accountDelta,
+	}
+
+	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
+	if err != nil {
+		return models.Transaction{}, err
 	}
 
 	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, accountID, accountDelta); err != nil {

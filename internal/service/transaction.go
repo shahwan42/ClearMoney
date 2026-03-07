@@ -67,7 +67,8 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 	// defer Rollback is safe — it's a no-op if Commit was already called.
 	defer dbTx.Rollback()
 
-	// 1. Insert the transaction record
+	// 1. Insert the transaction record with its balance impact
+	tx.BalanceDelta = delta
 	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
 	if err != nil {
 		return models.Transaction{}, 0, err
@@ -138,6 +139,7 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 		CounterAccountID: &destAccountID,
 		Note:             note,
 		Date:             date,
+		BalanceDelta:     -amount,
 	}
 	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
 	if err != nil {
@@ -153,6 +155,7 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 		CounterAccountID: &sourceAccountID,
 		Note:             note,
 		Date:             date,
+		BalanceDelta:     amount,
 	}
 	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
 	if err != nil {
@@ -246,6 +249,7 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		CounterAmount:    &counterAmount,
 		Note:             p.Note,
 		Date:             p.Date,
+		BalanceDelta:     -amount,
 	}
 	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
 	if err != nil {
@@ -263,6 +267,7 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		CounterAmount:    &amount,
 		Note:             p.Note,
 		Date:             p.Date,
+		BalanceDelta:     counterAmount,
 	}
 	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
 	if err != nil {

@@ -32,13 +32,14 @@ func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (mo
 		INSERT INTO transactions (type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+			is_building_fund, recurring_rule_id, balance_delta)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, created_at, updated_at
 	`, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
 		tx.CategoryID, tx.Date, tx.Time, tx.Note, pq.Array(tx.Tags),
 		tx.ExchangeRate, tx.CounterAmount, tx.FeeAmount, tx.FeeAccountID,
 		tx.PersonID, tx.LinkedTransactionID, tx.IsBuildingFund, tx.RecurringRuleID,
+		tx.BalanceDelta,
 	).Scan(&tx.ID, &tx.CreatedAt, &tx.UpdatedAt)
 
 	if err != nil {
@@ -58,13 +59,14 @@ func (r *TransactionRepo) CreateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 		INSERT INTO transactions (type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+			is_building_fund, recurring_rule_id, balance_delta)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, created_at, updated_at
 	`, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
 		tx.CategoryID, tx.Date, tx.Time, tx.Note, pq.Array(tx.Tags),
 		tx.ExchangeRate, tx.CounterAmount, tx.FeeAmount, tx.FeeAccountID,
 		tx.PersonID, tx.LinkedTransactionID, tx.IsBuildingFund, tx.RecurringRuleID,
+		tx.BalanceDelta,
 	).Scan(&tx.ID, &tx.CreatedAt, &tx.UpdatedAt)
 
 	if err != nil {
@@ -80,14 +82,14 @@ func (r *TransactionRepo) GetByID(ctx context.Context, id string) (models.Transa
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE id = $1
 	`, id).Scan(
 		&tx.ID, &tx.Type, &tx.Amount, &tx.Currency, &tx.AccountID,
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.CreatedAt, &tx.UpdatedAt,
+		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 	)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("getting transaction: %w", err)
@@ -101,7 +103,7 @@ func (r *TransactionRepo) GetRecent(ctx context.Context, limit int) ([]models.Tr
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions ORDER BY date DESC, created_at DESC LIMIT $1
 	`, limit)
 }
@@ -112,7 +114,7 @@ func (r *TransactionRepo) GetByAccount(ctx context.Context, accountID string, li
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE account_id = $1
 		ORDER BY date DESC, created_at DESC LIMIT $2
 	`, accountID, limit)
@@ -128,7 +130,7 @@ func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (mo
 		RETURNING id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
 		tx.Note, tx.Date,
 	).Scan(
@@ -136,7 +138,7 @@ func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (mo
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.CreatedAt, &tx.UpdatedAt,
+		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 	)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("updating transaction: %w", err)
@@ -154,7 +156,7 @@ func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 		RETURNING id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
 		tx.Note, tx.Date,
 	).Scan(
@@ -162,7 +164,7 @@ func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.CreatedAt, &tx.UpdatedAt,
+		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 	)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("updating transaction: %w", err)
@@ -244,6 +246,7 @@ type TransactionFilter struct {
 	Type       string // "expense", "income", etc.
 	DateFrom   *time.Time
 	DateTo     *time.Time
+	Search     string // full-text search on note field
 	Limit      int
 	Offset     int
 }
@@ -255,7 +258,7 @@ func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) 
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE 1=1`
 
 	var args []any
@@ -284,6 +287,11 @@ func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) 
 	if f.DateTo != nil {
 		query += fmt.Sprintf(" AND date <= $%d", argN)
 		args = append(args, *f.DateTo)
+		argN++
+	}
+	if f.Search != "" {
+		query += fmt.Sprintf(" AND note ILIKE $%d", argN)
+		args = append(args, "%"+f.Search+"%")
 		argN++
 	}
 
@@ -412,7 +420,7 @@ func (r *TransactionRepo) GetBuildingFundTransactions(ctx context.Context, limit
 		SELECT id, type, amount, currency, account_id, counter_account_id, category_id,
 			date, time, note, tags, exchange_rate, counter_amount, fee_amount, fee_account_id,
 			person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE is_building_fund = true
 		ORDER BY date DESC, created_at DESC LIMIT $1
 	`, limit)
@@ -424,7 +432,7 @@ func (r *TransactionRepo) GetByDateRange(ctx context.Context, from, to time.Time
 		SELECT id, type, amount, currency, account_id, counter_account_id, category_id,
 			date, time, note, tags, exchange_rate, counter_amount, fee_amount, fee_account_id,
 			person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, created_at, updated_at
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE date >= $1 AND date <= $2
 		ORDER BY date DESC, created_at DESC
 	`, from, to)
@@ -445,7 +453,7 @@ func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, a
 			&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 			&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 			&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-			&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.CreatedAt, &tx.UpdatedAt,
+			&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning transaction: %w", err)
 		}

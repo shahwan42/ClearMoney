@@ -59,6 +59,7 @@ type TransactionListData struct {
 	Type       string
 	DateFrom   string
 	DateTo     string
+	Search     string
 }
 
 // TransactionEditData holds data for the inline edit form.
@@ -358,6 +359,7 @@ func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 		Type:         filter.Type,
 		DateFrom:     r.URL.Query().Get("date_from"),
 		DateTo:       r.URL.Query().Get("date_to"),
+		Search:       filter.Search,
 	}
 
 	RenderPage(h.templates, w, "transactions", PageData{ActiveTab: "home", Data: data})
@@ -378,6 +380,7 @@ func (h *PageHandler) TransactionList(w http.ResponseWriter, r *http.Request) {
 		Type:         filter.Type,
 		DateFrom:     r.URL.Query().Get("date_from"),
 		DateTo:       r.URL.Query().Get("date_to"),
+		Search:       filter.Search,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -396,6 +399,7 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 		AccountID:  q.Get("account_id"),
 		CategoryID: q.Get("category_id"),
 		Type:       q.Get("type"),
+		Search:     q.Get("search"),
 		Limit:      50,
 	}
 

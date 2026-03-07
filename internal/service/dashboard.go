@@ -44,6 +44,9 @@ type DashboardData struct {
 	// Upcoming credit card due dates (within 7 days)
 	DueSoonCards []DueSoonCard
 
+	// Habit streak: consecutive days with transactions and weekly count
+	Streak StreakInfo
+
 	// Recent transactions for the feed
 	RecentTransactions []models.Transaction
 }
@@ -71,6 +74,7 @@ type DashboardService struct {
 	exchangeRateRepo *repository.ExchangeRateRepo
 	personRepo       *repository.PersonRepo
 	investmentRepo   *repository.InvestmentRepo
+	streakSvc        *StreakService
 }
 
 func NewDashboardService(institutionRepo *repository.InstitutionRepo, accountRepo *repository.AccountRepo, txRepo *repository.TransactionRepo) *DashboardService {
@@ -94,6 +98,11 @@ func (s *DashboardService) SetPersonRepo(repo *repository.PersonRepo) {
 // SetInvestmentRepo sets the investment repository for portfolio value on dashboard.
 func (s *DashboardService) SetInvestmentRepo(repo *repository.InvestmentRepo) {
 	s.investmentRepo = repo
+}
+
+// SetStreakService sets the streak service for habit tracking on dashboard.
+func (s *DashboardService) SetStreakService(svc *StreakService) {
+	s.streakSvc = svc
 }
 
 // GetDashboard computes the full dashboard data in a single call.
@@ -194,6 +203,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	if s.investmentRepo != nil {
 		if total, err := s.investmentRepo.GetTotalValuation(ctx); err == nil {
 			data.InvestmentTotal = total
+		}
+	}
+
+	// Habit streak
+	if s.streakSvc != nil {
+		if streak, err := s.streakSvc.GetStreak(ctx); err == nil {
+			data.Streak = streak
 		}
 	}
 

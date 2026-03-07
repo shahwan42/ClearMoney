@@ -68,6 +68,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	investmentRepo := repository.NewInvestmentRepo(db)
 	investmentSvc := service.NewInvestmentService(investmentRepo)
 	dashboardSvc.SetInvestmentRepo(investmentRepo)
+	streakSvc := service.NewStreakService(db)
+	dashboardSvc.SetStreakService(streakSvc)
 	reportsSvc := service.NewReportsService(db)
 	recurringRepo := repository.NewRecurringRepo(db)
 	recurringSvc := service.NewRecurringService(recurringRepo, txSvc)

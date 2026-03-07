@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration clean up down logs migrate-create seed
+.PHONY: run build test test-integration clean up down logs migrate-create seed reconcile reconcile-fix
 
 run:
 	go run ./cmd/server
@@ -26,6 +26,12 @@ logs:
 
 seed:
 	DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" go run ./cmd/seed
+
+reconcile:
+	DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" go run ./cmd/reconcile
+
+reconcile-fix:
+	DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" go run ./cmd/reconcile -- --fix
 
 migrate-create:
 	@if [ -z "$(name)" ]; then echo "Usage: make migrate-create name=<migration_name>"; exit 1; fi

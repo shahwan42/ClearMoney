@@ -11,8 +11,12 @@
     </div>
 
     <!-- Filter bar -->
-    <form id="tx-filters" hx-get="/transactions/list" hx-target="#transaction-list" hx-trigger="change"
+    <form id="tx-filters" hx-get="/transactions/list" hx-target="#transaction-list" hx-trigger="change, keyup changed delay:300ms from:#search-input"
           class="bg-white rounded-xl shadow-sm p-3 space-y-2">
+        <!-- Search -->
+        <input id="search-input" type="text" name="search" placeholder="Search notes..."
+               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5">
+
         <div class="grid grid-cols-2 gap-2">
             <select name="account_id" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
                 <option value="">All Accounts</option>

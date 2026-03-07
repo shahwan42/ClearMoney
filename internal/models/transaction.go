@@ -43,6 +43,7 @@ type Transaction struct {
 	LinkedTransactionID *string         `json:"linked_transaction_id,omitempty" db:"linked_transaction_id"`
 	IsBuildingFund      bool            `json:"is_building_fund" db:"is_building_fund"`
 	RecurringRuleID     *string         `json:"recurring_rule_id,omitempty" db:"recurring_rule_id"`
+	BalanceDelta        float64         `json:"balance_delta" db:"balance_delta"` // actual balance impact on account_id's balance
 	CreatedAt           time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt           time.Time       `json:"updated_at" db:"updated_at"`
 }

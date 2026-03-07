@@ -7,7 +7,7 @@
 </div>
 {{if .HasMore}}
 <div class="text-center mt-4">
-    <button hx-get="/transactions/list?offset={{.NextOffset}}&account_id={{.AccountID}}&type={{.Type}}&category_id={{.CategoryID}}&date_from={{.DateFrom}}&date_to={{.DateTo}}"
+    <button hx-get="/transactions/list?offset={{.NextOffset}}&account_id={{.AccountID}}&type={{.Type}}&category_id={{.CategoryID}}&date_from={{.DateFrom}}&date_to={{.DateTo}}&search={{.Search}}"
             hx-target="#transaction-list" hx-swap="innerHTML"
             class="text-sm text-teal-600 font-medium py-2">
         Load more...

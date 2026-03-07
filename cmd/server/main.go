@@ -19,6 +19,7 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/config"
 	"github.com/ahmedelsamadisi/clearmoney/internal/database"
 	"github.com/ahmedelsamadisi/clearmoney/internal/handler"
+	"github.com/ahmedelsamadisi/clearmoney/internal/jobs"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
 )
@@ -58,6 +59,23 @@ func main() {
 			log.Printf("recurring rules processing error: %v", err)
 		} else if processed > 0 {
 			log.Printf("recurring: auto-created %d transactions", processed)
+		}
+
+		// Run balance reconciliation on startup (report only, no auto-fix).
+		discrepancies, err := jobs.ReconcileBalances(context.Background(), db, false)
+		if err != nil {
+			log.Printf("reconciliation error: %v", err)
+		} else if len(discrepancies) > 0 {
+			log.Printf("WARNING: %d balance discrepancies found:", len(discrepancies))
+			for _, d := range discrepancies {
+				log.Printf("  %s: cached=%.2f expected=%.2f diff=%.2f",
+					d.AccountName, d.CachedBalance, d.ExpectedBalance, d.Difference)
+			}
+		}
+
+		// Refresh materialized views on startup for fresh data.
+		if err := jobs.RefreshMaterializedViews(context.Background(), db); err != nil {
+			log.Printf("materialized view refresh error: %v", err)
 		}
 	}
 
