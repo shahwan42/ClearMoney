@@ -424,6 +424,104 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 	return createdDebit, createdCredit, fee, nil
 }
 
+// CreateFawryCashout implements the Fawry credit card cash-out pattern (S-1):
+// 1. Charge credit card: expense of (amount + fee)
+// 2. Credit Fawry prepaid account: income of amount
+// All within a single DB transaction for atomicity.
+//
+// This is commonly used in Egypt to convert credit card balance to cash
+// through Fawry prepaid services.
+func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardID, prepaidAccountID string, amount, fee float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, error) {
+	if amount <= 0 {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("amount must be positive")
+	}
+	if fee < 0 {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("fee cannot be negative")
+	}
+	if creditCardID == "" || prepaidAccountID == "" {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("both credit card and prepaid account IDs are required")
+	}
+	if creditCardID == prepaidAccountID {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("credit card and prepaid account must be different")
+	}
+
+	if date.IsZero() {
+		date = time.Now()
+	}
+
+	totalCharge := amount + fee
+
+	dbTx, err := s.txRepo.BeginTx(ctx)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("beginning transaction: %w", err)
+	}
+	defer dbTx.Rollback()
+
+	// 1. Credit card charge (expense: amount + fee)
+	chargeNote := "Fawry cash-out"
+	if note != nil && *note != "" {
+		chargeNote = *note + " (Fawry cash-out)"
+	}
+	chargeTx := models.Transaction{
+		Type:             models.TransactionTypeExpense,
+		Amount:           totalCharge,
+		Currency:         currency,
+		AccountID:        creditCardID,
+		CounterAccountID: &prepaidAccountID,
+		FeeAmount:        &fee,
+		Note:             &chargeNote,
+		Date:             date,
+	}
+	if feesCategoryID != "" {
+		chargeTx.CategoryID = &feesCategoryID
+	}
+	createdCharge, err := s.txRepo.CreateTx(ctx, dbTx, chargeTx)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating charge: %w", err)
+	}
+
+	// 2. Prepaid account credit (income: net amount)
+	creditNote := "Fawry top-up"
+	if note != nil && *note != "" {
+		creditNote = *note + " (Fawry top-up)"
+	}
+	creditTx := models.Transaction{
+		Type:             models.TransactionTypeIncome,
+		Amount:           amount,
+		Currency:         currency,
+		AccountID:        prepaidAccountID,
+		CounterAccountID: &creditCardID,
+		Note:             &creditNote,
+		Date:             date,
+	}
+	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, creditTx)
+	if err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating credit: %w", err)
+	}
+
+	// Link the two transactions
+	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdCharge.ID, createdCredit.ID); err != nil {
+		return models.Transaction{}, models.Transaction{}, err
+	}
+
+	// Update balances: credit card goes down by total, prepaid goes up by net amount
+	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, creditCardID, -totalCharge); err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("debiting credit card: %w", err)
+	}
+	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, prepaidAccountID, amount); err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("crediting prepaid: %w", err)
+	}
+
+	if err := dbTx.Commit(); err != nil {
+		return models.Transaction{}, models.Transaction{}, fmt.Errorf("committing: %w", err)
+	}
+
+	createdCharge.LinkedTransactionID = &createdCredit.ID
+	createdCredit.LinkedTransactionID = &createdCharge.ID
+
+	return createdCharge, createdCredit, nil
+}
+
 // resolveExchangeFields computes the missing field from two provided values.
 // amount * rate = counterAmount
 func resolveExchangeFields(amount, rate, counterAmount *float64) (float64, float64, float64, error) {

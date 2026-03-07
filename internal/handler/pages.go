@@ -1043,6 +1043,69 @@ func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// FawryCashout renders the Fawry cash-out form page.
+// GET /fawry-cashout
+func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["transaction-new"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "fawry-cashout-form", TransactionFormData{Accounts: accounts})
+}
+
+// FawryCashoutCreate handles the Fawry cash-out form submission.
+// POST /transactions/fawry-cashout
+func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	fee, _ := parseFloat(r.FormValue("fee"))
+	creditCardID := r.FormValue("credit_card_id")
+	prepaidAccountID := r.FormValue("prepaid_account_id")
+	currency := models.Currency(r.FormValue("currency"))
+
+	var note *string
+	if n := r.FormValue("note"); n != "" {
+		note = &n
+	}
+
+	var date time.Time
+	if d := r.FormValue("date"); d != "" {
+		date, _ = parseDate(d)
+	}
+
+	// Look up "Fees & Charges" category
+	feesCatID := ""
+	if cats, err := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense); err == nil {
+		for _, c := range cats {
+			if c.Name == "Fees & Charges" {
+				feesCatID = c.ID
+				break
+			}
+		}
+	}
+
+	_, _, err := h.txSvc.CreateFawryCashout(r.Context(), creditCardID, prepaidAccountID, amount, fee, currency, note, date, feesCatID)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(fmt.Sprintf(
+		`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Fawry cash-out completed! Amount: EGP %.2f, Fee: EGP %.2f</div>`,
+		amount, fee,
+	)))
+}
+
 // InstitutionList renders just the institution list partial.
 // Used by HTMX after creating an institution or account to refresh the list.
 func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {

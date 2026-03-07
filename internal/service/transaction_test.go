@@ -656,6 +656,105 @@ func TestTransactionService_SmartDefaults_AutoCategory(t *testing.T) {
 	}
 }
 
+func TestTransactionService_FawryCashout(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	creditLimit := 100000.0
+	cc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Credit Card", Type: models.AccountTypeCreditCard,
+		Currency: models.CurrencyEGP, InitialBalance: 0, CreditLimit: &creditLimit,
+	})
+	prepaid := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Fawry Prepaid", Type: models.AccountTypePrepaid,
+		Currency: models.CurrencyEGP, InitialBalance: 0,
+	})
+
+	charge, credit, err := svc.CreateFawryCashout(
+		context.Background(), cc.ID, prepaid.ID,
+		5000, 50, models.CurrencyEGP, nil, time.Now(), "",
+	)
+	if err != nil {
+		t.Fatalf("fawry cashout: %v", err)
+	}
+
+	// Charge should be expense for total (amount + fee)
+	if charge.Type != models.TransactionTypeExpense {
+		t.Errorf("charge type = %s, want expense", charge.Type)
+	}
+	if charge.Amount != 5050 {
+		t.Errorf("charge amount = %f, want 5050", charge.Amount)
+	}
+
+	// Credit should be income for net amount
+	if credit.Type != models.TransactionTypeIncome {
+		t.Errorf("credit type = %s, want income", credit.Type)
+	}
+	if credit.Amount != 5000 {
+		t.Errorf("credit amount = %f, want 5000", credit.Amount)
+	}
+
+	// Credit card: 0 - 5050 = -5050
+	ccAcc, _ := accRepo.GetByID(context.Background(), cc.ID)
+	if ccAcc.CurrentBalance != -5050 {
+		t.Errorf("cc balance = %f, want -5050", ccAcc.CurrentBalance)
+	}
+
+	// Prepaid: 0 + 5000 = 5000
+	prepaidAcc, _ := accRepo.GetByID(context.Background(), prepaid.ID)
+	if prepaidAcc.CurrentBalance != 5000 {
+		t.Errorf("prepaid balance = %f, want 5000", prepaidAcc.CurrentBalance)
+	}
+
+	// Linked
+	if charge.LinkedTransactionID == nil || *charge.LinkedTransactionID != credit.ID {
+		t.Error("charge should be linked to credit")
+	}
+}
+
+func TestTransactionService_FawryCashout_ValidationErrors(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	tests := []struct {
+		name      string
+		ccID      string
+		prepaidID string
+		amount    float64
+		fee       float64
+	}{
+		{"zero amount", "a", "b", 0, 10},
+		{"negative fee", "a", "b", 1000, -5},
+		{"missing cc", "", "b", 1000, 10},
+		{"same account", "a", "a", 1000, 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := svc.CreateFawryCashout(
+				context.Background(), tt.ccID, tt.prepaidID,
+				tt.amount, tt.fee, models.CurrencyEGP, nil, time.Now(), "",
+			)
+			if err == nil {
+				t.Errorf("expected error for %s", tt.name)
+			}
+		})
+	}
+}
+
 func TestTransactionService_SmartDefaults_RecentCategories(t *testing.T) {
 	svc, acc, catID := setupTransactionServiceTest(t)
 	ctx := context.Background()
