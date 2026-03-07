@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -72,6 +73,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
 	installmentRepo := repository.NewInstallmentRepo(db)
 	installmentSvc := service.NewInstallmentService(installmentRepo, txSvc)
+	notificationSvc := service.NewNotificationService(dashboardSvc, recurringSvc)
 	authSvc := service.NewAuthService(db)
 
 	// Auth routes (public — no auth middleware)
@@ -146,6 +148,12 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Delete("/installments/{id}", pages.InstallmentDelete)
 		r.Get("/batch-entry", pages.BatchEntry)
 		r.Post("/transactions/batch", pages.BatchCreate)
+
+		// Push notification endpoints
+		push := NewPushHandler(notificationSvc, os.Getenv("VAPID_PUBLIC_KEY"))
+		r.Get("/api/push/vapid-key", push.VAPIDKey)
+		r.Post("/api/push/subscribe", push.Subscribe)
+		r.Get("/api/push/check", push.CheckNotifications)
 	})
 
 	return r

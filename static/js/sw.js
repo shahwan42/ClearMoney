@@ -35,6 +35,40 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Push: show a notification when the server sends a push message.
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'ClearMoney', {
+      body: data.body || '',
+      icon: '/static/icons/icon-192.svg',
+      badge: '/static/icons/icon-192.svg',
+      tag: data.tag || 'default',
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+// Notification click: open the relevant page.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((windowClients) => {
+      // Focus existing tab if one is open
+      for (const client of windowClients) {
+        if (client.url.includes(url) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise open a new tab
+      return clients.openWindow(url);
+    })
+  );
+});
+
 // Fetch: network-first for HTML (pages), cache-first for static assets.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);

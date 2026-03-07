@@ -27,6 +27,9 @@
 
     {{template "header" .}}
 
+    <!-- Notification banner (populated by push.js) -->
+    <div id="notification-banner" class="fixed top-14 left-0 right-0 z-40 px-4"></div>
+
     <!-- Main content area: scrollable, with padding for header and bottom nav -->
     <main class="flex-1 overflow-y-auto pt-14 pb-20 px-4">
         {{block "content" .}}{{end}}
@@ -36,6 +39,9 @@
 
     <!-- Offline transaction queue -->
     <script src="/static/js/offline.js"></script>
+
+    <!-- Push notifications -->
+    <script src="/static/js/push.js"></script>
 
     <!-- Register service worker for PWA caching -->
     <script>
