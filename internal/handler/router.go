@@ -62,6 +62,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	personSvc := service.NewPersonService(personRepo, txRepo)
 	salarySvc := service.NewSalaryService(txRepo, accountRepo)
 	dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
+	dashboardSvc.SetExchangeRateRepo(exchangeRateRepo)
 	authSvc := service.NewAuthService(db)
 
 	// Auth routes (public — no auth middleware)

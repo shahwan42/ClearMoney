@@ -1,0 +1,7 @@
+{{define "exchange-rate-chip"}}
+{{if gt .ExchangeRate 0.0}}
+<div class="inline-flex items-center gap-1 bg-blue-50 text-blue-700 rounded-full px-3 py-1 text-xs font-medium">
+    <span>1 USD = {{printf "%.2f" .ExchangeRate}} EGP</span>
+</div>
+{{end}}
+{{end}}

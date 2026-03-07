@@ -8,9 +8,20 @@
     <!-- Net Worth Summary -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
+        {{if gt .Data.ExchangeRate 0.0}}
+        <p class="text-3xl font-bold {{if lt .Data.NetWorthEGP 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
+            {{formatEGP .Data.NetWorthEGP}}
+        </p>
+        {{if gt .Data.USDTotal 0.0}}
+        <p class="text-xs text-gray-400 mt-1">
+            Includes {{formatUSD .Data.USDTotal}} @ {{printf "%.2f" .Data.ExchangeRate}} = {{formatEGP .Data.USDInEGP}}
+        </p>
+        {{end}}
+        {{else}}
         <p class="text-3xl font-bold {{if lt .Data.NetWorth 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
             {{formatEGP .Data.NetWorth}}
         </p>
+        {{end}}
     </section>
 
     <!-- Quick Summary Cards -->
