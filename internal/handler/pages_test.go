@@ -554,6 +554,113 @@ func TestTransactionDelete_FromUI(t *testing.T) {
 	}
 }
 
+func TestAccountDetailPage_Renders(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings EGP",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 25000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create a transaction on this account
+	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&note=Test+expense")
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Visit account detail
+	req = httptest.NewRequest(http.MethodGet, "/accounts/"+acc.ID, nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	checks := []string{
+		"Savings EGP",       // account name
+		"HSBC",              // institution name
+		"24,500.00",         // balance after 500 expense
+		"Test expense",      // transaction in history
+		"Transaction History",
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected account detail to contain %q", check)
+		}
+	}
+}
+
+func TestAccountDetailPage_CreditCard(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	limit := 50000.0
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Credit Card",
+		Type:           models.AccountTypeCreditCard,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 0,
+		CreditLimit:    &limit,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create an expense
+	formData := strings.NewReader("type=expense&amount=10000&currency=EGP&account_id=" + acc.ID)
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	req = httptest.NewRequest(http.MethodGet, "/accounts/"+acc.ID, nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Available Credit") {
+		t.Error("expected credit card to show available credit")
+	}
+	// Available: 50000 - 10000 = 40000
+	if !strings.Contains(body, "40,000.00") {
+		t.Error("expected available credit of 40,000.00")
+	}
+}
+
+func TestAccountDetailPage_NotFound(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	router, addAuth := testRouter(t, db)
+
+	req := httptest.NewRequest(http.MethodGet, "/accounts/nonexistent-id", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
 func TestQuickEntryForm_Renders(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")

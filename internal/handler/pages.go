@@ -77,6 +77,13 @@ type QuickEntryData struct {
 	AutoCategoryID string
 }
 
+// AccountDetailData holds data for the account detail page.
+type AccountDetailData struct {
+	Account             models.Account
+	InstitutionName     string
+	TransactionListData TransactionListData
+}
+
 // PageHandler serves full HTML pages (as opposed to JSON API endpoints).
 // Think of it like Laravel's web routes vs API routes — same data, different format.
 type PageHandler struct {
@@ -527,6 +534,44 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tmpl.ExecuteTemplate(w, "transaction-row", tx)
+}
+
+// AccountDetail renders the account detail page with transaction history.
+// GET /accounts/{id}
+func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "account not found", http.StatusNotFound)
+		return
+	}
+
+	// Get institution name
+	instName := ""
+	if inst, err := h.institutionSvc.GetByID(r.Context(), acc.InstitutionID); err == nil {
+		instName = inst.Name
+	}
+
+	// Get transactions filtered to this account
+	filter := repository.TransactionFilter{
+		AccountID: id,
+		Limit:     50,
+	}
+	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
+
+	data := AccountDetailData{
+		Account:         acc,
+		InstitutionName: instName,
+		TransactionListData: TransactionListData{
+			Transactions: txns,
+			HasMore:      len(txns) >= filter.Limit,
+			NextOffset:   filter.Limit,
+			AccountID:    id,
+		},
+	}
+
+	RenderPage(h.templates, w, "account-detail", PageData{ActiveTab: "accounts", Data: data})
 }
 
 // QuickEntryForm serves the quick-entry form partial into the bottom sheet.

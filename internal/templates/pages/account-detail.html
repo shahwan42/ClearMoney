@@ -1,0 +1,42 @@
+{{define "title"}}ClearMoney - Account Detail{{end}}
+
+{{define "content"}}
+<div class="space-y-4 py-4">
+    <!-- Account header -->
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h1 class="text-lg font-bold text-slate-800">{{.Data.Account.Name}}</h1>
+                <p class="text-xs text-gray-400">{{.Data.InstitutionName}} &middot; {{.Data.Account.Type}} &middot; {{.Data.Account.Currency}}</p>
+            </div>
+            <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">All Accounts</a>
+        </div>
+
+        <div class="flex items-end justify-between">
+            <div>
+                <p class="text-xs text-gray-500 mb-0.5">Current Balance</p>
+                <p class="text-2xl font-bold {{if lt .Data.Account.CurrentBalance 0.0}}text-red-600{{else}}text-teal-700{{end}}">
+                    {{formatCurrency .Data.Account.CurrentBalance .Data.Account.Currency}}
+                </p>
+            </div>
+            {{if .Data.Account.IsCreditType}}
+            <div class="text-right">
+                <p class="text-xs text-gray-500 mb-0.5">Available Credit</p>
+                <p class="text-sm font-semibold text-slate-700">
+                    {{formatCurrency .Data.Account.AvailableCredit .Data.Account.Currency}}
+                </p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Transaction list for this account -->
+    <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-slate-700">Transaction History</h2>
+    </div>
+
+    <div id="transaction-list">
+        {{template "transaction-list" .Data.TransactionListData}}
+    </div>
+</div>
+{{end}}

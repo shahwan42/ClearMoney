@@ -24,20 +24,20 @@
         <div class="border-t border-gray-100">
             {{if .Accounts}}
                 {{range .Accounts}}
-                <div class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                <a href="/accounts/{{.ID}}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                     <div>
                         <p class="text-sm font-medium text-slate-700">{{.Name}}</p>
                         <p class="text-xs text-gray-400">{{.Type}} &middot; {{.Currency}}</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-sm font-semibold {{if lt .CurrentBalance 0}}text-red-600{{else}}text-slate-800{{end}}">
+                        <p class="text-sm font-semibold {{if lt .CurrentBalance 0.0}}text-red-600{{else}}text-slate-800{{end}}">
                             {{formatCurrency .CurrentBalance .Currency}}
                         </p>
                         {{if .IsCreditType}}
                         <p class="text-xs text-gray-400">avail: {{formatCurrency .AvailableCredit .Currency}}</p>
                         {{end}}
                     </div>
-                </div>
+                </a>
                 {{end}}
             {{else}}
                 <p class="px-4 py-3 text-sm text-gray-400">No accounts yet</p>
