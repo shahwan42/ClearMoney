@@ -101,6 +101,13 @@ type PeoplePageData struct {
 	Accounts []models.Account
 }
 
+// BuildingFundPageData holds data for the building fund sub-ledger page.
+type BuildingFundPageData struct {
+	Balance      float64
+	Transactions []models.Transaction
+	Accounts     []models.Account
+}
+
 // SalaryStepData holds data passed between salary wizard steps.
 type SalaryStepData struct {
 	Accounts     []models.Account
@@ -1115,6 +1122,61 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 		`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Fawry cash-out completed! Amount: EGP %.2f, Fee: EGP %.2f</div>`,
 		amount, fee,
 	)))
+}
+
+// BuildingFundPage renders the building fund sub-ledger page.
+// GET /building-fund
+func (h *PageHandler) BuildingFundPage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	balance, _ := h.txSvc.GetBuildingFundBalance(ctx)
+	txns, _ := h.txSvc.GetBuildingFundTransactions(ctx, 100)
+	accounts, _ := h.accountSvc.GetAll(ctx)
+
+	RenderPage(h.templates, w, "building-fund", PageData{
+		ActiveTab: "home",
+		Data: BuildingFundPageData{
+			Balance:      balance,
+			Transactions: txns,
+			Accounts:     accounts,
+		},
+	})
+}
+
+// BuildingFundAdd handles the building fund collection/expense form.
+// POST /building-fund/add
+func (h *PageHandler) BuildingFundAdd(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	tx := models.Transaction{
+		Type:           models.TransactionType(r.FormValue("type")),
+		Amount:         amount,
+		Currency:       models.CurrencyEGP,
+		AccountID:      r.FormValue("account_id"),
+		IsBuildingFund: true,
+	}
+	if note := r.FormValue("note"); note != "" {
+		tx.Note = &note
+	}
+	if dateStr := r.FormValue("date"); dateStr != "" {
+		if parsed, err := parseDate(dateStr); err == nil {
+			tx.Date = parsed
+		}
+	}
+
+	_, _, err := h.txSvc.Create(r.Context(), tx)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Building fund entry recorded! <a href="/building-fund" class="underline">Refresh page</a></div>`))
 }
 
 // PeopleSummary renders the people summary partial for the dashboard.

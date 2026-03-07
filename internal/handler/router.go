@@ -113,6 +113,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Post("/people/add", pages.PeopleAdd)
 		r.Post("/people/{id}/loan", pages.PeopleLoan)
 		r.Post("/people/{id}/repay", pages.PeopleRepay)
+		r.Get("/building-fund", pages.BuildingFundPage)
+		r.Post("/building-fund/add", pages.BuildingFundAdd)
 		r.Get("/fawry-cashout", pages.FawryCashout)
 		r.Post("/transactions/fawry-cashout", pages.FawryCashoutCreate)
 		r.Get("/salary", pages.Salary)

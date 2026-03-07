@@ -712,6 +712,16 @@ func (s *TransactionService) GetSmartDefaults(ctx context.Context, txType string
 	return defaults
 }
 
+// GetBuildingFundBalance returns the current building fund balance.
+func (s *TransactionService) GetBuildingFundBalance(ctx context.Context) (float64, error) {
+	return s.txRepo.GetBuildingFundBalance(ctx)
+}
+
+// GetBuildingFundTransactions returns building fund transactions.
+func (s *TransactionService) GetBuildingFundTransactions(ctx context.Context, limit int) ([]models.Transaction, error) {
+	return s.txRepo.GetBuildingFundTransactions(ctx, limit)
+}
+
 func (s *TransactionService) validateBasic(tx models.Transaction) error {
 	if tx.Amount <= 0 {
 		return fmt.Errorf("amount must be positive")
