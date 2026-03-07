@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -1247,6 +1248,61 @@ func (h *PageHandler) BuildingFund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tmpl.ExecuteTemplate(w, "building-fund", data)
+}
+
+// SyncTransactions handles batch sync of offline-queued transactions.
+// POST /sync/transactions — accepts JSON array and creates each transaction.
+func (h *PageHandler) SyncTransactions(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Transactions []struct {
+			Type       string `json:"type"`
+			Amount     string `json:"amount"`
+			Currency   string `json:"currency"`
+			AccountID  string `json:"account_id"`
+			CategoryID string `json:"category_id"`
+			Note       string `json:"note"`
+			Date       string `json:"date"`
+		} `json:"transactions"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	var created, failed int
+	for _, t := range payload.Transactions {
+		amount, _ := parseFloat(t.Amount)
+		tx := models.Transaction{
+			Type:     models.TransactionType(t.Type),
+			Amount:   amount,
+			Currency: models.Currency(t.Currency),
+			AccountID: t.AccountID,
+		}
+		if t.CategoryID != "" {
+			tx.CategoryID = &t.CategoryID
+		}
+		if t.Note != "" {
+			tx.Note = &t.Note
+		}
+		if t.Date != "" {
+			if parsed, err := parseDate(t.Date); err == nil {
+				tx.Date = parsed
+			}
+		}
+
+		if _, _, err := h.txSvc.Create(r.Context(), tx); err != nil {
+			failed++
+		} else {
+			created++
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{
+		"created": created,
+		"failed":  failed,
+	})
 }
 
 // InstitutionList renders just the institution list partial.

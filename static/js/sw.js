@@ -56,6 +56,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Transaction POSTs: if offline, return a synthetic response so
+  // the client-side offline.js can queue to IndexedDB.
+  if (event.request.method === 'POST' &&
+      (url.pathname === '/transactions' || url.pathname === '/transactions/quick')) {
+    event.respondWith(
+      fetch(event.request.clone())
+        .catch(() => {
+          // Return a special response that tells the client to queue offline
+          return new Response(
+            '<div class="bg-yellow-50 text-yellow-700 p-3 rounded-lg text-sm">' +
+            'You are offline. Transaction saved locally and will sync when online.</div>',
+            { status: 200, headers: { 'Content-Type': 'text/html', 'X-Offline-Queued': 'true' } }
+          );
+        })
+    );
+    return;
+  }
+
   // HTML pages: network-first (try network, fall back to cache).
   if (event.request.mode === 'navigate') {
     event.respondWith(
