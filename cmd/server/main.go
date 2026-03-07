@@ -19,6 +19,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/config"
 	"github.com/ahmedelsamadisi/clearmoney/internal/database"
 	"github.com/ahmedelsamadisi/clearmoney/internal/handler"
+	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/ahmedelsamadisi/clearmoney/internal/service"
 )
 
 func main() {
@@ -42,6 +44,21 @@ func main() {
 			log.Fatalf("migrations: %v", err)
 		}
 		log.Println("migrations complete")
+
+		// Process any due recurring rules on startup (auto_confirm ones only).
+		// Like Laravel's schedule:run — we check for overdue rules and execute them.
+		recurringRepo := repository.NewRecurringRepo(db)
+		txRepo := repository.NewTransactionRepo(db)
+		accountRepo := repository.NewAccountRepo(db)
+		txSvc := service.NewTransactionService(txRepo, accountRepo)
+		recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
+
+		processed, err := recurringSvc.ProcessDueRules(context.Background())
+		if err != nil {
+			log.Printf("recurring rules processing error: %v", err)
+		} else if processed > 0 {
+			log.Printf("recurring: auto-created %d transactions", processed)
+		}
 	}
 
 	// 3. Create the HTTP router with all routes and middleware.

@@ -1,0 +1,83 @@
+{{define "recurring-form"}}
+<div class="bg-white rounded-2xl shadow-sm p-5 space-y-3">
+    <h3 class="text-base font-bold text-slate-800">New Recurring Rule</h3>
+
+    <form hx-post="/recurring/add" hx-target="#recurring-list" hx-swap="innerHTML" class="space-y-3">
+        <div class="flex gap-2">
+            <label class="flex-1">
+                <input type="radio" name="type" value="expense" class="sr-only peer" checked>
+                <div class="text-center py-2 rounded-lg border border-gray-200 text-sm cursor-pointer
+                            peer-checked:bg-red-50 peer-checked:border-red-300 peer-checked:text-red-700">
+                    Expense
+                </div>
+            </label>
+            <label class="flex-1">
+                <input type="radio" name="type" value="income" class="sr-only peer">
+                <div class="text-center py-2 rounded-lg border border-gray-200 text-sm cursor-pointer
+                            peer-checked:bg-green-50 peer-checked:border-green-300 peer-checked:text-green-700">
+                    Income
+                </div>
+            </label>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Amount</label>
+            <input type="number" name="amount" step="0.01" min="0.01" required
+                   placeholder="0.00" inputmode="decimal"
+                   class="w-full text-lg font-bold text-center border border-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Account</label>
+            <select name="account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+                {{range .Accounts}}
+                <option value="{{.ID}}">{{.Name}} ({{.Currency}})</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Category</label>
+            <select name="category_id" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+                <option value="">None</option>
+                {{range .Categories}}
+                <option value="{{.ID}}">{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-xs text-gray-500 mb-1">Note</label>
+            <input type="text" name="note" placeholder="e.g., Monthly insurance"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Frequency</label>
+                <select name="frequency" required class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+                    <option value="monthly">Monthly</option>
+                    <option value="weekly">Weekly</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Next Due</label>
+                <input type="date" name="next_due_date" required
+                       class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+            </div>
+        </div>
+
+        <div>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" name="auto_confirm" value="true" class="rounded">
+                Auto-create (no confirmation needed)
+            </label>
+        </div>
+
+        <button type="submit"
+                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+            Create Rule
+        </button>
+    </form>
+</div>
+{{end}}

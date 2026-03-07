@@ -1,0 +1,72 @@
+{{define "title"}}ClearMoney - Recurring Rules{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <h2 class="text-lg font-bold text-slate-800">Recurring Transactions</h2>
+
+    {{if .Data}}
+
+    <!-- Pending confirmations -->
+    {{if .Data.PendingRules}}
+    <section class="space-y-2">
+        <h3 class="text-sm font-medium text-amber-700 uppercase tracking-wide">Pending Confirmation</h3>
+        {{range .Data.PendingRules}}
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
+            <div class="flex items-center justify-between mb-2">
+                <div>
+                    <p class="text-sm font-medium text-slate-700">{{.Note}}</p>
+                    <p class="text-xs text-gray-400">Due {{formatDate .NextDueDate}} &middot; {{.Frequency}}</p>
+                </div>
+                <span class="text-sm font-bold text-slate-800">{{.Amount}}</span>
+            </div>
+            <div class="flex gap-2">
+                <button hx-post="/recurring/{{.ID}}/confirm" hx-target="#recurring-list" hx-swap="innerHTML"
+                        class="flex-1 bg-teal-600 text-white py-1.5 rounded-lg text-xs font-semibold">
+                    Confirm
+                </button>
+                <button hx-post="/recurring/{{.ID}}/skip" hx-target="#recurring-list" hx-swap="innerHTML"
+                        class="flex-1 bg-gray-200 text-gray-600 py-1.5 rounded-lg text-xs font-semibold">
+                    Skip
+                </button>
+            </div>
+        </div>
+        {{end}}
+    </section>
+    {{end}}
+
+    <!-- Create new rule form -->
+    {{template "recurring-form" .Data}}
+
+    <!-- Active rules list -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Active Rules</h3>
+        <div id="recurring-list">
+            {{if .Data.Rules}}
+            <div class="divide-y divide-gray-100">
+                {{range .Data.Rules}}
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <p class="text-sm font-medium text-slate-700">{{.Note}}</p>
+                        <p class="text-xs text-gray-400">
+                            {{.Frequency}} &middot; Next: {{formatDate .NextDueDate}}
+                            {{if .AutoConfirm}}<span class="text-teal-600">auto</span>{{end}}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold text-slate-800">{{.Amount}}</span>
+                        <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
+                                hx-confirm="Delete this rule?"
+                                class="text-red-400 hover:text-red-600 text-xs">Del</button>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{else}}
+            <p class="text-sm text-gray-400 text-center">No recurring rules yet.</p>
+            {{end}}
+        </div>
+    </section>
+
+    {{end}}
+</div>
+{{end}}

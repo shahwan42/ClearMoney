@@ -109,6 +109,24 @@ type BuildingFundPageData struct {
 	Accounts     []models.Account
 }
 
+// RecurringRuleView is a display-friendly view of a recurring rule.
+type RecurringRuleView struct {
+	ID          string
+	Note        string
+	Amount      string
+	Frequency   string
+	NextDueDate time.Time
+	AutoConfirm bool
+}
+
+// RecurringPageData holds data for the recurring rules page.
+type RecurringPageData struct {
+	Rules        []RecurringRuleView
+	PendingRules []RecurringRuleView
+	Accounts     []models.Account
+	Categories   []models.Category
+}
+
 // SalaryStepData holds data passed between salary wizard steps.
 type SalaryStepData struct {
 	Accounts     []models.Account
@@ -141,9 +159,10 @@ type PageHandler struct {
 	personSvc      *service.PersonService
 	salarySvc      *service.SalaryService
 	reportsSvc     *service.ReportsService
+	recurringSvc   *service.RecurringService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService) *PageHandler {
 	return &PageHandler{
 		templates:      templates,
 		institutionSvc: institutionSvc,
@@ -154,6 +173,7 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		personSvc:      personSvc,
 		salarySvc:      salarySvc,
 		reportsSvc:     reportsSvc,
+		recurringSvc:   recurringSvc,
 	}
 }
 
@@ -1248,6 +1268,171 @@ func (h *PageHandler) BuildingFund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tmpl.ExecuteTemplate(w, "building-fund", data)
+}
+
+// Recurring renders the recurring rules management page.
+// GET /recurring
+func (h *PageHandler) Recurring(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	accounts, _ := h.accountSvc.GetAll(ctx)
+	categories, _ := h.categorySvc.GetAll(ctx)
+
+	var data *RecurringPageData
+	if h.recurringSvc != nil {
+		rules, _ := h.recurringSvc.GetAll(ctx)
+		pending, _ := h.recurringSvc.GetDuePending(ctx)
+
+		ruleViews := make([]RecurringRuleView, 0, len(rules))
+		for _, rule := range rules {
+			ruleViews = append(ruleViews, recurringRuleToView(rule))
+		}
+		pendingViews := make([]RecurringRuleView, 0, len(pending))
+		for _, rule := range pending {
+			pendingViews = append(pendingViews, recurringRuleToView(rule))
+		}
+
+		data = &RecurringPageData{
+			Rules:        ruleViews,
+			PendingRules: pendingViews,
+			Accounts:     accounts,
+			Categories:   categories,
+		}
+	}
+
+	RenderPage(h.templates, w, "recurring", PageData{ActiveTab: "home", Data: data})
+}
+
+// RecurringAdd creates a new recurring rule.
+// POST /recurring/add
+func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	tmpl := models.TransactionTemplate{
+		Type:     models.TransactionType(r.FormValue("type")),
+		Amount:   amount,
+		Currency: models.CurrencyEGP,
+		AccountID: r.FormValue("account_id"),
+	}
+	if catID := r.FormValue("category_id"); catID != "" {
+		tmpl.CategoryID = &catID
+	}
+	if note := r.FormValue("note"); note != "" {
+		tmpl.Note = &note
+	}
+
+	// Look up account currency
+	if acc, err := h.accountSvc.GetByID(r.Context(), tmpl.AccountID); err == nil {
+		tmpl.Currency = acc.Currency
+	}
+
+	tmplJSON, _ := json.Marshal(tmpl)
+
+	var nextDue time.Time
+	if d := r.FormValue("next_due_date"); d != "" {
+		nextDue, _ = parseDate(d)
+	}
+
+	rule := models.RecurringRule{
+		TemplateTransaction: tmplJSON,
+		Frequency:           models.RecurringFrequency(r.FormValue("frequency")),
+		NextDueDate:         nextDue,
+		IsActive:            true,
+		AutoConfirm:         r.FormValue("auto_confirm") == "true",
+	}
+
+	_, err := h.recurringSvc.Create(r.Context(), rule)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	h.renderRecurringList(w, r)
+}
+
+// RecurringConfirm confirms a pending recurring rule and creates the transaction.
+// POST /recurring/{id}/confirm
+func (h *PageHandler) RecurringConfirm(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.recurringSvc.ConfirmRule(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.renderRecurringList(w, r)
+}
+
+// RecurringSkip skips a pending recurring rule without creating a transaction.
+// POST /recurring/{id}/skip
+func (h *PageHandler) RecurringSkip(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.recurringSvc.SkipRule(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.renderRecurringList(w, r)
+}
+
+// RecurringDelete deletes a recurring rule.
+// DELETE /recurring/{id}
+func (h *PageHandler) RecurringDelete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.recurringSvc.Delete(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.renderRecurringList(w, r)
+}
+
+// renderRecurringList renders the recurring rules list partial.
+func (h *PageHandler) renderRecurringList(w http.ResponseWriter, r *http.Request) {
+	rules, _ := h.recurringSvc.GetAll(r.Context())
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if len(rules) == 0 {
+		w.Write([]byte(`<p class="text-sm text-gray-400 text-center">No recurring rules yet.</p>`))
+		return
+	}
+	w.Write([]byte(`<div class="divide-y divide-gray-100">`))
+	for _, rule := range rules {
+		v := recurringRuleToView(rule)
+		w.Write([]byte(fmt.Sprintf(`<div class="flex items-center justify-between py-2">
+			<div>
+				<p class="text-sm font-medium text-slate-700">%s</p>
+				<p class="text-xs text-gray-400">%s &middot; Next: %s</p>
+			</div>
+			<div class="flex items-center gap-2">
+				<span class="text-sm font-bold text-slate-800">%s</span>
+			</div>
+		</div>`, v.Note, v.Frequency, v.NextDueDate.Format("Jan 2, 2006"), v.Amount)))
+	}
+	w.Write([]byte(`</div>`))
+}
+
+// recurringRuleToView converts a recurring rule to a display-friendly view.
+func recurringRuleToView(rule models.RecurringRule) RecurringRuleView {
+	var tmpl models.TransactionTemplate
+	json.Unmarshal(rule.TemplateTransaction, &tmpl)
+
+	note := ""
+	if tmpl.Note != nil {
+		note = *tmpl.Note
+	}
+	if note == "" {
+		note = string(tmpl.Type)
+	}
+
+	return RecurringRuleView{
+		ID:          rule.ID,
+		Note:        note,
+		Amount:      fmt.Sprintf("%.2f %s", tmpl.Amount, tmpl.Currency),
+		Frequency:   string(rule.Frequency),
+		NextDueDate: rule.NextDueDate,
+		AutoConfirm: rule.AutoConfirm,
+	}
 }
 
 // SyncTransactions handles batch sync of offline-queued transactions.
