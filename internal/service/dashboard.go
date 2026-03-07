@@ -38,6 +38,9 @@ type DashboardData struct {
 	// Building fund balance (sum of is_building_fund transactions)
 	BuildingFundBalance float64
 
+	// Total investment portfolio value
+	InvestmentTotal float64
+
 	// Upcoming credit card due dates (within 7 days)
 	DueSoonCards []DueSoonCard
 
@@ -67,6 +70,7 @@ type DashboardService struct {
 	txRepo           *repository.TransactionRepo
 	exchangeRateRepo *repository.ExchangeRateRepo
 	personRepo       *repository.PersonRepo
+	investmentRepo   *repository.InvestmentRepo
 }
 
 func NewDashboardService(institutionRepo *repository.InstitutionRepo, accountRepo *repository.AccountRepo, txRepo *repository.TransactionRepo) *DashboardService {
@@ -85,6 +89,11 @@ func (s *DashboardService) SetExchangeRateRepo(repo *repository.ExchangeRateRepo
 // SetPersonRepo sets the person repository for people summary.
 func (s *DashboardService) SetPersonRepo(repo *repository.PersonRepo) {
 	s.personRepo = repo
+}
+
+// SetInvestmentRepo sets the investment repository for portfolio value on dashboard.
+func (s *DashboardService) SetInvestmentRepo(repo *repository.InvestmentRepo) {
+	s.investmentRepo = repo
 }
 
 // GetDashboard computes the full dashboard data in a single call.
@@ -179,6 +188,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// Building fund balance: sum of all is_building_fund income minus expenses
 	if balance, err := s.txRepo.GetBuildingFundBalance(ctx); err == nil {
 		data.BuildingFundBalance = balance
+	}
+
+	// Investment portfolio total
+	if s.investmentRepo != nil {
+		if total, err := s.investmentRepo.GetTotalValuation(ctx); err == nil {
+			data.InvestmentTotal = total
+		}
 	}
 
 	// Load recent transactions

@@ -160,9 +160,10 @@ type PageHandler struct {
 	salarySvc      *service.SalaryService
 	reportsSvc     *service.ReportsService
 	recurringSvc   *service.RecurringService
+	investmentSvc  *service.InvestmentService
 }
 
-func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService) *PageHandler {
+func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService) *PageHandler {
 	return &PageHandler{
 		templates:      templates,
 		institutionSvc: institutionSvc,
@@ -174,6 +175,7 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		salarySvc:      salarySvc,
 		reportsSvc:     reportsSvc,
 		recurringSvc:   recurringSvc,
+		investmentSvc:  investmentSvc,
 	}
 }
 
@@ -1488,6 +1490,78 @@ func (h *PageHandler) SyncTransactions(w http.ResponseWriter, r *http.Request) {
 		"created": created,
 		"failed":  failed,
 	})
+}
+
+// InvestmentPageData holds data for the investments management page.
+type InvestmentPageData struct {
+	Investments    []models.Investment
+	TotalValuation float64
+}
+
+// Investments renders the investment portfolio page.
+// GET /investments
+func (h *PageHandler) Investments(w http.ResponseWriter, r *http.Request) {
+	investments, _ := h.investmentSvc.GetAll(r.Context())
+	total, _ := h.investmentSvc.GetTotalValuation(r.Context())
+
+	data := InvestmentPageData{
+		Investments:    investments,
+		TotalValuation: total,
+	}
+	RenderPage(h.templates, w, "investments", PageData{ActiveTab: "more", Data: data})
+}
+
+// InvestmentAdd creates a new investment holding.
+// POST /investments/add
+func (h *PageHandler) InvestmentAdd(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	units, _ := parseFloat(r.FormValue("units"))
+	unitPrice, _ := parseFloat(r.FormValue("unit_price"))
+
+	inv := models.Investment{
+		Platform:      r.FormValue("platform"),
+		FundName:      r.FormValue("fund_name"),
+		Units:         units,
+		LastUnitPrice: unitPrice,
+		Currency:      models.Currency(r.FormValue("currency")),
+	}
+
+	if _, err := h.investmentSvc.Create(r.Context(), inv); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/investments")
+	w.WriteHeader(http.StatusOK)
+}
+
+// InvestmentUpdateValuation updates the unit price for an investment.
+// POST /investments/{id}/update
+func (h *PageHandler) InvestmentUpdateValuation(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+	unitPrice, _ := parseFloat(r.FormValue("unit_price"))
+
+	if err := h.investmentSvc.UpdateValuation(r.Context(), id, unitPrice); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/investments")
+	w.WriteHeader(http.StatusOK)
+}
+
+// InvestmentDelete removes an investment holding.
+// DELETE /investments/{id}
+func (h *PageHandler) InvestmentDelete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.investmentSvc.Delete(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/investments")
+	w.WriteHeader(http.StatusOK)
 }
 
 // InstitutionList renders just the institution list partial.

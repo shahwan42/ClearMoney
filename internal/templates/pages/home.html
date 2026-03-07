@@ -36,6 +36,14 @@
         {{template "building-fund" .Data}}
     </div>
 
+    <!-- Investment Portfolio (D-9) -->
+    {{if gt .Data.InvestmentTotal 0.0}}
+    <a href="/investments" class="block bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-3">
+        <p class="text-xs text-indigo-600 font-medium uppercase tracking-wide">Investments</p>
+        <p class="text-lg font-bold text-slate-800 mt-0.5">{{formatEGP .Data.InvestmentTotal}}</p>
+    </a>
+    {{end}}
+
     <!-- Accounts by Institution -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">

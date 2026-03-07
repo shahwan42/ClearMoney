@@ -37,7 +37,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
 	if db == nil {
-		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		r.Get("/", pages.Home)
 		return r
 	}
@@ -64,6 +64,9 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
 	dashboardSvc.SetExchangeRateRepo(exchangeRateRepo)
 	dashboardSvc.SetPersonRepo(personRepo)
+	investmentRepo := repository.NewInvestmentRepo(db)
+	investmentSvc := service.NewInvestmentService(investmentRepo)
+	dashboardSvc.SetInvestmentRepo(investmentRepo)
 	reportsSvc := service.NewReportsService(db)
 	recurringRepo := repository.NewRecurringRepo(db)
 	recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
@@ -90,7 +93,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Route("/api/persons", NewPersonHandler(personSvc).Routes)
 
 		// Page routes (HTML)
-		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc)
+		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)
@@ -131,6 +134,10 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Post("/salary/step2", pages.SalaryStep2)
 		r.Post("/salary/step3", pages.SalaryStep3)
 		r.Post("/salary/confirm", pages.SalaryConfirm)
+		r.Get("/investments", pages.Investments)
+		r.Post("/investments/add", pages.InvestmentAdd)
+		r.Post("/investments/{id}/update", pages.InvestmentUpdateValuation)
+		r.Delete("/investments/{id}", pages.InvestmentDelete)
 	})
 
 	return r
