@@ -40,6 +40,8 @@ type TransactionFormData struct {
 	Accounts           []models.Account
 	ExpenseCategories  []models.Category
 	IncomeCategories   []models.Category
+	// Pre-fill fields (for transaction duplication)
+	Prefill *models.Transaction
 }
 
 // TransactionListData holds data for the transaction list page and partial.
@@ -174,6 +176,7 @@ func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 
 // TransactionNew renders the transaction entry form.
 // GET /transactions/new
+// Supports ?dup=<id> to pre-fill from an existing transaction (duplication).
 func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 	accounts, err := h.accountSvc.GetAll(r.Context())
 	if err != nil {
@@ -182,13 +185,22 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeIncome)
 
+	data := TransactionFormData{
+		Accounts:          accounts,
+		ExpenseCategories: expenseCategories,
+		IncomeCategories:  incomeCategories,
+	}
+
+	// If ?dup=<id> is provided, pre-fill from that transaction
+	if dupID := r.URL.Query().Get("dup"); dupID != "" {
+		if tx, err := h.txSvc.GetByID(r.Context(), dupID); err == nil {
+			data.Prefill = &tx
+		}
+	}
+
 	RenderPage(h.templates, w, "transaction-new", PageData{
 		ActiveTab: "home",
-		Data: TransactionFormData{
-			Accounts:          accounts,
-			ExpenseCategories: expenseCategories,
-			IncomeCategories:  incomeCategories,
-		},
+		Data:      data,
 	})
 }
 

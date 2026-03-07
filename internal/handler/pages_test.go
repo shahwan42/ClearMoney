@@ -554,6 +554,63 @@ func TestTransactionDelete_FromUI(t *testing.T) {
 	}
 }
 
+func TestTransactionDuplicate_PrefillsForm(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create a transaction with a note
+	formData := strings.NewReader("type=expense&amount=750&currency=EGP&account_id=" + acc.ID + "&note=Coffee+beans")
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Get the transaction ID
+	req = httptest.NewRequest(http.MethodGet, "/api/transactions?limit=1", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var txns []models.Transaction
+	json.NewDecoder(w.Body).Decode(&txns)
+	if len(txns) == 0 {
+		t.Fatal("expected at least 1 transaction")
+	}
+	txID := txns[0].ID
+
+	// Duplicate
+	req = httptest.NewRequest(http.MethodGet, "/transactions/new?dup="+txID, nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, `value="750"`) {
+		t.Error("expected pre-filled amount of 750")
+	}
+	if !strings.Contains(body, "Coffee beans") {
+		t.Error("expected pre-filled note 'Coffee beans'")
+	}
+	if !strings.Contains(body, "selected") {
+		t.Error("expected pre-selected account")
+	}
+}
+
 func TestAccountDetailPage_Renders(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")

@@ -28,6 +28,8 @@
         </div>
         <!-- Edit/delete buttons (visible on hover/tap) -->
         <div class="hidden group-hover:flex gap-1 flex-shrink-0">
+            <a href="/transactions/new?dup={{.ID}}"
+               class="text-xs text-gray-400 hover:text-blue-600 px-1">Dup</a>
             <button hx-get="/transactions/edit/{{.ID}}" hx-target="#tx-{{.ID}}" hx-swap="outerHTML"
                     class="text-xs text-gray-400 hover:text-teal-600 px-1">Edit</button>
             <button hx-delete="/transactions/{{.ID}}" hx-target="#tx-{{.ID}}" hx-swap="outerHTML"

@@ -17,14 +17,14 @@
         <!-- Type selector: expense or income -->
         <div class="flex gap-2">
             <label class="flex-1">
-                <input type="radio" name="type" value="expense" checked class="peer hidden">
+                <input type="radio" name="type" value="expense" {{if .Data.Prefill}}{{if eq (string .Data.Prefill.Type) "expense"}}checked{{end}}{{else}}checked{{end}} class="peer hidden">
                 <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-200 rounded-xl py-3 text-center text-sm font-medium cursor-pointer transition-all"
                      id="type-expense-label">
                     Expense
                 </div>
             </label>
             <label class="flex-1">
-                <input type="radio" name="type" value="income" class="peer hidden">
+                <input type="radio" name="type" value="income" {{if .Data.Prefill}}{{if eq (string .Data.Prefill.Type) "income"}}checked{{end}}{{end}} class="peer hidden">
                 <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-200 rounded-xl py-3 text-center text-sm font-medium cursor-pointer transition-all"
                      id="type-income-label">
                     Income
@@ -37,6 +37,7 @@
             <label class="block text-xs text-gray-500 mb-1">Amount</label>
             <input type="number" name="amount" step="0.01" min="0.01" required autofocus
                 placeholder="0.00"
+                {{if .Data.Prefill}}value="{{.Data.Prefill.Amount}}"{{end}}
                 class="w-full text-3xl font-bold text-center border border-gray-300 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 inputmode="decimal">
         </div>
@@ -47,36 +48,34 @@
             <select name="account_id" required
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">Select account...</option>
-                {{with .Data}}
-                {{range .Accounts}}
-                <option value="{{.ID}}">{{.Name}} ({{.Currency}})</option>
-                {{end}}
+                {{$prefillAcct := ""}}{{if .Data.Prefill}}{{$prefillAcct = .Data.Prefill.AccountID}}{{end}}
+                {{range .Data.Accounts}}
+                <option value="{{.ID}}" {{if eq .ID $prefillAcct}}selected{{end}}>{{.Name}} ({{.Currency}})</option>
                 {{end}}
             </select>
         </div>
 
-        <!-- Currency (hidden, set from selected account — for now default to EGP) -->
-        <input type="hidden" name="currency" value="EGP" id="currency-input">
+        <!-- Currency (hidden, set from selected account) -->
+        <input type="hidden" name="currency" value="{{if .Data.Prefill}}{{.Data.Prefill.Currency}}{{else}}EGP{{end}}" id="currency-input">
 
         <!-- Category selector — shows expense categories by default, switches on type change -->
         <div>
             <label class="block text-xs text-gray-500 mb-1">Category</label>
+            {{$prefillCat := ""}}{{if .Data.Prefill}}{{if .Data.Prefill.CategoryID}}{{$prefillCat = deref .Data.Prefill.CategoryID}}{{end}}{{end}}
             <select name="category_id"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 id="category-select">
                 <option value="">None</option>
-                {{with .Data}}
-                {{range .ExpenseCategories}}
-                <option value="{{.ID}}" class="category-expense">{{.Name}}</option>
+                {{range .Data.ExpenseCategories}}
+                <option value="{{.ID}}" class="category-expense" {{if eq .ID $prefillCat}}selected{{end}}>{{.Name}}</option>
                 {{end}}
-                {{range .IncomeCategories}}
-                <option value="{{.ID}}" class="category-income" style="display:none">{{.Name}}</option>
-                {{end}}
+                {{range .Data.IncomeCategories}}
+                <option value="{{.ID}}" class="category-income" style="display:none" {{if eq .ID $prefillCat}}selected{{end}}>{{.Name}}</option>
                 {{end}}
             </select>
         </div>
 
-        <!-- Date: defaults to today -->
+        <!-- Date: defaults to today (even for duplicates) -->
         <div>
             <label class="block text-xs text-gray-500 mb-1">Date</label>
             <input type="date" name="date"
@@ -87,6 +86,7 @@
         <div>
             <label class="block text-xs text-gray-500 mb-1">Note (optional)</label>
             <input type="text" name="note" placeholder="What was this for?"
+                {{if .Data.Prefill}}{{if .Data.Prefill.Note}}value="{{deref .Data.Prefill.Note}}"{{end}}{{end}}
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
 
@@ -102,7 +102,7 @@
 <!-- Set today's date as default and handle type/category switching -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Default date to today
+    // Default date to today (always, even for duplicates)
     const dateInput = document.querySelector('input[name="date"]');
     if (dateInput && !dateInput.value) {
         dateInput.value = new Date().toISOString().split('T')[0];
@@ -118,10 +118,16 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.category-income').forEach(function(opt) {
                 opt.style.display = isExpense ? 'none' : '';
             });
-            // Reset category selection
             document.getElementById('category-select').value = '';
         });
     });
+
+    // Show correct categories on load for income duplicates
+    var checkedType = document.querySelector('input[name="type"]:checked');
+    if (checkedType && checkedType.value === 'income') {
+        document.querySelectorAll('.category-expense').forEach(function(opt) { opt.style.display = 'none'; });
+        document.querySelectorAll('.category-income').forEach(function(opt) { opt.style.display = ''; });
+    }
 
     // Update currency when account changes
     document.querySelector('select[name="account_id"]').addEventListener('change', function() {
