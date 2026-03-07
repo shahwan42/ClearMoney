@@ -104,6 +104,10 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Post("/transactions/transfer", pages.TransferCreate)
 		r.Post("/transactions/instapay-transfer", pages.InstapayTransferCreate)
 		r.Post("/transactions/exchange-submit", pages.ExchangeCreate)
+		r.Get("/people", pages.People)
+		r.Post("/people/add", pages.PeopleAdd)
+		r.Post("/people/{id}/loan", pages.PeopleLoan)
+		r.Post("/people/{id}/repay", pages.PeopleRepay)
 	})
 
 	return r

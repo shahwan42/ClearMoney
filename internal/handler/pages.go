@@ -87,6 +87,18 @@ type AccountDetailData struct {
 	TransactionListData TransactionListData
 }
 
+// PersonCardData wraps a person with accounts for the card template.
+type PersonCardData struct {
+	Person   models.Person
+	Accounts []models.Account
+}
+
+// PeoplePageData holds data for the people page.
+type PeoplePageData struct {
+	Persons  []PersonCardData
+	Accounts []models.Account
+}
+
 // PageHandler serves full HTML pages (as opposed to JSON API endpoints).
 // Think of it like Laravel's web routes vs API routes — same data, different format.
 type PageHandler struct {
@@ -605,6 +617,136 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tmpl.ExecuteTemplate(w, "transaction-row", tx)
+}
+
+// People renders the people ledger page.
+// GET /people
+func (h *PageHandler) People(w http.ResponseWriter, r *http.Request) {
+	persons, _ := h.personSvc.GetAll(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+
+	var cards []PersonCardData
+	for _, p := range persons {
+		cards = append(cards, PersonCardData{Person: p, Accounts: accounts})
+	}
+
+	RenderPage(h.templates, w, "people", PageData{
+		ActiveTab: "people",
+		Data:      PeoplePageData{Persons: cards, Accounts: accounts},
+	})
+}
+
+// PeopleAdd adds a new person via form submission.
+// POST /people/add — returns updated people list partial.
+func (h *PageHandler) PeopleAdd(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	_, err := h.personSvc.Create(r.Context(), models.Person{Name: name})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.renderPeopleList(w, r)
+}
+
+// PeopleLoan records a loan from the people page.
+// POST /people/{id}/loan
+func (h *PageHandler) PeopleLoan(w http.ResponseWriter, r *http.Request) {
+	personID := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	accountID := r.FormValue("account_id")
+	loanType := models.TransactionType(r.FormValue("loan_type"))
+
+	// Get currency from account
+	currency := models.CurrencyEGP
+	if acc, err := h.accountSvc.GetByID(r.Context(), accountID); err == nil {
+		currency = acc.Currency
+	}
+
+	var note *string
+	if n := r.FormValue("note"); n != "" {
+		note = &n
+	}
+
+	_, err := h.personSvc.RecordLoan(r.Context(), personID, accountID, amount, currency, loanType, note, time.Time{})
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	h.renderPeopleList(w, r)
+}
+
+// PeopleRepay records a loan repayment from the people page.
+// POST /people/{id}/repay
+func (h *PageHandler) PeopleRepay(w http.ResponseWriter, r *http.Request) {
+	personID := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	amount, _ := parseFloat(r.FormValue("amount"))
+	accountID := r.FormValue("account_id")
+
+	currency := models.CurrencyEGP
+	if acc, err := h.accountSvc.GetByID(r.Context(), accountID); err == nil {
+		currency = acc.Currency
+	}
+
+	var note *string
+	if n := r.FormValue("note"); n != "" {
+		note = &n
+	}
+
+	_, err := h.personSvc.RecordRepayment(r.Context(), personID, accountID, amount, currency, note, time.Time{})
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		return
+	}
+
+	h.renderPeopleList(w, r)
+}
+
+// renderPeopleList renders the people list partial (used after add/loan/repay).
+func (h *PageHandler) renderPeopleList(w http.ResponseWriter, r *http.Request) {
+	persons, _ := h.personSvc.GetAll(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["people"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+
+	if len(persons) == 0 {
+		w.Write([]byte(`<div class="bg-white rounded-xl shadow-sm p-6 text-center"><p class="text-gray-400 text-sm">No people yet. Add someone above.</p></div>`))
+		return
+	}
+
+	for _, p := range persons {
+		tmpl.ExecuteTemplate(w, "person-card", PersonCardData{Person: p, Accounts: accounts})
+	}
 }
 
 // RecentTransactions renders just the recent transactions partial.

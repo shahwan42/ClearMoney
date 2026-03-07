@@ -817,6 +817,93 @@ func TestQuickEntryCreate_Error(t *testing.T) {
 	}
 }
 
+func TestPeoplePage_Renders(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "persons")
+
+	router, addAuth := testRouter(t, db)
+
+	// Add a person
+	formData := strings.NewReader("name=Ahmed")
+	req := httptest.NewRequest(http.MethodPost, "/people/add", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Visit people page
+	req = httptest.NewRequest(http.MethodGet, "/people", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	checks := []string{"People", "Ahmed", "Record Loan", "Settled"}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected people page to contain %q", check)
+		}
+	}
+}
+
+func TestPeoplePage_LoanAndRepay(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "persons")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 50000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Add person
+	formData := strings.NewReader("name=Omar")
+	req := httptest.NewRequest(http.MethodPost, "/people/add", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Get person ID via API
+	req = httptest.NewRequest(http.MethodGet, "/api/persons", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var persons []models.Person
+	json.NewDecoder(w.Body).Decode(&persons)
+	if len(persons) == 0 {
+		t.Fatal("expected at least 1 person")
+	}
+	personID := persons[0].ID
+
+	// Record loan (I lent 1000)
+	formData = strings.NewReader("loan_type=loan_out&amount=1000&account_id=" + acc.ID)
+	req = httptest.NewRequest(http.MethodPost, "/people/"+personID+"/loan", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "They owe you") {
+		t.Error("expected 'They owe you' after loan out")
+	}
+}
+
 func TestTemplateFuncs_FormatNumber(t *testing.T) {
 	tests := []struct {
 		input    float64
