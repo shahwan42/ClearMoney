@@ -18,27 +18,48 @@ import (
 )
 
 // InstitutionService handles business logic for institutions.
+// Like a Laravel Service class — sits between the controller (handler) and
+// the Eloquent model (repository). The struct holds its dependencies as fields,
+// similar to how Laravel uses constructor injection in service classes.
 type InstitutionService struct {
+	// repo is the data access layer — like Eloquent or Django ORM calls.
+	// In Go, we store it as a pointer field (dependency injection via struct).
 	repo *repository.InstitutionRepo
 }
 
 // NewInstitutionService creates a service with its repository dependency.
+// This is Go's version of constructor injection. In Laravel, you'd type-hint
+// InstitutionRepo in the constructor and the IoC container resolves it.
+// In Go, we pass it explicitly — no magic, no container.
 func NewInstitutionService(repo *repository.InstitutionRepo) *InstitutionService {
 	return &InstitutionService{repo: repo}
 }
 
 // Create validates and creates a new institution.
+// (s *InstitutionService) is a "method receiver" — Go's version of $this in PHP.
+// ctx (context.Context) is passed through every layer; it carries request-scoped
+// data and cancellation signals (like Laravel's Request object but for timeouts/cancellation).
+//
+// Returns (models.Institution, error) — Go uses multiple return values instead of
+// throwing exceptions. The caller MUST check `err` (like Laravel's try/catch but explicit).
 func (s *InstitutionService) Create(ctx context.Context, inst models.Institution) (models.Institution, error) {
+	// Validation happens here in the service layer, not in the model.
+	// In Laravel you'd use FormRequest or Validator; in Go, we validate manually.
 	inst.Name = strings.TrimSpace(inst.Name)
 	if inst.Name == "" {
+		// fmt.Errorf creates a new error — like throwing new ValidationException in Laravel.
+		// The caller receives this as the second return value.
 		return models.Institution{}, fmt.Errorf("institution name is required")
 	}
+	// Default value assignment — like $fillable defaults in Laravel models.
 	if inst.Type == "" {
 		inst.Type = models.InstitutionTypeBank
 	}
 	if inst.Type != models.InstitutionTypeBank && inst.Type != models.InstitutionTypeFintech {
 		return models.Institution{}, fmt.Errorf("invalid institution type: %s", inst.Type)
 	}
+	// Delegate to the repository for the actual DB insert.
+	// The repo returns the created model with its generated ID (like Eloquent's create()).
 	return s.repo.Create(ctx, inst)
 }
 

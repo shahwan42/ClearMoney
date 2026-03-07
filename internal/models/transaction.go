@@ -26,24 +26,24 @@ const (
 type Transaction struct {
 	ID                  string          `json:"id" db:"id"`
 	Type                TransactionType `json:"type" db:"type"`
-	Amount              float64         `json:"amount" db:"amount"`
+	Amount              float64         `json:"amount" db:"amount"`   // always positive — Type determines direction
 	Currency            Currency        `json:"currency" db:"currency"`
-	AccountID           string          `json:"account_id" db:"account_id"`
-	CounterAccountID    *string         `json:"counter_account_id,omitempty" db:"counter_account_id"`
-	CategoryID          *string         `json:"category_id,omitempty" db:"category_id"`
+	AccountID           string          `json:"account_id" db:"account_id"`             // the primary account affected
+	CounterAccountID    *string         `json:"counter_account_id,omitempty" db:"counter_account_id"` // *string = nullable; set only for transfers/exchanges (the "other" account)
+	CategoryID          *string         `json:"category_id,omitempty" db:"category_id"` // nil for transfers (no category needed)
 	Date                time.Time       `json:"date" db:"date"`
-	Time                *string         `json:"time,omitempty" db:"time"`
+	Time                *string         `json:"time,omitempty" db:"time"` // optional time-of-day as string (e.g., "14:30")
 	Note                *string         `json:"note,omitempty" db:"note"`
-	Tags                []string        `json:"tags" db:"tags"`
-	ExchangeRate        *float64        `json:"exchange_rate,omitempty" db:"exchange_rate"`
-	CounterAmount       *float64        `json:"counter_amount,omitempty" db:"counter_amount"`
-	FeeAmount           *float64        `json:"fee_amount,omitempty" db:"fee_amount"`
-	FeeAccountID        *string         `json:"fee_account_id,omitempty" db:"fee_account_id"`
-	PersonID            *string         `json:"person_id,omitempty" db:"person_id"`
-	LinkedTransactionID *string         `json:"linked_transaction_id,omitempty" db:"linked_transaction_id"`
-	IsBuildingFund      bool            `json:"is_building_fund" db:"is_building_fund"`
-	RecurringRuleID     *string         `json:"recurring_rule_id,omitempty" db:"recurring_rule_id"`
-	BalanceDelta        float64         `json:"balance_delta" db:"balance_delta"` // actual balance impact on account_id's balance
+	Tags                []string        `json:"tags" db:"tags"`           // Go slices map to PostgreSQL text[] arrays
+	ExchangeRate        *float64        `json:"exchange_rate,omitempty" db:"exchange_rate"`   // only for "exchange" type (e.g., 50.5 EGP per USD)
+	CounterAmount       *float64        `json:"counter_amount,omitempty" db:"counter_amount"` // amount in the other currency for exchanges
+	FeeAmount           *float64        `json:"fee_amount,omitempty" db:"fee_amount"`         // bank fee deducted (if any)
+	FeeAccountID        *string         `json:"fee_account_id,omitempty" db:"fee_account_id"` // which account the fee was charged to
+	PersonID            *string         `json:"person_id,omitempty" db:"person_id"`           // FK to Person — set for loan transactions
+	LinkedTransactionID *string         `json:"linked_transaction_id,omitempty" db:"linked_transaction_id"` // the other half of a transfer/exchange pair
+	IsBuildingFund      bool            `json:"is_building_fund" db:"is_building_fund"` // flags contributions to a building savings goal
+	RecurringRuleID     *string         `json:"recurring_rule_id,omitempty" db:"recurring_rule_id"` // FK to RecurringRule that generated this
+	BalanceDelta        float64         `json:"balance_delta" db:"balance_delta"` // actual signed impact on AccountID's balance (e.g., -500 for an expense)
 	CreatedAt           time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt           time.Time       `json:"updated_at" db:"updated_at"`
 }

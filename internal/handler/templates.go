@@ -151,7 +151,7 @@ func ParseTemplates(templateFS fs.FS) (TemplateMap, error) {
 	return templates, nil
 }
 
-// barePagesは are pages that use the "bare" layout (no header/nav) — like login and setup.
+// barePages lists pages that use the "bare" layout (no header/nav) — like login and setup.
 var barePages = map[string]bool{
 	"login": true,
 	"setup": true,

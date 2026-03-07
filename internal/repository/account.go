@@ -7,28 +7,52 @@ import (
 	"fmt"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	// pq is the PostgreSQL driver helper — pq.Array() converts Go slices to/from
+	// PostgreSQL array columns. Like Laravel's array casting on Eloquent models.
 	"github.com/lib/pq"
 )
 
 // AccountRepo handles database operations for accounts.
 // Accounts belong to institutions (like a hasMany relationship in Laravel/Eloquent).
+//
+// Think of this as a dedicated Eloquent repository or Django Manager for the Account model.
+// Unlike Eloquent where you call Account::find($id), here you call repo.GetByID(ctx, id).
+//
+// *sql.DB is Go's built-in connection pool — similar to the DB facade in Laravel
+// or django.db.connection. It manages multiple connections automatically and is
+// safe to use from multiple goroutines (like PHP-FPM workers or Django threads).
 type AccountRepo struct {
 	db *sql.DB
 }
 
+// NewAccountRepo creates a new repo instance. In Laravel, the service container
+// auto-injects dependencies; in Go, we pass them explicitly (manual DI).
 func NewAccountRepo(db *sql.DB) *AccountRepo {
 	return &AccountRepo{db: db}
 }
 
 // Create inserts a new account and sets current_balance = initial_balance.
+//
+// context.Context (ctx) flows through every DB call — it carries deadlines and
+// cancellation signals. Think of it like Laravel's request lifecycle: if the HTTP
+// request is cancelled (user closes browser), ctx gets cancelled and the DB query
+// is aborted. Every function that does I/O should accept and pass ctx along.
+//
+// Go returns errors as values instead of throwing exceptions. The (Account, error)
+// return is like: [$account, $error] = $repo->create($data) — you always check
+// the error. There's no try/catch in Go.
 func (r *AccountRepo) Create(ctx context.Context, acc models.Account) (models.Account, error) {
 	acc.CurrentBalance = acc.InitialBalance
 
-	// Default metadata to empty JSON object if nil
+	// Default metadata to empty JSON object if nil.
+	// json.RawMessage stores raw JSON bytes — like Laravel's $casts['metadata' => 'array'].
 	if acc.Metadata == nil {
 		acc.Metadata = json.RawMessage(`{}`)
 	}
 
+	// QueryRowContext executes a query that returns a single row.
+	// $1, $2, ... are PostgreSQL placeholders (Laravel uses ?, Django uses %s).
+	// They prevent SQL injection — equivalent to prepared statements.
 	err := r.db.QueryRowContext(ctx, `
 		INSERT INTO accounts (institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags, display_order, metadata)
