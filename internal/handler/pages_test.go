@@ -93,8 +93,9 @@ func TestAccountsPage_Renders(t *testing.T) {
 		InitialBalance: 50000,
 	})
 
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -121,8 +122,9 @@ func TestAccountsPage_Empty(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -151,8 +153,9 @@ func TestTransactionNewPage_Renders(t *testing.T) {
 		Currency:      models.CurrencyEGP,
 	})
 
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/transactions/new", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -192,11 +195,12 @@ func TestTransactionCreatePage_Success(t *testing.T) {
 		InitialBalance: 10000,
 	})
 
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&date=2026-03-06")
 	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -228,8 +232,9 @@ func TestDashboardPage_WithData(t *testing.T) {
 		InitialBalance: 100000,
 	})
 
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

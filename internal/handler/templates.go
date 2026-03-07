@@ -100,9 +100,10 @@ func formatNumber(n float64) string {
 // This lets each page redefine {{define "content"}} and {{define "title"}}
 // blocks, overriding the defaults from the base layout.
 func ParseTemplates(templateFS fs.FS) (TemplateMap, error) {
-	// Shared files: layout + components + partials (parsed once, cloned per page)
+	// Shared files: layouts + components + partials (parsed once, cloned per page)
 	sharedFiles := []string{
 		"layouts/base.html",
+		"layouts/bare.html",
 		"components/header.html",
 		"components/bottom-nav.html",
 	}
@@ -143,16 +144,29 @@ func ParseTemplates(templateFS fs.FS) (TemplateMap, error) {
 	return templates, nil
 }
 
+// barePagesは are pages that use the "bare" layout (no header/nav) — like login and setup.
+var barePages = map[string]bool{
+	"login": true,
+	"setup": true,
+}
+
 // RenderPage renders a named page template with the given data.
 // The page name maps to a file in templates/pages/ (e.g., "home" → pages/home.html).
+// Auth pages (login, setup) use the "bare" layout without header/nav.
 func RenderPage(templates TemplateMap, w http.ResponseWriter, page string, data PageData) {
 	tmpl, ok := templates[page]
 	if !ok {
 		http.Error(w, "page not found: "+page, http.StatusNotFound)
 		return
 	}
+
+	layout := "base"
+	if barePages[page] {
+		layout = "bare"
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.ExecuteTemplate(w, "base", data); err != nil {
+	if err := tmpl.ExecuteTemplate(w, layout, data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)
 	}
 }

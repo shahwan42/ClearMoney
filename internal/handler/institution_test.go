@@ -14,12 +14,13 @@ import (
 func TestInstitutionHandler_CreateAndList(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	// POST — create an institution
 	body := `{"name":"HSBC","type":"bank"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/institutions", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -39,6 +40,7 @@ func TestInstitutionHandler_CreateAndList(t *testing.T) {
 
 	// GET — list all institutions
 	req = httptest.NewRequest(http.MethodGet, "/api/institutions", nil)
+	addAuth(req)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -56,13 +58,14 @@ func TestInstitutionHandler_CreateAndList(t *testing.T) {
 func TestInstitutionHandler_GetByID(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	// Create first
 	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
 
 	// GET by ID
 	req := httptest.NewRequest(http.MethodGet, "/api/institutions/"+inst.ID, nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -79,9 +82,10 @@ func TestInstitutionHandler_GetByID(t *testing.T) {
 
 func TestInstitutionHandler_GetByID_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/institutions/00000000-0000-0000-0000-000000000000", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -93,13 +97,14 @@ func TestInstitutionHandler_GetByID_NotFound(t *testing.T) {
 func TestInstitutionHandler_Update(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Old"})
 
 	body := `{"name":"New Name","type":"fintech"}`
 	req := httptest.NewRequest(http.MethodPut, "/api/institutions/"+inst.ID, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -117,11 +122,12 @@ func TestInstitutionHandler_Update(t *testing.T) {
 func TestInstitutionHandler_Delete(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "To Delete"})
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/institutions/"+inst.ID, nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -131,6 +137,7 @@ func TestInstitutionHandler_Delete(t *testing.T) {
 
 	// Verify it's gone
 	req = httptest.NewRequest(http.MethodGet, "/api/institutions/"+inst.ID, nil)
+	addAuth(req)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -141,11 +148,12 @@ func TestInstitutionHandler_Delete(t *testing.T) {
 
 func TestInstitutionHandler_Create_EmptyName(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	body := `{"name":"","type":"bank"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/institutions", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -156,10 +164,11 @@ func TestInstitutionHandler_Create_EmptyName(t *testing.T) {
 
 func TestInstitutionHandler_Create_InvalidJSON(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/institutions", bytes.NewBufferString("not json"))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -171,9 +180,10 @@ func TestInstitutionHandler_Create_InvalidJSON(t *testing.T) {
 func TestInstitutionHandler_ListEmpty(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/institutions", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

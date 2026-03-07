@@ -9,10 +9,17 @@
 package testutil
 
 import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"net/http"
 	"testing"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // CreateInstitution inserts a test institution and returns it with its generated ID.
@@ -86,6 +93,42 @@ func CreateAccount(t *testing.T, db *sql.DB, acc models.Account) models.Account 
 	}
 
 	return acc
+}
+
+// SetupAuth creates a test user with PIN "1234" and returns a session cookie.
+// Use this to authenticate requests in handler tests.
+// Implemented directly (without importing service/middleware) to avoid import cycles.
+func SetupAuth(t *testing.T, db *sql.DB) *http.Cookie {
+	t.Helper()
+	ctx := context.Background()
+
+	// Clean up any existing config
+	db.ExecContext(ctx, "TRUNCATE TABLE user_config")
+
+	// Hash PIN with bcrypt
+	hash, err := bcrypt.GenerateFromPassword([]byte("1234"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("hashing pin: %v", err)
+	}
+
+	// Generate a session key
+	sessionKey := "test-session-key-for-integration-tests"
+
+	_, err = db.ExecContext(ctx, `INSERT INTO user_config (pin_hash, session_key) VALUES ($1, $2)`,
+		string(hash), sessionKey)
+	if err != nil {
+		t.Fatalf("inserting user_config: %v", err)
+	}
+
+	// Create session token (same algorithm as middleware.CreateSessionToken)
+	mac := hmac.New(sha256.New, []byte(sessionKey))
+	mac.Write([]byte("session"))
+	token := hex.EncodeToString(mac.Sum(nil))
+
+	return &http.Cookie{
+		Name:  "clearmoney_session",
+		Value: token,
+	}
 }
 
 // GetFirstCategoryID returns the ID of the first category of the given type.

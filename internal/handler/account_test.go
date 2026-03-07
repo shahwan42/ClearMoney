@@ -15,7 +15,7 @@ import (
 func TestAccountHandler_CreateAndList(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	// Need an institution first
 	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
@@ -31,6 +31,7 @@ func TestAccountHandler_CreateAndList(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/accounts", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -46,6 +47,7 @@ func TestAccountHandler_CreateAndList(t *testing.T) {
 
 	// GET — list
 	req = httptest.NewRequest(http.MethodGet, "/api/accounts", nil)
+	addAuth(req)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -63,7 +65,7 @@ func TestAccountHandler_CreateAndList(t *testing.T) {
 func TestAccountHandler_Create_CreditCardWithoutLimit(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
 
@@ -76,6 +78,7 @@ func TestAccountHandler_Create_CreditCardWithoutLimit(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/accounts", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -87,7 +90,7 @@ func TestAccountHandler_Create_CreditCardWithoutLimit(t *testing.T) {
 func TestAccountHandler_FilterByInstitution(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	inst1 := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
 	inst2 := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
@@ -98,6 +101,7 @@ func TestAccountHandler_FilterByInstitution(t *testing.T) {
 
 	// Filter by inst1
 	req := httptest.NewRequest(http.MethodGet, "/api/accounts?institution_id="+inst1.ID, nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

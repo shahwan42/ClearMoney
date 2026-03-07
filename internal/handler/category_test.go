@@ -13,9 +13,10 @@ import (
 
 func TestCategoryHandler_ListAll(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/categories", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -34,9 +35,10 @@ func TestCategoryHandler_ListAll(t *testing.T) {
 
 func TestCategoryHandler_ListByType(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/categories?type=expense", nil)
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -55,11 +57,12 @@ func TestCategoryHandler_ListByType(t *testing.T) {
 
 func TestCategoryHandler_CreateCustom(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	body := `{"name":"Pet Expenses","type":"expense"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/categories", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -76,7 +79,7 @@ func TestCategoryHandler_CreateCustom(t *testing.T) {
 
 func TestCategoryHandler_CannotModifySystem(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router := NewRouter(db)
+	router, addAuth := testRouter(t, db)
 
 	// Get a system category ID
 	systemID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
@@ -85,6 +88,7 @@ func TestCategoryHandler_CannotModifySystem(t *testing.T) {
 	body := `{"name":"Renamed"}`
 	req := httptest.NewRequest(http.MethodPut, "/api/categories/"+systemID, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
+	addAuth(req)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -94,6 +98,7 @@ func TestCategoryHandler_CannotModifySystem(t *testing.T) {
 
 	// Try to archive it
 	req = httptest.NewRequest(http.MethodDelete, "/api/categories/"+systemID, nil)
+	addAuth(req)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

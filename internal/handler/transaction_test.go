@@ -29,9 +29,10 @@ func setupTransactionHandlerTest(t *testing.T) (*httptest.ResponseRecorder, *htt
 		InitialBalance: 10000,
 	})
 
+	sessionCookie := testutil.SetupAuth(t, db)
 	router := NewRouter(db)
 
-	// Helper to make HTTP requests against the router
+	// Helper to make authenticated HTTP requests against the router
 	do := func(method, path string, body string) *httptest.ResponseRecorder {
 		var req *http.Request
 		if body != "" {
@@ -40,6 +41,7 @@ func setupTransactionHandlerTest(t *testing.T) (*httptest.ResponseRecorder, *htt
 		} else {
 			req = httptest.NewRequest(method, path, nil)
 		}
+		req.AddCookie(sessionCookie)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 		return w

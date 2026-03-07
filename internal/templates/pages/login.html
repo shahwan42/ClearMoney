@@ -1,0 +1,31 @@
+{{define "title"}}ClearMoney - Login{{end}}
+
+{{define "content"}}
+<div class="max-w-sm mx-auto py-20 px-4">
+    <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold text-slate-800">ClearMoney</h1>
+        <p class="text-sm text-gray-500 mt-1">Enter your PIN to continue</p>
+    </div>
+
+    {{if .Data}}
+    <div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm text-center mb-4">
+        {{.Data}}
+    </div>
+    {{end}}
+
+    <form method="POST" action="/login" class="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+        <div>
+            <label class="block text-xs text-gray-500 mb-2 text-center">PIN</label>
+            <input type="password" name="pin" required autofocus
+                inputmode="numeric" pattern="[0-9]*" maxlength="6" minlength="4"
+                placeholder="----"
+                class="w-full text-3xl font-bold text-center tracking-[0.5em] border border-gray-300 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+
+        <button type="submit"
+            class="w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+            Unlock
+        </button>
+    </form>
+</div>
+{{end}}
