@@ -1,7 +1,7 @@
 {{define "institution-form"}}
 <!-- Form for adding a new institution. Submitted via HTMX to avoid full page reload. -->
 <form
-    hx-post="/api/institutions"
+    hx-post="/institutions/add"
     hx-target="#institution-list"
     hx-swap="innerHTML"
     hx-on::after-request="if(event.detail.successful) this.reset()"

@@ -1,7 +1,7 @@
 {{define "account-form"}}
 <!-- Form for adding a new account under an institution. HTMX-powered. -->
 <form
-    hx-post="/api/accounts"
+    hx-post="/accounts/add"
     hx-target="#institution-list"
     hx-swap="innerHTML"
     hx-on::after-request="if(event.detail.successful) document.getElementById('account-form-area').innerHTML = ''"

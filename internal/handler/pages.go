@@ -1832,6 +1832,55 @@ func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+// InstitutionAdd creates an institution from form data and returns the updated list HTML.
+// POST /institutions/add — used by HTMX form submission.
+func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	inst := models.Institution{
+		Name: r.FormValue("name"),
+		Type: models.InstitutionType(r.FormValue("type")),
+	}
+	if _, err := h.institutionSvc.Create(r.Context(), inst); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.InstitutionList(w, r)
+}
+
+// AccountAdd creates an account from form data and returns the updated list HTML.
+// POST /accounts/add — used by HTMX form submission.
+func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	acc := models.Account{
+		InstitutionID: r.FormValue("institution_id"),
+		Name:          r.FormValue("name"),
+		Type:          models.AccountType(r.FormValue("type")),
+		Currency:      models.Currency(r.FormValue("currency")),
+	}
+	if v := r.FormValue("initial_balance"); v != "" {
+		if f, err := parseFloat(v); err == nil {
+			acc.InitialBalance = f
+			acc.CurrentBalance = f
+		}
+	}
+	if v := r.FormValue("credit_limit"); v != "" {
+		if f, err := parseFloat(v); err == nil {
+			acc.CreditLimit = &f
+		}
+	}
+	if _, err := h.accountSvc.Create(r.Context(), acc); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.InstitutionList(w, r)
+}
+
 // InstitutionList renders just the institution list partial.
 // Used by HTMX after creating an institution or account to refresh the list.
 func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
