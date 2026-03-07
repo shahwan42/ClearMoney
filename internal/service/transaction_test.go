@@ -309,6 +309,117 @@ func TestTransactionService_DeleteTransfer_ReversesBothBalances(t *testing.T) {
 	}
 }
 
+func TestTransactionService_CreditCard_ExpenseMakesNegative(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	creditLimit := 500000.0
+	cc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Credit Card",
+		Type:           models.AccountTypeCreditCard,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 0,
+		CreditLimit:    &creditLimit,
+	})
+
+	// Expense on credit card: balance should go negative
+	_, newBalance, err := svc.Create(context.Background(), models.Transaction{
+		Type:      models.TransactionTypeExpense,
+		Amount:    50000,
+		Currency:  models.CurrencyEGP,
+		AccountID: cc.ID,
+	})
+	if err != nil {
+		t.Fatalf("expense: %v", err)
+	}
+	if newBalance != -50000 {
+		t.Errorf("expected -50000, got %f", newBalance)
+	}
+}
+
+func TestTransactionService_CreditCard_PaymentRestoresBalance(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	creditLimit := 500000.0
+	cc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Credit Card",
+		Type:           models.AccountTypeCreditCard,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 0,
+		CreditLimit:    &creditLimit,
+	})
+
+	// Expense: 0 → -100000
+	svc.Create(context.Background(), models.Transaction{
+		Type: models.TransactionTypeExpense, Amount: 100000,
+		Currency: models.CurrencyEGP, AccountID: cc.ID,
+	})
+
+	// Payment (income): -100000 → -70000
+	_, newBalance, err := svc.Create(context.Background(), models.Transaction{
+		Type:      models.TransactionTypeIncome,
+		Amount:    30000,
+		Currency:  models.CurrencyEGP,
+		AccountID: cc.ID,
+	})
+	if err != nil {
+		t.Fatalf("payment: %v", err)
+	}
+	if newBalance != -70000 {
+		t.Errorf("expected -70000, got %f", newBalance)
+	}
+}
+
+func TestTransactionService_CreditCard_ExceedLimit(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	creditLimit := 10000.0
+	cc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Credit Card",
+		Type:           models.AccountTypeCreditCard,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 0,
+		CreditLimit:    &creditLimit,
+	})
+
+	// Try to exceed the 10000 limit
+	_, _, err := svc.Create(context.Background(), models.Transaction{
+		Type:      models.TransactionTypeExpense,
+		Amount:    15000,
+		Currency:  models.CurrencyEGP,
+		AccountID: cc.ID,
+	})
+	if err == nil {
+		t.Error("expected error for exceeding credit limit")
+	}
+}
+
 func TestTransactionService_CreateExchange(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")

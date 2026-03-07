@@ -47,6 +47,18 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 	// Calculate balance delta based on transaction type
 	delta := s.balanceDelta(tx)
 
+	// Credit card validation: check if expense would exceed credit limit
+	if delta < 0 {
+		acc, err := s.accRepo.GetByID(ctx, tx.AccountID)
+		if err == nil && acc.IsCreditType() && acc.CreditLimit != nil {
+			newBalance := acc.CurrentBalance + delta
+			if newBalance < -*acc.CreditLimit {
+				return models.Transaction{}, 0, fmt.Errorf(
+					"would exceed credit limit (available: %.2f)", acc.AvailableCredit())
+			}
+		}
+	}
+
 	// Begin a database transaction (the SQL kind, not the financial kind!)
 	dbTx, err := s.txRepo.BeginTx(ctx)
 	if err != nil {
