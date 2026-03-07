@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration clean up down logs migrate-create
+.PHONY: run build test test-integration clean up down logs migrate-create seed
 
 run:
 	go run ./cmd/server
@@ -23,6 +23,9 @@ down:
 
 logs:
 	docker compose logs -f
+
+seed:
+	DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" go run ./cmd/seed
 
 migrate-create:
 	@if [ -z "$(name)" ]; then echo "Usage: make migrate-create name=<migration_name>"; exit 1; fi
