@@ -1,6 +1,7 @@
 {{define "base"}}
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-50">
+<!-- Dark mode: theme.js adds "dark" class to <html> before paint -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,8 +10,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>{{block "title" .}}ClearMoney{{end}}</title>
 
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS via CDN with dark mode config -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: 'class' }
+    </script>
+
+    <!-- Apply dark mode before first paint to prevent flash -->
+    <script src="/static/js/theme.js"></script>
 
     <!-- HTMX for dynamic updates without full page reloads -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
@@ -23,7 +30,7 @@
     <link rel="icon" href="/static/icons/icon-192.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
 </head>
-<body class="h-full flex flex-col" hx-boost="true">
+<body class="h-full flex flex-col dark:bg-slate-900 dark:text-slate-200" hx-boost="true">
 
     {{template "header" .}}
 

@@ -21,6 +21,34 @@
 .amount-positive { color: #0d9488; } /* teal-600 */
 .amount-negative { color: #dc2626; } /* red-600 */
 
+/* Dark mode overrides — Tailwind CDN dark: variants handle most cases,
+   these cover elements that use raw colors or need special treatment. */
+.dark body { background-color: #0f172a; } /* slate-900 */
+.dark .bg-white { background-color: #1e293b !important; } /* slate-800 */
+.dark .bg-gray-50 { background-color: #0f172a !important; }
+.dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700 {
+    color: #e2e8f0 !important; /* slate-200 */
+}
+.dark .text-gray-500, .dark .text-gray-400, .dark .text-gray-600 {
+    color: #94a3b8 !important; /* slate-400 */
+}
+.dark .border, .dark .border-gray-100, .dark .border-gray-200 {
+    border-color: #334155 !important; /* slate-700 */
+}
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #334155 !important;
+}
+.dark input, .dark select, .dark textarea {
+    background-color: #1e293b;
+    color: #e2e8f0;
+    border-color: #475569;
+}
+.dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+.dark .bg-teal-50 { background-color: #0d3b3b !important; }
+.dark .bg-amber-50 { background-color: #3b2e0d !important; }
+.dark .bg-red-50 { background-color: #3b0d0d !important; }
+.dark .bg-indigo-50, .dark .bg-purple-50 { background-color: #1e1b4b !important; }
+
 /* Hide scrollbar on main content for a cleaner mobile look */
 main::-webkit-scrollbar {
     display: none;
