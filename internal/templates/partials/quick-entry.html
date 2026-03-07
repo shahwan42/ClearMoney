@@ -1,6 +1,8 @@
 {{define "quick-entry-form"}}
 <!-- Quick-entry form — loaded into the bottom sheet via HTMX.
-     Streamlined version of the full transaction form, optimised for speed. -->
+     Streamlined version of the full transaction form, optimised for speed.
+     Uses smart defaults: pre-selects last-used account, auto-selects category
+     if used 3+ times consecutively. -->
 <h3 class="text-lg font-bold text-slate-800 mb-4">Quick Entry</h3>
 
 <!-- Result area for success/error messages -->
@@ -37,14 +39,15 @@
             inputmode="decimal">
     </div>
 
-    <!-- Account -->
+    <!-- Account (pre-selects last-used account via smart defaults) -->
     <div>
         <select name="account_id" required
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             id="qe-account-select">
             <option value="">Select account...</option>
+            {{$lastAcct := .LastAccountID}}
             {{range .Accounts}}
-            <option value="{{.ID}}">{{.Name}} ({{.Currency}})</option>
+            <option value="{{.ID}}" {{if eq .ID $lastAcct}}selected{{end}}>{{.Name}} ({{.Currency}})</option>
             {{end}}
         </select>
     </div>
@@ -52,14 +55,15 @@
     <!-- Hidden currency (derived from account) -->
     <input type="hidden" name="currency" value="EGP" id="qe-currency-input">
 
-    <!-- Category -->
+    <!-- Category (auto-selects if same category used 3+ times consecutively) -->
     <div>
+        {{$autoCat := .AutoCategoryID}}
         <select name="category_id"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             id="qe-category-select">
             <option value="">No category</option>
             {{range .ExpenseCategories}}
-            <option value="{{.ID}}" class="qe-category-expense">{{.Name}}</option>
+            <option value="{{.ID}}" class="qe-category-expense" {{if eq .ID $autoCat}}selected{{end}}>{{.Name}}</option>
             {{end}}
             {{range .IncomeCategories}}
             <option value="{{.ID}}" class="qe-category-income" style="display:none">{{.Name}}</option>
@@ -88,6 +92,15 @@
     // Set date to today
     document.getElementById('qe-date-input').value = new Date().toISOString().split('T')[0];
 
+    // Set currency from pre-selected account
+    var acctSelect = document.getElementById('qe-account-select');
+    if (acctSelect && acctSelect.value) {
+        var sel = acctSelect.options[acctSelect.selectedIndex];
+        if (sel && sel.text.includes('USD')) {
+            document.getElementById('qe-currency-input').value = 'USD';
+        }
+    }
+
     // Switch categories on type change
     document.querySelectorAll('#quick-entry-form input[name="type"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
@@ -99,7 +112,6 @@
     });
 
     // Update currency from account selection
-    var acctSelect = document.getElementById('qe-account-select');
     if (acctSelect) {
         acctSelect.addEventListener('change', function() {
             var sel = this.options[this.selectedIndex];

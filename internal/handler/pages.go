@@ -70,6 +70,13 @@ type TransactionSuccessData struct {
 	Currency    string
 }
 
+// QuickEntryData holds the quick-entry form data with smart defaults.
+type QuickEntryData struct {
+	TransactionFormData
+	LastAccountID  string
+	AutoCategoryID string
+}
+
 // PageHandler serves full HTML pages (as opposed to JSON API endpoints).
 // Think of it like Laravel's web routes vs API routes — same data, different format.
 type PageHandler struct {
@@ -524,10 +531,15 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 
 // QuickEntryForm serves the quick-entry form partial into the bottom sheet.
 // GET /transactions/quick-form — loaded by HTMX when the FAB is tapped.
+// Includes smart defaults: pre-selects last-used account and auto-selects category
+// if the same one was used 3+ times consecutively.
 func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeIncome)
+
+	// Smart defaults from transaction history
+	defaults := h.txSvc.GetSmartDefaults(r.Context(), "expense")
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["home"]
@@ -535,10 +547,14 @@ func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "template not found", http.StatusInternalServerError)
 		return
 	}
-	tmpl.ExecuteTemplate(w, "quick-entry-form", TransactionFormData{
-		Accounts:          accounts,
-		ExpenseCategories: expenseCategories,
-		IncomeCategories:  incomeCategories,
+	tmpl.ExecuteTemplate(w, "quick-entry-form", QuickEntryData{
+		TransactionFormData: TransactionFormData{
+			Accounts:          accounts,
+			ExpenseCategories: expenseCategories,
+			IncomeCategories:  incomeCategories,
+		},
+		LastAccountID:  defaults.LastAccountID,
+		AutoCategoryID: defaults.AutoCategoryID,
 	})
 }
 

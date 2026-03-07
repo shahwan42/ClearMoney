@@ -305,6 +305,90 @@ func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) 
 	return r.queryTransactions(ctx, query, args...)
 }
 
+// GetLastUsedAccountID returns the account_id from the most recent expense or income transaction.
+// Returns empty string if no history exists.
+func (r *TransactionRepo) GetLastUsedAccountID(ctx context.Context) (string, error) {
+	var accountID string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT account_id FROM transactions
+		WHERE type IN ('expense', 'income')
+		ORDER BY created_at DESC LIMIT 1
+	`).Scan(&accountID)
+	if err != nil {
+		return "", err
+	}
+	return accountID, nil
+}
+
+// GetRecentCategoryIDs returns category IDs ordered by recent usage frequency.
+// Looks at the last 50 expense/income transactions with a category set.
+func (r *TransactionRepo) GetRecentCategoryIDs(ctx context.Context, txType string, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT category_id FROM (
+			SELECT category_id, MAX(created_at) as last_used, COUNT(*) as freq
+			FROM transactions
+			WHERE category_id IS NOT NULL AND type = $1
+			GROUP BY category_id
+		) sub
+		ORDER BY freq DESC, last_used DESC
+		LIMIT $2
+	`, txType, limit)
+	if err != nil {
+		return nil, fmt.Errorf("querying recent categories: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// GetConsecutiveCategoryID returns the category_id if it was used for the last N
+// consecutive expense or income transactions. Returns empty string otherwise.
+func (r *TransactionRepo) GetConsecutiveCategoryID(ctx context.Context, txType string, consecutiveCount int) (string, error) {
+	if consecutiveCount <= 0 {
+		consecutiveCount = 3
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT category_id FROM transactions
+		WHERE type = $1 AND category_id IS NOT NULL
+		ORDER BY created_at DESC LIMIT $2
+	`, txType, consecutiveCount)
+	if err != nil {
+		return "", fmt.Errorf("querying consecutive categories: %w", err)
+	}
+	defer rows.Close()
+
+	var firstID string
+	count := 0
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return "", err
+		}
+		if count == 0 {
+			firstID = id
+		}
+		if id != firstID {
+			return "", nil // not all the same
+		}
+		count++
+	}
+	if count >= consecutiveCount {
+		return firstID, nil
+	}
+	return "", nil
+}
+
 func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, args ...any) ([]models.Transaction, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

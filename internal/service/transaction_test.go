@@ -543,3 +543,71 @@ func TestTransactionService_CreateExchange_SameCurrency(t *testing.T) {
 		t.Error("expected error for same-currency exchange")
 	}
 }
+
+func TestTransactionService_SmartDefaults_LastAccount(t *testing.T) {
+	svc, acc, catID := setupTransactionServiceTest(t)
+	ctx := context.Background()
+
+	// No history: defaults should be empty
+	defaults := svc.GetSmartDefaults(ctx, "expense")
+	if defaults.LastAccountID != "" {
+		t.Errorf("expected empty last account, got %q", defaults.LastAccountID)
+	}
+
+	// Create a transaction
+	svc.Create(ctx, models.Transaction{
+		Type: models.TransactionTypeExpense, Amount: 100,
+		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
+	})
+
+	defaults = svc.GetSmartDefaults(ctx, "expense")
+	if defaults.LastAccountID != acc.ID {
+		t.Errorf("expected last account %q, got %q", acc.ID, defaults.LastAccountID)
+	}
+}
+
+func TestTransactionService_SmartDefaults_AutoCategory(t *testing.T) {
+	svc, acc, catID := setupTransactionServiceTest(t)
+	ctx := context.Background()
+
+	// Create 2 transactions with same category — not enough for auto-select
+	for i := 0; i < 2; i++ {
+		svc.Create(ctx, models.Transaction{
+			Type: models.TransactionTypeExpense, Amount: 50,
+			Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
+		})
+	}
+	defaults := svc.GetSmartDefaults(ctx, "expense")
+	if defaults.AutoCategoryID != "" {
+		t.Error("expected no auto-category with only 2 consecutive uses")
+	}
+
+	// Third consecutive use — should trigger auto-select
+	svc.Create(ctx, models.Transaction{
+		Type: models.TransactionTypeExpense, Amount: 50,
+		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
+	})
+	defaults = svc.GetSmartDefaults(ctx, "expense")
+	if defaults.AutoCategoryID != catID {
+		t.Errorf("expected auto-category %q after 3 uses, got %q", catID, defaults.AutoCategoryID)
+	}
+}
+
+func TestTransactionService_SmartDefaults_RecentCategories(t *testing.T) {
+	svc, acc, catID := setupTransactionServiceTest(t)
+	ctx := context.Background()
+
+	// Create a few transactions
+	svc.Create(ctx, models.Transaction{
+		Type: models.TransactionTypeExpense, Amount: 100,
+		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
+	})
+
+	defaults := svc.GetSmartDefaults(ctx, "expense")
+	if len(defaults.RecentCategoryIDs) == 0 {
+		t.Error("expected at least 1 recent category")
+	}
+	if defaults.RecentCategoryIDs[0] != catID {
+		t.Errorf("expected first recent category to be %q, got %q", catID, defaults.RecentCategoryIDs[0])
+	}
+}

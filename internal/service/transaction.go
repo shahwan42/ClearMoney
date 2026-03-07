@@ -460,6 +460,34 @@ func (s *TransactionService) GetFiltered(ctx context.Context, f repository.Trans
 	return s.txRepo.GetFiltered(ctx, f)
 }
 
+// SmartDefaults holds pre-computed defaults for the transaction entry form.
+// Pre-selects last-used account, sorts categories by frequency, and auto-selects
+// a category if it was used 3+ times consecutively.
+type SmartDefaults struct {
+	LastAccountID       string   // pre-select this account
+	AutoCategoryID      string   // auto-select if 3+ consecutive uses
+	RecentCategoryIDs   []string // ordered by frequency for sorting
+}
+
+// GetSmartDefaults computes smart defaults for the entry form based on history.
+func (s *TransactionService) GetSmartDefaults(ctx context.Context, txType string) SmartDefaults {
+	defaults := SmartDefaults{}
+
+	if lastAcc, err := s.txRepo.GetLastUsedAccountID(ctx); err == nil {
+		defaults.LastAccountID = lastAcc
+	}
+
+	if recentCats, err := s.txRepo.GetRecentCategoryIDs(ctx, txType, 20); err == nil {
+		defaults.RecentCategoryIDs = recentCats
+	}
+
+	if autoCat, err := s.txRepo.GetConsecutiveCategoryID(ctx, txType, 3); err == nil {
+		defaults.AutoCategoryID = autoCat
+	}
+
+	return defaults
+}
+
 func (s *TransactionService) validateBasic(tx models.Transaction) error {
 	if tx.Amount <= 0 {
 		return fmt.Errorf("amount must be positive")
