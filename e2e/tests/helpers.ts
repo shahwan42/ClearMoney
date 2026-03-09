@@ -10,6 +10,8 @@ export async function resetDatabase(): Promise<void> {
   const { execSync } = await import('child_process');
   const dbUrl = 'postgres://clearmoney:clearmoney@localhost:5433/clearmoney';
   const sql = `
+    TRUNCATE TABLE account_snapshots RESTART IDENTITY CASCADE;
+    TRUNCATE TABLE daily_snapshots RESTART IDENTITY CASCADE;
     TRUNCATE TABLE transactions RESTART IDENTITY CASCADE;
     TRUNCATE TABLE accounts RESTART IDENTITY CASCADE;
     TRUNCATE TABLE institutions RESTART IDENTITY CASCADE;

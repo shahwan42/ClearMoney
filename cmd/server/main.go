@@ -77,6 +77,15 @@ func main() {
 		if err := jobs.RefreshMaterializedViews(context.Background(), db); err != nil {
 			log.Printf("materialized view refresh error: %v", err)
 		}
+
+		// Take daily balance snapshots (for sparklines and trend indicators).
+		// Also backfills up to 90 missing days using transaction history.
+		backfilled, err := jobs.TakeSnapshots(context.Background(), db)
+		if err != nil {
+			log.Printf("snapshot error: %v", err)
+		} else if backfilled > 0 {
+			log.Printf("snapshots: backfilled %d days", backfilled)
+		}
 	}
 
 	// 3. Create the HTTP router with all routes and middleware.
