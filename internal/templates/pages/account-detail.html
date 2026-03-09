@@ -50,8 +50,52 @@
         </button>
     </div>
 
+    <!-- TASK-073: Credit utilization donut (for credit cards) -->
+    {{if .Data.Account.IsCreditType}}
+    {{if gt .Data.Utilization 0.0}}
+    <div class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Credit Utilization</h3>
+        <div class="flex items-center gap-4">
+            <div class="relative w-20 h-20 flex-shrink-0">
+                <svg viewBox="0 0 36 36" class="w-20 h-20 transform -rotate-90">
+                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                    <circle cx="18" cy="18" r="15.9" fill="none"
+                        stroke="{{if gt .Data.Utilization 80.0}}#ef4444{{else if gt .Data.Utilization 50.0}}#f59e0b{{else}}#10b981{{end}}"
+                        stroke-width="3"
+                        stroke-dasharray="{{printf "%.1f" .Data.Utilization}}, 100"
+                        stroke-linecap="round"/>
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <span class="text-sm font-bold text-slate-800">{{printf "%.0f" .Data.Utilization}}%</span>
+                </div>
+            </div>
+            <div>
+                <p class="text-sm text-slate-700">{{formatCurrency (neg .Data.Account.CurrentBalance) .Data.Account.Currency}} used</p>
+                {{if .Data.Account.CreditLimit}}
+                <p class="text-xs text-gray-400">of {{formatCurrency (derefFloat .Data.Account.CreditLimit) .Data.Account.Currency}} limit</p>
+                {{end}}
+            </div>
+        </div>
+        <!-- TASK-076: Utilization trend sparkline -->
+        {{if .Data.UtilizationHistory}}
+        <div class="mt-3 pt-3 border-t border-gray-100">
+            <p class="text-xs text-gray-400 mb-1">Utilization trend (30 days)</p>
+            {{template "chart-sparkline" (dict "Values" .Data.UtilizationHistory "Color" "#f59e0b" "Width" 280 "Height" 30)}}
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+    {{end}}
+
     {{if .Data.BillingCycle}}
     {{template "credit-card-info" .Data.BillingCycle}}
+    <!-- TASK-071: Link to statement view -->
+    <div class="px-1">
+        <a href="/accounts/{{.Data.Account.ID}}/statement"
+           class="block text-center bg-teal-50 text-teal-600 text-sm font-medium py-2.5 rounded-xl hover:bg-teal-100 transition">
+            View Statement
+        </a>
+    </div>
     {{end}}
 
     <!-- TASK-068: Account Health Config -->

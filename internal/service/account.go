@@ -85,6 +85,121 @@ func GetBillingCycleInfo(meta BillingCycleMetadata, now time.Time) BillingCycleI
 	return info
 }
 
+// StatementData holds the data for a credit card statement view (TASK-071).
+// A statement covers one billing period with all transactions.
+type StatementData struct {
+	Account        models.Account
+	BillingCycle   BillingCycleInfo
+	Transactions   []models.Transaction
+	OpeningBalance float64 // balance at start of period
+	TotalSpending  float64 // sum of expenses in the period
+	TotalPayments  float64 // sum of payments/credits in the period
+	ClosingBalance float64 // balance at end of period (current for active period)
+	// TASK-072: Interest-free period tracking
+	InterestFreeDays    int  // total interest-free days from statement date
+	InterestFreeRemain  int  // days remaining in interest-free period
+	InterestFreeUrgent  bool // true if < 7 days remaining
+	// TASK-075: Payment history
+	PaymentHistory []models.Transaction // recent payments to this card
+}
+
+// CreditCardSummary holds credit card summary data for the dashboard (TASK-074).
+type CreditCardSummary struct {
+	AccountID      string
+	AccountName    string
+	Balance        float64 // current balance (negative = owed)
+	CreditLimit    float64
+	Utilization    float64 // 0–100 percentage
+	UtilizationPct float64 // for chart rendering
+	DueDate        time.Time
+	DaysUntilDue   int
+	IsDueSoon      bool
+	HasBillingCycle bool
+}
+
+// GetStatementData returns the credit card statement for a given billing period.
+// If periodStr is empty, returns the current billing period.
+func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, snapshotSvc *SnapshotService, ctx context.Context, periodStr string) (*StatementData, error) {
+	meta := ParseBillingCycle(acc)
+	if meta == nil {
+		return nil, fmt.Errorf("account has no billing cycle configuration")
+	}
+
+	now := time.Now()
+	info := GetBillingCycleInfo(*meta, now)
+
+	// If a specific period is requested (YYYY-MM), compute that period's dates
+	if periodStr != "" {
+		t, err := time.Parse("2006-01", periodStr)
+		if err == nil {
+			// Use the 1st of that month to compute the billing cycle
+			info = GetBillingCycleInfo(*meta, t.AddDate(0, 0, meta.StatementDay))
+		}
+	}
+
+	txns, err := txRepo.GetByAccountDateRange(ctx, acc.ID, info.PeriodStart, info.PeriodEnd)
+	if err != nil {
+		return nil, fmt.Errorf("loading statement transactions: %w", err)
+	}
+
+	var totalSpending, totalPayments float64
+	for _, tx := range txns {
+		if tx.BalanceDelta < 0 {
+			totalSpending += -tx.BalanceDelta // spending makes balance more negative
+		} else {
+			totalPayments += tx.BalanceDelta
+		}
+	}
+
+	sd := &StatementData{
+		Account:        acc,
+		BillingCycle:   info,
+		Transactions:   txns,
+		TotalSpending:  totalSpending,
+		TotalPayments:  totalPayments,
+		ClosingBalance: acc.CurrentBalance,
+	}
+	sd.OpeningBalance = sd.ClosingBalance
+	for _, tx := range txns {
+		sd.OpeningBalance -= tx.BalanceDelta
+	}
+
+	// TASK-072: Interest-free period tracking
+	// Standard interest-free period is 55 days from statement close date.
+	interestFreeDays := 55
+	sd.InterestFreeDays = interestFreeDays
+	interestFreeEnd := info.PeriodEnd.AddDate(0, 0, interestFreeDays)
+	sd.InterestFreeRemain = int(interestFreeEnd.Sub(now).Hours() / 24)
+	if sd.InterestFreeRemain < 0 {
+		sd.InterestFreeRemain = 0
+	}
+	sd.InterestFreeUrgent = sd.InterestFreeRemain > 0 && sd.InterestFreeRemain <= 7
+
+	// TASK-075: Payment history
+	if txRepo != nil {
+		payments, err := txRepo.GetPaymentsToAccount(ctx, acc.ID, 10)
+		if err == nil {
+			sd.PaymentHistory = payments
+		}
+	}
+
+	return sd, nil
+}
+
+// GetCreditCardUtilization computes the utilization percentage for a credit card.
+// Used for donut charts (TASK-073) and dashboard summary (TASK-074).
+func GetCreditCardUtilization(acc models.Account) float64 {
+	if !acc.IsCreditType() || acc.CreditLimit == nil || *acc.CreditLimit <= 0 {
+		return 0
+	}
+	// Balance is negative for credit cards (owed). Utilization = |balance| / limit * 100
+	used := -acc.CurrentBalance
+	if used < 0 {
+		used = 0
+	}
+	return used / *acc.CreditLimit * 100
+}
+
 // AccountService handles business logic for accounts.
 type AccountService struct {
 	repo *repository.AccountRepo

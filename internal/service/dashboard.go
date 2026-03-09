@@ -75,6 +75,9 @@ type DashboardData struct {
 
 	// TASK-069: Account health warnings
 	HealthWarnings []AccountHealthWarning
+
+	// TASK-074: Credit card dashboard summary
+	CreditCards []CreditCardSummary
 }
 
 // SpendingVelocity shows the pace of spending relative to last month.
@@ -222,7 +225,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		})
 	}
 
-	// Check for credit cards with upcoming due dates
+	// Check for credit cards with upcoming due dates + build CC summary (TASK-074)
 	now := time.Now()
 	for _, group := range data.Institutions {
 		for _, acc := range group.Accounts {
@@ -230,18 +233,35 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 				continue
 			}
 			meta := ParseBillingCycle(acc)
-			if meta == nil {
-				continue
+
+			ccSummary := CreditCardSummary{
+				AccountID:      acc.ID,
+				AccountName:    acc.Name,
+				Balance:        acc.CurrentBalance,
+				Utilization:    GetCreditCardUtilization(acc),
+				UtilizationPct: GetCreditCardUtilization(acc),
+				HasBillingCycle: meta != nil,
 			}
-			info := GetBillingCycleInfo(*meta, now)
-			if info.IsDueSoon {
-				data.DueSoonCards = append(data.DueSoonCards, DueSoonCard{
-					AccountName:  acc.Name,
-					DueDate:      info.DueDate,
-					DaysUntilDue: info.DaysUntilDue,
-					Balance:      acc.CurrentBalance,
-				})
+			if acc.CreditLimit != nil {
+				ccSummary.CreditLimit = *acc.CreditLimit
 			}
+
+			if meta != nil {
+				info := GetBillingCycleInfo(*meta, now)
+				ccSummary.DueDate = info.DueDate
+				ccSummary.DaysUntilDue = info.DaysUntilDue
+				ccSummary.IsDueSoon = info.IsDueSoon
+
+				if info.IsDueSoon {
+					data.DueSoonCards = append(data.DueSoonCards, DueSoonCard{
+						AccountName:  acc.Name,
+						DueDate:      info.DueDate,
+						DaysUntilDue: info.DaysUntilDue,
+						Balance:      acc.CurrentBalance,
+					})
+				}
+			}
+			data.CreditCards = append(data.CreditCards, ccSummary)
 		}
 	}
 

@@ -32,6 +32,12 @@ func (s *TransactionService) SetExchangeRateRepo(repo *repository.ExchangeRateRe
 	s.rateRepo = repo
 }
 
+// TxRepo returns the underlying transaction repository.
+// Used by the credit card statement handler that needs direct repo access (TASK-071).
+func (s *TransactionService) TxRepo() *repository.TransactionRepo {
+	return s.txRepo
+}
+
 // Create validates and creates a transaction, atomically updating the account balance.
 //
 // Balance impact by transaction type:
@@ -725,6 +731,18 @@ func (s *TransactionService) GetBuildingFundBalance(ctx context.Context) (float6
 // GetBuildingFundTransactions returns building fund transactions.
 func (s *TransactionService) GetBuildingFundTransactions(ctx context.Context, limit int) ([]models.Transaction, error) {
 	return s.txRepo.GetBuildingFundTransactions(ctx, limit)
+}
+
+// GetByAccountDateRange returns transactions for an account within a date range.
+// Used by credit card statement view (TASK-071).
+func (s *TransactionService) GetByAccountDateRange(ctx context.Context, accountID string, from, to time.Time) ([]models.Transaction, error) {
+	return s.txRepo.GetByAccountDateRange(ctx, accountID, from, to)
+}
+
+// GetPaymentsToAccount returns income/transfer payments that credit a specific account.
+// Used by credit card payment history (TASK-075).
+func (s *TransactionService) GetPaymentsToAccount(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
+	return s.txRepo.GetPaymentsToAccount(ctx, accountID, limit)
 }
 
 func (s *TransactionService) validateBasic(tx models.Transaction) error {

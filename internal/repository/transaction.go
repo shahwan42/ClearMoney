@@ -462,6 +462,55 @@ func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, a
 	return transactions, rows.Err()
 }
 
+// GetByPersonID returns all transactions linked to a specific person (loans, repayments).
+// Used by the person detail page (TASK-070).
+func (r *TransactionRepo) GetByPersonID(ctx context.Context, personID string, limit int) ([]models.Transaction, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	return r.queryTransactions(ctx, fmt.Sprintf(`
+		SELECT id, type, amount, currency, account_id, counter_account_id,
+			category_id, date, time, note, tags, exchange_rate, counter_amount,
+			fee_amount, fee_account_id, person_id, linked_transaction_id,
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+		FROM transactions WHERE person_id = $1
+		ORDER BY date DESC, created_at DESC LIMIT %d
+	`, limit), personID)
+}
+
+// GetByAccountDateRange returns transactions for a specific account within a date range.
+// Used by credit card statement view (TASK-071) to show transactions in a billing period.
+func (r *TransactionRepo) GetByAccountDateRange(ctx context.Context, accountID string, from, to time.Time) ([]models.Transaction, error) {
+	return r.queryTransactions(ctx, `
+		SELECT id, type, amount, currency, account_id, counter_account_id,
+			category_id, date, time, note, tags, exchange_rate, counter_amount,
+			fee_amount, fee_account_id, person_id, linked_transaction_id,
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+		FROM transactions WHERE account_id = $1 AND date >= $2 AND date <= $3
+		ORDER BY date DESC, created_at DESC
+	`, accountID, from, to)
+}
+
+// GetPaymentsToAccount returns income/transfer transactions that credit a specific account.
+// Used by credit card payment history (TASK-075).
+func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return r.queryTransactions(ctx, fmt.Sprintf(`
+		SELECT id, type, amount, currency, account_id, counter_account_id,
+			category_id, date, time, note, tags, exchange_rate, counter_amount,
+			fee_amount, fee_account_id, person_id, linked_transaction_id,
+			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+		FROM transactions
+		WHERE (account_id = $1 OR counter_account_id = $1)
+		  AND balance_delta > 0
+		  AND type IN ('income', 'transfer')
+		ORDER BY date DESC, created_at DESC
+		LIMIT %d
+	`, limit), accountID)
+}
+
 // HasDepositInRange checks if an account received a deposit >= minAmount within a date range.
 // Used by account health checking (TASK-068) to verify minimum monthly deposit.
 func (r *TransactionRepo) HasDepositInRange(ctx context.Context, accountID string, minAmount float64, from, to time.Time) bool {

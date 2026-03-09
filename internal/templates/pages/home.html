@@ -126,6 +126,52 @@
     </section>
     {{end}}
 
+    <!-- TASK-074: Credit Card Dashboard Summary -->
+    {{if .Data.CreditCards}}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Credit Cards</h2>
+        <div class="space-y-3">
+            {{range .Data.CreditCards}}
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <!-- Mini utilization ring -->
+                    <div class="relative w-10 h-10 flex-shrink-0">
+                        <svg viewBox="0 0 36 36" class="w-10 h-10 transform -rotate-90">
+                            <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                            <circle cx="18" cy="18" r="15.9" fill="none"
+                                stroke="{{if gt .Utilization 80.0}}#ef4444{{else if gt .Utilization 50.0}}#f59e0b{{else}}#10b981{{end}}"
+                                stroke-width="3"
+                                stroke-dasharray="{{printf "%.0f" .UtilizationPct}}, 100"
+                                stroke-linecap="round"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span class="text-[9px] font-bold text-slate-700">{{printf "%.0f" .Utilization}}%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <a href="/accounts/{{.AccountID}}" class="text-sm font-medium text-slate-700 hover:text-teal-600">{{.AccountName}}</a>
+                        {{if .HasBillingCycle}}
+                        <p class="text-xs text-gray-400">
+                            Due {{.DueDate.Format "Jan 2"}}
+                            {{if .IsDueSoon}}<span class="text-red-500 font-medium">({{.DaysUntilDue}}d)</span>{{end}}
+                        </p>
+                        {{end}}
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm font-semibold {{if lt .Balance 0.0}}text-red-600{{else}}text-slate-700{{end}}">
+                        {{formatEGP .Balance}}
+                    </p>
+                    {{if .HasBillingCycle}}
+                    <a href="/accounts/{{.AccountID}}/statement" class="text-[10px] text-teal-600 hover:text-teal-700">Statement</a>
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+
     <!-- Summary Cards -->
     {{template "summary-cards" .Data}}
 

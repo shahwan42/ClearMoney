@@ -93,6 +93,10 @@ type AccountDetailData struct {
 	BalanceHistory []float64
 	// TASK-068: Account health constraints
 	HealthConfig *models.AccountHealthConfig
+	// TASK-073: Credit card utilization percentage
+	Utilization float64
+	// TASK-076: Credit card utilization history (monthly %)
+	UtilizationHistory []float64
 }
 
 // PersonCardData wraps a person with accounts for the card template.
@@ -936,12 +940,32 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		balanceHistory, _ = h.snapshotSvc.GetAccountHistory(r.Context(), id, 30)
 	}
 
+	// TASK-073: Utilization for credit cards
+	var utilization float64
+	if acc.IsCreditType() {
+		utilization = service.GetCreditCardUtilization(acc)
+	}
+
+	// TASK-076: Utilization trend from balance history
+	var utilizationHistory []float64
+	if acc.IsCreditType() && acc.CreditLimit != nil && *acc.CreditLimit > 0 && len(balanceHistory) >= 2 {
+		for _, bal := range balanceHistory {
+			used := -bal
+			if used < 0 {
+				used = 0
+			}
+			utilizationHistory = append(utilizationHistory, used / *acc.CreditLimit * 100)
+		}
+	}
+
 	data := AccountDetailData{
-		Account:         acc,
-		InstitutionName: instName,
-		BillingCycle:    billingCycle,
-		BalanceHistory:  balanceHistory,
-		HealthConfig:    acc.GetHealthConfig(),
+		Account:            acc,
+		InstitutionName:    instName,
+		BillingCycle:       billingCycle,
+		BalanceHistory:     balanceHistory,
+		HealthConfig:       acc.GetHealthConfig(),
+		Utilization:        utilization,
+		UtilizationHistory: utilizationHistory,
 		TransactionListData: TransactionListData{
 			Transactions: txns,
 			HasMore:      len(txns) >= filter.Limit,
@@ -951,6 +975,43 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RenderPage(h.templates, w, "account-detail", PageData{ActiveTab: "accounts", Data: data})
+}
+
+// CreditCardStatement renders the credit card statement view (TASK-071).
+// GET /accounts/{id}/statement?period=YYYY-MM (optional)
+func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	periodStr := r.URL.Query().Get("period")
+
+	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "account not found", http.StatusNotFound)
+		return
+	}
+
+	if !acc.IsCreditType() {
+		http.Error(w, "not a credit card account", http.StatusBadRequest)
+		return
+	}
+
+	stmtData, err := service.GetStatementData(acc, h.txSvc.TxRepo(), h.snapshotSvc, r.Context(), periodStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// TASK-073: Add utilization data
+	utilization := service.GetCreditCardUtilization(acc)
+
+	type StatementPageData struct {
+		Statement   *service.StatementData
+		Utilization float64
+	}
+
+	RenderPage(h.templates, w, "credit-card-statement", PageData{
+		ActiveTab: "accounts",
+		Data:      StatementPageData{Statement: stmtData, Utilization: utilization},
+	})
 }
 
 // QuickEntryForm serves the quick-entry form partial into the bottom sheet.
