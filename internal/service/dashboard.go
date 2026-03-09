@@ -69,6 +69,9 @@ type DashboardData struct {
 
 	// TASK-063: Virtual funds for dashboard widget
 	VirtualFunds []models.VirtualFund
+
+	// TASK-066: Budget progress for dashboard widget
+	Budgets []models.BudgetWithSpending
 }
 
 // SpendingVelocity shows the pace of spending relative to last month.
@@ -117,6 +120,7 @@ type DashboardService struct {
 	streakSvc        *StreakService
 	snapshotSvc      *SnapshotService
 	virtualFundSvc   *VirtualFundService
+	budgetSvc        *BudgetService
 	db               *sql.DB // for direct queries (month-over-month)
 }
 
@@ -156,6 +160,11 @@ func (s *DashboardService) SetSnapshotService(svc *SnapshotService) {
 // SetVirtualFundService sets the virtual fund service for dashboard widget (TASK-063).
 func (s *DashboardService) SetVirtualFundService(svc *VirtualFundService) {
 	s.virtualFundSvc = svc
+}
+
+// SetBudgetService sets the budget service for dashboard widget (TASK-066).
+func (s *DashboardService) SetBudgetService(svc *BudgetService) {
+	s.budgetSvc = svc
 }
 
 // SetDB sets the database connection for direct queries (month-over-month).
@@ -306,6 +315,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		}
 		if len(sparklines) > 0 {
 			data.AccountSparklines = sparklines
+		}
+	}
+
+	// TASK-066: Load budgets with spending for dashboard widget
+	if s.budgetSvc != nil {
+		if budgets, err := s.budgetSvc.GetAllWithSpending(ctx); err == nil {
+			data.Budgets = budgets
 		}
 	}
 

@@ -116,6 +116,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		budgetRepo := repository.NewBudgetRepo(db)
 		budgetSvc := service.NewBudgetService(budgetRepo)
 		pages.SetBudgetService(budgetSvc)
+		dashboardSvc.SetBudgetService(budgetSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)

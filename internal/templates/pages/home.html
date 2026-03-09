@@ -118,6 +118,30 @@
     <!-- Summary Cards -->
     {{template "summary-cards" .Data}}
 
+    <!-- TASK-066: Budget Progress Widget -->
+    {{if .Data.Budgets}}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Budgets</h2>
+            <a href="/budgets" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
+        </div>
+        <div class="space-y-3">
+            {{range .Data.Budgets}}
+            <div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-slate-700">{{.CategoryName}}</span>
+                    <span class="text-xs text-gray-400">{{formatEGP .Spent}} / {{formatEGP .MonthlyLimit}}</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2">
+                    <div class="h-2 rounded-full transition-all {{if eq .Status "red"}}bg-red-500{{else if eq .Status "amber"}}bg-amber-500{{else}}bg-emerald-500{{end}}"
+                         style="width: {{if gt .Percentage 100.0}}100{{else}}{{printf "%.0f" .Percentage}}{{end}}%"></div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </section>
+    {{end}}
+
     <!-- TASK-063: Virtual Funds (replaces Building Fund when present) -->
     {{if .Data.VirtualFunds}}
     <section class="bg-white rounded-2xl shadow-sm p-5">
