@@ -107,6 +107,10 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		// Page routes (HTML)
 		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
 		pages.SetSnapshotService(snapshotSvc) // TASK-059: account balance sparklines
+		// TASK-062: Wire virtual fund service
+		virtualFundRepo := repository.NewVirtualFundRepo(db)
+		virtualFundSvc := service.NewVirtualFundService(virtualFundRepo)
+		pages.SetVirtualFundService(virtualFundSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)
@@ -164,6 +168,12 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Delete("/installments/{id}", pages.InstallmentDelete)
 		r.Get("/batch-entry", pages.BatchEntry)
 		r.Post("/transactions/batch", pages.BatchCreate)
+		// TASK-062: Virtual funds routes
+		r.Get("/virtual-funds", pages.VirtualFunds)
+		r.Post("/virtual-funds/add", pages.VirtualFundAdd)
+		r.Get("/virtual-funds/{id}", pages.VirtualFundDetail)
+		r.Post("/virtual-funds/{id}/archive", pages.VirtualFundArchive)
+		r.Post("/virtual-funds/{id}/allocate", pages.VirtualFundAllocate)
 
 		r.Get("/exchange-rates", pages.ExchangeRates)
 		r.Get("/settings", pages.Settings)

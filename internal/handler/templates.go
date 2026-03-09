@@ -59,6 +59,14 @@ func TemplateFuncs() template.FuncMap {
 			}
 			return *s
 		},
+		// derefFloat dereferences a *float64 pointer, returning 0 if nil.
+		// Used for optional numeric fields like VirtualFund.TargetAmount.
+		"derefFloat": func(f *float64) float64 {
+			if f == nil {
+				return 0
+			}
+			return *f
+		},
 		// string converts any value to string (for use in template comparisons)
 		"string": func(v any) string {
 			return fmt.Sprintf("%v", v)

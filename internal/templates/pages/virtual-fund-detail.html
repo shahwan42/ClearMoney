@@ -1,0 +1,97 @@
+{{define "title"}}ClearMoney - {{.Data.Fund.Name}}{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <!-- Fund Header -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+                {{if .Data.Fund.Icon}}<span class="text-2xl">{{.Data.Fund.Icon}}</span>{{end}}
+                <h2 class="text-lg font-bold text-slate-800">{{.Data.Fund.Name}}</h2>
+            </div>
+            <a href="/virtual-funds" class="text-sm text-teal-600 hover:text-teal-700">All Funds</a>
+        </div>
+        <p class="text-3xl font-bold mt-2" style="color: {{.Data.Fund.Color}}">
+            {{formatEGP .Data.Fund.CurrentBalance}}
+        </p>
+        {{if .Data.Fund.TargetAmount}}
+        <div class="mt-3">
+            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                <span>Progress</span>
+                <span>{{printf "%.0f" .Data.Fund.ProgressPct}}% of {{formatEGP (derefFloat .Data.Fund.TargetAmount)}}</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-3">
+                <div class="h-3 rounded-full transition-all" style="width: {{if gt .Data.Fund.ProgressPct 100.0}}100{{else}}{{printf "%.0f" .Data.Fund.ProgressPct}}{{end}}%; background-color: {{.Data.Fund.Color}}"></div>
+            </div>
+        </div>
+        {{end}}
+    </section>
+
+    <!-- Allocate Transaction -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Allocate Transaction</h3>
+        <form method="POST" action="/virtual-funds/{{.Data.Fund.ID}}/allocate" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Type</label>
+                    <select name="type" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="contribution">Contribution</option>
+                        <option value="withdrawal">Withdrawal</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Amount</label>
+                    <input type="number" name="amount" step="0.01" min="0.01" required
+                           class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Account</label>
+                    <select name="account_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                        {{range .Data.Accounts}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Date</label>
+                    <input type="date" name="date" value="{{formatDateShort .Data.Today}}" required
+                           class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Note (optional)</label>
+                <input type="text" name="note" placeholder="Optional note"
+                       class="w-full border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <button type="submit"
+                    class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
+                Allocate
+            </button>
+        </form>
+    </section>
+
+    <!-- Transaction History -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Transaction History</h3>
+        {{if .Data.Transactions}}
+        <div class="space-y-2">
+            {{range .Data.Transactions}}
+            <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div>
+                    <p class="text-sm text-slate-700">{{if .Note}}{{deref .Note}}{{else}}{{.Type}}{{end}}</p>
+                    <p class="text-xs text-gray-400">{{formatDateShort .Date}}</p>
+                </div>
+                <span class="font-medium text-sm {{if eq .Type "income"}}text-green-600{{else}}text-red-600{{end}}">
+                    {{if eq .Type "income"}}+{{else}}-{{end}}{{formatEGP .Amount}}
+                </span>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="text-sm text-gray-400 text-center py-4">No transactions allocated to this fund yet.</p>
+        {{end}}
+    </section>
+</div>
+{{end}}

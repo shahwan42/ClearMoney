@@ -168,7 +168,8 @@ type PageHandler struct {
 	exportSvc        *service.ExportService
 	authSvc          *service.AuthService
 	exchangeRateRepo *repository.ExchangeRateRepo
-	snapshotSvc      *service.SnapshotService // TASK-059: account balance sparklines
+	snapshotSvc      *service.SnapshotService    // TASK-059: account balance sparklines
+	virtualFundSvc   *service.VirtualFundService // TASK-062: virtual funds CRUD
 }
 
 func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService, exchangeRateRepo *repository.ExchangeRateRepo) *PageHandler {
@@ -194,6 +195,11 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 // SetSnapshotService sets the snapshot service for account balance sparklines (TASK-059).
 func (h *PageHandler) SetSnapshotService(svc *service.SnapshotService) {
 	h.snapshotSvc = svc
+}
+
+// SetVirtualFundService sets the virtual fund service for CRUD operations (TASK-062).
+func (h *PageHandler) SetVirtualFundService(svc *service.VirtualFundService) {
+	h.virtualFundSvc = svc
 }
 
 // Home renders the dashboard page.
@@ -1932,4 +1938,144 @@ func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 	for _, item := range data {
 		tmpl.ExecuteTemplate(w, "institution-card", item)
 	}
+}
+
+// --- Virtual Funds (TASK-062) ---
+
+// VirtualFundsPageData holds data for the virtual funds list page.
+type VirtualFundsPageData struct {
+	Funds []models.VirtualFund
+}
+
+// VirtualFundDetailData holds data for the virtual fund detail page.
+type VirtualFundDetailData struct {
+	Fund         models.VirtualFund
+	Transactions []models.Transaction
+	Accounts     []models.Account
+	Today        time.Time
+}
+
+// VirtualFunds renders the virtual funds management page.
+// GET /virtual-funds
+func (h *PageHandler) VirtualFunds(w http.ResponseWriter, r *http.Request) {
+	if h.virtualFundSvc == nil {
+		RenderPage(h.templates, w, "virtual-funds", PageData{ActiveTab: "home"})
+		return
+	}
+	funds, _ := h.virtualFundSvc.GetAll(r.Context())
+	data := VirtualFundsPageData{Funds: funds}
+	RenderPage(h.templates, w, "virtual-funds", PageData{ActiveTab: "home", Data: data})
+}
+
+// VirtualFundAdd creates a new virtual fund from form data.
+// POST /virtual-funds/add
+func (h *PageHandler) VirtualFundAdd(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	f := models.VirtualFund{
+		Name:  r.FormValue("name"),
+		Icon:  r.FormValue("icon"),
+		Color: r.FormValue("color"),
+	}
+	if v := r.FormValue("target_amount"); v != "" {
+		if amt, err := parseFloat(v); err == nil && amt > 0 {
+			f.TargetAmount = &amt
+		}
+	}
+	if _, err := h.virtualFundSvc.Create(r.Context(), f); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("HX-Redirect", "/virtual-funds")
+	w.WriteHeader(http.StatusOK)
+}
+
+// VirtualFundDetail renders the virtual fund detail page with transaction history.
+// GET /virtual-funds/{id}
+func (h *PageHandler) VirtualFundDetail(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	fund, err := h.virtualFundSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "fund not found", http.StatusNotFound)
+		return
+	}
+	txns, _ := h.virtualFundSvc.GetFundTransactions(r.Context(), id, 50)
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+
+	data := VirtualFundDetailData{
+		Fund:         fund,
+		Transactions: txns,
+		Accounts:     accounts,
+		Today:        time.Now(),
+	}
+	RenderPage(h.templates, w, "virtual-fund-detail", PageData{ActiveTab: "home", Data: data})
+}
+
+// VirtualFundArchive archives a virtual fund (soft-delete).
+// POST /virtual-funds/{id}/archive
+func (h *PageHandler) VirtualFundArchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.virtualFundSvc.Archive(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("HX-Redirect", "/virtual-funds")
+	w.WriteHeader(http.StatusOK)
+}
+
+// VirtualFundAllocate creates a transaction and allocates it to a fund.
+// POST /virtual-funds/{id}/allocate
+func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request) {
+	fundID := chi.URLParam(r, "id")
+	r.ParseForm()
+
+	amount, err := parseFloat(r.FormValue("amount"))
+	if err != nil || amount <= 0 {
+		http.Error(w, "invalid amount", http.StatusBadRequest)
+		return
+	}
+	date, err := parseDate(r.FormValue("date"))
+	if err != nil {
+		date = time.Now()
+	}
+
+	// Determine transaction type and allocation sign
+	allocType := r.FormValue("type")
+	txType := models.TransactionTypeIncome
+	allocAmount := amount
+	if allocType == "withdrawal" {
+		txType = models.TransactionTypeExpense
+		allocAmount = -amount
+	}
+
+	// Create the transaction
+	tx := models.Transaction{
+		Type:      txType,
+		Amount:    amount,
+		Currency:  models.CurrencyEGP,
+		AccountID: r.FormValue("account_id"),
+		Date:      date,
+	}
+	if note := r.FormValue("note"); note != "" {
+		tx.Note = &note
+	}
+
+	// Look up account currency
+	if acc, err := h.accountSvc.GetByID(r.Context(), tx.AccountID); err == nil {
+		tx.Currency = acc.Currency
+	}
+
+	created, _, err := h.txSvc.Create(r.Context(), tx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Allocate the transaction to the fund
+	if err := h.virtualFundSvc.Allocate(r.Context(), created.ID, fundID, allocAmount); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/virtual-funds/"+fundID)
+	w.WriteHeader(http.StatusOK)
 }
