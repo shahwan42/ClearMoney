@@ -60,6 +60,9 @@ type DashboardData struct {
 	LastMonthSpending float64
 	SpendingChange    float64          // % change (positive = spending more)
 	TopCategories     []CategoryChange // top 3 categories with change indicators
+
+	// TASK-059: Per-account balance sparklines (account ID → last 30 days)
+	AccountSparklines map[string][]float64
 }
 
 // InstitutionGroup pairs an institution with its accounts for display.
@@ -258,6 +261,21 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 			if oldest != 0 {
 				data.NetWorthChange = (current - oldest) / abs(oldest) * 100
 			}
+		}
+	}
+
+	// TASK-059: Per-account balance sparklines (last 30 days)
+	if s.snapshotSvc != nil {
+		sparklines := make(map[string][]float64)
+		for _, group := range data.Institutions {
+			for _, acc := range group.Accounts {
+				if history, err := s.snapshotSvc.GetAccountHistory(ctx, acc.ID, 30); err == nil && len(history) >= 2 {
+					sparklines[acc.ID] = history
+				}
+			}
+		}
+		if len(sparklines) > 0 {
+			data.AccountSparklines = sparklines
 		}
 	}
 

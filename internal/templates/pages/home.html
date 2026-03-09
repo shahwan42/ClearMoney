@@ -133,11 +133,19 @@
                     </summary>
                     <div class="ml-8 mt-1 space-y-1">
                         {{range .Accounts}}
-                        <div class="flex justify-between py-1 text-sm">
+                        <div class="flex items-center justify-between py-1 text-sm">
                             <span class="text-gray-600">{{.Name}} <span class="text-gray-400">{{.Currency}}</span></span>
-                            <span class="{{if lt .CurrentBalance 0.0}}text-red-600{{else}}text-slate-700{{end}}">
-                                {{formatCurrency .CurrentBalance .Currency}}
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <!-- TASK-059: Mini sparkline for each account -->
+                                {{if $.Data.AccountSparklines}}{{with index $.Data.AccountSparklines .ID}}
+                                <div class="flex-shrink-0">
+                                    {{template "chart-sparkline" (dict "Values" . "Color" "#94a3b8" "Width" 48 "Height" 16)}}
+                                </div>
+                                {{end}}{{end}}
+                                <span class="{{if lt .CurrentBalance 0.0}}text-red-600{{else}}text-slate-700{{end}}">
+                                    {{formatCurrency .CurrentBalance .Currency}}
+                                </span>
+                            </div>
                         </div>
                         {{end}}
                     </div>

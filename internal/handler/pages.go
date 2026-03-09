@@ -89,6 +89,8 @@ type AccountDetailData struct {
 	InstitutionName     string
 	BillingCycle        *service.BillingCycleInfo
 	TransactionListData TransactionListData
+	// TASK-059: 30-day balance sparkline data
+	BalanceHistory []float64
 }
 
 // PersonCardData wraps a person with accounts for the card template.
@@ -166,6 +168,7 @@ type PageHandler struct {
 	exportSvc        *service.ExportService
 	authSvc          *service.AuthService
 	exchangeRateRepo *repository.ExchangeRateRepo
+	snapshotSvc      *service.SnapshotService // TASK-059: account balance sparklines
 }
 
 func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService, exchangeRateRepo *repository.ExchangeRateRepo) *PageHandler {
@@ -186,6 +189,11 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		authSvc:          authSvc,
 		exchangeRateRepo: exchangeRateRepo,
 	}
+}
+
+// SetSnapshotService sets the snapshot service for account balance sparklines (TASK-059).
+func (h *PageHandler) SetSnapshotService(svc *service.SnapshotService) {
+	h.snapshotSvc = svc
 }
 
 // Home renders the dashboard page.
@@ -876,10 +884,17 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// TASK-059: Fetch 30-day balance history for sparkline
+	var balanceHistory []float64
+	if h.snapshotSvc != nil {
+		balanceHistory, _ = h.snapshotSvc.GetAccountHistory(r.Context(), id, 30)
+	}
+
 	data := AccountDetailData{
 		Account:         acc,
 		InstitutionName: instName,
 		BillingCycle:    billingCycle,
+		BalanceHistory:  balanceHistory,
 		TransactionListData: TransactionListData{
 			Transactions: txns,
 			HasMore:      len(txns) >= filter.Limit,
