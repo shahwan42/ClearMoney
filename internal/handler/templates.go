@@ -70,6 +70,20 @@ func TemplateFuncs() template.FuncMap {
 			}
 			return float64(part) / float64(total) * 100
 		},
+		// dict creates a map[string]any from key-value pairs.
+		// Used to pass multiple values to sub-templates (like Laravel's @include with data):
+		//   {{template "chart-sparkline" (dict "Values" .Values "Color" "#0d9488")}}
+		// In Django, similar to {% include "partial.html" with key=value %}
+		"dict": func(values ...any) map[string]any {
+			d := make(map[string]any)
+			for i := 0; i < len(values)-1; i += 2 {
+				key, ok := values[i].(string)
+				if ok {
+					d[key] = values[i+1]
+				}
+			}
+			return d
+		},
 	}
 
 	// Merge chart template functions (conicGradient, sparklinePoints, chartColor, etc.)

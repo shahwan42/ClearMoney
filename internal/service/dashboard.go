@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
@@ -49,6 +50,16 @@ type DashboardData struct {
 
 	// Recent transactions for the feed
 	RecentTransactions []models.Transaction
+
+	// TASK-055: Net worth sparkline data (last 30 days)
+	NetWorthHistory []float64 // values for sparkline chart
+	NetWorthChange  float64   // % change vs 30 days ago
+
+	// TASK-056: Month-over-month spending comparison
+	ThisMonthSpending float64
+	LastMonthSpending float64
+	SpendingChange    float64          // % change (positive = spending more)
+	TopCategories     []CategoryChange // top 3 categories with change indicators
 }
 
 // InstitutionGroup pairs an institution with its accounts for display.
@@ -66,6 +77,15 @@ type DueSoonCard struct {
 	Balance      float64
 }
 
+// CategoryChange shows a category's spending with month-over-month change.
+// Used in the dashboard's "This Month vs Last Month" section.
+type CategoryChange struct {
+	Name   string  // Category name (e.g., "Groceries")
+	Amount float64 // This month's spending in this category
+	Change float64 // % change vs last month (positive = spending more)
+	IsUp   bool    // true if spending increased (bad for expenses)
+}
+
 // DashboardService computes the dashboard view data.
 type DashboardService struct {
 	institutionRepo  *repository.InstitutionRepo
@@ -75,6 +95,8 @@ type DashboardService struct {
 	personRepo       *repository.PersonRepo
 	investmentRepo   *repository.InvestmentRepo
 	streakSvc        *StreakService
+	snapshotSvc      *SnapshotService
+	db               *sql.DB // for direct queries (month-over-month)
 }
 
 func NewDashboardService(institutionRepo *repository.InstitutionRepo, accountRepo *repository.AccountRepo, txRepo *repository.TransactionRepo) *DashboardService {
@@ -103,6 +125,16 @@ func (s *DashboardService) SetInvestmentRepo(repo *repository.InvestmentRepo) {
 // SetStreakService sets the streak service for habit tracking on dashboard.
 func (s *DashboardService) SetStreakService(svc *StreakService) {
 	s.streakSvc = svc
+}
+
+// SetSnapshotService sets the snapshot service for net worth history sparkline.
+func (s *DashboardService) SetSnapshotService(svc *SnapshotService) {
+	s.snapshotSvc = svc
+}
+
+// SetDB sets the database connection for direct queries (month-over-month).
+func (s *DashboardService) SetDB(db *sql.DB) {
+	s.db = db
 }
 
 // GetDashboard computes the full dashboard data in a single call.
@@ -216,5 +248,103 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// Load recent transactions
 	data.RecentTransactions, _ = s.txRepo.GetRecent(ctx, 10)
 
+	// TASK-055: Net worth sparkline (last 30 days from snapshots)
+	if s.snapshotSvc != nil {
+		if history, err := s.snapshotSvc.GetNetWorthHistory(ctx, 30); err == nil && len(history) >= 2 {
+			data.NetWorthHistory = history
+			// % change: (current - oldest) / |oldest| * 100
+			oldest := history[0]
+			current := history[len(history)-1]
+			if oldest != 0 {
+				data.NetWorthChange = (current - oldest) / abs(oldest) * 100
+			}
+		}
+	}
+
+	// TASK-056: Month-over-month spending comparison
+	if s.db != nil {
+		s.computeSpendingComparison(ctx, &data)
+	}
+
 	return data, nil
+}
+
+// abs returns the absolute value of a float64.
+func abs(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+// computeSpendingComparison calculates this month vs last month spending
+// and the top 3 categories with the biggest changes.
+func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *DashboardData) {
+	now := time.Now()
+	thisMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
+
+	// Total spending this month vs last month
+	_ = s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(amount), 0) FROM transactions
+		WHERE type = 'expense' AND date >= $1 AND date < $2
+	`, thisMonthStart, thisMonthStart.AddDate(0, 1, 0)).Scan(&data.ThisMonthSpending)
+
+	_ = s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(amount), 0) FROM transactions
+		WHERE type = 'expense' AND date >= $1 AND date < $2
+	`, lastMonthStart, thisMonthStart).Scan(&data.LastMonthSpending)
+
+	// Spending change %
+	if data.LastMonthSpending > 0 {
+		data.SpendingChange = (data.ThisMonthSpending - data.LastMonthSpending) / data.LastMonthSpending * 100
+	}
+
+	// Top 3 categories with the largest spending this month + their change vs last month
+	rows, err := s.db.QueryContext(ctx, `
+		WITH this_month AS (
+			SELECT COALESCE(c.name, 'Uncategorized') AS cat_name,
+				SUM(t.amount) AS amount
+			FROM transactions t
+			LEFT JOIN categories c ON t.category_id = c.id
+			WHERE t.type = 'expense' AND t.date >= $1 AND t.date < $2
+			GROUP BY c.name
+			ORDER BY SUM(t.amount) DESC
+			LIMIT 3
+		),
+		last_month AS (
+			SELECT COALESCE(c.name, 'Uncategorized') AS cat_name,
+				SUM(t.amount) AS amount
+			FROM transactions t
+			LEFT JOIN categories c ON t.category_id = c.id
+			WHERE t.type = 'expense' AND t.date >= $3 AND t.date < $1
+			GROUP BY c.name
+		)
+		SELECT tm.cat_name, tm.amount,
+			COALESCE(lm.amount, 0) AS last_amount
+		FROM this_month tm
+		LEFT JOIN last_month lm ON tm.cat_name = lm.cat_name
+	`, thisMonthStart, thisMonthStart.AddDate(0, 1, 0), lastMonthStart)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		var thisAmt, lastAmt float64
+		if err := rows.Scan(&name, &thisAmt, &lastAmt); err != nil {
+			continue
+		}
+		change := 0.0
+		if lastAmt > 0 {
+			change = (thisAmt - lastAmt) / lastAmt * 100
+		}
+		data.TopCategories = append(data.TopCategories, CategoryChange{
+			Name:   name,
+			Amount: thisAmt,
+			Change: change,
+			IsUp:   change > 0,
+		})
+	}
 }

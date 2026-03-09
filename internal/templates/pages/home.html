@@ -5,23 +5,37 @@
 
     {{if .Data}}
 
-    <!-- Net Worth Summary -->
+    <!-- Net Worth Summary with Sparkline (TASK-055) -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
-        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
-        {{if gt .Data.ExchangeRate 0.0}}
-        <p class="text-3xl font-bold {{if lt .Data.NetWorthEGP 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
-            {{formatEGP .Data.NetWorthEGP}}
-        </p>
-        {{if gt .Data.USDTotal 0.0}}
-        <p class="text-xs text-gray-400 mt-1">
-            Includes {{formatUSD .Data.USDTotal}} @ {{printf "%.2f" .Data.ExchangeRate}} = {{formatEGP .Data.USDInEGP}}
-        </p>
-        {{end}}
-        {{else}}
-        <p class="text-3xl font-bold {{if lt .Data.NetWorth 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
-            {{formatEGP .Data.NetWorth}}
-        </p>
-        {{end}}
+        <div class="flex items-start justify-between">
+            <div>
+                <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
+                {{if gt .Data.ExchangeRate 0.0}}
+                <p class="text-3xl font-bold {{if lt .Data.NetWorthEGP 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
+                    {{formatEGP .Data.NetWorthEGP}}
+                </p>
+                {{if gt .Data.USDTotal 0.0}}
+                <p class="text-xs text-gray-400 mt-1">
+                    Includes {{formatUSD .Data.USDTotal}} @ {{printf "%.2f" .Data.ExchangeRate}} = {{formatEGP .Data.USDInEGP}}
+                </p>
+                {{end}}
+                {{else}}
+                <p class="text-3xl font-bold {{if lt .Data.NetWorth 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
+                    {{formatEGP .Data.NetWorth}}
+                </p>
+                {{end}}
+                {{if ne .Data.NetWorthChange 0.0}}
+                <div class="mt-1">
+                    {{template "chart-trend" (dict "Change" .Data.NetWorthChange "Label" "30d" "IsGood" (gt .Data.NetWorthChange 0.0))}}
+                </div>
+                {{end}}
+            </div>
+            {{if .Data.NetWorthHistory}}
+            <div class="ml-3 flex-shrink-0">
+                {{template "chart-sparkline" (dict "Values" .Data.NetWorthHistory "Color" "#0d9488" "Width" 100 "Height" 36)}}
+            </div>
+            {{end}}
+        </div>
     </section>
 
     <!-- Habit Streak -->
@@ -36,6 +50,43 @@
             <p class="text-sm font-semibold text-slate-700">{{.Data.Streak.WeeklyCount}} entries</p>
         </div>
     </div>
+    {{end}}
+
+    <!-- Month-over-Month Spending (TASK-056) -->
+    {{if or (gt .Data.ThisMonthSpending 0.0) (gt .Data.LastMonthSpending 0.0)}}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">This Month vs Last</h2>
+            {{if ne .Data.SpendingChange 0.0}}
+            {{template "chart-trend" (dict "Change" .Data.SpendingChange "Label" "" "IsGood" (lt .Data.SpendingChange 0.0))}}
+            {{end}}
+        </div>
+        <div class="flex items-end gap-6">
+            <div>
+                <p class="text-xs text-gray-400">This month</p>
+                <p class="text-xl font-bold text-slate-900">{{formatEGP .Data.ThisMonthSpending}}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-400">Last month</p>
+                <p class="text-sm font-medium text-gray-500">{{formatEGP .Data.LastMonthSpending}}</p>
+            </div>
+        </div>
+        {{if .Data.TopCategories}}
+        <div class="mt-3 pt-3 border-t border-gray-100 space-y-2">
+            {{range .Data.TopCategories}}
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-600">{{.Name}}</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-medium text-slate-800">{{formatEGP .Amount}}</span>
+                    {{if ne .Change 0.0}}
+                    {{template "chart-trend" (dict "Change" .Change "Label" "" "IsGood" (lt .Change 0.0))}}
+                    {{end}}
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{end}}
+    </section>
     {{end}}
 
     <!-- Due Date Warnings -->
