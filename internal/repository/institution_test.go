@@ -1,3 +1,21 @@
+// Integration tests for InstitutionRepo.
+//
+// These are INTEGRATION tests, not unit tests — they hit a real PostgreSQL database.
+// This is the Go equivalent of Laravel's RefreshDatabase trait or Django's TestCase
+// with a live database.
+//
+// Key Go testing patterns used here:
+//
+//   - Test functions must be named Test* and accept *testing.T
+//   - t.Fatalf() stops the test immediately (like $this->fail() in PHPUnit)
+//   - t.Errorf() records a failure but continues (like $this->addFailure())
+//   - t.Error() is like t.Errorf() without formatting
+//   - context.Background() provides a non-cancellable context (fine for tests)
+//
+// To run these tests: TEST_DATABASE_URL=... go test ./internal/repository/ -p 1
+// The -p 1 flag runs packages sequentially to avoid DB conflicts.
+//
+// See: https://pkg.go.dev/testing
 package repository
 
 import (
@@ -9,6 +27,13 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// TestInstitutionRepo_Create verifies that inserting an institution returns
+// a record with an auto-generated UUID and timestamp.
+//
+// testutil.NewTestDB(t) connects to the test database (TEST_DATABASE_URL env var).
+// If the env var is not set, the test is skipped with t.Skip().
+// testutil.CleanTable truncates the table to ensure a clean slate — like
+// Laravel's RefreshDatabase or Django's TransactionTestCase.
 func TestInstitutionRepo_Create(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
@@ -32,6 +57,8 @@ func TestInstitutionRepo_Create(t *testing.T) {
 	}
 }
 
+// TestInstitutionRepo_GetByID verifies that we can retrieve a previously created institution.
+// This is the classic "create then read" integration test pattern.
 func TestInstitutionRepo_GetByID(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
@@ -51,6 +78,9 @@ func TestInstitutionRepo_GetByID(t *testing.T) {
 	}
 }
 
+// TestInstitutionRepo_GetByID_NotFound verifies the error path — looking up
+// a non-existent UUID should return an error (wrapping sql.ErrNoRows).
+// Testing error paths is important — like PHPUnit's expectException().
 func TestInstitutionRepo_GetByID_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	repo := NewInstitutionRepo(db)
@@ -61,6 +91,7 @@ func TestInstitutionRepo_GetByID_NotFound(t *testing.T) {
 	}
 }
 
+// TestInstitutionRepo_GetAll verifies listing all institutions respects display_order.
 func TestInstitutionRepo_GetAll(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
@@ -91,6 +122,8 @@ func TestInstitutionRepo_GetAll(t *testing.T) {
 	}
 }
 
+// TestInstitutionRepo_Update verifies that updating a field persists the change
+// and that updated_at is advanced (server-side timestamp via now()).
 func TestInstitutionRepo_Update(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
@@ -114,6 +147,8 @@ func TestInstitutionRepo_Update(t *testing.T) {
 	}
 }
 
+// TestInstitutionRepo_Delete verifies that deleting removes the record and
+// a subsequent GetByID returns an error.
 func TestInstitutionRepo_Delete(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
@@ -135,6 +170,9 @@ func TestInstitutionRepo_Delete(t *testing.T) {
 	}
 }
 
+// TestInstitutionRepo_Delete_NotFound verifies that deleting a non-existent record
+// returns sql.ErrNoRows. This ensures the handler can distinguish "not found"
+// from other errors and return a proper 404 HTTP response.
 func TestInstitutionRepo_Delete_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	repo := NewInstitutionRepo(db)

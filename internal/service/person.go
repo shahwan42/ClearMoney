@@ -1,9 +1,24 @@
 // Package service — PersonService handles business logic for the people ledger.
-// Tracks lending and borrowing: "I lent X to Y" / "I borrowed from Y".
+//
+// Tracks personal lending and borrowing: "I lent X to Y" / "I borrowed from Y".
+// Every loan/repayment atomically updates both the account balance AND the person's
+// net balance — all within a database transaction.
 //
 // Net balance convention:
 //   - Positive: they owe me (I lent them money)
 //   - Negative: I owe them (I borrowed from them)
+//
+// Laravel analogy: Like a PersonService that manages loan_out/loan_in transactions.
+// Similar to how you'd track debts in a fintech app with Eloquent relationships
+// between Person and Transaction, using DB::transaction() for atomicity.
+//
+// Django analogy: Like a persons/services.py module with functions that use
+// transaction.atomic() to coordinate updates across multiple models.
+//
+// Key pattern: RecordLoan and RecordRepayment update TWO database tables atomically:
+//   1. accounts.current_balance (the bank account impact)
+//   2. persons.net_balance (the person-level debt tracking)
+// Both must succeed or both must roll back.
 package service
 
 import (
@@ -16,6 +31,9 @@ import (
 )
 
 // PersonService handles person CRUD and loan/repayment logic.
+// It needs two repositories because loans affect both the person (debt tracking)
+// and the account (balance). This cross-cutting concern requires a DB transaction
+// that spans both tables.
 type PersonService struct {
 	personRepo *repository.PersonRepo
 	txRepo     *repository.TransactionRepo
@@ -190,6 +208,10 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 // DebtSummary holds computed data for a person's debt/loan detail page.
 // It provides the raw data for the person-detail.html template:
 // loan history, repayment progress, and projected payoff date.
+//
+// This is a ViewModel/DTO — a read-only aggregation of data for display.
+// Not stored in the database; computed on each request.
+// Like Laravel's API Resource or Django's serializer output.
 type DebtSummary struct {
 	Person        models.Person
 	Transactions  []models.Transaction // loan + repayment history
@@ -204,6 +226,13 @@ type DebtSummary struct {
 
 // GetDebtSummary computes the full debt/loan summary for a person.
 // Used by the person detail page to show progress + projection.
+//
+// This method demonstrates the AGGREGATION pattern: it loads raw transaction data,
+// then computes derived metrics (totals, percentages, projections) in Go code.
+// The projection uses a simple linear model: average repayment rate x remaining debt.
+//
+// In Laravel, you might compute these aggregates with Eloquent's sum(), count(),
+// and Collection methods. In Go, we iterate manually — more verbose but explicit.
 func (s *PersonService) GetDebtSummary(ctx context.Context, personID string) (DebtSummary, error) {
 	person, err := s.personRepo.GetByID(ctx, personID)
 	if err != nil {

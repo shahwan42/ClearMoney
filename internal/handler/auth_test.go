@@ -1,3 +1,26 @@
+// auth_test.go — Integration tests for the full authentication flow.
+//
+// These tests cover the complete auth lifecycle:
+//   1. First-time setup: /setup page renders, PIN creation, auto-login
+//   2. Login: correct PIN redirects to /, wrong PIN shows error
+//   3. Protected routes: redirect to /login without auth, accessible with auth
+//   4. Logout: clears cookie and redirects to /login
+//   5. Health check: accessible without auth
+//
+// Form submission testing:
+//   strings.NewReader("pin=1234&confirm_pin=1234") creates a form-encoded body.
+//   The Content-Type header must be set to "application/x-www-form-urlencoded"
+//   for r.ParseForm() to work. This is like submitting an HTML <form> with POST.
+//
+//   In Laravel: $this->post('/setup', ['pin' => '1234', 'confirm_pin' => '1234'])
+//   In Django: self.client.post('/setup', {'pin': '1234', 'confirm_pin': '1234'})
+//
+// Cookie assertions:
+//   w.Result().Cookies() returns all Set-Cookie headers from the response.
+//   We check for the "clearmoney_session" cookie to verify login worked.
+//   MaxAge == -1 means "delete this cookie" (used in logout).
+//
+// See institution_test.go for general testing pattern explanations.
 package handler
 
 import (

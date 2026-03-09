@@ -1,3 +1,13 @@
+// category_test.go — Integration tests for category API endpoints.
+//
+// Categories are seeded with 25 default system categories (18 expense + 7 income).
+// These tests verify listing, filtering by type, creating custom categories,
+// and the protection of system categories from modification.
+//
+// The testutil.GetFirstCategoryID helper fetches a system category ID for tests
+// that need to verify system category protection rules.
+//
+// See institution_test.go for detailed explanations of testing patterns.
 package handler
 
 import (

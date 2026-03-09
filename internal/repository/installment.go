@@ -1,4 +1,11 @@
-// Package repository — InstallmentRepo handles CRUD for installment plans.
+// Package repository — InstallmentRepo handles CRUD for installment payment plans.
+//
+// Installment plans track purchases paid over multiple months (e.g., a phone bought
+// for 12,000 EGP in 12 monthly installments of 1,000 EGP). Each time a payment is
+// made, remaining_installments is decremented by 1.
+//
+//   Laravel analogy:  InstallmentPlan Eloquent model with a decrement('remaining_installments')
+//   Django analogy:   InstallmentPlan model with F('remaining_installments') - 1
 package repository
 
 import (
@@ -9,10 +16,12 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
+// InstallmentRepo handles database operations for the installment_plans table.
 type InstallmentRepo struct {
 	db *sql.DB
 }
 
+// NewInstallmentRepo creates a new InstallmentRepo with the given database connection pool.
 func NewInstallmentRepo(db *sql.DB) *InstallmentRepo {
 	return &InstallmentRepo{db: db}
 }
@@ -32,7 +41,10 @@ func (r *InstallmentRepo) Create(ctx context.Context, plan models.InstallmentPla
 	return plan, nil
 }
 
-// GetAll returns all installment plans ordered by remaining (active first).
+// GetAll returns all installment plans ordered by remaining installments (active first).
+// Plans with more remaining payments appear first so the user sees active plans at the top.
+//   Laravel:  InstallmentPlan::orderByDesc('remaining_installments')->orderByDesc('start_date')->get()
+//   Django:   InstallmentPlan.objects.order_by('-remaining_installments', '-start_date')
 func (r *InstallmentRepo) GetAll(ctx context.Context) ([]models.InstallmentPlan, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, account_id, description, total_amount, num_installments,
@@ -75,6 +87,13 @@ func (r *InstallmentRepo) GetByID(ctx context.Context, id string) (models.Instal
 }
 
 // RecordPayment decrements remaining_installments by 1.
+//
+// The WHERE clause includes `remaining_installments > 0` as a safety guard —
+// prevents going negative if called on an already-completed plan.
+// The arithmetic happens at the DB level for atomicity.
+//
+//   Laravel:  InstallmentPlan::where('id', $id)->where('remaining_installments', '>', 0)->decrement('remaining_installments')
+//   Django:   InstallmentPlan.objects.filter(id=id, remaining_installments__gt=0).update(remaining_installments=F('remaining_installments') - 1)
 func (r *InstallmentRepo) RecordPayment(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE installment_plans

@@ -1,5 +1,51 @@
+<!--
+=============================================================================
+  RECENT TRANSACTIONS PARTIAL -- HTMX-Compatible Fragment
+=============================================================================
+
+  This is a "partial" template -- a reusable HTML fragment that can be:
+    1. Included in a full page via `template "recent-transactions" .Data.RecentTransactions`
+    2. Returned directly by an HTMX endpoint as an HTML fragment
+
+  Blade:  resources/views/partials/recent-transactions.blade.php
+  Jinja2: templates/partials/recent-transactions.html
+
+  HTMX PARTIAL LOADING PATTERN:
+    When the dashboard first loads, this partial is rendered server-side inline.
+    But it could also be loaded lazily via HTMX:
+      <div hx-get="/api/recent-transactions" hx-trigger="load">
+    The same template serves both use cases -- no separate "API response" needed.
+    This is a core HTMX philosophy: HTML IS the API.
+
+  DATA CONTEXT:
+    The dot (.) here is a []Transaction slice (not the full page data).
+    The caller explicitly passes just the transactions:
+      `template "recent-transactions" .Data.RecentTransactions`
+
+  GO TEMPLATE TECHNIQUES USED:
+    `if .Note``deref .Note``else``.Type``end`
+      "deref" is a custom function that dereferences a *string pointer.
+      In Go, optional fields are often *string (pointer to string).
+      If Note is nil, we fall back to showing the transaction Type.
+      PHP equivalent: $tx->note ?? $tx->type
+      Python equivalent: tx.note or tx.type
+
+    `if eq (string .Type) "expense"`
+      "string" converts the TransactionType enum to a string for comparison.
+      Go's typed enums can't be compared directly to string literals in templates.
+
+    `formatCurrency .Amount .Currency`
+      Calls a custom function with TWO arguments (amount + currency code).
+      In Go templates, function args follow the function name separated by spaces.
+      Go:     `funcName arg1 arg2`
+      Blade:  ` funcName($arg1, $arg2) `
+      Jinja2: ` func_name(arg1, arg2) ` or ` arg1|func_name(arg2) `
+
+  Docs: https://pkg.go.dev/html/template#hdr-Functions
+=============================================================================
+-->
 {{define "recent-transactions"}}
-<!-- Recent transactions feed — used in the dashboard and as an HTMX partial.
+<!-- Recent transactions feed -- used in the dashboard and as an HTMX partial.
      Shows the last 10-15 transactions with type, note, date, and color-coded amount. -->
 {{if .}}
 <div class="space-y-2">

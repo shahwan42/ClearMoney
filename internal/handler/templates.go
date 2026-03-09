@@ -1,3 +1,33 @@
+// templates.go — Template engine configuration, custom functions, and rendering.
+//
+// Go's html/template vs Blade (Laravel) vs Jinja2 (Django):
+//
+// Go uses html/template (part of stdlib) for server-side HTML rendering.
+// Unlike Blade or Jinja2, Go templates have minimal logic — by design.
+//
+// Key differences for Laravel/Django developers:
+//
+//   Blade/Jinja2:                        Go html/template:
+//   @extends('layouts.app')              {{template "base" .}}        (no @extends)
+//   @section('content')                  {{define "content"}}...{{end}}
+//   @include('partials.card', ['x'=>1])  {{template "card" .}}
+//   {{ $user->name }}                    {{.User.Name}}
+//   @if($x > 0)                          {{if gt .X 0}}
+//   @foreach($items as $item)            {{range .Items}}
+//   {{ money($amount) }}                 {{formatEGP .Amount}}
+//
+// Template inheritance in Go: "Clone-per-page" pattern.
+// Go templates don't have @extends. Instead, we:
+//   1. Parse a base template set (layout + components)
+//   2. Clone it for each page
+//   3. Parse the page file on top of the clone
+// This lets each page override {{define "content"}} and {{define "title"}} blocks.
+//
+// Auto-escaping: Go's html/template auto-escapes all output by default (XSS protection).
+// To insert raw HTML/CSS, use template.HTML or template.CSS wrapper types.
+//
+// See: https://pkg.go.dev/html/template
+// See: https://pkg.go.dev/html/template#FuncMap (custom functions)
 package handler
 
 import (
@@ -11,6 +41,13 @@ import (
 
 // PageData holds the data passed to every page template.
 // Think of it like Laravel's view()->share() data or Django's context dict.
+//
+// In Go templates, this becomes the "dot" (.) value:
+//   {{.ActiveTab}}  — accesses ActiveTab field
+//   {{.Data}}       — accesses page-specific data (cast with type assertions in templates)
+//
+// In Laravel: return view('home', ['activeTab' => 'home', 'data' => $dashData])
+// In Django: return render(request, 'home.html', {'active_tab': 'home', 'data': dash_data})
 type PageData struct {
 	ActiveTab string // which bottom nav tab is active: "home", "reports", "people"
 	Data      any    // page-specific data (transactions, accounts, etc.)
@@ -19,10 +56,21 @@ type PageData struct {
 // TemplateMap holds parsed templates keyed by page name.
 // Each page gets its own template set (base layout + components + page content),
 // which is how Go handles template inheritance — by cloning a base and adding page blocks.
+//
+// Usage: templates["home"] returns the fully-assembled template for the home page,
+// which includes the base layout, header, nav, and the home-specific content.
 type TemplateMap map[string]*template.Template
 
 // TemplateFuncs returns custom template functions available in all templates.
-// Like Laravel's Blade directives or Django template filters.
+// Like Laravel's Blade directives or Django template filters/tags.
+//
+// In Go, custom functions are registered via template.FuncMap before parsing.
+// Each function name becomes available in templates: {{formatEGP .Amount}}
+//
+// In Laravel, you'd register Blade directives: Blade::directive('money', ...)
+// In Django, you'd create a templatetags module with @register.filter.
+//
+// See: https://pkg.go.dev/html/template#FuncMap
 func TemplateFuncs() template.FuncMap {
 	funcs := template.FuncMap{
 		// formatEGP formats a float as Egyptian Pounds: "EGP 1,234.56"
@@ -136,14 +184,24 @@ func formatNumber(n float64) string {
 	return prefix + string(result) + "." + decPart
 }
 
-// ParseTemplates loads all HTML templates using Go's template inheritance pattern.
+// ParseTemplates loads all HTML templates using Go's "clone-per-page" inheritance pattern.
 //
-// Go templates don't have @extends like Blade. Instead, we:
-// 1. Parse the base layout + components as a "base" template set
-// 2. For each page, clone the base and parse the page file on top
+// Go templates don't have @extends like Blade or {% extends %} like Jinja2.
+// Instead, we simulate template inheritance by:
+//   1. Parsing the base layout + shared components into a "base" template set
+//   2. For each page, cloning the base set (template.Must(base.Clone()))
+//   3. Parsing the page-specific file on top of the clone
 //
 // This lets each page redefine {{define "content"}} and {{define "title"}}
-// blocks, overriding the defaults from the base layout.
+// blocks, overriding the defaults from the base layout — similar to how
+// Blade's @section/@yield works, or Django's {% block %}{% endblock %}.
+//
+// The templateFS parameter is an embedded filesystem (io/fs.FS) containing
+// all HTML template files. Go's embed package compiles these files into the
+// binary, so there's no filesystem dependency at runtime.
+//
+// See: https://pkg.go.dev/html/template#Template.Clone
+// See: https://pkg.go.dev/io/fs (for embedded filesystems)
 func ParseTemplates(templateFS fs.FS) (TemplateMap, error) {
 	// Shared files: layouts + components + partials (parsed once, cloned per page)
 	sharedFiles := []string{
@@ -196,8 +254,19 @@ var barePages = map[string]bool{
 }
 
 // RenderPage renders a named page template with the given data.
-// The page name maps to a file in templates/pages/ (e.g., "home" → pages/home.html).
+// The page name maps to a file in templates/pages/ (e.g., "home" -> pages/home.html).
 // Auth pages (login, setup) use the "bare" layout without header/nav.
+//
+// This is the Go equivalent of:
+//   - Laravel: return view('home', $data);
+//   - Django: return render(request, 'pages/home.html', data)
+//
+// The function looks up the pre-parsed template by page name, selects the layout
+// ("base" with header/nav, or "bare" for auth pages), and executes the template
+// writing the rendered HTML directly to the ResponseWriter.
+//
+// ExecuteTemplate(w, "base", data) starts rendering from the "base" named template,
+// which in turn calls {{template "content" .}} to render page-specific content.
 func RenderPage(templates TemplateMap, w http.ResponseWriter, page string, data PageData) {
 	tmpl, ok := templates[page]
 	if !ok {

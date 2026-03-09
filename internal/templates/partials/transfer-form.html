@@ -1,3 +1,57 @@
+<!--
+=============================================================================
+  TRANSFER FORM PARTIAL -- Dynamic HTMX Endpoint Switching
+=============================================================================
+
+  This form demonstrates an advanced HTMX pattern: dynamically changing
+  the hx-post URL based on user interaction (InstaPay toggle).
+
+  HTMX FORM SUBMISSION:
+    <form hx-post="/transactions/transfer"
+          hx-target="#transfer-result"
+          hx-swap="innerHTML">
+
+    hx-post="/transactions/transfer"
+      Submits the form data via AJAX POST. On success, the server returns
+      an HTML fragment (success message) that replaces #transfer-result.
+
+    DYNAMIC ENDPOINT SWITCHING (via JavaScript):
+      When the user toggles "InstaPay", JavaScript changes the hx-post attribute:
+        form.setAttribute('hx-post', '/transactions/instapay-transfer');
+        htmx.process(form);  // <-- IMPORTANT: tells HTMX to re-read attributes
+
+      htmx.process(element) is required after programmatically changing hx-*
+      attributes. Without it, HTMX would still use the old URL.
+      Docs: https://htmx.org/api/#process
+
+      Blade/Livewire: Livewire handles this server-side with wire:model
+      Django: You'd typically use a hidden input or JS to set the action URL
+
+  TAILWIND TOGGLE SWITCH PATTERN:
+    <input type="checkbox" class="sr-only peer">
+    <div class="peer-checked:bg-teal-600 after:translate-x-full ...">
+
+    sr-only     = visually hidden but accessible to screen readers
+    peer        = enables peer-checked: modifiers on siblings
+    after:*     = styles the ::after pseudo-element (the toggle knob)
+    peer-checked:after:translate-x-full = slides the knob right when checked
+
+    This creates a mobile-style toggle switch with ZERO JavaScript for the
+    visual effect. Only the InstaPay fee logic needs JavaScript.
+
+  RANGE REUSE:
+    Both "From Account" and "To Account" dropdowns use {{range .Accounts}}.
+    The same slice is iterated twice to populate both selects. Go templates
+    support iterating the same slice multiple times without issues.
+
+    {{string .Currency}} -- converts the Currency type to a string for display.
+    Go's typed enums need explicit conversion in templates.
+
+  Docs: https://htmx.org/attributes/hx-post/
+        https://htmx.org/api/#process
+        https://tailwindcss.com/docs/hover-focus-and-other-states#styling-based-on-sibling-state
+=============================================================================
+-->
 {{define "transfer-form"}}
 <div class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
     <h2 class="text-base font-bold text-slate-800">Transfer Between Accounts</h2>

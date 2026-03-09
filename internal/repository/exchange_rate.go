@@ -1,3 +1,14 @@
+// Package repository — exchange_rate.go handles the exchange_rate_log table.
+//
+// This repository tracks historical USD/EGP exchange rates for multi-currency
+// net worth calculations. Rates are logged manually by the user.
+//
+// Note: ExchangeRateLog is defined here (not in models/) because it's only used
+// by the repository layer. If other packages needed it, it would move to models/.
+// This is a pragmatic Go pattern — keep types close to where they're used.
+//
+//   Laravel analogy:  ExchangeRateLog Eloquent model for a simple append-only log table
+//   Django analogy:   ExchangeRateLog model with objects.create() and objects.latest()
 package repository
 
 import (
@@ -7,7 +18,14 @@ import (
 	"time"
 )
 
-// ExchangeRateLog records a historical exchange rate.
+// ExchangeRateLog records a historical exchange rate entry.
+//
+// This struct is defined in the repository package (not models/) because
+// it's only used here and in the service layer. The json tags enable
+// JSON serialization if needed (e.g., for API responses).
+//
+// *string fields (Source, Note) are pointers because the DB columns are nullable.
+// The json:"source,omitempty" tag means: omit from JSON output if nil.
 type ExchangeRateLog struct {
 	ID        string    `json:"id"`
 	Date      time.Time `json:"date"`
@@ -17,11 +35,12 @@ type ExchangeRateLog struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ExchangeRateRepo handles exchange rate log operations.
+// ExchangeRateRepo handles database operations for the exchange_rate_log table.
 type ExchangeRateRepo struct {
 	db *sql.DB
 }
 
+// NewExchangeRateRepo creates a new ExchangeRateRepo with the given database connection pool.
 func NewExchangeRateRepo(db *sql.DB) *ExchangeRateRepo {
 	return &ExchangeRateRepo{db: db}
 }

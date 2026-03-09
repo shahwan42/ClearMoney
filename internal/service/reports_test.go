@@ -1,3 +1,8 @@
+// Tests for ReportsService — validates monthly spending reports and income/expense summaries.
+//
+// These tests demonstrate a common integration test pattern: use one service (TransactionService)
+// to create test data, then use another service (ReportsService) to verify the aggregated output.
+// This is like seeding data with a factory and then testing a reporting endpoint.
 package service
 
 import (
@@ -10,6 +15,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// TestReportsService_GetMonthlyReport creates expenses and income in the current month,
+// then verifies the report correctly sums spending and computes income/expense/net.
 func TestReportsService_GetMonthlyReport(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -76,6 +83,8 @@ func TestReportsService_GetMonthlyReport(t *testing.T) {
 	}
 }
 
+// TestReportsService_GetMonthlyReport_EmptyMonth verifies the report handles months with
+// no transactions — all totals should be zero, no categories returned.
 func TestReportsService_GetMonthlyReport_EmptyMonth(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")

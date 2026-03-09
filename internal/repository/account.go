@@ -7,8 +7,11 @@ import (
 	"fmt"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	// pq is the PostgreSQL driver helper — pq.Array() converts Go slices to/from
-	// PostgreSQL array columns. Like Laravel's array casting on Eloquent models.
+	// pq is the PostgreSQL driver helper library.
+	// pq.Array() converts between Go slices and PostgreSQL array columns (text[], int[], etc.).
+	// This is like Laravel's array casting: protected $casts = ['role_tags' => 'array'];
+	// Or Django's ArrayField from django.contrib.postgres.fields.
+	// See: https://pkg.go.dev/github.com/lib/pq#Array
 	"github.com/lib/pq"
 )
 
@@ -70,6 +73,17 @@ func (r *AccountRepo) Create(ctx context.Context, acc models.Account) (models.Ac
 }
 
 // GetByID retrieves a single account by UUID.
+//
+// Note the Scan call includes pq.Array(&acc.RoleTags) — this converts the
+// PostgreSQL text[] array column into a Go []string slice. Without pq.Array(),
+// the driver wouldn't know how to deserialize the array.
+//
+// &acc.Metadata and &acc.HealthConfig scan directly into json.RawMessage
+// fields, which hold raw JSON bytes. PostgreSQL's JSONB type maps cleanly
+// to json.RawMessage in Go.
+//   Laravel:  protected $casts = ['metadata' => 'array', 'health_config' => 'array'];
+//   Django:   metadata = JSONField(default=dict)
+//   Go:       json.RawMessage (raw bytes, decoded when needed)
 func (r *AccountRepo) GetByID(ctx context.Context, id string) (models.Account, error) {
 	var acc models.Account
 	err := r.db.QueryRowContext(ctx, `
@@ -90,6 +104,8 @@ func (r *AccountRepo) GetByID(ctx context.Context, id string) (models.Account, e
 }
 
 // GetAll retrieves all accounts ordered by display_order.
+//   Laravel:  Account::orderBy('display_order')->orderBy('name')->get()
+//   Django:   Account.objects.order_by('display_order', 'name')
 func (r *AccountRepo) GetAll(ctx context.Context) ([]models.Account, error) {
 	return r.queryAccounts(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
@@ -112,6 +128,11 @@ func (r *AccountRepo) GetByInstitution(ctx context.Context, institutionID string
 }
 
 // Update modifies an existing account's fields (not balance — that's done via transactions).
+//
+// Important: current_balance is NOT updated here. Balance changes flow through
+// UpdateBalance() or UpdateBalanceTx() which use atomic SQL (current_balance + $delta).
+// This prevents race conditions when concurrent requests modify the balance.
+//   Laravel analogy: DB::table('accounts')->where('id', $id)->increment('current_balance', $delta)
 func (r *AccountRepo) Update(ctx context.Context, acc models.Account) (models.Account, error) {
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE accounts
@@ -131,6 +152,12 @@ func (r *AccountRepo) Update(ctx context.Context, acc models.Account) (models.Ac
 }
 
 // UpdateHealthConfig sets the health constraints for an account (TASK-068).
+// The config is stored as JSONB in PostgreSQL — json.RawMessage passes raw JSON
+// bytes directly to the driver without Go-side encoding/decoding.
+//
+//   Example JSON: {"min_balance": 5000, "min_monthly_deposit": 1000}
+//   PostgreSQL:   health_config JSONB DEFAULT '{}'
+//   Go:           json.RawMessage (alias for []byte)
 func (r *AccountRepo) UpdateHealthConfig(ctx context.Context, id string, config json.RawMessage) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE accounts SET health_config = $2, updated_at = now() WHERE id = $1
@@ -138,8 +165,15 @@ func (r *AccountRepo) UpdateHealthConfig(ctx context.Context, id string, config 
 	return err
 }
 
-// UpdateBalance atomically updates the account's current_balance.
+// UpdateBalance atomically updates the account's current_balance using SQL arithmetic.
 // This is called by the transaction service after creating/deleting transactions.
+//
+// The SQL `current_balance = current_balance + $2` is atomic at the DB level —
+// even if two requests run simultaneously, PostgreSQL serializes the updates.
+// This is safer than "read balance, add in Go, write back" which has a race condition.
+//
+//   Laravel:  DB::table('accounts')->where('id', $id)->increment('current_balance', $delta)
+//   Django:   Account.objects.filter(id=id).update(current_balance=F('current_balance') + delta)
 func (r *AccountRepo) UpdateBalance(ctx context.Context, id string, delta float64) error {
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE accounts SET current_balance = current_balance + $2, updated_at = now()
@@ -169,6 +203,11 @@ func (r *AccountRepo) Delete(ctx context.Context, id string) error {
 }
 
 // ToggleDormant flips the is_dormant flag for an account.
+// The SQL `NOT is_dormant` does the toggle at the DB level in one query —
+// no need to read the current value first.
+//
+//   Laravel:  DB::statement('UPDATE accounts SET is_dormant = NOT is_dormant WHERE id = ?', [$id])
+//   Django:   Account.objects.filter(id=id).update(is_dormant=~F('is_dormant'))  // bitwise NOT
 func (r *AccountRepo) ToggleDormant(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE accounts SET is_dormant = NOT is_dormant, updated_at = now()
@@ -187,6 +226,14 @@ func (r *AccountRepo) UpdateDisplayOrder(ctx context.Context, id string, order i
 
 // queryAccounts is a DRY helper that executes a query and scans the results
 // into a slice of Account models. Used by GetAll and GetByInstitution.
+//
+// The ...any parameter (variadic) accepts zero or more arguments of any type.
+// This lets us reuse the same scan logic for different WHERE clauses.
+//   - GetAll passes no args (no WHERE clause)
+//   - GetByInstitution passes the institution ID
+//
+// In Laravel, you'd use query scopes for this. In Django, you'd chain QuerySet methods.
+// In Go, we use a helper function with variadic args — simpler but equally DRY.
 func (r *AccountRepo) queryAccounts(ctx context.Context, query string, args ...any) ([]models.Account, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

@@ -1,3 +1,33 @@
+// transaction.go — TransactionService is the most critical service in ClearMoney.
+//
+// Every financial transaction (expense, income, transfer, exchange) MUST atomically
+// update the associated account balance. If any step fails, everything rolls back.
+//
+// Laravel analogy: This is like wrapping operations in DB::transaction(function() { ... }).
+// If the closure throws, Laravel auto-rolls back. In Go, we use sql.Tx (database transaction)
+// with explicit Commit/Rollback calls — same concept, no magic.
+//
+// Django analogy: Like using transaction.atomic() as a context manager. If an exception
+// occurs inside the block, the transaction is rolled back.
+//
+// Key Go patterns in this file:
+//
+//   - sql.Tx (database transactions): BeginTx() starts a transaction, Commit() finalizes,
+//     Rollback() undoes. `defer dbTx.Rollback()` is safe — it's a no-op after Commit().
+//     See: https://pkg.go.dev/database/sql#Tx
+//
+//   - Error wrapping with %w: fmt.Errorf("debiting source: %w", err) wraps the original
+//     error. Callers can unwrap with errors.Is() or errors.As().
+//     See: https://pkg.go.dev/errors
+//
+//   - Multiple return values: Create returns (Transaction, float64, error) — the created
+//     record, the new balance, and any error. Go doesn't have exceptions; errors are values.
+//
+//   - Pointer fields (*string, *float64): represent nullable/optional values.
+//     A nil pointer means "not set" — like NULL in SQL, null in PHP, None in Python.
+//
+//   - Setter injection: SetExchangeRateRepo() adds an optional dependency after construction.
+//     Used when a dependency is optional or creates a circular reference if passed to constructor.
 package service
 
 import (
@@ -12,15 +42,16 @@ import (
 // TransactionService handles the business logic for creating, modifying,
 // and deleting transactions — including atomic balance updates.
 //
-// This is the most critical service: every transaction must update the
-// associated account's balance atomically within a database transaction.
-// If the insert succeeds but the balance update fails, everything rolls back.
+// This struct holds three repository dependencies. Note that rateRepo is
+// set via a setter (optional), not the constructor (required). This is the
+// "setter injection" pattern — used when a dependency is optional.
 //
-// Think of it like Laravel's DB::transaction() wrapping the whole operation.
+// In Laravel, you'd use the IoC container's $this->app->when(...)->needs(...)
+// or make it nullable in the constructor. In Go, we use a setter method.
 type TransactionService struct {
 	txRepo   *repository.TransactionRepo
 	accRepo  *repository.AccountRepo
-	rateRepo *repository.ExchangeRateRepo
+	rateRepo *repository.ExchangeRateRepo // optional — set via SetExchangeRateRepo()
 }
 
 func NewTransactionService(txRepo *repository.TransactionRepo, accRepo *repository.AccountRepo) *TransactionService {
@@ -102,6 +133,17 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 // CreateTransfer creates a transfer between two accounts (same currency).
 // Creates two linked transactions: debit from source, credit to destination.
 // Both accounts' balances are updated atomically.
+//
+// This is a complex atomic operation — 6 steps inside one DB transaction:
+//   1. Create debit transaction (money leaves source)
+//   2. Create credit transaction (money enters destination)
+//   3. Link the two transactions via linked_transaction_id
+//   4. Update source account balance (-amount)
+//   5. Update destination account balance (+amount)
+//   6. Commit — if any step fails, all 5 previous steps are rolled back
+//
+// In Laravel: DB::transaction(function() { /* all 6 steps */ });
+// In Django: with transaction.atomic(): # all 6 steps
 func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, models.Transaction, error) {
 	if amount <= 0 {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("amount must be positive")
@@ -194,6 +236,10 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 
 // ExchangeParams holds the parameters for a currency exchange.
 // Any two of Amount, Rate, CounterAmount must be provided; the third is auto-calculated.
+//
+// Uses pointer fields (*float64) to distinguish "not provided" (nil) from "provided as 0".
+// This is a common Go pattern for optional parameters. In Laravel, you'd use nullable
+// form fields. In Django, Optional[float] or None.
 type ExchangeParams struct {
 	SourceAccountID string
 	DestAccountID   string
@@ -310,6 +356,8 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 }
 
 // CalculateInstapayFee computes the InstaPay fee: 0.1% of amount, min 0.5, max 20 EGP.
+// This is a pure function (no receiver) — it's stateless and testable in isolation.
+// InstaPay is Egypt's real-time payment network (like Venmo/Zelle in the US).
 func CalculateInstapayFee(amount float64) float64 {
 	fee := amount * 0.001
 	if fee < 0.5 {
@@ -535,6 +583,10 @@ func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardI
 
 // resolveExchangeFields computes the missing field from two provided values.
 // amount * rate = counterAmount
+//
+// This is a private (unexported) function — lowercase name means it's only
+// visible within the `service` package. Like PHP's private methods or Python's
+// _leading_underscore convention (but enforced by the compiler, not just convention).
 func resolveExchangeFields(amount, rate, counterAmount *float64) (float64, float64, float64, error) {
 	count := 0
 	if amount != nil && *amount > 0 {
@@ -564,6 +616,13 @@ func resolveExchangeFields(amount, rate, counterAmount *float64) (float64, float
 
 // Update modifies a transaction and recalculates the balance delta.
 // The balance adjustment is: reverse old delta + apply new delta.
+//
+// This shows a key pattern: to update a financial record, we must:
+//   1. Load the old record (to know the previous balance impact)
+//   2. Compute the difference: newDelta - oldDelta
+//   3. Apply the net change to the account balance
+//
+// All inside a DB transaction for atomicity.
 func (s *TransactionService) Update(ctx context.Context, updated models.Transaction) (models.Transaction, float64, error) {
 	if err := s.validateBasic(updated); err != nil {
 		return models.Transaction{}, 0, err
@@ -609,6 +668,10 @@ func (s *TransactionService) Update(ctx context.Context, updated models.Transact
 
 // Delete removes a transaction and reverses its balance impact.
 // For linked transactions (transfers/exchanges), both legs are deleted.
+//
+// This is the inverse of Create: it undoes the balance change. For transfers,
+// it must also find and delete the linked (counterpart) transaction and reverse
+// both account balances. All within a single DB transaction.
 func (s *TransactionService) Delete(ctx context.Context, id string) error {
 	tx, err := s.txRepo.GetByID(ctx, id)
 	if err != nil {
@@ -676,6 +739,12 @@ func (s *TransactionService) GetByAccount(ctx context.Context, accountID string,
 // balanceDelta calculates how a transaction affects its account's balance.
 // For expense/income only. Transfer/exchange deltas are handled directly
 // in CreateTransfer/Delete since they involve two accounts.
+//
+// This is a method with a pointer receiver: (s *TransactionService).
+// In Go, methods on pointer receivers can modify the struct (though this one doesn't).
+// The convention is: if any method needs a pointer receiver, all methods should use one.
+// Think of (s *TransactionService) as $this in PHP or self in Python.
+// See: https://go.dev/tour/methods/4
 func (s *TransactionService) balanceDelta(tx models.Transaction) float64 {
 	switch tx.Type {
 	case models.TransactionTypeExpense:
@@ -698,6 +767,10 @@ func (s *TransactionService) GetFiltered(ctx context.Context, f repository.Trans
 // SmartDefaults holds pre-computed defaults for the transaction entry form.
 // Pre-selects last-used account, sorts categories by frequency, and auto-selects
 // a category if it was used 3+ times consecutively.
+//
+// This is a DTO (Data Transfer Object) — a plain struct with no methods. It bundles
+// related data for the handler/template layer. In Laravel, you'd use a resource
+// or plain array. In Django, a dictionary or dataclass.
 type SmartDefaults struct {
 	LastAccountID       string   // pre-select this account
 	AutoCategoryID      string   // auto-select if 3+ consecutive uses
@@ -751,6 +824,10 @@ func (s *TransactionService) SuggestCategory(ctx context.Context, noteKeyword st
 	return s.txRepo.SuggestCategory(ctx, noteKeyword)
 }
 
+// validateBasic performs basic field validation on a transaction.
+// Private method (lowercase) — only callable from within this package.
+// In Laravel, this would be in a FormRequest or a private validate() method.
+// In Django, this would be in the model's clean() method or serializer validation.
 func (s *TransactionService) validateBasic(tx models.Transaction) error {
 	if tx.Amount <= 0 {
 		return fmt.Errorf("amount must be positive")

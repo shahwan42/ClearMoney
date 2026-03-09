@@ -1,3 +1,15 @@
+// person.go — JSON API handler for person (people ledger) management.
+//
+// The "people" feature tracks loans and debts between the user and other people.
+// Each person has a running balance: positive = they owe you, negative = you owe them.
+//
+// Beyond standard CRUD, this handler has two specialized endpoints:
+//   - POST /api/persons/{id}/loan — Record lending or borrowing money
+//   - POST /api/persons/{id}/repayment — Record a debt repayment
+//
+// These create transactions AND update the person's running balance atomically.
+//
+// See institution.go for detailed Go/Laravel/Django handler pattern explanations.
 package handler
 
 import (
@@ -14,6 +26,7 @@ import (
 )
 
 // PersonHandler groups HTTP handlers for person (people ledger) endpoints.
+// Mounted at /api/persons in router.go.
 type PersonHandler struct {
 	svc *service.PersonService
 }
@@ -23,6 +36,7 @@ func NewPersonHandler(svc *service.PersonService) *PersonHandler {
 }
 
 // Routes registers person routes on the given router.
+// Beyond standard REST CRUD, includes /loan and /repayment actions.
 func (h *PersonHandler) Routes(r chi.Router) {
 	r.Get("/", h.List)
 	r.Post("/", h.Create)
@@ -112,6 +126,9 @@ func (h *PersonHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// loanRequest holds the JSON body for recording a loan.
+// loan_out = "I lent money to them" (they owe me)
+// loan_in = "I borrowed money from them" (I owe them)
 type loanRequest struct {
 	AccountID string                 `json:"account_id"`
 	Amount    float64                `json:"amount"`

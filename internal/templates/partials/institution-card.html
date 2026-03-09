@@ -1,3 +1,62 @@
+<!--
+=============================================================================
+  INSTITUTION CARD PARTIAL -- Sub-template Rendering & HTMX Interaction
+=============================================================================
+
+  DATA CONTEXT:
+    Dot (.) here is an InstitutionGroup struct with fields:
+      .Institution  = the institution model (ID, Name, Type)
+      .Accounts     = slice of account models belonging to this institution
+    Passed from the accounts page: {{range .Data}} {{template "institution-card" .}} {{end}}
+
+  HTML <details>/<summary> PATTERN:
+    Native HTML5 collapsible element -- no JavaScript needed!
+    The "open" attribute makes it expanded by default.
+    This is like an accordion but built into the browser.
+    Blade/Jinja2: You'd typically use Alpine.js x-show or a JS toggle.
+
+  HTMX INLINE FORM LOADING:
+    <button hx-get="/accounts/form?institution_id={{.Institution.ID}}"
+            hx-target="#account-form-area"
+            hx-swap="innerHTML">
+
+    hx-get="/accounts/form?institution_id=..."
+      Fetches the "new account" form HTML, pre-filled for this institution.
+      The server returns just the form HTML fragment (not a full page).
+      Docs: https://htmx.org/attributes/hx-get/
+
+    hx-target="#account-form-area"
+      The form is swapped into a div defined in accounts.html (outside this card).
+      This is "out-of-band" targeting -- the trigger is inside the card, but
+      the content appears at a different location in the DOM.
+      Docs: https://htmx.org/attributes/hx-target/
+
+    onclick="event.stopPropagation()"
+      Prevents the click from toggling the <details> open/closed state.
+      Without this, clicking "+ Account" would also collapse/expand the card.
+
+  NESTED FIELD ACCESS:
+    {{.Institution.Name}} -- accesses Name field on the nested Institution struct.
+    Go:     {{.Institution.Name}}
+    Blade:  {{ $item->institution->name }}
+    Jinja2: {{ item.institution.name }}
+
+  CUSTOM TEMPLATE FUNCTIONS:
+    {{formatCurrency .CurrentBalance .Currency}}
+      Formats a number with the correct currency symbol and decimal places.
+
+    {{slice .Institution.Name 0 1}}
+      Built-in Go template function -- extracts first character for the avatar.
+      Go: slice is like Python's [0:1] or PHP's substr($str, 0, 1).
+
+  CONDITIONAL CSS CLASSES:
+    {{if lt .CurrentBalance 0.0}}text-red-600{{else}}text-slate-800{{end}}
+    Negative balances show in red. This pattern is used throughout the app.
+
+  Docs: https://htmx.org/examples/click-to-edit/
+        https://developer.mozilla.org/en-US/docs/Web/HTML/Element/details
+=============================================================================
+-->
 {{define "institution-card"}}
 <!-- Single institution card with its accounts. Expandable/collapsible via details/summary. -->
 <div class="bg-white rounded-xl shadow-sm overflow-hidden" id="institution-{{.Institution.ID}}">

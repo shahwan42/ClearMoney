@@ -1,3 +1,24 @@
+// transaction.go — JSON API handler for transaction management.
+//
+// Transactions are the core of the finance tracker: every expense, income, transfer,
+// and exchange is a transaction. This handler provides the JSON API endpoints,
+// while pages.go provides the HTML form-based endpoints for HTMX.
+//
+// Key design decisions:
+//   - Create returns both the transaction AND the new account balance (createTransactionResponse).
+//     This avoids a second API call to fetch the updated balance.
+//   - Delete reverses the balance impact atomically (handled by the service layer).
+//   - Transfer and Exchange create paired transactions (debit + credit).
+//
+// Date parsing in Go:
+//   Go uses a reference date layout instead of format characters:
+//     Go:      time.Parse("2006-01-02", "2026-03-09")
+//     PHP:     DateTime::createFromFormat('Y-m-d', '2026-03-09')
+//     Python:  datetime.strptime('2026-03-09', '%Y-%m-%d')
+//   The reference date "2006-01-02 15:04:05" is Jan 2, 2006 at 3:04:05 PM (1-2-3-4-5-6).
+//   See: https://pkg.go.dev/time#pkg-constants
+//
+// See: https://pkg.go.dev/encoding/json (JSON encoding/decoding)
 package handler
 
 import (
@@ -16,6 +37,7 @@ import (
 
 // TransactionHandler groups HTTP handlers for transaction endpoints.
 // Like a Laravel TransactionController — each method handles one route.
+// Mounted at /api/transactions in router.go.
 type TransactionHandler struct {
 	svc *service.TransactionService
 }
@@ -25,6 +47,8 @@ func NewTransactionHandler(svc *service.TransactionService) *TransactionHandler 
 }
 
 // Routes registers transaction routes on the given router.
+// Note the non-RESTful /transfer and /exchange endpoints — these are specialized
+// actions that create multiple transactions in one call.
 func (h *TransactionHandler) Routes(r chi.Router) {
 	r.Post("/", h.Create)
 	r.Post("/transfer", h.Transfer)
@@ -36,6 +60,10 @@ func (h *TransactionHandler) Routes(r chi.Router) {
 
 // createTransactionResponse wraps the created transaction with the updated balance.
 // This lets the client update both the transaction list and balance display in one call.
+//
+// In Go, struct fields are serialized to JSON using `json:"field_name"` tags.
+// These tags control the JSON key names (snake_case convention for JSON APIs).
+// Like Laravel's JsonResource toArray() or Django REST Framework's Serializer.
 type createTransactionResponse struct {
 	Transaction models.Transaction `json:"transaction"`
 	NewBalance  float64            `json:"new_balance"`
@@ -63,6 +91,9 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // transferRequest holds the JSON body for creating a transfer.
+// The `json:"..."` struct tags define how fields map to/from JSON.
+// `omitempty` means the field is omitted from JSON output if it has its zero value.
+// This is like Laravel's FormRequest or Django's Serializer field definitions.
 type transferRequest struct {
 	SourceAccountID string          `json:"source_account_id"`
 	DestAccountID   string          `json:"dest_account_id"`
@@ -149,6 +180,10 @@ func (h *TransactionHandler) Exchange(w http.ResponseWriter, r *http.Request) {
 
 // List returns recent transactions, optionally filtered by account.
 // GET /api/transactions?account_id=xxx&limit=20
+//
+// Supports optional query parameters for filtering and pagination:
+//   - account_id: filter to a specific account
+//   - limit: max number of results (defaults to 15)
 func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 	accountID := r.URL.Query().Get("account_id")
 	limit := parseLimit(r.URL.Query().Get("limit"), 15)
@@ -206,6 +241,8 @@ func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // parseLimit converts a query string limit to an int, with a default fallback.
+// Go doesn't have optional parameters like PHP/Python, so we use a helper function
+// with an explicit default value. This is a common Go pattern.
 func parseLimit(s string, defaultVal int) int {
 	if s == "" {
 		return defaultVal

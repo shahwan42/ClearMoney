@@ -1,5 +1,54 @@
+<!--
+=============================================================================
+  QUICK ENTRY PARTIAL -- Smart Category Suggestion via HTMX & Fetch
+=============================================================================
+
+  This partial is LAZY-LOADED into the bottom sheet via HTMX.
+  It is NOT rendered on initial page load -- it's fetched on demand:
+    Bottom-nav: hx-get="/transactions/quick-form" hx-trigger="open-quick-entry"
+    Server returns THIS template as an HTML fragment.
+
+  Blade equivalent: A Livewire component loaded via wire:init
+  Django equivalent: A view that returns render(request, 'partials/quick-entry.html')
+
+  HTMX FORM SUBMISSION (same pattern as transaction-new.html):
+    hx-post="/transactions/quick"     -- AJAX POST to create transaction
+    hx-target="#quick-entry-result"   -- success/error message goes here
+    hx-swap="innerHTML"               -- replace target's content
+
+  SMART DEFAULTS (server-side):
+    The Go handler pre-populates data for a faster entry experience:
+    - .LastAccountID: the most recently used account (pre-selected in dropdown)
+    - .AutoCategoryID: if the same category was used 3+ times consecutively,
+      it's auto-selected (habit detection)
+    - .ExpenseCategories / .IncomeCategories: split by type for toggling
+
+  TEMPLATE VARIABLE + RANGE PATTERN:
+    {{$lastAcct := .LastAccountID}}
+    {{range .Accounts}}
+      <option value="{{.ID}}" {{if eq .ID $lastAcct}}selected{{end}}>
+    {{end}}
+
+    The $lastAcct variable is declared BEFORE the range loop because
+    dot (.) changes inside {{range}}. Without $lastAcct, we'd lose access
+    to the outer .LastAccountID. Alternative: use $.LastAccountID ($ = root).
+
+  SMART CATEGORY SUGGESTION (JavaScript + REST API):
+    The <script> section at the bottom uses a fetch() call (not HTMX) to
+    GET /api/transactions/suggest-category?note=... and auto-fill the category.
+    This is a case where vanilla JS is simpler than HTMX because we need
+    to set a <select> value programmatically, not swap HTML.
+
+    You COULD do this with HTMX using hx-get on the note input with
+    hx-trigger="keyup changed delay:300ms", but you'd need the server
+    to return the entire <select> element, which is more complex.
+
+  Docs: https://htmx.org/attributes/hx-post/
+        https://htmx.org/examples/lazy-loading/
+=============================================================================
+-->
 {{define "quick-entry-form"}}
-<!-- Quick-entry form — loaded into the bottom sheet via HTMX.
+<!-- Quick-entry form -- loaded into the bottom sheet via HTMX.
      Streamlined version of the full transaction form, optimised for speed.
      Uses smart defaults: pre-selects last-used account, auto-selects category
      if used 3+ times consecutively. -->

@@ -1,3 +1,34 @@
+// auth.go — Authentication handlers for PIN-based login, first-time setup, and logout.
+//
+// ClearMoney uses a simple PIN-based authentication system (no usernames or passwords).
+// This is a single-user app, so there's one PIN stored as a bcrypt hash in user_config.
+//
+// Authentication flow:
+//   1. First visit: No PIN set -> redirect to /setup
+//   2. /setup: User enters PIN + confirmation -> bcrypt hash stored in DB
+//   3. /login: User enters PIN -> verified against bcrypt hash
+//   4. On success: HMAC session token created and set as a cookie
+//   5. Auth middleware checks the cookie on every protected request
+//   6. /logout: Cookie cleared (MaxAge -1)
+//
+// Session tokens use HMAC (Hash-based Message Authentication Code):
+//   - The server holds a secret key in user_config
+//   - The token is an HMAC signature that the middleware can verify
+//   - No server-side session storage needed (stateless)
+//
+// This is simpler than:
+//   - Laravel: Auth::attempt(['email' => $e, 'password' => $p]) with session store
+//   - Django: authenticate(request, username=u, password=p) with django.contrib.sessions
+//
+// Form handling in Go:
+//   r.ParseForm() — parses the request body as application/x-www-form-urlencoded
+//   r.FormValue("pin") — gets a form field value
+//   These are like:
+//     - Laravel: $request->input('pin') or $request->validate(['pin' => 'required'])
+//     - Django: request.POST.get('pin') or form.cleaned_data['pin']
+//
+// See: https://pkg.go.dev/net/http#Request.ParseForm
+// See: https://pkg.go.dev/net/http#Request.FormValue
 package handler
 
 import (
@@ -9,6 +40,9 @@ import (
 )
 
 // AuthHandler manages login, setup, and logout pages.
+// Unlike other handlers that return JSON, this one renders HTML templates
+// and uses form POST submissions (not JSON). It follows the traditional
+// web app pattern of form submit -> server-side processing -> redirect.
 type AuthHandler struct {
 	templates TemplateMap
 	authSvc   *service.AuthService
@@ -20,6 +54,10 @@ func NewAuthHandler(templates TemplateMap, authSvc *service.AuthService) *AuthHa
 
 // LoginPage renders the PIN entry form.
 // GET /login
+//
+// Redirects to /setup if no PIN has been configured yet.
+// http.Redirect sends a 302 Found response with a Location header.
+// This is like Laravel's return redirect('/setup') or Django's HttpResponseRedirect('/setup').
 func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	// If not set up yet, redirect to setup
 	if !h.authSvc.IsSetup(r.Context()) {
@@ -31,6 +69,13 @@ func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 
 // LoginSubmit verifies the PIN and creates a session.
 // POST /login
+//
+// Flow: parse form -> verify PIN -> create session token -> set cookie -> redirect to /
+// On failure: re-render the login page with an error message (no redirect).
+//
+// This is the PRG (Post-Redirect-Get) pattern:
+//   - Success: POST /login -> 302 redirect to / -> GET /
+//   - Failure: POST /login -> 200 with error message (re-render form)
 func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
@@ -104,6 +149,9 @@ func (h *AuthHandler) SetupSubmit(w http.ResponseWriter, r *http.Request) {
 
 // Logout clears the session and redirects to login.
 // POST /logout
+//
+// ClearSessionCookie sets the cookie MaxAge to -1, which tells the browser
+// to delete it immediately. This is the standard way to "log out" with cookies.
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	authmw.ClearSessionCookie(w)
 	http.Redirect(w, r, "/login", http.StatusFound)

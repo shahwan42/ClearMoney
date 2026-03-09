@@ -1,7 +1,25 @@
 // Package service — ReportsService aggregates financial data for reports.
 //
-// Think of it like Laravel's Eloquent aggregate queries but wrapped
-// in a service layer for reuse.
+// This service uses DIRECT SQL queries via *sql.DB instead of going through a
+// repository. This is a pragmatic choice for complex aggregate queries with JOINs,
+// GROUP BY, and CTEs — they don't fit the simple CRUD pattern of repositories.
+//
+// Laravel analogy: Like using DB::raw() or DB::select() for complex reporting
+// queries that are too intricate for Eloquent scopes. Or like a dedicated
+// ReportingService that uses raw SQL for performance.
+//
+// Django analogy: Like using raw SQL with connection.cursor() or aggregation
+// functions (annotate, aggregate) for complex reporting queries.
+//
+// Go SQL patterns:
+//   - QueryContext: returns multiple rows (like PDO::fetchAll or cursor.fetchall)
+//   - QueryRowContext: returns a single row (like PDO::fetch or cursor.fetchone)
+//   - Parameterized queries: $1, $2, $3 (PostgreSQL) — prevents SQL injection.
+//     Like Laravel's ? placeholders or Django's %s parameters.
+//   - rows.Close(): MUST be called (via defer) to release the DB connection back to the pool.
+//
+// See: https://pkg.go.dev/database/sql for Go's database/sql package
+// See: https://go.dev/doc/database/querying for querying patterns
 package service
 
 import (
@@ -84,10 +102,17 @@ type LegendItem struct {
 }
 
 // ReportsService computes report data from transactions.
+// Unlike other services that depend on repositories, this one holds a direct *sql.DB
+// reference because its queries are complex aggregates (GROUP BY, CTEs, JOINs)
+// that don't fit the repository pattern.
+//
+// *sql.DB is a connection pool, not a single connection. It's safe to share across
+// goroutines. See: https://pkg.go.dev/database/sql#DB
 type ReportsService struct {
 	db *sql.DB
 }
 
+// NewReportsService creates a reports service with a database connection pool.
 func NewReportsService(db *sql.DB) *ReportsService {
 	return &ReportsService{db: db}
 }
@@ -216,6 +241,15 @@ func (s *ReportsService) getMonthlyHistory(ctx context.Context, year int, month 
 }
 
 // getSpendingByCategory returns expense totals grouped by category for a month.
+//
+// Dynamic query building: This function conditionally appends WHERE clauses
+// based on which filters are set. The argN counter tracks PostgreSQL parameter
+// numbers ($1, $2, $3...). This is Go's equivalent of Laravel's Query Builder:
+//   ->when($accountId, fn($q) => $q->where('account_id', $accountId))
+// Or Django's conditional Q objects.
+//
+// The `args := []any{...}` uses Go's `any` type (alias for `interface{}`) which
+// can hold any value — like PHP's mixed type or Python's Any type hint.
 func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, month time.Month, filter ReportFilter) ([]CategorySpending, float64, error) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)

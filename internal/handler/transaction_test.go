@@ -1,3 +1,25 @@
+// transaction_test.go — Integration tests for the transaction JSON API.
+//
+// These tests verify the full transaction lifecycle: create, list, get, delete,
+// and the critical balance management logic (expenses reduce balance, deletes restore it).
+//
+// Test helper pattern:
+//   setupTransactionHandlerTest() creates a complete test environment:
+//     - Clean database tables
+//     - Test institution and account with 10,000 EGP initial balance
+//     - Authenticated router
+//     - `do` helper function for making authenticated requests
+//
+// The `do` helper is a closure that captures the router and auth cookie,
+// making test code concise: `do("POST", "/api/transactions", jsonBody)`.
+// This is like Laravel's actingAs($user)->postJson(...) pattern.
+//
+// Balance verification strategy:
+//   After an operation (create/delete), we create a small test transaction
+//   and check the new_balance in the response to verify the running balance
+//   is correct. This tests the atomic balance update logic end-to-end.
+//
+// See institution_test.go for general testing pattern explanations.
 package handler
 
 import (
@@ -13,6 +35,13 @@ import (
 )
 
 // setupTransactionHandlerTest creates a router with a test account ready for transactions.
+// Returns: (unused, unused, do function, test account with 10,000 EGP balance)
+//
+// The `do` function is a test helper closure that makes authenticated HTTP requests:
+//   w := do("POST", "/api/transactions", `{"type":"expense",...}`)
+//   w := do("GET", "/api/transactions", "")
+//
+// t.Helper() marks this as a test helper so error line numbers point to the calling test.
 func setupTransactionHandlerTest(t *testing.T) (*httptest.ResponseRecorder, *http.Request, func(method, path string, body string) *httptest.ResponseRecorder, models.Account) {
 	t.Helper()
 	db := testutil.NewTestDB(t)

@@ -1,3 +1,16 @@
+<!--
+  HEADER COMPONENT — Reusable App Bar
+
+  Defines a named template "header", included from the layout.
+  Blade: resources/views/components/header.blade.php
+  Jinja2: templates/components/header.html (via include)
+
+  Go templates don't have props — components receive the full data context
+  via dot (.). This file is parsed once at startup as part of the template set.
+
+  Tailwind fixed header: pinned to top (fixed top-0), z-50, 56px tall (h-14).
+  See: https://pkg.go.dev/html/template#hdr-Nested_template_definitions
+-->
 {{define "header"}}
 <!-- Sticky header — stays visible as user scrolls, like a native app toolbar -->
 <header class="fixed top-0 left-0 right-0 z-50 bg-slate-900 text-white h-14 flex items-center justify-between px-4 shadow-md">

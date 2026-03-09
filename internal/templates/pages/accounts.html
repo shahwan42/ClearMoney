@@ -1,3 +1,45 @@
+<!--
+=============================================================================
+  ACCOUNTS PAGE -- Institution-grouped account listing
+=============================================================================
+
+  TEMPLATE COMPOSITION PATTERN:
+    This page demonstrates how to compose a view from multiple sub-templates:
+      `template "institution-form" .`  -- the "add institution" form
+      `template "institution-card" .`  -- repeated for each institution
+
+    Each sub-template is defined in its own file under partials/.
+    They're all parsed into the same template set at startup, so they can
+    reference each other freely.
+
+    Blade:  @include('partials.institution-form')  /  @include('partials.institution-card', $inst)
+    Jinja2: {% include "partials/institution-form.html" %}  /  {% include "partials/institution-card.html" %}
+
+  HTMX TARGET PATTERN:
+    <div id="account-form-area"></div> is an empty container. When the user
+    clicks "+ Account" on an institution card, HTMX fetches the account form
+    and swaps it into this div. This is the "empty target" pattern:
+    1. Start with an empty div with an ID
+    2. An hx-get button targets that div
+    3. Server returns HTML fragment, HTMX swaps it in
+    No JavaScript DOM manipulation needed!
+
+    Blade/Livewire equivalent: A Livewire component that toggles form visibility
+    Django equivalent: An HTMX view returning a form partial
+
+  RANGE WITH SUB-TEMPLATES:
+    `range .Data`
+        `template "institution-card" .`
+    `end`
+
+    Inside the range, dot (.) is the current InstitutionGroup struct.
+    That struct is passed directly to the institution-card template.
+    Each card renders independently with its own institution + accounts data.
+
+  Docs: https://htmx.org/attributes/hx-target/
+        https://htmx.org/attributes/hx-swap/
+=============================================================================
+-->
 {{define "title"}}ClearMoney - Accounts{{end}}
 
 {{define "content"}}

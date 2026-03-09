@@ -1,3 +1,46 @@
+<!--
+=============================================================================
+  SETTINGS PAGE -- Dark Mode, HTMX Forms, PWA Features
+=============================================================================
+
+  This page demonstrates several HTMX and web patterns:
+
+  1. HTMX FORM WITH INLINE RESULT:
+     <form hx-post="/settings/pin" hx-target="#pin-result">
+     The PIN change form submits via AJAX. The server returns an HTML fragment
+     (success or error message) which HTMX swaps into #pin-result.
+     This keeps the user on the same page -- no redirect, no page reload.
+     Docs: https://htmx.org/attributes/hx-post/
+
+  2. DARK MODE TOGGLE:
+     onclick="toggleTheme()" calls a JS function in theme.js that:
+       - Toggles the "dark" class on <html>
+       - Saves preference to localStorage
+     Tailwind's dark: prefix classes activate when <html class="dark">.
+     This is a client-side-only feature -- no server round-trip needed.
+     Docs: https://tailwindcss.com/docs/dark-mode
+
+  3. CSV EXPORT (Traditional form):
+     <form action="/export/transactions" method="GET">
+     This is a traditional GET request (not HTMX). The server responds with
+     Content-Disposition: attachment header, which triggers a file download.
+     HTMX is intentionally NOT used here because file downloads need the
+     browser's native download handling.
+
+  4. PUSH NOTIFICATIONS:
+     onclick="requestNotificationPermission()" triggers the Web Push API
+     permission dialog. If granted, the service worker can receive push
+     messages even when the app is closed.
+
+  5. HTMX LOGOUT:
+     <form hx-post="/logout"> sends a POST to invalidate the session.
+     The server responds with HX-Redirect header to send the user to /login.
+     Using POST (not GET) for logout prevents CSRF attacks via link prefetching.
+
+  Docs: https://htmx.org/docs/
+        https://developer.mozilla.org/en-US/docs/Web/API/Push_API
+=============================================================================
+-->
 {{define "title"}}ClearMoney - Settings{{end}}
 
 {{define "content"}}

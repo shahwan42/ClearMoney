@@ -1,3 +1,22 @@
+// charts_test.go — Unit tests for CSS-only chart helper functions.
+//
+// These tests verify that chart functions produce correct CSS/SVG output.
+// They are pure unit tests (no database, no HTTP) — testing mathematical
+// and string-formatting logic only.
+//
+// Go testing patterns for Laravel/Django developers:
+//
+//   Table-driven tests: Go convention for testing multiple inputs/outputs.
+//   Instead of separate test methods per case (like PHPUnit's @dataProvider),
+//   Go uses a slice of test structs in a loop:
+//     tests := []struct{ input int; expected string }{ {1, "a"}, {2, "b"} }
+//     for _, tt := range tests { ... }
+//
+//   t.Errorf vs t.Fatalf:
+//     t.Errorf logs the error but continues running the test (like PHPUnit's assertEquals)
+//     t.Fatalf logs the error and stops the test immediately (like PHPUnit's assertSame with early exit)
+//
+// See: https://pkg.go.dev/testing
 package handler
 
 import (
@@ -10,6 +29,8 @@ import (
 )
 
 // --- ConicGradient Tests ---
+// ConicGradient generates CSS conic-gradient strings for donut charts.
+// These tests verify correct segment positioning, gap fills, and overflow handling.
 
 func TestConicGradient_Empty(t *testing.T) {
 	result := ConicGradient(nil)
@@ -208,6 +229,8 @@ func TestComputeBarHeights_AllZero(t *testing.T) {
 
 // --- Template Parsing Test ---
 // Verify all chart partials parse without errors when included in the template set.
+// This is an integration-level check: it ensures chart template partials are valid
+// Go template syntax and can be loaded alongside all other templates.
 
 func TestChartTemplates_Parse(t *testing.T) {
 	_, err := ParseTemplates(templates.FS)

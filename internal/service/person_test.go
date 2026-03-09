@@ -1,3 +1,10 @@
+// Tests for PersonService — verifies lending, borrowing, and repayment logic.
+//
+// These tests exercise the full loan lifecycle: create person, lend/borrow,
+// partial/full repayment, and verify net balance at each step.
+//
+// The test pattern follows the TDD workflow this project uses: RED (write failing test),
+// GREEN (make it pass), REFACTOR (clean up). Each test method tests one specific behavior.
 package service
 
 import (
@@ -10,8 +17,12 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// zeroDT returns the zero value of time.Time — Go's equivalent of null/None for dates.
+// When passed to RecordLoan, the service detects it with date.IsZero() and uses time.Now().
+// This is a common Go pattern: use the zero value to mean "not specified."
 func zeroDT() time.Time { return time.Time{} }
 
+// setupPersonServiceTest creates a clean test environment with a PersonService and an account.
 func setupPersonServiceTest(t *testing.T) (*PersonService, models.Account) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
@@ -102,6 +113,8 @@ func TestPersonService_LoanIn(t *testing.T) {
 	}
 }
 
+// TestPersonService_LoanAndRepayment tests the full lifecycle: lend → partial repay → full repay.
+// Verifies that net_balance correctly tracks outstanding debt through multiple operations.
 func TestPersonService_LoanAndRepayment(t *testing.T) {
 	svc, acc := setupPersonServiceTest(t)
 	ctx := context.Background()

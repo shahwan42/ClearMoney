@@ -1,15 +1,29 @@
-// Package handler — charts.go provides reusable CSS-only chart components.
+// charts.go — CSS-only chart components (no JavaScript charting libraries).
 //
 // These are the building blocks for all data visualization in ClearMoney.
-// Instead of pulling in a JS charting library (Chart.js, ApexCharts), we use:
-//   - CSS conic-gradient for donut/pie charts
-//   - CSS grid + height percentages for bar charts
-//   - Inline SVG <polyline> for sparklines
-//   - Unicode arrows + color for trend indicators
+// Instead of pulling in a JS charting library (Chart.js, ApexCharts), we use
+// pure CSS and SVG techniques that work without any client-side JavaScript:
+//
+//   - CSS conic-gradient() for donut/pie charts (browser renders colored arc segments)
+//   - CSS flexbox + height percentages for bar charts
+//   - Inline SVG <polyline> for sparklines (mini line charts)
+//   - Unicode arrows + color classes for trend indicators (up/down arrows)
 //
 // Think of this like a set of Blade components (@component('chart-donut', ...))
 // or Django template tags ({% donut_chart segments %}) — reusable partials
 // that accept data and render self-contained chart HTML.
+//
+// The data flow is: Handler computes chart data structs -> passes to template ->
+// template calls functions like {{conicGradient .Segments}} to generate CSS.
+//
+// Why CSS-only charts?
+//   - Zero JavaScript dependencies = faster page loads
+//   - Works with HTMX partial updates (no chart library reinitialization needed)
+//   - Accessible and progressively enhanced
+//   - Lightweight enough for a PWA on mobile
+//
+// See: https://developer.mozilla.org/en-US/docs/Web/CSS/gradient/conic-gradient
+// See: https://developer.mozilla.org/en-US/docs/Web/SVG/Element/polyline
 package handler
 
 import (
@@ -234,6 +248,19 @@ func ComputeBarHeights(groups []BarGroup) {
 
 // ChartFuncs returns template functions for chart rendering.
 // These are merged into the global TemplateFuncs map so all templates can use them.
+//
+// In Laravel terms, these are like custom Blade directives registered in AppServiceProvider:
+//   Blade::directive('conicGradient', function ($expression) { ... });
+//
+// In Django terms, these are like custom template filters in a templatetags module:
+//   @register.filter
+//   def conic_gradient(segments): ...
+//
+// These functions return template.CSS (a special type that tells Go's html/template
+// to NOT escape the output). Without template.CSS, Go would HTML-escape the CSS
+// and break style attributes. This is similar to Laravel's {!! $html !!} (unescaped)
+// vs {{ $html }} (escaped).
+// See: https://pkg.go.dev/html/template#CSS
 func ChartFuncs() template.FuncMap {
 	return template.FuncMap{
 		// conicGradient generates a CSS conic-gradient from chart segments.

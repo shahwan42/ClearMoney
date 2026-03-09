@@ -1,3 +1,34 @@
+-- =============================================================================
+-- Migration 000007: Seed Default Categories
+-- =============================================================================
+--
+-- DATA MIGRATION (Seeding Inside a Migration)
+-- ---------------------------------------------
+-- This migration inserts initial data rather than creating/altering schema.
+-- It seeds the categories table with default expense and income categories.
+--
+-- Why seed in a migration instead of a separate seeder?
+--
+-- In Laravel, you'd typically put this in database/seeders/CategorySeeder.php
+-- and run `php artisan db:seed`. In Django, you'd use a data migration:
+--   python manage.py makemigrations --empty categories
+--   // then add RunPython(seed_categories) to the migration
+--
+-- The PROBLEM with separate seeders:
+--   - Seeders are optional — someone might forget to run them.
+--   - Seeders run separately from migrations — ordering is not guaranteed.
+--   - In production, seeders are often skipped entirely.
+--
+-- The ADVANTAGE of seeding in a migration:
+--   - Data is guaranteed to exist after migrations run (any environment).
+--   - Runs in the correct order (after categories table is created in 000003).
+--   - Idempotent with the migration system — runs exactly once, tracked in
+--     the schema_migrations table (like Laravel's migrations table).
+--
+-- is_system = true: marks these as built-in categories that the user cannot delete.
+-- display_order: determines the order in dropdowns and lists.
+-- =============================================================================
+
 -- Default expense categories (PRD C-1)
 INSERT INTO categories (name, type, is_system, display_order) VALUES
     ('Household',        'expense', true, 1),

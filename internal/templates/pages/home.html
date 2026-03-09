@@ -1,11 +1,55 @@
+<!--
+  DASHBOARD PAGE (home.html) — The Main App Screen
+
+  GO TEMPLATE QUICK REFERENCE (for this page):
+  NOTE: Template syntax examples are in the Go source (templates.go), not
+  here, because Go's template parser processes curly braces even inside
+  HTML comments. Here's a plain-text reference:
+
+  OVERRIDING BLOCKS:
+    define "title" / define "content" override blocks from base.html.
+    Blade: @section('title', 'Dashboard')
+    Jinja2: block title / endblock
+
+  DATA BINDING:
+    Dot notation: .Data.NetWorthEGP accesses the DashboardData struct.
+    Blade: $data->netWorthEGP  |  Jinja2: data.net_worth_egp
+
+  CUSTOM FUNCTIONS: formatEGP, formatUSD, formatCurrency, formatDateShort,
+    dict (creates inline map for sub-template params), printf, etc.
+    See templates.go for the full FuncMap.
+
+  PIPES: .Amount | formatEGP  (same as Jinja2's amount|format_egp)
+
+  CONDITIONALS: if, if gt/lt/eq, if or (...) (...)
+    GOTCHA: Use 0.0 not 0 when comparing float64s.
+
+  LOOPS: range .Slice ... end
+    Blade: @foreach  |  Jinja2: for ... in ... endfor
+    IMPORTANT: Dot (.) rebinds to current item inside range.
+    Use $ (root context) to access outer scope.
+
+  SUB-TEMPLATES: template "name" (dict "Key" val)
+    Blade: @include('name', ['key' => val])
+
+  Docs: https://pkg.go.dev/html/template#hdr-Actions
+-->
 {{define "title"}}ClearMoney - Dashboard{{end}}
 
 {{define "content"}}
 <div class="max-w-lg mx-auto space-y-6 py-4" data-pull-refresh="true">
 
+    <!-- If .Data is non-nil, show dashboard. Otherwise show empty state.
+         Blade: @if($data)  |  Jinja2: if data -->
     {{if .Data}}
 
-    <!-- Net Worth Summary with Sparkline (TASK-055) -->
+    <!--
+      NET WORTH SECTION — uses conditionals (if gt), custom functions
+      (formatEGP, formatUSD, printf), and sub-templates (chart-sparkline)
+      with the "dict" helper to pass multiple named parameters.
+      The "dict" function creates an inline map since Go templates only
+      accept ONE argument per template call.
+    -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-start justify-between">
             <div>
@@ -71,6 +115,9 @@
                 <p class="text-sm font-medium text-gray-500">{{formatEGP .Data.LastMonthSpending}}</p>
             </div>
         </div>
+        <!-- Loop over top spending categories.
+             Inside the range, dot (.) becomes the current TopCategory item.
+             Blade: @foreach($cats as $cat)  |  Jinja2: for cat in cats -->
         {{if .Data.TopCategories}}
         <div class="mt-3 pt-3 border-t border-gray-100 space-y-2">
             {{range .Data.TopCategories}}
@@ -239,7 +286,18 @@
     </a>
     {{end}}
 
-    <!-- Accounts by Institution -->
+    <!--
+      ACCOUNTS BY INSTITUTION — nested range loops.
+      Outer loop: each institution group. Inner loop: accounts in that group.
+
+      KEY GO TEMPLATE CONCEPTS USED HERE:
+      - $ (root context): Inside nested range, dot (.) rebinds to current item.
+        Use $.Data.Field to access top-level data. In Blade/Jinja2, outer
+        scope is always accessible, but Go requires $ explicitly.
+      - "with index map key": safely access a map value. If nil, block is skipped.
+        Like Blade's @if(isset($map[$key])) or Python's dict.get().
+      - "slice string 0 1": string slicing. Like PHP's substr() or Python's [0:1].
+    -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Accounts</h2>
@@ -287,7 +345,12 @@
         {{end}}
     </section>
 
-    <!-- Recent Transactions (refreshable via HTMX) -->
+    <!--
+      RECENT TRANSACTIONS — includes a partial template, passing only the
+      transactions slice (not the full page data). Inside that partial,
+      dot (.) is scoped to the []Transaction slice.
+      Blade: @include('partials.recent-transactions', ['transactions' => $txs])
+    -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Recent Transactions</h2>

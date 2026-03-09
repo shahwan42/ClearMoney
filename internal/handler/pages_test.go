@@ -1,3 +1,31 @@
+// pages_test.go — Integration tests for HTML page handlers.
+//
+// These tests verify that pages render correctly with proper content, active tabs,
+// content types, and that HTMX form submissions work end-to-end.
+//
+// Testing strategies used:
+//
+//   1. Template-only tests (no database):
+//      Parse templates, create PageHandler with nil services, call handler directly.
+//      Tests: TestHomePage_Renders, TestHomePage_ContentType, TestHomePage_ActiveTab
+//      These verify template parsing and rendering without any database dependency.
+//
+//   2. Full integration tests (with database):
+//      Use testRouter(t, db) to create an authenticated router, then exercise
+//      the full stack through to the database.
+//      Tests: TestAccountsPage_Renders, TestTransactionCreatePage_Success, etc.
+//
+//   3. Content assertion pattern:
+//      strings.Contains(body, "expected text") checks that rendered HTML contains
+//      expected elements. This is like:
+//        - Laravel: $response->assertSee('expected text')
+//        - Django: self.assertContains(response, 'expected text')
+//
+//   4. Form submission tests:
+//      strings.NewReader("field=value&field2=value2") creates form-encoded bodies.
+//      The Content-Type must be "application/x-www-form-urlencoded" for ParseForm() to work.
+//
+// See institution_test.go and auth_test.go for more testing pattern details.
 package handler
 
 import (
@@ -12,6 +40,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// TestHomePage_Renders verifies the home page renders in no-DB mode (nil services).
+// This tests the template parsing and empty-state rendering path.
 func TestHomePage_Renders(t *testing.T) {
 	tmpl, err := ParseTemplates(templates.FS)
 	if err != nil {
@@ -81,6 +111,8 @@ func TestHomePage_ActiveTab(t *testing.T) {
 	}
 }
 
+// TestAccountsPage_Renders uses a real database to verify the accounts page
+// renders institution names, account names, and form elements.
 func TestAccountsPage_Renders(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "accounts")
@@ -183,6 +215,8 @@ func TestTransactionNewPage_Renders(t *testing.T) {
 	}
 }
 
+// TestTransactionCreatePage_Success tests the HTMX form submission for creating
+// a transaction. Verifies the success message and updated balance are in the response.
 func TestTransactionCreatePage_Success(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -331,6 +365,8 @@ func TestTransactionsPage_Empty(t *testing.T) {
 	}
 }
 
+// TestTransactionsPage_FilterByType tests the HTMX partial endpoint for filtering
+// transactions by type. Creates both expense and income, then filters to expense-only.
 func TestTransactionsPage_FilterByType(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")

@@ -1,3 +1,13 @@
+// Tests for account-related service logic: billing cycle parsing and computation.
+//
+// These are UNIT tests (no database needed) — they test pure functions that take
+// inputs and return outputs. Compare to the integration tests in institution_test.go
+// which require a running PostgreSQL.
+//
+// Go testing tip: tests in the same package (package service) can access unexported
+// (lowercase) functions. This is like PHP's ReflectionMethod or Python's friend classes,
+// but built into Go's test convention. Tests in a different package (package service_test)
+// can only access exported (uppercase) members — use that for black-box testing.
 package service
 
 import (
@@ -8,6 +18,9 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
+// TestParseBillingCycle_Valid verifies JSONB metadata is correctly unmarshaled.
+// json.Marshal/Unmarshal in Go is like json_encode/json_decode in PHP or
+// json.dumps/json.loads in Python.
 func TestParseBillingCycle_Valid(t *testing.T) {
 	meta := BillingCycleMetadata{StatementDay: 15, DueDay: 5}
 	raw, _ := json.Marshal(meta)
@@ -22,6 +35,8 @@ func TestParseBillingCycle_Valid(t *testing.T) {
 	}
 }
 
+// TestParseBillingCycle_NilMetadata ensures nil JSONB returns nil (no panic).
+// The zero value of models.Account{} has Metadata as nil (empty []byte).
 func TestParseBillingCycle_NilMetadata(t *testing.T) {
 	acc := models.Account{}
 	if ParseBillingCycle(acc) != nil {
@@ -37,6 +52,10 @@ func TestParseBillingCycle_ZeroFields(t *testing.T) {
 	}
 }
 
+// TestGetBillingCycleInfo_BeforeStatementDay tests billing cycle computation when
+// the current day is before the statement close date. The test uses a fixed date
+// (time.Date) instead of time.Now() to make the test deterministic — this is
+// critical for date-dependent tests. In Laravel, you'd use Carbon::setTestNow().
 func TestGetBillingCycleInfo_BeforeStatementDay(t *testing.T) {
 	meta := BillingCycleMetadata{StatementDay: 15, DueDay: 5}
 	// March 10 — before statement day 15

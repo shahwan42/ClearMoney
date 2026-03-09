@@ -1,5 +1,37 @@
-// Package handler defines HTTP handlers and routes.
+// Package handler defines HTTP handlers and routes for the ClearMoney web application.
+//
 // This is like Laravel's routes/web.php + Controllers, or Django's urls.py + views.py.
+// In Go, there is no built-in MVC framework — instead, you compose a router (chi) with
+// handler functions that match the http.HandlerFunc signature:
+//
+//	func(w http.ResponseWriter, r *http.Request)
+//
+// Key Go concepts for PHP/Python developers:
+//
+//   - http.ResponseWriter (w): Like Laravel's Response or Django's HttpResponse.
+//     You write headers and body to it. Unlike Laravel/Django, you don't "return" a response —
+//     you write to w directly. Think of it as an output stream.
+//     See: https://pkg.go.dev/net/http#ResponseWriter
+//
+//   - *http.Request (r): Like Laravel's Request or Django's HttpRequest.
+//     Contains URL, headers, body, form data, query params, cookies, context.
+//     See: https://pkg.go.dev/net/http#Request
+//
+//   - chi.Router: Like Laravel's Route facade or Django's urlpatterns.
+//     chi is a lightweight HTTP router that supports URL parameters ({id}),
+//     middleware, route groups, and sub-routers — similar to Route::group() in Laravel.
+//     See: https://github.com/go-chi/chi
+//
+//   - Middleware: Like Laravel middleware or Django middleware classes.
+//     Wraps handlers to add cross-cutting concerns (logging, auth, panic recovery).
+//     In Go, middleware is a function that takes and returns http.Handler.
+//
+// Architecture overview:
+//   - JSON API handlers (institution.go, account.go, etc.) = Laravel API controllers
+//   - Page handlers (pages.go) = Laravel web controllers that return HTML views
+//   - templates.go = Template engine setup (like Blade/Jinja2 configuration)
+//   - response.go = Shared response helpers (like Laravel's response() helper)
+//   - charts.go = Reusable CSS-only chart components (like Blade components)
 package handler
 
 import (
@@ -18,36 +50,65 @@ import (
 )
 
 // NewRouter creates the chi router with middleware and all routes.
+// This is the equivalent of:
+//   - Laravel: RouteServiceProvider::boot() that registers routes/web.php and routes/api.php
+//   - Django: ROOT_URLCONF that points to urls.py
+//
+// The function wires together the full dependency graph:
+//   Repository (data access) -> Service (business logic) -> Handler (HTTP layer)
+// This is manual dependency injection — Go doesn't have a DI container like
+// Laravel's Service Container or Django's settings. Instead, you construct
+// dependencies explicitly, which makes the wiring visible and testable.
+//
+// See: https://go-chi.io/#/pages/routing for chi routing patterns
 func NewRouter(db *sql.DB) *chi.Mux {
+	// chi.NewRouter() creates a new HTTP multiplexer (router).
+	// Like: $router = new Router() in Laravel, or urlpatterns = [] in Django.
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
-	r.Use(authmw.RequestLogger)
+	// Middleware stack — applied to every request in order.
+	// Like Laravel's $middlewareGroups['web'] or Django's MIDDLEWARE setting.
+	r.Use(middleware.Logger)    // Logs each request (method, path, duration) — like Laravel's log channel
+	r.Use(middleware.Recoverer) // Catches panics and returns 500 — like Laravel's exception handler
+	r.Use(middleware.RequestID) // Adds X-Request-Id header — useful for tracing in logs
+	r.Use(authmw.RequestLogger) // Adds structured logger to request context (custom middleware)
 
+	// Public health check — not behind auth middleware.
+	// Like Laravel's Route::get('/healthz', ...) outside the 'auth' middleware group.
 	r.Get("/healthz", Healthz)
 
 	// Parse HTML templates from embedded filesystem.
+	// Go embeds template files into the binary at compile time (via //go:embed).
+	// This means no file I/O at runtime — templates travel with the binary.
+	// Like Laravel's Blade compilation, but done at build time.
 	tmpl, err := ParseTemplates(templates.FS)
 	if err != nil {
 		slog.Error("failed to parse templates", "error", err)
 		os.Exit(1)
 	}
 
-	// Static files
+	// Static files — serves CSS, JS, images from the "static/" directory.
+	// Like Laravel's public/ directory or Django's STATIC_URL + STATICFILES_DIRS.
+	// http.StripPrefix removes "/static/" from the URL before looking up the file.
+	// See: https://pkg.go.dev/net/http#FileServer
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
+	// Early return for no-DB mode (used in tests and template-only rendering).
+	// PageHandler is nil-safe — it renders empty-state templates when services are nil.
 	if db == nil {
 		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		r.Get("/", pages.Home)
 		return r
 	}
 
-	// -- Database-dependent routes --
+	// ---------- Database-dependent wiring ----------
+	// This is where we build the dependency graph manually.
+	// In Laravel, this would be done in ServiceProvider::register().
+	// In Django, services are typically instantiated in views or via dependency injection libraries.
 
-	// Repos
+	// Repositories — data access layer (like Laravel's Eloquent models or Django's ORM managers).
+	// Each repo wraps SQL queries for one database table.
 	institutionRepo := repository.NewInstitutionRepo(db)
 	accountRepo := repository.NewAccountRepo(db)
 	categoryRepo := repository.NewCategoryRepo(db)
@@ -55,7 +116,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 
 	personRepo := repository.NewPersonRepo(db)
 
-	// Services
+	// Services — business logic layer (like Laravel's Service classes or Django's service layer).
+	// Each service depends on one or more repositories and encapsulates domain rules.
 	institutionSvc := service.NewInstitutionService(institutionRepo)
 	accountSvc := service.NewAccountService(accountRepo)
 	categorySvc := service.NewCategoryService(categoryRepo)
@@ -86,7 +148,9 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	exportSvc := service.NewExportService(txRepo)
 	authSvc := service.NewAuthService(db)
 
-	// Auth routes (public — no auth middleware)
+	// Auth routes (public — no auth middleware).
+	// Like Laravel: Route::get('/login', [AuthController::class, 'showLoginForm']);
+	// These are outside the auth group so unauthenticated users can reach them.
 	auth := NewAuthHandler(tmpl, authSvc)
 	r.Get("/login", auth.LoginPage)
 	r.Post("/login", auth.LoginSubmit)
@@ -95,18 +159,31 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Post("/logout", auth.Logout)
 
 	// Protected routes — everything below requires authentication.
-	// Auth middleware redirects to /login or /setup as needed.
+	// r.Group() creates a route group with shared middleware, like:
+	//   Laravel: Route::middleware('auth')->group(function () { ... })
+	//   Django: decorating views with @login_required
+	// Auth middleware checks the session cookie and redirects to /login or /setup as needed.
 	r.Group(func(r chi.Router) {
 		r.Use(authmw.Auth(authSvc))
 
-		// API routes (JSON)
+		// API routes (JSON) — RESTful endpoints consumed by HTMX and tests.
+		// r.Route() creates a sub-router at a URL prefix, like Laravel's Route::prefix().
+		// The handler's Routes method registers CRUD endpoints within that prefix.
+		// Example: r.Route("/api/institutions", handler.Routes) registers:
+		//   GET    /api/institutions      → List
+		//   POST   /api/institutions      → Create
+		//   GET    /api/institutions/{id}  → Get
+		//   PUT    /api/institutions/{id}  → Update
+		//   DELETE /api/institutions/{id}  → Delete
 		r.Route("/api/institutions", NewInstitutionHandler(institutionSvc).Routes)
 		r.Route("/api/accounts", NewAccountHandler(accountSvc).Routes)
 		r.Route("/api/categories", NewCategoryHandler(categorySvc).Routes)
 		r.Route("/api/transactions", NewTransactionHandler(txSvc).Routes)
 		r.Route("/api/persons", NewPersonHandler(personSvc).Routes)
 
-		// Page routes (HTML)
+		// Page routes (HTML) — serve full pages and HTMX partials.
+		// These use form submissions (not JSON) and return HTML responses.
+		// HTMX endpoints return HTML fragments that get swapped into the DOM.
 		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
 		pages.SetSnapshotService(snapshotSvc) // TASK-059: account balance sparklines
 		// TASK-062/063: Wire virtual fund service

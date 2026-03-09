@@ -1,3 +1,14 @@
+// account_test.go — Integration tests for account CRUD API.
+//
+// These tests follow the same patterns as institution_test.go.
+// Key difference: accounts require a parent institution (foreign key),
+// so each test creates an institution first using testutil.CreateInstitution().
+//
+// Test for credit card validation (TestAccountHandler_Create_CreditCardWithoutLimit):
+// Credit card accounts require a credit_limit field. The service layer validates this
+// and returns an error, which the handler converts to a 400 Bad Request response.
+//
+// See institution_test.go for detailed explanations of testing patterns.
 package handler
 
 import (

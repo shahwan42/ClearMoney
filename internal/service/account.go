@@ -1,3 +1,23 @@
+// account.go — AccountService and credit card billing cycle logic.
+//
+// This file contains two main concerns:
+//   1. AccountService: CRUD + validation for bank accounts (checking, savings, credit, etc.)
+//   2. Credit card billing cycle: parsing JSONB metadata, computing statement periods,
+//      interest-free tracking, and utilization calculations.
+//
+// Laravel analogy: AccountService is like App\Services\AccountService. The billing cycle
+// logic would be in a dedicated CreditCardService or as methods on the Account model.
+//
+// Django analogy: This is like an accounts/services.py module with both AccountService
+// and credit card utility functions.
+//
+// Go-specific patterns used here:
+//   - json.Unmarshal: Go's equivalent of json_decode() in PHP or json.loads() in Python.
+//     See: https://pkg.go.dev/encoding/json
+//   - Pointer fields (*float64, *string): Go's way of expressing "nullable" values.
+//     In PHP, you'd use ?float. In Django, null=True on the model field.
+//   - time.Time: Go's datetime type — immutable, timezone-aware.
+//     See: https://pkg.go.dev/time
 package service
 
 import (
@@ -12,14 +32,23 @@ import (
 )
 
 // BillingCycleMetadata is stored in the Account.Metadata JSONB field for credit cards.
+// PostgreSQL JSONB lets us store flexible JSON data in a single column — like
+// Laravel's $casts['metadata'] = 'json' or Django's JSONField.
+//
 // StatementDay is the day of month the statement closes (e.g., 15).
 // DueDay is the day of month payment is due (e.g., 5 of next month).
+//
+// The struct tags (`json:"statement_day"`) control how Go marshals/unmarshals JSON.
+// See: https://pkg.go.dev/encoding/json#Marshal
 type BillingCycleMetadata struct {
 	StatementDay int `json:"statement_day"`
 	DueDay       int `json:"due_day"`
 }
 
 // BillingCycleInfo holds computed billing cycle information for display.
+// This is a "computed struct" — not stored in the DB, but derived from
+// BillingCycleMetadata + the current date. Like a Laravel Accessor or
+// Django's @property on a model, but as a standalone struct.
 type BillingCycleInfo struct {
 	StatementDay  int
 	DueDay        int
@@ -32,6 +61,10 @@ type BillingCycleInfo struct {
 
 // ParseBillingCycle extracts billing cycle metadata from an account's JSONB field.
 // Returns nil if the account doesn't have billing cycle info.
+//
+// Returns *BillingCycleMetadata (pointer) — nil means "no billing cycle configured."
+// In PHP, you'd return null. In Python, None. In Go, a nil pointer serves the same purpose.
+// The caller checks: if meta == nil { /* no billing cycle */ }
 func ParseBillingCycle(acc models.Account) *BillingCycleMetadata {
 	if len(acc.Metadata) == 0 || string(acc.Metadata) == "null" {
 		return nil
@@ -47,6 +80,13 @@ func ParseBillingCycle(acc models.Account) *BillingCycleMetadata {
 }
 
 // GetBillingCycleInfo computes the current billing cycle dates for a credit card.
+// This is a pure function (no receiver, no side effects) — it takes inputs and returns
+// a computed result. Go encourages free functions when there's no state to manage.
+// In Laravel, this might be a static method; in Django, a module-level function.
+//
+// time.Date() constructs a date — note Go handles month overflow gracefully:
+// time.Date(2026, 0, 15, ...) becomes December 15, 2025 (month 0 = previous year's Dec).
+// See: https://pkg.go.dev/time#Date
 func GetBillingCycleInfo(meta BillingCycleMetadata, now time.Time) BillingCycleInfo {
 	info := BillingCycleInfo{
 		StatementDay: meta.StatementDay,
@@ -119,6 +159,15 @@ type CreditCardSummary struct {
 
 // GetStatementData returns the credit card statement for a given billing period.
 // If periodStr is empty, returns the current billing period.
+//
+// This is a free function (not a method on a struct) because it orchestrates
+// data from multiple sources (account, transaction repo, snapshot service).
+// In Laravel, this might be a dedicated StatementService. In Django, a service function.
+//
+// Error wrapping with %w: fmt.Errorf("loading: %w", err) wraps the original error
+// so callers can use errors.Is() or errors.As() to inspect the chain.
+// Like PHP's previous exception parameter: throw new Exception("msg", 0, $previous).
+// See: https://pkg.go.dev/fmt#Errorf (the %w verb)
 func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, snapshotSvc *SnapshotService, ctx context.Context, periodStr string) (*StatementData, error) {
 	meta := ParseBillingCycle(acc)
 	if meta == nil {
@@ -188,6 +237,11 @@ func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, sn
 
 // GetCreditCardUtilization computes the utilization percentage for a credit card.
 // Used for donut charts (TASK-073) and dashboard summary (TASK-074).
+//
+// Note: acc.CreditLimit is *float64 (pointer to float64, i.e., nullable).
+// We must nil-check before dereferencing: *acc.CreditLimit dereferences the pointer.
+// If you skip the nil check, Go panics with "nil pointer dereference" (like PHP's
+// "trying to access property of null" or Python's AttributeError).
 func GetCreditCardUtilization(acc models.Account) float64 {
 	if !acc.IsCreditType() || acc.CreditLimit == nil || *acc.CreditLimit <= 0 {
 		return 0
@@ -201,10 +255,17 @@ func GetCreditCardUtilization(acc models.Account) float64 {
 }
 
 // AccountService handles business logic for accounts.
+// Same pattern as InstitutionService: struct with a repo dependency, explicit constructor.
+//
+// In Laravel: App\Services\AccountService with constructor injection.
+// In Django: a service class or module-level functions in accounts/services.py.
 type AccountService struct {
 	repo *repository.AccountRepo
 }
 
+// NewAccountService creates the service with its repository dependency.
+// Go convention: constructor functions are named NewTypeName and return *TypeName.
+// See: https://go.dev/doc/effective_go#composite_literals
 func NewAccountService(repo *repository.AccountRepo) *AccountService {
 	return &AccountService{repo: repo}
 }
@@ -252,6 +313,8 @@ func (s *AccountService) Delete(ctx context.Context, id string) error {
 }
 
 // ToggleDormant flips the dormant status for an account.
+// Dormant accounts are hidden from the main dashboard but not deleted.
+// Like Laravel's soft delete, but for visibility rather than existence.
 func (s *AccountService) ToggleDormant(ctx context.Context, id string) error {
 	return s.repo.ToggleDormant(ctx, id)
 }

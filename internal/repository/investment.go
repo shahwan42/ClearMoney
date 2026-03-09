@@ -1,5 +1,11 @@
 // Package repository — InvestmentRepo handles CRUD for investment holdings.
-// Like Laravel's Eloquent model for an investments table.
+//
+// Investments track units held in funds/platforms with a "units * price" valuation
+// model. The user updates the unit price manually, and the total valuation is
+// computed as SUM(units * last_unit_price) across all holdings.
+//
+//   Laravel analogy:  Investment Eloquent model with an accessor for computed value
+//   Django analogy:   Investment model with a property for valuation, plus annotate()/aggregate()
 package repository
 
 import (
@@ -10,10 +16,12 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
+// InvestmentRepo handles database operations for the investments table.
 type InvestmentRepo struct {
 	db *sql.DB
 }
 
+// NewInvestmentRepo creates a new InvestmentRepo with the given database connection pool.
 func NewInvestmentRepo(db *sql.DB) *InvestmentRepo {
 	return &InvestmentRepo{db: db}
 }
@@ -74,6 +82,8 @@ func (r *InvestmentRepo) GetByID(ctx context.Context, id string) (models.Investm
 }
 
 // UpdateValuation updates the unit price and last_updated timestamp.
+// NOW() is PostgreSQL's current timestamp function (server-side, not Go-side).
+// Using server-side time ensures consistency regardless of client clock skew.
 func (r *InvestmentRepo) UpdateValuation(ctx context.Context, id string, unitPrice float64) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE investments SET last_unit_price = $2, last_updated = NOW(), updated_at = NOW()
@@ -89,6 +99,17 @@ func (r *InvestmentRepo) Delete(ctx context.Context, id string) error {
 }
 
 // GetTotalValuation returns the sum of (units * last_unit_price) for all investments.
+//
+// sql.NullFloat64 is used because SUM() returns NULL when there are no rows.
+// In Go, you can't scan SQL NULL into a plain float64 — it would error.
+// sql.NullFloat64 has two fields: Float64 (the value) and Valid (is it non-NULL?).
+//
+//   Laravel:  Investment::selectRaw('SUM(units * last_unit_price)')->value('sum')
+//   Django:   Investment.objects.aggregate(total=Sum(F('units') * F('last_unit_price')))
+//
+// Alternative: use COALESCE(SUM(...), 0) in SQL to avoid NullFloat64.
+// Both approaches work — this file uses NullFloat64 for demonstration.
+// See: https://pkg.go.dev/database/sql#NullFloat64
 func (r *InvestmentRepo) GetTotalValuation(ctx context.Context) (float64, error) {
 	var total sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, `

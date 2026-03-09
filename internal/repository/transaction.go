@@ -1,3 +1,15 @@
+// Package repository — transaction.go is the largest repository, handling all
+// transaction-related database operations including CRUD, filtering, DB transactions,
+// balance updates, category suggestions, and deposit checking.
+//
+// This file demonstrates several important Go/PostgreSQL patterns:
+//   - *sql.Tx (database transactions) for atomicity
+//   - Dynamic query building with parameterized placeholders
+//   - ILIKE for case-insensitive search (PostgreSQL-specific)
+//   - COALESCE for handling NULL aggregates
+//   - Subqueries and window functions
+//
+// See: https://pkg.go.dev/database/sql#Tx
 package repository
 
 import (
@@ -6,23 +18,36 @@ import (
 	"fmt"
 	"time"
 
+	// pq.Array() handles PostgreSQL array columns (text[]) — converts Go []string
+	// slices to/from the PostgreSQL wire format for arrays.
 	"github.com/lib/pq"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
-// TransactionRepo handles database operations for transactions.
+// TransactionRepo handles database operations for the transactions table.
+// This is the most feature-rich repository — it has the most methods because
+// transactions are the core of a finance tracker.
+//
+//   Laravel:  Transaction model + TransactionRepository with scopes
+//   Django:   Transaction.objects with custom Manager methods
 type TransactionRepo struct {
 	db *sql.DB
 }
 
+// NewTransactionRepo creates a new TransactionRepo.
 func NewTransactionRepo(db *sql.DB) *TransactionRepo {
 	return &TransactionRepo{db: db}
 }
 
-// Create inserts a new transaction.
-// Note: This does NOT update account balances — that's the service's job
-// inside a database transaction (see TransactionService.Create).
+// Create inserts a new transaction record.
+//
+// IMPORTANT: This does NOT update account balances — that's the service layer's
+// job inside a database transaction (see service.TransactionService.Create).
+// The repository is "dumb" — it only inserts/reads data, no business logic.
+//
+// The query uses 19 positional parameters ($1..$19). PostgreSQL requires numbered
+// placeholders unlike MySQL's `?`. The order must match the args list exactly.
 func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
 	if tx.Date.IsZero() {
 		tx.Date = time.Now()
@@ -48,8 +73,23 @@ func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (mo
 	return tx, nil
 }
 
-// CreateTx inserts a transaction within an existing database transaction.
-// Used by the service layer when we need atomicity (e.g., insert + balance update).
+// CreateTx inserts a transaction within an existing database transaction (*sql.Tx).
+//
+// *sql.Tx is Go's database transaction object — all queries run on it share the
+// same transaction and are committed or rolled back together.
+//
+//   Laravel:  DB::transaction(function () { ... });  // closure-based
+//   Django:   with transaction.atomic(): ...          // context manager
+//   Go:       dbTx, _ := db.BeginTx(ctx, nil)        // explicit begin/commit/rollback
+//
+// The "Tx" suffix convention: Create() uses db directly, CreateTx() uses a *sql.Tx.
+// This lets the service layer group multiple operations atomically:
+//   1. BeginTx → get *sql.Tx
+//   2. CreateTx (insert transaction record)
+//   3. UpdateBalanceTx (adjust account balance)
+//   4. Commit or Rollback
+//
+// See: https://pkg.go.dev/database/sql#Tx
 func (r *TransactionRepo) CreateTx(ctx context.Context, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
 	if tx.Date.IsZero() {
 		tx.Date = time.Now()
@@ -75,7 +115,14 @@ func (r *TransactionRepo) CreateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 	return tx, nil
 }
 
-// GetByID retrieves a single transaction.
+// GetByID retrieves a single transaction by its UUID.
+//
+// Note the many nullable columns scanned here (CounterAccountID, CategoryID, Note, etc.).
+// In Go, nullable DB columns map to pointer types (*string, *float64) or sql.Null* types.
+// If the column is NULL, the pointer will be nil after Scan.
+//   Laravel:  nullable columns are simply null in PHP (dynamic typing)
+//   Django:   nullable fields are None
+//   Go:       use *string for nullable strings, *float64 for nullable floats
 func (r *TransactionRepo) GetByID(ctx context.Context, id string) (models.Transaction, error) {
 	var tx models.Transaction
 	err := r.db.QueryRowContext(ctx, `
@@ -120,7 +167,12 @@ func (r *TransactionRepo) GetByAccount(ctx context.Context, accountID string, li
 	`, accountID, limit)
 }
 
-// Update modifies a transaction's editable fields.
+// Update modifies a transaction's editable fields (type, amount, currency, category, note, date).
+//
+// Uses RETURNING to get the full updated row back — this avoids a separate SELECT
+// and ensures we return the most current data.
+//   Laravel:  $tx->update([...]); $tx->fresh();  // two queries
+//   Go:       UPDATE ... RETURNING *               // one query, PostgreSQL-specific
 func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE transactions SET
@@ -146,7 +198,9 @@ func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (mo
 	return tx, nil
 }
 
-// UpdateTx modifies a transaction within an existing database transaction.
+// UpdateTx modifies a transaction within an existing database transaction (*sql.Tx).
+// Same as Update() but uses the passed-in *sql.Tx instead of the connection pool.
+// This ensures the update is part of an atomic operation with balance adjustments.
 func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
 	err := dbTx.QueryRowContext(ctx, `
 		UPDATE transactions SET
@@ -173,6 +227,9 @@ func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 }
 
 // LinkTransactionsTx links two transactions to each other within a DB transaction.
+// Used for transfers: the "from" and "to" transaction records point at each other
+// via linked_transaction_id, creating a bidirectional link. Two UPDATE statements
+// are needed because each row references the other.
 func (r *TransactionRepo) LinkTransactionsTx(ctx context.Context, dbTx *sql.Tx, id1, id2 string) error {
 	_, err := dbTx.ExecContext(ctx, `
 		UPDATE transactions SET linked_transaction_id = $2 WHERE id = $1
@@ -215,9 +272,18 @@ func (r *TransactionRepo) DeleteTx(ctx context.Context, dbTx *sql.Tx, id string)
 	return nil
 }
 
-// BeginTx starts a database transaction.
-// This lets the service layer group multiple operations atomically.
-// Similar to DB::transaction() in Laravel or transaction.atomic() in Django.
+// BeginTx starts a database transaction and returns a *sql.Tx handle.
+// The service layer uses this to group multiple operations atomically.
+//
+//   Laravel:  DB::beginTransaction(); ... DB::commit(); // or DB::rollBack()
+//   Django:   with transaction.atomic(): ...
+//   Go:       dbTx, err := repo.BeginTx(ctx)
+//             defer dbTx.Rollback()  // no-op if already committed
+//             ... do work on dbTx ...
+//             dbTx.Commit()
+//
+// The nil second argument uses default transaction options (READ COMMITTED isolation).
+// See: https://pkg.go.dev/database/sql#DB.BeginTx
 func (r *TransactionRepo) BeginTx(ctx context.Context) (*sql.Tx, error) {
 	return r.db.BeginTx(ctx, nil)
 }
@@ -239,20 +305,45 @@ func (r *TransactionRepo) UpdateBalanceTx(ctx context.Context, dbTx *sql.Tx, acc
 }
 
 // TransactionFilter holds optional filter parameters for listing transactions.
-// Like Laravel's query scopes or Django's Q objects — build up filters dynamically.
+//
+// This struct acts like a "filter bag" — the caller sets whichever fields are
+// relevant, and GetFiltered() builds a dynamic WHERE clause from them.
+//
+//   Laravel analogy:  Query scopes: Transaction::forAccount($id)->ofType('expense')->search('grocery')
+//   Django analogy:   Q objects: Transaction.objects.filter(Q(account_id=id) & Q(type='expense'))
+//
+// Using a struct instead of many function parameters is a Go idiom called the
+// "options struct" pattern. It's cleaner than 8+ function parameters.
 type TransactionFilter struct {
 	AccountID  string
 	CategoryID string
 	Type       string // "expense", "income", etc.
 	DateFrom   *time.Time
 	DateTo     *time.Time
-	Search     string // full-text search on note field
+	Search     string // text search on note field using ILIKE
 	Limit      int
 	Offset     int
 }
 
 // GetFiltered retrieves transactions matching the given filters.
 // Builds a dynamic WHERE clause based on which filters are set.
+//
+// This demonstrates dynamic query building in Go — the Go equivalent of
+// Laravel's query builder chaining or Django's ORM filter chaining:
+//
+//   Laravel:  $query = Transaction::query();
+//             if ($accountId) $query->where('account_id', $accountId);
+//             if ($search) $query->where('note', 'ILIKE', "%$search%");
+//
+// In Go without an ORM, we concatenate SQL strings with numbered placeholders.
+// The `WHERE 1=1` trick lets us always append `AND ...` conditions without
+// worrying whether it's the first condition or not.
+//
+// argN tracks the next placeholder number ($1, $2, ...) as we add filters.
+// This is necessary because PostgreSQL uses numbered (not positional) placeholders.
+//
+// ILIKE is PostgreSQL's case-insensitive LIKE (MySQL uses LIKE with a
+// case-insensitive collation by default; PostgreSQL's LIKE is case-sensitive).
 func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) ([]models.Transaction, error) {
 	query := `
 		SELECT id, type, amount, currency, account_id, counter_account_id,
@@ -329,7 +420,17 @@ func (r *TransactionRepo) GetLastUsedAccountID(ctx context.Context) (string, err
 }
 
 // GetRecentCategoryIDs returns category IDs ordered by recent usage frequency.
-// Looks at the last 50 expense/income transactions with a category set.
+// Uses a subquery to group by category, count frequency, and sort by most-used.
+//
+// The SQL pattern: subquery groups + aggregates, outer query sorts.
+//   SELECT category_id FROM (
+//     SELECT category_id, MAX(created_at) as last_used, COUNT(*) as freq
+//     FROM transactions WHERE ...
+//     GROUP BY category_id
+//   ) sub ORDER BY freq DESC, last_used DESC
+//
+// This is used by the "smart category suggest" feature (TASK-079) to pre-select
+// the most likely category when creating a new transaction.
 func (r *TransactionRepo) GetRecentCategoryIDs(ctx context.Context, txType string, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 20
@@ -399,6 +500,14 @@ func (r *TransactionRepo) GetConsecutiveCategoryID(ctx context.Context, txType s
 
 // GetBuildingFundBalance sums all building fund transactions.
 // Income adds to the fund, expenses subtract from it.
+//
+// SQL COALESCE(expr, 0) returns 0 if the SUM is NULL (no matching rows).
+// Without COALESCE, scanning a NULL into a float64 would fail.
+//   Laravel:  Transaction::where('is_building_fund', true)->sum(DB::raw("CASE WHEN type = 'income' THEN amount ELSE -amount END"))
+//   Django:   Transaction.objects.filter(is_building_fund=True).aggregate(total=Sum(Case(...)))
+//
+// CASE WHEN ... THEN ... ELSE ... END is SQL's if-else expression.
+// See: https://www.postgresql.org/docs/current/functions-conditional.html
 func (r *TransactionRepo) GetBuildingFundBalance(ctx context.Context) (float64, error) {
 	var balance float64
 	err := r.db.QueryRowContext(ctx, `
@@ -438,6 +547,13 @@ func (r *TransactionRepo) GetByDateRange(ctx context.Context, from, to time.Time
 	`, from, to)
 }
 
+// queryTransactions is the shared DRY helper for scanning transaction rows.
+// Every method that returns []models.Transaction delegates here.
+// The ...any variadic parameter accepts the query's placeholder values.
+//
+// Pattern: QueryContext → defer Close → for Next { Scan } → check Err
+// This is the canonical Go pattern for reading multiple rows.
+// See: https://pkg.go.dev/database/sql#Rows
 func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, args ...any) ([]models.Transaction, error) {
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -512,8 +628,17 @@ func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, accountID st
 }
 
 // SuggestCategory returns the most common category ID for transactions whose note matches a keyword.
-// Uses the pg_trgm trigram index for fuzzy matching (TASK-079).
-// Returns the category_id that appears most frequently in similar notes, or empty string if none.
+// Uses ILIKE for case-insensitive pattern matching (TASK-079).
+//
+// The SQL uses GROUP BY + ORDER BY COUNT(*) DESC to find the most frequently
+// used category for similar notes. LIMIT 1 returns only the top match.
+//
+// ILIKE '%' || $1 || '%' is PostgreSQL's case-insensitive LIKE with string
+// concatenation (||). The % wildcards match any text before/after the keyword.
+//   Laravel:  where('note', 'ILIKE', "%{$keyword}%")
+//   Django:   filter(note__icontains=keyword)
+//
+// Returns empty string on error or no match (silently fails — acceptable for suggestions).
 func (r *TransactionRepo) SuggestCategory(ctx context.Context, noteKeyword string) string {
 	if noteKeyword == "" {
 		return ""
@@ -533,7 +658,15 @@ func (r *TransactionRepo) SuggestCategory(ctx context.Context, noteKeyword strin
 }
 
 // HasDepositInRange checks if an account received a deposit >= minAmount within a date range.
-// Used by account health checking (TASK-068) to verify minimum monthly deposit.
+// Used by account health checking (TASK-068) to verify minimum monthly deposit rules.
+//
+// SELECT EXISTS(...) is an efficient way to check for existence without fetching data.
+// PostgreSQL stops scanning as soon as it finds one matching row.
+//   Laravel:  Transaction::where(...)->exists()
+//   Django:   Transaction.objects.filter(...).exists()
+//
+// The `_ = ...Scan(&exists)` discards any error — on failure, exists defaults to false.
+// This is acceptable here because a failed check should not block the UI.
 func (r *TransactionRepo) HasDepositInRange(ctx context.Context, accountID string, minAmount float64, from, to time.Time) bool {
 	var exists bool
 	_ = r.db.QueryRowContext(ctx, `

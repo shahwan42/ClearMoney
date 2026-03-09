@@ -1,5 +1,22 @@
-// Package handler — Push notification subscription management.
-// Handles browser push subscription registration and notification checking.
+// push.go — Push notification subscription management.
+//
+// This handler supports the Web Push API for browser push notifications.
+// The flow is:
+//   1. Browser calls GET /api/push/vapid-key to get the server's VAPID public key
+//   2. Browser subscribes to push via the Push API and gets a subscription object
+//   3. Browser sends the subscription to POST /api/push/subscribe
+//   4. Browser periodically calls GET /api/push/check to poll for pending notifications
+//
+// VAPID (Voluntary Application Server Identification) is a standard for identifying
+// the push notification sender. The public key is shared with the browser; the private
+// key is kept server-side for signing push messages.
+//
+// In a full implementation, subscriptions would be stored in the database and the
+// server would use the Web Push protocol to send notifications. Currently, this app
+// uses a polling approach (check endpoint) since it's a single-user PWA.
+//
+// See: https://developer.mozilla.org/en-US/docs/Web/API/Push_API
+// See: https://web.dev/push-notifications-overview/
 package handler
 
 import (
@@ -11,6 +28,7 @@ import (
 )
 
 // PushHandler manages push notification subscriptions and checking.
+// The VAPID public key is loaded from the VAPID_PUBLIC_KEY environment variable.
 type PushHandler struct {
 	notificationSvc *service.NotificationService
 	vapidPublicKey  string
@@ -22,6 +40,9 @@ func NewPushHandler(notificationSvc *service.NotificationService, vapidPublicKey
 
 // VAPIDKey returns the VAPID public key for the browser to use when subscribing.
 // GET /api/push/vapid-key
+//
+// The browser's Push API needs this key to create a push subscription.
+// This is a simple JSON response (no database access needed).
 func (h *PushHandler) VAPIDKey(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -47,6 +68,10 @@ func (h *PushHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 // CheckNotifications returns pending notifications as JSON.
 // GET /api/push/check
+//
+// This is a polling endpoint — the browser's service worker calls it periodically
+// to check for new notifications (budget alerts, recurring transaction reminders,
+// account health warnings). This is simpler than server-push for a single-user app.
 func (h *PushHandler) CheckNotifications(w http.ResponseWriter, r *http.Request) {
 	notifications, err := h.notificationSvc.GetPendingNotifications(r.Context())
 	if err != nil {

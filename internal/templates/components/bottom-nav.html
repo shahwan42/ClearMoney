@@ -1,3 +1,22 @@
+<!--
+  BOTTOM NAVIGATION — Mobile Tab Bar with Active Tab Highlighting
+
+  Fixed bottom nav with 4 tabs + FAB (Floating Action Button) for quick entry.
+
+  ACTIVE TAB: Uses Go's "if eq" comparison to highlight the current tab.
+    Blade:  @if($activeTab === 'home') ... @else ... @endif
+    Jinja2: if active_tab == 'home' ... else ... endif
+    "eq" is Go's template equality function. Others: ne, lt, gt, le, ge.
+
+  DOT (.) DATA: .ActiveTab accesses the struct field from the handler.
+    Like Blade's $activeTab or Jinja2's active_tab variable.
+
+  HTMX: The quick-entry bottom sheet is lazy-loaded via hx-get when
+    the + button fires a custom "open-quick-entry" event.
+    See: https://htmx.org/attributes/hx-trigger/
+
+  Tailwind: fixed bottom-0, h-16 (64px, matches pb-20 padding in main).
+-->
 {{define "bottom-nav"}}
 <!-- Bottom navigation — fixed at the bottom like a native mobile app tab bar.
      Three tabs (Home, Reports, People) plus the FAB for quick entry. -->
@@ -41,7 +60,29 @@
 <!-- Quick-entry bottom sheet overlay -->
 <div id="quick-entry-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeQuickEntry()"></div>
 
-<!-- Quick-entry bottom sheet -->
+<!--
+  HTMX LAZY-LOADED BOTTOM SHEET:
+    hx-get="/transactions/quick-form"
+      When triggered, HTMX sends a GET request to this URL.
+      The server returns an HTML fragment (not a full page).
+      Blade equivalent: an AJAX call to a controller that returns a @section.
+      Django equivalent: returning render(request, 'partials/quick-entry.html').
+
+    hx-trigger="open-quick-entry"
+      Listens for a CUSTOM JavaScript event (not a standard DOM event like "click").
+      The quick-entry.js file dispatches this event via:
+        htmx.trigger(element, 'open-quick-entry')
+      Docs: https://htmx.org/attributes/hx-trigger/
+
+    hx-target="#quick-entry-content"
+      The fetched HTML is inserted into the element with id="quick-entry-content".
+      Docs: https://htmx.org/attributes/hx-target/
+
+  TAILWIND SLIDE-UP ANIMATION:
+    translate-y-full = transform: translateY(100%) -- hidden below the screen
+    transition-transform duration-300 ease-out = smooth 300ms slide animation
+    JS toggles a class to set translate-y-0, sliding the sheet up into view.
+-->
 <div id="quick-entry-sheet" class="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto"
      hx-get="/transactions/quick-form" hx-trigger="open-quick-entry" hx-target="#quick-entry-content">
     <!-- Drag handle -->

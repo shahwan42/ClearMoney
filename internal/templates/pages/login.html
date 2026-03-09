@@ -1,3 +1,46 @@
+<!--
+=============================================================================
+  LOGIN PAGE -- Auth Flow with the "bare" Layout
+=============================================================================
+
+  This page uses the "bare" layout (no header, no bottom nav, no HTMX).
+  The handler renders it with: tpl.ExecuteTemplate(w, "bare", data)
+
+  WHY NO HTMX HERE?
+    The login form uses a traditional <form method="POST" action="/login">.
+    On success, the server sends an HTTP redirect (302) with Set-Cookie header.
+    Full-page redirects are simpler for auth flows because:
+    - Cookies are set on the redirect response
+    - The browser handles the redirect automatically
+    - No JavaScript state management needed
+
+    If we used hx-post, we'd need to handle the redirect manually with
+    HX-Redirect response header. The traditional approach is simpler here.
+
+  DATA CONTEXT FOR AUTH PAGES:
+    .Data here is a simple string (the error message), not a complex struct.
+    The handler does: render(w, tpl, PageData{Data: "Invalid PIN"})
+
+    `if .Data` checks if there's an error message to show.
+    `.Data` outputs the raw string value.
+
+    Go:     `.Data`  (outputs the string directly)
+    Blade:  ` $data `  or  ` session('error') `
+    Jinja2: ` data `  or  ` get_flashed_messages() `
+
+  TRADITIONAL FORM (no HTMX):
+    <form method="POST" action="/login">
+    This is standard HTML -- the browser handles the POST and follows the
+    redirect. Compare to the transaction form which uses hx-post for AJAX.
+
+  TAILWIND INPUT STYLING:
+    tracking-[0.5em] = letter-spacing: 0.5em (spaces out PIN digits)
+    inputmode="numeric" = shows numeric keyboard on mobile (HTML5 attribute)
+    These work together to create a PIN-entry UX without a PIN input library.
+
+  Docs: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/inputmode
+=============================================================================
+-->
 {{define "title"}}ClearMoney - Login{{end}}
 
 {{define "content"}}

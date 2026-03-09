@@ -1,3 +1,18 @@
+// Tests for DashboardService — verifies the aggregated dashboard data.
+//
+// These integration tests check that the dashboard correctly computes:
+// - Net worth from multiple accounts
+// - Cash vs credit breakdown
+// - USD conversion with exchange rates
+// - People ledger summary
+// - Building fund balance
+//
+// Each test creates a minimal set of fixtures, calls GetDashboard(), and verifies
+// specific fields. The tests are independent — each one cleans the DB and creates
+// its own data. Like Laravel's RefreshDatabase trait.
+//
+// Note: these tests don't exercise all 10+ data sources (snapshots, budgets, etc.)
+// because those optional services are nil. The dashboard handles nil services gracefully.
 package service
 
 import (
@@ -10,6 +25,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// TestDashboardService_GetDashboard verifies the basic net worth calculation
+// with two debit accounts under one institution.
 func TestDashboardService_GetDashboard(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -58,6 +75,8 @@ func TestDashboardService_GetDashboard(t *testing.T) {
 	}
 }
 
+// TestDashboardService_GetDashboard_WithCredit tests net worth with credit cards.
+// Credit card balances are negative (money owed), so they reduce net worth.
 func TestDashboardService_GetDashboard_WithCredit(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -105,6 +124,8 @@ func TestDashboardService_GetDashboard_WithCredit(t *testing.T) {
 	}
 }
 
+// TestDashboardService_GetDashboard_Empty verifies the dashboard handles zero data gracefully.
+// This is a boundary test — ensures no panics or errors when there are no institutions/accounts.
 func TestDashboardService_GetDashboard_Empty(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -129,6 +150,9 @@ func TestDashboardService_GetDashboard_Empty(t *testing.T) {
 	}
 }
 
+// TestDashboardService_GetDashboard_USDConversion tests multi-currency net worth.
+// Demonstrates setter injection in action: svc.SetExchangeRateRepo(rateRepo) adds
+// the optional exchange rate dependency. Without it, USD values appear raw.
 func TestDashboardService_GetDashboard_USDConversion(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "exchange_rate_log")
@@ -211,6 +235,8 @@ func TestDashboardService_GetDashboard_CreditAvailable(t *testing.T) {
 	}
 }
 
+// TestDashboardService_GetDashboard_PeopleSummary verifies the people ledger aggregation.
+// Positive net_balance = they owe me, negative = I owe them.
 func TestDashboardService_GetDashboard_PeopleSummary(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")

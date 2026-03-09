@@ -1,3 +1,15 @@
+<!--
+  BARE LAYOUT — Minimal Template for Auth Pages (login, setup, PIN entry)
+
+  Stripped-down layout WITHOUT header, bottom-nav, HTMX, or PWA scripts.
+  Blade: Like resources/views/layouts/auth.blade.php
+  Jinja2: Like templates/layouts/bare.html
+
+  The Go handler picks which template set to execute — auth handlers
+  use "bare", authenticated pages use "base". No HTMX here because
+  login uses standard form POST for proper cookie handling.
+  Tailwind's flex centering puts the login card dead center.
+-->
 {{define "bare"}}
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-50">

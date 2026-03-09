@@ -1,3 +1,59 @@
+<!--
+=============================================================================
+  NEW TRANSACTION FORM -- HTMX Form Submission
+=============================================================================
+
+  HTMX FORM SUBMISSION PATTERN:
+
+    <form hx-post="/transactions"
+          hx-target="#transaction-result"
+          hx-swap="innerHTML">
+
+    hx-post="/transactions"
+      Submits the form via AJAX POST (instead of a traditional form submit).
+      The form data is sent as application/x-www-form-urlencoded, just like
+      a normal HTML form. The Go handler reads it with r.FormValue("amount").
+      Docs: https://htmx.org/attributes/hx-post/
+
+    hx-target="#transaction-result"
+      The server's HTML response is inserted into the #transaction-result div.
+      For success: server returns a green "saved!" banner.
+      For errors: server returns a red error message.
+      Docs: https://htmx.org/attributes/hx-target/
+
+    hx-swap="innerHTML"
+      Replaces the INNER content of the target element (not the element itself).
+      Other options: outerHTML, beforeend, afterbegin, delete, none.
+      Docs: https://htmx.org/attributes/hx-swap/
+
+    Blade/Livewire: Similar to Livewire's wire:submit.prevent="save"
+    Django: Similar to django-htmx returning a partial on form POST
+
+  GO TEMPLATE VARIABLE ASSIGNMENT:
+    `$prefillAcct := ""``if .Data.Prefill``$prefillAcct = .Data.Prefill.AccountID``end`
+
+    This declares a local template variable ($prefillAcct) and conditionally
+    assigns it. Variables in Go templates start with $ (like PHP).
+    Go:     `$var := "value"`  (declare) / `$var = "new"` (reassign)
+    Blade:  @php($var = 'value')
+    Jinja2: {% set var = 'value' %}
+
+  CUSTOM TEMPLATE FUNCTIONS:
+    `string .Data.Prefill.Type` -- converts a Go enum/type to string
+    `deref .Data.Prefill.Note`  -- dereferences a *string pointer (nil-safe)
+    These handle Go-specific types that don't exist in PHP/Python.
+
+  TAILWIND PEER PATTERN (for radio toggle styling):
+    <input class="peer hidden">  -- hides the actual radio button
+    <div class="peer-checked:bg-red-50 peer-checked:border-red-400">
+    Tailwind's "peer" modifier styles a sibling based on the input's state.
+    When the hidden radio is :checked, the visible div changes colors.
+    This is pure CSS -- no JavaScript needed for the toggle effect.
+
+  Docs: https://htmx.org/docs/#ajax
+        https://tailwindcss.com/docs/hover-focus-and-other-states#peer
+=============================================================================
+-->
 {{define "title"}}ClearMoney - New Transaction{{end}}
 
 {{define "content"}}

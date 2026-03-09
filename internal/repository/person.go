@@ -1,5 +1,13 @@
-// Package repository — PersonRepo handles database operations for persons.
-// Persons track people you lend to or borrow from (like a contact ledger).
+// Package repository — PersonRepo handles database operations for the persons table.
+//
+// Persons track people you lend money to or borrow from (a contact/debt ledger).
+// Each person has a net_balance: positive = they owe you, negative = you owe them.
+//
+//   Laravel analogy:  Person model with a balance column, updated atomically
+//   Django analogy:   Person model with an F() expression for balance updates
+//
+// The net_balance is updated via UpdateNetBalanceTx inside a database transaction
+// (alongside creating the loan/repay transaction), ensuring consistency.
 package repository
 
 import (
@@ -10,11 +18,14 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
-// PersonRepo handles database operations for persons.
+// PersonRepo handles database operations for the persons table.
+//   Laravel:  PersonRepository or Person Eloquent model
+//   Django:   Person.objects (Manager)
 type PersonRepo struct {
 	db *sql.DB
 }
 
+// NewPersonRepo creates a new PersonRepo with the given database connection pool.
 func NewPersonRepo(db *sql.DB) *PersonRepo {
 	return &PersonRepo{db: db}
 }
@@ -94,6 +105,17 @@ func (r *PersonRepo) Delete(ctx context.Context, id string) error {
 }
 
 // UpdateNetBalanceTx adjusts a person's net_balance within a DB transaction.
+//
+// Uses atomic SQL arithmetic: `net_balance = net_balance + $2`
+// This runs inside a *sql.Tx so the balance update and the transaction record
+// creation are committed together (all-or-nothing).
+//
+//   When you lend 1000 EGP:  delta = +1000 (they owe you more)
+//   When they repay 500 EGP: delta = -500  (they owe you less)
+//   When you borrow 200 EGP: delta = -200  (you owe them)
+//
+//   Laravel:  DB::transaction(fn() => Person::where('id', $id)->increment('net_balance', $delta))
+//   Django:   with transaction.atomic(): Person.objects.filter(id=id).update(net_balance=F('net_balance') + delta)
 func (r *PersonRepo) UpdateNetBalanceTx(ctx context.Context, dbTx *sql.Tx, personID string, delta float64) error {
 	result, err := dbTx.ExecContext(ctx, `
 		UPDATE persons SET net_balance = net_balance + $2, updated_at = now()

@@ -1,3 +1,25 @@
+// Tests for TransactionService — the most comprehensively tested service.
+//
+// These are INTEGRATION tests that exercise the full stack: service → repository → PostgreSQL.
+// They verify atomic balance updates, transfer/exchange linking, credit card limits, and more.
+//
+// Go testing patterns used here:
+//
+// 1. Setup helpers: setupTransactionServiceTest() creates a clean database state with
+//    institutions, accounts, and categories. Marked with t.Helper() so test failures
+//    report the caller's line, not the helper's. Like PHPUnit's setUp() or Django's setUp().
+//
+// 2. Table-driven tests: TestTransactionService_Create_Validation uses a slice of test cases
+//    with t.Run() for named sub-tests. This is Go's recommended pattern for testing multiple
+//    inputs against the same logic. Like PHPUnit's @dataProvider or Django's subTest().
+//    See: https://go.dev/wiki/TableDrivenTests
+//
+// 3. t.Fatalf vs t.Errorf: Fatalf stops the test immediately (like PHPUnit's $this->fail()).
+//    Errorf records the failure but continues (like $this->addFailure() — test keeps running).
+//    Use Fatalf for setup failures, Errorf for assertion failures.
+//
+// 4. context.Background(): In tests, we use the "empty" context since there's no HTTP
+//    request to derive cancellation from. In production, the handler passes the request's context.
 package service
 
 import (
@@ -12,6 +34,9 @@ import (
 
 // setupTransactionServiceTest creates a clean environment with a transaction service,
 // an account, and an expense category for testing.
+//
+// Returns (service, account, categoryID) — a Go idiom for returning multiple values from helpers.
+// The t.Helper() call marks this as a helper so stack traces skip to the calling test.
 func setupTransactionServiceTest(t *testing.T) (*TransactionService, models.Account, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
@@ -81,9 +106,23 @@ func TestTransactionService_Create_Income(t *testing.T) {
 	}
 }
 
+// TestTransactionService_Create_Validation uses TABLE-DRIVEN TESTS — the most important
+// Go testing pattern. Each test case is a struct in a slice, run via t.Run() for named sub-tests.
+//
+// This pattern is like PHPUnit's @dataProvider:
+//   /** @dataProvider validationCases */
+//   public function test_create_validation($name, $tx) { ... }
+//
+// Or Django's subTest:
+//   for name, tx in cases: with self.subTest(name=name): ...
+//
+// Benefits: each sub-test runs independently, has its own name, and can be run in isolation:
+//   go test -run TestTransactionService_Create_Validation/zero_amount
 func TestTransactionService_Create_Validation(t *testing.T) {
 	svc, acc, _ := setupTransactionServiceTest(t)
 
+	// Anonymous struct: Go lets you define struct types inline for one-off use.
+	// Each element has a test name and a Transaction with intentionally invalid data.
 	tests := []struct {
 		name string
 		tx   models.Transaction
@@ -544,6 +583,9 @@ func TestTransactionService_CreateExchange_SameCurrency(t *testing.T) {
 	}
 }
 
+// TestCalculateInstapayFee is a pure-function unit test — no database, no setup.
+// Table-driven test pattern with expected outputs for each input.
+// This is the simplest kind of Go test: deterministic, fast, no side effects.
 func TestCalculateInstapayFee(t *testing.T) {
 	tests := []struct {
 		amount   float64

@@ -1,3 +1,30 @@
+// institution_test.go — Integration tests for institution CRUD API.
+//
+// These tests exercise the full stack: HTTP request -> router -> middleware -> handler
+// -> service -> repository -> real PostgreSQL database.
+//
+// Integration test patterns used here:
+//
+//   testutil.NewTestDB(t): Opens a connection to the test database using TEST_DATABASE_URL.
+//     Tests are skipped if the env var is not set (allows running without a DB).
+//     Like Laravel's RefreshDatabase trait that uses a test database.
+//
+//   testutil.CleanTable(t, db, "institutions"): Truncates the table before each test.
+//     Like Laravel's DatabaseTransactions trait or Django's TransactionTestCase.
+//
+//   testRouter(t, db): Creates a full router with auth pre-configured (see test_helpers_test.go).
+//     Returns the router and an addAuth function that adds the session cookie to requests.
+//     This avoids repeating auth setup in every test.
+//
+//   testutil.CreateInstitution(t, db, ...): Factory helper that inserts a test record.
+//     Like Laravel's factory(Institution::class)->create() or Django's baker.make().
+//
+// Test structure follows the Arrange-Act-Assert pattern:
+//   1. Arrange: Set up test data (create institutions, accounts)
+//   2. Act: Make the HTTP request
+//   3. Assert: Check the response status, body, and side effects
+//
+// See: https://pkg.go.dev/net/http/httptest
 package handler
 
 import (
@@ -177,6 +204,8 @@ func TestInstitutionHandler_Create_InvalidJSON(t *testing.T) {
 	}
 }
 
+// TestInstitutionHandler_ListEmpty verifies that listing with no data returns []
+// (empty JSON array) instead of null. This is important for frontend JSON parsing.
 func TestInstitutionHandler_ListEmpty(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")

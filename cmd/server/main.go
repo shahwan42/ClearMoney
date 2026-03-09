@@ -5,6 +5,17 @@
 //
 // In Go, the main() function is the program's entry point (no framework bootstrap).
 // We explicitly set up each component, which gives full control over the lifecycle.
+//
+// Key Go concepts in this file:
+//   - goroutines: lightweight concurrent functions (like PHP fibers or Python asyncio tasks)
+//   - defer: schedule cleanup to run when the enclosing function returns
+//   - context: carries deadlines, cancellation signals, and request-scoped values
+//   - channels (<-): used to communicate between goroutines (like Python's queue.Queue)
+//   - signal handling: OS-level process signals (SIGINT=Ctrl+C, SIGTERM=docker stop)
+//
+// See: https://pkg.go.dev/log/slog — Go's structured logging (replaces log.Printf)
+// See: https://pkg.go.dev/context — request-scoped values, cancellation, and deadlines
+// See: https://pkg.go.dev/os/signal — OS signal handling for graceful shutdown
 package main
 
 import (
@@ -31,7 +42,12 @@ func main() {
 	cfg := config.Load()
 
 	// Configure structured logging (log/slog) with level from LOG_LEVEL env var.
+	// slog is Go 1.21+'s built-in structured logger — similar to Laravel's Log facade
+	// or Python's logging module. It outputs key=value pairs instead of plain text,
+	// making logs easier to search in production (e.g., grep by "error" key).
+	//
 	// Levels: debug, info, warn, error (default: info).
+	// See: https://pkg.go.dev/log/slog#Level
 	var logLevel slog.Level
 	switch strings.ToLower(cfg.LogLevel) {
 	case "debug":
@@ -43,6 +59,10 @@ func main() {
 	default:
 		logLevel = slog.LevelInfo
 	}
+	// slog.SetDefault replaces the global logger, so all slog.Info/Warn/Error calls
+	// use this handler. TextHandler writes human-readable logs to stderr.
+	// In production, you might swap to slog.NewJSONHandler for machine-parseable output.
+	// See: https://pkg.go.dev/log/slog#SetDefault
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})))
 
 	// 2. Connect to PostgreSQL and run migrations (if DATABASE_URL is set).
@@ -56,7 +76,12 @@ func main() {
 			slog.Error("database connection failed", "error", err)
 			os.Exit(1)
 		}
-		defer db.Close() // defer = runs when main() exits (like PHP's register_shutdown_function)
+		// defer schedules db.Close() to run when main() returns — like PHP's
+		// register_shutdown_function or Python's atexit. Multiple defers execute
+		// in LIFO order (last deferred = first executed). This ensures the DB
+		// connection is always closed, even if the function exits early via os.Exit.
+		// See: https://go.dev/tour/flowcontrol/12
+		defer db.Close()
 		slog.Info("database connected")
 
 		if err := database.RunMigrations(db); err != nil {
@@ -73,6 +98,10 @@ func main() {
 		txSvc := service.NewTransactionService(txRepo, accountRepo)
 		recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
 
+		// context.Background() creates a top-level context with no deadline or cancellation.
+		// Think of it as the "root" context — similar to how Laravel's artisan commands
+		// run without a request lifecycle. Child contexts can be derived with timeouts.
+		// See: https://pkg.go.dev/context#Background
 		processed, err := recurringSvc.ProcessDueRules(context.Background())
 		if err != nil {
 			slog.Warn("recurring rules processing error", "error", err)
@@ -126,14 +155,29 @@ func main() {
 	}
 
 	// 5. Graceful shutdown setup.
-	// signal.NotifyContext listens for OS signals (Ctrl+C or docker stop).
-	// When received, ctx.Done() triggers and we gracefully drain connections.
+	// signal.NotifyContext creates a context that is automatically cancelled when the
+	// process receives SIGINT (Ctrl+C) or SIGTERM (docker stop / kill).
 	// This is similar to Laravel Octane's graceful shutdown or Gunicorn's signal handling.
+	//
+	// How it works:
+	//   - ctx is a context.Context — it has a Done() channel that closes on signal
+	//   - stop is a cleanup function to release signal-catching resources
+	//   - <-ctx.Done() blocks until a signal arrives (the <- operator reads from a channel)
+	//
+	// In Laravel/Django, the web server (Apache/Nginx/Gunicorn) handles this for you.
+	// In Go, since we ARE the server, we must handle signals ourselves.
+	// See: https://pkg.go.dev/os/signal#NotifyContext
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	// Start the server in a goroutine (Go's lightweight thread).
-	// This is non-blocking — main() continues to the <-ctx.Done() line below.
+	// A goroutine is like a PHP fiber or Python coroutine, but managed by Go's runtime.
+	// The `go` keyword launches the function concurrently — main() does NOT wait for it.
+	// Instead, main() continues to the <-ctx.Done() line below, which blocks until shutdown.
+	//
+	// Why a goroutine? ListenAndServe blocks forever (it's the event loop). We need
+	// main() to also listen for shutdown signals, so we run the server concurrently.
+	// See: https://go.dev/tour/concurrency/1
 	go func() {
 		slog.Info("ClearMoney starting", "port", cfg.Port, "env", cfg.Env)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -142,11 +186,19 @@ func main() {
 		}
 	}()
 
-	// Block here until we receive a shutdown signal
+	// Block here until we receive a shutdown signal.
+	// The <- operator receives from a channel. ctx.Done() returns a channel that
+	// closes when the context is cancelled (i.e., when SIGINT/SIGTERM arrives).
+	// This is Go's idiomatic way to "wait for something" — no polling, no sleep loops.
+	// See: https://pkg.go.dev/context#Context (Done method)
 	<-ctx.Done()
 	slog.Info("shutting down...")
 
-	// Give in-flight requests 5 seconds to complete before force-closing
+	// Give in-flight requests 5 seconds to complete before force-closing.
+	// context.WithTimeout creates a child context that auto-cancels after the deadline.
+	// cancel() must always be called (via defer) to release the timer resources — the
+	// Go linter (and `go vet`) will warn if you forget this.
+	// See: https://pkg.go.dev/context#WithTimeout
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

@@ -1,27 +1,51 @@
+# Docker Compose configuration for local development.
+#
+# Defines two services: the Go app and PostgreSQL database.
+# This is similar to:
+#   - Laravel Sail's docker-compose.yml
+#   - Django's typical docker-compose setup with web + db services
+#
+# Usage:
+#   docker compose up -d    # start in background
+#   docker compose down     # stop all services
+#   docker compose logs -f  # follow logs
+#
+# See: https://docs.docker.com/compose/compose-file/
+
 services:
+  # The ClearMoney Go application.
   app:
-    build: .
+    build: .                    # Build from the Dockerfile in the current directory
     ports:
-      - "8080:8080"
-    env_file: .env
+      - "8080:8080"             # Map host:container ports (access at http://localhost:8080)
+    env_file: .env              # Load environment variables from .env file (DATABASE_URL, etc.)
     depends_on:
       db:
-        condition: service_healthy
-    restart: unless-stopped
+        condition: service_healthy  # Wait for PostgreSQL to be ready before starting the app
+    restart: unless-stopped     # Auto-restart on crash (but not if manually stopped)
 
+  # PostgreSQL 16 database.
+  # Like Laravel's mysql/postgres service in Sail, or Django's database container.
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine   # Official PostgreSQL image (Alpine variant = smaller)
     ports:
-      - "5433:5432"
-    env_file: .env
+      - "5433:5432"             # Map to 5433 on host (5432 is taken by Colima SSH tunnel)
+    env_file: .env              # Reads POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB from .env
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data   # Named volume = data persists across container restarts
     healthcheck:
+      # pg_isready checks if PostgreSQL is accepting connections.
+      # $${POSTGRES_USER:-clearmoney} uses shell default: if POSTGRES_USER is unset, use "clearmoney".
+      # The $$ is docker-compose escaping for a literal $ in the shell command.
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-clearmoney}"]
-      interval: 2s
-      timeout: 5s
-      retries: 10
+      interval: 2s              # Check every 2 seconds
+      timeout: 5s               # Fail if check takes longer than 5 seconds
+      retries: 10               # Mark unhealthy after 10 consecutive failures
     restart: unless-stopped
 
+# Named volumes persist data outside the container lifecycle.
+# Without this, all database data would be lost when the container is removed.
+# Like Laravel Sail's mysql volume or Django's postgres volume.
+# See: https://docs.docker.com/engine/storage/volumes/
 volumes:
   pgdata:

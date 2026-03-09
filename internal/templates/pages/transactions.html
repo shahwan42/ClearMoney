@@ -1,3 +1,48 @@
+<!--
+=============================================================================
+  TRANSACTIONS PAGE -- Filtered List with HTMX Live Search
+=============================================================================
+
+  HTMX LIVE FILTERING -- The most powerful HTMX pattern on this page:
+
+    <form hx-get="/transactions/list"
+          hx-target="#transaction-list"
+          hx-trigger="change, keyup changed delay:300ms from:#search-input">
+
+    hx-get="/transactions/list"
+      When triggered, sends a GET request with all form field values as query params.
+      The server returns an HTML fragment (just the transaction list, not the full page).
+      Docs: https://htmx.org/attributes/hx-get/
+
+    hx-target="#transaction-list"
+      The response HTML replaces the content of the #transaction-list div.
+      This is "partial page update" -- only the list refreshes, not the whole page.
+      Docs: https://htmx.org/attributes/hx-target/
+
+    hx-trigger="change, keyup changed delay:300ms from:#search-input"
+      Triggers on ANY form element "change" event (dropdown selection, date pick),
+      AND on keyup in the search input -- but debounced by 300ms to avoid
+      firing on every keystroke. "changed" means only if the value actually changed.
+      "from:#search-input" scopes the keyup trigger to just the search field.
+      Docs: https://htmx.org/attributes/hx-trigger/
+
+    Blade/Livewire equivalent: Livewire's wire:model.debounce.300ms
+    Django equivalent: django-htmx with a view returning a partial template
+
+  hx-boost="true" (on the "+ New" link)
+    Converts a normal <a> link into an AJAX request. The page content is
+    swapped without a full reload, giving SPA-like navigation.
+    Docs: https://htmx.org/attributes/hx-boost/
+
+  hx-preload="mouseover"
+    Starts fetching the target page when the user hovers, before they click.
+    This is a performance optimization -- by the time they click, the
+    response is likely already cached.
+    Requires the HTMX preload extension. Similar to Turbo's prefetch.
+
+  Docs: https://htmx.org/docs/
+=============================================================================
+-->
 {{define "title"}}ClearMoney - Transactions{{end}}
 
 {{define "content"}}
@@ -48,7 +93,20 @@
         </select>
     </form>
 
-    <!-- Transaction list (HTMX swappable) -->
+    <!--
+      HTMX SWAPPABLE CONTAINER:
+      The #transaction-list div is the "swap target" for both the filter form
+      above (hx-target="#transaction-list") and the "Load more" button inside
+      the transaction-list partial. When HTMX receives an HTML response, it
+      replaces the innerHTML of this div with the new content.
+
+      `template "transaction-list" .Data` renders the initial list on page load.
+      After that, HTMX handles all updates via AJAX without full page reloads.
+
+      This is a key HTMX pattern: server-rendered initial state + AJAX updates.
+      The server always returns the same HTML partial, whether it's the initial
+      render or an HTMX request. No separate "API" endpoint needed.
+    -->
     <div id="transaction-list">
         {{template "transaction-list" .Data}}
     </div>

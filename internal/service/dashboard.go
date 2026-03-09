@@ -1,3 +1,33 @@
+// dashboard.go — DashboardService aggregates data from 10+ sources for the home page.
+//
+// This is the most complex service in ClearMoney. It pulls data from institutions,
+// accounts, transactions, exchange rates, people, investments, snapshots, virtual funds,
+// budgets, health checks, and credit card billing cycles — all to build a single
+// DashboardData struct that the template renders.
+//
+// Laravel analogy: Like a DashboardController@index that calls 10+ repositories and
+// returns a view with all the data. In Laravel, you might use a View Composer or
+// a dedicated "DashboardService" class. Same idea here.
+//
+// Django analogy: Like a TemplateView.get_context_data() that aggregates from many
+// QuerySets and services into a single context dictionary.
+//
+// Design patterns used:
+//
+// 1. SETTER INJECTION: DashboardService has a core constructor (NewDashboardService)
+//    with 3 required dependencies, plus 8 optional dependencies added via Set*() methods.
+//    This avoids a constructor with 11 parameters and lets the service work even when
+//    some features are disabled (e.g., no snapshot service means no sparklines).
+//    Like Laravel's optional bindings or Django's has_module() checks.
+//
+// 2. NIL-SAFE CHECKS: Before using optional services, we check if they're nil:
+//    `if s.snapshotSvc != nil { ... }`. This is Go's version of optional chaining
+//    ($service?->method() in PHP 8, or getattr(obj, 'method', None) in Python).
+//
+// 3. AGGREGATE/VIEWMODEL PATTERN: DashboardData is a "fat" struct that bundles
+//    everything the template needs. The template never makes DB calls.
+//
+// See: https://pkg.go.dev/database/sql for direct SQL queries used in computeSpendingComparison
 package service
 
 import (
@@ -11,6 +41,8 @@ import (
 
 // DashboardData holds the computed data for the home dashboard.
 // Think of it as a ViewModel — combines raw data into display-ready format.
+// The handler passes this entire struct to the template. The template NEVER
+// makes database calls — all data is pre-computed here.
 type DashboardData struct {
 	// Net worth: sum of all account balances (positive = assets, negative = liabilities)
 	NetWorth float64
@@ -116,6 +148,13 @@ type CategoryChange struct {
 }
 
 // DashboardService computes the dashboard view data.
+//
+// This struct has 11 dependencies — 3 required (set in constructor) and 8 optional
+// (set via setter methods). The setter injection pattern avoids a massive constructor
+// and allows the service to degrade gracefully when optional features are unavailable.
+//
+// In Laravel, you might use a Service Container with optional bindings.
+// In Django, you'd use django.apps.apps.get_model() or conditional imports.
 type DashboardService struct {
 	institutionRepo  *repository.InstitutionRepo
 	accountRepo      *repository.AccountRepo
@@ -185,6 +224,15 @@ func (s *DashboardService) SetDB(db *sql.DB) {
 }
 
 // GetDashboard computes the full dashboard data in a single call.
+//
+// This method orchestrates 10+ data sources into a single DashboardData struct.
+// It uses a "best effort" approach: if optional data sources fail, they're silently
+// skipped (the dashboard still renders with partial data). Only the core institution/
+// account load causes a hard failure.
+//
+// Performance note: This makes multiple sequential DB queries. In a high-traffic app,
+// you'd use goroutines + channels for parallel loading. For a single-user app like
+// ClearMoney, sequential is fine and much simpler to reason about.
 func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, error) {
 	var data DashboardData
 
@@ -377,6 +425,16 @@ func abs(v float64) float64 {
 
 // computeSpendingComparison calculates this month vs last month spending
 // and the top 3 categories with the biggest changes.
+//
+// This method uses *DashboardData (pointer receiver for the parameter) so it can
+// mutate the caller's struct directly. In Go, struct arguments are copied by default.
+// Passing a pointer (&data) lets us modify the original — like PHP's &$data or
+// Python's mutable object references.
+//
+// Uses direct SQL via s.db.QueryContext() instead of the repository layer because
+// this is a complex aggregate query with CTEs (Common Table Expressions) that doesn't
+// map well to a simple CRUD repository method.
+// See: https://pkg.go.dev/database/sql#DB.QueryContext
 func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *DashboardData) {
 	now := time.Now()
 	thisMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)

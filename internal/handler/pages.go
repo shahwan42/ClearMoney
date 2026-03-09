@@ -1,3 +1,59 @@
+// pages.go — HTML page handlers for the HTMX-powered web interface.
+//
+// This is the largest handler file (~2300 lines) because it serves ALL HTML pages
+// and HTMX partials. Think of it as the combined web routes controller in Laravel
+// or all the template views in Django.
+//
+// =============================================================================
+// HTMX Pattern Guide for Laravel/Django Developers
+// =============================================================================
+//
+// HTMX replaces traditional full-page form submissions and JavaScript SPAs with
+// a simple approach: HTML attributes on elements trigger HTTP requests, and the
+// server returns HTML fragments that replace parts of the page.
+//
+// Key HTMX attributes used in this app:
+//
+//   hx-get="/path"       — Makes a GET request when the element is triggered
+//                          Like: fetch('/path').then(html => element.innerHTML = html)
+//
+//   hx-post="/path"      — Makes a POST request (form submission without page reload)
+//                          Like Laravel Livewire or Django HTMX
+//
+//   hx-target="#element"  — Where to put the response HTML (CSS selector)
+//                          Like jQuery's $(target).html(response)
+//
+//   hx-swap="innerHTML"   — How to insert the response: innerHTML, outerHTML, beforeend, etc.
+//
+//   hx-trigger="change"   — When to fire: click, change, submit, load, etc.
+//
+// Server-side HTMX patterns in this file:
+//
+//   1. Full page render: RenderPage(templates, w, "home", PageData{...})
+//      Returns a complete HTML page (base layout + content).
+//      Like: return view('home', $data) in Laravel.
+//
+//   2. Partial render: tmpl.ExecuteTemplate(w, "transaction-row", data)
+//      Returns just an HTML fragment (no layout wrapper).
+//      HTMX swaps this fragment into the existing page.
+//      Like: return view('partials.transaction-row', $data) in Laravel.
+//
+//   3. HX-Redirect header: w.Header().Set("HX-Redirect", "/investments")
+//      Tells HTMX to do a full-page redirect (client-side navigation).
+//      Like: return redirect('/investments') but via an HTMX response header.
+//
+//   4. Inline HTML responses: w.Write([]byte(`<div class="bg-green-50">...</div>`))
+//      Returns small HTML snippets directly (success/error messages).
+//      HTMX swaps these into a target element for toast-style feedback.
+//
+// Form handling:
+//   Page handlers use r.ParseForm() + r.FormValue("field") for form data.
+//   This is different from API handlers which use json.NewDecoder(r.Body).Decode().
+//   Forms use Content-Type: application/x-www-form-urlencoded (standard HTML forms).
+//
+// See: https://htmx.org/docs/ (HTMX documentation)
+// See: https://htmx.org/reference/#headers (HX-Redirect and other response headers)
+// =============================================================================
 package handler
 
 import (
@@ -16,13 +72,35 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
 )
 
+// parseFloat is a convenience wrapper around strconv.ParseFloat.
+// Used throughout this file to convert form field strings to float64.
+// In PHP, you'd use floatval($str). In Python, float(str).
 func parseFloat(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
+// parseDate is a convenience wrapper for parsing "YYYY-MM-DD" date strings.
+// Go's time.Parse uses a reference date layout (2006-01-02 = Jan 2, 2006).
+// In PHP: DateTime::createFromFormat('Y-m-d', $str)
+// In Python: datetime.strptime(str, '%Y-%m-%d')
 func parseDate(s string) (time.Time, error) {
 	return time.Parse("2006-01-02", s)
 }
+
+// =============================================================================
+// View Model Structs — Data shapes for template rendering
+// =============================================================================
+//
+// These structs are "View Models" (or "Data Transfer Objects"). They combine data
+// from multiple sources into a shape that's convenient for the template.
+//
+// In Laravel: these would be the arrays you pass to view('page', $data).
+// In Django: these would be the context dictionaries for render(request, 'page.html', context).
+//
+// In Go templates, these become the "dot" (.) value. Template accesses them with:
+//   {{.Institution.Name}}   — struct field access
+//   {{range .Accounts}}     — iteration over a slice
+//   {{if .HasMore}}         — conditional rendering
 
 // InstitutionWithAccounts groups an institution with its accounts for template rendering.
 // This is like a ViewModel — it combines data from multiple sources
@@ -157,8 +235,25 @@ type SalarySuccessData struct {
 	AllocCount   int
 }
 
+// =============================================================================
+// PageHandler — The main HTML page controller
+// =============================================================================
+//
 // PageHandler serves full HTML pages (as opposed to JSON API endpoints).
 // Think of it like Laravel's web routes vs API routes — same data, different format.
+//
+// This is the largest struct in the app with 15+ service dependencies.
+// In Laravel, this would be like a controller with many injected services.
+// In Django, this would be like a view class with many service attributes.
+//
+// Dependency injection pattern:
+//   - Required dependencies: passed via constructor (NewPageHandler)
+//   - Optional dependencies: added via setter methods (SetSnapshotService, etc.)
+//   - The setter pattern is used for dependencies added in later development phases
+//     to avoid changing the constructor signature (which would break all callers).
+//
+// Nil-safety: All methods check if their service is nil before calling it.
+// This allows the handler to work in "no-DB mode" for template-only rendering.
 type PageHandler struct {
 	templates      TemplateMap
 	institutionSvc *service.InstitutionService
@@ -181,6 +276,12 @@ type PageHandler struct {
 	healthSvc        *service.AccountHealthService // TASK-068: account health
 }
 
+// NewPageHandler creates the page handler with all required service dependencies.
+// This long parameter list is a trade-off: verbose but explicit.
+// In Laravel, you'd use constructor injection with the Service Container:
+//   public function __construct(InstitutionService $inst, AccountService $acc, ...)
+// In Django, services might be instantiated in the view or injected via settings.
+// In Go, there's no DI container — you wire dependencies manually in router.go.
 func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService, exchangeRateRepo *repository.ExchangeRateRepo) *PageHandler {
 	return &PageHandler{
 		templates:       templates,
@@ -221,8 +322,18 @@ func (h *PageHandler) SetAccountHealthService(svc *service.AccountHealthService)
 	h.healthSvc = svc
 }
 
+// =============================================================================
+// Dashboard / Home
+// =============================================================================
+
 // Home renders the dashboard page.
 // GET /
+//
+// This is the main landing page after login. It aggregates data from 10+ sources
+// (accounts, transactions, budgets, virtual funds, health, etc.) via DashboardService.
+//
+// Nil-safety: if dashboardSvc is nil (no-DB mode), renders an empty-state dashboard.
+// Like Laravel: return view('home', ['data' => $this->dashboardService?->getDashboard()])
 func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 	var data any
 	if h.dashboardSvc != nil {
@@ -236,8 +347,15 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 	RenderPage(h.templates, w, "home", PageData{ActiveTab: "home", Data: data})
 }
 
+// =============================================================================
+// Accounts Section
+// =============================================================================
+
 // Accounts renders the accounts management page.
 // GET /accounts
+//
+// Groups accounts by institution (bank/fintech) for display.
+// The template iterates over []InstitutionWithAccounts to render institution cards.
 func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 	institutions, err := h.institutionSvc.GetAll(r.Context())
 	if err != nil {
@@ -264,6 +382,14 @@ func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 
 // AccountForm renders the account creation form for a specific institution.
 // GET /accounts/form?institution_id=xxx — called by HTMX.
+//
+// This is an HTMX partial endpoint: it returns just the form HTML fragment,
+// not a full page. HTMX swaps this into the page when the user clicks
+// "Add Account" under an institution.
+//
+// Pattern: tmpl.ExecuteTemplate(w, "account-form", data) renders a single
+// named template block, not the full page layout. This is how Go serves
+// HTML partials for HTMX — like rendering a Blade @include without @extends.
 func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 	institutionID := r.URL.Query().Get("institution_id")
 	if institutionID == "" {
@@ -289,9 +415,17 @@ func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// =============================================================================
+// Transactions Section
+// =============================================================================
+
 // TransactionNew renders the transaction entry form.
 // GET /transactions/new
 // Supports ?dup=<id> to pre-fill from an existing transaction (duplication).
+//
+// The ?dup parameter enables "duplicate transaction" — when a user wants to
+// quickly re-enter a similar transaction, the form pre-fills all fields from
+// an existing transaction. This saves time for repetitive expenses.
 func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 	accounts, err := h.accountSvc.GetAll(r.Context())
 	if err != nil {
@@ -320,7 +454,20 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 }
 
 // TransactionCreate handles the HTMX form submission for creating a transaction.
-// POST /transactions — returns success partial or error.
+// POST /transactions — returns success partial or error HTML.
+//
+// This is an HTMX form handler. Instead of redirecting after form submission
+// (like a traditional web app), it returns an HTML fragment:
+//   - Success: renders "transaction-success" partial with the new balance
+//   - Error: returns a red error div that HTMX swaps into the form area
+//
+// HTMX handles this transparently — the form's hx-post attribute sends the form
+// data as a POST request, and hx-target specifies where to put the response HTML.
+//
+// Form parsing in Go:
+//   r.ParseForm() reads the URL-encoded form body into r.Form (a map).
+//   r.FormValue("amount") gets a single field value.
+//   This is like Laravel's $request->input('amount') or Django's request.POST['amount'].
 func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
@@ -377,6 +524,10 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 
 // Transactions renders the full transaction list page with filters.
 // GET /transactions
+//
+// Supports query parameter filters: account_id, category_id, type, date_from,
+// date_to, search, offset. HTMX uses these filters to update the list
+// without a full page reload — filter dropdowns trigger hx-get with query params.
 func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 	filter := h.parseTransactionFilter(r)
 
@@ -403,6 +554,12 @@ func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 
 // TransactionList renders just the transaction list partial (for HTMX filter updates).
 // GET /transactions/list
+//
+// This is the HTMX partial companion to Transactions(). When the user changes
+// a filter dropdown, HTMX calls this endpoint and swaps just the list content
+// — no full page reload. The template renders only the "transaction-list" block.
+//
+// This pattern is fundamental to HTMX: full page = RenderPage(), partial = ExecuteTemplate().
 func (h *PageHandler) TransactionList(w http.ResponseWriter, r *http.Request) {
 	filter := h.parseTransactionFilter(r)
 	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
@@ -629,6 +786,17 @@ func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
 
 // TransactionEditForm renders the inline edit form for a transaction.
 // GET /transactions/edit/{id} — called by HTMX.
+//
+// HTMX inline editing pattern:
+//   1. User clicks "edit" on a transaction row
+//   2. HTMX sends GET /transactions/edit/{id}
+//   3. Server returns an edit form HTML fragment
+//   4. HTMX swaps the read-only row with the edit form (hx-swap="outerHTML")
+//   5. User submits the form (PUT /transactions/{id})
+//   6. Server returns the updated read-only row
+//   7. HTMX swaps the form back to the updated row
+//
+// This is like inline editing in a spreadsheet — no modal, no page navigation.
 func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	tx, err := h.txSvc.GetByID(r.Context(), id)
@@ -705,6 +873,10 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 
 // TransactionDelete handles transaction deletion from the UI.
 // DELETE /transactions/{id} — called by HTMX, returns empty (row removed).
+//
+// HTMX delete pattern: returns empty 200 response. The template uses
+// hx-swap="outerHTML" on the row, so an empty response removes the row from the DOM.
+// The swipe-to-delete gesture (TASK-080) triggers this endpoint.
 func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.txSvc.Delete(r.Context(), id); err != nil {
@@ -736,8 +908,15 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 	tmpl.ExecuteTemplate(w, "transaction-row", tx)
 }
 
+// =============================================================================
+// People Section — Loan/debt tracking between the user and other people
+// =============================================================================
+
 // People renders the people ledger page.
 // GET /people
+//
+// Shows all people with their current debt status (owe you / you owe / settled).
+// Each person card includes loan/repay forms powered by HTMX.
 func (h *PageHandler) People(w http.ResponseWriter, r *http.Request) {
 	persons, _ := h.personSvc.GetAll(r.Context())
 	accounts, _ := h.accountSvc.GetAll(r.Context())
@@ -845,6 +1024,9 @@ func (h *PageHandler) PeopleRepay(w http.ResponseWriter, r *http.Request) {
 }
 
 // renderPeopleList renders the people list partial (used after add/loan/repay).
+// This is a private helper (lowercase name) — shared by PeopleAdd, PeopleLoan,
+// and PeopleRepay to re-render the people list after a mutation.
+// HTMX receives this HTML and swaps it into the people list container.
 func (h *PageHandler) renderPeopleList(w http.ResponseWriter, r *http.Request) {
 	persons, _ := h.personSvc.GetAll(r.Context())
 	accounts, _ := h.accountSvc.GetAll(r.Context())
@@ -866,8 +1048,17 @@ func (h *PageHandler) renderPeopleList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// =============================================================================
+// Dashboard Partials — HTMX endpoints for refreshing dashboard sections
+// =============================================================================
+
 // RecentTransactions renders just the recent transactions partial.
 // GET /partials/recent-transactions — used by HTMX to refresh the dashboard feed.
+//
+// Dashboard partials follow this pattern: the full Home() handler renders
+// the entire dashboard, but individual sections can be refreshed independently
+// via these partial endpoints. HTMX loads them with hx-get on page load
+// or after a mutation (e.g., after creating a quick-entry transaction).
 func (h *PageHandler) RecentTransactions(w http.ResponseWriter, r *http.Request) {
 	txns, _ := h.txSvc.GetRecent(r.Context(), 15)
 
@@ -908,6 +1099,15 @@ func (h *PageHandler) PersonDetail(w http.ResponseWriter, r *http.Request) {
 
 // AccountDetail renders the account detail page with transaction history.
 // GET /accounts/{id}
+//
+// This is the most data-rich page — it aggregates:
+//   - Account info (name, type, balance)
+//   - Institution name
+//   - Transaction history (filtered to this account)
+//   - Balance sparkline (30-day history from snapshots)
+//   - Credit card billing cycle info
+//   - Credit card utilization percentage and history
+//   - Account health constraints (min balance, min deposit)
 func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -1038,6 +1238,10 @@ func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// =============================================================================
+// Quick Entry — Fast transaction creation from the dashboard
+// =============================================================================
+
 // QuickEntryForm serves the quick-entry form partial into the bottom sheet.
 // GET /transactions/quick-form — loaded by HTMX when the FAB is tapped.
 // Includes smart defaults: pre-selects last-used account and auto-selects category
@@ -1119,6 +1323,19 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 		Currency:    cur,
 	})
 }
+
+// =============================================================================
+// Salary Wizard — Multi-step salary distribution flow
+// =============================================================================
+//
+// The salary wizard is a 3-step HTMX-powered form:
+//   Step 1: Enter salary amount (USD), select accounts, pick date
+//   Step 2: Enter exchange rate (USD -> EGP)
+//   Step 3: Allocate EGP amount across accounts (rent, savings, etc.)
+//
+// Each step POST returns the next step's HTML partial, which HTMX swaps in.
+// This creates a smooth multi-step form without JavaScript state management.
+// Like Laravel Livewire's multi-step form or Django's FormWizardView.
 
 // Salary renders the salary distribution wizard page.
 // GET /salary
@@ -1317,8 +1534,16 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 	)))
 }
 
+// =============================================================================
+// Reports — Monthly spending breakdown with charts
+// =============================================================================
+
 // Reports renders the reports page with monthly spending breakdown.
 // GET /reports
+// GET /reports?year=2026&month=3&account_id=xxx&currency=EGP
+//
+// Features a donut chart (spending by category) and a 6-month bar chart
+// (income vs expenses trend). Both charts use CSS-only rendering (see charts.go).
 func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	year, month := now.Year(), now.Month()
@@ -1444,6 +1669,10 @@ func (h *PageHandler) BuildingFund(w http.ResponseWriter, r *http.Request) {
 	}
 	tmpl.ExecuteTemplate(w, "building-fund", data)
 }
+
+// =============================================================================
+// Recurring Rules — Auto-generated transactions on a schedule
+// =============================================================================
 
 // Recurring renders the recurring rules management page.
 // GET /recurring
@@ -1611,8 +1840,16 @@ func recurringRuleToView(rule models.RecurringRule) RecurringRuleView {
 	}
 }
 
+// =============================================================================
+// Offline Sync — Process transactions queued while offline (PWA feature)
+// =============================================================================
+
 // SyncTransactions handles batch sync of offline-queued transactions.
 // POST /sync/transactions — accepts JSON array and creates each transaction.
+//
+// The PWA service worker queues transactions when offline, then sends them
+// to this endpoint when connectivity is restored. Unlike other page handlers
+// that use form data, this one accepts JSON (from the service worker's fetch).
 func (h *PageHandler) SyncTransactions(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Transactions []struct {
@@ -1672,6 +1909,10 @@ type InvestmentPageData struct {
 	TotalValuation float64
 }
 
+// =============================================================================
+// Investments Section — Portfolio tracking with units * price valuation
+// =============================================================================
+
 // Investments renders the investment portfolio page.
 // GET /investments
 func (h *PageHandler) Investments(w http.ResponseWriter, r *http.Request) {
@@ -1687,6 +1928,11 @@ func (h *PageHandler) Investments(w http.ResponseWriter, r *http.Request) {
 
 // InvestmentAdd creates a new investment holding.
 // POST /investments/add
+//
+// Uses HX-Redirect header pattern: after a successful creation, the server
+// sets the HX-Redirect header and HTMX performs a client-side redirect.
+// This is used when the entire page needs to refresh (not just a partial swap).
+// Like Laravel's return redirect('/investments') but through an HTMX header.
 func (h *PageHandler) InvestmentAdd(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	units, _ := parseFloat(r.FormValue("units"))
@@ -1744,6 +1990,10 @@ type InstallmentPageData struct {
 	Plans    []models.InstallmentPlan
 	Accounts []models.Account
 }
+
+// =============================================================================
+// Installments Section — Payment plans with progress tracking
+// =============================================================================
 
 // Installments renders the installment plans page.
 // GET /installments
@@ -1812,6 +2062,10 @@ type BatchEntryData struct {
 	ExpenseCategories []models.Category
 }
 
+// =============================================================================
+// Batch Entry — Enter multiple transactions at once
+// =============================================================================
+
 // BatchEntry renders the batch entry page.
 // GET /batch-entry
 func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
@@ -1824,6 +2078,12 @@ func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
 
 // BatchCreate processes multiple transactions from the batch entry form.
 // POST /transactions/batch
+//
+// Form arrays in Go: HTML forms can send arrays using [] suffix:
+//   <input name="type[]" value="expense">
+//   <input name="type[]" value="income">
+// r.Form["type[]"] returns []string{"expense", "income"} — a slice of all values.
+// This is like PHP's $_POST['type'] returning an array.
 func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
@@ -1925,6 +2185,10 @@ type ExchangeRatePageData struct {
 	Rates []repository.ExchangeRateLog
 }
 
+// =============================================================================
+// Exchange Rates — Historical rate log
+// =============================================================================
+
 // ExchangeRates renders the exchange rate history page.
 // GET /exchange-rates
 func (h *PageHandler) ExchangeRates(w http.ResponseWriter, r *http.Request) {
@@ -1935,6 +2199,10 @@ func (h *PageHandler) ExchangeRates(w http.ResponseWriter, r *http.Request) {
 	}
 	RenderPage(h.templates, w, "exchange-rates", PageData{ActiveTab: "reports", Data: data})
 }
+
+// =============================================================================
+// Settings — PIN change, dark mode, CSV export, push notifications
+// =============================================================================
 
 // Settings renders the settings page.
 // GET /settings
@@ -1967,8 +2235,12 @@ func (h *PageHandler) ChangePin(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`<p class="text-teal-600 text-sm font-medium">PIN changed successfully</p>`))
 }
 
-// ExportTransactions exports transactions as CSV.
+// ExportTransactions exports transactions as CSV file download.
 // GET /export/transactions?from=2026-01-01&to=2026-03-31
+//
+// The Content-Disposition header triggers a file download in the browser.
+// The ExportService writes CSV data directly to the ResponseWriter (streaming).
+// This is like Laravel's Response::download() or Django's StreamingHttpResponse.
 func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request) {
 	fromStr := r.URL.Query().Get("from")
 	toStr := r.URL.Query().Get("to")
@@ -1992,6 +2264,14 @@ func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
+
+// =============================================================================
+// Institution/Account CRUD — HTMX form handlers (HTML, not JSON)
+// =============================================================================
+//
+// These handlers create institutions/accounts from HTML form submissions
+// (not JSON). After creation, they re-render the entire institution list
+// by calling InstitutionList() — HTMX swaps the updated list into the page.
 
 // InstitutionAdd creates an institution from form data and returns the updated list HTML.
 // POST /institutions/add — used by HTMX form submission.
@@ -2043,7 +2323,11 @@ func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
 }
 
 // InstitutionList renders just the institution list partial.
-// Used by HTMX after creating an institution or account to refresh the list.
+// GET /accounts/list — used by HTMX after creating an institution or account.
+//
+// Renders multiple "institution-card" templates in a loop — one per institution.
+// Each card includes the institution's accounts. HTMX replaces the entire
+// institution list container with this response.
 func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 	institutions, err := h.institutionSvc.GetAll(r.Context())
 	if err != nil {
@@ -2073,7 +2357,15 @@ func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// --- Virtual Funds (TASK-062) ---
+// =============================================================================
+// Virtual Funds — Envelope budgeting system (TASK-062/063)
+// =============================================================================
+//
+// Virtual funds are like "envelopes" you allocate money into (vacation, emergency,
+// wedding, etc.). They track progress toward a target amount. Transactions can
+// be allocated to a fund, and the fund's running balance is updated accordingly.
+//
+// This is similar to YNAB's envelope system or the "jars" budgeting method.
 
 // VirtualFundsPageData holds data for the virtual funds list page.
 type VirtualFundsPageData struct {
@@ -2215,7 +2507,13 @@ func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
-// --- Budgets (TASK-065) ---
+// =============================================================================
+// Budgets — Monthly spending limits per category (TASK-065/066)
+// =============================================================================
+//
+// Budgets set monthly spending limits for expense categories. The dashboard
+// shows progress bars (green/amber/red) based on current spending vs the limit.
+// Threshold alerts trigger at 80% (amber) and 100% (red).
 
 // BudgetPageData holds data for the budget management page.
 type BudgetPageData struct {
@@ -2266,7 +2564,14 @@ func (h *PageHandler) BudgetDelete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// --- Account Health (TASK-068) ---
+// =============================================================================
+// Account Health — Min balance and min deposit constraints (TASK-068/069)
+// =============================================================================
+//
+// Account health rules let the user set constraints:
+//   - MinBalance: warn if account drops below this amount
+//   - MinMonthlyDeposit: warn if monthly deposits are below this threshold
+// Warnings appear on the dashboard and can trigger push notifications.
 
 // AccountHealthUpdate saves health constraints for an account.
 // POST /accounts/{id}/health

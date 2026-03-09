@@ -1,11 +1,24 @@
-// Package service implements the business logic layer.
+// Package service implements the business logic layer for ClearMoney.
 //
-// This sits between handlers and repositories — like Laravel's Service classes
-// or Django's business logic in views/services. Services validate input,
-// enforce business rules, and coordinate between repositories.
+// Laravel analogy: This is equivalent to app/Services/ — the classes you create
+// to keep Controllers thin. In Laravel, you might have App\Services\InstitutionService
+// that your InstitutionController calls. Same idea here.
 //
-// Services don't know about HTTP (no request/response). They accept
-// plain Go types and return models or errors.
+// Django analogy: This is the service layer that Django doesn't officially have,
+// but many projects create as a services.py module alongside views.py. It keeps
+// business logic out of views and models.
+//
+// Key Go differences from PHP/Python:
+//   - No exceptions: every function returns (result, error) instead of throwing.
+//     The caller MUST check the error. This is Go's most important idiom.
+//   - No dependency injection container: dependencies are passed explicitly via
+//     constructor functions (NewXxxService) — no Laravel IoC, no Django middleware magic.
+//   - context.Context: passed as the first parameter to every method. It carries
+//     request-scoped data, deadlines, and cancellation signals. Think of it like
+//     Laravel's Request object but only for cancellation/timeout, not HTTP data.
+//
+// See: https://pkg.go.dev/context for context.Context documentation
+// See: https://go.dev/blog/error-handling-and-go for Go error handling patterns
 package service
 
 import (
@@ -64,16 +77,22 @@ func (s *InstitutionService) Create(ctx context.Context, inst models.Institution
 }
 
 // GetByID retrieves an institution by ID.
+// Like Eloquent's Institution::findOrFail($id) or Django's Institution.objects.get(id=id).
+// Returns an error if not found (no exceptions — Go uses error return values).
 func (s *InstitutionService) GetByID(ctx context.Context, id string) (models.Institution, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
 // GetAll retrieves all institutions.
+// Like Eloquent's Institution::all() or Django's Institution.objects.all().
+// Returns an empty slice (not nil) if no records exist.
 func (s *InstitutionService) GetAll(ctx context.Context) ([]models.Institution, error) {
 	return s.repo.GetAll(ctx)
 }
 
 // Update validates and updates an institution.
+// The service layer re-validates even on update — unlike Laravel's sometimes() rule,
+// Go services typically validate every time since there's no FormRequest magic.
 func (s *InstitutionService) Update(ctx context.Context, inst models.Institution) (models.Institution, error) {
 	inst.Name = strings.TrimSpace(inst.Name)
 	if inst.Name == "" {
@@ -83,11 +102,16 @@ func (s *InstitutionService) Update(ctx context.Context, inst models.Institution
 }
 
 // Delete removes an institution by ID.
+// Note: returns only error, not (model, error). When a Go function returns
+// a single error, it means the operation either succeeded (nil) or failed (non-nil).
+// This is like Laravel's $institution->delete() which returns bool.
 func (s *InstitutionService) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
 
 // UpdateDisplayOrder sets the display order for an institution.
+// Used for drag-and-drop reordering in the UI. The order int maps to
+// a display_order column in the database (like Laravel's sortable trait).
 func (s *InstitutionService) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
 	return s.repo.UpdateDisplayOrder(ctx, id, order)
 }

@@ -1,5 +1,16 @@
 // Package repository — RecurringRepo handles CRUD for recurring transaction rules.
-// Like Laravel's Eloquent model for a recurring_rules table.
+//
+// Recurring rules define transactions that repeat on a schedule (monthly rent,
+// salary, subscriptions). Each rule has a template_transaction (JSONB) that stores
+// the transaction data to replicate, and a next_due_date that advances after
+// each execution.
+//
+//   Laravel analogy:  Scheduled tasks + a recurring_rules table. Like Task Scheduling
+//                     but for financial transactions instead of artisan commands.
+//   Django analogy:   A model with JSONB template + celery-beat for scheduling.
+//
+// The template_transaction column uses PostgreSQL JSONB to store a serialized
+// transaction template. This avoids needing a separate table for template fields.
 package repository
 
 import (
@@ -10,16 +21,21 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
-// RecurringRepo handles database operations for recurring rules.
+// RecurringRepo handles database operations for the recurring_rules table.
+//   Laravel:  RecurringRule model + RecurringRuleRepository
+//   Django:   RecurringRule.objects (Manager)
 type RecurringRepo struct {
 	db *sql.DB
 }
 
+// NewRecurringRepo creates a new RecurringRepo with the given database connection pool.
 func NewRecurringRepo(db *sql.DB) *RecurringRepo {
 	return &RecurringRepo{db: db}
 }
 
 // Create inserts a new recurring rule.
+// The template_transaction field is JSONB — it stores the transaction blueprint
+// as raw JSON bytes (Go type: json.RawMessage in the model).
 func (r *RecurringRepo) Create(ctx context.Context, rule models.RecurringRule) (models.RecurringRule, error) {
 	err := r.db.QueryRowContext(ctx, `
 		INSERT INTO recurring_rules (template_transaction, frequency, day_of_month, next_due_date, is_active, auto_confirm)
@@ -76,6 +92,11 @@ func (r *RecurringRepo) GetAll(ctx context.Context) ([]models.RecurringRule, err
 }
 
 // GetDue retrieves all active rules where next_due_date <= today.
+// Called at application startup to process any rules that came due since last run.
+//
+// CURRENT_DATE is a PostgreSQL built-in that returns today's date (server time).
+//   Laravel:  RecurringRule::where('is_active', true)->where('next_due_date', '<=', now())->get()
+//   Django:   RecurringRule.objects.filter(is_active=True, next_due_date__lte=date.today())
 func (r *RecurringRepo) GetDue(ctx context.Context) ([]models.RecurringRule, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, template_transaction, frequency, day_of_month, next_due_date,
@@ -102,7 +123,11 @@ func (r *RecurringRepo) GetDue(ctx context.Context) ([]models.RecurringRule, err
 	return rules, rows.Err()
 }
 
-// UpdateNextDueDate advances the next_due_date for a rule.
+// UpdateNextDueDate advances the next_due_date for a rule after it fires.
+// The nextDate parameter uses interface{} (Go's "any" type) to accept both
+// time.Time and nil (for disabling a rule by clearing its due date).
+//   Laravel:  $rule->update(['next_due_date' => $nextDate])
+//   Django:   rule.next_due_date = next_date; rule.save()
 func (r *RecurringRepo) UpdateNextDueDate(ctx context.Context, id string, nextDate interface{}) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE recurring_rules SET next_due_date = $2, updated_at = NOW() WHERE id = $1

@@ -1,3 +1,16 @@
+// Integration tests for TransactionRepo.
+//
+// Transaction tests are more complex than institution/account tests because
+// transactions have foreign keys to accounts, institutions, and categories.
+// The setup function creates the full dependency chain.
+//
+// Key testing patterns demonstrated here:
+//   - t.Helper() for setup functions (error line numbers point to callers)
+//   - Table cleaning order matters for foreign key constraints
+//   - DB transactions (BeginTx/Commit/Rollback) tested explicitly
+//   - defer dbTx.Rollback() is safe even after Commit (Rollback on committed tx is a no-op)
+//
+// See: https://pkg.go.dev/testing
 package repository
 
 import (
@@ -11,6 +24,12 @@ import (
 
 // setupTransactionTest creates a clean test environment with an institution,
 // account, and both repos needed for transaction testing.
+//
+// Tables are cleaned in reverse-dependency order: transactions first (depends on
+// accounts), accounts second (depends on institutions), institutions last.
+// This respects foreign key constraints.
+//   Laravel:  This is like DatabaseMigrations::setUp() with truncation
+//   Django:   This is like TransactionTestCase with flush
 func setupTransactionTest(t *testing.T) (*TransactionRepo, *AccountRepo, models.Account) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
@@ -30,6 +49,8 @@ func setupTransactionTest(t *testing.T) (*TransactionRepo, *AccountRepo, models.
 	return NewTransactionRepo(db), NewAccountRepo(db), acc
 }
 
+// TestTransactionRepo_Create verifies basic transaction creation with a category.
+// testutil.GetFirstCategoryID fetches a seeded system category from the DB.
 func TestTransactionRepo_Create(t *testing.T) {
 	txRepo, _, acc := setupTransactionTest(t)
 	catID := testutil.GetFirstCategoryID(t, txRepo.db, models.CategoryTypeExpense)
@@ -53,6 +74,15 @@ func TestTransactionRepo_Create(t *testing.T) {
 	}
 }
 
+// TestTransactionRepo_CreateTx tests creation within a database transaction.
+//
+// The `defer dbTx.Rollback()` is a safety net: if the test fails before Commit(),
+// the transaction is rolled back automatically. After Commit(), Rollback() is a no-op.
+// This is a critical Go pattern for DB transactions — always defer Rollback.
+//
+//   Laravel:  DB::transaction(fn () => ...);  // auto-rollback on exception
+//   Django:   with transaction.atomic(): ...  // auto-rollback on exception
+//   Go:       defer dbTx.Rollback()           // explicit safety net
 func TestTransactionRepo_CreateTx(t *testing.T) {
 	txRepo, _, acc := setupTransactionTest(t)
 
@@ -165,6 +195,8 @@ func TestTransactionRepo_Delete(t *testing.T) {
 	}
 }
 
+// TestTransactionRepo_UpdateBalanceTx verifies that balance updates within a
+// DB transaction are atomic — the balance change is only visible after Commit.
 func TestTransactionRepo_UpdateBalanceTx(t *testing.T) {
 	txRepo, accRepo, acc := setupTransactionTest(t)
 

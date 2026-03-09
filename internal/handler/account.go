@@ -1,3 +1,18 @@
+// account.go — JSON API handler for account CRUD operations.
+//
+// Accounts belong to an institution (bank, fintech) and track balances in a specific
+// currency (EGP or USD). Types include checking, savings, credit_card, and prepaid.
+//
+// This handler follows the same patterns as institution.go — see that file for
+// detailed Go/Laravel/Django comparisons of handler structs, JSON decoding, etc.
+//
+// Query parameter filtering example (List method):
+//   r.URL.Query().Get("institution_id") extracts query params from the URL.
+//   This is like:
+//     - Laravel: $request->query('institution_id')
+//     - Django: request.GET.get('institution_id')
+//
+// See: https://pkg.go.dev/net/url#URL.Query
 package handler
 
 import (
@@ -13,6 +28,7 @@ import (
 )
 
 // AccountHandler groups HTTP handlers for account endpoints.
+// Like InstitutionHandler, this is a controller struct with service dependency.
 type AccountHandler struct {
 	svc *service.AccountService
 }
@@ -22,6 +38,7 @@ func NewAccountHandler(svc *service.AccountService) *AccountHandler {
 }
 
 // Routes registers account routes on the given router.
+// Mounted at /api/accounts in router.go.
 func (h *AccountHandler) Routes(r chi.Router) {
 	r.Get("/", h.List)
 	r.Post("/", h.Create)
@@ -30,8 +47,13 @@ func (h *AccountHandler) Routes(r chi.Router) {
 	r.Delete("/{id}", h.Delete)
 }
 
-// List returns all accounts.
+// List returns all accounts, optionally filtered by institution.
 // GET /api/accounts
+// GET /api/accounts?institution_id=xxx
+//
+// r.URL.Query() returns the parsed query string as url.Values (a map[string][]string).
+// .Get("key") returns the first value for that key, or "" if not present.
+// This is like Laravel's $request->query('institution_id') or Django's request.GET.get().
 func (h *AccountHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Optional filter by institution_id query param
 	institutionID := r.URL.Query().Get("institution_id")
