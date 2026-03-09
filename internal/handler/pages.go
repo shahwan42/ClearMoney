@@ -170,6 +170,7 @@ type PageHandler struct {
 	exchangeRateRepo *repository.ExchangeRateRepo
 	snapshotSvc      *service.SnapshotService    // TASK-059: account balance sparklines
 	virtualFundSvc   *service.VirtualFundService // TASK-062: virtual funds CRUD
+	budgetSvc        *service.BudgetService      // TASK-065: budget management
 }
 
 func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService, exchangeRateRepo *repository.ExchangeRateRepo) *PageHandler {
@@ -200,6 +201,11 @@ func (h *PageHandler) SetSnapshotService(svc *service.SnapshotService) {
 // SetVirtualFundService sets the virtual fund service for CRUD operations (TASK-062).
 func (h *PageHandler) SetVirtualFundService(svc *service.VirtualFundService) {
 	h.virtualFundSvc = svc
+}
+
+// SetBudgetService sets the budget service for budget management (TASK-065).
+func (h *PageHandler) SetBudgetService(svc *service.BudgetService) {
+	h.budgetSvc = svc
 }
 
 // Home renders the dashboard page.
@@ -2077,5 +2083,55 @@ func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("HX-Redirect", "/virtual-funds/"+fundID)
+	w.WriteHeader(http.StatusOK)
+}
+
+// --- Budgets (TASK-065) ---
+
+// BudgetPageData holds data for the budget management page.
+type BudgetPageData struct {
+	Budgets    []models.BudgetWithSpending
+	Categories []models.Category
+}
+
+// Budgets renders the budget management page.
+// GET /budgets
+func (h *PageHandler) Budgets(w http.ResponseWriter, r *http.Request) {
+	categories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
+	var budgets []models.BudgetWithSpending
+	if h.budgetSvc != nil {
+		budgets, _ = h.budgetSvc.GetAllWithSpending(r.Context())
+	}
+	data := BudgetPageData{Budgets: budgets, Categories: categories}
+	RenderPage(h.templates, w, "budgets", PageData{ActiveTab: "more", Data: data})
+}
+
+// BudgetAdd creates a new budget from form data.
+// POST /budgets/add
+func (h *PageHandler) BudgetAdd(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	limit, _ := parseFloat(r.FormValue("monthly_limit"))
+	b := models.Budget{
+		CategoryID:   r.FormValue("category_id"),
+		MonthlyLimit: limit,
+		Currency:     models.Currency(r.FormValue("currency")),
+	}
+	if _, err := h.budgetSvc.Create(r.Context(), b); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("HX-Redirect", "/budgets")
+	w.WriteHeader(http.StatusOK)
+}
+
+// BudgetDelete removes a budget.
+// POST /budgets/{id}/delete
+func (h *PageHandler) BudgetDelete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.budgetSvc.Delete(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("HX-Redirect", "/budgets")
 	w.WriteHeader(http.StatusOK)
 }

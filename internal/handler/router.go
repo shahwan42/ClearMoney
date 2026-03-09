@@ -112,6 +112,10 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		virtualFundSvc := service.NewVirtualFundService(virtualFundRepo)
 		pages.SetVirtualFundService(virtualFundSvc)
 		dashboardSvc.SetVirtualFundService(virtualFundSvc)
+		// TASK-065: Wire budget service
+		budgetRepo := repository.NewBudgetRepo(db)
+		budgetSvc := service.NewBudgetService(budgetRepo)
+		pages.SetBudgetService(budgetSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)
@@ -175,6 +179,10 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Get("/virtual-funds/{id}", pages.VirtualFundDetail)
 		r.Post("/virtual-funds/{id}/archive", pages.VirtualFundArchive)
 		r.Post("/virtual-funds/{id}/allocate", pages.VirtualFundAllocate)
+		// TASK-065: Budget routes
+		r.Get("/budgets", pages.Budgets)
+		r.Post("/budgets/add", pages.BudgetAdd)
+		r.Post("/budgets/{id}/delete", pages.BudgetDelete)
 
 		r.Get("/exchange-rates", pages.ExchangeRates)
 		r.Get("/settings", pages.Settings)

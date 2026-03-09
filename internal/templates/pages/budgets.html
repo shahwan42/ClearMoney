@@ -1,0 +1,75 @@
+{{define "title"}}ClearMoney - Budgets{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-800">Budgets</h2>
+        <a href="/settings" class="text-sm text-teal-600 hover:text-teal-700">Settings</a>
+    </div>
+
+    <!-- Create Budget Form -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">New Budget</h3>
+        <form method="POST" action="/budgets/add" class="space-y-3">
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Category</label>
+                <select name="category_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Select category...</option>
+                    {{range .Data.Categories}}
+                    <option value="{{.ID}}">{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Monthly Limit</label>
+                    <input type="number" name="monthly_limit" step="0.01" min="0.01" required
+                           placeholder="0.00" class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Currency</label>
+                    <select name="currency" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="EGP">EGP</option>
+                        <option value="USD">USD</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit"
+                    class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
+                Create Budget
+            </button>
+        </form>
+    </section>
+
+    <!-- Active Budgets with Spending -->
+    {{if .Data.Budgets}}
+    <section class="space-y-3">
+        {{range .Data.Budgets}}
+        <div class="bg-white rounded-2xl shadow-sm p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-slate-800">{{.CategoryName}}</span>
+                <form method="POST" action="/budgets/{{.ID}}/delete">
+                    <button type="submit" class="text-xs text-gray-400 hover:text-red-500">Delete</button>
+                </form>
+            </div>
+            <div class="flex justify-between text-sm mb-1.5">
+                <span class="text-slate-600">{{formatEGP .Spent}} spent</span>
+                <span class="text-slate-500">of {{formatEGP .MonthlyLimit}}</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2.5">
+                <div class="h-2.5 rounded-full transition-all {{if eq .Status "red"}}bg-red-500{{else if eq .Status "amber"}}bg-amber-500{{else}}bg-emerald-500{{end}}"
+                     style="width: {{if gt .Percentage 100.0}}100{{else}}{{printf "%.0f" .Percentage}}{{end}}%"></div>
+            </div>
+            <p class="text-xs mt-1 {{if eq .Status "red"}}text-red-500{{else if eq .Status "amber"}}text-amber-500{{else}}text-gray-400{{end}}">
+                {{if lt .Remaining 0.0}}Over budget by {{formatEGP (abs .Remaining)}}{{else}}{{formatEGP .Remaining}} remaining{{end}}
+            </p>
+        </div>
+        {{end}}
+    </section>
+    {{else}}
+    <section class="bg-white rounded-2xl shadow-sm p-5 text-center">
+        <p class="text-gray-400 text-sm">No budgets set. Create one above!</p>
+    </section>
+    {{end}}
+</div>
+{{end}}
