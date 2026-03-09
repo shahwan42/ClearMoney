@@ -63,6 +63,20 @@ type DashboardData struct {
 
 	// TASK-059: Per-account balance sparklines (account ID → last 30 days)
 	AccountSparklines map[string][]float64
+
+	// TASK-060: Spending velocity — pace of spending vs last month
+	SpendingVelocity SpendingVelocity
+}
+
+// SpendingVelocity shows the pace of spending relative to last month.
+// "You've spent X% of last month's total with Y days remaining."
+type SpendingVelocity struct {
+	Percentage   float64 // current month spend / last month total × 100
+	DaysElapsed  int     // days elapsed in current month
+	DaysTotal    int     // total days in current month
+	DaysLeft     int     // days remaining
+	DayProgress  float64 // % of month elapsed (e.g., day 15 of 30 = 50%)
+	Status       string  // "green", "amber", or "red"
 }
 
 // InstitutionGroup pairs an institution with its accounts for display.
@@ -317,6 +331,32 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 	if data.LastMonthSpending > 0 {
 		data.SpendingChange = (data.ThisMonthSpending - data.LastMonthSpending) / data.LastMonthSpending * 100
 	}
+
+	// TASK-060: Spending velocity
+	daysInMonth := thisMonthStart.AddDate(0, 1, 0).Sub(thisMonthStart).Hours() / 24
+	daysElapsed := now.Day()
+	daysLeft := int(daysInMonth) - daysElapsed
+	dayProgress := float64(daysElapsed) / daysInMonth * 100
+
+	sv := SpendingVelocity{
+		DaysElapsed: daysElapsed,
+		DaysTotal:   int(daysInMonth),
+		DaysLeft:    daysLeft,
+		DayProgress: dayProgress,
+	}
+	if data.LastMonthSpending > 0 {
+		sv.Percentage = data.ThisMonthSpending / data.LastMonthSpending * 100
+	}
+	// Color: green if pace < day%, amber if within 10%, red if ahead
+	switch {
+	case sv.Percentage <= dayProgress:
+		sv.Status = "green"
+	case sv.Percentage <= dayProgress+10:
+		sv.Status = "amber"
+	default:
+		sv.Status = "red"
+	}
+	data.SpendingVelocity = sv
 
 	// Top 3 categories with the largest spending this month + their change vs last month
 	rows, err := s.db.QueryContext(ctx, `

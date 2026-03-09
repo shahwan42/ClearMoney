@@ -89,6 +89,29 @@
     </section>
     {{end}}
 
+    <!-- TASK-060: Spending Velocity Indicator -->
+    {{if gt .Data.SpendingVelocity.DaysTotal 0}}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Spending Pace</h2>
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-slate-600">
+                {{printf "%.0f" .Data.SpendingVelocity.Percentage}}% of last month spent
+            </span>
+            <span class="text-xs text-gray-400">{{.Data.SpendingVelocity.DaysLeft}} days left</span>
+        </div>
+        <!-- Progress bar: spending % vs day progress % -->
+        <div class="relative w-full bg-gray-100 rounded-full h-3">
+            <div class="h-3 rounded-full transition-all {{if eq .Data.SpendingVelocity.Status "green"}}bg-emerald-500{{else if eq .Data.SpendingVelocity.Status "amber"}}bg-amber-500{{else}}bg-red-500{{end}}"
+                 style="width: {{if gt .Data.SpendingVelocity.Percentage 100.0}}100{{else}}{{printf "%.0f" .Data.SpendingVelocity.Percentage}}{{end}}%"></div>
+            <!-- Day progress marker -->
+            <div class="absolute top-0 h-3 border-r-2 border-slate-400" style="left: {{printf "%.0f" .Data.SpendingVelocity.DayProgress}}%"></div>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">
+            Line marks day {{.Data.SpendingVelocity.DaysElapsed}} of {{.Data.SpendingVelocity.DaysTotal}}
+        </p>
+    </section>
+    {{end}}
+
     <!-- Due Date Warnings -->
     {{template "due-date-warning" .Data.DueSoonCards}}
 
