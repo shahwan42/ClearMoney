@@ -461,3 +461,17 @@ func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, a
 	}
 	return transactions, rows.Err()
 }
+
+// HasDepositInRange checks if an account received a deposit >= minAmount within a date range.
+// Used by account health checking (TASK-068) to verify minimum monthly deposit.
+func (r *TransactionRepo) HasDepositInRange(ctx context.Context, accountID string, minAmount float64, from, to time.Time) bool {
+	var exists bool
+	_ = r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM transactions
+			WHERE account_id = $1 AND type = 'income' AND amount >= $2
+			  AND date >= $3 AND date < $4
+		)
+	`, accountID, minAmount, from, to).Scan(&exists)
+	return exists
+}

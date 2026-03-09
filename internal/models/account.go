@@ -49,8 +49,32 @@ type Account struct {
 	RoleTags       []string        `json:"role_tags" db:"role_tags"` // e.g., ["primary-income", "building-fund"]
 	DisplayOrder   int             `json:"display_order" db:"display_order"`
 	Metadata       json.RawMessage `json:"metadata" db:"metadata"` // flexible JSONB for billing cycle info, etc.
+	HealthConfig   json.RawMessage `json:"health_config" db:"health_config"` // TASK-068: JSONB for min_balance, min_monthly_deposit
 	CreatedAt      time.Time       `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at" db:"updated_at"`
+}
+
+// AccountHealthConfig holds account health constraints.
+// Stored as JSONB in the health_config column.
+type AccountHealthConfig struct {
+	MinBalance        *float64 `json:"min_balance,omitempty"`         // alert if balance drops below
+	MinMonthlyDeposit *float64 `json:"min_monthly_deposit,omitempty"` // alert if no deposit >= this amount
+}
+
+// GetHealthConfig parses the JSONB health_config into a typed struct.
+// Returns nil if not configured.
+func (a Account) GetHealthConfig() *AccountHealthConfig {
+	if len(a.HealthConfig) == 0 || string(a.HealthConfig) == "null" {
+		return nil
+	}
+	var cfg AccountHealthConfig
+	if err := json.Unmarshal(a.HealthConfig, &cfg); err != nil {
+		return nil
+	}
+	if cfg.MinBalance == nil && cfg.MinMonthlyDeposit == nil {
+		return nil
+	}
+	return &cfg
 }
 
 // IsCreditType returns true for credit cards and credit limit accounts.

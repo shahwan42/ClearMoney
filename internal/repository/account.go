@@ -75,13 +75,13 @@ func (r *AccountRepo) GetByID(ctx context.Context, id string) (models.Account, e
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
-			display_order, metadata, created_at, updated_at
+			display_order, metadata, health_config, created_at, updated_at
 		FROM accounts WHERE id = $1
 	`, id).Scan(
 		&acc.ID, &acc.InstitutionID, &acc.Name, &acc.Type, &acc.Currency,
 		&acc.CurrentBalance, &acc.InitialBalance, &acc.CreditLimit,
 		&acc.IsDormant, pq.Array(&acc.RoleTags), &acc.DisplayOrder,
-		&acc.Metadata, &acc.CreatedAt, &acc.UpdatedAt,
+		&acc.Metadata, &acc.HealthConfig, &acc.CreatedAt, &acc.UpdatedAt,
 	)
 	if err != nil {
 		return models.Account{}, fmt.Errorf("getting account: %w", err)
@@ -94,7 +94,7 @@ func (r *AccountRepo) GetAll(ctx context.Context) ([]models.Account, error) {
 	return r.queryAccounts(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
-			display_order, metadata, created_at, updated_at
+			display_order, metadata, health_config, created_at, updated_at
 		FROM accounts ORDER BY display_order, name
 	`)
 }
@@ -105,7 +105,7 @@ func (r *AccountRepo) GetByInstitution(ctx context.Context, institutionID string
 	return r.queryAccounts(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
-			display_order, metadata, created_at, updated_at
+			display_order, metadata, health_config, created_at, updated_at
 		FROM accounts WHERE institution_id = $1
 		ORDER BY display_order, name
 	`, institutionID)
@@ -128,6 +128,14 @@ func (r *AccountRepo) Update(ctx context.Context, acc models.Account) (models.Ac
 		return models.Account{}, fmt.Errorf("updating account: %w", err)
 	}
 	return acc, nil
+}
+
+// UpdateHealthConfig sets the health constraints for an account (TASK-068).
+func (r *AccountRepo) UpdateHealthConfig(ctx context.Context, id string, config json.RawMessage) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE accounts SET health_config = $2, updated_at = now() WHERE id = $1
+	`, id, config)
+	return err
 }
 
 // UpdateBalance atomically updates the account's current_balance.
@@ -193,7 +201,7 @@ func (r *AccountRepo) queryAccounts(ctx context.Context, query string, args ...a
 			&acc.ID, &acc.InstitutionID, &acc.Name, &acc.Type, &acc.Currency,
 			&acc.CurrentBalance, &acc.InitialBalance, &acc.CreditLimit,
 			&acc.IsDormant, pq.Array(&acc.RoleTags), &acc.DisplayOrder,
-			&acc.Metadata, &acc.CreatedAt, &acc.UpdatedAt,
+			&acc.Metadata, &acc.HealthConfig, &acc.CreatedAt, &acc.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning account: %w", err)
 		}

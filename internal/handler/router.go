@@ -117,6 +117,9 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		budgetSvc := service.NewBudgetService(budgetRepo)
 		pages.SetBudgetService(budgetSvc)
 		dashboardSvc.SetBudgetService(budgetSvc)
+		// TASK-068: Wire account health service
+		healthSvc := service.NewAccountHealthService(accountRepo, txRepo)
+		pages.SetAccountHealthService(healthSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)
@@ -126,6 +129,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Get("/accounts/list", pages.InstitutionList)
 		r.Get("/accounts/{id}", pages.AccountDetail)
 		r.Post("/accounts/{id}/dormant", pages.ToggleDormant)
+		r.Post("/accounts/{id}/health", pages.AccountHealthUpdate)
 		r.Post("/accounts/add", pages.AccountAdd)
 		r.Post("/accounts/reorder", pages.ReorderAccounts)
 		r.Post("/institutions/add", pages.InstitutionAdd)

@@ -91,6 +91,8 @@ type AccountDetailData struct {
 	TransactionListData TransactionListData
 	// TASK-059: 30-day balance sparkline data
 	BalanceHistory []float64
+	// TASK-068: Account health constraints
+	HealthConfig *models.AccountHealthConfig
 }
 
 // PersonCardData wraps a person with accounts for the card template.
@@ -171,6 +173,7 @@ type PageHandler struct {
 	snapshotSvc      *service.SnapshotService    // TASK-059: account balance sparklines
 	virtualFundSvc   *service.VirtualFundService // TASK-062: virtual funds CRUD
 	budgetSvc        *service.BudgetService      // TASK-065: budget management
+	healthSvc        *service.AccountHealthService // TASK-068: account health
 }
 
 func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionService, accountSvc *service.AccountService, categorySvc *service.CategoryService, txSvc *service.TransactionService, dashboardSvc *service.DashboardService, personSvc *service.PersonService, salarySvc *service.SalaryService, reportsSvc *service.ReportsService, recurringSvc *service.RecurringService, investmentSvc *service.InvestmentService, installmentSvc *service.InstallmentService, exportSvc *service.ExportService, authSvc *service.AuthService, exchangeRateRepo *repository.ExchangeRateRepo) *PageHandler {
@@ -206,6 +209,11 @@ func (h *PageHandler) SetVirtualFundService(svc *service.VirtualFundService) {
 // SetBudgetService sets the budget service for budget management (TASK-065).
 func (h *PageHandler) SetBudgetService(svc *service.BudgetService) {
 	h.budgetSvc = svc
+}
+
+// SetAccountHealthService sets the health service for account constraints (TASK-068).
+func (h *PageHandler) SetAccountHealthService(svc *service.AccountHealthService) {
+	h.healthSvc = svc
 }
 
 // Home renders the dashboard page.
@@ -907,6 +915,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		InstitutionName: instName,
 		BillingCycle:    billingCycle,
 		BalanceHistory:  balanceHistory,
+		HealthConfig:    acc.GetHealthConfig(),
 		TransactionListData: TransactionListData{
 			Transactions: txns,
 			HasMore:      len(txns) >= filter.Limit,
@@ -2133,5 +2142,33 @@ func (h *PageHandler) BudgetDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("HX-Redirect", "/budgets")
+	w.WriteHeader(http.StatusOK)
+}
+
+// --- Account Health (TASK-068) ---
+
+// AccountHealthUpdate saves health constraints for an account.
+// POST /accounts/{id}/health
+func (h *PageHandler) AccountHealthUpdate(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	r.ParseForm()
+
+	var cfg models.AccountHealthConfig
+	if v := r.FormValue("min_balance"); v != "" {
+		if f, err := parseFloat(v); err == nil && f > 0 {
+			cfg.MinBalance = &f
+		}
+	}
+	if v := r.FormValue("min_monthly_deposit"); v != "" {
+		if f, err := parseFloat(v); err == nil && f > 0 {
+			cfg.MinMonthlyDeposit = &f
+		}
+	}
+
+	if h.healthSvc != nil {
+		h.healthSvc.UpdateHealthConfig(r.Context(), id, cfg)
+	}
+
+	w.Header().Set("HX-Redirect", "/accounts/"+id)
 	w.WriteHeader(http.StatusOK)
 }
