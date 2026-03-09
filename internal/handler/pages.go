@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
@@ -226,7 +227,9 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 	var data any
 	if h.dashboardSvc != nil {
 		dashData, err := h.dashboardSvc.GetDashboard(r.Context())
-		if err == nil {
+		if err != nil {
+			authmw.Log(r.Context()).Error("failed to load dashboard", "error", err)
+		} else {
 			data = dashData
 		}
 	}
@@ -238,6 +241,7 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 	institutions, err := h.institutionSvc.GetAll(r.Context())
 	if err != nil {
+		authmw.Log(r.Context()).Error("failed to load institutions", "error", err)
 		http.Error(w, "failed to load institutions", http.StatusInternalServerError)
 		return
 	}
@@ -704,6 +708,7 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.txSvc.Delete(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to delete transaction", "id", id, "error", err)
 		http.Error(w, "failed to delete", http.StatusInternalServerError)
 		return
 	}
@@ -1552,6 +1557,7 @@ func (h *PageHandler) RecurringSkip(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) RecurringDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.recurringSvc.Delete(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to delete recurring rule", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1724,6 +1730,7 @@ func (h *PageHandler) InvestmentUpdateValuation(w http.ResponseWriter, r *http.R
 func (h *PageHandler) InvestmentDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.investmentSvc.Delete(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to delete investment", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1791,6 +1798,7 @@ func (h *PageHandler) InstallmentPay(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) InstallmentDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.installmentSvc.Delete(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to delete installment", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1880,6 +1888,7 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) ToggleDormant(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.accountSvc.ToggleDormant(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to toggle dormant", "account_id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1979,6 +1988,7 @@ func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=transactions_%s_%s.csv", fromStr, toStr))
 
 	if err := h.exportSvc.ExportTransactionsCSV(r.Context(), w, from, to); err != nil {
+		authmw.Log(r.Context()).Error("failed to export CSV", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -2037,6 +2047,7 @@ func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 	institutions, err := h.institutionSvc.GetAll(r.Context())
 	if err != nil {
+		authmw.Log(r.Context()).Error("failed to load institutions", "error", err)
 		http.Error(w, "failed to load institutions", http.StatusInternalServerError)
 		return
 	}
@@ -2053,6 +2064,7 @@ func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["accounts"]
 	if !ok {
+		authmw.Log(r.Context()).Error("template not found", "template", "accounts")
 		http.Error(w, "template not found", http.StatusInternalServerError)
 		return
 	}
@@ -2136,6 +2148,7 @@ func (h *PageHandler) VirtualFundDetail(w http.ResponseWriter, r *http.Request) 
 func (h *PageHandler) VirtualFundArchive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.virtualFundSvc.Archive(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to archive virtual fund", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -2193,6 +2206,7 @@ func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request
 
 	// Allocate the transaction to the fund
 	if err := h.virtualFundSvc.Allocate(r.Context(), created.ID, fundID, allocAmount); err != nil {
+		authmw.Log(r.Context()).Error("failed to allocate to virtual fund", "fund_id", fundID, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -2244,6 +2258,7 @@ func (h *PageHandler) BudgetAdd(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) BudgetDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.budgetSvc.Delete(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to delete budget", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -2272,7 +2287,9 @@ func (h *PageHandler) AccountHealthUpdate(w http.ResponseWriter, r *http.Request
 	}
 
 	if h.healthSvc != nil {
-		h.healthSvc.UpdateHealthConfig(r.Context(), id, cfg)
+		if err := h.healthSvc.UpdateHealthConfig(r.Context(), id, cfg); err != nil {
+			authmw.Log(r.Context()).Error("failed to update health config", "account_id", id, "error", err)
+		}
 	}
 
 	w.Header().Set("HX-Redirect", "/accounts/"+id)

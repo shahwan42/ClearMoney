@@ -6,7 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 )
 
@@ -75,9 +75,9 @@ func ReconcileBalances(ctx context.Context, db *sql.DB, autoFix bool) ([]Discrep
 				UPDATE accounts SET current_balance = $2, updated_at = now() WHERE id = $1
 			`, d.AccountID, d.ExpectedBalance)
 			if err != nil {
-				log.Printf("WARNING: failed to fix balance for %s (%s): %v", d.AccountID, d.AccountName, err)
+				slog.Warn("failed to fix balance", "account_id", d.AccountID, "account", d.AccountName, "error", err)
 			} else {
-				log.Printf("FIXED: %s (%s) balance %.2f → %.2f", d.AccountID, d.AccountName, d.CachedBalance, d.ExpectedBalance)
+				slog.Info("fixed balance", "account_id", d.AccountID, "account", d.AccountName, "from", d.CachedBalance, "to", d.ExpectedBalance)
 			}
 		}
 	}

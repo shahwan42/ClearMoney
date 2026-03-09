@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 
 	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
@@ -38,6 +39,7 @@ func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 
 	pin := r.FormValue("pin")
 	if !h.authSvc.VerifyPIN(r.Context(), pin) {
+		slog.Warn("login: invalid PIN attempt")
 		RenderPage(h.templates, w, "login", PageData{Data: "Invalid PIN. Please try again."})
 		return
 	}
@@ -45,6 +47,7 @@ func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	// Create session
 	sessionKey, err := h.authSvc.GetSessionKey(r.Context())
 	if err != nil {
+		slog.Error("login: session key error", "error", err)
 		http.Error(w, "session error", http.StatusInternalServerError)
 		return
 	}
@@ -89,6 +92,7 @@ func (h *AuthHandler) SetupSubmit(w http.ResponseWriter, r *http.Request) {
 	// Auto-login after setup
 	sessionKey, err := h.authSvc.GetSessionKey(r.Context())
 	if err != nil {
+		slog.Error("setup: session key error after PIN setup", "error", err)
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}

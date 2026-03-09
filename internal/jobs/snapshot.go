@@ -12,7 +12,7 @@ package jobs
 import (
 	"context"
 	"database/sql"
-	"log"
+	"log/slog"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
@@ -34,7 +34,7 @@ func TakeSnapshots(ctx context.Context, db *sql.DB) (int, error) {
 
 	// Take today's snapshot first (uses current balances, most accurate)
 	if err := snapshotSvc.TakeSnapshot(ctx); err != nil {
-		log.Printf("snapshot: error taking today's snapshot: %v", err)
+		slog.Error("snapshot: error taking today's snapshot", "error", err)
 		// Continue to backfill even if today fails
 	}
 

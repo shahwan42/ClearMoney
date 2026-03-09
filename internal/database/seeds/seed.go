@@ -9,7 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -17,22 +17,22 @@ import (
 func Run(db *sql.DB) error {
 	ctx := context.Background()
 
-	log.Println("Seeding institutions...")
+	slog.Info("seeding institutions...")
 	if err := seedInstitutions(ctx, db); err != nil {
 		return fmt.Errorf("seeding institutions: %w", err)
 	}
 
-	log.Println("Seeding accounts...")
+	slog.Info("seeding accounts...")
 	if err := seedAccounts(ctx, db); err != nil {
 		return fmt.Errorf("seeding accounts: %w", err)
 	}
 
-	log.Println("Seeding transactions...")
+	slog.Info("seeding transactions...")
 	if err := seedTransactions(ctx, db); err != nil {
 		return fmt.Errorf("seeding transactions: %w", err)
 	}
 
-	log.Println("Seed complete.")
+	slog.Info("seed complete")
 	return nil
 }
 
@@ -150,7 +150,7 @@ func seedTransactions(ctx context.Context, db *sql.DB) error {
 	var count int
 	db.QueryRowContext(ctx, "SELECT COUNT(*) FROM transactions").Scan(&count)
 	if count > 0 {
-		log.Printf("Skipping transactions (already %d rows)", count)
+		slog.Info("skipping transactions seed", "existing_count", count)
 		return nil
 	}
 
@@ -258,7 +258,7 @@ func seedTransactions(ctx context.Context, db *sql.DB) error {
 				"SELECT id FROM categories WHERE name = $1 LIMIT 1", tx.Category,
 			).Scan(&catID)
 			if err != nil {
-				log.Printf("Warning: category %q not found, skipping transaction %q", tx.Category, tx.Note)
+				slog.Warn("category not found, skipping transaction", "category", tx.Category, "note", tx.Note)
 				continue
 			}
 		}

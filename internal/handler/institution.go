@@ -45,7 +45,7 @@ func (h *InstitutionHandler) Routes(r chi.Router) {
 func (h *InstitutionHandler) List(w http.ResponseWriter, r *http.Request) {
 	institutions, err := h.svc.GetAll(r.Context())
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list institutions")
+		respondError(w, r, http.StatusInternalServerError, "failed to list institutions")
 		return
 	}
 	// Return empty array instead of null when no institutions exist
@@ -60,13 +60,13 @@ func (h *InstitutionHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *InstitutionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var inst models.Institution
 	if err := json.NewDecoder(r.Body).Decode(&inst); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
 	created, err := h.svc.Create(r.Context(), inst)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	respondJSON(w, http.StatusCreated, created)
@@ -80,10 +80,10 @@ func (h *InstitutionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	inst, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondError(w, http.StatusNotFound, "institution not found")
+			respondError(w, r, http.StatusNotFound, "institution not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to get institution")
+		respondError(w, r, http.StatusInternalServerError, "failed to get institution")
 		return
 	}
 	respondJSON(w, http.StatusOK, inst)
@@ -96,7 +96,7 @@ func (h *InstitutionHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var inst models.Institution
 	if err := json.NewDecoder(r.Body).Decode(&inst); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	inst.ID = id
@@ -104,10 +104,10 @@ func (h *InstitutionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	updated, err := h.svc.Update(r.Context(), inst)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondError(w, http.StatusNotFound, "institution not found")
+			respondError(w, r, http.StatusNotFound, "institution not found")
 			return
 		}
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	respondJSON(w, http.StatusOK, updated)
@@ -120,10 +120,10 @@ func (h *InstitutionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.svc.Delete(r.Context(), id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondError(w, http.StatusNotFound, "institution not found")
+			respondError(w, r, http.StatusNotFound, "institution not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to delete institution")
+		respondError(w, r, http.StatusInternalServerError, "failed to delete institution")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

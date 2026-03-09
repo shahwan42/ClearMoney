@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ func Auth(authSvc *service.AuthService) func(http.Handler) http.Handler {
 
 			// Check if PIN is set up
 			if !authSvc.IsSetup(r.Context()) {
+				slog.Info("auth: redirecting to setup", "path", path)
 				http.Redirect(w, r, "/setup", http.StatusFound)
 				return
 			}
@@ -37,6 +39,7 @@ func Auth(authSvc *service.AuthService) func(http.Handler) http.Handler {
 			// Validate session cookie
 			cookie, err := r.Cookie(service.SessionCookieName)
 			if err != nil || cookie.Value == "" {
+				slog.Warn("auth: no session cookie", "path", path)
 				http.Redirect(w, r, "/login", http.StatusFound)
 				return
 			}
@@ -44,6 +47,7 @@ func Auth(authSvc *service.AuthService) func(http.Handler) http.Handler {
 			// Verify the session token
 			sessionKey, err := authSvc.GetSessionKey(r.Context())
 			if err != nil || !ValidateSessionToken(cookie.Value, sessionKey) {
+				slog.Warn("auth: invalid session", "path", path)
 				http.Redirect(w, r, "/login", http.StatusFound)
 				return
 			}

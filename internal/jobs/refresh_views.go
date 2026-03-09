@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 )
 
 // RefreshMaterializedViews refreshes all materialized views concurrently.
@@ -21,7 +21,7 @@ func RefreshMaterializedViews(ctx context.Context, db *sql.DB) error {
 		// Falls back to regular REFRESH if the view has never been populated.
 		_, err := db.ExecContext(ctx, fmt.Sprintf("REFRESH MATERIALIZED VIEW CONCURRENTLY %s", view))
 		if err != nil {
-			log.Printf("WARNING: failed to refresh %s: %v", view, err)
+			slog.Warn("failed to refresh view concurrently, retrying without CONCURRENTLY", "view", view, "error", err)
 			// Try without CONCURRENTLY (needed for first population)
 			_, err = db.ExecContext(ctx, fmt.Sprintf("REFRESH MATERIALIZED VIEW %s", view))
 			if err != nil {

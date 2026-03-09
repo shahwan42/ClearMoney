@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
 )
 
@@ -49,6 +50,7 @@ func (h *PushHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 func (h *PushHandler) CheckNotifications(w http.ResponseWriter, r *http.Request) {
 	notifications, err := h.notificationSvc.GetPendingNotifications(r.Context())
 	if err != nil {
+		authmw.Log(r.Context()).Error("failed to check notifications", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

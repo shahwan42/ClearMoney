@@ -40,7 +40,7 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 		categories, err = h.svc.GetAll(r.Context())
 	}
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list categories")
+		respondError(w, r, http.StatusInternalServerError, "failed to list categories")
 		return
 	}
 	if categories == nil {
@@ -53,12 +53,12 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var cat models.Category
 	if err := json.NewDecoder(r.Body).Decode(&cat); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	created, err := h.svc.Create(r.Context(), cat)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	respondJSON(w, http.StatusCreated, created)
@@ -69,14 +69,14 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var cat models.Category
 	if err := json.NewDecoder(r.Body).Decode(&cat); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	cat.ID = id
 
 	updated, err := h.svc.Update(r.Context(), cat)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	respondJSON(w, http.StatusOK, updated)
@@ -86,7 +86,7 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *CategoryHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.Archive(r.Context(), id); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

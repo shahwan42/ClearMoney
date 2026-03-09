@@ -6,7 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/database"
@@ -16,24 +16,28 @@ import (
 func main() {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
-		log.Fatal("DATABASE_URL is required")
+		slog.Error("DATABASE_URL is required")
+		os.Exit(1)
 	}
 
 	db, err := database.Connect(url)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		slog.Error("database connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	if err := database.RunMigrations(db); err != nil {
-		log.Fatalf("migrations: %v", err)
+		slog.Error("migrations failed", "error", err)
+		os.Exit(1)
 	}
 
 	autoFix := len(os.Args) > 1 && os.Args[1] == "--fix"
 
 	discrepancies, err := jobs.ReconcileBalances(context.Background(), db, autoFix)
 	if err != nil {
-		log.Fatalf("reconciliation failed: %v", err)
+		slog.Error("reconciliation failed", "error", err)
+		os.Exit(1)
 	}
 
 	if len(discrepancies) == 0 {

@@ -14,7 +14,7 @@ package service
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
@@ -85,7 +85,7 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 				// Historical balance: current_balance minus future transactions
 				futureDeltas, err := s.snapshotRepo.GetBalanceDeltaAfterDate(ctx, acc.ID, date)
 				if err != nil {
-					log.Printf("snapshot: error computing historical balance for %s: %v", acc.Name, err)
+					slog.Error("snapshot: error computing historical balance", "account", acc.Name, "error", err)
 					continue
 				}
 				balance = acc.CurrentBalance - futureDeltas
@@ -134,7 +134,7 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 			AccountID: ab.ID,
 			Balance:   ab.Balance,
 		}); err != nil {
-			log.Printf("snapshot: error saving account snapshot for %s: %v", ab.ID, err)
+			slog.Error("snapshot: error saving account snapshot", "account_id", ab.ID, "error", err)
 		}
 	}
 
@@ -154,7 +154,7 @@ func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int,
 		date := today.AddDate(0, 0, -i)
 		exists, err := s.snapshotRepo.Exists(ctx, date)
 		if err != nil {
-			log.Printf("snapshot: error checking date %s: %v", date.Format("2006-01-02"), err)
+			slog.Warn("snapshot: error checking date", "date", date.Format("2006-01-02"), "error", err)
 			continue
 		}
 		if exists {
@@ -164,7 +164,7 @@ func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int,
 		// Use current balances for today, historical calculation for past dates
 		useCurrentBalances := i == 0
 		if err := s.takeSnapshotForDate(ctx, date, useCurrentBalances); err != nil {
-			log.Printf("snapshot: error backfilling %s: %v", date.Format("2006-01-02"), err)
+			slog.Warn("snapshot: error backfilling", "date", date.Format("2006-01-02"), "error", err)
 			continue
 		}
 		count++

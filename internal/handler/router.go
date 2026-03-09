@@ -4,7 +4,7 @@ package handler
 
 import (
 	"database/sql"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -24,13 +24,15 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
+	r.Use(authmw.RequestLogger)
 
 	r.Get("/healthz", Healthz)
 
 	// Parse HTML templates from embedded filesystem.
 	tmpl, err := ParseTemplates(templates.FS)
 	if err != nil {
-		log.Fatalf("parsing templates: %v", err)
+		slog.Error("failed to parse templates", "error", err)
+		os.Exit(1)
 	}
 
 	// Static files

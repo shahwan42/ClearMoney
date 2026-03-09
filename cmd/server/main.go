@@ -10,9 +10,11 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,6 +30,21 @@ func main() {
 	// 1. Load configuration from environment variables
 	cfg := config.Load()
 
+	// Configure structured logging (log/slog) with level from LOG_LEVEL env var.
+	// Levels: debug, info, warn, error (default: info).
+	var logLevel slog.Level
+	switch strings.ToLower(cfg.LogLevel) {
+	case "debug":
+		logLevel = slog.LevelDebug
+	case "warn":
+		logLevel = slog.LevelWarn
+	case "error":
+		logLevel = slog.LevelError
+	default:
+		logLevel = slog.LevelInfo
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel})))
+
 	// 2. Connect to PostgreSQL and run migrations (if DATABASE_URL is set).
 	// In development without Docker, you can run without a DB — the app
 	// will start but database-dependent routes won't work.
@@ -36,15 +53,17 @@ func main() {
 		var err error
 		db, err = database.Connect(cfg.DatabaseURL)
 		if err != nil {
-			log.Fatalf("database connection: %v", err)
+			slog.Error("database connection failed", "error", err)
+			os.Exit(1)
 		}
 		defer db.Close() // defer = runs when main() exits (like PHP's register_shutdown_function)
-		log.Println("database connected")
+		slog.Info("database connected")
 
 		if err := database.RunMigrations(db); err != nil {
-			log.Fatalf("migrations: %v", err)
+			slog.Error("migrations failed", "error", err)
+			os.Exit(1)
 		}
-		log.Println("migrations complete")
+		slog.Info("migrations complete")
 
 		// Process any due recurring rules on startup (auto_confirm ones only).
 		// Like Laravel's schedule:run — we check for overdue rules and execute them.
@@ -56,35 +75,39 @@ func main() {
 
 		processed, err := recurringSvc.ProcessDueRules(context.Background())
 		if err != nil {
-			log.Printf("recurring rules processing error: %v", err)
+			slog.Warn("recurring rules processing error", "error", err)
 		} else if processed > 0 {
-			log.Printf("recurring: auto-created %d transactions", processed)
+			slog.Info("recurring: auto-created transactions", "count", processed)
 		}
 
 		// Run balance reconciliation on startup (report only, no auto-fix).
 		discrepancies, err := jobs.ReconcileBalances(context.Background(), db, false)
 		if err != nil {
-			log.Printf("reconciliation error: %v", err)
+			slog.Warn("reconciliation error", "error", err)
 		} else if len(discrepancies) > 0 {
-			log.Printf("WARNING: %d balance discrepancies found:", len(discrepancies))
+			slog.Warn("balance discrepancies found", "count", len(discrepancies))
 			for _, d := range discrepancies {
-				log.Printf("  %s: cached=%.2f expected=%.2f diff=%.2f",
-					d.AccountName, d.CachedBalance, d.ExpectedBalance, d.Difference)
+				slog.Warn("balance discrepancy",
+					"account", d.AccountName,
+					"cached", d.CachedBalance,
+					"expected", d.ExpectedBalance,
+					"diff", d.Difference,
+				)
 			}
 		}
 
 		// Refresh materialized views on startup for fresh data.
 		if err := jobs.RefreshMaterializedViews(context.Background(), db); err != nil {
-			log.Printf("materialized view refresh error: %v", err)
+			slog.Warn("materialized view refresh error", "error", err)
 		}
 
 		// Take daily balance snapshots (for sparklines and trend indicators).
 		// Also backfills up to 90 missing days using transaction history.
 		backfilled, err := jobs.TakeSnapshots(context.Background(), db)
 		if err != nil {
-			log.Printf("snapshot error: %v", err)
+			slog.Warn("snapshot error", "error", err)
 		} else if backfilled > 0 {
-			log.Printf("snapshots: backfilled %d days", backfilled)
+			slog.Info("snapshots: backfilled days", "count", backfilled)
 		}
 	}
 
@@ -112,22 +135,24 @@ func main() {
 	// Start the server in a goroutine (Go's lightweight thread).
 	// This is non-blocking — main() continues to the <-ctx.Done() line below.
 	go func() {
-		log.Printf("ClearMoney starting on :%s (env=%s)", cfg.Port, cfg.Env)
+		slog.Info("ClearMoney starting", "port", cfg.Port, "env", cfg.Env)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+			slog.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	// Block here until we receive a shutdown signal
 	<-ctx.Done()
-	log.Println("shutting down...")
+	slog.Info("shutting down...")
 
 	// Give in-flight requests 5 seconds to complete before force-closing
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("shutdown error: %v", err)
+		slog.Error("shutdown error", "error", err)
+		os.Exit(1)
 	}
-	log.Println("server stopped")
+	slog.Info("server stopped")
 }

@@ -46,13 +46,13 @@ type createTransactionResponse struct {
 func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var tx models.Transaction
 	if err := json.NewDecoder(r.Body).Decode(&tx); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
 	created, newBalance, err := h.svc.Create(r.Context(), tx)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -77,7 +77,7 @@ type transferRequest struct {
 func (h *TransactionHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 	var req transferRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
@@ -91,7 +91,7 @@ func (h *TransactionHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 
 	debit, credit, err := h.svc.CreateTransfer(r.Context(), req.SourceAccountID, req.DestAccountID, req.Amount, req.Currency, req.Note, date)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -117,7 +117,7 @@ type exchangeRequest struct {
 func (h *TransactionHandler) Exchange(w http.ResponseWriter, r *http.Request) {
 	var req exchangeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "invalid JSON body")
+		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
@@ -137,7 +137,7 @@ func (h *TransactionHandler) Exchange(w http.ResponseWriter, r *http.Request) {
 
 	debit, credit, err := h.svc.CreateExchange(r.Context(), params)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -163,7 +163,7 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 		txns, err = h.svc.GetRecent(r.Context(), limit)
 	}
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list transactions")
+		respondError(w, r, http.StatusInternalServerError, "failed to list transactions")
 		return
 	}
 	if txns == nil {
@@ -180,10 +180,10 @@ func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	tx, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondError(w, http.StatusNotFound, "transaction not found")
+			respondError(w, r, http.StatusNotFound, "transaction not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to get transaction")
+		respondError(w, r, http.StatusInternalServerError, "failed to get transaction")
 		return
 	}
 	respondJSON(w, http.StatusOK, tx)
@@ -196,10 +196,10 @@ func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.svc.Delete(r.Context(), id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			respondError(w, http.StatusNotFound, "transaction not found")
+			respondError(w, r, http.StatusNotFound, "transaction not found")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "failed to delete transaction")
+		respondError(w, r, http.StatusInternalServerError, "failed to delete transaction")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
