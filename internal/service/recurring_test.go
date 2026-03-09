@@ -1,3 +1,11 @@
+// Tests for RecurringService — verifies recurring rule processing, confirmation, and skipping.
+//
+// These tests demonstrate service-to-service dependency testing: RecurringService depends on
+// TransactionService. In the test setup, we create BOTH services and verify they work together.
+// This is integration testing at the service layer — no mocks, real database.
+//
+// The makeTemplate() helper uses json.Marshal to create JSON template data — the same
+// format that gets stored in the recurring_rules.template_transaction JSONB column.
 package service
 
 import (
@@ -11,7 +19,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
-// setupRecurringTest creates a clean environment with recurring service, account, and category.
+// setupRecurringTest creates a full test environment: recurring service, transaction service,
+// an account with funds, and an expense category. Returns all four for test use.
 func setupRecurringTest(t *testing.T) (*RecurringService, *TransactionService, models.Account, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
@@ -38,6 +47,9 @@ func setupRecurringTest(t *testing.T) (*RecurringService, *TransactionService, m
 	return recurringSvc, txSvc, acc, catID
 }
 
+// makeTemplate creates a JSON transaction template for testing recurring rules.
+// This helper produces the same JSON format stored in the DB's JSONB column.
+// json.Marshal converts a Go struct to []byte (JSON) — like json_encode() in PHP.
 func makeTemplate(t *testing.T, acc models.Account, catID string, amount float64) json.RawMessage {
 	t.Helper()
 	note := "Monthly rent"

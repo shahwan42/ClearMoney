@@ -1,9 +1,20 @@
 // Package repository — SnapshotRepo handles CRUD for daily balance snapshots.
-// Like a Laravel Eloquent model for daily_snapshots and account_snapshots tables.
+//
+// Snapshots capture a point-in-time record of account balances and net worth.
+// They power sparkline charts on the dashboard and account detail pages.
+// Two tables are involved:
+//   - daily_snapshots: one row per day with net worth and spending totals
+//   - account_snapshots: one row per day per account with the account balance
 //
 // Uses PostgreSQL UPSERT (INSERT ... ON CONFLICT DO UPDATE) so snapshots are
 // idempotent — running the snapshot job twice for the same day safely updates
-// rather than creating duplicates.
+// rather than creating duplicates. This is a key pattern for background jobs.
+//
+//   Laravel analogy:  updateOrCreate() — finds by key, creates if missing, updates if exists
+//   Django analogy:   update_or_create(date=date, defaults={...})
+//   PostgreSQL:       INSERT ... ON CONFLICT (date) DO UPDATE SET ...
+//
+// See: https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT
 package repository
 
 import (
@@ -26,9 +37,19 @@ func NewSnapshotRepo(db *sql.DB) *SnapshotRepo {
 }
 
 // UpsertDaily creates or updates a daily snapshot for the given date.
-// Uses ON CONFLICT (date) DO UPDATE for idempotency — safe to call multiple times.
 //
-// In Django: DailySnapshot.objects.update_or_create(date=..., defaults={...})
+// This uses PostgreSQL's UPSERT pattern:
+//   INSERT INTO ... VALUES (...)
+//   ON CONFLICT (date) DO UPDATE SET column = EXCLUDED.column
+//
+// EXCLUDED is a special PostgreSQL keyword that refers to the row that WOULD have
+// been inserted. So "SET net_worth_egp = EXCLUDED.net_worth_egp" means "use the
+// new value we tried to insert".
+//
+//   Laravel:  DailySnapshot::updateOrCreate(['date' => $date], [...])
+//   Django:   DailySnapshot.objects.update_or_create(date=date, defaults={...})
+//
+// The ON CONFLICT clause requires a UNIQUE constraint on the (date) column.
 func (r *SnapshotRepo) UpsertDaily(ctx context.Context, snap models.DailySnapshot) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO daily_snapshots (date, net_worth_egp, net_worth_raw, exchange_rate, daily_spending, daily_income)
@@ -49,6 +70,7 @@ func (r *SnapshotRepo) UpsertDaily(ctx context.Context, snap models.DailySnapsho
 
 // UpsertAccount creates or updates an account snapshot for the given date+account.
 // Uses ON CONFLICT (date, account_id) DO UPDATE for idempotency.
+// The UNIQUE constraint is on the compound key (date, account_id).
 func (r *SnapshotRepo) UpsertAccount(ctx context.Context, snap models.AccountSnapshot) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO account_snapshots (date, account_id, balance)
@@ -115,6 +137,13 @@ func (r *SnapshotRepo) GetAccountRange(ctx context.Context, accountID string, fr
 }
 
 // Exists checks if a daily snapshot already exists for the given date.
+//
+// SELECT EXISTS(SELECT 1 FROM ... WHERE ...) is the most efficient existence check.
+// PostgreSQL returns TRUE/FALSE directly — no need to count rows or fetch data.
+// The inner `SELECT 1` doesn't fetch any columns; it just checks for row existence.
+//
+//   Laravel:  DailySnapshot::where('date', $date)->exists()
+//   Django:   DailySnapshot.objects.filter(date=date).exists()
 func (r *SnapshotRepo) Exists(ctx context.Context, date time.Time) (bool, error) {
 	var exists bool
 	err := r.db.QueryRowContext(ctx, `
@@ -124,6 +153,14 @@ func (r *SnapshotRepo) Exists(ctx context.Context, date time.Time) (bool, error)
 }
 
 // GetLatestDate returns the most recent snapshot date, or zero time if none exist.
+//
+// MAX(date) returns NULL when the table is empty, so we use sql.NullTime.
+// sql.NullTime is the time.Time equivalent of sql.NullFloat64 — it wraps a
+// time.Time with a Valid bool to handle SQL NULL values.
+//
+// time.Time{} is Go's "zero value" for time (January 1, year 1, 00:00:00 UTC).
+// We return it when there are no snapshots — callers check with date.IsZero().
+// See: https://pkg.go.dev/database/sql#NullTime
 func (r *SnapshotRepo) GetLatestDate(ctx context.Context) (time.Time, error) {
 	var date sql.NullTime
 	err := r.db.QueryRowContext(ctx, `
@@ -139,7 +176,14 @@ func (r *SnapshotRepo) GetLatestDate(ctx context.Context) (time.Time, error) {
 }
 
 // GetDailySpending returns the sum of expense amounts for a given date.
-// Queries the transactions table directly.
+// Queries the transactions table directly (not the snapshots table).
+//
+// The `date::date = $1::date` casts both sides to PostgreSQL's DATE type,
+// stripping any time component. This ensures we match the entire day regardless
+// of whether the stored timestamp has hours/minutes.
+//   PostgreSQL:  ::date is a type cast (shorthand for CAST(x AS DATE))
+//   Laravel:     whereDate('date', $date) — Laravel generates DATE() function
+//   Django:      filter(date__date=date) — Django uses __date lookup
 func (r *SnapshotRepo) GetDailySpending(ctx context.Context, date time.Time) (float64, error) {
 	var total sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, `
@@ -172,8 +216,17 @@ func (r *SnapshotRepo) GetDailyIncome(ctx context.Context, date time.Time) (floa
 }
 
 // GetBalanceDeltaAfterDate returns the sum of balance_delta for an account
-// for transactions dated AFTER the given date. Used by backfill to compute
-// historical balances: balance_on_date = current_balance - delta_after_date.
+// for transactions dated AFTER the given date.
+//
+// Used by the snapshot backfill job to compute historical balances:
+//   balance_on_date = current_balance - sum_of_deltas_after_date
+//
+// This works because balance_delta records how much each transaction changed
+// the account balance. By subtracting all changes after a date from the current
+// balance, we reconstruct what the balance was on that date.
+//
+// Example: current_balance = 10000, sum of deltas after Jan 15 = 3000
+//   → balance on Jan 15 was 10000 - 3000 = 7000
 func (r *SnapshotRepo) GetBalanceDeltaAfterDate(ctx context.Context, accountID string, date time.Time) (float64, error) {
 	var total sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, `

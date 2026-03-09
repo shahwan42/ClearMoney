@@ -1,8 +1,24 @@
-// Package repository — virtual_fund.go provides database operations for virtual funds.
+// Package repository — virtual_fund.go provides database operations for virtual funds
+// (envelope budgeting system).
 //
-// Think of this like a Laravel Eloquent model's query methods or Django's model Manager.
-// It handles CRUD operations and balance computations for virtual funds and their
-// transaction allocations.
+// Virtual funds are "virtual envelopes" that let users earmark money for goals
+// (e.g., "Emergency Fund", "Vacation", "New Laptop"). Money isn't physically
+// moved between accounts — instead, transactions are allocated to funds, and
+// each fund tracks its virtual balance.
+//
+// Two tables are involved:
+//   - virtual_funds: the fund itself (name, target, balance, icon, color)
+//   - transaction_fund_allocations: links transactions to funds with amounts
+//
+// The current_balance is a cached sum of allocations. RecalculateBalance()
+// recomputes it from scratch using a subquery — like a denormalized counter cache.
+//
+//   Laravel analogy:  A VirtualFund model with a many-to-many pivot table to transactions
+//                     (transaction_fund_allocations), plus a cached counter.
+//   Django analogy:   VirtualFund model with a ManyToManyField through='FundAllocation',
+//                     and a denormalized current_balance updated via signals or F() expressions.
+//
+// Uses PostgreSQL UPSERT (ON CONFLICT DO UPDATE) in the Allocate method for idempotency.
 package repository
 
 import (
@@ -14,11 +30,12 @@ import (
 	"github.com/lib/pq"
 )
 
-// VirtualFundRepo handles database operations for virtual funds.
+// VirtualFundRepo handles database operations for virtual_funds and their allocations.
 type VirtualFundRepo struct {
 	db *sql.DB
 }
 
+// NewVirtualFundRepo creates a new VirtualFundRepo with the given database connection pool.
 func NewVirtualFundRepo(db *sql.DB) *VirtualFundRepo {
 	return &VirtualFundRepo{db: db}
 }
@@ -90,7 +107,10 @@ func (r *VirtualFundRepo) Update(ctx context.Context, f models.VirtualFund) erro
 	return err
 }
 
-// Archive soft-deletes a virtual fund (keeps data, hides from UI).
+// Archive soft-deletes a virtual fund (keeps data for history, hides from active UI).
+// Unlike hard delete, archived funds preserve their allocations and can be restored.
+//   Laravel:  $fund->update(['is_archived' => true]);  // like SoftDeletes
+//   Django:   fund.is_archived = True; fund.save()
 func (r *VirtualFundRepo) Archive(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE virtual_funds SET is_archived = true, updated_at = NOW() WHERE id = $1
@@ -108,6 +128,17 @@ func (r *VirtualFundRepo) Unarchive(ctx context.Context, id string) error {
 
 // RecalculateBalance recomputes a fund's balance from its allocations.
 // Called after adding/removing allocations to keep the cached balance in sync.
+//
+// This uses a correlated subquery: the inner SELECT SUM() runs for the
+// specific fund, and the result is SET into the current_balance column.
+// COALESCE(..., 0) handles the case where there are no allocations (SUM returns NULL).
+//
+// This is a "denormalized counter cache" pattern:
+//   Laravel:  Like withCount() or a manually maintained counter_cache column
+//   Django:   Like calling fund.allocations.aggregate(Sum('amount')) and saving it
+//
+// The $1 parameter is used in BOTH the subquery WHERE and the outer WHERE — PostgreSQL
+// reuses the same placeholder value in both positions.
 func (r *VirtualFundRepo) RecalculateBalance(ctx context.Context, fundID string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE virtual_funds
@@ -120,10 +151,16 @@ func (r *VirtualFundRepo) RecalculateBalance(ctx context.Context, fundID string)
 	return err
 }
 
-// --- Allocation operations ---
+// --- Allocation operations (the pivot/junction table) ---
 
 // Allocate links a transaction to a virtual fund with the given amount.
-// Uses UPSERT: if the allocation already exists, updates the amount.
+//
+// Uses UPSERT (INSERT ... ON CONFLICT DO UPDATE) so calling Allocate twice
+// for the same transaction+fund pair updates the amount instead of erroring.
+// The UNIQUE constraint on (transaction_id, virtual_fund_id) triggers ON CONFLICT.
+//
+//   Laravel:  $fund->transactions()->syncWithoutDetaching([$txId => ['amount' => $amount]])
+//   Django:   FundAllocation.objects.update_or_create(transaction=tx, fund=fund, defaults={'amount': amount})
 func (r *VirtualFundRepo) Allocate(ctx context.Context, alloc models.FundAllocation) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO transaction_fund_allocations (transaction_id, virtual_fund_id, amount)
@@ -204,7 +241,11 @@ func (r *VirtualFundRepo) GetAllocationsForTransaction(ctx context.Context, txID
 }
 
 // GetTransactionsForFund returns full transaction records allocated to a fund.
-// Uses the same column set as TransactionRepo to produce compatible Transaction models.
+// Uses JOIN through the allocation pivot table to find associated transactions.
+// The SELECT column list matches TransactionRepo's queryTransactions for compatibility.
+//
+//   Laravel:  $fund->transactions()->orderByDesc('date')->limit($limit)->get()
+//   Django:   Transaction.objects.filter(fund_allocations__virtual_fund_id=fund_id).order_by('-date')[:limit]
 func (r *VirtualFundRepo) GetTransactionsForFund(ctx context.Context, fundID string, limit int) ([]models.Transaction, error) {
 	query := `
 		SELECT t.id, t.type, t.amount, t.currency, t.account_id,
@@ -249,6 +290,12 @@ func (r *VirtualFundRepo) GetTransactionsForFund(ctx context.Context, fundID str
 // --- Helpers ---
 
 // scanFunds scans multiple virtual fund rows into a slice.
+// This is a standalone function (not a method) because it doesn't need the repo's db field.
+// It accepts *sql.Rows and returns the scanned results — a DRY helper shared by
+// GetAll and GetAllIncludingArchived.
+//
+// Note: this is a package-level function (lowercase = unexported), not a method
+// on VirtualFundRepo. In Go, standalone helpers are common when they don't need receiver state.
 func scanFunds(rows *sql.Rows) ([]models.VirtualFund, error) {
 	var funds []models.VirtualFund
 	for rows.Next() {
@@ -264,6 +311,12 @@ func scanFunds(rows *sql.Rows) ([]models.VirtualFund, error) {
 }
 
 // CountAllocationsForFund returns how many allocations a fund has.
+// Used to check before hard-deleting: a fund with allocations should be
+// archived (soft-deleted) instead of hard-deleted to preserve history.
+//
+// COUNT(*) always returns a value (0 for no rows), so no NullInt64 needed.
+//   Laravel:  $fund->allocations()->count()
+//   Django:   fund.allocations.count()
 func (r *VirtualFundRepo) CountAllocationsForFund(ctx context.Context, fundID string) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, `

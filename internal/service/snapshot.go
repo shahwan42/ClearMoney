@@ -7,9 +7,22 @@
 //   - Month-over-month comparisons
 //   - Credit card utilization history
 //
-// In Laravel terms, this is like a Service class that coordinates between
-// the snapshot repository and the account/exchange rate repos.
-// In Django, similar to a service module that orchestrates model operations.
+// Laravel analogy: Like a SnapshotService called from a daily scheduled task
+// (php artisan snapshots:take in app/Console/Kernel.php). The backfill feature is
+// similar to a seeder that populates historical data. In ClearMoney, TakeSnapshot()
+// runs on app startup and BackfillSnapshots() fills gaps for the last 30 days.
+//
+// Django analogy: Like a management command (manage.py take_snapshots) or Celery
+// periodic task. The UPSERT semantics (INSERT ... ON CONFLICT UPDATE) make it
+// safe to run multiple times — idempotent like Django's get_or_create().
+//
+// Key Go concepts:
+//   - log/slog: Go's structured logger (added in Go 1.21). Like Laravel's Log facade
+//     or Python's logging module, but with structured key-value pairs.
+//     See: https://pkg.go.dev/log/slog
+//   - time.Truncate(24*time.Hour): rounds down to midnight (removes time component).
+//     Like Carbon::startOfDay() in Laravel or date.replace(hour=0) in Python.
+//     See: https://pkg.go.dev/time#Time.Truncate
 package service
 
 import (
@@ -22,6 +35,8 @@ import (
 )
 
 // SnapshotService manages creation and retrieval of daily balance snapshots.
+// This service has 4 dependencies — all required (injected via constructor).
+// It reads from accounts and exchange rates, and writes to snapshots.
 type SnapshotService struct {
 	snapshotRepo     *repository.SnapshotRepo
 	accountRepo      *repository.AccountRepo
@@ -146,6 +161,14 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 // from the current balance: balance_on_date = current_balance - SUM(delta after date).
 //
 // This is called on startup so sparklines have data even on first run.
+//
+// The algorithm: for each missing day, compute what the balance WAS by starting from
+// the current balance and subtracting all balance_delta values from transactions after
+// that date. This is a reverse-computation approach — we don't need to replay all
+// transactions from the beginning.
+//
+// Idempotency: checks snapshotRepo.Exists() before creating, so calling this
+// repeatedly is safe (like Laravel's firstOrCreate or Django's get_or_create).
 func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int, error) {
 	today := time.Now().Truncate(24 * time.Hour)
 	count := 0

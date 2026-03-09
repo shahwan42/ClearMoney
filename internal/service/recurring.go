@@ -1,10 +1,25 @@
 // Package service — RecurringService handles recurring transaction rules.
 //
+// Recurring rules define transactions that repeat on a schedule (weekly/monthly).
 // When a rule's next_due_date is today or earlier:
-// - auto_confirm=true: create the transaction automatically
-// - auto_confirm=false: return it as "pending" for user confirmation
+//   - auto_confirm=true: create the transaction automatically (like a cron job)
+//   - auto_confirm=false: return it as "pending" for user confirmation
 //
 // After processing, advance next_due_date based on frequency.
+//
+// Laravel analogy: Like a Scheduled Task (app/Console/Kernel.php) that checks
+// recurring rules and creates transactions. ProcessDueRules() would be called
+// from an Artisan command: php artisan recurring:process. In ClearMoney, it runs
+// on every app startup instead.
+//
+// Django analogy: Like a management command (manage.py process_recurring) or a
+// Celery periodic task that checks due rules and creates transactions.
+//
+// Key Go concept: json.RawMessage is used for TemplateTransaction — it stores raw JSON
+// bytes without parsing them into a specific struct. This is like storing a JSON column
+// in Laravel with $casts['template'] = 'json' or Django's JSONField. We unmarshal it
+// only when executing the rule.
+// See: https://pkg.go.dev/encoding/json#RawMessage
 package service
 
 import (
@@ -18,6 +33,10 @@ import (
 )
 
 // RecurringService manages recurring transaction rules.
+// Note: this service depends on TransactionService (another service), not just repositories.
+// This is service-to-service dependency — the recurring service delegates transaction creation
+// to TransactionService to reuse its validation and atomic balance update logic.
+// In Laravel, you'd inject TransactionService into RecurringService's constructor.
 type RecurringService struct {
 	recurringRepo *repository.RecurringRepo
 	txSvc         *TransactionService
@@ -109,6 +128,11 @@ func (s *RecurringService) Delete(ctx context.Context, id string) error {
 }
 
 // executeRule creates a transaction from the rule template and advances the due date.
+// This private method (lowercase) is the core logic shared by ConfirmRule and ProcessDueRules.
+//
+// json.Unmarshal: converts the stored JSON template bytes into a TransactionTemplate struct.
+// This is like json_decode() in PHP or json.loads() in Python, but type-safe — it
+// maps JSON keys to struct fields using the `json:"..."` tags.
 func (s *RecurringService) executeRule(ctx context.Context, rule models.RecurringRule) error {
 	var tmpl models.TransactionTemplate
 	if err := json.Unmarshal(rule.TemplateTransaction, &tmpl); err != nil {
@@ -135,6 +159,10 @@ func (s *RecurringService) executeRule(ctx context.Context, rule models.Recurrin
 }
 
 // advanceDueDate calculates the next due date based on frequency.
+// time.AddDate(0, 1, 0) adds one month. Go handles month overflow correctly:
+// Jan 31 + 1 month = March 3 (February has fewer days, Go rolls forward).
+// This is different from Carbon in Laravel which clamps to the last day of month.
+// See: https://pkg.go.dev/time#Time.AddDate
 func (s *RecurringService) advanceDueDate(rule models.RecurringRule) time.Time {
 	switch rule.Frequency {
 	case models.RecurringFrequencyWeekly:

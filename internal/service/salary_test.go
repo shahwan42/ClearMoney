@@ -1,3 +1,14 @@
+// Tests for SalaryService — verifies the multi-step salary distribution flow.
+//
+// These tests verify that DistributeSalary correctly:
+// - Creates income on USD account
+// - Exchanges USD → EGP (linked transactions)
+// - Distributes allocations as transfers
+// - Maintains correct balances across all accounts
+// - Validates inputs (zero salary, negative rate, over-allocation)
+//
+// The setup helper creates USD and EGP accounts with zero balance so we can
+// precisely verify the expected balances after distribution.
 package service
 
 import (
@@ -10,7 +21,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
-// setupSalaryTest creates a SalaryService with USD and EGP accounts.
+// setupSalaryTest creates a SalaryService with USD and EGP accounts (both at $0).
+// Returns the service and both accounts for use in test assertions.
 func setupSalaryTest(t *testing.T) (*SalaryService, models.Account, models.Account) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
@@ -110,6 +122,9 @@ func TestSalaryService_DistributeSalary_WithAllocations(t *testing.T) {
 	}
 }
 
+// TestSalaryService_DistributeSalary_ValidationErrors uses table-driven tests
+// to verify all validation paths. Each test case provides invalid input and
+// expects an error. This ensures the service rejects bad data before touching the DB.
 func TestSalaryService_DistributeSalary_ValidationErrors(t *testing.T) {
 	svc, usdAcc, egpAcc := setupSalaryTest(t)
 

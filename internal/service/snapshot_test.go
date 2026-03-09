@@ -1,3 +1,15 @@
+// Tests for SnapshotService — verifies daily snapshot creation, idempotency, and backfill.
+//
+// These tests are particularly important because snapshots power the sparkline charts
+// on the dashboard. The idempotency test ensures calling TakeSnapshot twice doesn't
+// create duplicate records (UPSERT behavior).
+//
+// Note the test naming convention:
+//   TestSnapshotService_TakeSnapshot — basic creation
+//   TestSnapshotService_Idempotent — calling twice is safe
+//   TestSnapshotService_BackfillSnapshots — fills missing historical data
+//   TestSnapshotService_GetNetWorthHistory — reads back sparkline data
+//   TestSnapshotService_GetAccountHistory — reads per-account sparkline data
 package service
 
 import (
@@ -10,6 +22,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// TestSnapshotService_TakeSnapshot verifies that a daily snapshot is created with
+// correct net worth values and per-account balances.
 func TestSnapshotService_TakeSnapshot(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "account_snapshots")
@@ -93,6 +107,9 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 	}
 }
 
+// TestSnapshotService_Idempotent verifies UPSERT behavior — calling TakeSnapshot
+// twice for the same day should update (not duplicate) the record.
+// This is critical because TakeSnapshot runs on every app startup.
 func TestSnapshotService_Idempotent(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "account_snapshots")
@@ -135,6 +152,8 @@ func TestSnapshotService_Idempotent(t *testing.T) {
 	}
 }
 
+// TestSnapshotService_BackfillSnapshots verifies that missing historical snapshots
+// are created on first run, and that a second run creates zero (all days exist).
 func TestSnapshotService_BackfillSnapshots(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "account_snapshots")
