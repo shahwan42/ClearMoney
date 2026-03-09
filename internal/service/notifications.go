@@ -1,6 +1,27 @@
 // Package service — NotificationService generates push notification payloads.
-// This handles the server-side logic for when to send notifications.
-// Actual push delivery requires VAPID keys and a web-push library.
+//
+// This service checks various conditions and generates notification payloads.
+// It does NOT send notifications directly — the handler polls this service and
+// returns the payloads to the client-side service worker for display.
+//
+// Notification triggers:
+//   - Credit card due within 3 days (from DashboardService)
+//   - Account health violations (min balance, min deposit)
+//   - Budget exceeded (100%) or approaching limit (80%)
+//   - Recurring transactions needing confirmation
+//
+// Laravel analogy: Like Laravel's Notification system (via() returns channels,
+// toMail()/toDatabase() formats the message). But simpler — we only generate
+// payloads; the browser's Push API handles delivery. Similar to broadcasting
+// events with Laravel Echo, but polling-based instead of WebSocket.
+//
+// Django analogy: Like django-push-notifications or a custom notification service
+// that checks conditions and returns notification dicts. The frontend polls
+// an endpoint to check for new notifications.
+//
+// Architecture: Uses the OBSERVER pattern conceptually — NotificationService
+// "observes" conditions across multiple services (dashboard, recurring) and
+// generates alerts. The services are injected via constructor, nil-safe checked.
 package service
 
 import (
@@ -10,14 +31,19 @@ import (
 )
 
 // Notification represents a push notification payload.
+// JSON tags control serialization when this struct is returned as JSON to the frontend.
+// The Tag field is a deduplication key — the browser won't show duplicate notifications
+// with the same tag. Like Laravel Notification's databaseType() unique identifier.
 type Notification struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
 	URL   string `json:"url"`
-	Tag   string `json:"tag"` // dedup key
+	Tag   string `json:"tag"` // dedup key — prevents duplicate notifications
 }
 
 // NotificationService checks for conditions that should trigger notifications.
+// It depends on two other services (service-to-service composition).
+// Both are nil-safe — the service works with either or both being nil.
 type NotificationService struct {
 	dashboardSvc *DashboardService
 	recurringSvc *RecurringService
@@ -28,6 +54,15 @@ func NewNotificationService(dashboardSvc *DashboardService, recurringSvc *Recurr
 }
 
 // GetPendingNotifications checks all trigger conditions and returns notifications to send.
+//
+// This method aggregates notification triggers from multiple sources:
+//   1. Credit cards due within 3 days (via DashboardService.DueSoonCards)
+//   2. Account health warnings (via DashboardService.HealthWarnings)
+//   3. Budget alerts at 80%/100% (via DashboardService.Budgets)
+//   4. Pending recurring transactions (via RecurringService.GetDuePending)
+//
+// nil-safe pattern: each source is wrapped in `if s.xxxSvc != nil { ... }`.
+// This ensures the method works even if some services weren't injected.
 func (s *NotificationService) GetPendingNotifications(ctx context.Context) ([]Notification, error) {
 	var notifications []Notification
 
@@ -96,6 +131,9 @@ func (s *NotificationService) GetPendingNotifications(ctx context.Context) ([]No
 }
 
 // PushSubscription stores a client's push subscription from the browser's Push API.
+// This struct mirrors the JavaScript PushSubscription object that the service worker
+// provides when the user grants notification permission.
+// See: https://developer.mozilla.org/en-US/docs/Web/API/PushSubscription
 type PushSubscription struct {
 	Endpoint string `json:"endpoint"`
 	Keys     struct {

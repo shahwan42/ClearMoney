@@ -1,3 +1,12 @@
+// Tests for NotificationService — verifies notification generation logic.
+//
+// Two key tests:
+//   1. Empty state: no credit cards due, no recurring rules → zero notifications
+//   2. Nil services: constructor accepts nil for both dependencies → no panics
+//
+// The nil-safety test (TestNotificationService_NilServices) is important because
+// it verifies the service degrades gracefully when optional dependencies are missing.
+// This pattern is used throughout ClearMoney's services.
 package service
 
 import (
@@ -8,6 +17,8 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// TestNotificationService_GetPendingNotifications_Empty verifies that a clean database
+// produces zero notifications (no due credit cards, no pending recurring rules).
 func TestNotificationService_GetPendingNotifications_Empty(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "recurring_rules")
@@ -36,8 +47,11 @@ func TestNotificationService_GetPendingNotifications_Empty(t *testing.T) {
 	}
 }
 
+// TestNotificationService_NilServices verifies nil-safety — the service handles
+// nil dependencies without panicking. This is crucial because some features may
+// be disabled (e.g., no database connection at startup).
 func TestNotificationService_NilServices(t *testing.T) {
-	// Should work gracefully with nil services
+	// Passing nil for both services — must not panic
 	notifSvc := NewNotificationService(nil, nil)
 	ctx := context.Background()
 

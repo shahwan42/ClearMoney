@@ -2,9 +2,24 @@
 //
 // Budgets set monthly spending limits per category. The service layer computes
 // actual spending by joining budgets with transactions for the current month.
+// The result is a BudgetWithSpending struct that includes the limit, actual spent,
+// remaining amount, percentage used, and a status color (green/amber/red).
 //
-// In Laravel terms: BudgetService is like a Service class that wraps the
-// Eloquent model. In Django: similar to a Manager or custom QuerySet method.
+// Laravel analogy: BudgetService is like a Service class that wraps the Budget
+// Eloquent model and adds computed spending data. Similar to using withSum() or
+// a Resource with appended attributes. In ClearMoney, the computation happens in
+// PostgreSQL via a JOIN query in the repository.
+//
+// Django analogy: Like a Manager method that uses annotate() and F() expressions
+// to add computed spending data to the Budget queryset. Or a service function that
+// calls Budget.objects.get_with_spending().
+//
+// The budget's percentage drives UI indicators:
+//   - Green: < 80% used (on track)
+//   - Amber: 80-99% used (approaching limit)
+//   - Red: >= 100% used (over budget)
+//
+// These thresholds also trigger push notifications (via NotificationService).
 package service
 
 import (
@@ -26,6 +41,8 @@ func NewBudgetService(budgetRepo *repository.BudgetRepo) *BudgetService {
 }
 
 // GetAllWithSpending returns budgets with current month's actual spending computed.
+// The spending data comes from a PostgreSQL JOIN: budgets LEFT JOIN transactions
+// grouped by category for the current month. The repo handles the SQL complexity.
 func (s *BudgetService) GetAllWithSpending(ctx context.Context) ([]models.BudgetWithSpending, error) {
 	now := time.Now()
 	return s.budgetRepo.GetAllWithSpending(ctx, now.Year(), now.Month())

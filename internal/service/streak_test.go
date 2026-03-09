@@ -1,3 +1,14 @@
+// Tests for StreakService — verifies consecutive day counting and weekly totals.
+//
+// These tests use direct SQL (svc.db.Exec) to insert minimal transaction records,
+// bypassing the TransactionService. This is a pragmatic choice: we only need
+// the date column for streak calculations, not full transaction validation.
+//
+// Test cases cover:
+//   - No transactions (zero streak)
+//   - Consecutive days (growing streak)
+//   - Broken streak (gap in dates)
+//   - Weekly transaction count
 package service
 
 import (
@@ -9,6 +20,7 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// setupStreakTest creates a clean StreakService with empty transaction table.
 func setupStreakTest(t *testing.T) *StreakService {
 	t.Helper()
 	db := testutil.NewTestDB(t)
@@ -19,6 +31,8 @@ func setupStreakTest(t *testing.T) *StreakService {
 }
 
 // insertTxOnDate inserts a minimal transaction for a given date (needs an account).
+// Uses direct SQL exec instead of the service layer — bypasses validation for speed.
+// The svc.db field is accessible because tests are in the same package (package service).
 func insertTxOnDate(t *testing.T, svc *StreakService, accountID string, date time.Time) {
 	t.Helper()
 	_, err := svc.db.Exec(`

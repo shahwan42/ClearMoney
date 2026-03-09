@@ -1,11 +1,24 @@
 // Package service — virtual_fund.go provides business logic for virtual funds.
 //
-// Virtual funds are user-defined savings buckets. Unlike the old is_building_fund
-// flag (which was a single hardcoded boolean), virtual funds let users create
-// any number of goals: "Emergency Fund", "Vacation", "New Car", etc.
+// Virtual funds are user-defined savings buckets (envelope budgeting pattern).
+// Unlike the old is_building_fund flag (which was a single hardcoded boolean),
+// virtual funds let users create any number of goals: "Emergency Fund", "Vacation", etc.
 //
-// In Laravel terms, this is like a Service class that sits between the Controller
-// and the Eloquent model. In Django, it's similar to a service module.
+// The envelope budgeting concept: virtual funds don't move money between accounts.
+// Instead, they "tag" transactions as belonging to a fund. The fund's balance is
+// the sum of all allocations — a virtual overlay on top of real account balances.
+//
+// Laravel analogy: Like a VirtualFundService with a polymorphic many-to-many
+// relationship (fund_allocations pivot table) connecting transactions to funds.
+// The Allocate/Deallocate methods manage this pivot. Similar to Laravel's
+// attach/detach on BelongsToMany relationships, but with an amount column.
+//
+// Django analogy: Like a through model (FundAllocation) on a ManyToManyField
+// between Transaction and VirtualFund, with extra amount data on the through table.
+//
+// Design: After every allocation/deallocation, the fund's cached balance is
+// recalculated from the sum of all allocations. This denormalization trades
+// write complexity for read speed (dashboard reads are frequent, allocations are rare).
 package service
 
 import (
@@ -60,6 +73,8 @@ func (s *VirtualFundService) Update(ctx context.Context, f models.VirtualFund) e
 }
 
 // Archive soft-deletes a virtual fund (hides from dashboard, keeps data).
+// Like Laravel's SoftDeletes — the record remains in the DB with an archived_at
+// timestamp. GetAll() excludes archived funds; GetAllIncludingArchived() includes them.
 func (s *VirtualFundService) Archive(ctx context.Context, id string) error {
 	return s.fundRepo.Archive(ctx, id)
 }
@@ -71,6 +86,12 @@ func (s *VirtualFundService) Unarchive(ctx context.Context, id string) error {
 
 // Allocate links a transaction to a virtual fund and recalculates the fund balance.
 // Amount should be positive for contributions, negative for withdrawals.
+//
+// Two-step operation: (1) create the allocation record, (2) recalculate the fund's
+// cached balance. The recalculation runs SUM(amount) on all allocations for this fund.
+// This ensures the cached balance is always consistent with the source data.
+//
+// Like Laravel's sync() or attach() on a pivot, but with a recalculation step.
 func (s *VirtualFundService) Allocate(ctx context.Context, transactionID, fundID string, amount float64) error {
 	if amount == 0 {
 		return fmt.Errorf("allocation amount cannot be zero")

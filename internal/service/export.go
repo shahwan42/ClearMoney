@@ -1,5 +1,21 @@
 // Package service — ExportService generates CSV exports of transactions.
-// Like Laravel's Excel export or Django CSV response.
+//
+// Generates downloadable CSV files with transaction history for a date range.
+// The CSV format is universal — importable into Excel, Google Sheets, or other tools.
+//
+// Laravel analogy: Like using Laravel Excel (maatwebsite/excel) to export a collection
+// to CSV, or a custom response with StreamedResponse and fputcsv(). In ClearMoney,
+// Go's encoding/csv package handles the writing.
+//
+// Django analogy: Like a view that returns HttpResponse(content_type='text/csv') and
+// uses csv.writer to write rows. Or Django REST Framework's CSVRenderer.
+//
+// Go pattern: The function accepts io.Writer (an interface), not a specific type.
+// This means it can write to an HTTP response, a file, a buffer, or any other writer.
+// This is Go's interface-based polymorphism — the caller decides WHERE to write.
+// In PHP: you'd pass a resource or stream. In Python: a file-like object.
+// See: https://pkg.go.dev/io#Writer
+// See: https://pkg.go.dev/encoding/csv for Go's CSV writing package
 package service
 
 import (
@@ -12,15 +28,25 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
 
+// ExportService wraps the transaction repo for data export operations.
 type ExportService struct {
 	txRepo *repository.TransactionRepo
 }
 
+// NewExportService creates the export service with a transaction repository.
 func NewExportService(txRepo *repository.TransactionRepo) *ExportService {
 	return &ExportService{txRepo: txRepo}
 }
 
 // ExportTransactionsCSV writes transactions in the given date range as CSV.
+//
+// io.Writer is Go's key abstraction: it's an interface with a single Write method.
+// Any type that has Write([]byte) (int, error) satisfies it — HTTP responses, files,
+// buffers, etc. The handler passes http.ResponseWriter; tests could pass bytes.Buffer.
+// This is Go's version of PHP's streams or Python's file-like objects.
+//
+// csv.NewWriter wraps the io.Writer and handles escaping, quoting, and newlines.
+// `defer writer.Flush()` ensures all buffered data is written when the function returns.
 func (s *ExportService) ExportTransactionsCSV(ctx context.Context, w io.Writer, from, to time.Time) error {
 	txs, err := s.txRepo.GetByDateRange(ctx, from, to)
 	if err != nil {

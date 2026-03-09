@@ -1,3 +1,12 @@
+// Tests for InstallmentService — covers plan creation, payment recording, and deletion.
+//
+// The setup creates a credit card account (typical for installment plans in Egypt).
+// Note the Go closure for creating a *float64 pointer inline:
+//   CreditLimit: func() *float64 { v := 50000.0; return &v }()
+// This is an IIFE (immediately invoked function expression) — Go's way of creating
+// a pointer to a literal value. In PHP, you'd just use 50000.0 (nullable by default).
+// In Go, you can't take the address of a literal (&50000.0 is invalid), so this pattern
+// is used. Alternative: declare a variable first, then use &variable.
 package service
 
 import (
@@ -10,6 +19,7 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// setupInstallmentTest creates a service with a credit card account for testing.
 func setupInstallmentTest(t *testing.T) (*InstallmentService, models.Account) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
