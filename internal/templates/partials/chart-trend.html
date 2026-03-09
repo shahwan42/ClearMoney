@@ -1,0 +1,15 @@
+{{define "chart-trend"}}
+<!-- Trend Indicator — arrow (▲/▼) with percentage change.
+     Data shape: {Change float64, Label string, IsGood bool}
+     Color is green (good) or red (bad), arrow direction from Change sign. -->
+<span class="chart-trend {{if eq .Change 0.0}}chart-trend-neutral{{else if .IsGood}}chart-trend-good{{else}}chart-trend-bad{{end}}">
+    {{- if gt .Change 0.0 -}}
+        <span class="chart-trend-arrow">▲</span> {{printf "%.1f" (abs .Change)}}%
+    {{- else if lt .Change 0.0 -}}
+        <span class="chart-trend-arrow">▼</span> {{printf "%.1f" (abs .Change)}}%
+    {{- else -}}
+        — 0.0%
+    {{- end -}}
+    {{if .Label}} <span class="text-xs font-normal opacity-60 ml-1">{{.Label}}</span>{{end}}
+</span>
+{{end}}

@@ -1,0 +1,31 @@
+{{define "chart-bar"}}
+<!-- Bar Chart — CSS flexbox bars with inline height styles.
+     Data shape: {Groups []BarGroup, Legend []LegendItem}
+     Each group has .Label and .Bars ([]BarValue with .HeightPct, .Color, .Label). -->
+<div class="chart-bar-container">
+    <div class="chart-bar-area">
+        {{range .Groups}}
+        <div class="chart-bar-group">
+            {{range .Bars}}
+            <div class="chart-bar" style="{{barStyle .HeightPct .Color}}" title="{{.Label}}"></div>
+            {{end}}
+        </div>
+        {{end}}
+    </div>
+    <div class="chart-bar-labels">
+        {{range .Groups}}
+        <span class="chart-bar-label">{{.Label}}</span>
+        {{end}}
+    </div>
+    {{if .Legend}}
+    <div class="chart-legend">
+        {{range .Legend}}
+        <div class="chart-legend-item">
+            <span class="chart-legend-dot" style="background-color: {{.Color}}"></span>
+            <span>{{.Label}}</span>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}

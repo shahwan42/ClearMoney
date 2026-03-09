@@ -24,7 +24,7 @@ type TemplateMap map[string]*template.Template
 // TemplateFuncs returns custom template functions available in all templates.
 // Like Laravel's Blade directives or Django template filters.
 func TemplateFuncs() template.FuncMap {
-	return template.FuncMap{
+	funcs := template.FuncMap{
 		// formatEGP formats a float as Egyptian Pounds: "EGP 1,234.56"
 		"formatEGP": func(amount float64) string {
 			return "EGP " + formatNumber(amount)
@@ -71,6 +71,14 @@ func TemplateFuncs() template.FuncMap {
 			return float64(part) / float64(total) * 100
 		},
 	}
+
+	// Merge chart template functions (conicGradient, sparklinePoints, chartColor, etc.)
+	// These power CSS-only data visualization — see charts.go for details.
+	for name, fn := range ChartFuncs() {
+		funcs[name] = fn
+	}
+
+	return funcs
 }
 
 // formatNumber adds thousand separators and 2 decimal places.

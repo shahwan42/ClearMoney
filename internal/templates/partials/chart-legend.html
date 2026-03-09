@@ -1,0 +1,12 @@
+{{define "chart-legend"}}
+<!-- Chart Legend — color dots with labels, used alongside donut/bar charts.
+     Data shape: []LegendItem (each has .Color and .Label) -->
+<div class="chart-legend">
+    {{range .}}
+    <div class="chart-legend-item">
+        <span class="chart-legend-dot" style="background-color: {{.Color}}"></span>
+        <span>{{.Label}}</span>
+    </div>
+    {{end}}
+</div>
+{{end}}

@@ -1,0 +1,13 @@
+{{define "chart-sparkline"}}
+<!-- Sparkline — inline SVG polyline chart (mini line graph without axes).
+     Data shape: {Values []float64, Color string, Width int, Height int}
+     Points are auto-computed by sparklinePoints template func. -->
+{{if .Values}}
+<svg class="chart-sparkline" width="{{or .Width 120}}" height="{{or .Height 40}}" viewBox="0 0 100 40" preserveAspectRatio="none">
+    <!-- Shaded area under the line for visual weight -->
+    <polygon class="sparkline-fill" points="0,40 {{sparklinePoints .Values}} 100,40" fill="{{or .Color "#0d9488"}}" />
+    <!-- The sparkline itself -->
+    <polyline points="{{sparklinePoints .Values}}" stroke="{{or .Color "#0d9488"}}" />
+</svg>
+{{end}}
+{{end}}
