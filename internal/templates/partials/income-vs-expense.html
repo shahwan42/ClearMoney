@@ -1,5 +1,14 @@
 {{define "income-vs-expense"}}
 <div class="space-y-3" id="income-vs-expense">
+    <!-- TASK-058: 6-month bar chart showing income vs expenses trend.
+         Uses the chart-bar partial with pre-computed BarGroups from the service layer.
+         Like a Laravel @include('charts.bar', ['groups' => $barGroups, 'legend' => $legend]). -->
+    {{if .BarGroups}}
+    <div class="mb-4">
+        {{template "chart-bar" (dict "Groups" .BarGroups "Legend" .BarLegend)}}
+    </div>
+    {{end}}
+
     <!-- Current Month -->
     <div class="bg-gray-50 rounded-lg p-3">
         <p class="text-xs text-gray-500 mb-2">{{.CurrentMonth.Month}} {{.CurrentMonth.Year}}</p>

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/templates"
 )
 
@@ -19,7 +20,7 @@ func TestConicGradient_Empty(t *testing.T) {
 }
 
 func TestConicGradient_SingleSegment(t *testing.T) {
-	segments := []ChartSegment{
+	segments := []models.ChartSegment{
 		{Label: "Groceries", Amount: 1500, Percentage: 45.0, Color: "#0d9488"},
 	}
 	result := string(ConicGradient(segments))
@@ -33,7 +34,7 @@ func TestConicGradient_SingleSegment(t *testing.T) {
 }
 
 func TestConicGradient_MultipleSegments(t *testing.T) {
-	segments := []ChartSegment{
+	segments := []models.ChartSegment{
 		{Color: "#0d9488", Percentage: 60.0},
 		{Color: "#dc2626", Percentage: 40.0},
 	}
@@ -45,7 +46,7 @@ func TestConicGradient_MultipleSegments(t *testing.T) {
 }
 
 func TestConicGradient_OverflowCappedAt100(t *testing.T) {
-	segments := []ChartSegment{
+	segments := []models.ChartSegment{
 		{Color: "#0d9488", Percentage: 70.0},
 		{Color: "#dc2626", Percentage: 50.0}, // would overflow to 120%
 	}

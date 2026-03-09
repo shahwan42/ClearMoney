@@ -17,27 +17,21 @@ import (
 	"html/template"
 	"math"
 	"strings"
+
+	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
 // --- Chart Data Types ---
 // These structs are "ViewModels" — they shape data for chart template partials.
 // Handlers compute these from service data and pass them to templates via
 // {{template "chart-donut" .DonutData}}.
-
-// ChartSegment represents one slice of a donut/pie chart.
-// Example: {Label: "Groceries", Amount: 1500, Percentage: 35.2, Color: "#0d9488"}
-// means groceries is 35.2% of total spending.
-type ChartSegment struct {
-	Label      string  // Display name (e.g., "Groceries", "Used", "Available")
-	Amount     float64 // Raw amount for legend display
-	Percentage float64 // 0-100, determines slice size in conic-gradient
-	Color      string  // CSS color value (hex like "#0d9488")
-}
+//
+// ChartSegment is defined in models/chart.go (shared between service and handler).
 
 // DonutChartData is passed to the "chart-donut" template partial.
 // The donut is rendered as a div with conic-gradient background + white center circle.
 type DonutChartData struct {
-	Segments    []ChartSegment // Chart slices (must sum to ~100%)
+	Segments []models.ChartSegment // Chart slices (must sum to ~100%)
 	CenterLabel string         // Main text in the donut hole (e.g., "45%")
 	CenterSub   string         // Secondary label below (e.g., "of budget")
 	Small       bool           // If true, renders 64px mini donut instead of 160px
@@ -119,10 +113,13 @@ func ChartColor(index int) string {
 // This is the core of CSS-only donut charts — the browser renders the gradient
 // as colored slices in a circle, no Canvas or SVG needed.
 //
+// Accepts both handler.ChartSegment and service.ChartSegment (or any struct
+// with Color and Percentage fields) via the SegmentLike interface.
+//
 // Example output: "conic-gradient(#0d9488 0.0% 35.2%, #dc2626 35.2% 60.0%, #e2e8f0 60.0% 100.0%)"
 //
 // Returns template.CSS so Go's html/template won't escape it in style attributes.
-func ConicGradient(segments []ChartSegment) template.CSS {
+func ConicGradient(segments []models.ChartSegment) template.CSS {
 	if len(segments) == 0 {
 		// Empty state: full gray circle
 		return template.CSS("conic-gradient(#e2e8f0 0% 100%)")

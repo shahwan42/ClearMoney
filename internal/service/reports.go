@@ -9,6 +9,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
 // CategorySpending represents spending in a single category for a period.
@@ -47,9 +49,38 @@ type ReportsData struct {
 	SpendingByCategory []CategorySpending
 	TotalSpending      float64
 
+	// TASK-057: Chart segments for the donut chart (auto-generated from SpendingByCategory)
+	ChartSegments []models.ChartSegment
+
 	// Income vs expenses comparison
 	CurrentMonth  MonthSummary
 	PreviousMonth MonthSummary
+
+	// TASK-058: 6-month income vs expenses history for bar chart
+	MonthlyHistory []MonthSummary
+	// Pre-computed bar chart data (groups with height percentages)
+	BarGroups []BarGroup
+	BarLegend []LegendItem
+}
+
+// BarGroup holds one group of bars in a bar chart (e.g., one month).
+type BarGroup struct {
+	Label string
+	Bars  []BarValue
+}
+
+// BarValue represents a single bar in a bar chart.
+type BarValue struct {
+	Value     float64
+	HeightPct float64
+	Color     string
+	Label     string
+}
+
+// LegendItem is a color + label pair for chart legends.
+type LegendItem struct {
+	Label string
+	Color string
 }
 
 // ReportsService computes report data from transactions.
@@ -88,7 +119,100 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 	}
 	data.PreviousMonth, _ = s.getMonthSummary(ctx, prevYear, prevMonth, filter)
 
+	// TASK-057: Generate donut chart segments from spending categories.
+	// Uses the 8-color chart palette, one color per category.
+	data.ChartSegments = s.buildChartSegments(spending, total)
+
+	// TASK-058: 6-month income vs expenses history for bar chart
+	data.MonthlyHistory = s.getMonthlyHistory(ctx, year, month, filter)
+	data.BarGroups, data.BarLegend = s.buildBarChart(data.MonthlyHistory)
+
 	return data, nil
+}
+
+// chartPalette is the 8-color palette used for donut chart segments.
+// Matches the palette defined in handler/charts.go.
+var chartPalette = []string{
+	"#0d9488", "#dc2626", "#2563eb", "#d97706",
+	"#7c3aed", "#059669", "#db2777", "#4f46e5",
+}
+
+// buildChartSegments converts category spending into donut chart segments.
+func (s *ReportsService) buildChartSegments(spending []CategorySpending, total float64) []models.ChartSegment {
+	if total == 0 || len(spending) == 0 {
+		return nil
+	}
+	segments := make([]models.ChartSegment, len(spending))
+	for i, cs := range spending {
+		segments[i] = models.ChartSegment{
+			Label:      cs.CategoryName,
+			Amount:     cs.Amount,
+			Percentage: cs.Percentage,
+			Color:      chartPalette[i%len(chartPalette)],
+		}
+	}
+	return segments
+}
+
+// buildBarChart converts monthly history into bar chart groups with pre-computed heights.
+func (s *ReportsService) buildBarChart(history []MonthSummary) ([]BarGroup, []LegendItem) {
+	if len(history) == 0 {
+		return nil, nil
+	}
+
+	// Find max value for height normalization
+	maxVal := 0.0
+	for _, m := range history {
+		if m.Income > maxVal {
+			maxVal = m.Income
+		}
+		if m.Expenses > maxVal {
+			maxVal = m.Expenses
+		}
+	}
+
+	groups := make([]BarGroup, len(history))
+	for i, m := range history {
+		incomeH, expenseH := 0.0, 0.0
+		if maxVal > 0 {
+			incomeH = m.Income / maxVal * 100
+			expenseH = m.Expenses / maxVal * 100
+		}
+		groups[i] = BarGroup{
+			Label: m.Month.String()[:3], // "Jan", "Feb", etc.
+			Bars: []BarValue{
+				{Value: m.Income, HeightPct: incomeH, Color: "#059669", Label: "Income"},
+				{Value: m.Expenses, HeightPct: expenseH, Color: "#dc2626", Label: "Expenses"},
+			},
+		}
+	}
+
+	legend := []LegendItem{
+		{Label: "Income", Color: "#059669"},
+		{Label: "Expenses", Color: "#dc2626"},
+	}
+
+	return groups, legend
+}
+
+// getMonthlyHistory returns income/expenses for the last 6 months (for the bar chart).
+func (s *ReportsService) getMonthlyHistory(ctx context.Context, year int, month time.Month, filter ReportFilter) []MonthSummary {
+	var history []MonthSummary
+	for i := 5; i >= 0; i-- {
+		// Walk backward from current month
+		m := month - time.Month(i)
+		y := year
+		for m <= 0 {
+			m += 12
+			y--
+		}
+		summary, err := s.getMonthSummary(ctx, y, m, filter)
+		if err != nil {
+			summary = MonthSummary{Year: y, Month: m}
+		}
+		history = append(history, summary)
+	}
+	return history
 }
 
 // getSpendingByCategory returns expense totals grouped by category for a month.
