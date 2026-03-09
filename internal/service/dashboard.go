@@ -66,6 +66,9 @@ type DashboardData struct {
 
 	// TASK-060: Spending velocity — pace of spending vs last month
 	SpendingVelocity SpendingVelocity
+
+	// TASK-063: Virtual funds for dashboard widget
+	VirtualFunds []models.VirtualFund
 }
 
 // SpendingVelocity shows the pace of spending relative to last month.
@@ -113,6 +116,7 @@ type DashboardService struct {
 	investmentRepo   *repository.InvestmentRepo
 	streakSvc        *StreakService
 	snapshotSvc      *SnapshotService
+	virtualFundSvc   *VirtualFundService
 	db               *sql.DB // for direct queries (month-over-month)
 }
 
@@ -147,6 +151,11 @@ func (s *DashboardService) SetStreakService(svc *StreakService) {
 // SetSnapshotService sets the snapshot service for net worth history sparkline.
 func (s *DashboardService) SetSnapshotService(svc *SnapshotService) {
 	s.snapshotSvc = svc
+}
+
+// SetVirtualFundService sets the virtual fund service for dashboard widget (TASK-063).
+func (s *DashboardService) SetVirtualFundService(svc *VirtualFundService) {
+	s.virtualFundSvc = svc
 }
 
 // SetDB sets the database connection for direct queries (month-over-month).
@@ -243,9 +252,16 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		}
 	}
 
-	// Building fund balance: sum of all is_building_fund income minus expenses
+	// Building fund balance (legacy — kept for backward compatibility)
 	if balance, err := s.txRepo.GetBuildingFundBalance(ctx); err == nil {
 		data.BuildingFundBalance = balance
+	}
+
+	// TASK-063: Load active virtual funds for dashboard widget
+	if s.virtualFundSvc != nil {
+		if funds, err := s.virtualFundSvc.GetAll(ctx); err == nil {
+			data.VirtualFunds = funds
+		}
 	}
 
 	// Investment portfolio total

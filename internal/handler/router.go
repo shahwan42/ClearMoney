@@ -107,10 +107,11 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		// Page routes (HTML)
 		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
 		pages.SetSnapshotService(snapshotSvc) // TASK-059: account balance sparklines
-		// TASK-062: Wire virtual fund service
+		// TASK-062/063: Wire virtual fund service
 		virtualFundRepo := repository.NewVirtualFundRepo(db)
 		virtualFundSvc := service.NewVirtualFundService(virtualFundRepo)
 		pages.SetVirtualFundService(virtualFundSvc)
+		dashboardSvc.SetVirtualFundService(virtualFundSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)
