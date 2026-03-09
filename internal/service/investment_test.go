@@ -1,3 +1,8 @@
+// Tests for InvestmentService — covers CRUD, valuation updates, and total computation.
+//
+// These tests follow the same integration test pattern: clean DB, create data, verify.
+// The setupInvestmentTest helper is intentionally simple — just cleans the table and
+// creates the service. No accounts or transactions needed since investments are standalone.
 package service
 
 import (
@@ -9,6 +14,7 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
+// setupInvestmentTest creates a clean InvestmentService for testing.
 func setupInvestmentTest(t *testing.T) *InvestmentService {
 	t.Helper()
 	db := testutil.NewTestDB(t)

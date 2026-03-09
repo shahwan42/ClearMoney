@@ -1,5 +1,17 @@
 // Package service — InvestmentService handles business logic for investment portfolio.
-// Investments are fund holdings on platforms like Thndr, with manual valuation updates.
+//
+// Investments are fund holdings on platforms like Thndr (Egypt's popular investment app).
+// Each investment has: fund name, number of units, and last known unit price.
+// Total value = units * last_unit_price.
+//
+// Valuations are updated manually (the user enters the new price from their broker).
+// This is simpler than an API integration but still gives useful portfolio tracking.
+//
+// Laravel analogy: A simple Service class with CRUD + a specialized UpdateValuation method.
+// Like a PortfolioService that wraps an Eloquent model.
+//
+// Django analogy: A services.py module for investments with create, update_valuation, and
+// get_total methods — keeping business logic out of the model.
 package service
 
 import (
@@ -10,10 +22,12 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
 
+// InvestmentService follows the standard service pattern: struct with repo dependency.
 type InvestmentService struct {
 	repo *repository.InvestmentRepo
 }
 
+// NewInvestmentService creates the service. Standard Go constructor pattern.
 func NewInvestmentService(repo *repository.InvestmentRepo) *InvestmentService {
 	return &InvestmentService{repo: repo}
 }
@@ -57,6 +71,8 @@ func (s *InvestmentService) Delete(ctx context.Context, id string) error {
 }
 
 // GetTotalValuation returns the total portfolio value (sum of units * price).
+// This aggregate query runs in PostgreSQL: SUM(units * last_unit_price).
+// Used by DashboardService to show total investment value.
 func (s *InvestmentService) GetTotalValuation(ctx context.Context) (float64, error) {
 	return s.repo.GetTotalValuation(ctx)
 }

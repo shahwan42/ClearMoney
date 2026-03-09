@@ -1,5 +1,20 @@
 // Package service — InstallmentService handles installment plan logic.
-// Installment plans track purchases split into monthly payments (like TRU EPP).
+//
+// Installment plans track purchases split into monthly payments (like TRU EPP —
+// Egypt's Easy Payment Plan for credit cards). A plan has a total amount, number
+// of installments, and tracks how many are remaining.
+//
+// Laravel analogy: Like an InstallmentService that creates expense transactions
+// for each payment. Similar to a subscription billing service but for fixed-length
+// payment plans. Uses another service (TransactionService) for creating the actual
+// expense records — service-to-service dependency.
+//
+// Django analogy: Like an installments/services.py module that coordinates between
+// the InstallmentPlan model and the transaction creation logic.
+//
+// Design note: RecordPayment creates an expense transaction via TransactionService,
+// then decrements the remaining count. If the transaction fails (e.g., would exceed
+// credit limit), the payment is not recorded.
 package service
 
 import (
@@ -10,9 +25,11 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
 
+// InstallmentService depends on a repo for plan CRUD and TransactionService for
+// creating expense transactions on payment. This is service-to-service composition.
 type InstallmentService struct {
-	repo    *repository.InstallmentRepo
-	txSvc   *TransactionService
+	repo  *repository.InstallmentRepo
+	txSvc *TransactionService // used to create expense transactions on RecordPayment
 }
 
 func NewInstallmentService(repo *repository.InstallmentRepo, txSvc *TransactionService) *InstallmentService {
@@ -50,6 +67,11 @@ func (s *InstallmentService) GetAll(ctx context.Context) ([]models.InstallmentPl
 }
 
 // RecordPayment decrements remaining installments and creates an expense transaction.
+// This method calls TransactionService.Create() to create the expense, which handles
+// atomic balance updates. Then it decrements the remaining count via the repo.
+//
+// Note: plan.PaidInstallments() is a computed method on the model — like a Laravel
+// accessor or Django @property. It returns NumInstallments - RemainingInstallments.
 func (s *InstallmentService) RecordPayment(ctx context.Context, planID string) error {
 	plan, err := s.repo.GetByID(ctx, planID)
 	if err != nil {
