@@ -1,7 +1,16 @@
-// Package repository — budget.go provides database operations for budgets.
+// Package repository — budget.go provides database operations for monthly budgets.
 //
-// Think of this like a Laravel Eloquent model's query methods. It handles
-// basic CRUD plus the join with spending data for the current month.
+// Budgets set spending limits per category per month. The key method is
+// GetAllWithSpending() which JOINs budgets with actual transaction spending
+// to compute how much has been spent vs. the limit.
+//
+//   Laravel analogy:  Budget Eloquent model with a scope that joins transactions
+//                     and uses selectRaw() for SUM/COALESCE aggregations.
+//   Django analogy:   Budget.objects.annotate(spent=Sum('transactions__amount'))
+//                     with conditional filtering and F() expressions.
+//
+// The traffic-light status (green/amber/red) is computed in Go after scanning
+// the rows — this keeps SQL focused on data retrieval and Go handles presentation logic.
 package repository
 
 import (
@@ -12,11 +21,14 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
-// BudgetRepo handles database operations for budgets.
+// BudgetRepo handles database operations for the budgets table.
+//   Laravel:  BudgetRepository or Budget Eloquent model
+//   Django:   Budget.objects (Manager)
 type BudgetRepo struct {
 	db *sql.DB
 }
 
+// NewBudgetRepo creates a new BudgetRepo with the given database connection pool.
 func NewBudgetRepo(db *sql.DB) *BudgetRepo {
 	return &BudgetRepo{db: db}
 }
@@ -46,7 +58,27 @@ func (r *BudgetRepo) GetAll(ctx context.Context) ([]models.Budget, error) {
 }
 
 // GetAllWithSpending returns budgets joined with current month's actual spending.
-// This is the main query used by the dashboard and budget management page.
+// This is the most complex query in the budget repo — it joins 3 tables.
+//
+// SQL breakdown:
+//   - JOIN categories c: gets the category name for display
+//   - LEFT JOIN transactions t: sums up expense amounts for the date range
+//     LEFT JOIN (not INNER) ensures budgets with zero spending still appear
+//   - COALESCE(SUM(t.amount), 0): returns 0 instead of NULL when no transactions match
+//   - GROUP BY b.id, c.name: required because we're using SUM() aggregate
+//
+//   Laravel equivalent:
+//     Budget::join('categories', ...)->leftJoin('transactions', ...)
+//       ->selectRaw('COALESCE(SUM(t.amount), 0) as spent')
+//       ->groupBy('b.id', 'c.name')->get()
+//
+//   Django equivalent:
+//     Budget.objects.filter(is_active=True)
+//       .annotate(category_name=F('category__name'),
+//                 spent=Coalesce(Sum('category__transaction__amount', filter=Q(...)), 0))
+//
+// After scanning, Go computes derived fields (remaining, percentage, status).
+// This keeps SQL focused on data retrieval and Go handles presentation logic.
 func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month time.Month) ([]models.BudgetWithSpending, error) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)

@@ -473,6 +473,9 @@ func TestTransactionEditForm_Renders(t *testing.T) {
 	}
 }
 
+// TestTransactionUpdate_ChangesBalance verifies that editing a transaction's amount
+// correctly adjusts the account balance. The service layer reverses the old amount
+// and applies the new one atomically.
 func TestTransactionUpdate_ChangesBalance(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -590,6 +593,8 @@ func TestTransactionDelete_FromUI(t *testing.T) {
 	}
 }
 
+// TestTransactionDuplicate_PrefillsForm tests the ?dup= query parameter that
+// pre-fills the transaction form from an existing transaction.
 func TestTransactionDuplicate_PrefillsForm(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -695,6 +700,8 @@ func TestAccountDetailPage_Renders(t *testing.T) {
 	}
 }
 
+// TestAccountDetailPage_CreditCard verifies credit-card-specific display:
+// available credit = credit_limit - current_balance (which is negative for CC).
 func TestAccountDetailPage_CreditCard(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -886,6 +893,8 @@ func TestPeoplePage_Renders(t *testing.T) {
 	}
 }
 
+// TestPeoplePage_LoanAndRepay tests the full loan flow: add person -> record loan ->
+// verify "They owe you" message appears in the response.
 func TestPeoplePage_LoanAndRepay(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -940,6 +949,8 @@ func TestPeoplePage_LoanAndRepay(t *testing.T) {
 	}
 }
 
+// TestTemplateFuncs_FormatNumber is a unit test for the formatNumber helper.
+// Uses a table-driven test pattern with a slice of test cases.
 func TestTemplateFuncs_FormatNumber(t *testing.T) {
 	tests := []struct {
 		input    float64

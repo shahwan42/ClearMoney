@@ -40,11 +40,11 @@
     visual effect. Only the InstaPay fee logic needs JavaScript.
 
   RANGE REUSE:
-    Both "From Account" and "To Account" dropdowns use {{range .Accounts}}.
+    Both "From Account" and "To Account" dropdowns use `range .Accounts`.
     The same slice is iterated twice to populate both selects. Go templates
     support iterating the same slice multiple times without issues.
 
-    {{string .Currency}} -- converts the Currency type to a string for display.
+    `string .Currency` -- converts the Currency type to a string for display.
     Go's typed enums need explicit conversion in templates.
 
   Docs: https://htmx.org/attributes/hx-post/

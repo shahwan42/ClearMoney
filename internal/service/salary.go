@@ -6,7 +6,16 @@
 //   3. Allocate to accounts/categories (pre-filled from last month)
 //   4. Review and confirm → creates all transactions atomically
 //
-// Think of it like a Laravel multi-step form wizard backed by a service.
+// Laravel analogy: Like a multi-step form wizard backed by a service class.
+// Imagine a SalaryWizardController with step1/step2/step3/confirm actions,
+// and a SalaryService.distribute() that creates all transactions in DB::transaction().
+//
+// Django analogy: Like a FormWizardView backed by a service function that uses
+// transaction.atomic() to create income, exchange, and transfer transactions.
+//
+// This is the most transaction-heavy service: a single DistributeSalary() call can
+// create 5+ transactions (1 income + 2 exchange + N*2 allocation transfers).
+// All must succeed atomically or all roll back.
 package service
 
 import (
@@ -19,6 +28,9 @@ import (
 )
 
 // SalaryAllocation represents a single line item in the salary distribution.
+// JSON struct tags (`json:"account_id"`) control serialization — like Laravel's
+// $casts or Django REST Framework's field names. These are used when the wizard
+// sends allocation data as JSON from the frontend.
 type SalaryAllocation struct {
 	AccountID string  `json:"account_id"`
 	Amount    float64 `json:"amount"`
@@ -47,9 +59,18 @@ func NewSalaryService(txRepo *repository.TransactionRepo, accRepo *repository.Ac
 }
 
 // DistributeSalary creates all salary transactions atomically:
-// 1. Income transaction on USD account (salary received)
-// 2. Exchange from USD to EGP
-// 3. Allocation transfers from EGP account to target accounts
+//   1. Income transaction on USD account (salary received)
+//   2. Exchange from USD to EGP (two linked transactions + balance updates)
+//   3. Allocation transfers from EGP account to target accounts (two linked tx per allocation)
+//
+// This demonstrates Go's explicit error handling at scale. Every DB operation
+// returns an error that must be checked. In Laravel/Django, exceptions bubble up
+// automatically. In Go, each error is handled explicitly — more verbose but you
+// always know exactly what can fail and how.
+//
+// The pattern: `defer dbTx.Rollback()` is safe because Rollback() is a no-op
+// after Commit(). So the flow is: begin → do work → commit (success) → defer Rollback (no-op).
+// If any step fails: begin → do work → return error → defer Rollback (actual rollback).
 func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistribution) error {
 	if dist.SalaryUSD <= 0 {
 		return fmt.Errorf("salary amount must be positive")

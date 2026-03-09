@@ -11,7 +11,7 @@
       Load more...
     </button>
 
-    hx-get="/transactions/list?offset={{.NextOffset}}&..."
+    hx-get="/transactions/list?offset=`.NextOffset`&..."
       Fetches the next page of transactions. The offset and all current filter
       values are included in the URL so the server knows where to continue.
       The server returns THIS SAME TEMPLATE with the next batch of transactions.
@@ -30,16 +30,16 @@
     Django: Paginator with django-htmx returning a partial
 
   GO TEMPLATE STRING INTERPOLATION IN ATTRIBUTES:
-    hx-get="/transactions/list?offset={{.NextOffset}}&type={{.Type}}"
+    hx-get="/transactions/list?offset=`.NextOffset`&type=`.Type`"
 
     Go template expressions inside HTML attributes work the same as anywhere else.
     The Go template engine auto-escapes values for HTML safety (XSS prevention).
     This is similar to:
-      Blade:  hx-get="/transactions/list?offset={{ $nextOffset }}"
-      Jinja2: hx-get="/transactions/list?offset={{ next_offset }}"
+      Blade:  hx-get="/transactions/list?offset=` $nextOffset `"
+      Jinja2: hx-get="/transactions/list?offset=` next_offset `"
 
   SUB-TEMPLATE FOR EACH ROW:
-    {{template "transaction-row" .}}
+    `template "transaction-row" .`
     Each transaction is rendered by a separate "transaction-row" template.
     This promotes reuse -- the same row template can be used in different
     list contexts (main list, search results, recent transactions).

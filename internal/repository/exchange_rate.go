@@ -45,7 +45,12 @@ func NewExchangeRateRepo(db *sql.DB) *ExchangeRateRepo {
 	return &ExchangeRateRepo{db: db}
 }
 
-// Log inserts an exchange rate record.
+// Log inserts an exchange rate record into the append-only log table.
+// This is an INSERT-only operation — rates are never updated or deleted.
+// Uses ExecContext (not QueryRowContext) because we don't need any data back.
+//
+//   Laravel:  ExchangeRateLog::create(['date' => $date, 'rate' => $rate, ...])
+//   Django:   ExchangeRateLog.objects.create(date=date, rate=rate, ...)
 func (r *ExchangeRateRepo) Log(ctx context.Context, date time.Time, rate float64, source, note *string) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO exchange_rate_log (date, rate, source, note) VALUES ($1, $2, $3, $4)
@@ -78,7 +83,12 @@ func (r *ExchangeRateRepo) GetAll(ctx context.Context) ([]ExchangeRateLog, error
 	return rates, rows.Err()
 }
 
-// GetLatest retrieves the most recent exchange rate.
+// GetLatest retrieves the most recent exchange rate value (just the number, not the full record).
+// Used by the dashboard and snapshot service for net worth calculations.
+//
+// ORDER BY date DESC, created_at DESC LIMIT 1 gets the newest entry.
+//   Laravel:  ExchangeRateLog::latest('date')->value('rate')
+//   Django:   ExchangeRateLog.objects.latest('date').rate
 func (r *ExchangeRateRepo) GetLatest(ctx context.Context) (float64, error) {
 	var rate float64
 	err := r.db.QueryRowContext(ctx, `

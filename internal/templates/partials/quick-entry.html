@@ -24,13 +24,13 @@
     - .ExpenseCategories / .IncomeCategories: split by type for toggling
 
   TEMPLATE VARIABLE + RANGE PATTERN:
-    {{$lastAcct := .LastAccountID}}
-    {{range .Accounts}}
-      <option value="{{.ID}}" {{if eq .ID $lastAcct}}selected{{end}}>
-    {{end}}
+    `$lastAcct := .LastAccountID`
+    `range .Accounts`
+      <option value="`.ID`" `if eq .ID $lastAcct`selected`end`>
+    `end`
 
     The $lastAcct variable is declared BEFORE the range loop because
-    dot (.) changes inside {{range}}. Without $lastAcct, we'd lose access
+    dot (.) changes inside `range`. Without $lastAcct, we'd lose access
     to the outer .LastAccountID. Alternative: use $.LastAccountID ($ = root).
 
   SMART CATEGORY SUGGESTION (JavaScript + REST API):
