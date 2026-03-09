@@ -46,6 +46,16 @@ func (s *NotificationService) GetPendingNotifications(ctx context.Context) ([]No
 				}
 			}
 
+			// TASK-069: Account health warnings
+			for _, w := range data.HealthWarnings {
+				notifications = append(notifications, Notification{
+					Title: "Account Health Warning",
+					Body:  w.Message,
+					URL:   "/accounts/" + w.AccountID,
+					Tag:   fmt.Sprintf("health-%s-%s", w.Rule, w.AccountID),
+				})
+			}
+
 			// TASK-067: Budget threshold alerts at 80% and 100%
 			for _, b := range data.Budgets {
 				if b.Percentage >= 100 {

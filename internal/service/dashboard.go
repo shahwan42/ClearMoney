@@ -72,6 +72,9 @@ type DashboardData struct {
 
 	// TASK-066: Budget progress for dashboard widget
 	Budgets []models.BudgetWithSpending
+
+	// TASK-069: Account health warnings
+	HealthWarnings []AccountHealthWarning
 }
 
 // SpendingVelocity shows the pace of spending relative to last month.
@@ -121,6 +124,7 @@ type DashboardService struct {
 	snapshotSvc      *SnapshotService
 	virtualFundSvc   *VirtualFundService
 	budgetSvc        *BudgetService
+	healthSvc        *AccountHealthService
 	db               *sql.DB // for direct queries (month-over-month)
 }
 
@@ -165,6 +169,11 @@ func (s *DashboardService) SetVirtualFundService(svc *VirtualFundService) {
 // SetBudgetService sets the budget service for dashboard widget (TASK-066).
 func (s *DashboardService) SetBudgetService(svc *BudgetService) {
 	s.budgetSvc = svc
+}
+
+// SetAccountHealthService sets the health service for dashboard warnings (TASK-069).
+func (s *DashboardService) SetAccountHealthService(svc *AccountHealthService) {
+	s.healthSvc = svc
 }
 
 // SetDB sets the database connection for direct queries (month-over-month).
@@ -316,6 +325,11 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		if len(sparklines) > 0 {
 			data.AccountSparklines = sparklines
 		}
+	}
+
+	// TASK-069: Check account health constraints
+	if s.healthSvc != nil {
+		data.HealthWarnings = s.healthSvc.CheckAll(ctx)
 	}
 
 	// TASK-066: Load budgets with spending for dashboard widget

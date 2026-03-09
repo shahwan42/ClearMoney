@@ -115,6 +115,17 @@
     <!-- Due Date Warnings -->
     {{template "due-date-warning" .Data.DueSoonCards}}
 
+    <!-- TASK-069: Account Health Warnings -->
+    {{if .Data.HealthWarnings}}
+    <section class="space-y-2">
+        {{range .Data.HealthWarnings}}
+        <a href="/accounts/{{.AccountID}}" class="block bg-red-50 border border-red-200 rounded-xl p-3">
+            <p class="text-sm font-medium text-red-700">{{.Message}}</p>
+        </a>
+        {{end}}
+    </section>
+    {{end}}
+
     <!-- Summary Cards -->
     {{template "summary-cards" .Data}}
 

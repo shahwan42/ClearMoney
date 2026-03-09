@@ -120,6 +120,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		// TASK-068: Wire account health service
 		healthSvc := service.NewAccountHealthService(accountRepo, txRepo)
 		pages.SetAccountHealthService(healthSvc)
+		dashboardSvc.SetAccountHealthService(healthSvc)
 		r.Get("/", pages.Home)
 		r.Get("/partials/recent-transactions", pages.RecentTransactions)
 		r.Get("/partials/people-summary", pages.PeopleSummary)
