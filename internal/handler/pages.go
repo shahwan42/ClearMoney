@@ -871,6 +871,32 @@ func (h *PageHandler) RecentTransactions(w http.ResponseWriter, r *http.Request)
 	tmpl.ExecuteTemplate(w, "recent-transactions", txns)
 }
 
+// PersonDetailData holds data for the person detail page (TASK-070).
+// Shows full loan/repayment history, payoff progress, and projected payoff date.
+type PersonDetailData struct {
+	Summary  service.DebtSummary
+	Accounts []models.Account
+}
+
+// PersonDetail renders the person detail page with debt tracking.
+// GET /people/{id}
+func (h *PageHandler) PersonDetail(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	summary, err := h.personSvc.GetDebtSummary(r.Context(), id)
+	if err != nil {
+		http.Error(w, "person not found", http.StatusNotFound)
+		return
+	}
+
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+
+	RenderPage(h.templates, w, "person-detail", PageData{
+		ActiveTab: "people",
+		Data:      PersonDetailData{Summary: summary, Accounts: accounts},
+	})
+}
+
 // AccountDetail renders the account detail page with transaction history.
 // GET /accounts/{id}
 func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {

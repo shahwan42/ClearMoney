@@ -181,8 +181,91 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 	}
 
 	if err := dbTx.Commit(); err != nil {
-		return models.Transaction{}, fmt.Errorf("committing: %w", err)
+		return models.Transaction{}, fmt.Errorf("committing repayment: %w", err)
 	}
 
 	return created, nil
+}
+
+// DebtSummary holds computed data for a person's debt/loan detail page.
+// It provides the raw data for the person-detail.html template:
+// loan history, repayment progress, and projected payoff date.
+type DebtSummary struct {
+	Person        models.Person
+	Transactions  []models.Transaction // loan + repayment history
+	TotalLent     float64              // sum of loan_out amounts (I lent them)
+	TotalBorrowed float64              // sum of loan_in amounts (they lent me)
+	TotalRepaid   float64              // sum of loan_repayment amounts
+	ProgressPct   float64              // 0–100 payoff progress
+	// Projected payoff: estimated date when debt will be fully repaid.
+	// Based on average repayment frequency. Zero if no repayments yet.
+	ProjectedPayoff time.Time
+}
+
+// GetDebtSummary computes the full debt/loan summary for a person.
+// Used by the person detail page to show progress + projection.
+func (s *PersonService) GetDebtSummary(ctx context.Context, personID string) (DebtSummary, error) {
+	person, err := s.personRepo.GetByID(ctx, personID)
+	if err != nil {
+		return DebtSummary{}, fmt.Errorf("person not found: %w", err)
+	}
+
+	txns, err := s.txRepo.GetByPersonID(ctx, personID, 200)
+	if err != nil {
+		return DebtSummary{}, fmt.Errorf("loading transactions: %w", err)
+	}
+
+	summary := DebtSummary{
+		Person:       person,
+		Transactions: txns,
+	}
+
+	// Tally up loan_out, loan_in, and repayment amounts
+	var repaymentDates []time.Time
+	for _, tx := range txns {
+		switch tx.Type {
+		case models.TransactionTypeLoanOut:
+			summary.TotalLent += tx.Amount
+		case models.TransactionTypeLoanIn:
+			summary.TotalBorrowed += tx.Amount
+		case models.TransactionTypeLoanRepayment:
+			summary.TotalRepaid += tx.Amount
+			repaymentDates = append(repaymentDates, tx.Date)
+		}
+	}
+
+	// Progress: how much of the total debt has been repaid.
+	totalDebt := summary.TotalLent + summary.TotalBorrowed
+	if totalDebt > 0 {
+		summary.ProgressPct = (summary.TotalRepaid / totalDebt) * 100
+		if summary.ProgressPct > 100 {
+			summary.ProgressPct = 100
+		}
+	}
+
+	// Projected payoff: average repayment interval × remaining balance.
+	// Only meaningful if there are at least 2 repayments and remaining balance > 0.
+	remaining := abs(person.NetBalance)
+	if len(repaymentDates) >= 2 && remaining > 0 {
+		avgRepayment := summary.TotalRepaid / float64(len(repaymentDates))
+		if avgRepayment > 0 {
+			// repaymentDates are sorted DESC (newest first)
+			first := repaymentDates[len(repaymentDates)-1]
+			last := repaymentDates[0]
+			totalDays := last.Sub(first).Hours() / 24
+			if totalDays > 0 {
+				avgIntervalDays := totalDays / float64(len(repaymentDates)-1)
+				paymentsNeeded := remaining / avgRepayment
+				daysToPayoff := paymentsNeeded * avgIntervalDays
+				summary.ProjectedPayoff = time.Now().AddDate(0, 0, int(daysToPayoff))
+			}
+		}
+	}
+
+	return summary, nil
+}
+
+// GetPersonTransactions returns transactions for a specific person.
+func (s *PersonService) GetPersonTransactions(ctx context.Context, personID string, limit int) ([]models.Transaction, error) {
+	return s.txRepo.GetByPersonID(ctx, personID, limit)
 }

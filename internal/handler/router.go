@@ -152,6 +152,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Post("/transactions/exchange-submit", pages.ExchangeCreate)
 		r.Get("/people", pages.People)
 		r.Post("/people/add", pages.PeopleAdd)
+		r.Get("/people/{id}", pages.PersonDetail)
 		r.Post("/people/{id}/loan", pages.PeopleLoan)
 		r.Post("/people/{id}/repay", pages.PeopleRepay)
 		r.Get("/recurring", pages.Recurring)

@@ -78,6 +78,14 @@ func TemplateFuncs() template.FuncMap {
 			}
 			return float64(part) / float64(total) * 100
 		},
+		// neg negates a float64 (for displaying absolute values of negative numbers)
+		"neg": func(v float64) float64 {
+			return -v
+		},
+		// addFloat adds two float64 values (for template arithmetic)
+		"addFloat": func(a, b float64) float64 {
+			return a + b
+		},
 		// dict creates a map[string]any from key-value pairs.
 		// Used to pass multiple values to sub-templates (like Laravel's @include with data):
 		//   {{template "chart-sparkline" (dict "Values" .Values "Color" "#0d9488")}}

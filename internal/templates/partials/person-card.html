@@ -8,7 +8,7 @@
                     {{slice .Person.Name 0 1}}
                 </div>
                 <div>
-                    <h3 class="font-semibold text-slate-800">{{.Person.Name}}</h3>
+                    <a href="/people/{{.Person.ID}}" class="font-semibold text-slate-800 hover:text-teal-600">{{.Person.Name}}</a>
                     {{if .Person.Note}}<p class="text-xs text-gray-400">{{deref .Person.Note}}</p>{{end}}
                 </div>
             </div>

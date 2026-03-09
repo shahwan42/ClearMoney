@@ -1,0 +1,92 @@
+{{define "title"}}{{.Data.Summary.Person.Name}} - ClearMoney{{end}}
+
+{{define "content"}}
+<div class="max-w-lg mx-auto space-y-6 py-4">
+
+    <!-- Back link -->
+    <a href="/people" class="inline-flex items-center text-sm text-teal-600 hover:text-teal-700">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back to People
+    </a>
+
+    <!-- Person Header -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-white text-lg font-bold">
+                {{slice .Data.Summary.Person.Name 0 1}}
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-900">{{.Data.Summary.Person.Name}}</h1>
+                <p class="text-sm {{if gt .Data.Summary.Person.NetBalance 0.0}}text-emerald-600{{else if lt .Data.Summary.Person.NetBalance 0.0}}text-red-600{{else}}text-gray-400{{end}}">
+                    {{if gt .Data.Summary.Person.NetBalance 0.0}}
+                        They owe you {{formatEGP .Data.Summary.Person.NetBalance}}
+                    {{else if lt .Data.Summary.Person.NetBalance 0.0}}
+                        You owe them {{formatEGP (neg .Data.Summary.Person.NetBalance)}}
+                    {{else}}
+                        Settled up
+                    {{end}}
+                </p>
+            </div>
+        </div>
+
+        <!-- Loan Summary Stats -->
+        <div class="grid grid-cols-3 gap-3 text-center">
+            {{if gt .Data.Summary.TotalLent 0.0}}
+            <div class="bg-emerald-50 rounded-lg p-2">
+                <p class="text-xs text-emerald-600 font-medium">Lent</p>
+                <p class="text-sm font-bold text-slate-800">{{formatEGP .Data.Summary.TotalLent}}</p>
+            </div>
+            {{end}}
+            {{if gt .Data.Summary.TotalBorrowed 0.0}}
+            <div class="bg-blue-50 rounded-lg p-2">
+                <p class="text-xs text-blue-600 font-medium">Borrowed</p>
+                <p class="text-sm font-bold text-slate-800">{{formatEGP .Data.Summary.TotalBorrowed}}</p>
+            </div>
+            {{end}}
+            {{if gt .Data.Summary.TotalRepaid 0.0}}
+            <div class="bg-amber-50 rounded-lg p-2">
+                <p class="text-xs text-amber-600 font-medium">Repaid</p>
+                <p class="text-sm font-bold text-slate-800">{{formatEGP .Data.Summary.TotalRepaid}}</p>
+            </div>
+            {{end}}
+        </div>
+    </section>
+
+    <!-- Payoff Progress Bar (TASK-070) -->
+    {{if gt .Data.Summary.ProgressPct 0.0}}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Payoff Progress</h2>
+        {{template "debt-progress" .Data.Summary}}
+    </section>
+    {{end}}
+
+    <!-- Transaction History -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Transaction History</h2>
+        {{if .Data.Summary.Transactions}}
+        <div class="space-y-2">
+            {{range .Data.Summary.Transactions}}
+            <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div>
+                    <p class="text-sm font-medium text-slate-700">
+                        {{if eq (string .Type) "loan_out"}}Lent
+                        {{else if eq (string .Type) "loan_in"}}Borrowed
+                        {{else if eq (string .Type) "loan_repayment"}}Repayment
+                        {{else}}{{.Type}}{{end}}
+                    </p>
+                    <p class="text-xs text-gray-400">{{formatDateShort .Date}}</p>
+                    {{if .Note}}<p class="text-xs text-gray-500 mt-0.5">{{deref .Note}}</p>{{end}}
+                </div>
+                <span class="text-sm font-semibold {{if eq (string .Type) "loan_repayment"}}text-emerald-600{{else if eq (string .Type) "loan_out"}}text-red-600{{else}}text-blue-600{{end}}">
+                    {{if eq (string .Type) "loan_repayment"}}+{{end}}{{formatEGP .Amount}}
+                </span>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="text-sm text-gray-400 text-center py-4">No transactions yet.</p>
+        {{end}}
+    </section>
+
+</div>
+{{end}}
