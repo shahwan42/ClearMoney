@@ -745,6 +745,12 @@ func (s *TransactionService) GetPaymentsToAccount(ctx context.Context, accountID
 	return s.txRepo.GetPaymentsToAccount(ctx, accountID, limit)
 }
 
+// SuggestCategory returns the most likely category ID based on note keywords (TASK-079).
+// Uses historical transaction data to suggest a category when the user types a note.
+func (s *TransactionService) SuggestCategory(ctx context.Context, noteKeyword string) string {
+	return s.txRepo.SuggestCategory(ctx, noteKeyword)
+}
+
 func (s *TransactionService) validateBasic(tx models.Transaction) error {
 	if tx.Amount <= 0 {
 		return fmt.Errorf("amount must be positive")

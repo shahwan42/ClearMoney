@@ -34,7 +34,7 @@ func TestHomePage_Renders(t *testing.T) {
 		"ClearMoney",          // header
 		"tailwindcss",         // Tailwind CDN
 		"htmx.org",            // HTMX script
-		"Net Worth",           // dashboard section (empty state)
+		"Welcome to ClearMoney", // dashboard empty state (TASK-081)
 		"/static/css/app.css",      // custom CSS link
 		"/static/manifest.json",    // PWA manifest
 		"serviceWorker",            // SW registration

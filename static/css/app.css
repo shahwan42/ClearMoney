@@ -49,6 +49,108 @@
 .dark .bg-red-50 { background-color: #3b0d0d !important; }
 .dark .bg-indigo-50, .dark .bg-purple-50 { background-color: #1e1b4b !important; }
 
+/* TASK-077: Success animations and visual feedback */
+
+/* Checkmark draw animation — SVG stroke animation for success indicator */
+@keyframes checkmark-draw {
+    0% { stroke-dashoffset: 48; }
+    100% { stroke-dashoffset: 0; }
+}
+.animate-checkmark {
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: checkmark-draw 0.4s ease-out 0.2s forwards;
+}
+
+/* Toast slide-up animation — slides in from bottom */
+@keyframes toast-slide-up {
+    0% { transform: translateY(100%); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+}
+.animate-toast {
+    animation: toast-slide-up 0.3s ease-out forwards;
+}
+
+/* Success scale-in — bouncy entrance for checkmark containers */
+@keyframes success-bounce {
+    0% { transform: scale(0); }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+.animate-success {
+    animation: success-bounce 0.4s ease-out forwards;
+}
+
+/* Button press feedback — subtle bounce on tap */
+@keyframes button-bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+}
+.active\:animate-bounce:active {
+    animation: button-bounce 0.15s ease-out;
+}
+
+/* Fade in for general transitions */
+@keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+}
+
+/* TASK-078: Skeleton loading animations */
+
+/* Skeleton pulse — shimmer gradient that slides across the placeholder */
+@keyframes skeleton-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.skeleton {
+    background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: 0.5rem;
+}
+.dark .skeleton {
+    background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+    background-size: 200% 100%;
+}
+
+/* TASK-084: Dark mode polish for Phase 5-8 components */
+
+/* Budget progress bars — dark backgrounds for the track */
+.dark .bg-gray-100 { background-color: #1e293b !important; }
+
+/* Virtual fund cards — darker border and background tints */
+.dark .bg-emerald-50 { background-color: #064e3b33 !important; }
+.dark .bg-blue-50 { background-color: #1e3a5f !important; }
+
+/* Credit card utilization SVG circles */
+.dark circle[stroke="#e5e7eb"] { stroke: #334155; }
+
+/* Pull-to-refresh indicator */
+.dark .bg-teal-500 { background-color: #0d9488 !important; }
+
+/* Swipe delete background */
+.dark .swipe-delete-bg { background-color: #991b1b !important; }
+
+/* Debt progress bar tracks */
+.dark .bg-gray-200 { background-color: #334155 !important; }
+
+/* Statement page section backgrounds */
+.dark .bg-blue-50 { background-color: #1e3a5f !important; }
+.dark .border-blue-200 { border-color: #1e40af !important; }
+.dark .text-blue-800 { color: #93c5fd !important; }
+.dark .text-blue-600 { color: #60a5fa !important; }
+
+/* Success toast in dark mode */
+.dark .bg-teal-50 { background-color: #0d3b3b !important; }
+.dark .border-teal-200 { border-color: #115e59 !important; }
+
+/* Empty state icons */
+.dark .text-gray-300 { color: #475569 !important; }
+
 /* Hide scrollbar on main content for a cleaner mobile look */
 main::-webkit-scrollbar {
     display: none;

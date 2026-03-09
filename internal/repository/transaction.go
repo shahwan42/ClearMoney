@@ -511,6 +511,27 @@ func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, accountID st
 	`, limit), accountID)
 }
 
+// SuggestCategory returns the most common category ID for transactions whose note matches a keyword.
+// Uses the pg_trgm trigram index for fuzzy matching (TASK-079).
+// Returns the category_id that appears most frequently in similar notes, or empty string if none.
+func (r *TransactionRepo) SuggestCategory(ctx context.Context, noteKeyword string) string {
+	if noteKeyword == "" {
+		return ""
+	}
+	var categoryID string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT category_id FROM transactions
+		WHERE note ILIKE '%' || $1 || '%' AND category_id IS NOT NULL
+		GROUP BY category_id
+		ORDER BY COUNT(*) DESC
+		LIMIT 1
+	`, noteKeyword).Scan(&categoryID)
+	if err != nil {
+		return ""
+	}
+	return categoryID
+}
+
 // HasDepositInRange checks if an account received a deposit >= minAmount within a date range.
 // Used by account health checking (TASK-068) to verify minimum monthly deposit.
 func (r *TransactionRepo) HasDepositInRange(ctx context.Context, accountID string, minAmount float64, from, to time.Time) bool {

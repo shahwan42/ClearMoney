@@ -977,6 +977,25 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	RenderPage(h.templates, w, "account-detail", PageData{ActiveTab: "accounts", Data: data})
 }
 
+// SuggestCategory returns the most likely category ID based on note text (TASK-079).
+// GET /api/transactions/suggest-category?note=...
+func (h *PageHandler) SuggestCategory(w http.ResponseWriter, r *http.Request) {
+	note := r.URL.Query().Get("note")
+	if note == "" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	categoryID := h.txSvc.SuggestCategory(r.Context(), note)
+	if categoryID == "" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(categoryID))
+}
+
 // CreditCardStatement renders the credit card statement view (TASK-071).
 // GET /accounts/{id}/statement?period=YYYY-MM (optional)
 func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request) {

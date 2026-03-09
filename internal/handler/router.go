@@ -196,6 +196,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Get("/settings", pages.Settings)
 		r.Post("/settings/pin", pages.ChangePin)
 		r.Get("/export/transactions", pages.ExportTransactions)
+		r.Get("/api/transactions/suggest-category", pages.SuggestCategory)
 
 		// Push notification endpoints
 		push := NewPushHandler(notificationSvc, os.Getenv("VAPID_PUBLIC_KEY"))

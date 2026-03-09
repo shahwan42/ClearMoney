@@ -1,8 +1,13 @@
 {{define "success-toast"}}
 <!-- Inline success message for the quick-entry sheet.
-     Also triggers a dashboard feed refresh via HTMX OOB swap. -->
-<div class="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center space-y-2">
-    <div class="text-2xl text-teal-600">&#10003;</div>
+     Animated checkmark (TASK-077) + dashboard feed refresh via HTMX OOB swap. -->
+<div class="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center space-y-2 animate-toast">
+    <div class="animate-success inline-block">
+        <svg class="w-10 h-10 mx-auto text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" class="opacity-20" fill="currentColor" stroke="none"/>
+            <path d="M7 13l3 3 7-7" class="animate-checkmark" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
     <p class="text-teal-800 font-semibold text-sm">Saved!</p>
     <p class="text-xs text-teal-600">
         New balance: <span class="font-bold">{{formatCurrency .NewBalance .Currency}}</span>
