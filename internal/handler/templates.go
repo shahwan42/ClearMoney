@@ -200,6 +200,10 @@ func TemplateFuncs() template.FuncMap {
 // formatNumber adds thousand separators and 2 decimal places.
 // 1234567.89 → "1,234,567.89"
 func formatNumber(n float64) string {
+	// Eliminate negative zero (-0.0) which can result from negating 0.0
+	if n == 0 {
+		n = 0
+	}
 	s := fmt.Sprintf("%.2f", n)
 	parts := strings.Split(s, ".")
 	intPart := parts[0]

@@ -30,6 +30,7 @@ package handler
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -957,6 +958,7 @@ func TestTemplateFuncs_FormatNumber(t *testing.T) {
 		expected string
 	}{
 		{0, "0.00"},
+		{math.Copysign(0, -1), "0.00"}, // negative zero must display as "0.00", not "-0.00" (BUG-003)
 		{1234.56, "1,234.56"},
 		{1234567.89, "1,234,567.89"},
 		{-5000, "-5,000.00"},
