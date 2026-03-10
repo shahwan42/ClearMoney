@@ -248,8 +248,8 @@ func GetCreditCardUtilization(acc models.Account) float64 {
 	}
 	// Balance is negative for credit cards (owed). Utilization = |balance| / limit * 100
 	used := -acc.CurrentBalance
-	if used < 0 {
-		used = 0
+	if used <= 0 {
+		return 0
 	}
 	return used / *acc.CreditLimit * 100
 }

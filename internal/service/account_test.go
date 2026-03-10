@@ -12,6 +12,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -134,5 +135,42 @@ func TestGetBillingCycleInfo_DueDaySameMonth(t *testing.T) {
 	// Due date should be Mar 25 (same month as statement)
 	if info.DueDate.Month() != 3 || info.DueDate.Day() != 25 {
 		t.Errorf("DueDate = %v, want Mar 25", info.DueDate)
+	}
+}
+
+// TestGetCreditCardUtilization_ZeroBalance verifies that a zero-balance CC
+// returns 0% utilization (not "-0%"). Regression test for BUG-004.
+func TestGetCreditCardUtilization_ZeroBalance(t *testing.T) {
+	limit := 50000.0
+	acc := models.Account{
+		Type: models.AccountTypeCreditCard,
+		CreditLimit: &limit,
+		CurrentBalance: 0.0,
+	}
+
+	util := GetCreditCardUtilization(acc)
+	if util != 0 {
+		t.Errorf("expected 0, got %f", util)
+	}
+	// Ensure it's not negative zero
+	s := fmt.Sprintf("%.0f", util)
+	if s != "0" {
+		t.Errorf("formatted utilization: expected %q, got %q", "0", s)
+	}
+}
+
+// TestGetCreditCardUtilization_WithBalance verifies normal CC utilization.
+func TestGetCreditCardUtilization_WithBalance(t *testing.T) {
+	limit := 50000.0
+	acc := models.Account{
+		Type: models.AccountTypeCreditCard,
+		CreditLimit: &limit,
+		CurrentBalance: -1000.0, // owes 1000
+	}
+
+	util := GetCreditCardUtilization(acc)
+	expected := 2.0 // 1000/50000*100
+	if util != expected {
+		t.Errorf("expected %f, got %f", expected, util)
 	}
 }
