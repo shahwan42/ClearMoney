@@ -69,6 +69,9 @@ func TestCategoryHandler_CreateCustom(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	router, addAuth := testRouter(t, db)
 
+	// Clean up any leftover from previous test runs before the unique constraint
+	db.Exec(`DELETE FROM categories WHERE name = 'Pet Expenses' AND is_system = false`)
+
 	body := `{"name":"Pet Expenses","type":"expense"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/categories", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -85,6 +88,11 @@ func TestCategoryHandler_CreateCustom(t *testing.T) {
 	if created.IsSystem {
 		t.Error("custom category should not be system")
 	}
+
+	// Clean up to prevent duplicate accumulation across test runs
+	t.Cleanup(func() {
+		db.Exec(`DELETE FROM categories WHERE name = 'Pet Expenses' AND is_system = false`)
+	})
 }
 
 func TestCategoryHandler_CannotModifySystem(t *testing.T) {

@@ -233,7 +233,7 @@
             {{range .Data.Budgets}}
             <div>
                 <div class="flex justify-between text-sm mb-1">
-                    <span class="text-slate-700">{{.CategoryName}}</span>
+                    <span class="text-slate-700">{{if .CategoryIcon}}{{.CategoryIcon}} {{end}}{{.CategoryName}}</span>
                     <span class="text-xs text-gray-400">{{formatEGP .Spent}} / {{formatEGP .MonthlyLimit}}</span>
                 </div>
                 <div class="w-full bg-gray-100 rounded-full h-2">

@@ -123,10 +123,10 @@
                 id="category-select">
                 <option value="">None</option>
                 {{range .Data.ExpenseCategories}}
-                <option value="{{.ID}}" class="category-expense" {{if eq .ID $prefillCat}}selected{{end}}>{{.Name}}</option>
+                <option value="{{.ID}}" class="category-expense" {{if eq .ID $prefillCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
                 {{end}}
                 {{range .Data.IncomeCategories}}
-                <option value="{{.ID}}" class="category-income" style="display:none" {{if eq .ID $prefillCat}}selected{{end}}>{{.Name}}</option>
+                <option value="{{.ID}}" class="category-income" style="display:none" {{if eq .ID $prefillCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
                 {{end}}
             </select>
         </div>

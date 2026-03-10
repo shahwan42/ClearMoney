@@ -28,7 +28,7 @@
                     <select name="category_id[]" class="flex-1 border rounded-lg px-2 py-1.5 text-sm">
                         <option value="">-- Category --</option>
                         {{range .Data.ExpenseCategories}}
-                        <option value="{{.ID}}">{{.Name}}</option>
+                        <option value="{{.ID}}">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
                         {{end}}
                     </select>
                 </div>

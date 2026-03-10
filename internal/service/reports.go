@@ -35,6 +35,7 @@ import (
 type CategorySpending struct {
 	CategoryID   string
 	CategoryName string
+	CategoryIcon string  // emoji icon (e.g., "🛒") — empty if not set
 	Amount       float64
 	Percentage   float64 // percentage of total spending
 }
@@ -255,7 +256,7 @@ func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, mo
 	endDate := startDate.AddDate(0, 1, 0)
 
 	query := `
-		SELECT COALESCE(t.category_id::text, ''), COALESCE(c.name, 'Uncategorized'), SUM(t.amount)
+		SELECT COALESCE(t.category_id::text, ''), COALESCE(c.name, 'Uncategorized'), COALESCE(c.icon, ''), SUM(t.amount)
 		FROM transactions t
 		LEFT JOIN categories c ON t.category_id = c.id
 		WHERE t.type = 'expense' AND t.date >= $1 AND t.date < $2`
@@ -273,7 +274,7 @@ func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, mo
 		argN++
 	}
 
-	query += ` GROUP BY t.category_id, c.name ORDER BY SUM(t.amount) DESC`
+	query += ` GROUP BY t.category_id, c.name, c.icon ORDER BY SUM(t.amount) DESC`
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -285,7 +286,7 @@ func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, mo
 	var total float64
 	for rows.Next() {
 		var cs CategorySpending
-		if err := rows.Scan(&cs.CategoryID, &cs.CategoryName, &cs.Amount); err != nil {
+		if err := rows.Scan(&cs.CategoryID, &cs.CategoryName, &cs.CategoryIcon, &cs.Amount); err != nil {
 			return nil, 0, err
 		}
 		total += cs.Amount

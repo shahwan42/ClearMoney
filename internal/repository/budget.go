@@ -87,6 +87,7 @@ func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month tim
 		SELECT b.id, b.category_id, b.monthly_limit, b.currency, b.is_active,
 		       b.created_at, b.updated_at,
 		       c.name AS category_name,
+		       COALESCE(c.icon, '') AS category_icon,
 		       COALESCE(SUM(t.amount), 0) AS spent
 		FROM budgets b
 		JOIN categories c ON b.category_id = c.id
@@ -95,7 +96,7 @@ func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month tim
 		    AND t.date >= $1 AND t.date < $2
 		    AND t.currency = b.currency
 		WHERE b.is_active = true
-		GROUP BY b.id, c.name
+		GROUP BY b.id, c.name, c.icon
 		ORDER BY c.name
 	`, startDate, endDate)
 	if err != nil {
@@ -108,7 +109,7 @@ func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month tim
 		var bws models.BudgetWithSpending
 		if err := rows.Scan(&bws.ID, &bws.CategoryID, &bws.MonthlyLimit, &bws.Currency,
 			&bws.IsActive, &bws.CreatedAt, &bws.UpdatedAt,
-			&bws.CategoryName, &bws.Spent); err != nil {
+			&bws.CategoryName, &bws.CategoryIcon, &bws.Spent); err != nil {
 			return nil, err
 		}
 		// Compute derived fields

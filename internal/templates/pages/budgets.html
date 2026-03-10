@@ -16,7 +16,7 @@
                 <select name="category_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
                     <option value="">Select category...</option>
                     {{range .Data.Categories}}
-                    <option value="{{.ID}}">{{.Name}}</option>
+                    <option value="{{.ID}}">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
                     {{end}}
                 </select>
             </div>
@@ -47,7 +47,7 @@
         {{range .Data.Budgets}}
         <div class="bg-white rounded-2xl shadow-sm p-4">
             <div class="flex items-center justify-between mb-2">
-                <span class="font-semibold text-slate-800">{{.CategoryName}}</span>
+                <span class="font-semibold text-slate-800">{{if .CategoryIcon}}{{.CategoryIcon}} {{end}}{{.CategoryName}}</span>
                 <form method="POST" action="/budgets/{{.ID}}/delete">
                     <button type="submit" class="text-xs text-gray-400 hover:text-red-500">Delete</button>
                 </form>

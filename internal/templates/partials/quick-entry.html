@@ -112,10 +112,10 @@
             id="qe-category-select">
             <option value="">No category</option>
             {{range .ExpenseCategories}}
-            <option value="{{.ID}}" class="qe-category-expense" {{if eq .ID $autoCat}}selected{{end}}>{{.Name}}</option>
+            <option value="{{.ID}}" class="qe-category-expense" {{if eq .ID $autoCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
             {{end}}
             {{range .IncomeCategories}}
-            <option value="{{.ID}}" class="qe-category-income" style="display:none">{{.Name}}</option>
+            <option value="{{.ID}}" class="qe-category-income" style="display:none">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
             {{end}}
         </select>
     </div>

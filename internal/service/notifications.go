@@ -96,14 +96,14 @@ func (s *NotificationService) GetPendingNotifications(ctx context.Context) ([]No
 				if b.Percentage >= 100 {
 					notifications = append(notifications, Notification{
 						Title: "Budget Exceeded",
-						Body:  fmt.Sprintf("%s: spent EGP %.0f of EGP %.0f limit (%.0f%%)", b.CategoryName, b.Spent, b.MonthlyLimit, b.Percentage),
+						Body:  fmt.Sprintf("%s: spent EGP %.0f of EGP %.0f limit (%.0f%%)", b.CategoryDisplayName(), b.Spent, b.MonthlyLimit, b.Percentage),
 						URL:   "/budgets",
 						Tag:   fmt.Sprintf("budget-exceeded-%s", b.CategoryID),
 					})
 				} else if b.Percentage >= 80 {
 					notifications = append(notifications, Notification{
 						Title: "Budget Warning",
-						Body:  fmt.Sprintf("%s: %.0f%% of budget used (EGP %.0f remaining)", b.CategoryName, b.Percentage, b.Remaining),
+						Body:  fmt.Sprintf("%s: %.0f%% of budget used (EGP %.0f remaining)", b.CategoryDisplayName(), b.Percentage, b.Remaining),
 						URL:   "/budgets",
 						Tag:   fmt.Sprintf("budget-warning-%s", b.CategoryID),
 					})

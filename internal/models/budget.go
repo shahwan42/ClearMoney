@@ -54,8 +54,17 @@ type Budget struct {
 type BudgetWithSpending struct {
 	Budget                        // embedded struct — "inherits" all Budget fields (ID, CategoryID, MonthlyLimit, etc.)
 	CategoryName string           // joined from categories table (e.g., "Groceries")
+	CategoryIcon string           // emoji icon (e.g., "🛒") — empty if not set
 	Spent        float64          // total spent this month in this category
 	Remaining    float64          // monthly_limit - spent (negative if over budget — user spent more than allowed)
 	Percentage   float64          // (spent / monthly_limit) * 100 — used for progress bar rendering
 	Status       string           // traffic-light status: "green" (0-70%), "amber" (70-90%), "red" (90%+)
+}
+
+// CategoryDisplayName returns the category name prefixed with its icon if set.
+func (b BudgetWithSpending) CategoryDisplayName() string {
+	if b.CategoryIcon != "" {
+		return b.CategoryIcon + " " + b.CategoryName
+	}
+	return b.CategoryName
 }
