@@ -2657,8 +2657,7 @@ func (h *PageHandler) BudgetAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("HX-Redirect", "/budgets")
-	w.WriteHeader(http.StatusOK)
+	http.Redirect(w, r, "/budgets", http.StatusSeeOther)
 }
 
 // BudgetDelete removes a budget.
@@ -2670,8 +2669,7 @@ func (h *PageHandler) BudgetDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("HX-Redirect", "/budgets")
-	w.WriteHeader(http.StatusOK)
+	http.Redirect(w, r, "/budgets", http.StatusSeeOther)
 }
 
 // =============================================================================
