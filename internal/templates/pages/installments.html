@@ -35,7 +35,7 @@
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">Start Date</label>
-                    <input type="date" name="start_date" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <input type="date" name="start_date" value="{{formatDateISO .Data.Today}}" required class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
             </div>
             <button type="submit" class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold">

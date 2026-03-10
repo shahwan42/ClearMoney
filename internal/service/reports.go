@@ -26,6 +26,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
@@ -136,7 +137,11 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 	data.TotalSpending = total
 
 	// Current month summary
-	data.CurrentMonth, _ = s.getMonthSummary(ctx, year, month, filter)
+	if summary, err := s.getMonthSummary(ctx, year, month, filter); err != nil {
+		slog.Warn("failed to get current month summary", "year", year, "month", month, "error", err)
+	} else {
+		data.CurrentMonth = summary
+	}
 
 	// Previous month summary
 	prevYear, prevMonth := year, month-1
@@ -144,7 +149,11 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 		prevMonth = 12
 		prevYear--
 	}
-	data.PreviousMonth, _ = s.getMonthSummary(ctx, prevYear, prevMonth, filter)
+	if summary, err := s.getMonthSummary(ctx, prevYear, prevMonth, filter); err != nil {
+		slog.Warn("failed to get previous month summary", "year", prevYear, "month", prevMonth, "error", err)
+	} else {
+		data.PreviousMonth = summary
+	}
 
 	// Next month summary
 	nextYear, nextMonth := year, month+1
@@ -152,7 +161,11 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 		nextMonth = 1
 		nextYear++
 	}
-	data.NextMonth, _ = s.getMonthSummary(ctx, nextYear, nextMonth, filter)
+	if summary, err := s.getMonthSummary(ctx, nextYear, nextMonth, filter); err != nil {
+		slog.Warn("failed to get next month summary", "year", nextYear, "month", nextMonth, "error", err)
+	} else {
+		data.NextMonth = summary
+	}
 
 	// TASK-057: Generate donut chart segments from spending categories.
 	// Uses the 8-color chart palette, one color per category.

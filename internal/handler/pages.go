@@ -87,6 +87,40 @@ func parseDate(s string) (time.Time, error) {
 	return time.Parse("2006-01-02", s)
 }
 
+// htmxRedirect sends HX-Redirect for HTMX requests or http.Redirect for standard POST forms.
+// Like Laravel's redirect()->back() but aware of whether the request came from HTMX or a browser form.
+func htmxRedirect(w http.ResponseWriter, r *http.Request, url string) {
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", url)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, url, http.StatusSeeOther)
+}
+
+// HTMXResultData holds data for the htmx-result partial template.
+type HTMXResultData struct {
+	Type    string // "success", "error", or "info"
+	Message string
+	Detail  string // optional secondary text
+}
+
+// renderHTMXResult renders the htmx-result template partial for HTMX responses.
+func (h *PageHandler) renderHTMXResult(w http.ResponseWriter, resultType, message, detail string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	for _, tmpl := range h.templates {
+		if err := tmpl.ExecuteTemplate(w, "htmx-result", HTMXResultData{
+			Type:    resultType,
+			Message: message,
+			Detail:  detail,
+		}); err == nil {
+			return
+		}
+	}
+	// Fallback if template not found
+	fmt.Fprintf(w, `<div class="p-3 rounded-lg text-sm">%s</div>`, message)
+}
+
 // =============================================================================
 // View Model Structs — Data shapes for template rendering
 // =============================================================================
@@ -121,6 +155,7 @@ type TransactionFormData struct {
 	Accounts           []models.Account
 	ExpenseCategories  []models.Category
 	IncomeCategories   []models.Category
+	Today              time.Time
 	// Pre-fill fields (for transaction duplication)
 	Prefill *models.Transaction
 }
@@ -195,6 +230,7 @@ type BuildingFundPageData struct {
 	Balance      float64
 	Transactions []models.Transaction
 	Accounts     []models.Account
+	Today        time.Time
 }
 
 // RecurringRuleView is a display-friendly view of a recurring rule.
@@ -213,6 +249,7 @@ type RecurringPageData struct {
 	PendingRules []RecurringRuleView
 	Accounts     []models.Account
 	Categories   []models.Category
+	Today        time.Time
 }
 
 // SalaryStepData holds data passed between salary wizard steps.
@@ -225,6 +262,7 @@ type SalaryStepData struct {
 	USDAccountID string
 	EGPAccountID string
 	Date         string
+	Today        time.Time
 }
 
 // SalarySuccessData holds data for the salary success confirmation.
@@ -438,6 +476,7 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 		Accounts:          accounts,
 		ExpenseCategories: expenseCategories,
 		IncomeCategories:  incomeCategories,
+		Today:             time.Now(),
 	}
 
 	// If ?dup=<id> is provided, pre-fill from that transaction
@@ -623,6 +662,7 @@ func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 		ActiveTab: "transactions",
 		Data: TransactionFormData{
 			Accounts: accounts,
+			Today:    time.Now(),
 		},
 	})
 }
@@ -635,6 +675,7 @@ func (h *PageHandler) ExchangeNew(w http.ResponseWriter, r *http.Request) {
 		ActiveTab: "transactions",
 		Data: TransactionFormData{
 			Accounts: accounts,
+			Today:    time.Now(),
 		},
 	})
 }
@@ -724,17 +765,12 @@ func (h *PageHandler) InstapayTransferCreate(w http.ResponseWriter, r *http.Requ
 
 	_, _, fee, err := h.txSvc.CreateInstapayTransfer(r.Context(), sourceID, destID, amount, currency, note, date, feesCatID)
 	if err != nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		h.renderHTMXResult(w, "error", err.Error(), "")
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(fmt.Sprintf(
-		`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">InstaPay transfer completed! Fee: EGP %.2f</div>`,
-		fee,
-	)))
+	h.renderHTMXResult(w, "success", fmt.Sprintf("InstaPay transfer completed! Fee: EGP %.2f", fee), "")
 }
 
 // ExchangeCreate handles the exchange form submission.
@@ -1153,7 +1189,11 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	// TASK-059: Fetch 30-day balance history for sparkline
 	var balanceHistory []float64
 	if h.snapshotSvc != nil {
-		balanceHistory, _ = h.snapshotSvc.GetAccountHistory(r.Context(), id, 30)
+		if history, err := h.snapshotSvc.GetAccountHistory(r.Context(), id, 30); err != nil {
+			authmw.Log(r.Context()).Warn("failed to load balance history", "account_id", id, "error", err)
+		} else {
+			balanceHistory = history
+		}
 	}
 
 	// TASK-073: Utilization for credit cards
@@ -1315,6 +1355,7 @@ func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) 
 	}
 	tmpl.ExecuteTemplate(w, "quick-exchange-form", TransactionFormData{
 		Accounts: accounts,
+		Today:    time.Now(),
 	})
 }
 
@@ -1390,7 +1431,7 @@ func (h *PageHandler) Salary(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "salary", PageData{
 		ActiveTab: "home",
-		Data:      SalaryStepData{Accounts: accounts},
+		Data:      SalaryStepData{Accounts: accounts, Today: time.Now()},
 	})
 }
 
@@ -1527,7 +1568,7 @@ func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "fawry-cashout", PageData{
 		ActiveTab: "home",
-		Data:      TransactionFormData{Accounts: accounts},
+		Data:      TransactionFormData{Accounts: accounts, Today: time.Now()},
 	})
 }
 
@@ -1568,17 +1609,12 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 
 	_, _, err := h.txSvc.CreateFawryCashout(r.Context(), creditCardID, prepaidAccountID, amount, fee, currency, note, date, feesCatID)
 	if err != nil {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
+		h.renderHTMXResult(w, "error", err.Error(), "")
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(fmt.Sprintf(
-		`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Fawry cash-out completed! Amount: EGP %.2f, Fee: EGP %.2f</div>`,
-		amount, fee,
-	)))
+	h.renderHTMXResult(w, "success", fmt.Sprintf("Fawry cash-out completed! Amount: EGP %.2f, Fee: EGP %.2f", amount, fee), "")
 }
 
 // =============================================================================
@@ -1640,6 +1676,7 @@ func (h *PageHandler) BuildingFundPage(w http.ResponseWriter, r *http.Request) {
 			Balance:      balance,
 			Transactions: txns,
 			Accounts:     accounts,
+			Today:        time.Now(),
 		},
 	})
 }
@@ -1747,6 +1784,7 @@ func (h *PageHandler) Recurring(w http.ResponseWriter, r *http.Request) {
 			PendingRules: pendingViews,
 			Accounts:     accounts,
 			Categories:   categories,
+			Today:        time.Now(),
 		}
 	}
 
@@ -1780,7 +1818,12 @@ func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
 		tmpl.Currency = acc.Currency
 	}
 
-	tmplJSON, _ := json.Marshal(tmpl)
+	tmplJSON, err := json.Marshal(tmpl)
+	if err != nil {
+		authmw.Log(r.Context()).Error("failed to marshal recurring template", "error", err)
+		http.Error(w, "failed to create rule", http.StatusInternalServerError)
+		return
+	}
 
 	var nextDue time.Time
 	if d := r.FormValue("next_due_date"); d != "" {
@@ -1795,7 +1838,7 @@ func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
 		AutoConfirm:         r.FormValue("auto_confirm") == "true",
 	}
 
-	_, err := h.recurringSvc.Create(r.Context(), rule)
+	_, err = h.recurringSvc.Create(r.Context(), rule)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -2005,8 +2048,7 @@ func (h *PageHandler) InvestmentAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Redirect", "/investments")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/investments")
 }
 
 // InvestmentUpdateValuation updates the unit price for an investment.
@@ -2021,8 +2063,7 @@ func (h *PageHandler) InvestmentUpdateValuation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	w.Header().Set("HX-Redirect", "/investments")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/investments")
 }
 
 // InvestmentDelete removes an investment holding.
@@ -2035,14 +2076,14 @@ func (h *PageHandler) InvestmentDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Redirect", "/investments")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/investments")
 }
 
 // InstallmentPageData holds data for the installment plans page.
 type InstallmentPageData struct {
 	Plans    []models.InstallmentPlan
 	Accounts []models.Account
+	Today    time.Time
 }
 
 // =============================================================================
@@ -2055,7 +2096,7 @@ func (h *PageHandler) Installments(w http.ResponseWriter, r *http.Request) {
 	plans, _ := h.installmentSvc.GetAll(r.Context())
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
-	data := InstallmentPageData{Plans: plans, Accounts: accounts}
+	data := InstallmentPageData{Plans: plans, Accounts: accounts, Today: time.Now()}
 	RenderPage(h.templates, w, "installments", PageData{ActiveTab: "more", Data: data})
 }
 
@@ -2080,8 +2121,7 @@ func (h *PageHandler) InstallmentAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Redirect", "/installments")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/installments")
 }
 
 // InstallmentPay records a payment on an installment plan.
@@ -2093,8 +2133,7 @@ func (h *PageHandler) InstallmentPay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Redirect", "/installments")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/installments")
 }
 
 // InstallmentDelete removes an installment plan.
@@ -2106,14 +2145,14 @@ func (h *PageHandler) InstallmentDelete(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("HX-Redirect", "/installments")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/installments")
 }
 
 // BatchEntryData holds data for the batch entry page.
 type BatchEntryData struct {
 	Accounts          []models.Account
 	ExpenseCategories []models.Category
+	Today             time.Time
 }
 
 // =============================================================================
@@ -2126,7 +2165,7 @@ func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	expCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 
-	data := BatchEntryData{Accounts: accounts, ExpenseCategories: expCategories}
+	data := BatchEntryData{Accounts: accounts, ExpenseCategories: expCategories, Today: time.Now()}
 	RenderPage(h.templates, w, "batch-entry", PageData{ActiveTab: "transactions", Data: data})
 }
 
@@ -2185,16 +2224,11 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<div class="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center">
-		<p class="text-sm font-medium text-teal-800">Created %d transaction(s)</p>
-		%s
-	</div>`, created, func() string {
-		if failed > 0 {
-			return fmt.Sprintf(`<p class="text-xs text-red-600 mt-1">%d failed</p>`, failed)
-		}
-		return ""
-	}())
+	detail := ""
+	if failed > 0 {
+		detail = fmt.Sprintf("%d failed", failed)
+	}
+	h.renderHTMXResult(w, "info", fmt.Sprintf("Created %d transaction(s)", created), detail)
 }
 
 // ToggleDormant toggles the dormant status of an account.
@@ -2206,8 +2240,7 @@ func (h *PageHandler) ToggleDormant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("HX-Redirect", "/accounts/"+id)
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/accounts/"+id)
 }
 
 // ReorderAccounts updates display_order for a list of account IDs.
@@ -2218,8 +2251,7 @@ func (h *PageHandler) ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 	for i, id := range ids {
 		h.accountSvc.UpdateDisplayOrder(r.Context(), id, i)
 	}
-	w.Header().Set("HX-Redirect", "/accounts")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/accounts")
 }
 
 // ReorderInstitutions updates display_order for a list of institution IDs.
@@ -2230,8 +2262,7 @@ func (h *PageHandler) ReorderInstitutions(w http.ResponseWriter, r *http.Request
 	for i, id := range ids {
 		h.institutionSvc.UpdateDisplayOrder(r.Context(), id, i)
 	}
-	w.Header().Set("HX-Redirect", "/accounts")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/accounts")
 }
 
 // ExchangeRatePageData holds data for the exchange rate history page.
@@ -2543,8 +2574,7 @@ func (h *PageHandler) VirtualFundAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("HX-Redirect", "/virtual-funds")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/virtual-funds")
 }
 
 // VirtualFundDetail renders the virtual fund detail page with transaction history.
@@ -2577,8 +2607,7 @@ func (h *PageHandler) VirtualFundArchive(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("HX-Redirect", "/virtual-funds")
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/virtual-funds")
 }
 
 // VirtualFundAllocate creates a transaction and allocates it to a fund.
@@ -2636,8 +2665,7 @@ func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Header().Set("HX-Redirect", "/virtual-funds/"+fundID)
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/virtual-funds/"+fundID)
 }
 
 // =============================================================================
@@ -2732,6 +2760,5 @@ func (h *PageHandler) AccountHealthUpdate(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	w.Header().Set("HX-Redirect", "/accounts/"+id)
-	w.WriteHeader(http.StatusOK)
+	htmxRedirect(w, r, "/accounts/"+id)
 }

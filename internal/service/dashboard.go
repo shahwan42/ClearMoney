@@ -33,6 +33,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
@@ -365,7 +366,11 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	}
 
 	// Load recent transactions
-	data.RecentTransactions, _ = s.txRepo.GetRecent(ctx, 10)
+	if txns, err := s.txRepo.GetRecent(ctx, 10); err != nil {
+		slog.Warn("failed to load recent transactions", "error", err)
+	} else {
+		data.RecentTransactions = txns
+	}
 
 	// TASK-055: Net worth sparkline (last 30 days from snapshots)
 	if s.snapshotSvc != nil {
@@ -441,15 +446,19 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
 
 	// Total spending this month vs last month
-	_ = s.db.QueryRowContext(ctx, `
+	if err := s.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(amount), 0) FROM transactions
 		WHERE type = 'expense' AND date >= $1 AND date < $2
-	`, thisMonthStart, thisMonthStart.AddDate(0, 1, 0)).Scan(&data.ThisMonthSpending)
+	`, thisMonthStart, thisMonthStart.AddDate(0, 1, 0)).Scan(&data.ThisMonthSpending); err != nil {
+		slog.Warn("failed to compute this month spending", "error", err)
+	}
 
-	_ = s.db.QueryRowContext(ctx, `
+	if err := s.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(amount), 0) FROM transactions
 		WHERE type = 'expense' AND date >= $1 AND date < $2
-	`, lastMonthStart, thisMonthStart).Scan(&data.LastMonthSpending)
+	`, lastMonthStart, thisMonthStart).Scan(&data.LastMonthSpending); err != nil {
+		slog.Warn("failed to compute last month spending", "error", err)
+	}
 
 	// Spending change %
 	if data.LastMonthSpending > 0 {
