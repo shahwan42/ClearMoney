@@ -22,8 +22,13 @@
         <div class="text-right flex-shrink-0">
             {{if eq (string .Type) "expense"}}
             <span class="text-sm font-semibold text-red-600">-{{formatCurrency .Amount .Currency}}</span>
-            {{else}}
+            {{else if eq (string .Type) "income"}}
             <span class="text-sm font-semibold text-green-600">+{{formatCurrency .Amount .Currency}}</span>
+            {{else}}
+            {{/* transfer/exchange: use BalanceDelta to show direction */}}
+            <span class="text-sm font-semibold {{if lt .BalanceDelta 0.0}}text-red-600{{else}}text-blue-600{{end}}">
+                {{if lt .BalanceDelta 0.0}}-{{else}}+{{end}}{{formatCurrency .Amount .Currency}}
+            </span>
             {{end}}
         </div>
         <!-- Edit/delete buttons (visible on hover/tap) -->

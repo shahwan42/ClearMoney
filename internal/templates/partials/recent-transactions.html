@@ -57,9 +57,15 @@
             </p>
             <p class="text-xs text-gray-400">{{formatDateShort .Date}}</p>
         </div>
-        <span class="text-sm font-semibold {{if eq (string .Type) "expense"}}text-red-600{{else}}text-teal-600{{end}}">
-            {{if eq (string .Type) "expense"}}-{{end}}{{formatCurrency .Amount .Currency}}
+        {{if eq (string .Type) "expense"}}
+        <span class="text-sm font-semibold text-red-600">-{{formatCurrency .Amount .Currency}}</span>
+        {{else if eq (string .Type) "income"}}
+        <span class="text-sm font-semibold text-teal-600">+{{formatCurrency .Amount .Currency}}</span>
+        {{else}}
+        <span class="text-sm font-semibold {{if lt .BalanceDelta 0.0}}text-red-600{{else}}text-blue-600{{end}}">
+            {{if lt .BalanceDelta 0.0}}-{{else}}+{{end}}{{formatCurrency .Amount .Currency}}
         </span>
+        {{end}}
     </div>
     {{end}}
 </div>
