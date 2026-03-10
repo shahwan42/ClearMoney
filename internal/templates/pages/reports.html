@@ -30,7 +30,7 @@
         <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Spending by Category</h3>
         {{if .Data.ChartSegments}}
         <div class="mb-4">
-            {{template "chart-donut" (dict "Segments" .Data.ChartSegments "CenterLabel" (formatEGP .Data.TotalSpending) "CenterSub" "total")}}
+            {{template "chart-donut" (dict "Segments" .Data.ChartSegments "CenterLabel" (formatCurrency .Data.TotalSpending (or .Data.Filter.Currency "EGP")) "CenterSub" "total")}}
         </div>
         {{end}}
         {{template "spending-by-category" .Data}}
