@@ -42,7 +42,7 @@
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Credit Utilization</h2>
         <div class="flex items-center gap-4">
-            {{template "chart-donut" (dict "Segments" (slice) "Size" 80 "Label" (printf "%.0f%%" .Data.Utilization) "UsedPct" .Data.Utilization)}}
+            {{template "chart-donut" (dict "Segments" .Data.UtilSegments "CenterLabel" (printf "%.0f%%" .Data.Utilization))}}
             <div>
                 <p class="text-2xl font-bold {{if gt .Data.Utilization 80.0}}text-red-600{{else if gt .Data.Utilization 50.0}}text-amber-600{{else}}text-emerald-600{{end}}">
                     {{printf "%.0f" .Data.Utilization}}%

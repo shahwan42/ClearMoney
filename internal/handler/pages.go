@@ -1231,21 +1231,41 @@ func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request
 
 	stmtData, err := service.GetStatementData(acc, h.txSvc.TxRepo(), h.snapshotSvc, r.Context(), periodStr)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		// BUG-008: show friendly message for missing billing cycle config
+		RenderPage(h.templates, w, "credit-card-statement-error", PageData{
+			ActiveTab: "accounts",
+			Data: map[string]interface{}{
+				"Account": acc,
+				"Message": "Please configure a billing cycle (statement day & due day) in account settings to view your statement.",
+			},
+		})
 		return
 	}
 
 	// TASK-073: Add utilization data
 	utilization := service.GetCreditCardUtilization(acc)
 
+	// Build utilization segment for the donut chart
+	var utilSegments []models.ChartSegment
+	if utilization > 0 {
+		color := "#10b981" // emerald
+		if utilization > 80 {
+			color = "#dc2626" // red
+		} else if utilization > 50 {
+			color = "#f59e0b" // amber
+		}
+		utilSegments = []models.ChartSegment{{Label: "Used", Percentage: utilization, Color: color}}
+	}
+
 	type StatementPageData struct {
-		Statement   *service.StatementData
-		Utilization float64
+		Statement    *service.StatementData
+		Utilization  float64
+		UtilSegments []models.ChartSegment
 	}
 
 	RenderPage(h.templates, w, "credit-card-statement", PageData{
 		ActiveTab: "accounts",
-		Data:      StatementPageData{Statement: stmtData, Utilization: utilization},
+		Data:      StatementPageData{Statement: stmtData, Utilization: utilization, UtilSegments: utilSegments},
 	})
 }
 
