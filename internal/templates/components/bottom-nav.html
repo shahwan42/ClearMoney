@@ -89,6 +89,27 @@
     <div class="flex justify-center pt-3 pb-1" id="quick-entry-handle">
         <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
     </div>
+    <!-- Tab bar for switching between Transaction and Exchange -->
+    <div class="flex gap-2 px-4 mb-3" id="quick-entry-tabs">
+        <button type="button"
+            class="flex-1 py-2 text-sm font-medium text-center rounded-lg border bg-teal-50 text-teal-700 border-teal-200"
+            id="tab-transaction"
+            hx-get="/transactions/quick-form"
+            hx-target="#quick-entry-content"
+            hx-swap="innerHTML"
+            onclick="setQuickEntryTab('transaction')">
+            Transaction
+        </button>
+        <button type="button"
+            class="flex-1 py-2 text-sm font-medium text-center rounded-lg border bg-gray-50 text-gray-500 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600"
+            id="tab-exchange"
+            hx-get="/exchange/quick-form"
+            hx-target="#quick-entry-content"
+            hx-swap="innerHTML"
+            onclick="setQuickEntryTab('exchange')">
+            Exchange
+        </button>
+    </div>
     <div id="quick-entry-content" class="px-4 pb-6">
         <!-- Content loaded via HTMX when sheet opens -->
     </div>

@@ -781,7 +781,18 @@ func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Exchange completed successfully!</div>`))
+	if r.FormValue("from_sheet") == "1" {
+		w.Write([]byte(`<div class="bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-700 rounded-xl p-4 text-center space-y-2">
+			<p class="text-teal-800 dark:text-teal-200 font-semibold text-sm">Exchange completed!</p>
+			<button type="button" onclick="closeQuickEntry()"
+				class="mt-2 px-4 py-1.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700">
+				Done
+			</button>
+		</div>
+		<div id="recent-transactions" hx-get="/partials/recent-transactions" hx-trigger="load" hx-swap-oob="true"></div>`))
+	} else {
+		w.Write([]byte(`<div class="bg-green-50 text-green-700 p-3 rounded-lg text-sm">Exchange completed successfully!</div>`))
+	}
 }
 
 // TransactionEditForm renders the inline edit form for a transaction.
@@ -1268,6 +1279,22 @@ func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 		},
 		LastAccountID:  defaults.LastAccountID,
 		AutoCategoryID: defaults.AutoCategoryID,
+	})
+}
+
+// QuickExchangeForm serves the exchange form partial into the bottom sheet.
+// GET /exchange/quick-form — loaded by HTMX when the "Exchange" tab is tapped.
+func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["home"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "quick-exchange-form", TransactionFormData{
+		Accounts: accounts,
 	})
 }
 

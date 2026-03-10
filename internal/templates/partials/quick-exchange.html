@@ -1,0 +1,99 @@
+<!--
+  QUICK EXCHANGE PARTIAL — Currency Exchange Form for the Bottom Sheet
+
+  Lazy-loaded into the bottom sheet via HTMX when the "Exchange" tab is tapped.
+  Streamlined version of the full exchange form (exchange-form.html), adapted
+  for the FAB bottom sheet context — no card wrapper, hidden date field, and
+  sheet-aware success response via the "from_sheet" hidden field.
+
+  Blade equivalent: A Livewire component loaded via wire:init
+  Django equivalent: A view that returns render(request, 'partials/quick-exchange.html')
+
+  Uses the same calcExchange() auto-calculation from exchange.js.
+-->
+{{define "quick-exchange-form"}}
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Currency Exchange</h3>
+
+<!-- Result area for success/error messages -->
+<div id="exchange-result"></div>
+
+<form
+    hx-post="/transactions/exchange-submit"
+    hx-target="#exchange-result"
+    hx-swap="innerHTML"
+    class="space-y-4"
+    id="quick-exchange-form"
+>
+    <!-- Hidden field to signal this came from the bottom sheet -->
+    <input type="hidden" name="from_sheet" value="1">
+
+    <!-- Source account -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">From Account</label>
+        <select name="source_account_id" required id="exchange-src"
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">Select source...</option>
+            {{range .Accounts}}
+            <option value="{{.ID}}" data-currency="{{string .Currency}}">{{.Name}} ({{string .Currency}})</option>
+            {{end}}
+        </select>
+    </div>
+
+    <!-- Destination account -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">To Account</label>
+        <select name="dest_account_id" required id="exchange-dst"
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">Select destination...</option>
+            {{range .Accounts}}
+            <option value="{{.ID}}" data-currency="{{string .Currency}}">{{.Name}} ({{string .Currency}})</option>
+            {{end}}
+        </select>
+    </div>
+
+    <!-- Amount / Rate / Result (3-column grid) -->
+    <div class="grid grid-cols-3 gap-2">
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Amount</label>
+            <input type="number" name="amount" id="exchange-amount" step="0.01" min="0.01"
+                   class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                   oninput="calcExchange('amount')" inputmode="decimal">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Rate</label>
+            <input type="number" name="rate" id="exchange-rate" step="0.0001" min="0.0001"
+                   class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                   oninput="calcExchange('rate')" inputmode="decimal">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Result</label>
+            <input type="number" name="counter_amount" id="exchange-counter" step="0.01" min="0.01"
+                   class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                   oninput="calcExchange('counter')" inputmode="decimal">
+        </div>
+    </div>
+
+    <!-- Note -->
+    <div>
+        <input type="text" name="note" placeholder="Note (optional)"
+            class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    <!-- Hidden date (defaults to today) -->
+    <input type="hidden" name="date" id="qe-exchange-date">
+
+    <!-- Submit -->
+    <button type="submit"
+        class="w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+        Exchange
+    </button>
+</form>
+
+<script>
+(function() {
+    // Set date to today
+    document.getElementById('qe-exchange-date').value = new Date().toISOString().split('T')[0];
+})();
+</script>
+<script src="/static/js/exchange.js"></script>
+{{end}}

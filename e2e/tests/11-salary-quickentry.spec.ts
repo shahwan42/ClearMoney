@@ -76,4 +76,53 @@ test.describe('Salary Wizard & Quick Entry (TASK-033, TASK-025, TASK-026)', () =
 
     await expect(page.locator('#quick-entry-result')).toContainText(/saved|success/i);
   });
+
+  // Quick Exchange via FAB bottom sheet
+  test('quick exchange tab switches form', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.fab-button').click();
+    await expect(page.locator('#quick-entry-form')).toBeVisible();
+
+    // Switch to Exchange tab
+    await page.locator('#tab-exchange').click();
+    await expect(page.locator('#exchange-src')).toBeVisible();
+    await expect(page.locator('#exchange-dst')).toBeVisible();
+    await expect(page.locator('#exchange-amount')).toBeVisible();
+    await expect(page.locator('#exchange-rate')).toBeVisible();
+  });
+
+  test('quick exchange creates exchange via FAB', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.fab-button').click();
+    await page.locator('#tab-exchange').click();
+    await expect(page.locator('#exchange-src')).toBeVisible();
+
+    await page.selectOption('#exchange-src', { label: 'USD Salary (USD)' });
+    await page.selectOption('#exchange-dst', { label: 'Main EGP (EGP)' });
+    await page.fill('#exchange-amount', '100');
+    await page.fill('#exchange-rate', '50');
+
+    // Verify auto-calculation
+    await expect(page.locator('#exchange-counter')).toHaveValue('5000.00');
+
+    await page.click('#quick-exchange-form button:has-text("Exchange")');
+    await expect(page.locator('#exchange-result')).toContainText(/exchange|completed|success/i);
+  });
+
+  test('quick exchange tab resets on reopen', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.fab-button').click();
+    await expect(page.locator('#quick-entry-form')).toBeVisible();
+
+    // Switch to Exchange tab
+    await page.locator('#tab-exchange').click();
+    await expect(page.locator('#exchange-src')).toBeVisible();
+
+    // Close sheet
+    await page.locator('#quick-entry-overlay').click();
+
+    // Reopen — should default to Transaction tab
+    await page.locator('.fab-button').click();
+    await expect(page.locator('#quick-entry-form')).toBeVisible();
+  });
 });
