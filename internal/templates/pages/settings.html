@@ -84,21 +84,34 @@
     <!-- Export -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Export Transactions</h3>
-        <form action="/export/transactions" method="GET" class="space-y-3">
+        <!-- hx-boost="false" ensures native HTML5 validation fires and the browser
+             handles the CSV file download (Content-Disposition: attachment) correctly -->
+        <form action="/export/transactions" method="GET" hx-boost="false" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">From</label>
-                    <input type="date" name="from" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <input type="date" name="from" required id="export-from" class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">To</label>
-                    <input type="date" name="to" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <input type="date" name="to" required id="export-to" class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
             </div>
             <button type="submit" class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold">
                 Download CSV
             </button>
         </form>
+        <script>
+        (function() {
+            // Pre-populate with first day of month → today
+            var today = new Date().toISOString().split('T')[0];
+            var firstOfMonth = today.substring(0, 8) + '01';
+            var from = document.getElementById('export-from');
+            var to = document.getElementById('export-to');
+            if (from && !from.value) from.value = firstOfMonth;
+            if (to && !to.value) to.value = today;
+        })();
+        </script>
     </section>
 
     <!-- Notifications -->
