@@ -11,7 +11,7 @@
             <span class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span>
             {{end}}
             <span class="text-sm font-medium text-slate-800 truncate">
-                {{if .Note}}{{deref .Note}}{{else}}{{string .Type}}{{end}}
+                {{if .Note}}{{deref .Note}}{{else}}{{formatType .Type}}{{end}}
             </span>
         </div>
         <div class="text-xs text-gray-400 ml-4 mt-0.5">

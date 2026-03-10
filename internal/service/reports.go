@@ -74,6 +74,7 @@ type ReportsData struct {
 	// Income vs expenses comparison
 	CurrentMonth  MonthSummary
 	PreviousMonth MonthSummary
+	NextMonth     MonthSummary
 
 	// TASK-058: 6-month income vs expenses history for bar chart
 	MonthlyHistory []MonthSummary
@@ -144,6 +145,14 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 		prevYear--
 	}
 	data.PreviousMonth, _ = s.getMonthSummary(ctx, prevYear, prevMonth, filter)
+
+	// Next month summary
+	nextYear, nextMonth := year, month+1
+	if nextMonth > 12 {
+		nextMonth = 1
+		nextYear++
+	}
+	data.NextMonth, _ = s.getMonthSummary(ctx, nextYear, nextMonth, filter)
 
 	// TASK-057: Generate donut chart segments from spending categories.
 	// Uses the 8-color chart palette, one color per category.

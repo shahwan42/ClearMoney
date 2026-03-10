@@ -7,10 +7,10 @@
     {{if .Data}}
     <!-- Month Selector -->
     <div class="flex items-center justify-center gap-4">
-        <a href="/reports?year={{.Data.PreviousMonth.Year}}&month={{.Data.PreviousMonth.Month}}"
+        <a href="/reports?year={{.Data.PreviousMonth.Year}}&month={{printf "%d" .Data.PreviousMonth.Month}}"
            class="text-teal-600 hover:text-teal-700 text-sm font-medium">&larr; Prev</a>
         <span class="text-base font-bold text-slate-800">{{.Data.Month}} {{.Data.Year}}</span>
-        <a href="/reports?year={{.Data.CurrentMonth.Year}}&month={{.Data.CurrentMonth.Month}}"
+        <a href="/reports?year={{.Data.NextMonth.Year}}&month={{printf "%d" .Data.NextMonth.Month}}"
            class="text-teal-600 hover:text-teal-700 text-sm font-medium">Next &rarr;</a>
     </div>
 

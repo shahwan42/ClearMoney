@@ -1,6 +1,7 @@
 // Offline transaction queue using IndexedDB.
 // When the user submits a transaction while offline, it's saved to IndexedDB.
 // When connectivity is restored, queued transactions sync to the server.
+// Loaded from <head> with defer to prevent HTMX hx-boost re-execution.
 
 const DB_NAME = 'clearmoney-offline';
 const DB_VERSION = 1;
@@ -139,3 +140,4 @@ if (document.readyState === 'loading') {
 } else {
   initOfflineQueue();
 }
+

@@ -134,6 +134,40 @@ func TemplateFuncs() template.FuncMap {
 		"addFloat": func(a, b float64) float64 {
 			return a + b
 		},
+		// formatAccountType converts an account type enum to a human-readable label.
+		// e.g., "credit_card" → "Credit Card", "credit_limit" → "Credit Line"
+		"formatAccountType": func(t any) string {
+			labels := map[string]string{
+				"savings":      "Savings",
+				"current":      "Current",
+				"prepaid":      "Prepaid",
+				"credit_card":  "Credit Card",
+				"credit_limit": "Credit Line",
+			}
+			key := fmt.Sprintf("%v", t)
+			if label, ok := labels[key]; ok {
+				return label
+			}
+			return key
+		},
+		// formatType converts a transaction type enum to a human-readable label.
+		// e.g., "loan_repayment" → "Loan Repayment", "loan_in" → "Loan Received"
+		"formatType": func(t any) string {
+			labels := map[string]string{
+				"expense":        "Expense",
+				"income":         "Income",
+				"transfer":       "Transfer",
+				"exchange":       "Exchange",
+				"loan_out":       "Loan Given",
+				"loan_in":        "Loan Received",
+				"loan_repayment": "Loan Repayment",
+			}
+			key := fmt.Sprintf("%v", t)
+			if label, ok := labels[key]; ok {
+				return label
+			}
+			return key
+		},
 		// dict creates a map[string]any from key-value pairs.
 		// Used to pass multiple values to sub-templates (like Laravel's @include with data):
 		//   {{template "chart-sparkline" (dict "Values" .Values "Color" "#0d9488")}}

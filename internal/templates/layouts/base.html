@@ -33,6 +33,7 @@
       The dot (.) passes the entire data context — like $this in PHP or self in Python.
     -->
     <title>{{block "title" .}}ClearMoney{{end}}</title>
+    <link rel="icon" href="data:,">
 
     <!--
       TAILWIND CSS via CDN — utility-first CSS framework.
@@ -81,6 +82,11 @@
     <link rel="stylesheet" href="/static/css/app.css">
     <!-- CSS-only chart components (donut, bar, sparkline, trend) -->
     <link rel="stylesheet" href="/static/css/charts.css">
+
+    <!-- App scripts loaded in head with defer to prevent HTMX hx-boost re-execution -->
+    <script src="/static/js/offline.js" defer></script>
+    <script src="/static/js/push.js" defer></script>
+    <script src="/static/js/gestures.js" defer></script>
 
     <!-- PWA manifest and icons -->
     <link rel="manifest" href="/static/manifest.json">
@@ -132,14 +138,6 @@
 
     {{template "bottom-nav" .}}
 
-    <!-- Offline transaction queue -->
-    <script src="/static/js/offline.js"></script>
-
-    <!-- Push notifications -->
-    <script src="/static/js/push.js"></script>
-
-    <!-- TASK-080: Pull-to-refresh and swipe gestures -->
-    <script src="/static/js/gestures.js"></script>
 
     <!--
       SERVICE WORKER REGISTRATION — enables PWA features:
