@@ -377,7 +377,7 @@ func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	RenderPage(h.templates, w, "accounts", PageData{ActiveTab: "home", Data: data})
+	RenderPage(h.templates, w, "accounts", PageData{ActiveTab: "accounts", Data: data})
 }
 
 // AccountForm renders the account creation form for a specific institution.
@@ -448,7 +448,7 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RenderPage(h.templates, w, "transaction-new", PageData{
-		ActiveTab: "home",
+		ActiveTab: "transactions",
 		Data:      data,
 	})
 }
@@ -549,7 +549,7 @@ func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 		Search:       filter.Search,
 	}
 
-	RenderPage(h.templates, w, "transactions", PageData{ActiveTab: "home", Data: data})
+	RenderPage(h.templates, w, "transactions", PageData{ActiveTab: "transactions", Data: data})
 }
 
 // TransactionList renders just the transaction list partial (for HTMX filter updates).
@@ -620,7 +620,7 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "transfer", PageData{
-		ActiveTab: "home",
+		ActiveTab: "transactions",
 		Data: TransactionFormData{
 			Accounts: accounts,
 		},
@@ -632,7 +632,7 @@ func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) ExchangeNew(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "exchange", PageData{
-		ActiveTab: "home",
+		ActiveTab: "transactions",
 		Data: TransactionFormData{
 			Accounts: accounts,
 		},
