@@ -21,7 +21,7 @@ The home page aggregates data from 10+ sources into a single view:
 Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) serve as grouping containers for accounts. Each has a name, optional color, and display order.
 
 ### Account Types
-- **Checking / Savings / Current / Prepaid** — standard accounts with EGP or USD balance
+- **Savings / Current / Prepaid** — standard accounts with EGP or USD balance
 - **Credit Card** — tracks available credit (decrements on spend, restores on payment), billing cycle (statement date, due date), credit limit
 - **Credit Limit** — revolving credit with EPP (Equal Payment Plan) support
 
@@ -47,6 +47,7 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 - **Quick entry** — bottom sheet with smart category suggestion based on note text
 - **Batch entry** — enter multiple transactions at once
 - **Salary wizard** — multi-step distribution from income account to multiple destinations
+- **Quick exchange** — exchange tab in the quick-entry bottom sheet for fast currency swaps
 
 ### Other Features
 - Search and filter by date range, account, category, type
@@ -54,6 +55,7 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 - Swipe-to-delete gesture (mobile)
 - Each transaction stores a `balance_delta` field for reconciliation auditing
 - Balance updates are atomic (transaction INSERT + balance UPDATE in a single DB transaction)
+- Category dropdowns show emoji icons and group options by type (Expense / Income)
 
 ## Credit Cards
 
@@ -168,3 +170,5 @@ All charts support dark mode via Tailwind's `dark:` variants.
 - **Swipe gestures** — swipe-to-delete on transaction rows
 - **Empty states** — helpful messaging when lists are empty
 - **Dark mode** — full dark mode with class-based toggling
+- **Clickable header** — ClearMoney logo/title navigates to dashboard
+- **Date pre-population** — all date inputs default to today via server-side rendering

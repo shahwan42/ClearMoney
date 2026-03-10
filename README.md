@@ -68,7 +68,7 @@ cmd/
   reconcile/       # Balance verification CLI
 internal/
   config/          # Environment-based configuration
-  database/        # Connection pool, migrations (18 migration files)
+  database/        # Connection pool, migrations (20 migration files)
   handler/         # HTTP handlers + routes
   jobs/            # Background tasks (reconcile, snapshots, views)
   middleware/      # Auth + request logging

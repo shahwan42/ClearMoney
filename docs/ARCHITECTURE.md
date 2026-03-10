@@ -94,6 +94,10 @@ clear-money_claude-only/
 |   |   +-- investment.go         #   Investment struct
 |   |   +-- installment.go        #   InstallmentPlan struct
 |   |   +-- exchange_rate.go      #   ExchangeRateLog struct
+|   |   +-- snapshot.go           #   DailySnapshot + AccountSnapshot structs
+|   |   +-- virtual_fund.go      #   VirtualFund struct
+|   |   +-- budget.go            #   Budget struct
+|   |   +-- chart.go             #   ChartSegment struct (shared between service + handler)
 |   |
 |   +-- repository/               # Database queries (like Eloquent query scopes)
 |   |   +-- institution.go        #   INSERT, SELECT, UPDATE, DELETE for institutions
@@ -105,6 +109,9 @@ clear-money_claude-only/
 |   |   +-- investment.go         #   Same for investments
 |   |   +-- installment.go        #   Same for installment plans
 |   |   +-- exchange_rate.go      #   Same for exchange rate log
+|   |   +-- snapshot.go          #   Same for snapshots (daily + account)
+|   |   +-- virtual_fund.go      #   Same for virtual funds
+|   |   +-- budget.go            #   Same for budgets
 |   |
 |   +-- service/                  # Business logic layer (like app/Services/)
 |   |   +-- transaction.go        #   Core: create tx + update balance atomically
@@ -122,6 +129,10 @@ clear-money_claude-only/
 |   |   +-- export.go             #   CSV export
 |   |   +-- streak.go             #   Daily logging streak
 |   |   +-- notifications.go      #   Push notification conditions
+|   |   +-- snapshot.go          #   Daily balance snapshot capture + backfill
+|   |   +-- virtual_fund.go      #   Virtual fund CRUD + allocation
+|   |   +-- budget.go            #   Budget CRUD + threshold checks
+|   |   +-- account_health.go    #   Min-balance and min-deposit health rules
 |   |
 |   +-- handler/                  # HTTP handlers (like Controllers)
 |   |   +-- router.go             #   All route definitions (like routes/web.php)
@@ -135,14 +146,17 @@ clear-money_claude-only/
 |   |   +-- push.go               #   Push notification endpoints
 |   |   +-- templates.go          #   Template engine setup + helper functions
 |   |   +-- response.go           #   JSON response helpers
-|   |   +-- health.go             #   GET /healthz endpoint
+|   |   +-- charts.go             #   Chart template functions + data types (donut, bar, sparkline, trend)
+|   |   +-- health.go             #   GET /healthz endpoint + account health handlers
 |   |
 |   +-- middleware/               # HTTP middleware
 |   |   +-- auth.go               #   Session cookie validation (like auth:web middleware)
+|   |   +-- logging.go            #   Request logging with slog (request_id, method, path)
 |   |
 |   +-- jobs/                     # Background/CLI jobs
 |   |   +-- reconcile.go          #   Balance reconciliation checker
 |   |   +-- refresh_views.go      #   Refresh materialized views
+|   |   +-- snapshot.go           #   Daily balance snapshots + backfill
 |   |
 |   +-- templates/                # HTML templates (like resources/views/)
 |   |   +-- embed.go              #   Embeds templates into the binary
@@ -476,7 +490,7 @@ make test-integration  # Slow tests (needs PostgreSQL)
 cd e2e && npx playwright test
 ```
 
-- 73 browser-based tests covering all features
+- 79 browser-based tests covering all features
 - Auto-starts the Go server
 - Serial execution (shared DB state)
 - Tests create their own data via forms and APIs

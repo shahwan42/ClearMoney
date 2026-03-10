@@ -64,6 +64,9 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 | Logging | `log/slog` structured logging, request-scoped via middleware (`authmw.Log(ctx)`) |
 | Charts | CSS-only (conic-gradient donuts, flexbox bars, inline SVG sparklines) — no Chart.js |
 | Frontend | HTMX for dynamic updates, Tailwind CSS via CDN, dark mode (class-based) |
+| Redirects | `htmxRedirect(w, r, url)` — detects HX-Request header, sends HX-Redirect or http.Redirect |
+| HTMX results | `renderHTMXResult(w, type, msg, detail)` — consistent success/error/info partials |
+| Date inputs | Server-side `value="{{formatDateISO .Today}}"` — view model structs carry `.Today` field |
 
 ### Service Wiring
 
@@ -77,7 +80,7 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 
 - **Driver**: pgx v5 (via `database/sql` stdlib interface)
 - **Migrations**: `golang-migrate` with embedded SQL files (`internal/database/migrations/`)
-- **17 migrations**: institutions → accounts → categories → persons → transactions → exchange rates → user_config → recurring_rules → investments → installments → balance_delta → indexes/views → snapshots → virtual_funds → budgets → account_health
+- **20 migrations** (000000–000019): init → institutions → accounts → categories → persons → transactions → exchange_rates → seed_categories → user_config → recurring_rules → investments → installments → balance_delta → indexes/views → snapshots → virtual_funds → budgets → account_health → remove_checking_account_type → category_icons_and_unique
 - **Materialized views**: `mv_monthly_category_totals`, `mv_daily_tx_counts`
 - **Connection**: `DATABASE_URL` env var, port `5433` (Colima, not 5432)
 
