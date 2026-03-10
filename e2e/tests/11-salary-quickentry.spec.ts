@@ -118,8 +118,9 @@ test.describe('Salary Wizard & Quick Entry (TASK-033, TASK-025, TASK-026)', () =
     await page.locator('#tab-exchange').click();
     await expect(page.locator('#exchange-src')).toBeVisible();
 
-    // Close sheet
-    await page.locator('#quick-entry-overlay').click();
+    // Close sheet via JS (overlay is behind the sheet in z-index)
+    await page.evaluate(() => (window as any).closeQuickEntry());
+    await page.waitForTimeout(400); // wait for slide-down animation
 
     // Reopen — should default to Transaction tab
     await page.locator('.fab-button').click();

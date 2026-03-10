@@ -149,8 +149,10 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
 
     await page.goto('/accounts');
     await page.click('a:has-text("DormantAccount")');
-    // Click dormant toggle button
+    // Click dormant toggle button — triggers HX-Redirect (full page reload)
     await page.locator('button:has-text("Dormant")').click();
+    // Wait for page to reload after HTMX redirect
+    await page.waitForURL(/\/accounts\//);
     // After toggling, the button text should change to "Active"
     await expect(page.locator('button:has-text("Active")')).toBeVisible();
   });

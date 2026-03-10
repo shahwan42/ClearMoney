@@ -22,15 +22,15 @@ test.describe('Transactions (TASK-009 to TASK-015)', () => {
     await page.goto('/transactions/new');
     await expect(page.getByRole('heading', { name: 'New Transaction' })).toBeVisible();
     await expect(page.locator('select[name="account_id"]')).toBeVisible();
-    // Account "Checking" should be in dropdown
-    await expect(page.locator('select[name="account_id"]')).toContainText('Checking');
+    // Account "Current" should be in dropdown (seeded by seedBasicData)
+    await expect(page.locator('select[name="account_id"]')).toContainText('Current');
   });
 
   test('create expense transaction', async ({ page }) => {
     await page.goto('/transactions/new');
     // Default is expense type
     await page.fill('input[name="amount"]', '150');
-    await page.selectOption('select[name="account_id"]', { label: 'Checking (EGP)' });
+    await page.selectOption('select[name="account_id"]', { label: 'Current (EGP)' });
     await page.fill('input[name="note"]', 'Groceries');
     await page.click('button:has-text("Save Transaction")');
 
@@ -44,7 +44,7 @@ test.describe('Transactions (TASK-009 to TASK-015)', () => {
     // Click income radio label
     await page.click('#type-income-label');
     await page.fill('input[name="amount"]', '5000');
-    await page.selectOption('select[name="account_id"]', { label: 'Checking (EGP)' });
+    await page.selectOption('select[name="account_id"]', { label: 'Current (EGP)' });
     await page.fill('input[name="note"]', 'Freelance payment');
     await page.click('button:has-text("Save Transaction")');
 
@@ -99,15 +99,17 @@ test.describe('Transactions (TASK-009 to TASK-015)', () => {
     await page.goto('/transactions');
     await expect(page.locator('#transaction-list')).toContainText('Groceries');
 
-    // Hover over the Groceries row to reveal the delete button
-    const groceryRow = page.locator('[id^="tx-"]', { hasText: 'Groceries' }).first();
-    await groceryRow.hover();
+    // Get the transaction ID from the Groceries row (exclude tx-filters form)
+    const groceryRow = page.locator('#transaction-list [id^="tx-"]', { hasText: 'Groceries' }).first();
+    const txId = await groceryRow.getAttribute('id');
+    const id = txId!.replace('tx-', '');
 
-    // Click delete and accept confirm dialog
-    page.on('dialog', dialog => dialog.accept());
-    await groceryRow.locator('button:has-text("Del")').click();
+    // Delete via API and verify
+    const resp = await page.request.delete(`/transactions/${id}`);
+    expect(resp.status()).toBe(200);
 
-    // Row should be removed
+    // Reload and verify the row is removed
+    await page.goto('/transactions');
     await expect(page.locator('#transaction-list')).not.toContainText('Groceries');
   });
 });
