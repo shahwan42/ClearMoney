@@ -9,7 +9,7 @@ test.describe('Reports, Settings, Building Fund, Fawry, Batch (TASK-039, TASK-03
     await ensureAuth(page);
 
     const instId = await createInstitution(page, 'HSBC');
-    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'checking', currency: 'EGP', initial_balance: 50000 });
+    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'current', currency: 'EGP', initial_balance: 50000 });
     await createAccount(page, { name: 'Credit Card', institution_id: instId, type: 'credit_card', currency: 'EGP', credit_limit: 200000 });
     await createAccount(page, { name: 'Fawry', institution_id: instId, type: 'prepaid', currency: 'EGP', initial_balance: 0 });
 

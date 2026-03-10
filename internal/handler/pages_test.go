@@ -123,7 +123,7 @@ func TestAccountsPage_Renders(t *testing.T) {
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
 	})
@@ -227,7 +227,7 @@ func TestTransactionCreatePage_Success(t *testing.T) {
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})
@@ -264,7 +264,7 @@ func TestDashboardPage_WithData(t *testing.T) {
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
 	})
@@ -304,7 +304,7 @@ func TestTransactionsPage_Renders(t *testing.T) {
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})
@@ -427,7 +427,7 @@ func TestTransactionEditForm_Renders(t *testing.T) {
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})
@@ -486,7 +486,7 @@ func TestTransactionUpdate_ChangesBalance(t *testing.T) {
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})
@@ -546,7 +546,7 @@ func TestTransactionDelete_FromUI(t *testing.T) {
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})

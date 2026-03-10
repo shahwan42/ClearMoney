@@ -22,9 +22,8 @@ import (
 type AccountType string
 
 const (
-	AccountTypeChecking    AccountType = "checking"     // standard debit account (like a daily-use bank account)
 	AccountTypeSavings     AccountType = "savings"      // savings account (typically higher interest, fewer transactions)
-	AccountTypeCurrent     AccountType = "current"      // current/business account
+	AccountTypeCurrent     AccountType = "current"      // standard debit/current account (like a daily-use bank account)
 	AccountTypePrepaid     AccountType = "prepaid"      // prepaid card (e.g., Fawry) — balance is loaded up front
 	AccountTypeCreditCard  AccountType = "credit_card"  // credit card — balance goes NEGATIVE when you spend (owe money)
 	AccountTypeCreditLimit AccountType = "credit_limit" // credit line (e.g., TRU EPP) — similar to credit card behavior
@@ -43,10 +42,10 @@ const (
 )
 
 // Account represents a single financial account within an institution.
-// For example, "HSBC USD Checking" or "CIB Savings".
+// For example, "HSBC USD Current" or "CIB Savings".
 //
 // Balance conventions:
-//   - Debit accounts (checking, savings): positive balance = money you have
+//   - Debit accounts (current, savings): positive balance = money you have
 //   - Credit accounts (credit_card): negative balance = money you owe
 //     e.g., -120,000 means you've used 120K of your credit limit
 //

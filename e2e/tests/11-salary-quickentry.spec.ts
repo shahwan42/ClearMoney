@@ -9,8 +9,8 @@ test.describe('Salary Wizard & Quick Entry (TASK-033, TASK-025, TASK-026)', () =
     await ensureAuth(page);
 
     const instId = await createInstitution(page, 'HSBC');
-    await createAccount(page, { name: 'USD Salary', institution_id: instId, type: 'checking', currency: 'USD', initial_balance: 0 });
-    await createAccount(page, { name: 'Main EGP', institution_id: instId, type: 'checking', currency: 'EGP', initial_balance: 10000 });
+    await createAccount(page, { name: 'USD Salary', institution_id: instId, type: 'current', currency: 'USD', initial_balance: 0 });
+    await createAccount(page, { name: 'Main EGP', institution_id: instId, type: 'current', currency: 'EGP', initial_balance: 10000 });
     await createAccount(page, { name: 'Savings', institution_id: instId, type: 'savings', currency: 'EGP', initial_balance: 5000 });
 
     await ctx.close();

@@ -21,7 +21,7 @@
 
     <div>
         <label class="block text-xs text-gray-500 mb-1">Account Name</label>
-        <input type="text" name="name" required placeholder="e.g., Checking, Savings, Credit Card"
+        <input type="text" name="name" required placeholder="e.g., Current, Savings, Credit Card"
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
 
@@ -31,9 +31,8 @@
             <select name="type" id="account-type-select"
                 onchange="document.getElementById('credit-limit-field').style.display = (this.value === 'credit_card' || this.value === 'credit_limit') ? 'block' : 'none'"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                <option value="checking">Checking</option>
-                <option value="savings">Savings</option>
                 <option value="current">Current</option>
+                <option value="savings">Savings</option>
                 <option value="prepaid">Prepaid</option>
                 <option value="credit_card">Credit Card</option>
                 <option value="credit_limit">Credit Limit</option>

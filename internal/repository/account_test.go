@@ -39,7 +39,7 @@ func TestAccountRepo_Create(t *testing.T) {
 	acc, err := repo.Create(context.Background(), models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
 	})
@@ -102,7 +102,7 @@ func TestAccountRepo_GetByInstitution(t *testing.T) {
 	repo, inst := setupAccountTest(t)
 
 	repo.Create(context.Background(), models.Account{
-		InstitutionID: inst.ID, Name: "Checking", Type: models.AccountTypeChecking, Currency: models.CurrencyEGP,
+		InstitutionID: inst.ID, Name: "Checking", Type: models.AccountTypeCurrent, Currency: models.CurrencyEGP,
 	})
 	repo.Create(context.Background(), models.Account{
 		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP,
@@ -126,7 +126,7 @@ func TestAccountRepo_UpdateBalance(t *testing.T) {
 	acc, _ := repo.Create(context.Background(), models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Test",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})
@@ -155,7 +155,7 @@ func TestAccountRepo_Delete(t *testing.T) {
 
 	acc, _ := repo.Create(context.Background(), models.Account{
 		InstitutionID: inst.ID, Name: "To Delete",
-		Type: models.AccountTypeChecking, Currency: models.CurrencyEGP,
+		Type: models.AccountTypeCurrent, Currency: models.CurrencyEGP,
 	})
 
 	err := repo.Delete(context.Background(), acc.ID)

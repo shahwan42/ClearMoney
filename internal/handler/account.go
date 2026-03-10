@@ -1,7 +1,7 @@
 // account.go — JSON API handler for account CRUD operations.
 //
 // Accounts belong to an institution (bank, fintech) and track balances in a specific
-// currency (EGP or USD). Types include checking, savings, credit_card, and prepaid.
+// currency (EGP or USD). Types include current, savings, credit_card, and prepaid.
 //
 // This handler follows the same patterns as institution.go — see that file for
 // detailed Go/Laravel/Django comparisons of handler structs, JSON decoding, etc.

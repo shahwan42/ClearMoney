@@ -9,7 +9,7 @@
 -- ------------------
 -- expense:        money going out (groceries, rent, etc.)
 -- income:         money coming in (salary, freelance, etc.)
--- transfer:       money moving between your own accounts (checking -> savings)
+-- transfer:       money moving between your own accounts (current -> savings)
 -- exchange:       currency conversion (EGP -> USD) with exchange_rate
 -- loan_out:       you lend money to someone (person_id required)
 -- loan_in:        you borrow money from someone (person_id required)

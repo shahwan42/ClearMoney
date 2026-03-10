@@ -147,8 +147,8 @@ func TestMigrations_AccountTypeEnum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
-	if count != 6 {
-		t.Errorf("expected 6 account_type enum values, got %d", count)
+	if count != 5 {
+		t.Errorf("expected 5 account_type enum values, got %d", count)
 	}
 }
 

@@ -35,7 +35,7 @@ func TestAccountHandler_CreateAndList(t *testing.T) {
 	body := fmt.Sprintf(`{
 		"institution_id": %q,
 		"name": "Checking",
-		"type": "checking",
+		"type": "current",
 		"currency": "EGP",
 		"initial_balance": 50000
 	}`, inst.ID)

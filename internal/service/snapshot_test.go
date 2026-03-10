@@ -37,7 +37,7 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 	acc1 := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
 	})

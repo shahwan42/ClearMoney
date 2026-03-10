@@ -10,7 +10,7 @@ test.describe('Dashboard (TASK-016, TASK-028, TASK-035, TASK-036)', () => {
 
     // Create institution + accounts for dashboard display
     const instId = await createInstitution(page, 'HSBC');
-    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'checking', currency: 'EGP', initial_balance: 50000 });
+    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'current', currency: 'EGP', initial_balance: 50000 });
     await createAccount(page, { name: 'Credit Card', institution_id: instId, type: 'credit_card', currency: 'EGP', credit_limit: 200000 });
 
     await ctx.close();

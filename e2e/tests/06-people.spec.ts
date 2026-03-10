@@ -9,7 +9,7 @@ test.describe('People & Loans (TASK-031, TASK-032)', () => {
     await ensureAuth(page);
 
     const instId = await createInstitution(page, 'HSBC');
-    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'checking', currency: 'EGP', initial_balance: 50000 });
+    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'current', currency: 'EGP', initial_balance: 50000 });
 
     await ctx.close();
   });

@@ -43,7 +43,7 @@ func TestDashboardService_GetDashboard(t *testing.T) {
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
 	})
@@ -92,7 +92,7 @@ func TestDashboardService_GetDashboard_WithCredit(t *testing.T) {
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 80000,
 	})

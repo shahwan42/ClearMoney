@@ -67,7 +67,7 @@ func TestStreakService_ConsecutiveDays(t *testing.T) {
 		Name: "Test Bank", Type: models.InstitutionTypeBank,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeChecking,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
 	})
 
 	// Insert transactions for today, yesterday, and day before
@@ -92,7 +92,7 @@ func TestStreakService_BrokenStreak(t *testing.T) {
 		Name: "Test Bank", Type: models.InstitutionTypeBank,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeChecking,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
 	})
 
 	// Today and 2 days ago (gap yesterday)
@@ -116,7 +116,7 @@ func TestStreakService_WeeklyCount(t *testing.T) {
 		Name: "Test Bank", Type: models.InstitutionTypeBank,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeChecking,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
 	})
 
 	// Insert 5 transactions today — weekly count should be 5

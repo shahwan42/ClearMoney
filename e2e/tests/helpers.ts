@@ -95,7 +95,7 @@ export async function createAccount(
     data: {
       name: opts.name,
       institution_id: opts.institution_id,
-      type: opts.type || 'checking',
+      type: opts.type || 'current',
       currency: opts.currency || 'EGP',
       initial_balance: opts.initial_balance || 0,
       credit_limit: opts.credit_limit,

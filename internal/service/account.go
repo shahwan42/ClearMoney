@@ -1,7 +1,7 @@
 // account.go — AccountService and credit card billing cycle logic.
 //
 // This file contains two main concerns:
-//   1. AccountService: CRUD + validation for bank accounts (checking, savings, credit, etc.)
+//   1. AccountService: CRUD + validation for bank accounts (current, savings, credit, etc.)
 //   2. Credit card billing cycle: parsing JSONB metadata, computing statement periods,
 //      interest-free tracking, and utilization calculations.
 //

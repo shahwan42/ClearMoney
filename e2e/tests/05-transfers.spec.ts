@@ -9,9 +9,9 @@ test.describe('Transfers & Exchange (TASK-022, TASK-023, TASK-029)', () => {
     await ensureAuth(page);
 
     const instId = await createInstitution(page, 'HSBC');
-    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'checking', currency: 'EGP', initial_balance: 50000 });
+    await createAccount(page, { name: 'Checking', institution_id: instId, type: 'current', currency: 'EGP', initial_balance: 50000 });
     await createAccount(page, { name: 'Savings', institution_id: instId, type: 'savings', currency: 'EGP', initial_balance: 10000 });
-    await createAccount(page, { name: 'USD Wallet', institution_id: instId, type: 'checking', currency: 'USD', initial_balance: 500 });
+    await createAccount(page, { name: 'USD Wallet', institution_id: instId, type: 'current', currency: 'USD', initial_balance: 500 });
 
     await ctx.close();
   });

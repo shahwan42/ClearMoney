@@ -52,7 +52,7 @@ func setupTransactionServiceTest(t *testing.T) (*TransactionService, models.Acco
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})

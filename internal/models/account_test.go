@@ -58,7 +58,6 @@ func TestAccount_IsCreditType(t *testing.T) {
 		accountType AccountType
 		want        bool
 	}{
-		{AccountTypeChecking, false},
 		{AccountTypeSavings, false},
 		{AccountTypeCurrent, false},
 		{AccountTypePrepaid, false},
@@ -103,7 +102,7 @@ func TestAccount_AvailableCredit(t *testing.T) {
 
 	// No credit limit — CreditLimit is nil (its zero value as a pointer).
 	// This tests the nil-guard in AvailableCredit().
-	b := Account{Type: AccountTypeChecking}
+	b := Account{Type: AccountTypeCurrent}
 	if got := b.AvailableCredit(); got != 0 {
 		t.Errorf("AvailableCredit() for non-credit = %v, want 0", got)
 	}

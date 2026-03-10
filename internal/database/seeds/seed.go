@@ -162,8 +162,8 @@ type account struct {
 func seedAccounts(ctx context.Context, db *sql.DB) error {
 	accounts := []account{
 		// HSBC
-		{"HSBC", "HSBC USD Checking", "checking", "USD", 5000, 0, 1},
-		{"HSBC", "HSBC EGP Checking", "checking", "EGP", 150000, 0, 2},
+		{"HSBC", "HSBC USD Checking", "current", "USD", 5000, 0, 1},
+		{"HSBC", "HSBC EGP Checking", "current", "EGP", 150000, 0, 2},
 		{"HSBC", "HSBC Credit Card", "credit_card", "EGP", 0, 500000, 3},
 		// CIB
 		{"CIB", "CIB Primary Savings", "savings", "EGP", 200000, 0, 1},
@@ -171,7 +171,7 @@ func seedAccounts(ctx context.Context, db *sql.DB) error {
 		// Banque Misr
 		{"Banque Misr", "BM Insurance Savings", "savings", "EGP", 30000, 0, 1},
 		// EGBank
-		{"EGBank", "EGBank Checking", "checking", "EGP", 25000, 0, 1},
+		{"EGBank", "EGBank Checking", "current", "EGP", 25000, 0, 1},
 		// Telda
 		{"Telda", "Telda Prepaid", "prepaid", "EGP", 5000, 0, 1},
 		// Fawry

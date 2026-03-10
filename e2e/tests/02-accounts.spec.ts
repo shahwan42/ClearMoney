@@ -43,7 +43,7 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
 
     // Fill account form
     await page.fill('#account-form-area input[name="name"]', 'Checking');
-    await page.selectOption('#account-form-area select[name="type"]', 'checking');
+    await page.selectOption('#account-form-area select[name="type"]', 'current');
     await page.selectOption('#account-form-area select[name="currency"]', 'EGP');
     await page.fill('#account-form-area input[name="initial_balance"]', '50000');
     await page.click('#account-form-area button[type="submit"]');

@@ -108,7 +108,7 @@ func CreateInstitution(t *testing.T, db *sql.DB, inst models.Institution) models
 }
 
 // CreateAccount inserts a test account under the given institution.
-// Defaults to EGP checking account with 0 balance.
+// Defaults to EGP current account with 0 balance.
 //
 // Note: InstitutionID must be set (accounts have a foreign key to institutions).
 // The current_balance is automatically set to initial_balance, mirroring the
@@ -118,7 +118,7 @@ func CreateInstitution(t *testing.T, db *sql.DB, inst models.Institution) models
 //
 //	acc := testutil.CreateAccount(t, db, models.Account{
 //	    InstitutionID: inst.ID,
-//	    Name:          "Checking",
+//	    Name:          "Current",
 //	    Currency:      models.CurrencyUSD,
 //	    InitialBalance: 5000,
 //	})
@@ -129,7 +129,7 @@ func CreateAccount(t *testing.T, db *sql.DB, acc models.Account) models.Account 
 		acc.Name = "Test Account"
 	}
 	if acc.Type == "" {
-		acc.Type = models.AccountTypeChecking
+		acc.Type = models.AccountTypeCurrent
 	}
 	if acc.Currency == "" {
 		acc.Currency = models.CurrencyEGP

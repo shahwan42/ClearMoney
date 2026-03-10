@@ -53,7 +53,7 @@ func setupTransactionHandlerTest(t *testing.T) (*httptest.ResponseRecorder, *htt
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
-		Type:           models.AccountTypeChecking,
+		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})

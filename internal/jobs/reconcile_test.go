@@ -79,7 +79,7 @@ func TestReconcileBalances_NoDiscrepancy(t *testing.T) {
 	})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		Name: "Cash", InstitutionID: inst.ID,
-		Currency: models.CurrencyEGP, Type: models.AccountTypeChecking,
+		Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
 		InitialBalance: 1000,
 	})
 
@@ -128,7 +128,7 @@ func TestReconcileBalances_DetectsDiscrepancy(t *testing.T) {
 	})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		Name: "Cash", InstitutionID: inst.ID,
-		Currency: models.CurrencyEGP, Type: models.AccountTypeChecking,
+		Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
 		InitialBalance: 1000,
 	})
 
@@ -187,7 +187,7 @@ func TestReconcileBalances_AutoFix(t *testing.T) {
 	})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		Name: "Cash", InstitutionID: inst.ID,
-		Currency: models.CurrencyEGP, Type: models.AccountTypeChecking,
+		Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
 		InitialBalance: 500,
 	})
 
