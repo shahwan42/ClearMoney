@@ -159,11 +159,13 @@
 
 </div>
 
-<!-- Set today's date as default and handle type/category switching -->
+<!-- Set today's date as default and handle type/category switching.
+     Uses IIFE instead of DOMContentLoaded because hx-boost="true" on <body>
+     means page navigations don't trigger DOMContentLoaded. -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+(function() {
     // Default date to today (always, even for duplicates)
-    const dateInput = document.querySelector('input[name="date"]');
+    var dateInput = document.querySelector('input[name="date"]');
     if (dateInput && !dateInput.value) {
         dateInput.value = new Date().toISOString().split('T')[0];
     }
@@ -190,14 +192,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Update currency when account changes
-    document.querySelector('select[name="account_id"]').addEventListener('change', function() {
-        const selected = this.options[this.selectedIndex];
-        if (selected && selected.text.includes('USD')) {
-            document.getElementById('currency-input').value = 'USD';
-        } else {
-            document.getElementById('currency-input').value = 'EGP';
-        }
-    });
-});
+    var acctSelect = document.querySelector('select[name="account_id"]');
+    if (acctSelect) {
+        acctSelect.addEventListener('change', function() {
+            var selected = this.options[this.selectedIndex];
+            if (selected && selected.text.includes('USD')) {
+                document.getElementById('currency-input').value = 'USD';
+            } else {
+                document.getElementById('currency-input').value = 'EGP';
+            }
+        });
+    }
+})();
 </script>
 {{end}}
