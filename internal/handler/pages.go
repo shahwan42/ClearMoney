@@ -1851,15 +1851,22 @@ func (h *PageHandler) renderRecurringList(w http.ResponseWriter, r *http.Request
 	w.Write([]byte(`<div class="divide-y divide-gray-100">`))
 	for _, rule := range rules {
 		v := recurringRuleToView(rule)
-		w.Write([]byte(fmt.Sprintf(`<div class="flex items-center justify-between py-2">
+		autoLabel := ""
+		if v.AutoConfirm {
+			autoLabel = ` <span class="text-teal-600">auto</span>`
+		}
+		fmt.Fprintf(w, `<div class="flex items-center justify-between py-2">
 			<div>
 				<p class="text-sm font-medium text-slate-700">%s</p>
-				<p class="text-xs text-gray-400">%s &middot; Next: %s</p>
+				<p class="text-xs text-gray-400">%s &middot; Next: %s%s</p>
 			</div>
 			<div class="flex items-center gap-2">
 				<span class="text-sm font-bold text-slate-800">%s</span>
+				<button hx-delete="/recurring/%s" hx-target="#recurring-list" hx-swap="innerHTML"
+						hx-confirm="Delete this rule?"
+						class="text-red-400 hover:text-red-600 text-xs">Del</button>
 			</div>
-		</div>`, v.Note, v.Frequency, v.NextDueDate.Format("Jan 2, 2006"), v.Amount)))
+		</div>`, v.Note, v.Frequency, v.NextDueDate.Format("Jan 2, 2006"), autoLabel, v.Amount, v.ID)
 	}
 	w.Write([]byte(`</div>`))
 }
