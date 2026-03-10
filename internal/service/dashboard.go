@@ -243,6 +243,14 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		return data, err
 	}
 
+	// Fetch exchange rate early so institution totals can convert USD→EGP
+	var exchangeRate float64
+	if s.exchangeRateRepo != nil {
+		if rate, err := s.exchangeRateRepo.GetLatest(ctx); err == nil && rate > 0 {
+			exchangeRate = rate
+		}
+	}
+
 	// For each institution, load accounts and compute totals
 	for _, inst := range institutions {
 		accounts, err := s.accountRepo.GetByInstitution(ctx, inst.ID)
@@ -252,7 +260,12 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 
 		var instTotal float64
 		for _, acc := range accounts {
-			instTotal += acc.CurrentBalance
+			// Institution total: convert USD to EGP so totals aren't mixed
+			if acc.Currency == models.CurrencyUSD && exchangeRate > 0 {
+				instTotal += acc.CurrentBalance * exchangeRate
+			} else {
+				instTotal += acc.CurrentBalance
+			}
 			data.NetWorth += acc.CurrentBalance
 
 			if acc.Currency == models.CurrencyUSD {
@@ -314,15 +327,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		}
 	}
 
-	// Get latest exchange rate for USD → EGP conversion
-	if s.exchangeRateRepo != nil {
-		if rate, err := s.exchangeRateRepo.GetLatest(ctx); err == nil && rate > 0 {
-			data.ExchangeRate = rate
-			data.USDInEGP = data.USDTotal * rate
-			// NetWorthEGP = (NetWorth - USDTotal) + USDInEGP
-			// i.e., replace raw USD values with their EGP equivalent
-			data.NetWorthEGP = (data.NetWorth - data.USDTotal) + data.USDInEGP
-		}
+	// Compute net worth in EGP using the exchange rate fetched earlier
+	if exchangeRate > 0 {
+		data.ExchangeRate = exchangeRate
+		data.USDInEGP = data.USDTotal * exchangeRate
+		// NetWorthEGP = (NetWorth - USDTotal) + USDInEGP
+		// i.e., replace raw USD values with their EGP equivalent
+		data.NetWorthEGP = (data.NetWorth - data.USDTotal) + data.USDInEGP
 	}
 	// If no rate available, NetWorthEGP stays 0 (template checks this)
 

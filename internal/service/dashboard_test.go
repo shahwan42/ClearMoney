@@ -344,3 +344,49 @@ func TestDashboardService_GetDashboard_NoExchangeRate(t *testing.T) {
 		t.Errorf("NetWorthEGP = %f, want 0 (no rate)", data.NetWorthEGP)
 	}
 }
+
+// TestDashboardService_InstitutionTotal_ConvertsCurrency verifies that institution
+// totals convert USD accounts to EGP using the exchange rate, rather than summing
+// raw values across currencies. Regression test for BUG-005.
+func TestDashboardService_InstitutionTotal_ConvertsCurrency(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "exchange_rate_log")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	instRepo := repository.NewInstitutionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+	rateRepo := repository.NewExchangeRateRepo(db)
+	svc := NewDashboardService(instRepo, accRepo, txRepo)
+	svc.SetExchangeRateRepo(rateRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "EGP Savings",
+		Currency: models.CurrencyEGP, InitialBalance: 47850,
+	})
+	testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD Savings",
+		Currency: models.CurrencyUSD, InitialBalance: 2100,
+	})
+
+	// Log exchange rate: 1 USD = 50 EGP
+	source := "test"
+	rateRepo.Log(context.Background(), time.Now(), 50.0, &source, nil)
+
+	data, err := svc.GetDashboard(context.Background())
+	if err != nil {
+		t.Fatalf("get dashboard: %v", err)
+	}
+
+	// Institution total should be 47850 + (2100 * 50) = 47850 + 105000 = 152850
+	if len(data.Institutions) == 0 {
+		t.Fatal("expected at least one institution")
+	}
+	expectedTotal := 47850.0 + 2100.0*50.0
+	if data.Institutions[0].Total != expectedTotal {
+		t.Errorf("institution total = %f, want %f", data.Institutions[0].Total, expectedTotal)
+	}
+}
