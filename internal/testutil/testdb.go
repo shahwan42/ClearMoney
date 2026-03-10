@@ -112,6 +112,12 @@ func NewTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("running migrations: %v", err)
 	}
 
+	// Re-seed system categories if they were truncated by a previous test run
+	// (e.g., e2e resetDatabase). Migration 000007 seeds them once, but if the
+	// categories table gets truncated, the migration won't re-run since it's
+	// already tracked in schema_migrations.
+	ensureSeedCategories(t, db)
+
 	// t.Cleanup registers a function that runs when this test finishes.
 	// This ensures db.Close() is called even if the test panics.
 	// The connection is returned to the caller, who uses it for the test,
@@ -121,6 +127,61 @@ func NewTestDB(t *testing.T) *sql.DB {
 	})
 
 	return db
+}
+
+// ensureSeedCategories re-inserts system categories if they're missing.
+//
+// Migration 000007 seeds categories, but only runs once. If e2e tests or other
+// processes truncate the categories table, the migration won't re-run because
+// it's already tracked in schema_migrations. This function checks for missing
+// system categories and re-inserts them.
+//
+// Uses INSERT ... ON CONFLICT DO NOTHING to be idempotent — safe to call
+// multiple times without creating duplicates.
+func ensureSeedCategories(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM categories WHERE is_system = true`).Scan(&count); err != nil {
+		t.Fatalf("checking system categories: %v", err)
+	}
+	if count >= 25 {
+		return // already seeded (18 expense + 7 income)
+	}
+
+	// Re-seed using the same data as migration 000007.
+	_, err := db.Exec(`
+		INSERT INTO categories (name, type, is_system, display_order) VALUES
+			('Household',        'expense', true, 1),
+			('Food & Groceries', 'expense', true, 2),
+			('Transport',        'expense', true, 3),
+			('Health',           'expense', true, 4),
+			('Education',        'expense', true, 5),
+			('Mobile',           'expense', true, 6),
+			('Electricity',      'expense', true, 7),
+			('Gas',              'expense', true, 8),
+			('Internet',         'expense', true, 9),
+			('Gifts',            'expense', true, 10),
+			('Entertainment',    'expense', true, 11),
+			('Shopping',         'expense', true, 12),
+			('Subscriptions',    'expense', true, 13),
+			('Building Fund',    'expense', true, 14),
+			('Insurance',        'expense', true, 15),
+			('Fees & Charges',   'expense', true, 16),
+			('Debt Payment',     'expense', true, 17),
+			('Other',            'expense', true, 18),
+			('Salary',                    'income', true, 1),
+			('Freelance',                 'income', true, 2),
+			('Investment Returns',        'income', true, 3),
+			('Refund',                    'income', true, 4),
+			('Building Fund Collection',  'income', true, 5),
+			('Loan Repayment Received',   'income', true, 6),
+			('Other',                     'income', true, 7)
+		ON CONFLICT DO NOTHING
+	`)
+	if err != nil {
+		t.Fatalf("re-seeding system categories: %v", err)
+	}
 }
 
 // CleanTable deletes all rows from the given table.

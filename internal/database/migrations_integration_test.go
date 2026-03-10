@@ -51,7 +51,55 @@ func migratedDB(t *testing.T) *sql.DB {
 	if err := RunMigrations(db); err != nil {
 		t.Fatalf("migrations: %v", err)
 	}
+	// Re-seed system categories if they were truncated by a previous test run.
+	ensureSeedCategories(t, db)
 	return db
+}
+
+// ensureSeedCategories re-inserts system categories if they're missing.
+// Migration 000007 seeds them once, but if the categories table gets truncated
+// (e.g., by e2e resetDatabase), the migration won't re-run.
+func ensureSeedCategories(t *testing.T, db *sql.DB) {
+	t.Helper()
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM categories WHERE is_system = true`).Scan(&count); err != nil {
+		t.Fatalf("checking system categories: %v", err)
+	}
+	if count >= 25 {
+		return
+	}
+	_, err := db.Exec(`
+		INSERT INTO categories (name, type, is_system, display_order) VALUES
+			('Household',        'expense', true, 1),
+			('Food & Groceries', 'expense', true, 2),
+			('Transport',        'expense', true, 3),
+			('Health',           'expense', true, 4),
+			('Education',        'expense', true, 5),
+			('Mobile',           'expense', true, 6),
+			('Electricity',      'expense', true, 7),
+			('Gas',              'expense', true, 8),
+			('Internet',         'expense', true, 9),
+			('Gifts',            'expense', true, 10),
+			('Entertainment',    'expense', true, 11),
+			('Shopping',         'expense', true, 12),
+			('Subscriptions',    'expense', true, 13),
+			('Building Fund',    'expense', true, 14),
+			('Insurance',        'expense', true, 15),
+			('Fees & Charges',   'expense', true, 16),
+			('Debt Payment',     'expense', true, 17),
+			('Other',            'expense', true, 18),
+			('Salary',                    'income', true, 1),
+			('Freelance',                 'income', true, 2),
+			('Investment Returns',        'income', true, 3),
+			('Refund',                    'income', true, 4),
+			('Building Fund Collection',  'income', true, 5),
+			('Loan Repayment Received',   'income', true, 6),
+			('Other',                     'income', true, 7)
+		ON CONFLICT DO NOTHING
+	`)
+	if err != nil {
+		t.Fatalf("re-seeding system categories: %v", err)
+	}
 }
 
 // assertTableExists is a reusable assertion that checks if a table exists.

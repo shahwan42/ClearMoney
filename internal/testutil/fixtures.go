@@ -224,11 +224,13 @@ func SetupAuth(t *testing.T, db *sql.DB) *http.Cookie {
 	}
 }
 
-// GetFirstCategoryID returns the ID of the first category of the given type.
-// Useful for creating test transactions that need a valid category_id FK reference.
+// GetFirstCategoryID returns the ID of the first system category of the given type.
+// Useful for creating test transactions that need a valid category_id FK reference,
+// and for testing system category protection rules.
 //
 // Categories are seeded by migrations, so they're always available in the test DB.
-// This helper avoids hardcoding UUIDs that would break if migrations change.
+// Filters to is_system = true to avoid returning custom categories created by
+// other tests sharing the same database.
 //
 // Usage:
 //
@@ -236,7 +238,7 @@ func SetupAuth(t *testing.T, db *sql.DB) *http.Cookie {
 func GetFirstCategoryID(t *testing.T, db *sql.DB, categoryType models.CategoryType) string {
 	t.Helper()
 	var id string
-	err := db.QueryRow(`SELECT id FROM categories WHERE type = $1 LIMIT 1`, categoryType).Scan(&id)
+	err := db.QueryRow(`SELECT id FROM categories WHERE type = $1 AND is_system = true LIMIT 1`, categoryType).Scan(&id)
 	if err != nil {
 		t.Fatalf("getting %s category: %v", categoryType, err)
 	}

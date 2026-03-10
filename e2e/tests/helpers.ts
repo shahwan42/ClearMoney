@@ -27,6 +27,39 @@ export async function resetDatabase(): Promise<void> {
     TRUNCATE TABLE installment_plans RESTART IDENTITY CASCADE;
   `;
   execSync(`psql "${dbUrl}" -c "${sql.replace(/\n/g, ' ')}"`, { stdio: 'pipe' });
+
+  // Re-seed system categories (migration 000007 only runs once, so truncating
+  // the categories table removes them permanently unless we re-insert).
+  const seedSql = `
+    INSERT INTO categories (name, type, is_system, display_order) VALUES
+      ('Household',        'expense', true, 1),
+      ('Food & Groceries', 'expense', true, 2),
+      ('Transport',        'expense', true, 3),
+      ('Health',           'expense', true, 4),
+      ('Education',        'expense', true, 5),
+      ('Mobile',           'expense', true, 6),
+      ('Electricity',      'expense', true, 7),
+      ('Gas',              'expense', true, 8),
+      ('Internet',         'expense', true, 9),
+      ('Gifts',            'expense', true, 10),
+      ('Entertainment',    'expense', true, 11),
+      ('Shopping',         'expense', true, 12),
+      ('Subscriptions',    'expense', true, 13),
+      ('Building Fund',    'expense', true, 14),
+      ('Insurance',        'expense', true, 15),
+      ('Fees & Charges',   'expense', true, 16),
+      ('Debt Payment',     'expense', true, 17),
+      ('Other',            'expense', true, 18),
+      ('Salary',                    'income', true, 1),
+      ('Freelance',                 'income', true, 2),
+      ('Investment Returns',        'income', true, 3),
+      ('Refund',                    'income', true, 4),
+      ('Building Fund Collection',  'income', true, 5),
+      ('Loan Repayment Received',   'income', true, 6),
+      ('Other',                     'income', true, 7)
+    ON CONFLICT DO NOTHING;
+  `;
+  execSync(`psql "${dbUrl}" -c "${seedSql.replace(/\n/g, ' ')}"`, { stdio: 'pipe' });
 }
 
 /**
@@ -106,13 +139,13 @@ export async function createAccount(
 }
 
 /**
- * Seed common test data: an institution with a checking account.
+ * Seed common test data: an institution with a current account.
  * Returns { institutionId, accountId }.
  */
 export async function seedBasicData(page: Page): Promise<{ institutionId: string; accountId: string }> {
   const institutionId = await createInstitution(page, 'Test Bank');
   const accountId = await createAccount(page, {
-    name: 'Checking',
+    name: 'Current',
     institution_id: institutionId,
     initial_balance: 10000,
   });
