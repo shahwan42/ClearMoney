@@ -207,6 +207,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Get("/accounts", pages.Accounts)
 		r.Get("/accounts/form", pages.AccountForm)
 		r.Get("/accounts/list", pages.InstitutionList)
+		r.Get("/accounts/institution-form", pages.InstitutionFormPartial)
+		r.Get("/accounts/empty", pages.EmptyPartial)
 		r.Get("/accounts/{id}", pages.AccountDetail)
 		r.Get("/accounts/{id}/statement", pages.CreditCardStatement)
 		r.Post("/accounts/{id}/dormant", pages.ToggleDormant)

@@ -1,10 +1,12 @@
 {{define "account-form"}}
-<!-- Form for adding a new account under an institution. HTMX-powered. -->
+<!-- Form for adding a new account under an institution. HTMX-powered.
+     Targets #account-form-area (its own container). On success, the handler returns
+     a success toast + OOB swap to refresh #institution-list. On error, it returns
+     an error banner + the form re-rendered so the user can fix and retry. -->
 <form
     hx-post="/accounts/add"
-    hx-target="#institution-list"
+    hx-target="#account-form-area"
     hx-swap="innerHTML"
-    hx-on::after-request="if(event.detail.successful) document.getElementById('account-form-area').innerHTML = ''"
     class="bg-white rounded-xl shadow-sm p-4 space-y-3"
 >
     <h3 class="font-semibold text-slate-800 text-sm">
@@ -15,6 +17,7 @@
     </h3>
 
     <input type="hidden" name="institution_id" value="{{.InstitutionID}}">
+    <input type="hidden" name="institution_name_display" value="{{.InstitutionName}}">
 
     <div>
         <label class="block text-xs text-gray-500 mb-1">Account Name</label>

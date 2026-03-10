@@ -89,7 +89,7 @@ func (r *AccountRepo) GetByID(ctx context.Context, id string) (models.Account, e
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
-			display_order, metadata, health_config, created_at, updated_at
+			display_order, metadata, COALESCE(health_config, '{}'::jsonb), created_at, updated_at
 		FROM accounts WHERE id = $1
 	`, id).Scan(
 		&acc.ID, &acc.InstitutionID, &acc.Name, &acc.Type, &acc.Currency,
@@ -110,7 +110,7 @@ func (r *AccountRepo) GetAll(ctx context.Context) ([]models.Account, error) {
 	return r.queryAccounts(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
-			display_order, metadata, health_config, created_at, updated_at
+			display_order, metadata, COALESCE(health_config, '{}'::jsonb), created_at, updated_at
 		FROM accounts ORDER BY display_order, name
 	`)
 }
@@ -121,7 +121,7 @@ func (r *AccountRepo) GetByInstitution(ctx context.Context, institutionID string
 	return r.queryAccounts(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
-			display_order, metadata, health_config, created_at, updated_at
+			display_order, metadata, COALESCE(health_config, '{}'::jsonb), created_at, updated_at
 		FROM accounts WHERE institution_id = $1
 		ORDER BY display_order, name
 	`, institutionID)

@@ -2273,8 +2273,10 @@ func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request)
 // (not JSON). After creation, they re-render the entire institution list
 // by calling InstitutionList() — HTMX swaps the updated list into the page.
 
-// InstitutionAdd creates an institution from form data and returns the updated list HTML.
+// InstitutionAdd creates an institution from form data.
 // POST /institutions/add — used by HTMX form submission.
+// On success: returns success toast in #institution-form-area + OOB refresh of #institution-list.
+// On error: returns error banner + re-rendered form in #institution-form-area.
 func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
@@ -2285,14 +2287,30 @@ func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
 		Type: models.InstitutionType(r.FormValue("type")),
 	}
 	if _, err := h.institutionSvc.Create(r.Context(), inst); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		authmw.Log(r.Context()).Warn("institution create failed", "error", err)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprintf(w, `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm mb-3">%s</div>`, err.Error())
+		if tmpl, ok := h.templates["accounts"]; ok {
+			tmpl.ExecuteTemplate(w, "institution-form", nil)
+		}
 		return
 	}
-	h.InstitutionList(w, r)
+
+	// Success toast + OOB refresh of the institution list
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, `<div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-center animate-toast">`)
+	fmt.Fprint(w, `<p class="text-teal-800 font-semibold text-sm">Institution added!</p>`)
+	fmt.Fprint(w, `</div>`)
+	// Auto-dismiss: HTMX loads the form back after a brief delay
+	fmt.Fprint(w, `<div hx-get="/accounts/institution-form" hx-trigger="load delay:1.5s" hx-target="#institution-form-area" hx-swap="innerHTML"></div>`)
+	h.renderInstitutionListOOB(w, r)
 }
 
-// AccountAdd creates an account from form data and returns the updated list HTML.
+// AccountAdd creates an account from form data.
 // POST /accounts/add — used by HTMX form submission.
+// On success: returns success toast in #account-form-area + OOB refresh of #institution-list.
+// On error: returns error banner + re-rendered form in #account-form-area.
 func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
@@ -2316,10 +2334,32 @@ func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if _, err := h.accountSvc.Create(r.Context(), acc); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		authmw.Log(r.Context()).Warn("account create failed", "error", err)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprintf(w, `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm mb-3">%s</div>`, err.Error())
+		if tmpl, ok := h.templates["accounts"]; ok {
+			tmpl.ExecuteTemplate(w, "account-form", AccountFormData{
+				InstitutionID:   r.FormValue("institution_id"),
+				InstitutionName: r.FormValue("institution_name_display"),
+			})
+		}
 		return
 	}
-	h.InstitutionList(w, r)
+
+	// Success toast + OOB refresh of the institution list
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, `<div class="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center space-y-2 animate-toast">`)
+	fmt.Fprint(w, `<div class="animate-success inline-block">`)
+	fmt.Fprint(w, `<svg class="w-8 h-8 mx-auto text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">`)
+	fmt.Fprint(w, `<circle cx="12" cy="12" r="10" class="opacity-20" fill="currentColor" stroke="none"/>`)
+	fmt.Fprint(w, `<path d="M7 13l3 3 7-7" class="animate-checkmark" stroke-linecap="round" stroke-linejoin="round"/>`)
+	fmt.Fprint(w, `</svg></div>`)
+	fmt.Fprint(w, `<p class="text-teal-800 font-semibold text-sm">Account added!</p>`)
+	fmt.Fprint(w, `</div>`)
+	// Auto-dismiss: clear the form area after a brief delay
+	fmt.Fprint(w, `<div hx-get="/accounts/empty" hx-trigger="load delay:1.5s" hx-target="#account-form-area" hx-swap="innerHTML"></div>`)
+	h.renderInstitutionListOOB(w, r)
 }
 
 // InstitutionList renders just the institution list partial.
@@ -2355,6 +2395,45 @@ func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 	for _, item := range data {
 		tmpl.ExecuteTemplate(w, "institution-card", item)
 	}
+}
+
+// renderInstitutionListOOB writes institution cards wrapped in an HTMX OOB swap div.
+// This is appended to the response body after a success toast so HTMX updates
+// #institution-list alongside the primary swap target (e.g., #account-form-area).
+func (h *PageHandler) renderInstitutionListOOB(w http.ResponseWriter, r *http.Request) {
+	institutions, err := h.institutionSvc.GetAll(r.Context())
+	if err != nil {
+		return
+	}
+	var data []InstitutionWithAccounts
+	for _, inst := range institutions {
+		accounts, _ := h.accountSvc.GetByInstitution(r.Context(), inst.ID)
+		data = append(data, InstitutionWithAccounts{Institution: inst, Accounts: accounts})
+	}
+	tmpl, ok := h.templates["accounts"]
+	if !ok {
+		return
+	}
+	fmt.Fprint(w, `<div id="institution-list" class="space-y-3" hx-swap-oob="innerHTML">`)
+	for _, item := range data {
+		tmpl.ExecuteTemplate(w, "institution-card", item)
+	}
+	fmt.Fprint(w, `</div>`)
+}
+
+// InstitutionFormPartial returns just the institution form HTML.
+// GET /accounts/institution-form — used to restore the form after a success toast auto-dismisses.
+func (h *PageHandler) InstitutionFormPartial(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if tmpl, ok := h.templates["accounts"]; ok {
+		tmpl.ExecuteTemplate(w, "institution-form", nil)
+	}
+}
+
+// EmptyPartial returns an empty response — used to clear a container via HTMX.
+// GET /accounts/empty — used by the auto-dismiss timer after success toasts.
+func (h *PageHandler) EmptyPartial(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 }
 
 // =============================================================================

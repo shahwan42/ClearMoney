@@ -66,6 +66,16 @@
       Reference: https://htmx.org/reference/
     -->
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <!-- HTMX 2.x defaults to NOT swapping 4xx/5xx responses, which silently hides
+         form validation errors. Override to swap error responses so users see feedback.
+         Docs: https://htmx.org/docs/#response-handling -->
+    <script>
+      htmx.config.responseHandling = [
+        {code:"204", swap: false},
+        {code:"[23]..", swap: true},
+        {code:"[45]..", swap: true, error: true}
+      ];
+    </script>
 
     <!-- Custom styles beyond Tailwind -->
     <link rel="stylesheet" href="/static/css/app.css">

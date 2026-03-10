@@ -50,7 +50,9 @@
     </div>
 
     <!-- Institution form (always visible at top) -->
-    {{template "institution-form" .}}
+    <div id="institution-form-area">
+        {{template "institution-form" .}}
+    </div>
 
     <!-- Area where account form appears when "Add Account" is clicked -->
     <div id="account-form-area"></div>

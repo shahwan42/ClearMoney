@@ -80,6 +80,8 @@ func (s *AuthService) Setup(ctx context.Context, pin string) error {
 		return fmt.Errorf("generating session key: %w", err)
 	}
 
+	// Delete any existing config — single-user app, only one row should exist.
+	s.db.ExecContext(ctx, `DELETE FROM user_config`)
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO user_config (pin_hash, session_key) VALUES ($1, $2)
 	`, string(hash), sessionKey)
