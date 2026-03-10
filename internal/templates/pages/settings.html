@@ -125,8 +125,8 @@
         <a href="/batch-entry" class="block text-sm text-teal-600 hover:text-teal-700">Batch Entry</a>
     </section>
 
-    <!-- Logout -->
-    <form hx-post="/logout" class="mt-4">
+    <!-- Logout — standard POST (not HTMX) so http.Redirect triggers a full page nav -->
+    <form method="POST" action="/logout" class="mt-4">
         <button type="submit" class="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-lg text-sm font-semibold">
             Log Out
         </button>
