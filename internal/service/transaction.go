@@ -274,10 +274,28 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("exchange requires different currencies; use transfer for same currency")
 	}
 
+	// The user-entered rate always means "EGP per 1 USD" regardless of direction.
+	// resolveExchangeFields uses: amount * rate = counterAmount (rate = dest/source).
+	// When source=EGP, dest=USD: dest/source = USD/EGP = 1/50, so we invert the
+	// user rate before resolving and invert back afterward for display/logging.
+	sourceIsEGP := srcAcc.Currency == models.CurrencyEGP
+	if sourceIsEGP && p.Rate != nil && *p.Rate > 0 {
+		inverted := 1.0 / *p.Rate
+		p.Rate = &inverted
+	}
+
 	// Auto-calculate the missing field from the other two
-	amount, rate, counterAmount, err := resolveExchangeFields(p.Amount, p.Rate, p.CounterAmount)
+	amount, formulaRate, counterAmount, err := resolveExchangeFields(p.Amount, p.Rate, p.CounterAmount)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, err
+	}
+
+	// Derive the display rate (always EGP per 1 USD) for logging and storage.
+	// When source=USD: formulaRate = EGP/USD (already correct).
+	// When source=EGP: formulaRate = USD/EGP, so invert to get EGP/USD.
+	displayRate := formulaRate
+	if sourceIsEGP {
+		displayRate = 1.0 / formulaRate
 	}
 
 	if p.Date.IsZero() {
@@ -297,7 +315,7 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		Currency:         srcAcc.Currency,
 		AccountID:        p.SourceAccountID,
 		CounterAccountID: &p.DestAccountID,
-		ExchangeRate:     &rate,
+		ExchangeRate:     &displayRate,
 		CounterAmount:    &counterAmount,
 		Note:             p.Note,
 		Date:             p.Date,
@@ -315,7 +333,7 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		Currency:         destAcc.Currency,
 		AccountID:        p.DestAccountID,
 		CounterAccountID: &p.SourceAccountID,
-		ExchangeRate:     &rate,
+		ExchangeRate:     &displayRate,
 		CounterAmount:    &amount,
 		Note:             p.Note,
 		Date:             p.Date,
@@ -343,10 +361,10 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("committing: %w", err)
 	}
 
-	// Log the exchange rate (non-critical, don't fail if it errors)
+	// Log the exchange rate as EGP per 1 USD (non-critical, don't fail if it errors)
 	if s.rateRepo != nil {
 		source := fmt.Sprintf("%s/%s", srcAcc.Currency, destAcc.Currency)
-		s.rateRepo.Log(ctx, p.Date, rate, &source, p.Note)
+		s.rateRepo.Log(ctx, p.Date, displayRate, &source, p.Note)
 	}
 
 	createdDebit.LinkedTransactionID = &createdCredit.ID

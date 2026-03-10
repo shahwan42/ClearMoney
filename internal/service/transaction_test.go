@@ -583,6 +583,126 @@ func TestTransactionService_CreateExchange_SameCurrency(t *testing.T) {
 	}
 }
 
+// TestTransactionService_CreateExchange_EGPtoUSD verifies that exchanging EGP→USD
+// correctly handles the rate direction. Rate=50 means "1 USD = 50 EGP", so
+// 5000 EGP at rate 50 should yield 100 USD (5000/50), not 250000.
+func TestTransactionService_CreateExchange_EGPtoUSD(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+	testutil.CleanTable(t, db, "exchange_rate_log")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	rateRepo := repository.NewExchangeRateRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+	svc.SetExchangeRateRepo(rateRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank"})
+	egp := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "EGP Account", Currency: models.CurrencyEGP, InitialBalance: 100000,
+	})
+	usd := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD Account", Currency: models.CurrencyUSD, InitialBalance: 2000,
+	})
+
+	// Exchange 5000 EGP at rate 50 (1 USD = 50 EGP) → should yield 100 USD
+	amount := 5000.0
+	rate := 50.0
+	debit, credit, err := svc.CreateExchange(context.Background(), ExchangeParams{
+		SourceAccountID: egp.ID,
+		DestAccountID:   usd.ID,
+		Amount:          &amount,
+		Rate:            &rate,
+	})
+	if err != nil {
+		t.Fatalf("create exchange: %v", err)
+	}
+
+	// Debit leg: 5000 EGP out
+	if debit.Amount != 5000 {
+		t.Errorf("debit amount: expected 5000, got %f", debit.Amount)
+	}
+	// Credit leg: 100 USD in (5000 / 50)
+	if credit.Amount != 100 {
+		t.Errorf("credit amount: expected 100, got %f", credit.Amount)
+	}
+
+	// ExchangeRate on both legs should be the display rate (50 = EGP per USD)
+	if debit.ExchangeRate == nil || *debit.ExchangeRate != 50 {
+		t.Errorf("debit exchange rate: expected 50, got %v", debit.ExchangeRate)
+	}
+
+	// Verify balances
+	egpAcc, _ := accRepo.GetByID(context.Background(), egp.ID)
+	usdAcc, _ := accRepo.GetByID(context.Background(), usd.ID)
+	if egpAcc.CurrentBalance != 95000 {
+		t.Errorf("EGP balance: expected 95000, got %f", egpAcc.CurrentBalance)
+	}
+	if usdAcc.CurrentBalance != 2100 {
+		t.Errorf("USD balance: expected 2100, got %f", usdAcc.CurrentBalance)
+	}
+
+	// Verify exchange rate logged as EGP per USD (50), not inverted (0.02)
+	rates, err := rateRepo.GetAll(context.Background())
+	if err != nil {
+		t.Fatalf("get rates: %v", err)
+	}
+	if len(rates) == 0 {
+		t.Fatal("expected at least one logged rate")
+	}
+	if rates[0].Rate != 50 {
+		t.Errorf("logged rate: expected 50, got %f", rates[0].Rate)
+	}
+}
+
+// TestTransactionService_CreateExchange_EGPtoUSD_AutoCalc verifies auto-calc
+// when only amount + counter_amount are provided for EGP→USD.
+func TestTransactionService_CreateExchange_EGPtoUSD_AutoCalc(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+	testutil.CleanTable(t, db, "exchange_rate_log")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	rateRepo := repository.NewExchangeRateRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+	svc.SetExchangeRateRepo(rateRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank"})
+	egp := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 100000,
+	})
+	usd := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 2000,
+	})
+
+	// Provide amount (EGP) + counter_amount (USD), rate should be auto-logged as 50
+	amount := 5000.0
+	counter := 100.0
+	_, _, err := svc.CreateExchange(context.Background(), ExchangeParams{
+		SourceAccountID: egp.ID,
+		DestAccountID:   usd.ID,
+		Amount:          &amount,
+		CounterAmount:   &counter,
+	})
+	if err != nil {
+		t.Fatalf("create exchange: %v", err)
+	}
+
+	// Rate logged should be 50 (EGP per USD = 5000/100)
+	rates, _ := rateRepo.GetAll(context.Background())
+	if len(rates) == 0 {
+		t.Fatal("expected logged rate")
+	}
+	if rates[0].Rate != 50 {
+		t.Errorf("logged rate: expected 50, got %f", rates[0].Rate)
+	}
+}
+
 // TestCalculateInstapayFee is a pure-function unit test — no database, no setup.
 // Table-driven test pattern with expected outputs for each input.
 // This is the simplest kind of Go test: deterministic, fast, no side effects.
