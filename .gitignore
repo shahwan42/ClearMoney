@@ -37,3 +37,10 @@ go.work.sum
 
 # e2e
 test-results
+
+# QA artifacts
+QA-REPORT.md
+qa-screenshots/
+
+# Playwright MCP
+.playwright-mcp/
