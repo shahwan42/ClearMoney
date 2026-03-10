@@ -40,9 +40,16 @@
             <label class="block text-xs text-gray-500 mb-1">Category</label>
             <select name="category_id" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
                 <option value="">None</option>
-                {{range .Categories}}
-                <option value="{{.ID}}">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
-                {{end}}
+                <optgroup label="Expense">
+                    {{range .Categories}}{{if eq .Type "expense"}}
+                    <option value="{{.ID}}">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
+                    {{end}}{{end}}
+                </optgroup>
+                <optgroup label="Income">
+                    {{range .Categories}}{{if eq .Type "income"}}
+                    <option value="{{.ID}}">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
+                    {{end}}{{end}}
+                </optgroup>
             </select>
         </div>
 
