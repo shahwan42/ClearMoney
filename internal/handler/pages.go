@@ -2633,7 +2633,11 @@ func (h *PageHandler) Budgets(w http.ResponseWriter, r *http.Request) {
 	categories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 	var budgets []models.BudgetWithSpending
 	if h.budgetSvc != nil {
-		budgets, _ = h.budgetSvc.GetAllWithSpending(r.Context())
+		var err error
+		budgets, err = h.budgetSvc.GetAllWithSpending(r.Context())
+		if err != nil {
+			authmw.Log(r.Context()).Error("failed to load budgets", "error", err)
+		}
 	}
 	data := BudgetPageData{Budgets: budgets, Categories: categories}
 	RenderPage(h.templates, w, "budgets", PageData{ActiveTab: "more", Data: data})

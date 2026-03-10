@@ -94,7 +94,7 @@ func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month tim
 		LEFT JOIN transactions t ON t.category_id = b.category_id
 		    AND t.type = 'expense'
 		    AND t.date >= $1 AND t.date < $2
-		    AND t.currency = b.currency
+		    AND t.currency = b.currency::currency_type
 		WHERE b.is_active = true
 		GROUP BY b.id, c.name, c.icon
 		ORDER BY c.name
