@@ -122,12 +122,16 @@
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 id="category-select">
                 <option value="">None</option>
+                <optgroup label="Expense" class="category-expense">
                 {{range .Data.ExpenseCategories}}
-                <option value="{{.ID}}" class="category-expense" {{if eq .ID $prefillCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
+                <option value="{{.ID}}" {{if eq .ID $prefillCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
                 {{end}}
+                </optgroup>
+                <optgroup label="Income" class="category-income" style="display:none">
                 {{range .Data.IncomeCategories}}
-                <option value="{{.ID}}" class="category-income" style="display:none" {{if eq .ID $prefillCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
+                <option value="{{.ID}}" {{if eq .ID $prefillCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
                 {{end}}
+                </optgroup>
             </select>
         </div>
 
@@ -168,12 +172,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('input[name="type"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
             const isExpense = this.value === 'expense';
-            document.querySelectorAll('.category-expense').forEach(function(opt) {
-                opt.style.display = isExpense ? '' : 'none';
-            });
-            document.querySelectorAll('.category-income').forEach(function(opt) {
-                opt.style.display = isExpense ? 'none' : '';
-            });
+            document.querySelector('optgroup.category-expense').style.display = isExpense ? '' : 'none';
+            document.querySelector('optgroup.category-income').style.display = isExpense ? 'none' : '';
             document.getElementById('category-select').value = '';
         });
     });
@@ -181,8 +181,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Show correct categories on load for income duplicates
     var checkedType = document.querySelector('input[name="type"]:checked');
     if (checkedType && checkedType.value === 'income') {
-        document.querySelectorAll('.category-expense').forEach(function(opt) { opt.style.display = 'none'; });
-        document.querySelectorAll('.category-income').forEach(function(opt) { opt.style.display = ''; });
+        document.querySelector('optgroup.category-expense').style.display = 'none';
+        document.querySelector('optgroup.category-income').style.display = '';
     }
 
     // Update currency when account changes

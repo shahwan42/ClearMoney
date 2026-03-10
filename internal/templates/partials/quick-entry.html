@@ -111,12 +111,16 @@
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             id="qe-category-select">
             <option value="">No category</option>
+            <optgroup label="Expense" class="qe-category-expense">
             {{range .ExpenseCategories}}
-            <option value="{{.ID}}" class="qe-category-expense" {{if eq .ID $autoCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
+            <option value="{{.ID}}" {{if eq .ID $autoCat}}selected{{end}}>{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
             {{end}}
+            </optgroup>
+            <optgroup label="Income" class="qe-category-income" style="display:none">
             {{range .IncomeCategories}}
-            <option value="{{.ID}}" class="qe-category-income" style="display:none">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
+            <option value="{{.ID}}">{{if .Icon}}{{deref .Icon}} {{end}}{{.Name}}</option>
             {{end}}
+            </optgroup>
         </select>
     </div>
 
@@ -154,8 +158,8 @@
     document.querySelectorAll('#quick-entry-form input[name="type"]').forEach(function(radio) {
         radio.addEventListener('change', function() {
             var isExpense = this.value === 'expense';
-            document.querySelectorAll('.qe-category-expense').forEach(function(opt) { opt.style.display = isExpense ? '' : 'none'; });
-            document.querySelectorAll('.qe-category-income').forEach(function(opt) { opt.style.display = isExpense ? 'none' : ''; });
+            document.querySelector('optgroup.qe-category-expense').style.display = isExpense ? '' : 'none';
+            document.querySelector('optgroup.qe-category-income').style.display = isExpense ? 'none' : '';
             document.getElementById('qe-category-select').value = '';
         });
     });
