@@ -168,21 +168,25 @@ document.addEventListener('DOMContentLoaded', function() {
         dateInput.value = new Date().toISOString().split('T')[0];
     }
 
-    // Switch categories when type changes
+    // Switch categories when type changes — toggle both optgroup display
+    // AND individual option disabled/hidden for cross-browser reliability
+    function toggleCategories(isExpense) {
+        var expGrp = document.querySelector('optgroup.category-expense');
+        var incGrp = document.querySelector('optgroup.category-income');
+        expGrp.style.display = isExpense ? '' : 'none';
+        incGrp.style.display = isExpense ? 'none' : '';
+        expGrp.querySelectorAll('option').forEach(function(o) { o.disabled = !isExpense; o.hidden = !isExpense; });
+        incGrp.querySelectorAll('option').forEach(function(o) { o.disabled = isExpense; o.hidden = isExpense; });
+        document.getElementById('category-select').value = '';
+    }
     document.querySelectorAll('input[name="type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            const isExpense = this.value === 'expense';
-            document.querySelector('optgroup.category-expense').style.display = isExpense ? '' : 'none';
-            document.querySelector('optgroup.category-income').style.display = isExpense ? 'none' : '';
-            document.getElementById('category-select').value = '';
-        });
+        radio.addEventListener('change', function() { toggleCategories(this.value === 'expense'); });
     });
 
     // Show correct categories on load for income duplicates
     var checkedType = document.querySelector('input[name="type"]:checked');
     if (checkedType && checkedType.value === 'income') {
-        document.querySelector('optgroup.category-expense').style.display = 'none';
-        document.querySelector('optgroup.category-income').style.display = '';
+        toggleCategories(false);
     }
 
     // Update currency when account changes
