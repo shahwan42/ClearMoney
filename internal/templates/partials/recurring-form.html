@@ -86,5 +86,12 @@
             Create Rule
         </button>
     </form>
+    <script>
+    // Default next_due_date to today if empty
+    (function() {
+        var d = document.querySelector('input[name="next_due_date"]');
+        if (d && !d.value) d.value = new Date().toISOString().split('T')[0];
+    })();
+    </script>
 </div>
 {{end}}

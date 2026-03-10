@@ -100,6 +100,10 @@ func TemplateFuncs() template.FuncMap {
 		"formatDateShort": func(t time.Time) string {
 			return t.Format("Jan 2")
 		},
+		// formatDateISO returns "2006-01-02" for HTML date inputs
+		"formatDateISO": func(t time.Time) string {
+			return t.Format("2006-01-02")
+		},
 		// deref safely dereferences a string pointer, returning "" if nil
 		"deref": func(s *string) string {
 			if s == nil {

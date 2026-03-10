@@ -51,12 +51,17 @@
     <div id="batch-result"></div>
 
     <script>
+    var todayISO = new Date().toISOString().split('T')[0];
+    // Set today's date on all existing date inputs
+    document.querySelectorAll('#batch-rows input[type="date"]').forEach(function(d) { if (!d.value) d.value = todayISO; });
+
     function addBatchRow() {
-        const rows = document.getElementById('batch-rows');
-        const first = rows.querySelector('.batch-row');
-        const clone = first.cloneNode(true);
-        // Clear input values in clone
-        clone.querySelectorAll('input').forEach(i => { if(i.type !== 'date') i.value = ''; });
+        var rows = document.getElementById('batch-rows');
+        var first = rows.querySelector('.batch-row');
+        var clone = first.cloneNode(true);
+        clone.querySelectorAll('input').forEach(function(i) { if (i.type !== 'date') i.value = ''; });
+        // Ensure cloned row gets today's date
+        clone.querySelector('input[type="date"]').value = todayISO;
         rows.appendChild(clone);
     }
     </script>
