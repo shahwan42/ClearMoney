@@ -47,3 +47,6 @@ qa-screenshots/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# temporary artifacts
+temporary_artifacts/

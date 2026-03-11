@@ -14,7 +14,7 @@
 # Start the development server. `go run` compiles and runs in one step.
 # Like: `php artisan serve` or `python manage.py runserver`
 run:
-	go run ./cmd/server
+	DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" go run ./cmd/server
 
 # Compile the binary to bin/clearmoney. Unlike `go run`, this creates a
 # standalone executable you can deploy without the Go toolchain.
