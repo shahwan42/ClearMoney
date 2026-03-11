@@ -12,7 +12,11 @@
   Uses the same calcExchange() auto-calculation from exchange.js.
 -->
 {{define "quick-exchange-form"}}
-<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Currency Exchange</h3>
+<div class="flex items-center justify-between mb-4">
+    <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">Currency Exchange</h3>
+    <a href="/exchange/new" class="text-xs text-teal-600 dark:text-teal-400 hover:underline"
+       onclick="event.preventDefault(); closeQuickEntry(); window.location.href='/exchange/new';">Full form &rarr;</a>
+</div>
 
 <!-- Result area for success/error messages -->
 <div id="exchange-result"></div>

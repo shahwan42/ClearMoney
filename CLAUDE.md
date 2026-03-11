@@ -138,7 +138,7 @@ After implementing a feature, always follow these steps before considering it do
 
 1. **Run feature tests** — run the relevant unit and integration tests for the new feature; confirm they pass
 2. **Run full test suite** — run `make test && make test-integration` to confirm no regressions
-3. **Restart the app** — run `make run` so the user can try the feature live at `http://0.0.0.0:8080`
+3. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
 4. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
 5. **Wait for approval** — do not proceed until the user confirms the feature works as expected
 6. **Ask to commit** — once approved, ask the user if they'd like to commit the change
