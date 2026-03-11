@@ -1359,6 +1359,23 @@ func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// QuickTransferForm serves the transfer form partial into the bottom sheet.
+// GET /transactions/quick-transfer — loaded by HTMX when the "Transfer" tab is tapped.
+func (h *PageHandler) QuickTransferForm(w http.ResponseWriter, r *http.Request) {
+	accounts, _ := h.accountSvc.GetAll(r.Context())
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["home"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "quick-transfer-form", TransactionFormData{
+		Accounts: accounts,
+		Today:    time.Now(),
+	})
+}
+
 // QuickEntryCreate handles the quick-entry form submission.
 // POST /transactions/quick — returns success toast or error message.
 func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {

@@ -9,14 +9,14 @@ var sheet = document.getElementById('quick-entry-sheet');
 function setQuickEntryTab(mode) {
     var tabTx = document.getElementById('tab-transaction');
     var tabEx = document.getElementById('tab-exchange');
+    var tabTfr = document.getElementById('tab-transfer');
     var base = 'flex-1 py-2 text-sm font-medium text-center rounded-lg border';
     var active = base + ' bg-teal-50 text-teal-700 border-teal-200';
     var inactive = base + ' bg-gray-50 text-gray-500 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600';
 
-    if (tabTx && tabEx) {
-        tabTx.className = (mode === 'transaction') ? active : inactive;
-        tabEx.className = (mode === 'exchange') ? active : inactive;
-    }
+    if (tabTx) tabTx.className = (mode === 'transaction') ? active : inactive;
+    if (tabEx) tabEx.className = (mode === 'exchange') ? active : inactive;
+    if (tabTfr) tabTfr.className = (mode === 'transfer') ? active : inactive;
 }
 
 function openQuickEntry() {

@@ -1,0 +1,131 @@
+<!--
+  QUICK TRANSFER PARTIAL — Transfer Form for the Bottom Sheet
+
+  Lazy-loaded into the bottom sheet via HTMX when the "Transfer" tab is tapped.
+  Streamlined version of the full transfer form (transfer-form.html), adapted
+  for the FAB bottom sheet context — no card wrapper, hidden date field.
+
+  Reuses the existing POST handlers:
+    /transactions/transfer         — normal transfer
+    /transactions/instapay-transfer — transfer with InstaPay fee
+-->
+{{define "quick-transfer-form"}}
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Transfer Between Accounts</h3>
+
+<!-- Result area for success/error messages -->
+<div id="quick-transfer-result"></div>
+
+<form
+    hx-post="/transactions/transfer"
+    hx-target="#quick-transfer-result"
+    hx-swap="innerHTML"
+    class="space-y-4"
+    id="quick-transfer-form"
+>
+    <input type="hidden" name="from_sheet" value="1">
+
+    <!-- Source account -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">From Account</label>
+        <select name="source_account_id" required
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">Select source...</option>
+            {{range .Accounts}}
+            <option value="{{.ID}}">{{.Name}} ({{string .Currency}})</option>
+            {{end}}
+        </select>
+    </div>
+
+    <!-- Destination account -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">To Account</label>
+        <select name="dest_account_id" required
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">Select destination...</option>
+            {{range .Accounts}}
+            <option value="{{.ID}}">{{.Name}} ({{string .Currency}})</option>
+            {{end}}
+        </select>
+    </div>
+
+    <!-- Amount -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Amount</label>
+        <input type="number" name="amount" step="0.01" min="0.01" required
+               id="qt-transfer-amount" inputmode="decimal"
+               class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    <!-- InstaPay toggle -->
+    <div class="flex items-center justify-between py-1">
+        <label class="text-sm text-slate-700 dark:text-slate-300 font-medium" for="qt-instapay-toggle">InstaPay</label>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" name="instapay" id="qt-instapay-toggle" class="sr-only peer"
+                   onchange="qtToggleInstapay()">
+            <div class="w-9 h-5 bg-gray-200 rounded-full peer-checked:bg-teal-600 transition-colors
+                        after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                        after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                        peer-checked:after:translate-x-full"></div>
+        </label>
+    </div>
+
+    <!-- Fee display (shown when InstaPay is active) -->
+    <div id="qt-instapay-fee" class="hidden bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg p-2 text-xs text-amber-700 dark:text-amber-300">
+        InstaPay fee: <span id="qt-instapay-fee-amount" class="font-semibold">EGP 0.00</span>
+        <span class="text-amber-500">(0.1%, min 0.5, max 20 EGP)</span>
+    </div>
+
+    <!-- Note -->
+    <div>
+        <input type="text" name="note" placeholder="Note (optional)"
+            class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    <!-- Hidden date (defaults to today) -->
+    <input type="hidden" name="date" id="qt-transfer-date">
+
+    <!-- Submit -->
+    <button type="submit"
+        class="w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+        Transfer
+    </button>
+</form>
+
+<script>
+(function() {
+    // Set date to today
+    document.getElementById('qt-transfer-date').value = new Date().toISOString().split('T')[0];
+})();
+
+// InstaPay toggle — switches form endpoint and shows fee
+function qtToggleInstapay() {
+    var feeDiv = document.getElementById('qt-instapay-fee');
+    var toggle = document.getElementById('qt-instapay-toggle');
+    var form = document.getElementById('quick-transfer-form');
+
+    if (toggle.checked) {
+        feeDiv.classList.remove('hidden');
+        form.setAttribute('hx-post', '/transactions/instapay-transfer');
+        htmx.process(form);
+        qtUpdateFee();
+    } else {
+        feeDiv.classList.add('hidden');
+        form.setAttribute('hx-post', '/transactions/transfer');
+        htmx.process(form);
+    }
+}
+
+function qtUpdateFee() {
+    var amount = parseFloat(document.getElementById('qt-transfer-amount').value) || 0;
+    var fee = Math.max(0.5, Math.min(amount * 0.001, 20));
+    if (amount <= 0) fee = 0;
+    document.getElementById('qt-instapay-fee-amount').textContent = 'EGP ' + fee.toFixed(2);
+}
+
+document.getElementById('qt-transfer-amount').addEventListener('input', function() {
+    if (document.getElementById('qt-instapay-toggle').checked) {
+        qtUpdateFee();
+    }
+});
+</script>
+{{end}}

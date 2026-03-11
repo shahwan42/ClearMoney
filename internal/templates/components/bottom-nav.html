@@ -109,6 +109,15 @@
             onclick="setQuickEntryTab('exchange')">
             Exchange
         </button>
+        <button type="button"
+            class="flex-1 py-2 text-sm font-medium text-center rounded-lg border bg-gray-50 text-gray-500 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600"
+            id="tab-transfer"
+            hx-get="/transactions/quick-transfer"
+            hx-target="#quick-entry-content"
+            hx-swap="innerHTML"
+            onclick="setQuickEntryTab('transfer')">
+            Transfer
+        </button>
     </div>
     <div id="quick-entry-content" class="px-4 pb-6">
         <!-- Content loaded via HTMX when sheet opens -->
