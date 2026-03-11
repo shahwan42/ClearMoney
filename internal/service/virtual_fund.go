@@ -1,8 +1,7 @@
 // Package service — virtual_fund.go provides business logic for virtual funds.
 //
 // Virtual funds are user-defined savings buckets (envelope budgeting pattern).
-// Unlike the old is_building_fund flag (which was a single hardcoded boolean),
-// virtual funds let users create any number of goals: "Emergency Fund", "Vacation", etc.
+// Users can create any number of goals: "Emergency Fund", "Vacation", etc.
 //
 // The envelope budgeting concept: virtual funds don't move money between accounts.
 // Instead, they "tag" transactions as belonging to a fund. The fund's balance is

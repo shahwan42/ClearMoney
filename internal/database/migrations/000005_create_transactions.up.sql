@@ -112,8 +112,8 @@ CREATE TABLE transactions (
     -- Docs: https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-FK
     linked_transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
 
-    -- Legacy flag, replaced by virtual_funds in migration 000015.
-    -- Kept for backward compatibility; new code uses the allocations table instead.
+    -- Legacy building fund column — replaced by virtual_funds (migration 000015),
+    -- then dropped entirely in migration 000020.
     is_building_fund BOOLEAN NOT NULL DEFAULT false,
 
     -- Links to recurring_rules table (created in migration 000009).

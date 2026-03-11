@@ -79,7 +79,6 @@ type Transaction struct {
 	FeeAccountID        *string         `json:"fee_account_id,omitempty" db:"fee_account_id"`              // which account the fee was charged to (may differ from AccountID)
 	PersonID            *string         `json:"person_id,omitempty" db:"person_id"`                        // FK to Person — set for loan_out, loan_in, loan_repayment transactions
 	LinkedTransactionID *string         `json:"linked_transaction_id,omitempty" db:"linked_transaction_id"` // the other half of a transfer/exchange pair (self-referencing FK)
-	IsBuildingFund      bool            `json:"is_building_fund" db:"is_building_fund"`                    // legacy flag for building fund contributions (replaced by VirtualFunds, kept for backward compat)
 	RecurringRuleID     *string         `json:"recurring_rule_id,omitempty" db:"recurring_rule_id"`         // FK to RecurringRule that auto-generated this transaction
 	BalanceDelta        float64         `json:"balance_delta" db:"balance_delta"`                           // actual signed impact on AccountID's balance (e.g., -500 for an expense, +1000 for income)
 	CreatedAt           time.Time       `json:"created_at" db:"created_at"`

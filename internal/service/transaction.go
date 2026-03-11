@@ -814,16 +814,6 @@ func (s *TransactionService) GetSmartDefaults(ctx context.Context, txType string
 	return defaults
 }
 
-// GetBuildingFundBalance returns the current building fund balance.
-func (s *TransactionService) GetBuildingFundBalance(ctx context.Context) (float64, error) {
-	return s.txRepo.GetBuildingFundBalance(ctx)
-}
-
-// GetBuildingFundTransactions returns building fund transactions.
-func (s *TransactionService) GetBuildingFundTransactions(ctx context.Context, limit int) ([]models.Transaction, error) {
-	return s.txRepo.GetBuildingFundTransactions(ctx, limit)
-}
-
 // GetByAccountDateRange returns transactions for an account within a date range.
 // Used by credit card statement view (TASK-071).
 func (s *TransactionService) GetByAccountDateRange(ctx context.Context, accountID string, from, to time.Time) ([]models.Transaction, error) {

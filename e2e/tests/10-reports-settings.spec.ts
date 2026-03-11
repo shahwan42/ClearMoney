@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetDatabase, ensureAuth, createInstitution, createAccount } from './helpers';
 
-test.describe('Reports, Settings, Building Fund, Fawry, Batch (TASK-039, TASK-038, TASK-034, TASK-043, TASK-047)', () => {
+test.describe('Reports, Settings, Fawry, Batch (TASK-039, TASK-038, TASK-043, TASK-047)', () => {
   test.beforeAll(async ({ browser }) => {
     await resetDatabase();
     const ctx = await browser.newContext();
@@ -33,22 +33,6 @@ test.describe('Reports, Settings, Building Fund, Fawry, Batch (TASK-039, TASK-03
     await page.click('a[href="/reports"]');
     await expect(page).toHaveURL('/reports');
     await expect(page.getByRole('heading', { name: /Reports/i }).first()).toBeVisible();
-  });
-
-  // Building Fund
-  test('building fund page loads', async ({ page }) => {
-    await page.goto('/building-fund');
-    await expect(page.locator('main')).toContainText(/Building Fund/i);
-  });
-
-  test('record building fund collection', async ({ page }) => {
-    await page.goto('/building-fund');
-    await page.fill('input[name="amount"]', '1000');
-    await page.selectOption('select[name="account_id"]', { label: 'Checking (EGP)' });
-    await page.fill('input[name="note"]', 'Monthly collection');
-    await page.click('button:has-text("Record")');
-
-    await expect(page.locator('#building-fund-result')).toContainText(/saved|success|recorded/i);
   });
 
   // Fawry Cashout

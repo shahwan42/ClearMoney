@@ -83,7 +83,7 @@ func ensureSeedCategories(t *testing.T, db *sql.DB) {
 			('Entertainment',    'expense', '🎬', true, 11),
 			('Shopping',         'expense', '🛍️', true, 12),
 			('Subscriptions',    'expense', '📺', true, 13),
-			('Building Fund',    'expense', '🏗️', true, 14),
+			('Virtual Fund',     'expense', '🏦', true, 14),
 			('Insurance',        'expense', '🛡️', true, 15),
 			('Fees & Charges',   'expense', '💳', true, 16),
 			('Debt Payment',     'expense', '💰', true, 17),
@@ -92,7 +92,7 @@ func ensureSeedCategories(t *testing.T, db *sql.DB) {
 			('Freelance',                 'income', '💻', true, 2),
 			('Investment Returns',        'income', '📈', true, 3),
 			('Refund',                    'income', '🔄', true, 4),
-			('Building Fund Collection',  'income', '🏗️', true, 5),
+			('Virtual Fund',              'income', '🏦', true, 5),
 			('Loan Repayment Received',   'income', '🤝', true, 6),
 			('Other',                     'income', '💎', true, 7)
 		ON CONFLICT (name, type) DO NOTHING

@@ -252,7 +252,7 @@ func (r *VirtualFundRepo) GetTransactionsForFund(ctx context.Context, fundID str
 		       t.counter_account_id, t.category_id, t.date, t.time,
 		       t.note, t.tags, t.exchange_rate, t.counter_amount,
 		       t.fee_amount, t.fee_account_id, t.person_id, t.linked_transaction_id,
-		       t.is_building_fund, t.recurring_rule_id, t.balance_delta,
+		       t.recurring_rule_id, t.balance_delta,
 		       t.created_at, t.updated_at
 		FROM transactions t
 		JOIN transaction_fund_allocations a ON t.id = a.transaction_id
@@ -277,7 +277,7 @@ func (r *VirtualFundRepo) GetTransactionsForFund(ctx context.Context, fundID str
 			&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 			&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 			&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-			&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta,
+			&tx.RecurringRuleID, &tx.BalanceDelta,
 			&tx.CreatedAt, &tx.UpdatedAt,
 		); err != nil {
 			return nil, err

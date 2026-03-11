@@ -59,7 +59,7 @@ func (s *ExportService) ExportTransactionsCSV(ctx context.Context, w io.Writer, 
 	// Header row
 	if err := writer.Write([]string{
 		"Date", "Type", "Amount", "Currency", "Account ID", "Category ID",
-		"Note", "Is Building Fund", "Created At",
+		"Note", "Created At",
 	}); err != nil {
 		return err
 	}
@@ -82,7 +82,6 @@ func (s *ExportService) ExportTransactionsCSV(ctx context.Context, w io.Writer, 
 			tx.AccountID,
 			catID,
 			note,
-			fmt.Sprintf("%v", tx.IsBuildingFund),
 			tx.CreatedAt.Format(time.RFC3339),
 		}
 		if err := writer.Write(record); err != nil {

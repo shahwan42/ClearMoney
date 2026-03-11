@@ -5,7 +5,7 @@
 // - Cash vs credit breakdown
 // - USD conversion with exchange rates
 // - People ledger summary
-// - Building fund balance
+// - Virtual fund integration
 //
 // Each test creates a minimal set of fixtures, calls GetDashboard(), and verifies
 // specific fields. The tests are independent — each one cleans the DB and creates
@@ -265,49 +265,6 @@ func TestDashboardService_GetDashboard_PeopleSummary(t *testing.T) {
 	}
 	if data.PeopleIOwe != -3000 {
 		t.Errorf("PeopleIOwe = %f, want -3000", data.PeopleIOwe)
-	}
-}
-
-func TestDashboardService_GetDashboard_BuildingFund(t *testing.T) {
-	db := testutil.NewTestDB(t)
-	testutil.CleanTable(t, db, "transactions")
-	testutil.CleanTable(t, db, "accounts")
-	testutil.CleanTable(t, db, "institutions")
-
-	instRepo := repository.NewInstitutionRepo(db)
-	accRepo := repository.NewAccountRepo(db)
-	txRepo := repository.NewTransactionRepo(db)
-	svc := NewDashboardService(instRepo, accRepo, txRepo)
-
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
-	acc := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Main", Currency: models.CurrencyEGP, InitialBalance: 100000,
-	})
-
-	// Create building fund transactions
-	txSvc := NewTransactionService(txRepo, accRepo)
-	txSvc.Create(context.Background(), models.Transaction{
-		Type: models.TransactionTypeIncome, Amount: 10000,
-		Currency: models.CurrencyEGP, AccountID: acc.ID, IsBuildingFund: true,
-	})
-	txSvc.Create(context.Background(), models.Transaction{
-		Type: models.TransactionTypeExpense, Amount: 3000,
-		Currency: models.CurrencyEGP, AccountID: acc.ID, IsBuildingFund: true,
-	})
-	// Non-building-fund transaction should not count
-	txSvc.Create(context.Background(), models.Transaction{
-		Type: models.TransactionTypeIncome, Amount: 50000,
-		Currency: models.CurrencyEGP, AccountID: acc.ID, IsBuildingFund: false,
-	})
-
-	data, err := svc.GetDashboard(context.Background())
-	if err != nil {
-		t.Fatalf("get dashboard: %v", err)
-	}
-
-	// Building fund = 10000 (income) - 3000 (expense) = 7000
-	if data.BuildingFundBalance != 7000 {
-		t.Errorf("BuildingFundBalance = %f, want 7000", data.BuildingFundBalance)
 	}
 }
 

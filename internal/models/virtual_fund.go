@@ -5,9 +5,7 @@
 // stays in your bank accounts, but the virtual funds track how much is earmarked
 // for each goal.
 //
-// This replaces the hardcoded is_building_fund boolean flag on transactions with
-// a flexible system where users can create any number of savings goals. The old flag
-// is kept for backward compatibility but new allocations use this system.
+// Users can create any number of savings goals and allocate transactions to them.
 //
 // Laravel analogy: VirtualFund is an Eloquent model with a many-to-many relationship
 // to Transaction via the FundAllocation pivot table. In Laravel, you'd define this
@@ -20,8 +18,8 @@ package models
 
 import "time"
 
-// VirtualFund represents a user-defined savings bucket (e.g., "Building Fund",
-// "Emergency Fund", "Vacation"). Each fund tracks a balance computed from
+// VirtualFund represents a user-defined savings bucket (e.g., "Emergency Fund",
+// "Vacation", "New Car"). Each fund tracks a balance computed from
 // transaction allocations.
 //
 // TargetAmount is *float64 (pointer to float64) — this means it's nullable.
@@ -72,7 +70,7 @@ func (f VirtualFund) ProgressPct() float64 {
 // Negative amounts are withdrawals (spending from the fund).
 //
 // A single transaction can be split across multiple funds (e.g., a salary
-// deposit might allocate E£2,000 to "Building Fund" and E£500 to "Emergency Fund").
+// deposit might allocate E£2,000 to "Savings" and E£500 to "Emergency Fund").
 //
 // Laravel analogy: This is the pivot table in a belongsToMany relationship,
 // with an extra 'amount' column (withPivot('amount')).

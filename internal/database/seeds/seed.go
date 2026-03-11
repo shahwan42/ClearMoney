@@ -268,9 +268,9 @@ func seedTransactions(ctx context.Context, db *sql.DB) error {
 	// Category names must match the seeded categories in migration 000007.
 	// Expense: Household, Food & Groceries, Transport, Health, Education, Mobile,
 	//          Electricity, Gas, Internet, Gifts, Entertainment, Shopping,
-	//          Subscriptions, Building Fund, Insurance, Fees & Charges, Debt Payment, Other
+	//          Subscriptions, Virtual Fund, Insurance, Fees & Charges, Debt Payment, Other
 	// Income:  Salary, Freelance, Investment Returns, Refund,
-	//          Building Fund Collection, Loan Repayment Received, Other
+	//          Virtual Fund, Loan Repayment Received, Other
 	txns := []transaction{
 		// Food & Groceries
 		{"HSBC EGP Checking", "expense", 850, "EGP", "Food & Groceries", "Seoudi Market", 1},

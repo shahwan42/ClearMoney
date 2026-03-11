@@ -46,7 +46,7 @@ func NewTransactionRepo(db *sql.DB) *TransactionRepo {
 // job inside a database transaction (see service.TransactionService.Create).
 // The repository is "dumb" — it only inserts/reads data, no business logic.
 //
-// The query uses 19 positional parameters ($1..$19). PostgreSQL requires numbered
+// The query uses 18 positional parameters ($1..$18). PostgreSQL requires numbered
 // placeholders unlike MySQL's `?`. The order must match the args list exactly.
 func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
 	if tx.Date.IsZero() {
@@ -57,13 +57,13 @@ func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (mo
 		INSERT INTO transactions (type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+			recurring_rule_id, balance_delta)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id, created_at, updated_at
 	`, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
 		tx.CategoryID, tx.Date, tx.Time, tx.Note, pq.Array(tx.Tags),
 		tx.ExchangeRate, tx.CounterAmount, tx.FeeAmount, tx.FeeAccountID,
-		tx.PersonID, tx.LinkedTransactionID, tx.IsBuildingFund, tx.RecurringRuleID,
+		tx.PersonID, tx.LinkedTransactionID, tx.RecurringRuleID,
 		tx.BalanceDelta,
 	).Scan(&tx.ID, &tx.CreatedAt, &tx.UpdatedAt)
 
@@ -99,13 +99,13 @@ func (r *TransactionRepo) CreateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 		INSERT INTO transactions (type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+			recurring_rule_id, balance_delta)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		RETURNING id, created_at, updated_at
 	`, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
 		tx.CategoryID, tx.Date, tx.Time, tx.Note, pq.Array(tx.Tags),
 		tx.ExchangeRate, tx.CounterAmount, tx.FeeAmount, tx.FeeAccountID,
-		tx.PersonID, tx.LinkedTransactionID, tx.IsBuildingFund, tx.RecurringRuleID,
+		tx.PersonID, tx.LinkedTransactionID, tx.RecurringRuleID,
 		tx.BalanceDelta,
 	).Scan(&tx.ID, &tx.CreatedAt, &tx.UpdatedAt)
 
@@ -129,14 +129,14 @@ func (r *TransactionRepo) GetByID(ctx context.Context, id string) (models.Transa
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE id = $1
 	`, id).Scan(
 		&tx.ID, &tx.Type, &tx.Amount, &tx.Currency, &tx.AccountID,
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
+		&tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 	)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("getting transaction: %w", err)
@@ -150,7 +150,7 @@ func (r *TransactionRepo) GetRecent(ctx context.Context, limit int) ([]models.Tr
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions ORDER BY date DESC, created_at DESC LIMIT $1
 	`, limit)
 }
@@ -161,7 +161,7 @@ func (r *TransactionRepo) GetByAccount(ctx context.Context, accountID string, li
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE account_id = $1
 		ORDER BY date DESC, created_at DESC LIMIT $2
 	`, accountID, limit)
@@ -182,7 +182,7 @@ func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (mo
 		RETURNING id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
 		tx.Note, tx.Date,
 	).Scan(
@@ -190,7 +190,7 @@ func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (mo
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
+		&tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 	)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("updating transaction: %w", err)
@@ -210,7 +210,7 @@ func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 		RETURNING id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
 		tx.Note, tx.Date,
 	).Scan(
@@ -218,7 +218,7 @@ func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 		&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-		&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
+		&tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 	)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("updating transaction: %w", err)
@@ -349,7 +349,7 @@ func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) 
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE 1=1`
 
 	var args []any
@@ -498,50 +498,13 @@ func (r *TransactionRepo) GetConsecutiveCategoryID(ctx context.Context, txType s
 	return "", nil
 }
 
-// GetBuildingFundBalance sums all building fund transactions.
-// Income adds to the fund, expenses subtract from it.
-//
-// SQL COALESCE(expr, 0) returns 0 if the SUM is NULL (no matching rows).
-// Without COALESCE, scanning a NULL into a float64 would fail.
-//   Laravel:  Transaction::where('is_building_fund', true)->sum(DB::raw("CASE WHEN type = 'income' THEN amount ELSE -amount END"))
-//   Django:   Transaction.objects.filter(is_building_fund=True).aggregate(total=Sum(Case(...)))
-//
-// CASE WHEN ... THEN ... ELSE ... END is SQL's if-else expression.
-// See: https://www.postgresql.org/docs/current/functions-conditional.html
-func (r *TransactionRepo) GetBuildingFundBalance(ctx context.Context) (float64, error) {
-	var balance float64
-	err := r.db.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0)
-		FROM transactions WHERE is_building_fund = true
-	`).Scan(&balance)
-	if err != nil {
-		return 0, fmt.Errorf("querying building fund balance: %w", err)
-	}
-	return balance, nil
-}
-
-// GetBuildingFundTransactions retrieves all transactions marked as building fund.
-func (r *TransactionRepo) GetBuildingFundTransactions(ctx context.Context, limit int) ([]models.Transaction, error) {
-	if limit <= 0 {
-		limit = 100
-	}
-	return r.queryTransactions(ctx, `
-		SELECT id, type, amount, currency, account_id, counter_account_id, category_id,
-			date, time, note, tags, exchange_rate, counter_amount, fee_amount, fee_account_id,
-			person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions WHERE is_building_fund = true
-		ORDER BY date DESC, created_at DESC LIMIT $1
-	`, limit)
-}
-
 // GetByDateRange retrieves all transactions within a date range (for CSV export).
 func (r *TransactionRepo) GetByDateRange(ctx context.Context, from, to time.Time) ([]models.Transaction, error) {
 	return r.queryTransactions(ctx, `
 		SELECT id, type, amount, currency, account_id, counter_account_id, category_id,
 			date, time, note, tags, exchange_rate, counter_amount, fee_amount, fee_account_id,
 			person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE date >= $1 AND date <= $2
 		ORDER BY date DESC, created_at DESC
 	`, from, to)
@@ -569,7 +532,7 @@ func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, a
 			&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 			&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
 			&tx.FeeAmount, &tx.FeeAccountID, &tx.PersonID, &tx.LinkedTransactionID,
-			&tx.IsBuildingFund, &tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
+			&tx.RecurringRuleID, &tx.BalanceDelta, &tx.CreatedAt, &tx.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scanning transaction: %w", err)
 		}
@@ -588,7 +551,7 @@ func (r *TransactionRepo) GetByPersonID(ctx context.Context, personID string, li
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE person_id = $1
 		ORDER BY date DESC, created_at DESC LIMIT %d
 	`, limit), personID)
@@ -601,7 +564,7 @@ func (r *TransactionRepo) GetByAccountDateRange(ctx context.Context, accountID s
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions WHERE account_id = $1 AND date >= $2 AND date <= $3
 		ORDER BY date DESC, created_at DESC
 	`, accountID, from, to)
@@ -617,7 +580,7 @@ func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, accountID st
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
-			is_building_fund, recurring_rule_id, balance_delta, created_at, updated_at
+			recurring_rule_id, balance_delta, created_at, updated_at
 		FROM transactions
 		WHERE (account_id = $1 OR counter_account_id = $1)
 		  AND balance_delta > 0

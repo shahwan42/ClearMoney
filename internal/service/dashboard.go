@@ -69,9 +69,6 @@ type DashboardData struct {
 	PeopleOwedToMe float64 // sum of positive net_balance (they owe me)
 	PeopleIOwe     float64 // sum of negative net_balance (I owe them)
 
-	// Building fund balance (sum of is_building_fund transactions)
-	BuildingFundBalance float64
-
 	// Total investment portfolio value
 	InvestmentTotal float64
 
@@ -348,11 +345,6 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 				}
 			}
 		}
-	}
-
-	// Building fund balance (legacy — kept for backward compatibility)
-	if balance, err := s.txRepo.GetBuildingFundBalance(ctx); err == nil {
-		data.BuildingFundBalance = balance
 	}
 
 	// TASK-063: Load active virtual funds for dashboard widget

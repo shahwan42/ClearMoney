@@ -246,7 +246,7 @@
     </section>
     {{end}}
 
-    <!-- TASK-063: Virtual Funds (replaces Building Fund when present) -->
+    <!-- TASK-063: Virtual Funds -->
     {{if .Data.VirtualFunds}}
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
@@ -270,13 +270,8 @@
     </section>
     {{end}}
 
-    <!-- People Summary & Building Fund -->
-    <div class="grid grid-cols-2 gap-3">
-        {{template "people-summary" .Data}}
-        {{if not .Data.VirtualFunds}}
-        {{template "building-fund" .Data}}
-        {{end}}
-    </div>
+    <!-- People Summary -->
+    {{template "people-summary" .Data}}
 
     <!-- Investment Portfolio (D-9) -->
     {{if gt .Data.InvestmentTotal 0.0}}
