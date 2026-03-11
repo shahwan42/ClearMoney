@@ -28,6 +28,13 @@ test.describe('Reports, Settings, Building Fund, Fawry, Batch (TASK-039, TASK-03
     await expect(page.locator('a:has-text("Next")').first()).toBeVisible();
   });
 
+  test('header has reports link that navigates to /reports', async ({ page }) => {
+    await page.goto('/');
+    await page.click('a[href="/reports"]');
+    await expect(page).toHaveURL('/reports');
+    await expect(page.getByRole('heading', { name: /Reports/i }).first()).toBeVisible();
+  });
+
   // Building Fund
   test('building fund page loads', async ({ page }) => {
     await page.goto('/building-fund');
