@@ -140,3 +140,22 @@ func (r *RecurringRepo) Delete(ctx context.Context, id string) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM recurring_rules WHERE id = $1`, id)
 	return err
 }
+
+// DeleteByAccountID removes all recurring rules whose template_transaction references
+// the given account_id. Called when an account is deleted to avoid FK violations
+// when a stale rule later tries to fire.
+//
+// The ->> operator extracts a JSONB field as text for string comparison:
+//   template_transaction->>'account_id'  reads the "account_id" key from the JSONB blob.
+//   Laravel: whereRaw("template_transaction->>'account_id' = ?", [$accountId])->delete()
+//   Django:  RecurringRule.objects.filter(template_transaction__account_id=account_id).delete()
+func (r *RecurringRepo) DeleteByAccountID(ctx context.Context, accountID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE FROM recurring_rules
+		WHERE template_transaction->>'account_id' = $1
+	`, accountID)
+	if err != nil {
+		return fmt.Errorf("deleting recurring rules for account: %w", err)
+	}
+	return nil
+}

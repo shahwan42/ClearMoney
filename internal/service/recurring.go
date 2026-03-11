@@ -139,6 +139,12 @@ func (s *RecurringService) executeRule(ctx context.Context, rule models.Recurrin
 		return fmt.Errorf("parsing template: %w", err)
 	}
 
+	// Guard: account may have been deleted after the rule was created. JSONB has no FK
+	// constraint, so we catch the stale reference here before hitting the DB.
+	if tmpl.AccountID == "" {
+		return fmt.Errorf("recurring rule %s has no account_id — account may have been deleted", rule.ID)
+	}
+
 	tx := models.Transaction{
 		Type:           tmpl.Type,
 		Amount:         tmpl.Amount,

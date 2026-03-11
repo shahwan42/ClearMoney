@@ -323,3 +323,72 @@ func TestBug011_ReportsUSDFilter(t *testing.T) {
 		t.Error("reports with USD filter should NOT show EGP labels (BUG-011 regression)")
 	}
 }
+
+// TestBug012_DeleteAccountCleansUpRecurringRules verifies that deleting an account
+// also removes any recurring rules referencing it. Without this cleanup, confirming
+// a due recurring rule whose account was deleted causes a FK violation:
+//
+//	"insert or update on table 'transactions' violates foreign key constraint
+//	 transactions_account_id_fkey (SQLSTATE 23503)"
+//
+// Root cause: template_transaction is JSONB — no FK constraint protects account_id
+// inside the JSON blob when the referenced account is deleted.
+func TestBug012_DeleteAccountCleansUpRecurringRules(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "recurring_rules")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Salary Account",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 0,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Step 1: Create a recurring rule referencing the account.
+	formData := strings.NewReader(
+		"type=income&amount=15000&account_id=" + acc.ID +
+			"&note=Monthly+Salary&frequency=monthly&next_due_date=2026-04-01&auto_confirm=false",
+	)
+	req := httptest.NewRequest(http.MethodPost, "/recurring/add", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 creating recurring rule, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify the rule exists before deletion.
+	var ruleCount int
+	db.QueryRow(
+		`SELECT count(*) FROM recurring_rules WHERE template_transaction->>'account_id' = $1`,
+		acc.ID,
+	).Scan(&ruleCount)
+	if ruleCount != 1 {
+		t.Fatalf("expected 1 recurring rule before account deletion, got %d", ruleCount)
+	}
+
+	// Step 2: Delete the account.
+	req = httptest.NewRequest(http.MethodDelete, "/api/accounts/"+acc.ID, nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 deleting account, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Step 3: Assert recurring rule was also deleted (BUG-012 regression check).
+	db.QueryRow(
+		`SELECT count(*) FROM recurring_rules WHERE template_transaction->>'account_id' = $1`,
+		acc.ID,
+	).Scan(&ruleCount)
+	if ruleCount != 0 {
+		t.Errorf("BUG-012: expected 0 recurring rules after account deletion, got %d", ruleCount)
+	}
+}

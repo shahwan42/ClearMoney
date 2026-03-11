@@ -260,7 +260,8 @@ func GetCreditCardUtilization(acc models.Account) float64 {
 // In Laravel: App\Services\AccountService with constructor injection.
 // In Django: a service class or module-level functions in accounts/services.py.
 type AccountService struct {
-	repo *repository.AccountRepo
+	repo          *repository.AccountRepo
+	recurringRepo *repository.RecurringRepo // optional; set via SetRecurringRepo for cleanup on delete
 }
 
 // NewAccountService creates the service with its repository dependency.
@@ -268,6 +269,13 @@ type AccountService struct {
 // See: https://go.dev/doc/effective_go#composite_literals
 func NewAccountService(repo *repository.AccountRepo) *AccountService {
 	return &AccountService{repo: repo}
+}
+
+// SetRecurringRepo wires in the recurring repository so AccountService can clean up
+// stale recurring rules when an account is deleted (BUG-012). Uses setter injection
+// to avoid growing the constructor — same pattern as SetSnapshotService etc.
+func (s *AccountService) SetRecurringRepo(repo *repository.RecurringRepo) {
+	s.recurringRepo = repo
 }
 
 // Create validates and creates a new account.
@@ -308,7 +316,15 @@ func (s *AccountService) Update(ctx context.Context, acc models.Account) (models
 	return s.repo.Update(ctx, acc)
 }
 
+// Delete removes an account, cleaning up any recurring rules that reference it first.
+// Without this cleanup, confirming a recurring rule after its account is deleted
+// causes a FK violation on transactions.account_id (BUG-012).
 func (s *AccountService) Delete(ctx context.Context, id string) error {
+	if s.recurringRepo != nil {
+		if err := s.recurringRepo.DeleteByAccountID(ctx, id); err != nil {
+			return fmt.Errorf("cleaning up recurring rules: %w", err)
+		}
+	}
 	return s.repo.Delete(ctx, id)
 }
 

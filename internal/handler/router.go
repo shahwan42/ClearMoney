@@ -142,6 +142,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	reportsSvc := service.NewReportsService(db)
 	recurringRepo := repository.NewRecurringRepo(db)
 	recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
+	accountSvc.SetRecurringRepo(recurringRepo) // BUG-012: clean up stale rules when account is deleted
 	installmentRepo := repository.NewInstallmentRepo(db)
 	installmentSvc := service.NewInstallmentService(installmentRepo, txSvc)
 	notificationSvc := service.NewNotificationService(dashboardSvc, recurringSvc)
