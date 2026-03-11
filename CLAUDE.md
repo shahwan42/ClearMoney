@@ -132,6 +132,17 @@ Use conventional commits: `type: concise description`
 6. **Template**: Add `internal/templates/pages/foo.html` and any partials
 7. **Tests**: Write integration tests using `testutil.NewTestDB(t)`
 
+### Feature Delivery Checklist
+
+After implementing a feature, always follow these steps before considering it done:
+
+1. **Run feature tests** — run the relevant unit and integration tests for the new feature; confirm they pass
+2. **Run full test suite** — run `make test && make test-integration` to confirm no regressions
+3. **Restart the app** — run `make run` so the user can try the feature live at `http://0.0.0.0:8080`
+4. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
+5. **Wait for approval** — do not proceed until the user confirms the feature works as expected
+6. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+
 ### Wiring a New Service into PageHandler
 
 When adding a new service that PageHandler needs:
