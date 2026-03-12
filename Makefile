@@ -9,7 +9,7 @@
 # .PHONY tells Make these aren't real files — they're just command names.
 # Without this, if a file named "test" existed, `make test` would do nothing.
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-.PHONY: run build test test-integration test-e2e clean up down logs migrate-create seed reconcile reconcile-fix
+.PHONY: run build test test-integration test-e2e clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs
 
 # Start the development server. `go run` compiles and runs in one step.
 # Like: `php artisan serve` or `python manage.py runserver`
@@ -89,3 +89,17 @@ migrate-create:
 	touch "internal/database/migrations/$${next}_$(name).up.sql"; \
 	touch "internal/database/migrations/$${next}_$(name).down.sql"; \
 	echo "Created: $${next}_$(name).{up,down}.sql"
+
+# Deploy to production VPS via SSH.
+# Pushes local commits, pulls on the server, rebuilds and restarts containers.
+# Like: `cap production deploy` (Capistrano) or `fab deploy` (Fabric).
+DEPLOY_HOST ?= hetzner-keeper
+DEPLOY_DIR ?= ~/ClearMoney
+deploy:
+	@echo "Deploying to $(DEPLOY_HOST)..."
+	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && git pull && sudo docker compose -f docker-compose.prod.yml up -d --build"
+	@echo "Deploy complete. App running at http://49.13.140.20"
+
+# Stream production logs from the VPS.
+deploy-logs:
+	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && sudo docker compose -f docker-compose.prod.yml logs -f"
