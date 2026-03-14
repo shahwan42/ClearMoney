@@ -55,6 +55,7 @@ type InstitutionType string
 const (
 	InstitutionTypeBank    InstitutionType = "bank"    // traditional banks (HSBC, CIB, NBE)
 	InstitutionTypeFintech InstitutionType = "fintech" // digital-first (Telda, ValU, Fawry)
+	InstitutionTypeWallet  InstitutionType = "wallet"  // virtual institution for physical cash / wallet accounts
 )
 
 // Institution represents a financial institution (e.g., HSBC, CIB, Telda).

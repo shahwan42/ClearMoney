@@ -106,3 +106,24 @@ func TestInstitutionService_Create_DefaultsToBank(t *testing.T) {
 		t.Errorf("expected type bank, got %q", inst.Type)
 	}
 }
+
+// TestInstitutionService_Create_Wallet verifies wallet-type institutions can be created.
+func TestInstitutionService_Create_Wallet(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "institutions")
+	svc := NewInstitutionService(repository.NewInstitutionRepo(db))
+
+	inst, err := svc.Create(context.Background(), models.Institution{
+		Name: "Cash",
+		Type: models.InstitutionTypeWallet,
+	})
+	if err != nil {
+		t.Fatalf("create wallet institution: %v", err)
+	}
+	if inst.ID == "" {
+		t.Error("expected ID")
+	}
+	if inst.Type != models.InstitutionTypeWallet {
+		t.Errorf("expected type wallet, got %q", inst.Type)
+	}
+}

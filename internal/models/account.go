@@ -27,6 +27,7 @@ const (
 	AccountTypePrepaid     AccountType = "prepaid"      // prepaid card (e.g., Fawry) — balance is loaded up front
 	AccountTypeCreditCard  AccountType = "credit_card"  // credit card — balance goes NEGATIVE when you spend (owe money)
 	AccountTypeCreditLimit AccountType = "credit_limit" // credit line (e.g., TRU EPP) — similar to credit card behavior
+	AccountTypeCash        AccountType = "cash"         // physical cash (wallet money) — always positive balance
 )
 
 // Currency represents the supported currencies.

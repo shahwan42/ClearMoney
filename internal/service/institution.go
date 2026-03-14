@@ -68,7 +68,7 @@ func (s *InstitutionService) Create(ctx context.Context, inst models.Institution
 	if inst.Type == "" {
 		inst.Type = models.InstitutionTypeBank
 	}
-	if inst.Type != models.InstitutionTypeBank && inst.Type != models.InstitutionTypeFintech {
+	if inst.Type != models.InstitutionTypeBank && inst.Type != models.InstitutionTypeFintech && inst.Type != models.InstitutionTypeWallet {
 		return models.Institution{}, fmt.Errorf("invalid institution type: %s", inst.Type)
 	}
 	// Delegate to the repository for the actual DB insert.

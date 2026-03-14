@@ -113,6 +113,7 @@ func seedInstitutions(ctx context.Context, db *sql.DB) error {
 		{"Telda", "fintech", "#7c3aed", "telda", 5},
 		{"Fawry", "fintech", "#f59e0b", "fawry", 6},
 		{"TRU", "fintech", "#06b6d4", "tru", 7},
+		{"Cash", "wallet", "#78716c", "", 8},
 	}
 
 	for _, inst := range institutions {
@@ -178,6 +179,9 @@ func seedAccounts(ctx context.Context, db *sql.DB) error {
 		{"Fawry", "Fawry Prepaid", "prepaid", "EGP", 2000, 0, 1},
 		// TRU
 		{"TRU", "TRU Credit", "credit_limit", "EGP", 0, 100000, 1},
+		// Cash
+		{"Cash", "EGP Cash", "cash", "EGP", 3500, 0, 1},
+		{"Cash", "USD Cash", "cash", "USD", 200, 0, 2},
 	}
 
 	for _, acc := range accounts {

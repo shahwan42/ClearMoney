@@ -11,12 +11,15 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
 )
 
 // TestParseBillingCycle_Valid verifies JSONB metadata is correctly unmarshaled.
@@ -172,5 +175,53 @@ func TestGetCreditCardUtilization_WithBalance(t *testing.T) {
 	expected := 2.0 // 1000/50000*100
 	if util != expected {
 		t.Errorf("expected %f, got %f", expected, util)
+	}
+}
+
+// TestAccountService_Create_CashWithCreditLimit verifies cash accounts cannot have a credit limit.
+func TestAccountService_Create_CashWithCreditLimit(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "institutions")
+	inst := testutil.CreateInstitution(t, db, models.Institution{
+		Name: "Cash",
+		Type: models.InstitutionTypeWallet,
+	})
+	svc := NewAccountService(repository.NewAccountRepo(db))
+
+	limit := 10000.0
+	_, err := svc.Create(context.Background(), models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Bad Cash",
+		Type:           models.AccountTypeCash,
+		Currency:       models.CurrencyEGP,
+		CreditLimit:    &limit,
+	})
+	if err == nil {
+		t.Error("expected error when creating cash account with credit limit")
+	}
+}
+
+// TestAccountService_Create_Cash verifies cash accounts can be created successfully.
+func TestAccountService_Create_Cash(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "institutions")
+	inst := testutil.CreateInstitution(t, db, models.Institution{
+		Name: "Cash",
+		Type: models.InstitutionTypeWallet,
+	})
+	svc := NewAccountService(repository.NewAccountRepo(db))
+
+	acc, err := svc.Create(context.Background(), models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "EGP Cash",
+		Type:           models.AccountTypeCash,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 5000,
+	})
+	if err != nil {
+		t.Fatalf("create cash account: %v", err)
+	}
+	if acc.Type != models.AccountTypeCash {
+		t.Errorf("expected type cash, got %q", acc.Type)
 	}
 }

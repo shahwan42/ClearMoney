@@ -147,6 +147,7 @@ func TemplateFuncs() template.FuncMap {
 				"prepaid":      "Prepaid",
 				"credit_card":  "Credit Card",
 				"credit_limit": "Credit Line",
+				"cash":         "Cash",
 			}
 			key := fmt.Sprintf("%v", t)
 			if label, ok := labels[key]; ok {

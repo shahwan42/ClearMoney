@@ -293,6 +293,11 @@ func (s *AccountService) Create(ctx context.Context, acc models.Account) (models
 		return models.Account{}, fmt.Errorf("credit_limit is required for %s accounts", acc.Type)
 	}
 
+	// Cash accounts cannot have a credit limit
+	if acc.Type == models.AccountTypeCash && acc.CreditLimit != nil {
+		return models.Account{}, fmt.Errorf("cash accounts cannot have a credit limit")
+	}
+
 	return s.repo.Create(ctx, acc)
 }
 

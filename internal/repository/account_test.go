@@ -150,6 +150,40 @@ func TestAccountRepo_UpdateBalance(t *testing.T) {
 	}
 }
 
+// TestAccountRepo_Create_Cash verifies cash accounts can be created under a wallet institution.
+func TestAccountRepo_Create_Cash(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "institutions")
+	wallet := testutil.CreateInstitution(t, db, models.Institution{
+		Name: "Cash",
+		Type: models.InstitutionTypeWallet,
+	})
+	repo := NewAccountRepo(db)
+
+	acc, err := repo.Create(context.Background(), models.Account{
+		InstitutionID:  wallet.ID,
+		Name:           "EGP Cash",
+		Type:           models.AccountTypeCash,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 3500,
+	})
+	if err != nil {
+		t.Fatalf("create cash account: %v", err)
+	}
+	if acc.ID == "" {
+		t.Error("expected ID")
+	}
+	if acc.Type != models.AccountTypeCash {
+		t.Errorf("expected type cash, got %q", acc.Type)
+	}
+	if acc.CurrentBalance != 3500 {
+		t.Errorf("expected balance 3500, got %f", acc.CurrentBalance)
+	}
+	if acc.CreditLimit != nil {
+		t.Error("cash account should not have credit limit")
+	}
+}
+
 func TestAccountRepo_Delete(t *testing.T) {
 	repo, inst := setupAccountTest(t)
 
