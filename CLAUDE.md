@@ -144,18 +144,23 @@ Use conventional commits: `type: concise description`
 4. **Service**: Add `internal/service/foo.go` with business logic
 5. **Handler**: Add routes in `internal/handler/router.go`, handler methods in appropriate file
 6. **Template**: Add `internal/templates/pages/foo.html` and any partials
-7. **Tests**: Write integration tests using `testutil.NewTestDB(t)`
+7. **Unit tests**: Test service logic and helpers in isolation (e.g., `internal/service/foo_test.go`) — no DB required
+8. **Integration tests**: Test repository and handler layers against a real DB using `testutil.NewTestDB(t)` (e.g., `internal/repository/foo_test.go`, `internal/handler/foo_test.go`)
+9. **E2e tests**: Write Playwright browser tests that exercise the full user flow (e.g., `e2e/foo.spec.ts`) — navigates pages, fills forms, asserts visible results
 
 ### Feature Delivery Checklist
 
 After implementing a feature, always follow these steps before considering it done:
 
-1. **Run feature tests** — run the relevant unit and integration tests for the new feature; confirm they pass
-2. **Run full test suite** — run `make test && make test-integration` to confirm no regressions
-3. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
-4. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
-5. **Wait for approval** — do not proceed until the user confirms the feature works as expected
-6. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+1. **Run unit tests** — run `make test` to confirm all unit tests pass (no DB required)
+2. **Run integration tests** — run `make test-integration` to confirm all integration tests pass (requires running DB)
+3. **Run e2e tests** — run `make test-e2e` to confirm all end-to-end tests pass (Playwright browser tests against a running app)
+4. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
+5. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
+6. **Wait for approval** — do not proceed until the user confirms the feature works as expected
+7. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+
+All three test levels must pass before restarting the app for manual testing.
 
 ### Wiring a New Service into PageHandler
 
