@@ -182,6 +182,67 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await expect(page.locator('#account-form-area')).toBeEmpty({ timeout: 5000 });
   });
 
+  test('delete institution via bottom sheet confirmation', async ({ page }) => {
+    // Create institution with an account via API
+    const instId = await createInstitution(page, 'DeleteMe');
+    await createAccount(page, {
+      name: 'DeleteAccount',
+      institution_id: instId,
+      initial_balance: 5000,
+    });
+
+    await page.goto('/accounts');
+    await expect(page.locator('#institution-list')).toContainText('DeleteMe');
+
+    // Click the trash icon on the institution card
+    await page.locator(`#institution-${instId} button[title="Delete institution"]`).click();
+
+    // Bottom sheet should slide up with confirmation content
+    await expect(page.locator('#delete-sheet-content')).toContainText('Delete Institution');
+    await expect(page.locator('#delete-sheet-content')).toContainText('DeleteMe');
+    await expect(page.locator('#delete-sheet-content')).toContainText('1');
+
+    // Delete button should be disabled until name is typed
+    const deleteBtn = page.locator('#delete-confirm-btn');
+    await expect(deleteBtn).toBeDisabled();
+
+    // Type wrong name — button should stay disabled
+    await page.fill('#delete-confirm-input', 'WrongName');
+    await expect(deleteBtn).toBeDisabled();
+
+    // Type correct name — button should enable
+    await page.fill('#delete-confirm-input', 'DeleteMe');
+    await expect(deleteBtn).toBeEnabled();
+
+    // Click delete
+    await deleteBtn.click();
+
+    // Success message should appear
+    await expect(page.locator('#delete-confirm-result')).toContainText('Institution deleted');
+
+    // After sheet closes, institution should be gone from the list
+    await expect(page.locator('#institution-list')).not.toContainText('DeleteMe', { timeout: 5000 });
+  });
+
+  test('delete institution sheet can be dismissed by cancel', async ({ page }) => {
+    const instId = await createInstitution(page, 'KeepMe');
+
+    await page.goto('/accounts');
+    await page.locator(`#institution-${instId} button[title="Delete institution"]`).click();
+
+    // Sheet should appear
+    await expect(page.locator('#delete-sheet-content')).toContainText('Delete Institution');
+
+    // Click cancel
+    await page.locator('#delete-sheet-content button:has-text("Cancel")').click();
+
+    // Sheet should be hidden (translate-y-full)
+    await expect(page.locator('#delete-sheet')).toHaveClass(/translate-y-full/);
+
+    // Institution should still be in the list
+    await expect(page.locator('#institution-list')).toContainText('KeepMe');
+  });
+
   test('dashboard shows net worth with accounts', async ({ page }) => {
     // Create institution and account via API
     const instId = await createInstitution(page, 'DashBank');

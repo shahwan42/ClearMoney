@@ -71,4 +71,76 @@
     </div>
 
 </div>
+
+<!-- Delete institution bottom sheet overlay -->
+<div id="delete-sheet-overlay" class="fixed inset-0 z-[80] bg-black/40 hidden" onclick="closeDeleteSheet()"></div>
+
+<!-- Delete institution bottom sheet -->
+<div id="delete-sheet" class="fixed bottom-0 left-0 right-0 z-[90] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[70vh] overflow-y-auto">
+    <!-- Drag handle -->
+    <div class="flex justify-center pt-3 pb-1" id="delete-sheet-handle">
+        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+    </div>
+    <div id="delete-sheet-content" class="px-4 pb-6">
+        <!-- Content loaded via HTMX when sheet opens -->
+    </div>
+</div>
+
+<script>
+function openDeleteSheet(institutionId) {
+    var overlay = document.getElementById('delete-sheet-overlay');
+    var sheet = document.getElementById('delete-sheet');
+    overlay.classList.remove('hidden');
+    sheet.offsetHeight;
+    sheet.classList.remove('translate-y-full');
+    sheet.classList.add('translate-y-0');
+    document.body.style.overflow = 'hidden';
+    htmx.ajax('GET', '/institutions/' + institutionId + '/delete-confirm', {
+        target: '#delete-sheet-content',
+        swap: 'innerHTML'
+    });
+}
+
+function closeDeleteSheet() {
+    var overlay = document.getElementById('delete-sheet-overlay');
+    var sheet = document.getElementById('delete-sheet');
+    sheet.classList.remove('translate-y-0');
+    sheet.classList.add('translate-y-full');
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    setTimeout(function() {
+        document.getElementById('delete-sheet-content').innerHTML = '';
+    }, 300);
+}
+
+(function() {
+    var handle = document.getElementById('delete-sheet-handle');
+    var sheet = document.getElementById('delete-sheet');
+    if (!handle || !sheet) return;
+    var startY = 0, currentY = 0, isDragging = false;
+    handle.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        sheet.style.transition = 'none';
+    });
+    handle.addEventListener('touchmove', function(e) {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
+        var diff = currentY - startY;
+        if (diff > 0) sheet.style.transform = 'translateY(' + diff + 'px)';
+    });
+    handle.addEventListener('touchend', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+        if (currentY - startY > 100) {
+            closeDeleteSheet();
+        } else {
+            sheet.classList.add('translate-y-0');
+        }
+        startY = 0; currentY = 0;
+    });
+})();
+</script>
 {{end}}

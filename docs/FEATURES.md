@@ -20,6 +20,8 @@ The home page aggregates data from 10+ sources into a single view:
 ### Institutions
 Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) serve as grouping containers for accounts. Each has a name, optional color, and display order.
 
+- **Delete with confirmation** — bottom sheet slides up requiring the user to type the institution name to confirm. Cascades to all accounts and their transactions (ON DELETE CASCADE).
+
 ### Account Types
 - **Savings / Current / Prepaid** — standard accounts with EGP or USD balance
 - **Credit Card** — tracks available credit (decrements on spend, restores on payment), billing cycle (statement date, due date), credit limit

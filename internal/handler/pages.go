@@ -190,6 +190,13 @@ type TransactionSuccessData struct {
 	Currency    string
 }
 
+// InstitutionDeleteData holds data for the institution delete confirmation sheet.
+type InstitutionDeleteData struct {
+	InstitutionID   string
+	InstitutionName string
+	AccountCount    int
+}
+
 // QuickEntryData holds the quick-entry form data with smart defaults.
 type QuickEntryData struct {
 	TransactionFormData
@@ -2330,6 +2337,48 @@ func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `</div>`)
 	// Auto-dismiss: HTMX loads the form back after a brief delay
 	fmt.Fprint(w, `<div hx-get="/accounts/institution-form" hx-trigger="load delay:1.5s" hx-target="#institution-form-area" hx-swap="innerHTML"></div>`)
+	h.renderInstitutionListOOB(w, r)
+}
+
+// InstitutionDeleteConfirm returns the delete confirmation sheet content.
+// GET /institutions/{id}/delete-confirm — loaded into the bottom sheet via HTMX.
+func (h *PageHandler) InstitutionDeleteConfirm(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	inst, err := h.institutionSvc.GetByID(r.Context(), id)
+	if err != nil {
+		authmw.Log(r.Context()).Warn("institution not found for delete confirm", "id", id, "error", err)
+		http.Error(w, "institution not found", http.StatusNotFound)
+		return
+	}
+	accounts, _ := h.accountSvc.GetByInstitution(r.Context(), id)
+	data := InstitutionDeleteData{
+		InstitutionID:   inst.ID,
+		InstitutionName: inst.Name,
+		AccountCount:    len(accounts),
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["accounts"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "institution-delete-confirm", data)
+}
+
+// InstitutionDelete removes an institution and cascades to its accounts.
+// DELETE /institutions/{id} — called from the delete confirmation sheet.
+func (h *PageHandler) InstitutionDelete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.institutionSvc.Delete(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to delete institution", "id", id, "error", err)
+		h.renderHTMXResult(w, "error", "Failed to delete institution", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, `<div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-center animate-toast">`)
+	fmt.Fprint(w, `<p class="text-teal-800 font-semibold text-sm">Institution deleted!</p>`)
+	fmt.Fprint(w, `</div>`)
+	fmt.Fprint(w, `<script>setTimeout(function(){ closeDeleteSheet(); }, 1000);</script>`)
 	h.renderInstitutionListOOB(w, r)
 }
 
