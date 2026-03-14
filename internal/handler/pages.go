@@ -57,7 +57,9 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -65,6 +67,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
@@ -2826,4 +2829,28 @@ func (h *PageHandler) AccountHealthUpdate(w http.ResponseWriter, r *http.Request
 	}
 
 	htmxRedirect(w, r, "/accounts/"+id)
+}
+
+// AccountDelete removes an account and all its cascading data (transactions, snapshots).
+// DELETE /accounts/{id} — called from the confirmation bottom sheet on the account detail page.
+func (h *PageHandler) AccountDelete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.accountSvc.Delete(r.Context(), id); err != nil {
+		// FK violation — installment plans use RESTRICT, not CASCADE
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			h.renderHTMXResult(w, "error",
+				"Cannot delete: active installment plans exist",
+				"Delete or complete the installment plans first, then try again.")
+			return
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			http.Error(w, "account not found", http.StatusNotFound)
+			return
+		}
+		authmw.Log(r.Context()).Error("failed to delete account", "id", id, "error", err)
+		h.renderHTMXResult(w, "error", "Failed to delete account", "")
+		return
+	}
+	htmxRedirect(w, r, "/accounts")
 }

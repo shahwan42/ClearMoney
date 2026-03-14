@@ -29,6 +29,8 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 - **Credit Limit** — revolving credit with EPP (Equal Payment Plan) support
 
 ### Account Features
+
+- **Delete with confirmation** — bottom sheet requires typing the account name to confirm. Cascades to transactions/snapshots, blocked by active installment plans
 - Dormant toggle — keeps account in totals but de-prioritizes in UI
 - Reordering — drag-to-reorder within institutions
 - Health constraints — configurable min_balance and min_deposit rules (JSONB config)

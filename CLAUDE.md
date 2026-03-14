@@ -188,6 +188,7 @@ Choose the right response type based on the action:
 | Return HTML fragment for swap | `tmpl.ExecuteTemplate(w, "partial-name", data)` | Load more transactions |
 | Update another part of page (OOB) | Write `<div id="target" hx-swap-oob="true">...</div>` | Refresh account list after adding account |
 | Standard POST (non-HTMX form) | `http.Redirect(w, r, url, http.StatusSeeOther)` | Logout form |
+| Destructive action with confirmation | Bottom sheet + `hx-delete` with name-match input | Delete account |
 
 **Key pitfall**: If a form uses standard `<form method="POST">` (no `hx-post`), use `http.Redirect`, NOT `htmxRedirect`. Using HTMX redirect on a standard POST causes the response HTML to nest inside the page.
 

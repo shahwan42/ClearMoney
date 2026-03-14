@@ -146,6 +146,7 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 | `/accounts/{id}/statement` | GET | `CreditCardStatement()` | CC statement view |
 | `/accounts/{id}/dormant` | POST | `ToggleDormant()` | Toggle dormant status |
 | `/accounts/{id}/health` | POST | `AccountHealthUpdate()` | Save health constraints |
+| `/accounts/{id}` | DELETE | `AccountDelete()` | Delete account (bottom sheet confirmation) |
 | `/accounts/add` | POST | `AccountAdd()` | Create account |
 | `/accounts/reorder` | POST | `ReorderAccounts()` | Drag-and-drop reorder |
 | `/institutions/add` | POST | `InstitutionAdd()` | Create institution |
@@ -185,6 +186,15 @@ Stored as JSONB in `health_config` column for extensibility. Two supported rules
 - `min_monthly_deposit` — alert if no deposit ≥ amount arrives during month
 
 Configured per-account on the detail page.
+
+### Account Deletion
+
+Delete an account via a confirmation bottom sheet on the detail page. The user must type the account name to enable the delete button — prevents accidental deletion of accounts with transaction history.
+
+- **Cascading deletes:** Transactions and snapshots are automatically removed (ON DELETE CASCADE)
+- **Blocked by installment plans:** If the account has active installment plans, a friendly error is shown in the sheet (FK RESTRICT constraint)
+- **Recurring rule cleanup:** The service layer deletes any recurring rules referencing the account before removal
+- **Bottom sheet UX:** Slide-up animation, swipe-to-dismiss drag handle, dark mode support
 
 ### Balance Sparklines
 

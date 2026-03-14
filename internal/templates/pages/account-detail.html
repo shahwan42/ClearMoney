@@ -123,6 +123,14 @@
         </form>
     </div>
 
+    <!-- Delete Account -->
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
+        <button onclick="openDeleteSheet()"
+                class="w-full text-red-600 dark:text-red-400 py-2 rounded-lg text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+            Delete Account
+        </button>
+    </div>
+
     <!-- Transaction list for this account -->
     <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold text-slate-700">Transaction History</h2>
@@ -132,4 +140,122 @@
         {{template "transaction-list" .Data.TransactionListData}}
     </div>
 </div>
+
+<!-- Delete confirmation bottom sheet overlay -->
+<div id="delete-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeDeleteSheet()"></div>
+
+<!-- Delete confirmation bottom sheet -->
+<div id="delete-sheet" class="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out"
+     data-account-name="{{.Data.Account.Name}}">
+    <!-- Drag handle -->
+    <div class="flex justify-center pt-3 pb-1" id="delete-handle">
+        <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+    </div>
+    <div class="px-5 pb-8">
+        <!-- Warning icon + message -->
+        <div class="text-center mb-4">
+            <div class="w-12 h-12 mx-auto mb-3 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">Delete Account</h3>
+            <p class="text-sm text-gray-500 dark:text-slate-400 mt-1">
+                This will permanently delete <strong class="text-slate-700 dark:text-slate-200">{{.Data.Account.Name}}</strong> and all its transactions. This action cannot be undone.
+            </p>
+        </div>
+        <!-- Confirmation input -->
+        <div class="mb-4">
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">
+                Type <strong class="text-slate-700 dark:text-slate-200">{{.Data.Account.Name}}</strong> to confirm
+            </label>
+            <input type="text" id="delete-confirm-input"
+                   class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                   placeholder="Account name" autocomplete="off"
+                   oninput="checkDeleteConfirmation()">
+        </div>
+        <!-- Error display area (for FK constraint errors) -->
+        <div id="delete-error" class="mb-4 hidden"></div>
+        <!-- Action buttons -->
+        <button id="delete-confirm-btn"
+                class="w-full bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition"
+                disabled
+                hx-delete="/accounts/{{.Data.Account.ID}}"
+                hx-target="#delete-error"
+                hx-swap="innerHTML">
+            Delete Account
+        </button>
+        <button onclick="closeDeleteSheet()"
+                class="w-full mt-2 text-gray-600 dark:text-slate-400 py-2 text-sm font-medium">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<script>
+(function() {
+    var overlay = document.getElementById('delete-overlay');
+    var sheet = document.getElementById('delete-sheet');
+    var input = document.getElementById('delete-confirm-input');
+    var btn = document.getElementById('delete-confirm-btn');
+    var accountName = sheet.dataset.accountName;
+
+    window.openDeleteSheet = function() {
+        overlay.classList.remove('hidden');
+        sheet.offsetHeight;
+        sheet.classList.remove('translate-y-full');
+        sheet.classList.add('translate-y-0');
+        document.body.style.overflow = 'hidden';
+        input.value = '';
+        btn.disabled = true;
+        var errorDiv = document.getElementById('delete-error');
+        errorDiv.innerHTML = '';
+        errorDiv.classList.add('hidden');
+        setTimeout(function() { input.focus(); }, 300);
+    };
+
+    window.closeDeleteSheet = function() {
+        sheet.classList.remove('translate-y-0');
+        sheet.classList.add('translate-y-full');
+        overlay.classList.add('hidden');
+        document.body.style.overflow = '';
+    };
+
+    window.checkDeleteConfirmation = function() {
+        btn.disabled = input.value.trim() !== accountName;
+    };
+
+    // Show error container when HTMX swaps content into it
+    document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target && e.detail.target.id === 'delete-error') {
+            e.detail.target.classList.remove('hidden');
+        }
+    });
+
+    // Swipe-to-dismiss on drag handle
+    var handle = document.getElementById('delete-handle');
+    var startY = 0, currentY = 0, isDragging = false;
+
+    handle.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        sheet.style.transition = 'none';
+    });
+    handle.addEventListener('touchmove', function(e) {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
+        var diff = currentY - startY;
+        if (diff > 0) sheet.style.transform = 'translateY(' + diff + 'px)';
+    });
+    handle.addEventListener('touchend', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+        if (currentY - startY > 100) closeDeleteSheet();
+        else sheet.classList.add('translate-y-0');
+        startY = 0; currentY = 0;
+    });
+})();
+</script>
 {{end}}
