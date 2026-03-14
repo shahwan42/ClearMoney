@@ -96,6 +96,9 @@ migrate-create:
 DEPLOY_HOST ?= hetzner-keeper
 DEPLOY_DIR ?= ~/ClearMoney
 deploy:
+	@echo "Pushing latest changes..."
+	git checkout main
+	git push
 	@echo "Deploying to $(DEPLOY_HOST)..."
 	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && git pull && sudo docker compose -f docker-compose.prod.yml up -d --build"
 	@echo "Deploy complete. App running at http://49.13.140.20"

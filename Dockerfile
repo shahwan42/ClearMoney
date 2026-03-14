@@ -45,9 +45,16 @@ FROM alpine:3.21
 # tzdata: timezone data so time.LoadLocation() works correctly in Go.
 RUN apk add --no-cache ca-certificates tzdata
 
-# Copy ONLY the compiled binary from the builder stage.
-# This is why multi-stage builds produce small images — everything else is discarded.
-COPY --from=builder /clearmoney /clearmoney
+# Set working directory for the runtime container.
+WORKDIR /app
+
+# Copy the compiled binary from the builder stage.
+COPY --from=builder /clearmoney /app/clearmoney
+
+# Copy static files (CSS, JS, service worker, manifest) — served from disk at runtime.
+# Templates are embedded in the binary via //go:embed, but static assets are served
+# via http.FileServer(http.Dir("static")), so they must exist on disk.
+COPY --from=builder /app/static /app/static
 
 # Document which port the app listens on.
 # EXPOSE doesn't actually publish the port — it's documentation.
@@ -58,4 +65,4 @@ EXPOSE 8080
 # JSON array syntax (exec form) is preferred over shell form for signal handling.
 # This runs the binary directly without a shell wrapper.
 # See: https://docs.docker.com/reference/dockerfile/#cmd
-CMD ["/clearmoney"]
+CMD ["/app/clearmoney"]
