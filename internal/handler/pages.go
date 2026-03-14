@@ -1852,7 +1852,7 @@ func (h *PageHandler) renderRecurringList(w http.ResponseWriter, r *http.Request
 // recurringRuleToView converts a recurring rule to a display-friendly view.
 func recurringRuleToView(rule models.RecurringRule) RecurringRuleView {
 	var tmpl models.TransactionTemplate
-	json.Unmarshal(rule.TemplateTransaction, &tmpl)
+	_ = json.Unmarshal(rule.TemplateTransaction, &tmpl)
 
 	note := ""
 	if tmpl.Note != nil {
@@ -2184,7 +2184,10 @@ func (h *PageHandler) ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	ids := r.Form["id[]"]
 	for i, id := range ids {
-		h.accountSvc.UpdateDisplayOrder(r.Context(), id, i)
+		if err := h.accountSvc.UpdateDisplayOrder(r.Context(), id, i); err != nil {
+			http.Error(w, "failed to reorder", http.StatusInternalServerError)
+			return
+		}
 	}
 	htmxRedirect(w, r, "/accounts")
 }
@@ -2195,7 +2198,10 @@ func (h *PageHandler) ReorderInstitutions(w http.ResponseWriter, r *http.Request
 	r.ParseForm()
 	ids := r.Form["id[]"]
 	for i, id := range ids {
-		h.institutionSvc.UpdateDisplayOrder(r.Context(), id, i)
+		if err := h.institutionSvc.UpdateDisplayOrder(r.Context(), id, i); err != nil {
+			http.Error(w, "failed to reorder", http.StatusInternalServerError)
+			return
+		}
 	}
 	htmxRedirect(w, r, "/accounts")
 }

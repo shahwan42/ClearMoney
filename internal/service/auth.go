@@ -55,7 +55,9 @@ func NewAuthService(db *sql.DB) *AuthService {
 // configured or if Django's initial migration has run.
 func (s *AuthService) IsSetup(ctx context.Context) bool {
 	var count int
-	s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM user_config").Scan(&count)
+	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM user_config").Scan(&count); err != nil {
+		return false
+	}
 	return count > 0
 }
 

@@ -15,6 +15,10 @@ linters:
         - (*database/sql.Rows).Close
         - (*database/sql.Tx).Rollback
         - (net/http.ResponseWriter).Write
+        - (*net/http.Request).ParseForm
+        - (*html/template.Template).ExecuteTemplate
+        - (*encoding/json.Encoder).Encode
+        - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
   exclusions:

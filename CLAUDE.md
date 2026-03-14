@@ -30,6 +30,7 @@ docker compose up -d          # Start PostgreSQL (port 5433)
 make run                      # Start dev server on :8080
 make test                     # Unit tests
 make test-integration         # Integration tests (needs running DB)
+make lint                     # Run golangci-lint
 make seed                     # Populate sample data
 make reconcile                # Check balance consistency
 ```
@@ -155,12 +156,13 @@ After implementing a feature, always follow these steps before considering it do
 1. **Run unit tests** — run `make test` to confirm all unit tests pass (no DB required)
 2. **Run integration tests** — run `make test-integration` to confirm all integration tests pass (requires running DB)
 3. **Run e2e tests** — run `make test-e2e` to confirm all end-to-end tests pass (Playwright browser tests against a running app)
-4. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
-5. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
-6. **Wait for approval** — do not proceed until the user confirms the feature works as expected
-7. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+4. **Run linter** — run `make lint` to confirm no lint errors (requires golangci-lint installed)
+5. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
+6. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
+7. **Wait for approval** — do not proceed until the user confirms the feature works as expected
+8. **Ask to commit** — once approved, ask the user if they'd like to commit the change
 
-All three test levels must pass before restarting the app for manual testing.
+All three test levels and the linter must pass before restarting the app for manual testing.
 
 ### Wiring a New Service into PageHandler
 

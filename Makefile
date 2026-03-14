@@ -9,7 +9,7 @@
 # .PHONY tells Make these aren't real files — they're just command names.
 # Without this, if a file named "test" existed, `make test` would do nothing.
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-.PHONY: run build test test-integration test-e2e clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs
+.PHONY: run build test test-integration test-e2e lint clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs
 
 # Start the development server. `go run` compiles and runs in one step.
 # Like: `php artisan serve` or `python manage.py runserver`
@@ -35,6 +35,11 @@ test:
 # Like: `php artisan test --env=testing` or `pytest --ds=settings.test`
 test-integration:
 	TEST_DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" go test ./... -v -count=1 -p 1
+
+# Run golangci-lint to check for code quality issues.
+# Like: `php artisan lint` or `flake8` / `ruff` in Python.
+lint:
+	golangci-lint run --timeout=5m
 
 # Run end-to-end tests using Playwright (requires running server on :8080).
 # Like: `php artisan dusk` (Laravel Dusk) or Django's LiveServerTestCase.
