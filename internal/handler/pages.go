@@ -197,6 +197,12 @@ type InstitutionDeleteData struct {
 	AccountCount    int
 }
 
+// InstitutionEditData holds data for the inline institution edit form in the bottom sheet.
+type InstitutionEditData struct {
+	Institution models.Institution
+	Error       string
+}
+
 // QuickEntryData holds the quick-entry form data with smart defaults.
 type QuickEntryData struct {
 	TransactionFormData
@@ -2503,6 +2509,75 @@ func (h *PageHandler) InstitutionFormPartial(w http.ResponseWriter, r *http.Requ
 	if tmpl, ok := h.templates["accounts"]; ok {
 		tmpl.ExecuteTemplate(w, "institution-form", nil)
 	}
+}
+
+// InstitutionEditForm returns the edit form partial for the bottom sheet.
+// GET /institutions/{id}/edit-form — loaded into the edit sheet via HTMX.
+func (h *PageHandler) InstitutionEditForm(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	inst, err := h.institutionSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "institution not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["accounts"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "institution-edit-form", InstitutionEditData{
+		Institution: inst,
+	})
+}
+
+// InstitutionUpdate handles the institution edit form submission from the bottom sheet.
+// PUT /institutions/{id} — on success, closes the sheet and refreshes the card via OOB swap.
+func (h *PageHandler) InstitutionUpdate(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	inst := models.Institution{
+		ID:   id,
+		Name: r.FormValue("name"),
+		Type: models.InstitutionType(r.FormValue("type")),
+	}
+
+	updated, err := h.institutionSvc.Update(r.Context(), inst)
+	if err != nil {
+		authmw.Log(r.Context()).Warn("institution update failed", "error", err)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		tmpl, ok := h.templates["accounts"]
+		if !ok {
+			http.Error(w, "template not found", http.StatusInternalServerError)
+			return
+		}
+		tmpl.ExecuteTemplate(w, "institution-edit-form", InstitutionEditData{
+			Institution: inst,
+			Error:       err.Error(),
+		})
+		return
+	}
+
+	// Success: close the sheet and refresh the card via OOB swap
+	accounts, _ := h.accountSvc.GetByInstitution(r.Context(), updated.ID)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, `<script>closeEditSheet();</script>`)
+	tmpl, ok := h.templates["accounts"]
+	if !ok {
+		return
+	}
+	fmt.Fprintf(w, `<div id="institution-%s" hx-swap-oob="outerHTML:#institution-%s">`, updated.ID, updated.ID)
+	tmpl.ExecuteTemplate(w, "institution-card", InstitutionWithAccounts{
+		Institution: updated,
+		Accounts:    accounts,
+	})
+	fmt.Fprint(w, `</div>`)
 }
 
 // EmptyPartial returns an empty response — used to clear a container via HTMX.

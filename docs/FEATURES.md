@@ -20,6 +20,7 @@ The home page aggregates data from 10+ sources into a single view:
 ### Institutions
 Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) serve as grouping containers for accounts. Each has a name, optional color, and display order.
 
+- **Edit** — pencil icon on each card opens a bottom sheet with pre-filled Name and Type fields. On update, the card refreshes inline via HTMX OOB swap.
 - **Delete with confirmation** — bottom sheet slides up requiring the user to type the institution name to confirm. Cascades to all accounts and their transactions (ON DELETE CASCADE).
 
 ### Account Types

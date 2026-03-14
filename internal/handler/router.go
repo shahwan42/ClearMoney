@@ -217,6 +217,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Post("/accounts/reorder", pages.ReorderAccounts)
 		r.Post("/institutions/add", pages.InstitutionAdd)
 		r.Post("/institutions/reorder", pages.ReorderInstitutions)
+		r.Get("/institutions/{id}/edit-form", pages.InstitutionEditForm)
+		r.Put("/institutions/{id}", pages.InstitutionUpdate)
 		r.Get("/institutions/{id}/delete-confirm", pages.InstitutionDeleteConfirm)
 		r.Delete("/institutions/{id}", pages.InstitutionDelete)
 		r.Get("/transactions", pages.Transactions)
