@@ -148,6 +148,7 @@ Use conventional commits: `type: concise description`
 7. **Unit tests**: Test service logic and helpers in isolation (e.g., `internal/service/foo_test.go`) — no DB required
 8. **Integration tests**: Test repository and handler layers against a real DB using `testutil.NewTestDB(t)` (e.g., `internal/repository/foo_test.go`, `internal/handler/foo_test.go`)
 9. **E2e tests**: Write Playwright browser tests that exercise the full user flow (e.g., `e2e/foo.spec.ts`) — navigates pages, fills forms, asserts visible results
+10. **Documentation**: Add or update feature doc in `docs/features/foo.md` — describe what it does, key files, architecture, and tips for newcomers. Update `docs/FEATURES.md` if adding a new feature.
 
 ### Feature Delivery Checklist
 
@@ -157,12 +158,13 @@ After implementing a feature, always follow these steps before considering it do
 2. **Run integration tests** — run `make test-integration` to confirm all integration tests pass (requires running DB)
 3. **Run e2e tests** — run `make test-e2e` to confirm all end-to-end tests pass (Playwright browser tests against a running app)
 4. **Run linter** — run `make lint` to confirm no lint errors (requires golangci-lint installed)
-5. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
-6. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
-7. **Wait for approval** — do not proceed until the user confirms the feature works as expected
-8. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+5. **Update documentation** — add or update the relevant feature doc in `docs/features/`. Update `docs/FEATURES.md` if the feature is new.
+6. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
+7. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
+8. **Wait for approval** — do not proceed until the user confirms the feature works as expected
+9. **Ask to commit** — once approved, ask the user if they'd like to commit the change
 
-All three test levels and the linter must pass before restarting the app for manual testing.
+All three test levels, the linter, and documentation must pass/be updated before restarting the app for manual testing.
 
 ### Wiring a New Service into PageHandler
 
