@@ -364,7 +364,7 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 	// Log the exchange rate as EGP per 1 USD (non-critical, don't fail if it errors)
 	if s.rateRepo != nil {
 		source := fmt.Sprintf("%s/%s", srcAcc.Currency, destAcc.Currency)
-		s.rateRepo.Log(ctx, p.Date, displayRate, &source, p.Note)
+		_ = s.rateRepo.Log(ctx, p.Date, displayRate, &source, p.Note)
 	}
 
 	createdDebit.LinkedTransactionID = &createdCredit.ID

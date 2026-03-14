@@ -523,7 +523,6 @@ func TestTransactionUpdate_ChangesBalance(t *testing.T) {
 	}
 
 	// Verify balance by creating another 1 expense
-	formData = strings.NewReader("type=expense&amount=1&currency=EGP&account_id=" + acc.ID)
 	req = httptest.NewRequest(http.MethodPost, "/api/transactions", strings.NewReader(`{"type":"expense","amount":1,"currency":"EGP","account_id":"`+acc.ID+`"}`))
 	req.Header.Set("Content-Type", "application/json")
 	addAuth(req)

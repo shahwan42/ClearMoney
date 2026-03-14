@@ -121,7 +121,9 @@ func seedInstitutions(ctx context.Context, db *sql.DB) error {
 		// Laravel equivalent: Institution::where('name', $name)->exists()
 		// Django equivalent:  Institution.objects.filter(name=name).exists()
 		var exists bool
-		db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM institutions WHERE name = $1)", inst.Name).Scan(&exists)
+		if err := db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM institutions WHERE name = $1)", inst.Name).Scan(&exists); err != nil {
+			return fmt.Errorf("checking institution %s: %w", inst.Name, err)
+		}
 		if exists {
 			continue
 		}
@@ -197,7 +199,9 @@ func seedAccounts(ctx context.Context, db *sql.DB) error {
 
 		// Idempotency check: skip if this account already exists for this institution.
 		var exists bool
-		db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM accounts WHERE name = $1 AND institution_id = $2)", acc.Name, instID).Scan(&exists)
+		if err := db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM accounts WHERE name = $1 AND institution_id = $2)", acc.Name, instID).Scan(&exists); err != nil {
+			return fmt.Errorf("checking account %s: %w", acc.Name, err)
+		}
 		if exists {
 			continue
 		}
@@ -263,7 +267,9 @@ func seedTransactions(ctx context.Context, db *sql.DB) error {
 	// Idempotency: skip entirely if any transactions already exist.
 	// This is a coarse-grained check — assumes seeds run as a batch.
 	var count int
-	db.QueryRowContext(ctx, "SELECT COUNT(*) FROM transactions").Scan(&count)
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM transactions").Scan(&count); err != nil {
+		return fmt.Errorf("counting transactions: %w", err)
+	}
 	if count > 0 {
 		slog.Info("skipping transactions seed", "existing_count", count)
 		return nil

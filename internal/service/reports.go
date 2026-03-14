@@ -293,7 +293,6 @@ func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, mo
 	if filter.Currency != "" {
 		query += fmt.Sprintf(" AND t.currency = $%d", argN)
 		args = append(args, filter.Currency)
-		argN++
 	}
 
 	query += ` GROUP BY t.category_id, c.name, c.icon ORDER BY SUM(t.amount) DESC`
@@ -349,7 +348,6 @@ func (s *ReportsService) getMonthSummary(ctx context.Context, year int, month ti
 	if filter.Currency != "" {
 		query += fmt.Sprintf(" AND currency = $%d", argN)
 		args = append(args, filter.Currency)
-		argN++
 	}
 
 	err := s.db.QueryRowContext(ctx, query, args...).Scan(&summary.Income, &summary.Expenses)

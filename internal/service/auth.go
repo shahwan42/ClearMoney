@@ -81,7 +81,9 @@ func (s *AuthService) Setup(ctx context.Context, pin string) error {
 	}
 
 	// Delete any existing config — single-user app, only one row should exist.
-	s.db.ExecContext(ctx, `DELETE FROM user_config`)
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM user_config`); err != nil {
+		return fmt.Errorf("clearing existing config: %w", err)
+	}
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO user_config (pin_hash, session_key) VALUES ($1, $2)
 	`, string(hash), sessionKey)

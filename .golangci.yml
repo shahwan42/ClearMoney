@@ -8,9 +8,21 @@ linters:
     - ineffassign
     - staticcheck
     - unused
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
+        - (net/http.ResponseWriter).Write
+        - fmt.Fprintf
+        - fmt.Fprintln
   exclusions:
     rules:
-      # Allow unused parameters in test files
       - path: _test\.go
         linters:
           - unused
+          - errcheck
+      - path: testutil/
+        linters:
+          - errcheck
