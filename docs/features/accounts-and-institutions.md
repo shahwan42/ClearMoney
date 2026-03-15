@@ -228,6 +228,10 @@ Delete an account via a confirmation bottom sheet on the detail page. The user m
 - **Recurring rule cleanup:** The service layer deletes any recurring rules referencing the account before removal
 - **Bottom sheet UX:** Slide-up animation, swipe-to-dismiss drag handle, dark mode support
 
+### Linked Virtual Accounts
+
+The account detail page shows any virtual accounts linked to the bank account via the `account_id` foreign key. Each VA card displays its icon, name, current balance, target (if set), and a progress bar. Clicking a VA navigates to its detail page. The section is hidden when no VAs are linked.
+
 ### Balance Sparklines
 
 30-day inline SVG sparklines per account. Data comes from `SnapshotService.GetAccountHistory()`. Rendered using the `chart-sparkline` partial with `sparklinePoints` template function.

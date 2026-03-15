@@ -101,6 +101,41 @@
     </div>
     {{end}}
 
+    <!-- Linked Virtual Accounts -->
+    {{if .Data.VirtualAccounts}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Virtual Accounts</h3>
+            <a href="/virtual-accounts" class="text-xs text-teal-600 hover:text-teal-700">View All</a>
+        </div>
+        <div class="space-y-3">
+            {{range .Data.VirtualAccounts}}
+            <a href="/virtual-accounts/{{.ID}}" class="block">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 min-w-0">
+                        {{if .Icon}}<span class="text-lg flex-shrink-0">{{.Icon}}</span>{{end}}
+                        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{.Name}}</span>
+                    </div>
+                    <div class="text-right flex-shrink-0 ml-3">
+                        <p class="text-sm font-bold" style="color: {{.Color}}">{{formatEGP .CurrentBalance}}</p>
+                        {{if .TargetAmount}}
+                        <p class="text-xs text-gray-400 dark:text-slate-500">of {{formatEGP (derefFloat .TargetAmount)}}</p>
+                        {{end}}
+                    </div>
+                </div>
+                {{if .TargetAmount}}
+                <div class="mt-1.5">
+                    <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full transition-all" style="width: {{if gt .ProgressPct 100.0}}100{{else}}{{printf "%.0f" .ProgressPct}}{{end}}%; background-color: {{.Color}}"></div>
+                    </div>
+                </div>
+                {{end}}
+            </a>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+
     <!-- TASK-068: Account Health Config -->
     <div class="bg-white rounded-xl shadow-sm p-4">
         <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Health Rules</h3>

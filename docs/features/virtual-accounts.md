@@ -131,6 +131,10 @@ Two tables:
 
 When creating a transaction and selecting a VA, the handler validates that the VA's `account_id` matches the transaction's `account_id`. VAs with NULL `account_id` (legacy) are allowed for any account.
 
+### Cross-link from account detail
+
+The bank account detail page (`/accounts/{id}`) shows a "Virtual Accounts" section listing all VAs linked to that account. Each card links to the VA detail page. This provides bidirectional navigation between accounts and their VAs.
+
 ### Over-allocation warnings
 
 The detail page and list page show amber warnings when:

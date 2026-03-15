@@ -829,6 +829,87 @@ func TestAccountDetailPage_NotFound(t *testing.T) {
 	}
 }
 
+func TestAccountDetailPage_ShowsLinkedVirtualAccounts(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings EGP",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 100000,
+	})
+
+	target := 50000.0
+	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:           "Emergency Fund",
+		Icon:           "🛡️",
+		Color:          "#ef4444",
+		TargetAmount:   &target,
+		CurrentBalance: 20000,
+		AccountID:      &acc.ID,
+	})
+
+	router, addAuth := testRouter(t, db)
+	req := httptest.NewRequest(http.MethodGet, "/accounts/"+acc.ID, nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	checks := []string{
+		"Virtual Accounts",
+		"Emergency Fund",
+		"20,000.00",
+		"50,000.00",
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected account detail to contain %q", check)
+		}
+	}
+}
+
+func TestAccountDetailPage_NoVirtualAccountSection_WhenNoneLinked(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Test Account",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 50000,
+	})
+
+	router, addAuth := testRouter(t, db)
+	req := httptest.NewRequest(http.MethodGet, "/accounts/"+acc.ID, nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	if strings.Contains(w.Body.String(), "Virtual Accounts") {
+		t.Error("expected no Virtual Accounts section when no VAs are linked")
+	}
+}
+
 func TestQuickEntryForm_Renders(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")

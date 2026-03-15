@@ -265,6 +265,8 @@ type AccountDetailData struct {
 	Utilization float64
 	// TASK-076: Credit card utilization history (monthly %)
 	UtilizationHistory []float64
+	// Linked virtual accounts for this bank account
+	VirtualAccounts []models.VirtualAccount
 }
 
 // PersonCardData wraps a person with accounts for the card template.
@@ -1449,6 +1451,16 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Fetch linked virtual accounts for this bank account
+	var virtualAccounts []models.VirtualAccount
+	if h.virtualAccountSvc != nil {
+		if vas, err := h.virtualAccountSvc.GetByAccountID(r.Context(), id); err != nil {
+			authmw.Log(r.Context()).Warn("failed to load virtual accounts", "account_id", id, "error", err)
+		} else {
+			virtualAccounts = vas
+		}
+	}
+
 	data := AccountDetailData{
 		Account:            acc,
 		InstitutionName:    instName,
@@ -1457,6 +1469,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		HealthConfig:       acc.GetHealthConfig(),
 		Utilization:        utilization,
 		UtilizationHistory: utilizationHistory,
+		VirtualAccounts:    virtualAccounts,
 		TransactionListData: TransactionListData{
 			Transactions: toTransactionDisplay(rows, false),
 			HasMore:      len(rows) >= filter.Limit,
