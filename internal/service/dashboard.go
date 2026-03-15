@@ -584,7 +584,8 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 		}
 	}
 
-	// TASK-060: Spending velocity (uses EGP-only legacy fields)
+	// TASK-060: Spending velocity — uses total spending across all currencies
+	// converted to EGP via exchange rate for a unified pace indicator.
 	daysInMonth := nextMonthStart.Sub(thisMonthStart).Hours() / 24
 	daysElapsed := now.Day()
 	daysLeft := int(daysInMonth) - daysElapsed
@@ -596,8 +597,18 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 		DaysLeft:    daysLeft,
 		DayProgress: dayProgress,
 	}
-	if data.LastMonthSpending > 0 {
-		sv.Percentage = data.ThisMonthSpending / data.LastMonthSpending * 100
+	totalThis := 0.0
+	totalLast := 0.0
+	for _, cs := range data.SpendingByCurrency {
+		rate := 1.0
+		if cs.Currency == "USD" && data.ExchangeRate > 0 {
+			rate = data.ExchangeRate
+		}
+		totalThis += cs.ThisMonth * rate
+		totalLast += cs.LastMonth * rate
+	}
+	if totalLast > 0 {
+		sv.Percentage = totalThis / totalLast * 100
 	}
 	// Color: green if pace < day%, amber if within 10%, red if ahead
 	switch {

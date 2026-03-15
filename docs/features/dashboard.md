@@ -8,7 +8,7 @@ The dashboard is the home page of ClearMoney, aggregating data from 10+ sources 
 |---------|-------------|
 | **Net Worth** | Total across all accounts with 30-day sparkline trend |
 | **Month-over-Month Spending** | Current vs previous month with percentage change |
-| **Spending Velocity** | Daily spending rate projection for the month |
+| **Spending Pace** | How much of last month's total you've already spent, with days remaining |
 | **Budget Progress** | Category bars (green/amber at 80%/red at 100%) |
 | **Virtual Fund Balances** | Envelope allocation overview |
 | **Credit Card Summary** | Utilization rings, payment due dates, minimum payments |
@@ -116,6 +116,77 @@ CashTotal:      85,000
 CreditUsed:    -20,000
 CreditAvail:    80,000
 NetWorth:       65,000 (CashTotal + CreditUsed)
+```
+
+## How Spending Pace Is Calculated
+
+**File:** `internal/service/dashboard.go` — `computeSpendingComparison()` (line ~587)
+
+Spending Pace answers: "How much of last month's spending have I already used up this month?"
+
+### Formula
+
+```
+Percentage = (TotalSpendingThisMonth / TotalSpendingLastMonth) × 100
+```
+
+Spending is summed across **all currencies**, with USD converted to EGP using the latest exchange rate:
+
+```
+TotalSpending = EGP expenses + (USD expenses × ExchangeRate)
+```
+
+If no exchange rate is available, USD amounts are added at face value (better than ignoring them).
+
+### Example
+
+```
+This month (March, day 15 of 31):
+  EGP expenses:  4,000
+  USD expenses:    $80  × 50 (rate) = 4,000 EGP
+  Total:         8,000 EGP-equivalent
+
+Last month (February):
+  EGP expenses:  6,000
+  USD expenses:   $120  × 50 (rate) = 6,000 EGP
+  Total:        12,000 EGP-equivalent
+
+Percentage = 8,000 / 12,000 × 100 = 67%
+Day progress = 15 / 31 × 100 = 48%
+
+→ "67% of last month spent" with 16 days left
+→ Status: RED (67% > 48% + 10%)
+```
+
+### Status Colors
+
+The progress bar color indicates whether you're spending faster or slower than the calendar pace:
+
+| Status | Condition | Meaning |
+|--------|-----------|---------|
+| **Green** | `Percentage ≤ DayProgress` | On pace or under — spending sustainably |
+| **Amber** | `Percentage ≤ DayProgress + 10` | Slightly ahead — watch your spending |
+| **Red** | `Percentage > DayProgress + 10` | Overspending pace — will exceed last month |
+
+The template renders a progress bar with the spending percentage as the fill, and a vertical line marker showing the calendar day progress for visual comparison.
+
+### Edge Cases
+
+- **No expenses last month**: Percentage stays at 0% (can't divide by zero). The section still renders but shows "0% of last month spent".
+- **No expenses at all**: The "This Month vs Last" section doesn't render (empty `SpendingByCurrency`), but the Spending Pace section still renders since it's gated on `DaysTotal > 0`.
+- **No exchange rate**: USD amounts are added without conversion (1:1 fallback).
+
+### SpendingVelocity Struct
+
+```go
+type SpendingVelocity struct {
+    Percentage   float64 // current month total / last month total × 100
+    DaysElapsed  int     // e.g., 15
+    DaysTotal    int     // e.g., 31
+    DaysLeft     int     // e.g., 16
+    DayProgress  float64 // e.g., 48.4%
+    Status       string  // "green", "amber", or "red"
+}
 ```
 
 ## Architecture

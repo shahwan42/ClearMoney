@@ -534,3 +534,53 @@ func TestDashboardService_SpendingByCurrency_Empty(t *testing.T) {
 		t.Errorf("expected 0 currency entries, got %d", len(data.SpendingByCurrency))
 	}
 }
+
+// TestDashboardService_SpendingVelocity verifies that the spending pace percentage
+// is computed from total spending across all currencies (not EGP-only).
+func TestDashboardService_SpendingVelocity(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	instRepo := repository.NewInstitutionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+	svc := NewDashboardService(instRepo, accRepo, txRepo)
+	svc.SetDB(db)
+
+	// Set up exchange rate so USD→EGP conversion works
+	erRepo := repository.NewExchangeRateRepo(db)
+	svc.SetExchangeRateRepo(erRepo)
+	_, err := db.Exec(`INSERT INTO exchange_rate_log (date, rate) VALUES (CURRENT_DATE, 50.0)`)
+	if err != nil {
+		t.Fatalf("inserting exchange rate: %v", err)
+	}
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "TestBank"})
+	usdAcc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD Account",
+		Currency: models.CurrencyUSD, InitialBalance: 5000,
+	})
+
+	now := time.Now()
+	thisMonth := time.Date(now.Year(), now.Month(), 5, 0, 0, 0, 0, time.UTC)
+	lastMonth := thisMonth.AddDate(0, -1, 0)
+
+	// USD only: this month $200, last month $400 → pace = 50%
+	insertExpense(t, db, usdAcc.ID, "USD", 200, thisMonth, "Subscriptions")
+	insertExpense(t, db, usdAcc.ID, "USD", 400, lastMonth, "Subscriptions")
+
+	data, err := svc.GetDashboard(context.Background())
+	if err != nil {
+		t.Fatalf("get dashboard: %v", err)
+	}
+
+	// Velocity should be ~50% (200/400 * 100), not 0%
+	if data.SpendingVelocity.Percentage < 49.0 || data.SpendingVelocity.Percentage > 51.0 {
+		t.Errorf("SpendingVelocity.Percentage = %.1f, want ~50.0", data.SpendingVelocity.Percentage)
+	}
+	if data.SpendingVelocity.DaysTotal == 0 {
+		t.Error("SpendingVelocity.DaysTotal should not be 0")
+	}
+}
