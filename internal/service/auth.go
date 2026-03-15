@@ -110,6 +110,130 @@ func (s *AuthService) VerifyPIN(ctx context.Context, pin string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pin)) == nil
 }
 
+// LoginResult holds the outcome of a login attempt, including lockout state.
+// The handler uses this to decide what to render (success, error, or lockout countdown).
+type LoginResult struct {
+	Success        bool
+	Locked         bool
+	LockedUntil    time.Time
+	FailedAttempts int
+}
+
+// lockoutDuration returns the lockout duration based on the number of consecutive
+// failed attempts. First 3 attempts are free, then delays escalate progressively.
+// This makes brute-forcing a 4-digit PIN infeasible while being forgiving of typos.
+func lockoutDuration(attempts int) time.Duration {
+	switch {
+	case attempts <= 3:
+		return 0
+	case attempts == 4:
+		return 30 * time.Second
+	case attempts == 5:
+		return 1 * time.Minute
+	case attempts == 6:
+		return 5 * time.Minute
+	case attempts == 7:
+		return 15 * time.Minute
+	default:
+		return 1 * time.Hour
+	}
+}
+
+// formatLockoutDuration converts seconds to a human-readable duration string.
+func formatLockoutDuration(seconds int) string {
+	if seconds < 60 {
+		if seconds == 1 {
+			return "1 second"
+		}
+		return fmt.Sprintf("%d seconds", seconds)
+	}
+	m := seconds / 60
+	s := seconds % 60
+	if s == 0 {
+		if m == 1 {
+			return "1 minute"
+		}
+		return fmt.Sprintf("%d minutes", m)
+	}
+	return fmt.Sprintf("%d min %d sec", m, s)
+}
+
+// CheckAndVerifyPIN verifies a PIN with brute-force protection.
+// It checks lockout state before attempting verification, increments the failure
+// counter on wrong PINs, and resets it on success. Lockout state is persisted in
+// the database so it survives app restarts.
+//
+// This is like Laravel's ThrottlesLogins trait or Django's django-axes package,
+// but simpler since we only have one user.
+func (s *AuthService) CheckAndVerifyPIN(ctx context.Context, pin string) LoginResult {
+	var hash string
+	var failedAttempts int
+	var lockedUntil sql.NullTime
+
+	err := s.db.QueryRowContext(ctx,
+		"SELECT pin_hash, failed_attempts, locked_until FROM user_config LIMIT 1",
+	).Scan(&hash, &failedAttempts, &lockedUntil)
+	if err != nil {
+		return LoginResult{}
+	}
+
+	// Check if currently locked out
+	if lockedUntil.Valid && lockedUntil.Time.After(time.Now()) {
+		logutil.LogEvent(ctx, "auth.login_blocked_lockout")
+		return LoginResult{Locked: true, LockedUntil: lockedUntil.Time, FailedAttempts: failedAttempts}
+	}
+
+	// Verify PIN
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(pin)) != nil {
+		// Wrong PIN — increment counter atomically and set lockout
+		var newAttempts int
+		err := s.db.QueryRowContext(ctx,
+			`UPDATE user_config
+			 SET failed_attempts = failed_attempts + 1,
+			     locked_until = CASE
+			         WHEN failed_attempts + 1 > 3 THEN $1::timestamptz
+			         ELSE NULL
+			     END
+			 RETURNING failed_attempts`,
+			time.Now().Add(lockoutDuration(failedAttempts+1)),
+		).Scan(&newAttempts)
+		if err != nil {
+			return LoginResult{FailedAttempts: failedAttempts + 1}
+		}
+		logutil.LogEvent(ctx, "auth.login_failed")
+		result := LoginResult{FailedAttempts: newAttempts}
+		if d := lockoutDuration(newAttempts); d > 0 {
+			result.Locked = true
+			result.LockedUntil = time.Now().Add(d)
+		}
+		return result
+	}
+
+	// Correct PIN — reset counter
+	_, _ = s.db.ExecContext(ctx,
+		"UPDATE user_config SET failed_attempts = 0, locked_until = NULL",
+	)
+	logutil.LogEvent(ctx, "auth.login_success")
+	return LoginResult{Success: true}
+}
+
+// GetLockoutStatus returns the current lockout state without attempting verification.
+// Used by the GET /login handler to show the countdown on page load.
+func (s *AuthService) GetLockoutStatus(ctx context.Context) (locked bool, lockedUntil time.Time, err error) {
+	var failedAttempts int
+	var lt sql.NullTime
+	err = s.db.QueryRowContext(ctx,
+		"SELECT failed_attempts, locked_until FROM user_config LIMIT 1",
+	).Scan(&failedAttempts, &lt)
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("getting lockout status: %w", err)
+	}
+	if lt.Valid && lt.Time.After(time.Now()) {
+		return true, lt.Time, nil
+	}
+	return false, time.Time{}, nil
+}
+
 // GetSessionKey retrieves the session signing key.
 func (s *AuthService) GetSessionKey(ctx context.Context) (string, error) {
 	var key string
@@ -121,8 +245,18 @@ func (s *AuthService) GetSessionKey(ctx context.Context) (string, error) {
 }
 
 // ChangePin verifies the current PIN and updates to a new one.
+// Uses CheckAndVerifyPIN so that brute-force protection applies here too —
+// an attacker with an active session can't bypass lockout via the settings page.
 func (s *AuthService) ChangePin(ctx context.Context, currentPin, newPin string) error {
-	if !s.VerifyPIN(ctx, currentPin) {
+	result := s.CheckAndVerifyPIN(ctx, currentPin)
+	if result.Locked {
+		remaining := int(time.Until(result.LockedUntil).Seconds())
+		if remaining < 1 {
+			remaining = 1
+		}
+		return fmt.Errorf("too many failed attempts. Try again in %s", formatLockoutDuration(remaining))
+	}
+	if !result.Success {
 		return fmt.Errorf("current PIN is incorrect")
 	}
 	if len(newPin) < 4 || len(newPin) > 6 {

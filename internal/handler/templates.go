@@ -105,6 +105,25 @@ func TemplateFuncs() template.FuncMap {
 		"formatDateISO": func(t time.Time) string {
 			return t.Format("2006-01-02")
 		},
+		// formatDuration converts seconds to a human-readable duration string.
+		// Used by the login lockout countdown display.
+		"formatDuration": func(seconds int) string {
+			if seconds < 60 {
+				if seconds == 1 {
+					return "1 second"
+				}
+				return fmt.Sprintf("%d seconds", seconds)
+			}
+			m := seconds / 60
+			s := seconds % 60
+			if s == 0 {
+				if m == 1 {
+					return "1 minute"
+				}
+				return fmt.Sprintf("%d minutes", m)
+			}
+			return fmt.Sprintf("%d min %d sec", m, s)
+		},
 		// deref safely dereferences a string pointer, returning "" if nil
 		"deref": func(s *string) string {
 			if s == nil {

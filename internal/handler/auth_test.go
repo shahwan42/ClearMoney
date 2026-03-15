@@ -241,3 +241,110 @@ func TestHealthz_PublicWithoutAuth(t *testing.T) {
 		t.Errorf("expected 200 for healthz without auth, got %d", w.Code)
 	}
 }
+
+// --- Brute-force lockout handler tests ---
+
+// submitLogin is a helper that POSTs a PIN to /login and returns the response.
+func submitLogin(t *testing.T, router http.Handler, pin string) *httptest.ResponseRecorder {
+	t.Helper()
+	form := strings.NewReader("pin=" + pin)
+	req := httptest.NewRequest(http.MethodPost, "/login", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+func TestLoginSubmit_LockoutAfterMultipleFailures(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.SetupAuth(t, db)
+	router := NewRouter(db)
+
+	// 3 free failures
+	for i := 0; i < 3; i++ {
+		w := submitLogin(t, router, "9999")
+		if w.Code != http.StatusOK {
+			t.Fatalf("attempt %d: expected 200, got %d", i+1, w.Code)
+		}
+		if strings.Contains(w.Body.String(), "Too many failed attempts") {
+			t.Fatalf("attempt %d: should not show lockout message yet", i+1)
+		}
+	}
+
+	// 4th failure triggers lockout
+	w := submitLogin(t, router, "9999")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Too many failed attempts") {
+		t.Error("expected lockout message after 4th failure")
+	}
+}
+
+func TestLoginSubmit_LockoutBlocksCorrectPIN(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.SetupAuth(t, db)
+	router := NewRouter(db)
+
+	// Trigger lockout
+	for i := 0; i < 4; i++ {
+		submitLogin(t, router, "9999")
+	}
+
+	// Correct PIN should be blocked
+	w := submitLogin(t, router, "1234")
+	if w.Code == http.StatusFound {
+		t.Error("expected lockout to block correct PIN, but got redirect (success)")
+	}
+	if !strings.Contains(w.Body.String(), "Too many failed attempts") {
+		t.Error("expected lockout message even with correct PIN")
+	}
+}
+
+func TestLoginSubmit_SuccessResetsCounter(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.SetupAuth(t, db)
+	router := NewRouter(db)
+
+	// 2 failures
+	submitLogin(t, router, "9999")
+	submitLogin(t, router, "9999")
+
+	// Successful login
+	w := submitLogin(t, router, "1234")
+	if w.Code != http.StatusFound {
+		t.Fatalf("expected redirect on success, got %d", w.Code)
+	}
+
+	// After reset, 3 more failures should not trigger lockout
+	for i := 0; i < 3; i++ {
+		w := submitLogin(t, router, "9999")
+		if strings.Contains(w.Body.String(), "Too many failed attempts") {
+			t.Errorf("attempt %d after reset: should not show lockout", i+1)
+		}
+	}
+}
+
+func TestLoginPage_ShowsLockoutOnGET(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.SetupAuth(t, db)
+	router := NewRouter(db)
+
+	// Trigger lockout via POST
+	for i := 0; i < 4; i++ {
+		submitLogin(t, router, "9999")
+	}
+
+	// GET /login should show the lockout message
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Too many failed attempts") {
+		t.Error("expected lockout message on GET /login")
+	}
+}

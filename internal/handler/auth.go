@@ -33,11 +33,23 @@ package handler
 
 import (
 	"log/slog"
+	"math"
 	"net/http"
+	"time"
 
 	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
 	"github.com/ahmedelsamadisi/clearmoney/internal/service"
 )
+
+// LoginPageData carries error and lockout state to the login template.
+// When the user is locked out, SecondsLeft tells the template how long to show
+// the countdown timer. FailedAttempts lets us warn "1 attempt remaining."
+type LoginPageData struct {
+	Error          string
+	Locked         bool
+	SecondsLeft    int
+	FailedAttempts int
+}
 
 // AuthHandler manages login, setup, and logout pages.
 // Unlike other handlers that return JSON, this one renders HTML templates
@@ -65,7 +77,15 @@ func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/setup", http.StatusFound)
 		return
 	}
-	RenderPage(h.templates, w, "login", PageData{})
+
+	// Check if currently locked out so we show the countdown on page load
+	data := LoginPageData{}
+	locked, lockedUntil, err := h.authSvc.GetLockoutStatus(r.Context())
+	if err == nil && locked {
+		data.Locked = true
+		data.SecondsLeft = int(math.Ceil(time.Until(lockedUntil).Seconds()))
+	}
+	RenderPage(h.templates, w, "login", PageData{Data: data})
 }
 
 // LoginSubmit verifies the PIN and creates a session.
@@ -84,9 +104,26 @@ func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pin := r.FormValue("pin")
-	if !h.authSvc.VerifyPIN(r.Context(), pin) {
-		slog.Warn("login: invalid PIN attempt")
-		RenderPage(h.templates, w, "login", PageData{Data: "Invalid PIN. Please try again."})
+	result := h.authSvc.CheckAndVerifyPIN(r.Context(), pin)
+
+	if result.Locked {
+		slog.Warn("login: account locked", "until", result.LockedUntil)
+		data := LoginPageData{
+			Locked:         true,
+			SecondsLeft:    int(math.Ceil(time.Until(result.LockedUntil).Seconds())),
+			FailedAttempts: result.FailedAttempts,
+		}
+		RenderPage(h.templates, w, "login", PageData{Data: data})
+		return
+	}
+
+	if !result.Success {
+		slog.Warn("login: invalid PIN attempt", "failed_attempts", result.FailedAttempts)
+		data := LoginPageData{
+			Error:          "Invalid PIN. Please try again.",
+			FailedAttempts: result.FailedAttempts,
+		}
+		RenderPage(h.templates, w, "login", PageData{Data: data})
 		return
 	}
 

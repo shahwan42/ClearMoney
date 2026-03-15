@@ -75,6 +75,48 @@ The `Auth()` middleware:
 
 All other routes are protected.
 
+## Brute-Force Protection
+
+**Migration:** `000023_add_login_lockout` — adds `failed_attempts` and `locked_until` columns to `user_config`
+
+Since PINs are only 4-6 digits (10K–1M possibilities), progressive lockout prevents automated brute-force attacks.
+
+### Lockout Strategy
+
+| Failed Attempts | Lockout Duration |
+|-----------------|-----------------|
+| 1–3             | None (free) |
+| 4               | 30 seconds |
+| 5               | 1 minute |
+| 6               | 5 minutes |
+| 7               | 15 minutes |
+| 8+              | 1 hour |
+
+### How It Works
+
+1. **`CheckAndVerifyPIN(ctx, pin)`** in `internal/service/auth.go` handles all lockout logic:
+   - Checks if `locked_until` is in the future → rejects without checking PIN
+   - On wrong PIN → atomically increments `failed_attempts` and sets `locked_until`
+   - On correct PIN → resets `failed_attempts` to 0, clears `locked_until`
+2. **Lockout persists in the database** — survives app restarts
+3. **ChangePin shares the same counter** — prevents brute-force via settings page
+4. **GET /login checks lockout** — shows countdown immediately on page load via `GetLockoutStatus()`
+
+### UI Behavior
+
+- **Locked:** amber banner with "Too many failed attempts", countdown timer, disabled form
+- **3rd failure warning:** "1 attempt remaining before lockout"
+- **JS countdown:** inline script counts down and re-enables the form when lockout expires
+- **Dark mode compatible**
+
+### Key Methods
+
+| Method | Purpose |
+|--------|---------|
+| `CheckAndVerifyPIN(ctx, pin)` | Lockout-aware PIN verification (returns `LoginResult`) |
+| `GetLockoutStatus(ctx)` | Read-only lockout check (for GET /login) |
+| `lockoutDuration(attempts)` | Maps attempt count to delay duration |
+
 ## Logout
 
 **Route:** `POST /logout`
@@ -90,10 +132,11 @@ Clears session cookie (MaxAge=-1), redirects to `/login`. Uses standard `http.Re
 | Method | Purpose |
 |--------|---------|
 | `Setup(ctx, pin)` | Hash PIN, generate session key, store in user_config |
-| `Login(ctx, pin)` | Verify PIN, return session token |
 | `VerifyPIN(ctx, pin)` | bcrypt comparison (constant-time) |
-| `ChangePin(ctx, oldPin, newPin)` | Verify old, hash new, update |
-| `IsConfigured(ctx)` | Check if PIN exists in user_config |
+| `CheckAndVerifyPIN(ctx, pin)` | Lockout-aware PIN verification |
+| `GetLockoutStatus(ctx)` | Read-only lockout check for page load |
+| `ChangePin(ctx, oldPin, newPin)` | Verify old (with lockout), hash new, update |
+| `IsSetup(ctx)` | Check if PIN exists in user_config |
 
 ## Database
 
@@ -123,6 +166,9 @@ PIN hash and session key stored in `user_config` table (single row for single-us
 
 - `auth.setup_completed` — initial PIN setup finished
 - `auth.login_success` — successful PIN login
+- `auth.login_failed` — wrong PIN entered
+- `auth.login_blocked_lockout` — login attempt blocked by active lockout
+- `auth.pin_changed` — PIN changed via settings
 - `auth.logout` — user logged out
 
 **Page views:** `login`, `setup`
