@@ -154,11 +154,11 @@
         {{if .Data.VirtualAccounts}}
         <div>
             <label class="block text-xs text-gray-500 mb-1">Virtual Account (optional)</label>
-            <select name="virtual_account_id"
+            <select name="virtual_account_id" id="va-select"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">None</option>
                 {{range .Data.VirtualAccounts}}
-                <option value="{{.ID}}">{{.Icon}} {{.Name}}</option>
+                <option value="{{.ID}}" data-account-id="{{if .AccountID}}{{deref .AccountID}}{{end}}">{{.Icon}} {{.Name}}</option>
                 {{end}}
             </select>
         </div>
@@ -205,7 +205,7 @@
         toggleCategories(false);
     }
 
-    // Update currency when account changes
+    // Update currency when account changes + filter virtual accounts
     var acctSelect = document.querySelector('select[name="account_id"]');
     if (acctSelect) {
         acctSelect.addEventListener('change', function() {
@@ -215,8 +215,27 @@
             } else {
                 document.getElementById('currency-input').value = 'EGP';
             }
+            filterVirtualAccounts();
         });
     }
+
+    // Filter virtual accounts by selected bank account
+    function filterVirtualAccounts() {
+        var vaSelect = document.getElementById('va-select');
+        if (!acctSelect || !vaSelect) return;
+        var selectedAcct = acctSelect.value;
+        vaSelect.querySelectorAll('option').forEach(function(opt) {
+            if (!opt.value) return; // keep "None"
+            var vaAcctId = opt.getAttribute('data-account-id');
+            var hide = vaAcctId && vaAcctId !== selectedAcct;
+            opt.hidden = hide;
+            opt.disabled = hide;
+        });
+        if (vaSelect.selectedOptions[0] && vaSelect.selectedOptions[0].hidden) {
+            vaSelect.value = '';
+        }
+    }
+    filterVirtualAccounts();
 })();
 </script>
 {{end}}

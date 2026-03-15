@@ -39,6 +39,7 @@ type VirtualAccount struct {
 	Color          string    `json:"color" db:"color"`                     // hex color for progress bar and card styling
 	IsArchived     bool      `json:"is_archived" db:"is_archived"`         // soft-archive: hidden from active list but kept for history
 	DisplayOrder   int       `json:"display_order" db:"display_order"`     // UI ordering — lower numbers appear first
+	AccountID      *string   `json:"account_id" db:"account_id"`           // linked bank account — nullable for legacy VAs
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 }
@@ -62,15 +63,16 @@ func (a VirtualAccount) ProgressPct() float64 {
 	return a.CurrentBalance / *a.TargetAmount * 100
 }
 
-// VirtualAccountAllocation links a transaction to a virtual account with a specific amount.
+// VirtualAccountAllocation links a transaction (or direct allocation) to a virtual account.
 // This is a PIVOT TABLE model — it connects the many-to-many relationship
 // between transactions and virtual accounts.
 //
+// Two types of allocations:
+//   - Transaction-linked: TransactionID is set — created when a transaction is allocated to a VA.
+//   - Direct: TransactionID is nil — created from the VA detail page to earmark existing funds.
+//
 // Positive amounts are contributions (income into the virtual account).
 // Negative amounts are withdrawals (spending from the virtual account).
-//
-// A single transaction can be split across multiple virtual accounts (e.g., a salary
-// deposit might allocate E£2,000 to "Savings" and E£500 to "Emergency Fund").
 //
 // Laravel analogy: This is the pivot table in a belongsToMany relationship,
 // with an extra 'amount' column (withPivot('amount')).
@@ -78,9 +80,11 @@ func (a VirtualAccount) ProgressPct() float64 {
 // Django analogy: This is the "through" model in a ManyToManyField with
 // through='VirtualAccountAllocation'.
 type VirtualAccountAllocation struct {
-	ID               string    `json:"id" db:"id"`
-	TransactionID    string    `json:"transaction_id" db:"transaction_id"`       // FK to transactions table
-	VirtualAccountID string    `json:"virtual_account_id" db:"virtual_account_id"` // FK to virtual_accounts table
-	Amount           float64   `json:"amount" db:"amount"`                       // positive = contribution, negative = withdrawal
-	CreatedAt        time.Time `json:"created_at" db:"created_at"`               // no UpdatedAt — allocations are immutable once created
+	ID               string     `json:"id" db:"id"`
+	TransactionID    *string    `json:"transaction_id" db:"transaction_id"`         // nullable — NULL for direct allocations
+	VirtualAccountID string     `json:"virtual_account_id" db:"virtual_account_id"` // FK to virtual_accounts table
+	Amount           float64    `json:"amount" db:"amount"`                         // positive = contribution, negative = withdrawal
+	Note             *string    `json:"note" db:"note"`                             // optional note for direct allocations
+	AllocatedAt      *time.Time `json:"allocated_at" db:"allocated_at"`             // date of direct allocation (NULL for tx-linked)
+	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
 }

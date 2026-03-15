@@ -664,15 +664,23 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Allocate to virtual account if selected
+	// Allocate to virtual account if selected (validate account linkage)
 	if vaID := r.FormValue("virtual_account_id"); vaID != "" && h.virtualAccountSvc != nil {
-		allocAmount := created.Amount
-		if created.Type == models.TransactionTypeExpense {
-			allocAmount = -created.Amount
-		}
-		if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
-			authmw.Log(r.Context()).Warn("virtual account allocation failed",
-				"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
+		if va, err := h.virtualAccountSvc.GetByID(r.Context(), vaID); err == nil {
+			if va.AccountID == nil || *va.AccountID == created.AccountID {
+				allocAmount := created.Amount
+				if created.Type == models.TransactionTypeExpense {
+					allocAmount = -created.Amount
+				}
+				if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
+					authmw.Log(r.Context()).Warn("virtual account allocation failed",
+						"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
+				}
+			} else {
+				authmw.Log(r.Context()).Warn("virtual account not linked to transaction account",
+					"transaction_id", created.ID, "virtual_account_id", vaID,
+					"va_account_id", *va.AccountID, "tx_account_id", created.AccountID)
+			}
 		}
 	}
 
@@ -1060,7 +1068,7 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Update virtual account allocation if changed
+	// Update virtual account allocation if changed (validate account linkage)
 	newVAID := r.FormValue("virtual_account_id")
 	if h.virtualAccountSvc != nil {
 		// Find current allocation
@@ -1077,15 +1085,22 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 						"transaction_id", id, "virtual_account_id", oldVAID, "error", err)
 				}
 			}
-			// Allocate to new virtual account
+			// Allocate to new virtual account (with account linkage validation)
 			if newVAID != "" {
-				allocAmount := updated.Amount
-				if updated.Type == models.TransactionTypeExpense {
-					allocAmount = -updated.Amount
-				}
-				if err := h.virtualAccountSvc.Allocate(r.Context(), id, newVAID, allocAmount); err != nil {
-					authmw.Log(r.Context()).Warn("virtual account allocation failed",
-						"transaction_id", id, "virtual_account_id", newVAID, "error", err)
+				if va, err := h.virtualAccountSvc.GetByID(r.Context(), newVAID); err == nil {
+					if va.AccountID == nil || *va.AccountID == updated.AccountID {
+						allocAmount := updated.Amount
+						if updated.Type == models.TransactionTypeExpense {
+							allocAmount = -updated.Amount
+						}
+						if err := h.virtualAccountSvc.Allocate(r.Context(), id, newVAID, allocAmount); err != nil {
+							authmw.Log(r.Context()).Warn("virtual account allocation failed",
+								"transaction_id", id, "virtual_account_id", newVAID, "error", err)
+						}
+					} else {
+						authmw.Log(r.Context()).Warn("virtual account not linked to transaction account",
+							"transaction_id", id, "virtual_account_id", newVAID)
+					}
 				}
 			}
 		}
@@ -1641,15 +1656,23 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Allocate to virtual account if selected
+	// Allocate to virtual account if selected (validate account linkage)
 	if vaID := r.FormValue("virtual_account_id"); vaID != "" && h.virtualAccountSvc != nil {
-		allocAmount := created.Amount
-		if created.Type == models.TransactionTypeExpense {
-			allocAmount = -created.Amount
-		}
-		if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
-			authmw.Log(r.Context()).Warn("virtual account allocation failed",
-				"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
+		if va, err := h.virtualAccountSvc.GetByID(r.Context(), vaID); err == nil {
+			if va.AccountID == nil || *va.AccountID == created.AccountID {
+				allocAmount := created.Amount
+				if created.Type == models.TransactionTypeExpense {
+					allocAmount = -created.Amount
+				}
+				if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
+					authmw.Log(r.Context()).Warn("virtual account allocation failed",
+						"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
+				}
+			} else {
+				authmw.Log(r.Context()).Warn("virtual account not linked to transaction account",
+					"transaction_id", created.ID, "virtual_account_id", vaID,
+					"va_account_id", *va.AccountID, "tx_account_id", created.AccountID)
+			}
 		}
 	}
 
@@ -2835,14 +2858,15 @@ func (h *PageHandler) EmptyPartial(w http.ResponseWriter, r *http.Request) {
 
 // VirtualAccountsPageData holds data for the virtual accounts list page.
 type VirtualAccountsPageData struct {
-	Accounts []models.VirtualAccount
+	Accounts     []models.VirtualAccount
+	BankAccounts []models.Account // for the "Linked Account" dropdown in create form
 }
 
 // VirtualAccountDetailData holds data for the virtual account detail page.
 type VirtualAccountDetailData struct {
 	Account      models.VirtualAccount
 	Transactions []models.Transaction
-	Accounts     []models.Account
+	Allocations  []models.VirtualAccountAllocation // direct + tx-linked allocations for history
 	Today        time.Time
 }
 
@@ -2855,7 +2879,8 @@ func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	accounts, _ := h.virtualAccountSvc.GetAll(r.Context())
-	data := VirtualAccountsPageData{Accounts: accounts}
+	bankAccounts, _ := h.accountSvc.GetAll(r.Context())
+	data := VirtualAccountsPageData{Accounts: accounts, BankAccounts: bankAccounts}
 	RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "home", Data: data})
 }
 
@@ -2872,6 +2897,9 @@ func (h *PageHandler) VirtualAccountAdd(w http.ResponseWriter, r *http.Request) 
 		if amt, err := parseFloat(v); err == nil && amt > 0 {
 			a.TargetAmount = &amt
 		}
+	}
+	if acctID := r.FormValue("account_id"); acctID != "" {
+		a.AccountID = &acctID
 	}
 	if _, err := h.virtualAccountSvc.Create(r.Context(), a); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -2891,12 +2919,12 @@ func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	txns, _ := h.virtualAccountSvc.GetVirtualAccountTransactions(r.Context(), id, 50)
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	allocs, _ := h.virtualAccountSvc.GetVirtualAccountAllocations(r.Context(), id, 50)
 
 	data := VirtualAccountDetailData{
 		Account:      account,
 		Transactions: txns,
-		Accounts:     accounts,
+		Allocations:  allocs,
 		Today:        timeutil.Now(),
 	}
 	RenderPage(h.templates, w, "virtual-account-detail", PageData{ActiveTab: "home", Data: data})
@@ -2914,10 +2942,10 @@ func (h *PageHandler) VirtualAccountArchive(w http.ResponseWriter, r *http.Reque
 	htmxRedirect(w, r, "/virtual-accounts")
 }
 
-// VirtualAccountAllocate creates a transaction and allocates it to a virtual account.
+// VirtualAccountAllocate earmarks existing funds in a virtual account (no transaction created).
 // POST /virtual-accounts/{id}/allocate
 func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Request) {
-	accountID := chi.URLParam(r, "id")
+	vaID := chi.URLParam(r, "id")
 	r.ParseForm()
 
 	amount, err := parseFloat(r.FormValue("amount"))
@@ -2925,46 +2953,22 @@ func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "invalid amount", http.StatusBadRequest)
 		return
 	}
-	date, err := h.parseDate(r.FormValue("date"))
-	if err != nil {
-		date = timeutil.Now()
-	}
 
-	// Determine transaction type and allocation sign
-	allocType := r.FormValue("type")
-	txType := models.TransactionTypeIncome
+	// Determine allocation sign: contribution = positive, withdrawal = negative
 	allocAmount := amount
-	if allocType == "withdrawal" {
-		txType = models.TransactionTypeExpense
+	if r.FormValue("type") == "withdrawal" {
 		allocAmount = -amount
 	}
 
-	// Create the transaction (currency is set from the account by the service layer)
-	tx := models.Transaction{
-		Type:      txType,
-		Amount:    amount,
-		Currency:  models.CurrencyEGP,
-		AccountID: r.FormValue("account_id"),
-		Date:      date,
-	}
-	if note := r.FormValue("note"); note != "" {
-		tx.Note = &note
-	}
+	note := r.FormValue("note")
 
-	created, _, err := h.txSvc.Create(r.Context(), tx)
-	if err != nil {
+	if err := h.virtualAccountSvc.DirectAllocate(r.Context(), vaID, allocAmount, note, timeutil.Now()); err != nil {
+		authmw.Log(r.Context()).Warn("direct allocation failed", "virtual_account_id", vaID, "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Allocate the transaction to the virtual account
-	if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, accountID, allocAmount); err != nil {
-		authmw.Log(r.Context()).Error("failed to allocate to virtual account", "account_id", accountID, "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	htmxRedirect(w, r, "/virtual-accounts/"+accountID)
+	htmxRedirect(w, r, "/virtual-accounts/"+vaID)
 }
 
 // =============================================================================

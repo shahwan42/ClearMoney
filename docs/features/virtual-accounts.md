@@ -4,12 +4,18 @@ Envelope-style budgeting system. Users partition money across named goals/purpos
 
 ## Concept
 
-Virtual accounts don't move real money between accounts — they logically tag transactions as belonging to a virtual account. Each virtual account has:
+Virtual accounts don't move real money between accounts — they logically tag funds as belonging to a virtual account. Each virtual account has:
 
 - **Name** and optional **icon** + **color**
 - **Target amount** (optional — nil means no goal)
 - **Current balance** (denormalized cache of SUM allocations)
+- **Linked bank account** (optional — links the VA to a specific real account)
 - **Archive** capability (soft-delete for completed virtual accounts)
+
+### Two types of allocations
+
+1. **Direct allocations** — created from the VA detail page. These earmark existing funds without creating a transaction. The bank account balance is not affected.
+2. **Transaction-linked allocations** — created when selecting a VA during transaction creation. Both the transaction and the allocation are created together.
 
 ## Model
 
@@ -27,6 +33,7 @@ type VirtualAccount struct {
     Color          string
     IsArchived     bool
     DisplayOrder   int
+    AccountID      *string        // linked bank account (nullable for legacy VAs)
     CreatedAt      time.Time
     UpdatedAt      time.Time
 }
@@ -39,25 +46,29 @@ type VirtualAccount struct {
 ```go
 type VirtualAccountAllocation struct {
     ID                string
-    TransactionID     string   // FK to transactions
-    VirtualAccountID  string   // FK to virtual_accounts
-    Amount            float64  // positive = contribution, negative = withdrawal
+    TransactionID     *string    // nullable — NULL for direct allocations
+    VirtualAccountID  string     // FK to virtual_accounts
+    Amount            float64    // positive = contribution, negative = withdrawal
+    Note              *string    // optional note for direct allocations
+    AllocatedAt       *time.Time // date of direct allocation (NULL for tx-linked)
     CreatedAt         time.Time
 }
 ```
 
-This is a junction/pivot table linking transactions to virtual accounts.
+This is a junction/pivot table linking allocations to virtual accounts. Direct allocations have `TransactionID = NULL`.
 
 ## Database
 
-**Migration:** `internal/database/migrations/000015_create_virtual_funds.up.sql` (original creation)
-**Migration:** `internal/database/migrations/000022_rename_virtual_funds_to_virtual_accounts.up.sql` (rename)
+**Migrations:**
+
+- `000015_create_virtual_funds.up.sql` — original creation
+- `000022_rename_virtual_funds_to_virtual_accounts.up.sql` — rename
+- `000025_fix_virtual_account_allocations.up.sql` — add account_id, allow direct allocations
 
 Two tables:
-1. `virtual_accounts` — virtual account definitions with cached `current_balance`
-2. `virtual_account_allocations` — join table with unique constraint on `(transaction_id, virtual_account_id)`
 
-The original migration includes a data migration that converts legacy `is_building_fund` flags to the new system.
+1. `virtual_accounts` — virtual account definitions with cached `current_balance` and optional `account_id`
+2. `virtual_account_allocations` — join table with partial unique index on `(transaction_id, virtual_account_id) WHERE transaction_id IS NOT NULL`
 
 ## Repository
 
@@ -70,8 +81,9 @@ The original migration includes a data migration that converts legacy `is_buildi
 | `GetAll()` | Non-archived virtual accounts, ordered by display_order |
 | `GetAllIncludingArchived()` | All virtual accounts (for settings) |
 | `GetByID(id)` | Single virtual account |
-| `Create(account)` | Insert with RETURNING |
-| `Update(account)` | Update name, target, icon, color, order |
+| `GetByAccountID(accountID)` | VAs linked to a specific bank account |
+| `Create(account)` | Insert with RETURNING (includes account_id) |
+| `Update(account)` | Update name, target, icon, color, order, account_id |
 | `Archive(id)` | Set `is_archived = true` |
 | `Unarchive(id)` | Set `is_archived = false` |
 | `Delete(id)` | Hard delete (only if no allocations) |
@@ -80,24 +92,13 @@ The original migration includes a data migration that converts legacy `is_buildi
 
 | Method | Purpose |
 |--------|---------|
-| `Allocate(txID, accountID, amount)` | **UPSERT** — INSERT or UPDATE on conflict |
+| `Allocate(alloc)` | **UPSERT** — INSERT or UPDATE on conflict (tx-linked allocations) |
+| `DirectAllocate(alloc)` | INSERT direct allocation (no transaction_id) |
 | `Deallocate(txID, accountID)` | Remove allocation |
 | `RecalculateBalance(accountID)` | Update `current_balance = SUM(amount)` from allocations |
-| `GetAllocationsForAccount(accountID)` | Allocations with joined transaction data |
+| `GetAllocationsForAccount(accountID)` | All allocations (direct + tx-linked) via LEFT JOIN |
 | `GetTransactionsForAccount(accountID)` | Full Transaction records allocated to virtual account |
 | `CountAllocationsForAccount(accountID)` | COUNT for pre-delete check |
-
-### Denormalized Balance Pattern
-
-`RecalculateBalance()` updates the cached `current_balance` using a correlated subquery:
-
-```sql
-UPDATE virtual_accounts
-SET current_balance = COALESCE((SELECT SUM(amount) FROM virtual_account_allocations WHERE virtual_account_id = $1), 0)
-WHERE id = $1
-```
-
-This avoids expensive SUM queries on every page load.
 
 ## Service
 
@@ -106,15 +107,13 @@ This avoids expensive SUM queries on every page load.
 | Method | Purpose |
 |--------|---------|
 | `GetAll()` | Non-archived virtual accounts |
-| `GetAllIncludingArchived()` | All virtual accounts |
+| `GetByAccountID(accountID)` | VAs linked to a bank account |
 | `Create(account)` | Validation (name required, defaults color to #0d9488) |
 | `Update(account)` | Validation (name required) |
 | `Archive(id)` | Soft-delete |
-| `Unarchive(id)` | Restore |
-| `Allocate(txID, accountID, amount)` | Two-step: allocate + recalculate balance |
-| `Deallocate(txID, accountID)` | Two-step: deallocate + recalculate balance |
-
-**Key pattern:** `Allocate` and `Deallocate` always call `RecalculateBalance()` after the allocation change to keep the cache in sync.
+| `Allocate(txID, vaID, amount)` | Transaction-linked allocation + recalculate balance |
+| `DirectAllocate(vaID, amount, note, date)` | Direct allocation (no transaction) + recalculate balance |
+| `Deallocate(txID, vaID)` | Remove allocation + recalculate balance |
 
 ## Handler
 
@@ -123,16 +122,14 @@ This avoids expensive SUM queries on every page load.
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
 | `/virtual-accounts` | GET | `VirtualAccounts()` | List page with create form |
-| `/virtual-accounts/add` | POST | `VirtualAccountAdd()` | Create virtual account |
-| `/virtual-accounts/{id}` | GET | `VirtualAccountDetail()` | Detail page with allocations |
+| `/virtual-accounts/add` | POST | `VirtualAccountAdd()` | Create virtual account (with account_id) |
+| `/virtual-accounts/{id}` | GET | `VirtualAccountDetail()` | Detail page with allocation history |
 | `/virtual-accounts/{id}/archive` | POST | `VirtualAccountArchive()` | Archive virtual account |
-| `/virtual-accounts/{id}/allocate` | POST | `VirtualAccountAllocate()` | Create transaction + allocate |
+| `/virtual-accounts/{id}/allocate` | POST | `VirtualAccountAllocate()` | Direct allocation (no transaction created) |
 
-### VirtualAccountAllocate Handler
+### Account linkage validation
 
-This handler does two things atomically:
-1. Creates a transaction (income for contribution, expense for withdrawal)
-2. Allocates the transaction to the virtual account (positive or negative amount)
+When creating a transaction and selecting a VA, the handler validates that the VA's `account_id` matches the transaction's `account_id`. VAs with NULL `account_id` (legacy) are allowed for any account.
 
 ## Templates
 
@@ -140,45 +137,32 @@ This handler does two things atomically:
 
 **File:** `internal/templates/pages/virtual-accounts.html`
 
-- Create form: name, target amount (optional), color picker, icon
-- Active virtual accounts: icon, name, balance, progress bar (if target set), archive button
-- Empty state
+- Create form: name, target amount, color picker, icon, **linked account** dropdown
+- Active virtual accounts: icon, name, balance, progress bar, archive button
 
 ### Virtual Account Detail
 
 **File:** `internal/templates/pages/virtual-account-detail.html`
 
-- Virtual account header: icon, name, balance, progress bar
-- Allocate form: type (contribution/withdrawal), amount, account, date, note
-- Transaction history: allocated transactions with type coloring
+- Header: icon, name, balance, progress bar
+- Allocate form: type (contribution/withdrawal), amount, note — **no account/date fields** (direct allocation)
+- History: both direct allocations and transaction-linked allocations
 
-## Dashboard Integration
+### Transaction Forms
 
-- `DashboardData.VirtualAccounts` holds `[]models.VirtualAccount`
-- Dashboard shows horizontally scrolling virtual account cards with color-coded borders
-- Each card: icon, name, balance, progress bar (if target set)
-- Links to detail page
+VA dropdown in transaction-new.html and quick-entry.html includes `data-account-id` attributes on each option. JavaScript filters the dropdown when the account selection changes.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `internal/models/virtual_account.go` | VirtualAccount, VirtualAccountAllocation structs |
-| `internal/repository/virtual_account.go` | CRUD, allocation UPSERT, balance recalculation |
+| `internal/repository/virtual_account.go` | CRUD, allocation UPSERT, direct allocate, balance recalculation |
 | `internal/service/virtual_account.go` | Validation, allocate/deallocate with cache sync |
-| `internal/handler/pages.go` | VirtualAccounts, VirtualAccountDetail, VirtualAccountAllocate handlers |
+| `internal/handler/pages.go` | Handlers for VA pages and allocation |
 | `internal/templates/pages/virtual-accounts.html` | List page |
 | `internal/templates/pages/virtual-account-detail.html` | Detail page |
-| `internal/database/migrations/000015_create_virtual_funds.up.sql` | Original schema + data migration |
-| `internal/database/migrations/000022_rename_virtual_funds_to_virtual_accounts.up.sql` | Rename migration |
-
-## For Newcomers
-
-- **Virtual accounts don't move money** — they logically tag transactions. The actual money stays in the real account.
-- **Denormalized cache** — `current_balance` is cached and recalculated after every allocation change. This is a common pattern to avoid expensive SUM queries.
-- **UPSERT for allocations** — `INSERT ... ON CONFLICT DO UPDATE` prevents duplicate allocations.
-- **Nullable target** — `*float64` pointer means nil = "no goal set". Always nil-check before computing progress.
-- **Archive vs Delete** — archived virtual accounts are soft-deleted (still in DB, just hidden). Hard delete only works if no allocations exist.
+| `internal/database/migrations/000025_fix_virtual_account_allocations.up.sql` | Direct allocation + account linkage migration |
 
 ## Logging
 
@@ -186,6 +170,7 @@ This handler does two things atomically:
 
 - `virtual_account.created` — new virtual account created
 - `virtual_account.archived` — virtual account archived (id)
-- `virtual_account.allocated` — transaction allocated to virtual account (account_id, transaction_id)
+- `virtual_account.allocated` — transaction allocated to virtual account (virtual_account_id, transaction_id)
+- `virtual_account.direct_allocated` — direct allocation to virtual account (virtual_account_id)
 
 **Page views:** `virtual-accounts`, `virtual-account-detail`

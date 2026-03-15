@@ -23,6 +23,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/logutil"
 	"github.com/shahwan42/clearmoney/internal/models"
@@ -101,23 +102,46 @@ func (s *VirtualAccountService) Unarchive(ctx context.Context, id string) error 
 // This ensures the cached balance is always consistent with the source data.
 //
 // Like Laravel's sync() or attach() on a pivot, but with a recalculation step.
-func (s *VirtualAccountService) Allocate(ctx context.Context, transactionID, accountID string, amount float64) error {
+func (s *VirtualAccountService) Allocate(ctx context.Context, transactionID, vaID string, amount float64) error {
 	if amount == 0 {
 		return fmt.Errorf("allocation amount cannot be zero")
 	}
 	err := s.accountRepo.Allocate(ctx, models.VirtualAccountAllocation{
-		TransactionID:    transactionID,
-		VirtualAccountID: accountID,
+		TransactionID:    &transactionID,
+		VirtualAccountID: vaID,
 		Amount:           amount,
 	})
 	if err != nil {
 		return fmt.Errorf("allocating transaction: %w", err)
 	}
-	// Recalculate the virtual account's cached balance from all allocations
-	if err := s.accountRepo.RecalculateBalance(ctx, accountID); err != nil {
+	if err := s.accountRepo.RecalculateBalance(ctx, vaID); err != nil {
 		return err
 	}
-	logutil.LogEvent(ctx, "virtual_account.allocated", "account_id", accountID, "transaction_id", transactionID)
+	logutil.LogEvent(ctx, "virtual_account.allocated", "virtual_account_id", vaID, "transaction_id", transactionID)
+	return nil
+}
+
+// DirectAllocate earmarks existing funds in a virtual account without creating a transaction.
+// Used from the VA detail page for envelope budgeting contributions/withdrawals.
+func (s *VirtualAccountService) DirectAllocate(ctx context.Context, vaID string, amount float64, note string, date time.Time) error {
+	if amount == 0 {
+		return fmt.Errorf("allocation amount cannot be zero")
+	}
+	alloc := models.VirtualAccountAllocation{
+		VirtualAccountID: vaID,
+		Amount:           amount,
+		AllocatedAt:      &date,
+	}
+	if note != "" {
+		alloc.Note = &note
+	}
+	if err := s.accountRepo.DirectAllocate(ctx, alloc); err != nil {
+		return fmt.Errorf("direct allocating to virtual account: %w", err)
+	}
+	if err := s.accountRepo.RecalculateBalance(ctx, vaID); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "virtual_account.direct_allocated", "virtual_account_id", vaID)
 	return nil
 }
 
@@ -143,4 +167,9 @@ func (s *VirtualAccountService) GetVirtualAccountAllocations(ctx context.Context
 // GetTransactionAllocations returns all virtual account allocations for a specific transaction.
 func (s *VirtualAccountService) GetTransactionAllocations(ctx context.Context, txID string) ([]models.VirtualAccountAllocation, error) {
 	return s.accountRepo.GetAllocationsForTransaction(ctx, txID)
+}
+
+// GetByAccountID returns non-archived virtual accounts linked to a specific bank account.
+func (s *VirtualAccountService) GetByAccountID(ctx context.Context, accountID string) ([]models.VirtualAccount, error) {
+	return s.accountRepo.GetByAccountID(ctx, accountID)
 }

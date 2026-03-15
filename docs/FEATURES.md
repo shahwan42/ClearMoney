@@ -89,10 +89,13 @@ CRUD via `/budgets` page. Budget data stored with category association and month
 
 ## Virtual Accounts
 
-Envelope-style budgeting system (replaces the earlier building fund feature). Allows partitioning money across named goals/purposes:
+Envelope-style budgeting system. Allows partitioning money across named goals/purposes:
 
-- Create virtual accounts with target amounts
-- Allocate transactions to specific virtual accounts
+- Create virtual accounts linked to a bank account, with optional target amounts
+- **Direct allocations** — earmark existing funds from the VA detail page (no transaction created, bank balance unchanged)
+- **Transaction-linked allocations** — select a VA when creating a transaction to allocate it automatically
+- VA dropdown in transaction forms filters by the selected account (client-side JS)
+- Server-side validation ensures VA's linked account matches the transaction's account
 - Track progress toward each virtual account's goal
 - Archive completed virtual accounts
 

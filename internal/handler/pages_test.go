@@ -494,8 +494,9 @@ func TestTransactionEditForm_ShowsVirtualAccount(t *testing.T) {
 		InitialBalance: 10000,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
-		Name: "Vacation",
-		Icon: "\U0001F3D6",
+		Name:      "Vacation",
+		Icon:      "\U0001F3D6",
+		AccountID: &acc.ID,
 	})
 
 	router, addAuth := testRouter(t, db)
@@ -1163,8 +1164,9 @@ func TestTransactionCreate_WithVirtualAccount(t *testing.T) {
 		InitialBalance: 10000,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
-		Name: "Emergency Fund",
-		Icon: "🏦",
+		Name:      "Emergency Fund",
+		Icon:      "🏦",
+		AccountID: &acc.ID,
 	})
 
 	router, addAuth := testRouter(t, db)
@@ -1264,7 +1266,7 @@ func TestTransactionDelete_RecalculatesVirtualAccountBalance(t *testing.T) {
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
 	})
-	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Travel Fund"})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Travel Fund", AccountID: &acc.ID})
 
 	router, addAuth := testRouter(t, db)
 
@@ -1315,5 +1317,173 @@ func TestTransactionDelete_RecalculatesVirtualAccountBalance(t *testing.T) {
 	}
 	if balance != 0 {
 		t.Errorf("expected VA balance 0 after delete, got %f", balance)
+	}
+}
+
+// TestVirtualAccountDirectAllocate verifies that the allocate endpoint creates
+// a direct allocation (no transaction) and updates the VA balance.
+func TestVirtualAccountDirectAllocate(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 50000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:      "Emergency Fund",
+		Icon:      "🏦",
+		AccountID: &acc.ID,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// POST a contribution of 1000
+	formData := strings.NewReader("type=contribution&amount=1000&note=Initial+allocation")
+	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/"+va.ID+"/allocate", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK && w.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify VA balance is 1000
+	var balance float64
+	err := db.QueryRow(`SELECT current_balance FROM virtual_accounts WHERE id = $1`, va.ID).Scan(&balance)
+	if err != nil {
+		t.Fatalf("querying VA balance: %v", err)
+	}
+	if balance != 1000 {
+		t.Errorf("expected VA balance 1000, got %f", balance)
+	}
+
+	// Verify NO new transaction was created (the core fix)
+	var txCount int
+	err = db.QueryRow(`SELECT COUNT(*) FROM transactions`).Scan(&txCount)
+	if err != nil {
+		t.Fatalf("querying transactions: %v", err)
+	}
+	if txCount != 0 {
+		t.Errorf("expected 0 transactions (direct allocation should not create one), got %d", txCount)
+	}
+
+	// Verify allocation record exists with NULL transaction_id
+	var allocAmount float64
+	var txID *string
+	err = db.QueryRow(`SELECT amount, transaction_id FROM virtual_account_allocations WHERE virtual_account_id = $1`, va.ID).Scan(&allocAmount, &txID)
+	if err != nil {
+		t.Fatalf("querying allocation: %v", err)
+	}
+	if allocAmount != 1000 {
+		t.Errorf("expected allocation amount 1000, got %f", allocAmount)
+	}
+	if txID != nil {
+		t.Errorf("expected NULL transaction_id for direct allocation, got %s", *txID)
+	}
+
+	// Verify bank account balance is unchanged
+	var accBalance float64
+	err = db.QueryRow(`SELECT current_balance FROM accounts WHERE id = $1`, acc.ID).Scan(&accBalance)
+	if err != nil {
+		t.Fatalf("querying account balance: %v", err)
+	}
+	if accBalance != 50000 {
+		t.Errorf("expected account balance unchanged at 50000, got %f", accBalance)
+	}
+}
+
+// TestVirtualAccountDirectAllocate_Withdrawal verifies withdrawal allocations.
+func TestVirtualAccountDirectAllocate_Withdrawal(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 50000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:           "Emergency Fund",
+		CurrentBalance: 5000,
+		AccountID:      &acc.ID,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("type=withdrawal&amount=2000&note=Withdrawal")
+	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/"+va.ID+"/allocate", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK && w.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Balance should be recalculated from allocations (only the -2000 allocation exists)
+	var balance float64
+	err := db.QueryRow(`SELECT current_balance FROM virtual_accounts WHERE id = $1`, va.ID).Scan(&balance)
+	if err != nil {
+		t.Fatalf("querying VA balance: %v", err)
+	}
+	if balance != -2000 {
+		t.Errorf("expected VA balance -2000 (recalculated from allocations), got %f", balance)
+	}
+}
+
+// TestVirtualAccountCreateWithAccountLink verifies that creating a VA with account_id stores the link.
+func TestVirtualAccountCreateWithAccountLink(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("name=New+Fund&account_id=" + acc.ID + "&color=%230d9488")
+	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/add", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK && w.Code != http.StatusSeeOther {
+		t.Fatalf("expected redirect, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify VA was created with account_id
+	var accountID *string
+	err := db.QueryRow(`SELECT account_id FROM virtual_accounts WHERE name = 'New Fund'`).Scan(&accountID)
+	if err != nil {
+		t.Fatalf("querying VA: %v", err)
+	}
+	if accountID == nil || *accountID != acc.ID {
+		t.Errorf("expected VA account_id = %s, got %v", acc.ID, accountID)
 	}
 }

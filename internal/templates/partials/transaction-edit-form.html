@@ -35,7 +35,7 @@
         <select name="virtual_account_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
             <option value="">No virtual account</option>
             {{range .VirtualAccounts}}
-            <option value="{{.ID}}" {{if eq .ID $.SelectedVirtualAccountID}}selected{{end}}>{{.Icon}} {{.Name}}</option>
+            <option value="{{.ID}}" data-account-id="{{if .AccountID}}{{deref .AccountID}}{{end}}" {{if eq .ID $.SelectedVirtualAccountID}}selected{{end}}>{{.Icon}} {{.Name}}</option>
             {{end}}
         </select>
         {{end}}

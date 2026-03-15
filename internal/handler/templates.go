@@ -143,6 +143,13 @@ func TemplateFuncs(loc *time.Location) template.FuncMap {
 			}
 			return *f
 		},
+		// derefTime dereferences a *time.Time pointer for use with formatDateShort etc.
+		"derefTime": func(t *time.Time) time.Time {
+			if t == nil {
+				return time.Time{}
+			}
+			return *t
+		},
 		// string converts any value to string (for use in template comparisons)
 		"string": func(v any) string {
 			return fmt.Sprintf("%v", v)
