@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -64,10 +65,19 @@ func (s *BudgetService) Create(ctx context.Context, b models.Budget) (models.Bud
 	if b.Currency == "" {
 		b.Currency = models.CurrencyEGP
 	}
-	return s.budgetRepo.Create(ctx, b)
+	created, err := s.budgetRepo.Create(ctx, b)
+	if err != nil {
+		return b, err
+	}
+	logutil.LogEvent(ctx, "budget.created", "currency", string(created.Currency), "category_id", created.CategoryID)
+	return created, nil
 }
 
 // Delete removes a budget by ID.
 func (s *BudgetService) Delete(ctx context.Context, id string) error {
-	return s.budgetRepo.Delete(ctx, id)
+	if err := s.budgetRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "budget.deleted", "id", id)
+	return nil
 }

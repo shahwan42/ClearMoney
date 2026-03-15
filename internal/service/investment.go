@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -49,7 +50,12 @@ func (s *InvestmentService) Create(ctx context.Context, inv models.Investment) (
 	if inv.Currency == "" {
 		inv.Currency = models.CurrencyEGP
 	}
-	return s.repo.Create(ctx, inv)
+	created, err := s.repo.Create(ctx, inv)
+	if err != nil {
+		return models.Investment{}, err
+	}
+	logutil.LogEvent(ctx, "investment.created", "currency", string(created.Currency))
+	return created, nil
 }
 
 // GetAll returns all investment holdings.
@@ -62,12 +68,20 @@ func (s *InvestmentService) UpdateValuation(ctx context.Context, id string, unit
 	if unitPrice <= 0 {
 		return fmt.Errorf("unit_price must be positive")
 	}
-	return s.repo.UpdateValuation(ctx, id, unitPrice)
+	if err := s.repo.UpdateValuation(ctx, id, unitPrice); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "investment.valuation_updated", "id", id)
+	return nil
 }
 
 // Delete removes an investment.
 func (s *InvestmentService) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "investment.deleted", "id", id)
+	return nil
 }
 
 // GetTotalValuation returns the total portfolio value (sum of units * price).

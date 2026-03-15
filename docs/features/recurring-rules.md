@@ -193,3 +193,15 @@ Runs once on every app startup. Errors don't prevent server from starting.
 - **Startup processing** — rules are only processed on app restart, not via a cron job. If the app is down for days, all missed rules will execute on next startup.
 - **Service-to-service dependency** — RecurringService delegates to TransactionService for creating transactions (balance updates, etc.).
 - **Account deletion cleanup** — `DeleteByAccountID` uses JSONB operators to find and remove rules referencing deleted accounts.
+
+## Logging
+
+**Service events:**
+
+- `recurring.created` — new recurring rule created (frequency)
+- `recurring.confirmed` — pending rule confirmed and executed (id)
+- `recurring.skipped` — pending rule skipped without executing (id)
+- `recurring.deleted` — recurring rule removed (id)
+- `recurring.auto_processed` — rule auto-executed on startup (id)
+
+**Page views:** `recurring`

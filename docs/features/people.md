@@ -198,3 +198,13 @@ Dashboard shows:
 - **Auto-detected repayment direction** — the service reads current net_balance to determine if money enters or leaves the account. No need for the user to specify.
 - **Payoff projection** — simple linear model. Requires at least 2 repayments to compute. If no repayments yet, returns nil.
 - **Two-table atomicity** — RecordLoan/Repayment update both account and person balances in a single DB transaction.
+
+## Logging
+
+**Service events:**
+
+- `person.created` — new person added
+- `person.loan_recorded` — loan recorded for a person (type, currency)
+- `person.repayment_recorded` — repayment recorded for a person (currency)
+
+**Page views:** `people`, `person-detail`

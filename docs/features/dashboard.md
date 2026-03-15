@@ -301,3 +301,11 @@ The dashboard relies on:
 - The setter injection pattern avoids growing the already-15-param PageHandler constructor.
 - HTMX partials (`/partials/recent-transactions`, `/partials/people-summary`) exist for post-action refreshes (e.g., after creating a transaction via quick-entry).
 - Template functions like `formatEGP`, `formatUSD`, `sparklinePoints`, `chartColor` are defined in `charts.go` and `templates.go`.
+
+## Logging
+
+**Page views:** `dashboard`
+
+**Debug:**
+
+- Dashboard source timing logs: institutions, exchange rate, people, virtual funds, investments, streak, recent transactions, snapshots, health, budgets, spending comparison

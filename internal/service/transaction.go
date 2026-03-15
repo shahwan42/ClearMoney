@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -77,6 +78,7 @@ func (s *TransactionService) TxRepo() *repository.TransactionRepo {
 //
 // Returns the created transaction and the new account balance.
 func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) (models.Transaction, float64, error) {
+	logutil.Log(ctx).Debug("creating transaction", "type", tx.Type, "account_id", tx.AccountID)
 	if err := s.validateBasic(tx); err != nil {
 		return models.Transaction{}, 0, err
 	}
@@ -133,6 +135,7 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 		return created, 0, nil // transaction succeeded, just can't return balance
 	}
 
+	logutil.LogEvent(ctx, "transaction.created", "type", string(tx.Type), "currency", string(tx.Currency), "account_id", tx.AccountID)
 	return created, acc.CurrentBalance, nil
 }
 
@@ -151,6 +154,7 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 // In Laravel: DB::transaction(function() { /* all 6 steps */ });
 // In Django: with transaction.atomic(): # all 6 steps
 func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, models.Transaction, error) {
+	logutil.Log(ctx).Debug("creating transfer", "source", sourceAccountID, "dest", destAccountID)
 	if amount <= 0 {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("amount must be positive")
 	}
@@ -237,6 +241,7 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 	createdDebit.LinkedTransactionID = &createdCredit.ID
 	createdCredit.LinkedTransactionID = &createdDebit.ID
 
+	logutil.LogEvent(ctx, "transaction.transfer_created", "currency", string(currency), "source_account_id", sourceAccountID, "dest_account_id", destAccountID)
 	return createdDebit, createdCredit, nil
 }
 
@@ -260,6 +265,7 @@ type ExchangeParams struct {
 // Creates two linked transactions (debit in source currency, credit in dest currency).
 // Logs the exchange rate.
 func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParams) (models.Transaction, models.Transaction, error) {
+	logutil.Log(ctx).Debug("creating exchange", "source", p.SourceAccountID, "dest", p.DestAccountID)
 	if p.SourceAccountID == "" || p.DestAccountID == "" {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("both source and destination account_id required")
 	}
@@ -376,6 +382,7 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 	createdDebit.LinkedTransactionID = &createdCredit.ID
 	createdCredit.LinkedTransactionID = &createdDebit.ID
 
+	logutil.LogEvent(ctx, "transaction.exchange_created", "source_currency", string(srcAcc.Currency), "dest_currency", string(destAcc.Currency))
 	return createdDebit, createdCredit, nil
 }
 
@@ -504,6 +511,7 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 	createdDebit.LinkedTransactionID = &createdCredit.ID
 	createdCredit.LinkedTransactionID = &createdDebit.ID
 
+	logutil.LogEvent(ctx, "transaction.instapay_created", "currency", string(currency))
 	return createdDebit, createdCredit, fee, nil
 }
 
@@ -602,6 +610,7 @@ func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardI
 	createdCharge.LinkedTransactionID = &createdCredit.ID
 	createdCredit.LinkedTransactionID = &createdCharge.ID
 
+	logutil.LogEvent(ctx, "transaction.fawry_cashout_created", "currency", string(currency))
 	return createdCharge, createdCredit, nil
 }
 
@@ -690,6 +699,7 @@ func (s *TransactionService) Update(ctx context.Context, updated models.Transact
 		return models.Transaction{}, 0, fmt.Errorf("committing: %w", err)
 	}
 
+	logutil.LogEvent(ctx, "transaction.updated", "id", updated.ID)
 	return result, acc.CurrentBalance, nil
 }
 
@@ -742,6 +752,7 @@ func (s *TransactionService) Delete(ctx context.Context, id string) error {
 		}
 	}
 
+	logutil.LogEvent(ctx, "transaction.deleted", "id", id)
 	return dbTx.Commit()
 }
 

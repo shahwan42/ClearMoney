@@ -180,3 +180,7 @@ The dashboard shows credit cards with:
 - **Interest-free period** is hardcoded at 55 days. Different banks may have different periods — this could be made configurable.
 - **Utilization color thresholds** (50%/80%) are consistent across the donut chart, dashboard rings, and trend sparklines.
 - **Statement periods** can be viewed historically via the `?period=YYYY-MM` query parameter.
+
+## Logging
+
+**Page views:** `cc-statement`

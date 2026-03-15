@@ -107,3 +107,13 @@ Sections:
 - **Auto-computed monthly amount** — `TotalAmount / NumInstallments`. This may not divide evenly (e.g., 1000/3 = 333.33), so the last payment may differ slightly.
 - **Atomic decrement** — `remaining_installments - 1 WHERE remaining > 0` prevents negative remaining.
 - **No scheduling** — payments are manual (user clicks "Record Payment"). Unlike recurring rules, installments don't auto-execute.
+
+## Logging
+
+**Service events:**
+
+- `installment.created` — new installment plan created (account_id)
+- `installment.payment_recorded` — payment recorded for a plan (id)
+- `installment.deleted` — installment plan removed (id)
+
+**Page views:** `installments`

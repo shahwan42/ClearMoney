@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -92,6 +93,7 @@ func (s *AuthService) Setup(ctx context.Context, pin string) error {
 	if err != nil {
 		return fmt.Errorf("saving config: %w", err)
 	}
+	logutil.LogEvent(ctx, "auth.setup_completed")
 	return nil
 }
 
@@ -136,6 +138,7 @@ func (s *AuthService) ChangePin(ctx context.Context, currentPin, newPin string) 
 	if err != nil {
 		return fmt.Errorf("updating PIN: %w", err)
 	}
+	logutil.LogEvent(ctx, "auth.pin_changed")
 	return nil
 }
 

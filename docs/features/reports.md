@@ -142,3 +142,7 @@ Heights are normalized to 0-100 relative to the maximum value across all months.
 - Chart template functions return `template.CSS` (safe, unescaped CSS strings).
 - Month navigation uses query params (`?year=2024&month=3`), not routes.
 - The 8-color palette cycles — if there are more than 8 categories, colors repeat.
+
+## Logging
+
+**Page views:** `reports`

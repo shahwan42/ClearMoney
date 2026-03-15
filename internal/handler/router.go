@@ -68,10 +68,16 @@ func NewRouter(db *sql.DB) *chi.Mux {
 
 	// Middleware stack — applied to every request in order.
 	// Like Laravel's $middlewareGroups['web'] or Django's MIDDLEWARE setting.
-	r.Use(middleware.Logger)    // Logs each request (method, path, duration) — like Laravel's log channel
-	r.Use(middleware.Recoverer) // Catches panics and returns 500 — like Laravel's exception handler
-	r.Use(middleware.RequestID) // Adds X-Request-Id header — useful for tracing in logs
-	r.Use(authmw.RequestLogger) // Adds structured logger to request context (custom middleware)
+	//
+	// Order matters:
+	//   1. RequestID generates a unique ID per request
+	//   2. RequestLogger injects a slog.Logger with request_id/method/path into context
+	//   3. StructuredLogger wraps the response to capture status/duration/bytes, logs after completion
+	//   4. Recoverer catches panics and returns 500
+	r.Use(middleware.RequestID)        // Adds X-Request-Id header — useful for tracing in logs
+	r.Use(authmw.RequestLogger)        // Adds structured logger to request context (custom middleware)
+	r.Use(authmw.StructuredLogger)     // Logs structured request metrics (replaces chi's middleware.Logger)
+	r.Use(middleware.Recoverer)        // Catches panics and returns 500 — like Laravel's exception handler
 
 	// Public health check — not behind auth middleware.
 	// Like Laravel's Route::get('/healthz', ...) outside the 'auth' middleware group.

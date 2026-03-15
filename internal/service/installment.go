@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -58,7 +59,12 @@ func (s *InstallmentService) Create(ctx context.Context, plan models.Installment
 	// Set remaining = total on creation
 	plan.RemainingInstallments = plan.NumInstallments
 
-	return s.repo.Create(ctx, plan)
+	created, err := s.repo.Create(ctx, plan)
+	if err != nil {
+		return models.InstallmentPlan{}, err
+	}
+	logutil.LogEvent(ctx, "installment.created", "account_id", created.AccountID)
+	return created, nil
 }
 
 // GetAll returns all installment plans.
@@ -94,10 +100,18 @@ func (s *InstallmentService) RecordPayment(ctx context.Context, planID string) e
 		return fmt.Errorf("creating payment transaction: %w", err)
 	}
 
-	return s.repo.RecordPayment(ctx, planID)
+	if err := s.repo.RecordPayment(ctx, planID); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "installment.payment_recorded", "id", planID)
+	return nil
 }
 
 // Delete removes an installment plan.
 func (s *InstallmentService) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "installment.deleted", "id", id)
+	return nil
 }

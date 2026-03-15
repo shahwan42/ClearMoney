@@ -107,3 +107,13 @@ Sections:
 - **Platform default** — defaults to "Thndr" (Egyptian investment platform). Can be changed per investment.
 - **No price history** — only the latest unit price is stored. Historical prices are not tracked.
 - **Dashboard integration** — uses repo directly (not service) via setter injection on DashboardService.
+
+## Logging
+
+**Service events:**
+
+- `investment.created` — new investment added (currency)
+- `investment.valuation_updated` — unit price updated (id)
+- `investment.deleted` — investment removed (id)
+
+**Page views:** `investments`

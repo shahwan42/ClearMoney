@@ -76,7 +76,7 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 | Nullable fields | Pointer types (`*string`, `*float64`) = SQL NULL |
 | Auth | PIN-based with bcrypt, HMAC session tokens, cookie-based sessions |
 | Balance tracking | Atomic updates via DB transactions, `balance_delta` per transaction for reconciliation |
-| Logging | `log/slog` structured logging, request-scoped via middleware (`authmw.Log(ctx)`) |
+| Logging | 3-layer structured logging: StructuredLogger middleware → service events (`logutil.LogEvent`) → page views (`authmw.Log(ctx)`) |
 | Charts | CSS-only (conic-gradient donuts, flexbox bars, inline SVG sparklines) — no Chart.js |
 | Frontend | HTMX for dynamic updates, Tailwind CSS via CDN, dark mode (class-based) |
 | Redirects | `htmxRedirect(w, r, url)` — detects HX-Request header, sends HX-Redirect or http.Redirect |
@@ -137,18 +137,36 @@ Use conventional commits: `type: concise description`
 - `feat:` new feature — `fix:` bug fix — `refactor:` code restructure — `docs:` documentation
 - `chore:` tooling/config — `test:` test additions — keep message under ~72 chars
 
+### Logging Conventions
+
+ClearMoney uses a 3-layer structured logging architecture:
+
+1. **Request middleware** (`StructuredLogger` in `internal/middleware/logging.go`): Logs every request with status, duration, bytes, route pattern, HTMX detection, and device type. Skips `/static/*` and `/healthz`.
+
+2. **Service events** (`logutil.LogEvent` in `internal/logutil/logutil.go`): Every mutating service method must call `logutil.LogEvent(ctx, "entity.action", ...)` after successful completion. Event names use `entity.action` format (e.g., `transaction.created`, `budget.deleted`). Log IDs, types, currencies — never amounts, PINs, or PII.
+
+3. **Page views** (`authmw.Log(r.Context()).Info("page viewed", "page", "<name>")` in handlers): Every page handler logs which page is being viewed. HTMX partial handlers log `"partial loaded"`.
+
+**Import patterns:**
+- Handlers: `authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"` → `authmw.Log(r.Context())`
+- Services: `"github.com/ahmedelsamadisi/clearmoney/internal/logutil"` → `logutil.LogEvent(ctx, ...)`
+- Debug logging: `logutil.Log(ctx).Debug(...)` in services, `slog.Debug(...)` in handlers
+
+**Log levels:** Info for events/pages, Debug for dev tracing (enabled with `LOG_LEVEL=debug`), Warn/Error for failures.
+
 ### Adding a New Feature
 
 1. **Migration**: `make migrate-create name=create_foo` → edit the `.up.sql` and `.down.sql`
 2. **Model**: Add struct to `internal/models/foo.go`
 3. **Repository**: Add `internal/repository/foo.go` with SQL queries
 4. **Service**: Add `internal/service/foo.go` with business logic
-5. **Handler**: Add routes in `internal/handler/router.go`, handler methods in appropriate file
-6. **Template**: Add `internal/templates/pages/foo.html` and any partials
-7. **Unit tests**: Test service logic and helpers in isolation (e.g., `internal/service/foo_test.go`) — no DB required
-8. **Integration tests**: Test repository and handler layers against a real DB using `testutil.NewTestDB(t)` (e.g., `internal/repository/foo_test.go`, `internal/handler/foo_test.go`)
-9. **E2e tests**: Write Playwright browser tests that exercise the full user flow (e.g., `e2e/foo.spec.ts`) — navigates pages, fills forms, asserts visible results
-10. **Documentation**: Add or update feature doc in `docs/features/foo.md` — describe what it does, key files, architecture, and tips for newcomers. Update `docs/FEATURES.md` if adding a new feature.
+5. **Logging**: Add `logutil.LogEvent(ctx, "foo.created", ...)` for mutations in service, `authmw.Log(r.Context()).Info("page viewed", "page", "foo")` for page handlers
+6. **Handler**: Add routes in `internal/handler/router.go`, handler methods in appropriate file
+7. **Template**: Add `internal/templates/pages/foo.html` and any partials
+8. **Unit tests**: Test service logic and helpers in isolation (e.g., `internal/service/foo_test.go`) — no DB required
+9. **Integration tests**: Test repository and handler layers against a real DB using `testutil.NewTestDB(t)` (e.g., `internal/repository/foo_test.go`, `internal/handler/foo_test.go`)
+10. **E2e tests**: Write Playwright browser tests that exercise the full user flow (e.g., `e2e/foo.spec.ts`) — navigates pages, fills forms, asserts visible results
+11. **Documentation**: Add or update feature doc in `docs/features/foo.md` — describe what it does, key files, architecture, and tips for newcomers. Update `docs/FEATURES.md` if adding a new feature.
 
 ### Feature Delivery Checklist
 
@@ -159,10 +177,11 @@ After implementing a feature, always follow these steps before considering it do
 3. **Run e2e tests** — run `make test-e2e` to confirm all end-to-end tests pass (Playwright browser tests against a running app)
 4. **Run linter** — run `make lint` to confirm no lint errors (requires golangci-lint installed)
 5. **Update documentation** — add or update the relevant feature doc in `docs/features/`. Update `docs/FEATURES.md` if the feature is new.
-6. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
-7. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
-8. **Wait for approval** — do not proceed until the user confirms the feature works as expected
-9. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+6. **Verify logging** — check that service events and page views are logged at Info level when exercising the feature
+7. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
+8. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
+9. **Wait for approval** — do not proceed until the user confirms the feature works as expected
+10. **Ask to commit** — once approved, ask the user if they'd like to commit the change
 
 All three test levels, the linter, and documentation must pass/be updated before restarting the app for manual testing.
 

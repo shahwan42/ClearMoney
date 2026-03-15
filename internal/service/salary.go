@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -72,6 +73,7 @@ func NewSalaryService(txRepo *repository.TransactionRepo, accRepo *repository.Ac
 // after Commit(). So the flow is: begin → do work → commit (success) → defer Rollback (no-op).
 // If any step fails: begin → do work → return error → defer Rollback (actual rollback).
 func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistribution) error {
+	logutil.Log(ctx).Debug("distributing salary", "allocation_count", len(dist.Allocations))
 	if dist.SalaryUSD <= 0 {
 		return fmt.Errorf("salary amount must be positive")
 	}
@@ -222,5 +224,9 @@ func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistrib
 		}
 	}
 
-	return dbTx.Commit()
+	if err := dbTx.Commit(); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "salary.distributed", "allocation_count", len(dist.Allocations))
+	return nil
 }

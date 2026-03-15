@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -298,7 +299,12 @@ func (s *AccountService) Create(ctx context.Context, acc models.Account) (models
 		return models.Account{}, fmt.Errorf("cash accounts cannot have a credit limit")
 	}
 
-	return s.repo.Create(ctx, acc)
+	created, err := s.repo.Create(ctx, acc)
+	if err != nil {
+		return models.Account{}, err
+	}
+	logutil.LogEvent(ctx, "account.created", "type", string(created.Type), "currency", string(created.Currency))
+	return created, nil
 }
 
 func (s *AccountService) GetByID(ctx context.Context, id string) (models.Account, error) {
@@ -318,7 +324,12 @@ func (s *AccountService) Update(ctx context.Context, acc models.Account) (models
 	if acc.Name == "" {
 		return models.Account{}, fmt.Errorf("account name is required")
 	}
-	return s.repo.Update(ctx, acc)
+	updated, err := s.repo.Update(ctx, acc)
+	if err != nil {
+		return models.Account{}, err
+	}
+	logutil.LogEvent(ctx, "account.updated", "id", acc.ID)
+	return updated, nil
 }
 
 // Delete removes an account, cleaning up any recurring rules that reference it first.
@@ -330,14 +341,22 @@ func (s *AccountService) Delete(ctx context.Context, id string) error {
 			return fmt.Errorf("cleaning up recurring rules: %w", err)
 		}
 	}
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "account.deleted", "id", id)
+	return nil
 }
 
 // ToggleDormant flips the dormant status for an account.
 // Dormant accounts are hidden from the main dashboard but not deleted.
 // Like Laravel's soft delete, but for visibility rather than existence.
 func (s *AccountService) ToggleDormant(ctx context.Context, id string) error {
-	return s.repo.ToggleDormant(ctx, id)
+	if err := s.repo.ToggleDormant(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "account.dormant_toggled", "id", id)
+	return nil
 }
 
 // UpdateDisplayOrder sets the display order for an account.

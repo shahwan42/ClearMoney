@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -47,7 +48,12 @@ func (s *PersonService) Create(ctx context.Context, p models.Person) (models.Per
 	if p.Name == "" {
 		return models.Person{}, fmt.Errorf("name is required")
 	}
-	return s.personRepo.Create(ctx, p)
+	created, err := s.personRepo.Create(ctx, p)
+	if err != nil {
+		return models.Person{}, err
+	}
+	logutil.LogEvent(ctx, "person.created")
+	return created, nil
 }
 
 func (s *PersonService) GetByID(ctx context.Context, id string) (models.Person, error) {
@@ -73,6 +79,7 @@ func (s *PersonService) Delete(ctx context.Context, id string) error {
 //   - loan_in: I borrowed from them → their balance goes negative (I owe them)
 //     Money enters my account (like income from my perspective).
 func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID string, amount float64, currency models.Currency, txType models.TransactionType, note *string, date time.Time) (models.Transaction, error) {
+	logutil.Log(ctx).Debug("recording loan", "person_id", personID, "type", txType, "currency", currency)
 	if amount <= 0 {
 		return models.Transaction{}, fmt.Errorf("amount must be positive")
 	}
@@ -132,6 +139,7 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 		return models.Transaction{}, fmt.Errorf("committing: %w", err)
 	}
 
+	logutil.LogEvent(ctx, "person.loan_recorded", "type", string(txType), "currency", string(currency))
 	return created, nil
 }
 
@@ -141,6 +149,7 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 //   - Positive net_balance (they owe me): they're paying me back → money enters my account
 //   - Negative net_balance (I owe them): I'm paying them back → money leaves my account
 func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, error) {
+	logutil.Log(ctx).Debug("recording repayment", "person_id", personID, "currency", currency)
 	if amount <= 0 {
 		return models.Transaction{}, fmt.Errorf("amount must be positive")
 	}
@@ -202,6 +211,7 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 		return models.Transaction{}, fmt.Errorf("committing repayment: %w", err)
 	}
 
+	logutil.LogEvent(ctx, "person.repayment_recorded", "currency", string(currency))
 	return created, nil
 }
 

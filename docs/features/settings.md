@@ -105,3 +105,12 @@ Sections:
 - **Theme persists in localStorage** — not in the database. Works offline.
 - **CSV export uses native download** — `hx-boost="false"` prevents HTMX from intercepting the file download.
 - **PIN is bcrypt hashed** — same as Laravel's `Hash::make()`. Verification uses constant-time comparison.
+
+## Logging
+
+**Service events:**
+
+- `auth.pin_changed` — user changed their PIN
+- `export.csv_downloaded` — CSV export completed (row_count)
+
+**Page views:** `settings`

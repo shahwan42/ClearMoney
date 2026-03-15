@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -322,6 +323,7 @@ func RenderPage(templates TemplateMap, w http.ResponseWriter, page string, data 
 		layout = "bare"
 	}
 
+	slog.Debug("rendering page", "page", page, "layout", layout)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := tmpl.ExecuteTemplate(w, layout, data); err != nil {
 		http.Error(w, "template error: "+err.Error(), http.StatusInternalServerError)

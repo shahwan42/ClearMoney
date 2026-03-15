@@ -25,6 +25,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
 
@@ -89,5 +90,6 @@ func (s *ExportService) ExportTransactionsCSV(ctx context.Context, w io.Writer, 
 		}
 	}
 
+	logutil.LogEvent(ctx, "export.csv_downloaded", "row_count", len(txs))
 	return nil
 }

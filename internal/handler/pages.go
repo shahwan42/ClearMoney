@@ -392,6 +392,7 @@ func (h *PageHandler) SetAccountHealthService(svc *service.AccountHealthService)
 // Nil-safety: if dashboardSvc is nil (no-DB mode), renders an empty-state dashboard.
 // Like Laravel: return view('home', ['data' => $this->dashboardService?->getDashboard()])
 func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "dashboard")
 	var data any
 	if h.dashboardSvc != nil {
 		dashData, err := h.dashboardSvc.GetDashboard(r.Context())
@@ -414,6 +415,7 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 // Groups accounts by institution (bank/fintech) for display.
 // The template iterates over []InstitutionWithAccounts to render institution cards.
 func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "accounts")
 	institutions, err := h.institutionSvc.GetAll(r.Context())
 	if err != nil {
 		authmw.Log(r.Context()).Error("failed to load institutions", "error", err)
@@ -448,6 +450,7 @@ func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 // named template block, not the full page layout. This is how Go serves
 // HTML partials for HTMX — like rendering a Blade @include without @extends.
 func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "account-form")
 	institutionID := r.URL.Query().Get("institution_id")
 	if institutionID == "" {
 		http.Error(w, "institution_id required", http.StatusBadRequest)
@@ -475,6 +478,7 @@ func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 // AccountEditForm renders the account edit form partial for the bottom sheet.
 // GET /accounts/{id}/edit-form — called by HTMX when the edit sheet opens.
 func (h *PageHandler) AccountEditForm(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "account-edit-form")
 	id := chi.URLParam(r, "id")
 	acc, err := h.accountSvc.GetByID(r.Context(), id)
 	if err != nil {
@@ -543,6 +547,7 @@ func (h *PageHandler) AccountUpdate(w http.ResponseWriter, r *http.Request) {
 // quickly re-enter a similar transaction, the form pre-fills all fields from
 // an existing transaction. This saves time for repetitive expenses.
 func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "transaction-new")
 	accounts, err := h.accountSvc.GetAll(r.Context())
 	if err != nil {
 		accounts = []models.Account{}
@@ -646,6 +651,7 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 // date_to, search, offset. HTMX uses these filters to update the list
 // without a full page reload — filter dropdowns trigger hx-get with query params.
 func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "transactions")
 	filter := h.parseTransactionFilter(r)
 
 	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
@@ -678,6 +684,7 @@ func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 //
 // This pattern is fundamental to HTMX: full page = RenderPage(), partial = ExecuteTemplate().
 func (h *PageHandler) TransactionList(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "transaction-list")
 	filter := h.parseTransactionFilter(r)
 	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
 
@@ -735,6 +742,7 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 // TransferNew renders the transfer form page.
 // GET /transfers/new
 func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "transfer-new")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "transfer", PageData{
 		ActiveTab: "transactions",
@@ -748,6 +756,7 @@ func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 // ExchangeNew renders the currency exchange form page.
 // GET /exchange/new
 func (h *PageHandler) ExchangeNew(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "exchange-new")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "exchange", PageData{
 		ActiveTab: "transactions",
@@ -923,6 +932,7 @@ func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
 //
 // This is like inline editing in a spreadsheet — no modal, no page navigation.
 func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "transaction-edit-form")
 	id := chi.URLParam(r, "id")
 	tx, err := h.txSvc.GetByID(r.Context(), id)
 	if err != nil {
@@ -1043,6 +1053,7 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 // Shows all people with their current debt status (owe you / you owe / settled).
 // Each person card includes loan/repay forms powered by HTMX.
 func (h *PageHandler) People(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "people")
 	persons, _ := h.personSvc.GetAll(r.Context())
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
@@ -1185,6 +1196,7 @@ func (h *PageHandler) renderPeopleList(w http.ResponseWriter, r *http.Request) {
 // via these partial endpoints. HTMX loads them with hx-get on page load
 // or after a mutation (e.g., after creating a quick-entry transaction).
 func (h *PageHandler) RecentTransactions(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "recent-transactions")
 	txns, _ := h.txSvc.GetRecent(r.Context(), 15)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1206,6 +1218,7 @@ type PersonDetailData struct {
 // PersonDetail renders the person detail page with debt tracking.
 // GET /people/{id}
 func (h *PageHandler) PersonDetail(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "person-detail")
 	id := chi.URLParam(r, "id")
 
 	summary, err := h.personSvc.GetDebtSummary(r.Context(), id)
@@ -1234,6 +1247,7 @@ func (h *PageHandler) PersonDetail(w http.ResponseWriter, r *http.Request) {
 //   - Credit card utilization percentage and history
 //   - Account health constraints (min balance, min deposit)
 func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "account-detail")
 	id := chi.URLParam(r, "id")
 
 	acc, err := h.accountSvc.GetByID(r.Context(), id)
@@ -1333,6 +1347,7 @@ func (h *PageHandler) SuggestCategory(w http.ResponseWriter, r *http.Request) {
 // CreditCardStatement renders the credit card statement view (TASK-071).
 // GET /accounts/{id}/statement?period=YYYY-MM (optional)
 func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "cc-statement")
 	id := chi.URLParam(r, "id")
 	periodStr := r.URL.Query().Get("period")
 
@@ -1396,6 +1411,7 @@ func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request
 // Includes smart defaults: pre-selects last-used account and auto-selects category
 // if the same one was used 3+ times consecutively.
 func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "quick-entry-form")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeIncome)
@@ -1423,6 +1439,7 @@ func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 // QuickExchangeForm serves the exchange form partial into the bottom sheet.
 // GET /exchange/quick-form — loaded by HTMX when the "Exchange" tab is tapped.
 func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "quick-exchange-form")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1440,6 +1457,7 @@ func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) 
 // QuickTransferForm serves the transfer form partial into the bottom sheet.
 // GET /transactions/quick-transfer — loaded by HTMX when the "Transfer" tab is tapped.
 func (h *PageHandler) QuickTransferForm(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "quick-transfer-form")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1523,6 +1541,7 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 // Salary renders the salary distribution wizard page.
 // GET /salary
 func (h *PageHandler) Salary(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "salary")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "salary", PageData{
 		ActiveTab: "home",
@@ -1660,6 +1679,7 @@ func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
 // FawryCashout renders the Fawry cash-out form page.
 // GET /fawry-cashout
 func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "fawry-cashout")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "fawry-cashout", PageData{
 		ActiveTab: "home",
@@ -1723,6 +1743,7 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 // Features a donut chart (spending by category) and a 6-month bar chart
 // (income vs expenses trend). Both charts use CSS-only rendering (see charts.go).
 func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "reports")
 	now := time.Now()
 	year, month := now.Year(), now.Month()
 
@@ -1760,6 +1781,7 @@ func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
 // PeopleSummary renders the people summary partial for the dashboard.
 // GET /partials/people-summary
 func (h *PageHandler) PeopleSummary(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "people-summary")
 	if h.dashboardSvc == nil {
 		return
 	}
@@ -1782,6 +1804,7 @@ func (h *PageHandler) PeopleSummary(w http.ResponseWriter, r *http.Request) {
 // Recurring renders the recurring rules management page.
 // GET /recurring
 func (h *PageHandler) Recurring(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "recurring")
 	ctx := r.Context()
 	accounts, _ := h.accountSvc.GetAll(ctx)
 	categories, _ := h.categorySvc.GetAll(ctx)
@@ -2034,6 +2057,7 @@ type InvestmentPageData struct {
 // Investments renders the investment portfolio page.
 // GET /investments
 func (h *PageHandler) Investments(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "investments")
 	investments, _ := h.investmentSvc.GetAll(r.Context())
 	total, _ := h.investmentSvc.GetTotalValuation(r.Context())
 
@@ -2114,6 +2138,7 @@ type InstallmentPageData struct {
 // Installments renders the installment plans page.
 // GET /installments
 func (h *PageHandler) Installments(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "installments")
 	plans, _ := h.installmentSvc.GetAll(r.Context())
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
@@ -2183,6 +2208,7 @@ type BatchEntryData struct {
 // BatchEntry renders the batch entry page.
 // GET /batch-entry
 func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "batch-entry")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	expCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 
@@ -2304,6 +2330,7 @@ type ExchangeRatePageData struct {
 // ExchangeRates renders the exchange rate history page.
 // GET /exchange-rates
 func (h *PageHandler) ExchangeRates(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "exchange-rates")
 	var data ExchangeRatePageData
 	if h.exchangeRateRepo != nil {
 		rates, _ := h.exchangeRateRepo.GetAll(r.Context())
@@ -2319,6 +2346,7 @@ func (h *PageHandler) ExchangeRates(w http.ResponseWriter, r *http.Request) {
 // Settings renders the settings page.
 // GET /settings
 func (h *PageHandler) Settings(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "settings")
 	RenderPage(h.templates, w, "settings", PageData{ActiveTab: "more"})
 }
 
@@ -2567,6 +2595,7 @@ func (h *PageHandler) renderInstitutionListOOB(w http.ResponseWriter, r *http.Re
 // InstitutionFormPartial returns just the institution form HTML.
 // GET /accounts/institution-form — used to restore the form after a success toast auto-dismisses.
 func (h *PageHandler) InstitutionFormPartial(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "institution-form")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if tmpl, ok := h.templates["accounts"]; ok {
 		tmpl.ExecuteTemplate(w, "institution-form", InstitutionCreateData{})
@@ -2674,6 +2703,7 @@ type VirtualFundDetailData struct {
 // VirtualFunds renders the virtual funds management page.
 // GET /virtual-funds
 func (h *PageHandler) VirtualFunds(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-funds")
 	if h.virtualFundSvc == nil {
 		RenderPage(h.templates, w, "virtual-funds", PageData{ActiveTab: "home"})
 		return
@@ -2707,6 +2737,7 @@ func (h *PageHandler) VirtualFundAdd(w http.ResponseWriter, r *http.Request) {
 // VirtualFundDetail renders the virtual fund detail page with transaction history.
 // GET /virtual-funds/{id}
 func (h *PageHandler) VirtualFundDetail(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-fund-detail")
 	id := chi.URLParam(r, "id")
 	fund, err := h.virtualFundSvc.GetByID(r.Context(), id)
 	if err != nil {
@@ -2807,6 +2838,7 @@ type BudgetPageData struct {
 // Budgets renders the budget management page.
 // GET /budgets
 func (h *PageHandler) Budgets(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "budgets")
 	categories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 	var budgets []models.BudgetWithSpending
 	if h.budgetSvc != nil {

@@ -177,3 +177,13 @@ This handler does two things atomically:
 - **UPSERT for allocations** — `INSERT ... ON CONFLICT DO UPDATE` prevents duplicate allocations.
 - **Nullable target** — `*float64` pointer means nil = "no goal set". Always nil-check before computing progress.
 - **Archive vs Delete** — archived funds are soft-deleted (still in DB, just hidden). Hard delete only works if no allocations exist.
+
+## Logging
+
+**Service events:**
+
+- `virtual_fund.created` — new virtual fund created
+- `virtual_fund.archived` — fund archived (id)
+- `virtual_fund.allocated` — transaction allocated to fund (fund_id, transaction_id)
+
+**Page views:** `virtual-funds`, `virtual-fund-detail`

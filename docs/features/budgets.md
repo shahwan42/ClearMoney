@@ -139,3 +139,12 @@ Sections:
 - **Go struct embedding** — `BudgetWithSpending` embeds `Budget`, inheriting all fields without repetition.
 - **Spending is recalculated each request** — no caching. Budget progress always reflects real-time spending.
 - **Dashboard integration** uses setter injection on both PageHandler and DashboardService.
+
+## Logging
+
+**Service events:**
+
+- `budget.created` — new budget created (currency, category_id)
+- `budget.deleted` — budget removed (id)
+
+**Page views:** `budgets`

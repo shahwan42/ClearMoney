@@ -261,3 +261,17 @@ For credit accounts, shows used vs. available credit as an SVG circle with `stro
 - **Nullable pointers** — `*float64` for credit_limit means "not applicable" when nil. Always nil-check before dereferencing.
 - **Display in templates** — use the `neg` template function to flip CC balance signs for display (e.g., showing "120,000 used" instead of "-120,000").
 - **Institution cards** use HTML5 `<details>/<summary>` for collapse/expand with no JavaScript.
+
+## Logging
+
+**Service events:**
+
+- `account.created` — new account created (type, currency)
+- `account.updated` — account modified (id)
+- `account.deleted` — account removed (id)
+- `account.dormant_toggled` — dormant status flipped (id)
+- `institution.created` — new institution created
+- `institution.updated` — institution modified (id)
+- `institution.deleted` — institution removed (id)
+
+**Page views:** `accounts`, `account-detail`

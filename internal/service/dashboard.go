@@ -36,6 +36,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -246,20 +247,25 @@ func (s *DashboardService) SetDB(db *sql.DB) {
 // you'd use goroutines + channels for parallel loading. For a single-user app like
 // ClearMoney, sequential is fine and much simpler to reason about.
 func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, error) {
+	dashStart := time.Now()
 	var data DashboardData
 
 	// Load all institutions
+	t := time.Now()
 	institutions, err := s.institutionRepo.GetAll(ctx)
 	if err != nil {
 		return data, err
 	}
+	logutil.Log(ctx).Debug("dashboard: loaded institutions", "duration_ms", time.Since(t).Milliseconds(), "count", len(institutions))
 
 	// Fetch exchange rate early so institution totals can convert USD→EGP
 	var exchangeRate float64
 	if s.exchangeRateRepo != nil {
+		t = time.Now()
 		if rate, err := s.exchangeRateRepo.GetLatest(ctx); err == nil && rate > 0 {
 			exchangeRate = rate
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded exchange rate", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// For each institution, load accounts and compute totals
@@ -353,6 +359,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 
 	// People ledger summary
 	if s.personRepo != nil {
+		t = time.Now()
 		if persons, err := s.personRepo.GetAll(ctx); err == nil {
 			for _, p := range persons {
 				if p.NetBalance > 0 {
@@ -362,38 +369,48 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 				}
 			}
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded people", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// TASK-063: Load active virtual funds for dashboard widget
 	if s.virtualFundSvc != nil {
+		t = time.Now()
 		if funds, err := s.virtualFundSvc.GetAll(ctx); err == nil {
 			data.VirtualFunds = funds
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded virtual funds", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// Investment portfolio total
 	if s.investmentRepo != nil {
+		t = time.Now()
 		if total, err := s.investmentRepo.GetTotalValuation(ctx); err == nil {
 			data.InvestmentTotal = total
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded investments", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// Habit streak
 	if s.streakSvc != nil {
+		t = time.Now()
 		if streak, err := s.streakSvc.GetStreak(ctx); err == nil {
 			data.Streak = streak
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded streak", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// Load recent transactions
+	t = time.Now()
 	if txns, err := s.txRepo.GetRecent(ctx, 10); err != nil {
 		slog.Warn("failed to load recent transactions", "error", err)
 	} else {
 		data.RecentTransactions = txns
 	}
+	logutil.Log(ctx).Debug("dashboard: loaded recent transactions", "duration_ms", time.Since(t).Milliseconds())
 
 	// TASK-055: Net worth sparkline (last 30 days from snapshots)
 	if s.snapshotSvc != nil {
+		t = time.Now()
 		if history, err := s.snapshotSvc.GetNetWorthHistory(ctx, 30); err == nil && len(history) >= 2 {
 			data.NetWorthHistory = history
 			// % change: (current - oldest) / |oldest| * 100
@@ -403,10 +420,12 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 				data.NetWorthChange = (current - oldest) / abs(oldest) * 100
 			}
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded net worth history", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// TASK-059: Per-account balance sparklines (last 30 days)
 	if s.snapshotSvc != nil {
+		t = time.Now()
 		sparklines := make(map[string][]float64)
 		for _, group := range data.Institutions {
 			for _, acc := range group.Accounts {
@@ -418,25 +437,33 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		if len(sparklines) > 0 {
 			data.AccountSparklines = sparklines
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded account sparklines", "duration_ms", time.Since(t).Milliseconds(), "count", len(sparklines))
 	}
 
 	// TASK-069: Check account health constraints
 	if s.healthSvc != nil {
+		t = time.Now()
 		data.HealthWarnings = s.healthSvc.CheckAll(ctx)
+		logutil.Log(ctx).Debug("dashboard: checked health", "duration_ms", time.Since(t).Milliseconds(), "warnings", len(data.HealthWarnings))
 	}
 
 	// TASK-066: Load budgets with spending for dashboard widget
 	if s.budgetSvc != nil {
+		t = time.Now()
 		if budgets, err := s.budgetSvc.GetAllWithSpending(ctx); err == nil {
 			data.Budgets = budgets
 		}
+		logutil.Log(ctx).Debug("dashboard: loaded budgets", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// TASK-056: Month-over-month spending comparison
 	if s.db != nil {
+		t = time.Now()
 		s.computeSpendingComparison(ctx, &data)
+		logutil.Log(ctx).Debug("dashboard: computed spending comparison", "duration_ms", time.Since(t).Milliseconds())
 	}
 
+	logutil.Log(ctx).Debug("dashboard: total load time", "duration_ms", time.Since(dashStart).Milliseconds())
 	return data, nil
 }
 

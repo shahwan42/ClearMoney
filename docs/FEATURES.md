@@ -178,3 +178,14 @@ All charts support dark mode via Tailwind's `dark:` variants.
 - **Dark mode** — full dark mode with class-based toggling
 - **Clickable header** — ClearMoney logo/title navigates to dashboard
 - **Date pre-population** — all date inputs default to today via server-side rendering
+
+## Logging
+
+Structured 3-layer logging for debugging and usage analytics:
+
+- **Request middleware** (`StructuredLogger`) — status, duration, bytes, route pattern, HTMX detection, device type
+- **Service events** (`logutil.LogEvent`) — 37 structured events across all mutating operations (entity.action format)
+- **Page views** — 22 full pages + 10 HTMX partials logged at Info level
+- **Debug tracing** — dashboard source timing, complex method entry, template rendering (enabled with `LOG_LEVEL=debug`)
+- Skips `/static/*` and `/healthz` to reduce noise
+- Request correlation via `request_id` across all log layers

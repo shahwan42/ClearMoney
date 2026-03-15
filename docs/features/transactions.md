@@ -295,3 +295,17 @@ The service layer (`Create` and `Update`) always overrides the transaction's cur
 - **Exchange rate convention** — always stored as "EGP per 1 USD" regardless of direction.
 - **Tags** exist in the model/DB but are not yet exposed in UI for filtering.
 - **Template pitfall** — date inputs must be pre-populated with `value="{{formatDateISO .Today}}"`.
+
+## Logging
+
+**Service events:**
+
+- `transaction.created` — new transaction created (type, currency, account_id)
+- `transaction.updated` — transaction modified (id)
+- `transaction.deleted` — transaction removed (id)
+- `transaction.transfer_created` — paired transfer between accounts (source, dest)
+- `transaction.exchange_created` — cross-currency exchange (source, dest)
+- `transaction.instapay_created` — InstaPay transfer with auto-calculated fee
+- `transaction.fawry_cashout_created` — credit card to prepaid cash-out with fee
+
+**Page views:** `transactions`, `transaction-new`, `transfer-new`, `exchange-new`, `batch-entry`, `fawry-cashout`

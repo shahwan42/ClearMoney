@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -73,7 +74,12 @@ func (s *InstitutionService) Create(ctx context.Context, inst models.Institution
 	}
 	// Delegate to the repository for the actual DB insert.
 	// The repo returns the created model with its generated ID (like Eloquent's create()).
-	return s.repo.Create(ctx, inst)
+	created, err := s.repo.Create(ctx, inst)
+	if err != nil {
+		return models.Institution{}, err
+	}
+	logutil.LogEvent(ctx, "institution.created", "type", string(created.Type))
+	return created, nil
 }
 
 // GetByID retrieves an institution by ID.
@@ -98,7 +104,12 @@ func (s *InstitutionService) Update(ctx context.Context, inst models.Institution
 	if inst.Name == "" {
 		return models.Institution{}, fmt.Errorf("institution name is required")
 	}
-	return s.repo.Update(ctx, inst)
+	updated, err := s.repo.Update(ctx, inst)
+	if err != nil {
+		return models.Institution{}, err
+	}
+	logutil.LogEvent(ctx, "institution.updated", "id", inst.ID)
+	return updated, nil
 }
 
 // Delete removes an institution by ID.
@@ -106,7 +117,11 @@ func (s *InstitutionService) Update(ctx context.Context, inst models.Institution
 // a single error, it means the operation either succeeded (nil) or failed (non-nil).
 // This is like Laravel's $institution->delete() which returns bool.
 func (s *InstitutionService) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "institution.deleted", "id", id)
+	return nil
 }
 
 // UpdateDisplayOrder sets the display order for an institution.

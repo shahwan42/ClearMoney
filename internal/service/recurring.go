@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -57,7 +58,12 @@ func (s *RecurringService) Create(ctx context.Context, rule models.RecurringRule
 	if rule.NextDueDate.IsZero() {
 		return models.RecurringRule{}, fmt.Errorf("next_due_date is required")
 	}
-	return s.recurringRepo.Create(ctx, rule)
+	created, err := s.recurringRepo.Create(ctx, rule)
+	if err != nil {
+		return models.RecurringRule{}, err
+	}
+	logutil.LogEvent(ctx, "recurring.created", "frequency", string(created.Frequency))
+	return created, nil
 }
 
 // GetAll returns all recurring rules.
@@ -98,6 +104,7 @@ func (s *RecurringService) ProcessDueRules(ctx context.Context) (int, error) {
 			continue // skip failed rules
 		}
 		created++
+		logutil.LogEvent(ctx, "recurring.auto_processed", "id", rule.ID)
 	}
 
 	return created, nil
@@ -109,7 +116,11 @@ func (s *RecurringService) ConfirmRule(ctx context.Context, ruleID string) error
 	if err != nil {
 		return err
 	}
-	return s.executeRule(ctx, rule)
+	if err := s.executeRule(ctx, rule); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "recurring.confirmed", "id", ruleID)
+	return nil
 }
 
 // SkipRule advances the due date without creating a transaction.
@@ -119,12 +130,20 @@ func (s *RecurringService) SkipRule(ctx context.Context, ruleID string) error {
 		return err
 	}
 	nextDate := s.advanceDueDate(rule)
-	return s.recurringRepo.UpdateNextDueDate(ctx, ruleID, nextDate)
+	if err := s.recurringRepo.UpdateNextDueDate(ctx, ruleID, nextDate); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "recurring.skipped", "id", ruleID)
+	return nil
 }
 
 // Delete removes a recurring rule.
 func (s *RecurringService) Delete(ctx context.Context, id string) error {
-	return s.recurringRepo.Delete(ctx, id)
+	if err := s.recurringRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "recurring.deleted", "id", id)
+	return nil
 }
 
 // executeRule creates a transaction from the rule template and advances the due date.

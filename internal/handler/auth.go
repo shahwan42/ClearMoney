@@ -59,6 +59,7 @@ func NewAuthHandler(templates TemplateMap, authSvc *service.AuthService) *AuthHa
 // http.Redirect sends a 302 Found response with a Location header.
 // This is like Laravel's return redirect('/setup') or Django's HttpResponseRedirect('/setup').
 func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "login")
 	// If not set up yet, redirect to setup
 	if !h.authSvc.IsSetup(r.Context()) {
 		http.Redirect(w, r, "/setup", http.StatusFound)
@@ -89,6 +90,8 @@ func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	slog.Info("auth event", "event", "auth.login_success")
+
 	// Create session
 	sessionKey, err := h.authSvc.GetSessionKey(r.Context())
 	if err != nil {
@@ -105,6 +108,7 @@ func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 // SetupPage renders the first-time PIN setup form.
 // GET /setup
 func (h *AuthHandler) SetupPage(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "setup")
 	// If already set up, redirect to login
 	if h.authSvc.IsSetup(r.Context()) {
 		http.Redirect(w, r, "/login", http.StatusFound)
@@ -134,6 +138,8 @@ func (h *AuthHandler) SetupSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	slog.Info("auth event", "event", "auth.setup_success")
+
 	// Auto-login after setup
 	sessionKey, err := h.authSvc.GetSessionKey(r.Context())
 	if err != nil {
@@ -153,6 +159,7 @@ func (h *AuthHandler) SetupSubmit(w http.ResponseWriter, r *http.Request) {
 // ClearSessionCookie sets the cookie MaxAge to -1, which tells the browser
 // to delete it immediately. This is the standard way to "log out" with cookies.
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	slog.Info("auth event", "event", "auth.logout")
 	authmw.ClearSessionCookie(w)
 	http.Redirect(w, r, "/login", http.StatusFound)
 }

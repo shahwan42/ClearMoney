@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
 )
@@ -60,7 +61,12 @@ func (s *VirtualFundService) Create(ctx context.Context, f models.VirtualFund) (
 	if f.Color == "" {
 		f.Color = "#0d9488" // default teal
 	}
-	return s.fundRepo.Create(ctx, f)
+	created, err := s.fundRepo.Create(ctx, f)
+	if err != nil {
+		return f, err
+	}
+	logutil.LogEvent(ctx, "virtual_fund.created")
+	return created, nil
 }
 
 // Update modifies an existing virtual fund.
@@ -75,7 +81,11 @@ func (s *VirtualFundService) Update(ctx context.Context, f models.VirtualFund) e
 // Like Laravel's SoftDeletes — the record remains in the DB with an archived_at
 // timestamp. GetAll() excludes archived funds; GetAllIncludingArchived() includes them.
 func (s *VirtualFundService) Archive(ctx context.Context, id string) error {
-	return s.fundRepo.Archive(ctx, id)
+	if err := s.fundRepo.Archive(ctx, id); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "virtual_fund.archived", "id", id)
+	return nil
 }
 
 // Unarchive restores an archived virtual fund.
@@ -104,7 +114,11 @@ func (s *VirtualFundService) Allocate(ctx context.Context, transactionID, fundID
 		return fmt.Errorf("allocating transaction: %w", err)
 	}
 	// Recalculate the fund's cached balance from all allocations
-	return s.fundRepo.RecalculateBalance(ctx, fundID)
+	if err := s.fundRepo.RecalculateBalance(ctx, fundID); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "virtual_fund.allocated", "fund_id", fundID, "transaction_id", transactionID)
+	return nil
 }
 
 // Deallocate removes a transaction's allocation from a fund and recalculates.

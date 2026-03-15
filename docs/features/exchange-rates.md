@@ -71,3 +71,7 @@ When the exchange direction is EGP → USD, the service internally inverts the r
 - **Append-only** — rates are never updated or deleted. Each entry is a historical record.
 - **Non-critical logging** — if rate logging fails during an exchange, the transaction still succeeds.
 - **Single rate convention** — always EGP/USD. Internal calculations may invert, but storage is consistent.
+
+## Logging
+
+**Page views:** `exchange-rates`

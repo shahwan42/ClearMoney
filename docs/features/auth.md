@@ -116,3 +116,13 @@ PIN hash and session key stored in `user_config` table (single row for single-us
 - **HMAC** — the session token is an HMAC signature, not a JWT. No payload — just proof of authentication.
 - **Bare pages** — login and setup templates skip the header/nav bar. They're listed in the `barePages` map in `templates.go`.
 - **No HTMX** — auth forms use standard `<form method="POST">` with `http.Redirect`, not HTMX.
+
+## Logging
+
+**Service events:**
+
+- `auth.setup_completed` — initial PIN setup finished
+- `auth.login_success` — successful PIN login
+- `auth.logout` — user logged out
+
+**Page views:** `login`, `setup`
