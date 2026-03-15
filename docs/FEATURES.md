@@ -168,6 +168,10 @@ No JavaScript charting libraries. All charts use CSS and inline SVG:
 
 All charts support dark mode via Tailwind's `dark:` variants.
 
+## Bottom Sheet Component
+
+Reusable slide-up sheet with swipe-to-dismiss. Shared across accounts (4 sheets), account detail (2 sheets), and quick entry (1 sheet). Defined once in `partials/bottom-sheet.html` + `static/js/bottom-sheet.js`, instantiated via `{{template "bottom-sheet" (dict "Name" "my-sheet")}}` with optional z-index and max-height params.
+
 ## UX Polish
 
 - **Success animations** — toast notifications on form submissions

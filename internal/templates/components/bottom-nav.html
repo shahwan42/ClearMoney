@@ -61,35 +61,18 @@
 <div id="quick-entry-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeQuickEntry()"></div>
 
 <!--
-  HTMX LAZY-LOADED BOTTOM SHEET:
-    hx-get="/transactions/quick-form"
-      When triggered, HTMX sends a GET request to this URL.
-      The server returns an HTML fragment (not a full page).
-      Blade equivalent: an AJAX call to a controller that returns a @section.
-      Django equivalent: returning render(request, 'partials/quick-entry.html').
-
-    hx-trigger="open-quick-entry"
-      Listens for a CUSTOM JavaScript event (not a standard DOM event like "click").
-      The quick-entry.js file dispatches this event via:
-        htmx.trigger(element, 'open-quick-entry')
-      Docs: https://htmx.org/attributes/hx-trigger/
-
-    hx-target="#quick-entry-content"
-      The fetched HTML is inserted into the element with id="quick-entry-content".
-      Docs: https://htmx.org/attributes/hx-target/
-
-  TAILWIND SLIDE-UP ANIMATION:
-    translate-y-full = transform: translateY(100%) -- hidden below the screen
-    transition-transform duration-300 ease-out = smooth 300ms slide animation
-    JS toggles a class to set translate-y-0, sliding the sheet up into view.
+  HTMX LAZY-LOADED BOTTOM SHEET (uses shared BottomSheet module):
+    The quick-entry.js file calls BottomSheet.open('quick-entry', {url: ...})
+    which loads the form via HTMX and slides the sheet up.
+    Tab buttons use hx-get to swap content within the sheet.
 -->
 <div id="quick-entry-sheet" class="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto"
-     hx-get="/transactions/quick-form" hx-trigger="open-quick-entry" hx-target="#quick-entry-content">
+     data-bottom-sheet="quick-entry">
     <!-- Drag handle -->
-    <div class="flex justify-center pt-3 pb-1" id="quick-entry-handle">
-        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+    <div id="quick-entry-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
+        <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
     </div>
-    <!-- Tab bar for switching between Transaction and Exchange -->
+    <!-- Tab bar for switching between Transaction, Exchange, and Transfer -->
     <div class="flex gap-2 px-4 mb-3" id="quick-entry-tabs">
         <button type="button"
             class="flex-1 py-2 text-sm font-medium text-center rounded-lg border bg-teal-50 text-teal-700 border-teal-200"

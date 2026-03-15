@@ -1,0 +1,33 @@
+<!--
+  REUSABLE BOTTOM SHEET COMPONENT
+  Generates overlay + sheet container with drag handle and content area.
+  Used with the BottomSheet JS module (static/js/bottom-sheet.js).
+
+  Parameters (via dict):
+    Name      (required) - unique ID prefix, e.g. "create-sheet"
+    ZOverlay  (optional) - overlay z-index class, default "z-[60]"
+    ZSheet    (optional) - sheet z-index class, default "z-[70]"
+    MaxHeight (optional) - max height class, default "max-h-[85vh]"
+    Persist   (optional) - if truthy, content is not cleared on close
+
+  Usage:
+    {{template "bottom-sheet" (dict "Name" "edit-sheet")}}
+    {{template "bottom-sheet" (dict "Name" "create-sheet" "ZOverlay" "z-[80]" "ZSheet" "z-[90]" "MaxHeight" "max-h-[50vh]")}}
+
+  Blade:   @include('components.bottom-sheet', ['name' => 'edit-sheet'])
+  Jinja2:  {% include "components/bottom-sheet.html" with name="edit-sheet" %}
+-->
+{{define "bottom-sheet"}}
+{{$zo := "z-[60]"}}{{if .ZOverlay}}{{$zo = .ZOverlay}}{{end}}
+{{$zs := "z-[70]"}}{{if .ZSheet}}{{$zs = .ZSheet}}{{end}}
+{{$mh := "max-h-[85vh]"}}{{if .MaxHeight}}{{$mh = .MaxHeight}}{{end}}
+<div id="{{.Name}}-overlay" class="fixed inset-0 {{$zo}} bg-black/40 hidden" onclick="BottomSheet.close('{{.Name}}')"></div>
+<div id="{{.Name}}-sheet"
+     class="fixed bottom-0 left-0 right-0 {{$zs}} bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out {{$mh}} overflow-y-auto"
+     data-bottom-sheet="{{.Name}}"{{if .Persist}} data-bottom-sheet-persist{{end}}>
+    <div id="{{.Name}}-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
+        <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+    </div>
+    <div id="{{.Name}}-content" class="px-4 pb-6"></div>
+</div>
+{{end}}

@@ -144,33 +144,17 @@
     </div>
 </div>
 
-<!-- Edit account bottom sheet overlay -->
-<div id="edit-account-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeEditAccount()"></div>
-
 <!-- Edit account bottom sheet -->
-<div id="edit-account-sheet" class="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto"
-     hx-get="/accounts/{{.Data.Account.ID}}/edit-form" hx-trigger="open-edit-account" hx-target="#edit-account-content">
-    <!-- Drag handle -->
-    <div class="flex justify-center pt-3 pb-1" id="edit-account-handle">
-        <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
-    </div>
-    <h3 class="text-center font-semibold text-slate-800 dark:text-slate-200 text-sm mb-2">Edit Account</h3>
-    <div id="edit-account-content" class="px-4 pb-6">
-        <!-- Content loaded via HTMX when sheet opens -->
-    </div>
-</div>
-
-<!-- Delete confirmation bottom sheet overlay -->
-<div id="delete-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeDeleteSheet()"></div>
+{{template "bottom-sheet" (dict "Name" "edit-account")}}
 
 <!-- Delete confirmation bottom sheet -->
+<div id="delete-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeDeleteSheet()"></div>
 <div id="delete-sheet" class="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out"
-     data-account-name="{{.Data.Account.Name}}">
-    <!-- Drag handle -->
-    <div class="flex justify-center pt-3 pb-1" id="delete-handle">
+     data-bottom-sheet="delete" data-bottom-sheet-persist data-account-name="{{.Data.Account.Name}}">
+    <div id="delete-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
     </div>
-    <div class="px-5 pb-8">
+    <div id="delete-content" class="px-5 pb-8">
         <!-- Warning icon + message -->
         <div class="text-center mb-4">
             <div class="w-12 h-12 mx-auto mb-3 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
@@ -212,120 +196,39 @@
 </div>
 
 <script>
-// Edit account bottom sheet controls
-(function() {
-    var overlay = document.getElementById('edit-account-overlay');
-    var sheet = document.getElementById('edit-account-sheet');
+// Edit account — uses shared BottomSheet + HTMX trigger for lazy loading
+function openEditAccount() {
+    BottomSheet.open('edit-account', {url: '/accounts/{{.Data.Account.ID}}/edit-form'});
+}
+function closeEditAccount() { BottomSheet.close('edit-account'); }
 
-    window.openEditAccount = function() {
-        overlay.classList.remove('hidden');
-        sheet.offsetHeight;
-        sheet.classList.remove('translate-y-full');
-        sheet.classList.add('translate-y-0');
-        htmx.trigger(sheet, 'open-edit-account');
-        document.body.style.overflow = 'hidden';
-    };
-
-    window.closeEditAccount = function() {
-        sheet.classList.remove('translate-y-0');
-        sheet.classList.add('translate-y-full');
-        overlay.classList.add('hidden');
-        document.body.style.overflow = '';
-        setTimeout(function() {
-            document.getElementById('edit-account-content').innerHTML = '';
-        }, 300);
-    };
-
-    // Swipe-to-dismiss on drag handle
-    var handle = document.getElementById('edit-account-handle');
-    var startY = 0, currentY = 0, isDragging = false;
-
-    handle.addEventListener('touchstart', function(e) {
-        startY = e.touches[0].clientY;
-        isDragging = true;
-        sheet.style.transition = 'none';
-    });
-    handle.addEventListener('touchmove', function(e) {
-        if (!isDragging) return;
-        currentY = e.touches[0].clientY;
-        var diff = currentY - startY;
-        if (diff > 0) sheet.style.transform = 'translateY(' + diff + 'px)';
-    });
-    handle.addEventListener('touchend', function() {
-        if (!isDragging) return;
-        isDragging = false;
-        sheet.style.transition = '';
-        sheet.style.transform = '';
-        if (currentY - startY > 100) closeEditAccount();
-        else sheet.classList.add('translate-y-0');
-        startY = 0; currentY = 0;
-    });
-})();
-
-// Delete account bottom sheet controls
-(function() {
-    var overlay = document.getElementById('delete-overlay');
-    var sheet = document.getElementById('delete-sheet');
-    var input = document.getElementById('delete-confirm-input');
-    var btn = document.getElementById('delete-confirm-btn');
-    var accountName = sheet.dataset.accountName;
-
-    window.openDeleteSheet = function() {
-        overlay.classList.remove('hidden');
-        sheet.offsetHeight;
-        sheet.classList.remove('translate-y-full');
-        sheet.classList.add('translate-y-0');
-        document.body.style.overflow = 'hidden';
+// Delete account — uses shared BottomSheet open/close + feature-specific validation
+function openDeleteSheet() {
+    BottomSheet.open('delete', {onOpen: function() {
+        var input = document.getElementById('delete-confirm-input');
+        var btn = document.getElementById('delete-confirm-btn');
+        var errorDiv = document.getElementById('delete-error');
         input.value = '';
         btn.disabled = true;
-        var errorDiv = document.getElementById('delete-error');
         errorDiv.innerHTML = '';
         errorDiv.classList.add('hidden');
         setTimeout(function() { input.focus(); }, 300);
-    };
+    }});
+}
+function closeDeleteSheet() { BottomSheet.close('delete'); }
 
-    window.closeDeleteSheet = function() {
-        sheet.classList.remove('translate-y-0');
-        sheet.classList.add('translate-y-full');
-        overlay.classList.add('hidden');
-        document.body.style.overflow = '';
-    };
+function checkDeleteConfirmation() {
+    var sheet = document.getElementById('delete-sheet');
+    var input = document.getElementById('delete-confirm-input');
+    var btn = document.getElementById('delete-confirm-btn');
+    btn.disabled = input.value.trim() !== sheet.dataset.accountName;
+}
 
-    window.checkDeleteConfirmation = function() {
-        btn.disabled = input.value.trim() !== accountName;
-    };
-
-    // Show error container when HTMX swaps content into it
-    document.body.addEventListener('htmx:afterSwap', function(e) {
-        if (e.detail.target && e.detail.target.id === 'delete-error') {
-            e.detail.target.classList.remove('hidden');
-        }
-    });
-
-    // Swipe-to-dismiss on drag handle
-    var handle = document.getElementById('delete-handle');
-    var startY = 0, currentY = 0, isDragging = false;
-
-    handle.addEventListener('touchstart', function(e) {
-        startY = e.touches[0].clientY;
-        isDragging = true;
-        sheet.style.transition = 'none';
-    });
-    handle.addEventListener('touchmove', function(e) {
-        if (!isDragging) return;
-        currentY = e.touches[0].clientY;
-        var diff = currentY - startY;
-        if (diff > 0) sheet.style.transform = 'translateY(' + diff + 'px)';
-    });
-    handle.addEventListener('touchend', function() {
-        if (!isDragging) return;
-        isDragging = false;
-        sheet.style.transition = '';
-        sheet.style.transform = '';
-        if (currentY - startY > 100) closeDeleteSheet();
-        else sheet.classList.add('translate-y-0');
-        startY = 0; currentY = 0;
-    });
-})();
+// Show error container when HTMX swaps content into it
+document.body.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.id === 'delete-error') {
+        e.detail.target.classList.remove('hidden');
+    }
+});
 </script>
 {{end}}
