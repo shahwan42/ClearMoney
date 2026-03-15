@@ -51,24 +51,37 @@
       accept ONE argument per template call.
     -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
-        <div class="flex items-start justify-between">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
+
+        <!-- Two-column grid for per-currency totals -->
+        <div class="grid {{if ne .Data.USDTotal 0.0}}grid-cols-2 gap-4{{else}}grid-cols-1{{end}} mt-3">
             <div>
-                <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
-                <p class="text-3xl font-bold mt-1">
-                    <span class="{{if lt .Data.EGPTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">{{formatEGP .Data.EGPTotal}}</span>
-                    {{if ne .Data.USDTotal 0.0}}
-                    <span class="text-gray-300 mx-1">&middot;</span>
-                    <span class="{{if lt .Data.USDTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">{{formatUSD .Data.USDTotal}}</span>
-                    {{end}}
+                <p class="text-xs text-gray-400 mb-0.5">EGP</p>
+                <p class="text-2xl font-bold {{if lt .Data.EGPTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">
+                    {{formatEGP .Data.EGPTotal}}
                 </p>
-                {{if ne .Data.NetWorthChange 0.0}}
-                <div class="mt-1">
-                    {{template "chart-trend" (dict "Change" .Data.NetWorthChange "Label" "30d" "IsGood" (gt .Data.NetWorthChange 0.0))}}
-                </div>
-                {{end}}
             </div>
+            {{if ne .Data.USDTotal 0.0}}
+            <div>
+                <p class="text-xs text-gray-400 mb-0.5">USD</p>
+                <p class="text-2xl font-bold {{if lt .Data.USDTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">
+                    {{formatUSD .Data.USDTotal}}
+                </p>
+            </div>
+            {{end}}
+        </div>
+
+        <!-- Trend + sparkline row -->
+        <div class="flex items-center justify-between mt-3">
+            {{if ne .Data.NetWorthChange 0.0}}
+            <div>
+                {{template "chart-trend" (dict "Change" .Data.NetWorthChange "Label" "30d" "IsGood" (gt .Data.NetWorthChange 0.0))}}
+            </div>
+            {{else}}
+            <div></div>
+            {{end}}
             {{if .Data.NetWorthHistory}}
-            <div class="ml-3 flex-shrink-0">
+            <div class="flex-shrink-0">
                 {{template "chart-sparkline" (dict "Values" .Data.NetWorthHistory "Color" "#0d9488" "Width" 100 "Height" 36)}}
             </div>
             {{end}}
