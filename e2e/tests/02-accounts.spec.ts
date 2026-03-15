@@ -30,26 +30,26 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await expect(page.locator('#institution-list')).toContainText('HSBC');
   });
 
-  test('create account shows success toast and updates list', async ({ page }) => {
+  test('create account via bottom sheet and updates list', async ({ page }) => {
     // Ensure institution exists via API
     const instId = await createInstitution(page, 'TestBank');
 
     await page.goto('/accounts');
     await expect(page.locator('#institution-list')).toContainText('TestBank');
 
-    // Click "+ Account" button
+    // Click "+ Account" button — opens bottom sheet
     await page.click('button:has-text("+ Account")');
-    await expect(page.locator('#account-form-area input[name="name"]')).toBeVisible();
+    await expect(page.locator('#account-sheet-content input[name="name"]')).toBeVisible();
 
-    // Fill account form
-    await page.fill('#account-form-area input[name="name"]', 'Checking');
-    await page.selectOption('#account-form-area select[name="type"]', 'current');
-    await page.selectOption('#account-form-area select[name="currency"]', 'EGP');
-    await page.fill('#account-form-area input[name="initial_balance"]', '50000');
-    await page.click('#account-form-area button[type="submit"]');
+    // Fill account form inside the bottom sheet
+    await page.fill('#account-sheet-content input[name="name"]', 'Checking');
+    await page.selectOption('#account-sheet-content select[name="type"]', 'current');
+    await page.selectOption('#account-sheet-content select[name="currency"]', 'EGP');
+    await page.fill('#account-sheet-content input[name="initial_balance"]', '50000');
+    await page.click('#account-sheet-content button[type="submit"]');
 
-    // Success toast should appear in the form area
-    await expect(page.locator('#account-form-area')).toContainText('Account added!');
+    // Bottom sheet should close after success
+    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
     // Account should appear in institution list via OOB swap
     await expect(page.locator('#institution-list')).toContainText('Checking');
   });
@@ -60,20 +60,20 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
 
     await page.goto('/accounts');
     await page.click('button:has-text("+ Account")');
-    await expect(page.locator('#account-form-area input[name="name"]')).toBeVisible();
+    await expect(page.locator('#account-sheet-content input[name="name"]')).toBeVisible();
 
     // Fill credit card without credit limit
-    await page.fill('#account-form-area input[name="name"]', 'Bad Card');
-    await page.selectOption('#account-form-area select[name="type"]', 'credit_card');
+    await page.fill('#account-sheet-content input[name="name"]', 'Bad Card');
+    await page.selectOption('#account-sheet-content select[name="type"]', 'credit_card');
     // Deliberately skip filling credit_limit
-    await page.click('#account-form-area button[type="submit"]');
+    await page.click('#account-sheet-content button[type="submit"]');
 
-    // Error message should appear in the form area
-    await expect(page.locator('#account-form-area .bg-red-50')).toBeVisible();
-    await expect(page.locator('#account-form-area')).toContainText('credit_limit is required');
+    // Error message should appear inside the bottom sheet
+    await expect(page.locator('#account-sheet-content .bg-red-50')).toBeVisible();
+    await expect(page.locator('#account-sheet-content')).toContainText('credit_limit is required');
 
     // The form should be re-rendered so user can fix and retry
-    await expect(page.locator('#account-form-area input[name="name"]')).toBeVisible();
+    await expect(page.locator('#account-sheet-content input[name="name"]')).toBeVisible();
 
     // The account should NOT appear in the institution list
     await expect(page.locator('#institution-list')).not.toContainText('Bad Card');
@@ -87,20 +87,20 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await page.click('button:has-text("+ Account")');
 
     // Submit credit card without limit → error
-    await page.fill('#account-form-area input[name="name"]', 'Visa Gold');
-    await page.selectOption('#account-form-area select[name="type"]', 'credit_card');
-    await page.click('#account-form-area button[type="submit"]');
-    await expect(page.locator('#account-form-area .bg-red-50')).toBeVisible();
+    await page.fill('#account-sheet-content input[name="name"]', 'Visa Gold');
+    await page.selectOption('#account-sheet-content select[name="type"]', 'credit_card');
+    await page.click('#account-sheet-content button[type="submit"]');
+    await expect(page.locator('#account-sheet-content .bg-red-50')).toBeVisible();
 
     // Now fix: re-fill name, select type, fill credit limit, and resubmit
-    await page.fill('#account-form-area input[name="name"]', 'Visa Gold');
-    await page.selectOption('#account-form-area select[name="type"]', 'credit_card');
+    await page.fill('#account-sheet-content input[name="name"]', 'Visa Gold');
+    await page.selectOption('#account-sheet-content select[name="type"]', 'credit_card');
     await expect(page.locator('#credit-limit-field')).toBeVisible();
-    await page.fill('#account-form-area input[name="credit_limit"]', '200000');
-    await page.click('#account-form-area button[type="submit"]');
+    await page.fill('#account-sheet-content input[name="credit_limit"]', '200000');
+    await page.click('#account-sheet-content button[type="submit"]');
 
-    // Should succeed now
-    await expect(page.locator('#account-form-area')).toContainText('Account added!');
+    // Should succeed — sheet closes and account appears
+    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
     await expect(page.locator('#institution-list')).toContainText('Visa Gold');
   });
 
@@ -112,12 +112,12 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await page.click('button:has-text("+ Account")');
 
     // Select credit card type — credit limit field should appear
-    await page.selectOption('#account-form-area select[name="type"]', 'credit_card');
+    await page.selectOption('#account-sheet-content select[name="type"]', 'credit_card');
     await expect(page.locator('#credit-limit-field')).toBeVisible();
 
-    await page.fill('#account-form-area input[name="name"]', 'Mastercard');
-    await page.fill('#account-form-area input[name="credit_limit"]', '300000');
-    await page.click('#account-form-area button[type="submit"]');
+    await page.fill('#account-sheet-content input[name="name"]', 'Mastercard');
+    await page.fill('#account-sheet-content input[name="credit_limit"]', '300000');
+    await page.click('#account-sheet-content button[type="submit"]');
 
     await expect(page.locator('#institution-list')).toContainText('Mastercard');
   });
@@ -165,21 +165,37 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await expect(page.locator('#institution-list')).toContainText('Fawry');
   });
 
-  test('success toast auto-dismisses', async ({ page }) => {
+  test('account bottom sheet closes after successful creation', async ({ page }) => {
     // Ensure institution exists via API
     await createInstitution(page, 'ToastTestBank');
 
     await page.goto('/accounts');
     await page.click('button:has-text("+ Account")');
 
-    await page.fill('#account-form-area input[name="name"]', 'Savings');
-    await page.selectOption('#account-form-area select[name="type"]', 'savings');
-    await page.click('#account-form-area button[type="submit"]');
+    await page.fill('#account-sheet-content input[name="name"]', 'Savings');
+    await page.selectOption('#account-sheet-content select[name="type"]', 'savings');
+    await page.click('#account-sheet-content button[type="submit"]');
 
-    // Toast should appear
-    await expect(page.locator('#account-form-area')).toContainText('Account added!');
-    // After ~1.5s the toast should auto-dismiss (form area clears)
-    await expect(page.locator('#account-form-area')).toBeEmpty({ timeout: 5000 });
+    // Sheet should close (slide down)
+    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
+    // Account should be in the list
+    await expect(page.locator('#institution-list')).toContainText('Savings');
+  });
+
+  test('account bottom sheet can be dismissed by cancel', async ({ page }) => {
+    await createInstitution(page, 'CancelTestBank');
+
+    await page.goto('/accounts');
+    await page.click('button:has-text("+ Account")');
+
+    // Sheet should appear with form
+    await expect(page.locator('#account-sheet-content input[name="name"]')).toBeVisible();
+
+    // Click cancel
+    await page.locator('#account-sheet-content button:has-text("Cancel")').click();
+
+    // Sheet should be dismissed
+    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/);
   });
 
   test('delete institution via bottom sheet confirmation', async ({ page }) => {

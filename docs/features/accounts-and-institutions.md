@@ -166,7 +166,7 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 | Template | Purpose |
 |----------|---------|
 | `partials/institution-card.html` | Collapsible card with accounts (HTML5 `<details>/<summary>`) |
-| `partials/account-form.html` | Account creation form (HTMX) |
+| `partials/account-form.html` | Account creation form (rendered in bottom sheet) |
 | `partials/institution-form.html` | Institution creation form (HTMX) |
 
 ## Features Detail
@@ -186,6 +186,15 @@ Stored as JSONB in `health_config` column for extensibility. Two supported rules
 - `min_monthly_deposit` — alert if no deposit ≥ amount arrives during month
 
 Configured per-account on the detail page.
+
+### Account Creation (Bottom Sheet)
+
+Create a new account via a slide-up bottom sheet on the accounts page. Click "+ Account" on any institution card to open the sheet with the form pre-filled for that institution.
+
+- **Form fields:** name, type, currency, initial balance, credit limit (shown only for credit types)
+- **On success:** sheet closes automatically, institution list refreshes via OOB swap
+- **On error:** error message shown inside the sheet, form re-rendered for retry
+- **Bottom sheet UX:** Slide-up animation, swipe-to-dismiss drag handle, overlay tap-to-close, dark mode support
 
 ### Account Deletion
 
