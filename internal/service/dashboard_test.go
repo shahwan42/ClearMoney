@@ -64,6 +64,9 @@ func TestDashboardService_GetDashboard(t *testing.T) {
 	if data.NetWorth != 150000 {
 		t.Errorf("expected net worth 150000, got %f", data.NetWorth)
 	}
+	if data.EGPTotal != 150000 {
+		t.Errorf("expected EGPTotal 150000, got %f", data.EGPTotal)
+	}
 	if data.CashTotal != 150000 {
 		t.Errorf("expected cash 150000, got %f", data.CashTotal)
 	}
@@ -183,6 +186,11 @@ func TestDashboardService_GetDashboard_USDConversion(t *testing.T) {
 	data, err := svc.GetDashboard(context.Background())
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
+	}
+
+	// EGP total = 100000
+	if data.EGPTotal != 100000 {
+		t.Errorf("EGPTotal = %f, want 100000", data.EGPTotal)
 	}
 
 	// USD total = 2000

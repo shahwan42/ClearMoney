@@ -54,20 +54,13 @@
         <div class="flex items-start justify-between">
             <div>
                 <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
-                {{if gt .Data.ExchangeRate 0.0}}
-                <p class="text-3xl font-bold {{if lt .Data.NetWorthEGP 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
-                    {{formatEGP .Data.NetWorthEGP}}
+                <p class="text-3xl font-bold mt-1">
+                    <span class="{{if lt .Data.EGPTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">{{formatEGP .Data.EGPTotal}}</span>
+                    {{if ne .Data.USDTotal 0.0}}
+                    <span class="text-gray-300 mx-1">&middot;</span>
+                    <span class="{{if lt .Data.USDTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">{{formatUSD .Data.USDTotal}}</span>
+                    {{end}}
                 </p>
-                {{if gt .Data.USDTotal 0.0}}
-                <p class="text-xs text-gray-400 mt-1">
-                    Includes {{formatUSD .Data.USDTotal}} @ {{printf "%.2f" .Data.ExchangeRate}} = {{formatEGP .Data.USDInEGP}}
-                </p>
-                {{end}}
-                {{else}}
-                <p class="text-3xl font-bold {{if lt .Data.NetWorth 0.0}}text-red-600{{else}}text-slate-900{{end}} mt-1">
-                    {{formatEGP .Data.NetWorth}}
-                </p>
-                {{end}}
                 {{if ne .Data.NetWorthChange 0.0}}
                 <div class="mt-1">
                     {{template "chart-trend" (dict "Change" .Data.NetWorthChange "Label" "30d" "IsGood" (gt .Data.NetWorthChange 0.0))}}
