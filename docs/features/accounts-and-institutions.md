@@ -146,6 +146,8 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 | `/accounts/{id}/statement` | GET | `CreditCardStatement()` | CC statement view |
 | `/accounts/{id}/dormant` | POST | `ToggleDormant()` | Toggle dormant status |
 | `/accounts/{id}/health` | POST | `AccountHealthUpdate()` | Save health constraints |
+| `/accounts/{id}/edit-form` | GET | `AccountEditForm()` | HTMX partial: edit form in bottom sheet |
+| `/accounts/{id}/edit` | POST | `AccountUpdate()` | Update account fields |
 | `/accounts/{id}` | DELETE | `AccountDelete()` | Delete account (bottom sheet confirmation) |
 | `/accounts/add` | POST | `AccountAdd()` | Create account |
 | `/accounts/reorder` | POST | `ReorderAccounts()` | Drag-and-drop reorder |
@@ -170,6 +172,10 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 | `partials/institution-form.html` | Institution creation form (HTMX) |
 
 ## Features Detail
+
+### Account Editing
+
+Edit an account via a bottom sheet on the detail page. The "Edit" button in the header opens a lazy-loaded form (fetched via HTMX) with the account's current values pre-filled. On submit, the page refreshes to show updated details.
 
 ### Dormant Toggle
 

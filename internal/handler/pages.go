@@ -153,6 +153,11 @@ type AccountFormData struct {
 	InstitutionName string
 }
 
+// AccountEditFormData holds data for the account edit bottom sheet form.
+type AccountEditFormData struct {
+	Account models.Account
+}
+
 // TransactionFormData holds data for the transaction entry form dropdowns.
 type TransactionFormData struct {
 	Accounts           []models.Account
@@ -459,6 +464,65 @@ func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 		InstitutionID:   institutionID,
 		InstitutionName: instName,
 	})
+}
+
+// AccountEditForm renders the account edit form partial for the bottom sheet.
+// GET /accounts/{id}/edit-form — called by HTMX when the edit sheet opens.
+func (h *PageHandler) AccountEditForm(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "account not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["account-detail"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "account-edit-form", AccountEditFormData{Account: acc})
+}
+
+// AccountUpdate handles the form submission for editing an account.
+// POST /accounts/{id}/edit — called by HTMX from the edit bottom sheet.
+func (h *PageHandler) AccountUpdate(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch existing account to preserve non-editable fields (balance, metadata, etc.)
+	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "account not found", http.StatusNotFound)
+		return
+	}
+
+	// Override editable fields from form
+	acc.Name = r.FormValue("name")
+	acc.Type = models.AccountType(r.FormValue("type"))
+	acc.Currency = models.Currency(r.FormValue("currency"))
+
+	// Parse credit limit (nullable)
+	acc.CreditLimit = nil
+	if v := r.FormValue("credit_limit"); v != "" {
+		if f, err := parseFloat(v); err == nil {
+			acc.CreditLimit = &f
+		}
+	}
+
+	if _, err := h.accountSvc.Update(r.Context(), acc); err != nil {
+		authmw.Log(r.Context()).Warn("account update failed", "error", err)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprintf(w, `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm mb-3">%s</div>`, err.Error())
+		return
+	}
+
+	htmxRedirect(w, r, "/accounts/"+id)
 }
 
 // =============================================================================

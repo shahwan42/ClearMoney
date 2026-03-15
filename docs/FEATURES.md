@@ -30,6 +30,7 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 
 ### Account Features
 
+- **Edit via bottom sheet** — lazy-loaded form with pre-filled values, updates account details inline
 - **Delete with confirmation** — bottom sheet requires typing the account name to confirm. Cascades to transactions/snapshots, blocked by active installment plans
 - Dormant toggle — keeps account in totals but de-prioritizes in UI
 - Reordering — drag-to-reorder within institutions

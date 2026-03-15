@@ -9,7 +9,10 @@
                 <h1 class="text-lg font-bold text-slate-800">{{.Data.Account.Name}}</h1>
                 <p class="text-xs text-gray-400">{{.Data.InstitutionName}} &middot; {{formatAccountType .Data.Account.Type}} &middot; {{.Data.Account.Currency}}</p>
             </div>
-            <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">All Accounts</a>
+            <div class="flex items-center gap-3">
+                <button onclick="openEditAccount()" class="text-sm text-teal-600 hover:text-teal-700 font-medium">Edit</button>
+                <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">All Accounts</a>
+            </div>
         </div>
 
         <div class="flex items-end justify-between">
@@ -141,6 +144,22 @@
     </div>
 </div>
 
+<!-- Edit account bottom sheet overlay -->
+<div id="edit-account-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeEditAccount()"></div>
+
+<!-- Edit account bottom sheet -->
+<div id="edit-account-sheet" class="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto"
+     hx-get="/accounts/{{.Data.Account.ID}}/edit-form" hx-trigger="open-edit-account" hx-target="#edit-account-content">
+    <!-- Drag handle -->
+    <div class="flex justify-center pt-3 pb-1" id="edit-account-handle">
+        <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+    </div>
+    <h3 class="text-center font-semibold text-slate-800 dark:text-slate-200 text-sm mb-2">Edit Account</h3>
+    <div id="edit-account-content" class="px-4 pb-6">
+        <!-- Content loaded via HTMX when sheet opens -->
+    </div>
+</div>
+
 <!-- Delete confirmation bottom sheet overlay -->
 <div id="delete-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeDeleteSheet()"></div>
 
@@ -193,6 +212,57 @@
 </div>
 
 <script>
+// Edit account bottom sheet controls
+(function() {
+    var overlay = document.getElementById('edit-account-overlay');
+    var sheet = document.getElementById('edit-account-sheet');
+
+    window.openEditAccount = function() {
+        overlay.classList.remove('hidden');
+        sheet.offsetHeight;
+        sheet.classList.remove('translate-y-full');
+        sheet.classList.add('translate-y-0');
+        htmx.trigger(sheet, 'open-edit-account');
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeEditAccount = function() {
+        sheet.classList.remove('translate-y-0');
+        sheet.classList.add('translate-y-full');
+        overlay.classList.add('hidden');
+        document.body.style.overflow = '';
+        setTimeout(function() {
+            document.getElementById('edit-account-content').innerHTML = '';
+        }, 300);
+    };
+
+    // Swipe-to-dismiss on drag handle
+    var handle = document.getElementById('edit-account-handle');
+    var startY = 0, currentY = 0, isDragging = false;
+
+    handle.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        sheet.style.transition = 'none';
+    });
+    handle.addEventListener('touchmove', function(e) {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
+        var diff = currentY - startY;
+        if (diff > 0) sheet.style.transform = 'translateY(' + diff + 'px)';
+    });
+    handle.addEventListener('touchend', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+        if (currentY - startY > 100) closeEditAccount();
+        else sheet.classList.add('translate-y-0');
+        startY = 0; currentY = 0;
+    });
+})();
+
+// Delete account bottom sheet controls
 (function() {
     var overlay = document.getElementById('delete-overlay');
     var sheet = document.getElementById('delete-sheet');
