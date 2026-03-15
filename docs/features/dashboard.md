@@ -17,6 +17,107 @@ The dashboard is the home page of ClearMoney, aggregating data from 10+ sources 
 | **Habit Streak** | Consecutive days with logged transactions |
 | **Recent Transactions** | Last entries with type-colored amounts |
 
+## How Net Worth Is Calculated
+
+**File:** `internal/service/dashboard.go` — `GetDashboard()` (line ~289)
+
+Net worth is the sum of `current_balance` across **all** accounts, regardless of type:
+
+```
+NetWorth = SUM(account.CurrentBalance) for ALL accounts
+```
+
+This includes credit cards, which have negative balances (representing debt), so they reduce net worth.
+
+**Example:**
+```
+Savings (EGP):     50,000
+Current (EGP):     30,000
+Credit Card (EGP): -20,000  ← negative = debt
+Cash (USD):         2,000
+─────────────────────────
+NetWorth:          62,000   (mixed currencies — raw sum)
+```
+
+### Per-Currency Totals
+
+The dashboard also tracks per-currency breakdowns:
+
+- **EGPTotal** — sum of balances for all EGP accounts
+- **USDTotal** — sum of balances for all USD accounts
+
+### Converted Net Worth (NetWorthEGP)
+
+For a single-number comparison, all balances are converted to EGP using the latest exchange rate:
+
+```
+NetWorthEGP = EGPTotal + (USDTotal × ExchangeRate)
+```
+
+If no exchange rate is available, `NetWorthEGP` is 0 (not calculated).
+
+**Example:**
+```
+EGPTotal:      80,000
+USDTotal:       2,000
+ExchangeRate:   50.0 (EGP per 1 USD)
+─────────────────────
+NetWorthEGP:  180,000
+```
+
+### Historical Net Worth (Sparkline)
+
+Daily snapshots (via `SnapshotService`) record `NetWorthEGP` and `NetWorthRaw`. The dashboard displays a 30-day sparkline using the last 30 snapshots.
+
+## How Liquid Cash Is Calculated
+
+**File:** `internal/service/dashboard.go` — `GetDashboard()` (line ~289)
+
+Liquid cash (`CashTotal`) is the sum of balances for all **non-credit** accounts:
+
+```
+CashTotal = SUM(account.CurrentBalance) for accounts WHERE NOT IsCreditType()
+```
+
+### Which Account Types Are Included
+
+| Account Type | In CashTotal? | In CreditUsed? |
+|-------------|---------------|-----------------|
+| `savings`   | Yes           | No              |
+| `current`   | Yes           | No              |
+| `prepaid`   | Yes           | No              |
+| `cash`      | Yes           | No              |
+| `credit_card` | No         | Yes             |
+| `credit_limit` | No        | Yes             |
+
+The split is determined by `Account.IsCreditType()` in `internal/models/account.go`:
+
+```go
+func (a Account) IsCreditType() bool {
+    return a.Type == AccountTypeCreditCard || a.Type == AccountTypeCreditLimit
+}
+```
+
+### Related Credit Metrics
+
+Credit accounts feed two separate metrics:
+
+- **CreditUsed** — sum of credit account balances (negative values representing outstanding debt)
+- **CreditAvail** — sum of available credit: `CreditLimit + CurrentBalance` per credit account
+
+**Example:**
+```
+Savings:        50,000 EGP  → CashTotal
+Current:        30,000 EGP  → CashTotal
+Cash:            5,000 EGP  → CashTotal
+CC (limit 100k): -20,000    → CreditUsed = -20,000, CreditAvail = 80,000
+──────────────────────────
+CashTotal:      85,000
+CreditUsed:    -20,000
+CreditAvail:    80,000
+NetWorth:       65,000 (CashTotal + CreditUsed)
+```
+
 ## Architecture
 
 ### Data Flow
@@ -81,7 +182,7 @@ The `DashboardData` struct has ~47 fields organized into sections:
 - **Credit cards:** `DueSoonCards`, `CreditCards []CreditCardSummary`
 - **Streak:** `Streak StreakInfo`
 - **Recent tx:** `RecentTransactions`
-- **Trends:** `NetWorthHistory`, `NetWorthChange`, `ThisMonthSpending`, `LastMonthSpending`, `SpendingChange`, `TopCategories`
+- **Trends:** `NetWorthHistory`, `NetWorthChange`, `SpendingByCurrency []CurrencySpending` (per-currency this/last month + top categories), `ThisMonthSpending`, `LastMonthSpending`, `SpendingChange`, `TopCategories` (legacy EGP-only fields)
 - **Velocity:** `SpendingVelocity` (pace indicator)
 - **Account sparklines:** `AccountSparklines map[string][]float64`
 - **Virtual funds:** `VirtualFunds`

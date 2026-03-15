@@ -140,6 +140,39 @@ Shows:
 - Transaction history (color-coded by type)
 - Projected payoff date (if calculable)
 
+## Impact on Dashboard & Report Calculations
+
+### What Loans DO Affect
+
+- **Account balances** — loan_out decreases the account, loan_in increases it, repayments adjust accordingly. These changes flow into `NetWorth`, `CashTotal`, `EGPTotal`, `USDTotal`.
+- **PeopleOwedToMe / PeopleIOwe** — displayed on the dashboard as a separate summary (not included in NetWorth to avoid double-counting).
+
+### What Loans Do NOT Affect
+
+- **Monthly spending reports** — spending queries filter `WHERE type = 'expense'`. Loan transactions (`loan_out`, `loan_in`, `loan_repayment`) are excluded.
+- **Budget tracking** — budget spending also filters `WHERE type = 'expense'`. Lending money does not count toward category budgets.
+- **Materialized view** (`mv_monthly_category_totals`) — filters `WHERE category_id IS NOT NULL`. Loan transactions have no category, so they're excluded.
+- **DebtTotal** — placeholder field in DashboardData, not yet populated.
+
+### Why PeopleOwedToMe Is Separate from NetWorth
+
+When you lend 1,000 EGP to Alice:
+1. Your account balance drops by 1,000 → NetWorth decreases by 1,000
+2. Alice's `net_balance` becomes +1,000 → PeopleOwedToMe increases by 1,000
+
+If PeopleOwedToMe were added to NetWorth, the loan would appear balance-neutral. Instead, they're shown separately so you can see both your liquid position (NetWorth) and your receivables (PeopleOwedToMe).
+
+### Summary
+
+| Metric | Affected by Loans? | Reason |
+|--------|-------------------|--------|
+| NetWorth | Yes | Via account balance changes |
+| CashTotal | Yes | Via account balance changes |
+| PeopleOwedToMe/IOwe | Yes | Via person.net_balance |
+| Monthly Spending | No | Filters `type = 'expense'` only |
+| Budget Progress | No | Filters `type = 'expense'` only |
+| Spending Velocity | No | Derived from monthly spending |
+
 ## Dashboard Integration
 
 Dashboard shows:
