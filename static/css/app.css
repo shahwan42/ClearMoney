@@ -151,6 +151,12 @@
 /* Empty state icons */
 .dark .text-gray-300 { color: #475569 !important; }
 
+/* Kebab dropdown menu — dark mode hover for delete item */
+.dark [data-kebab-menu] button:last-child:hover,
+.dark [data-kebab-menu] .hover\:bg-red-50:hover {
+    background-color: #3b0d0d !important;
+}
+
 /* Hide scrollbar on main content for a cleaner mobile look */
 main::-webkit-scrollbar {
     display: none;

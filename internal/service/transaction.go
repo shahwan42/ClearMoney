@@ -794,6 +794,11 @@ func (s *TransactionService) GetFiltered(ctx context.Context, f repository.Trans
 	return s.txRepo.GetFiltered(ctx, f)
 }
 
+// GetByIDEnriched retrieves a single transaction with account name and running balance.
+func (s *TransactionService) GetByIDEnriched(ctx context.Context, id string) (repository.TransactionDisplayRow, error) {
+	return s.txRepo.GetByIDEnriched(ctx, id)
+}
+
 // GetRecentEnriched retrieves recent transactions with account name and running balance.
 func (s *TransactionService) GetRecentEnriched(ctx context.Context, limit int) ([]repository.TransactionDisplayRow, error) {
 	if limit <= 0 {

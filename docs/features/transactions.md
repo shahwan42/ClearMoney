@@ -125,12 +125,14 @@ If `expected_balance ≠ current_balance`, a discrepancy is detected. The `make 
 | Method | Purpose |
 |--------|---------|
 | `GetRecent(ctx, limit)` | Recent transactions across all accounts |
+| `GetRecentEnriched(ctx, limit)` | Recent with account name + running balance |
 | `GetByAccount(ctx, accountID, limit)` | For a specific account |
 | `GetByDateRange(ctx, from, to)` | All in date range (CSV export) |
 | `GetByPersonID(ctx, personID, limit)` | Loan/repayment transactions for a person |
 | `GetByAccountDateRange(ctx, accountID, from, to)` | For CC statement |
 | `GetPaymentsToAccount(ctx, accountID, limit)` | Credits to account (payment history) |
 | `GetFiltered(ctx, filter)` | Dynamic WHERE clause filtering |
+| `GetFilteredEnriched(ctx, filter)` | Filtered with account name + running balance |
 
 ### Smart Features
 
@@ -249,6 +251,19 @@ Adds `balance_delta NUMERIC(15,2) NOT NULL DEFAULT 0` column.
 - Composite index: `(account_id, date DESC)` for fast account-filtered sorting
 - GIN trigram index on `note` for fast ILIKE search (`pg_trgm` extension)
 - Materialized views: `mv_monthly_category_totals`, `mv_daily_tx_counts`
+
+## Account Name & Running Balance
+
+Transaction rows display the **account name** and **running balance** (account balance after each transaction) to provide financial context at a glance.
+
+- **Dashboard** (Recent Transactions) + **Transaction History** page: Show account name + running balance
+- **Account Detail** page: Show running balance only (account name is already in the page header)
+
+**Running balance computation:** Uses a SQL window function (`SUM(balance_delta) OVER (...)`) to compute the true account balance at each point in time. The computation runs over ALL transactions for the account inside a subquery, then filters are applied on the outer query — so the balance is always accurate regardless of active filters.
+
+**Key types:**
+- `repository.TransactionDisplayRow` — extends `models.Transaction` with `AccountName` and `RunningBalance` (query result struct)
+- `handler.TransactionDisplay` — adds `ShowAccountName` flag for conditional display in templates
 
 ## UX Features
 

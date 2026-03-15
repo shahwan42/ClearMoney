@@ -653,6 +653,43 @@ type TransactionDisplayRow struct {
 	RunningBalance float64 // balance after this transaction was applied
 }
 
+// GetByIDEnriched retrieves a single transaction with account name and running balance.
+func (r *TransactionRepo) GetByIDEnriched(ctx context.Context, id string) (TransactionDisplayRow, error) {
+	rows, err := r.queryTransactionsEnriched(ctx, `
+		SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
+			sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
+			sub.tags, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
+			sub.fee_account_id, sub.person_id, sub.linked_transaction_id,
+			sub.recurring_rule_id, sub.balance_delta, sub.created_at, sub.updated_at,
+			sub.account_name, sub.running_balance
+		FROM (
+			SELECT t.id, t.type, t.amount, t.currency, t.account_id,
+				t.counter_account_id, t.category_id, t.date, t.time, t.note,
+				t.tags, t.exchange_rate, t.counter_amount, t.fee_amount,
+				t.fee_account_id, t.person_id, t.linked_transaction_id,
+				t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
+				a.name AS account_name,
+				a.current_balance - COALESCE(
+					SUM(t.balance_delta) OVER (
+						PARTITION BY t.account_id
+						ORDER BY t.date DESC, t.created_at DESC
+						ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+					), 0
+				) AS running_balance
+			FROM transactions t
+			JOIN accounts a ON a.id = t.account_id
+		) sub
+		WHERE sub.id = $1
+	`, id)
+	if err != nil {
+		return TransactionDisplayRow{}, fmt.Errorf("getting enriched transaction: %w", err)
+	}
+	if len(rows) == 0 {
+		return TransactionDisplayRow{}, fmt.Errorf("getting enriched transaction: %w", sql.ErrNoRows)
+	}
+	return rows[0], nil
+}
+
 // GetRecentEnriched retrieves recent transactions with account name and running balance.
 func (r *TransactionRepo) GetRecentEnriched(ctx context.Context, limit int) ([]TransactionDisplayRow, error) {
 	return r.queryTransactionsEnriched(ctx, fmt.Sprintf(`

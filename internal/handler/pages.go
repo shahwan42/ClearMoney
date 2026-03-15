@@ -1027,13 +1027,26 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Re-fetch enriched data for proper display (account name, running balance)
+	row, err := h.txSvc.GetByIDEnriched(r.Context(), updated.ID)
+	if err != nil {
+		// Fallback: render with basic data if enriched fetch fails
+		row.Transaction = updated
+	}
+	display := TransactionDisplay{
+		Transaction:     row.Transaction,
+		AccountName:     row.AccountName,
+		RunningBalance:  row.RunningBalance,
+		ShowAccountName: true,
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["transactions"]
 	if !ok {
 		http.Error(w, "template not found", http.StatusInternalServerError)
 		return
 	}
-	tmpl.ExecuteTemplate(w, "transaction-row", updated)
+	tmpl.ExecuteTemplate(w, "transaction-row", display)
 }
 
 // TransactionDelete handles transaction deletion from the UI.
@@ -1058,10 +1071,17 @@ func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) 
 // GET /transactions/row/{id} — used by HTMX to cancel edit (swap back to row).
 func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	tx, err := h.txSvc.GetByID(r.Context(), id)
+	row, err := h.txSvc.GetByIDEnriched(r.Context(), id)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
+	}
+
+	display := TransactionDisplay{
+		Transaction:     row.Transaction,
+		AccountName:     row.AccountName,
+		RunningBalance:  row.RunningBalance,
+		ShowAccountName: true,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1070,7 +1090,7 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "template not found", http.StatusInternalServerError)
 		return
 	}
-	tmpl.ExecuteTemplate(w, "transaction-row", tx)
+	tmpl.ExecuteTemplate(w, "transaction-row", display)
 }
 
 // =============================================================================
