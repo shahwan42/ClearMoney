@@ -169,7 +169,8 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		CleanupInterval: 5 * time.Minute,
 		StaleAfter:      10 * time.Minute,
 	})
-	defer loginLimiter.Stop()
+	// No defer Stop() here — limiters live for the lifetime of the server process.
+	// Cleanup goroutines are lightweight and terminate when the process exits.
 
 	apiLimiter := authmw.NewRateLimiter(authmw.RateLimitConfig{
 		Rate:            1.0,                   // 60 requests per minute (1 token/sec)
@@ -177,7 +178,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		CleanupInterval: 5 * time.Minute,
 		StaleAfter:      10 * time.Minute,
 	})
-	defer apiLimiter.Stop()
+
 
 	generalLimiter := authmw.NewRateLimiter(authmw.RateLimitConfig{
 		Rate:            120.0 / 60.0,         // 120 requests per minute
@@ -185,7 +186,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		CleanupInterval: 5 * time.Minute,
 		StaleAfter:      10 * time.Minute,
 	})
-	defer generalLimiter.Stop()
+
 
 	// Auth routes (public — no auth middleware, but rate-limited to prevent brute force).
 	// Like Laravel: Route::middleware('throttle:5,1')->group(function () { ... });
