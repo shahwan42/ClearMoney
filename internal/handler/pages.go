@@ -1,6 +1,6 @@
 // pages.go — HTML page handlers for the HTMX-powered web interface.
 //
-// This is the largest handler file (~2300 lines) because it serves ALL HTML pages
+// This is the largest handler file (~3100 lines) because it serves ALL HTML pages
 // and HTMX partials. Think of it as the combined web routes controller in Laravel
 // or all the template views in Django.
 //

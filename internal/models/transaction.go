@@ -56,7 +56,8 @@ const (
 //        - *string and *float64 are Go's way of representing nullable values
 //        - nil = "not applicable" or SQL NULL
 //        - You MUST check for nil before dereferencing: if tx.ExchangeRate != nil { rate := *tx.ExchangeRate }
-//        - Dereferencing a nil pointer causes a runtime panic (like PHP's "null pointer" error)
+//        - Dereferencing a nil pointer causes a runtime panic (like PHP's
+//          "attempt to read property on null" or Python's AttributeError on None)
 //
 //   4. BALANCE_DELTA for reconciliation. This is the actual signed impact on the
 //      account's balance. The reconciliation job (internal/jobs/reconcile.go) uses

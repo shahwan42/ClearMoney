@@ -51,8 +51,8 @@ type VirtualAccount struct {
 // not a pointer. Use value receivers for read-only methods that don't modify
 // the struct. (See account.go IsCreditType for a longer explanation.)
 //
-// Note the nil check before dereferencing: *a.TargetAmount would PANIC if
-// a.TargetAmount is nil. Always guard pointer dereferences with a nil check.
+// Always check for nil before dereferencing: accessing *a.TargetAmount when
+// a.TargetAmount is nil causes a runtime panic. The nil check below prevents this.
 //
 // Laravel analogy: Like an Eloquent accessor — getProgressPctAttribute().
 // Django analogy: Like a @property on the Model class.

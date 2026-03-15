@@ -1,3 +1,6 @@
+// Tests for shared validation helpers (requireTrimmedName, requireNotEmpty,
+// requirePositive, requirePositiveInt, defaultDate). Verifies trimming,
+// empty-string rejection, positive-number enforcement, and date defaults.
 package service
 
 import (

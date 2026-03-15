@@ -45,12 +45,12 @@ type Investment struct {
 //   - In Python/Django: investment.valuation uses @property decorator
 //   - In Go:            investment.Valuation() must be called explicitly with ()
 //
-// Go has no "magic methods" or property decorators. Methods are always called
-// with parentheses. This is more explicit but means you can't use computed
-// values directly in template expressions like {{ .Valuation }} — you'd need
-// to register it as a template function or call it as {{ .Valuation }}.
-// (Actually, Go templates DO call methods without () — {{ .Valuation }} works
-// because the template engine recognizes it as a zero-argument method.)
+// Go has no "magic methods" or property decorators. In regular Go code, methods
+// are always called with parentheses: investment.Valuation().
+// However, Go templates DO call zero-argument methods automatically without () —
+// so {{ .Valuation }} works in templates because the template engine recognizes
+// it as a method and invokes it. This makes templates feel closer to Laravel/Django
+// where you'd write {{ $investment->valuation }} or {{ investment.valuation }}.
 func (i Investment) Valuation() float64 {
 	return i.Units * i.LastUnitPrice
 }

@@ -146,9 +146,8 @@ func isPublicPath(path string) bool {
 // See: https://pkg.go.dev/crypto/sha256
 // See: https://pkg.go.dev/encoding/hex
 func CreateSessionToken(sessionKey string) string {
-	timestamp := time.Now().Unix()
+	_ = time.Now().Unix() // timestamp unused — token is identity-based, not time-bound (cookie MaxAge handles expiry)
 	data := []byte(strings.Repeat("session", 1))
-	_ = timestamp // token is just a signed marker, not time-bound (cookie expiry handles that)
 
 	// hmac.New creates a new HMAC hasher with SHA-256 and the secret key.
 	// mac.Write feeds the data to be signed. mac.Sum(nil) produces the signature.

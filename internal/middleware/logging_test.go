@@ -1,3 +1,8 @@
+// Tests for the StructuredLogger middleware and device classification.
+//
+// Verifies that device classification (mobile/desktop/bot) works correctly
+// for common User-Agent strings. The StructuredLogger middleware itself
+// is tested through integration tests in the handler package.
 package middleware
 
 import "testing"

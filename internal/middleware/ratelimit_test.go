@@ -1,3 +1,11 @@
+// Tests for the token bucket rate limiter.
+//
+// Covers the core algorithm (allow/deny, token refill, burst handling),
+// cleanup of stale IP entries, the RateLimit middleware wrapper, and
+// IP extraction from proxy headers (X-Forwarded-For, X-Real-IP).
+//
+// Laravel analogy: Like testing RateLimiter::for() and ThrottleRequests middleware.
+// Django analogy: Like testing django-ratelimit's decorator and backend.
 package middleware
 
 import (

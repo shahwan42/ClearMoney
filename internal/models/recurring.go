@@ -54,7 +54,7 @@ type RecurringRule struct {
 	ID                  string             `json:"id" db:"id"`
 	TemplateTransaction json.RawMessage    `json:"template_transaction" db:"template_transaction"` // raw JSON blob — decode with json.Unmarshal(&template) when needed
 	Frequency           RecurringFrequency `json:"frequency" db:"frequency"`
-	DayOfMonth          *int               `json:"day_of_month,omitempty" db:"day_of_month"` // *int = nullable integer pointer; nil for weekly rules (only monthly needs a day). Note: *int, not *int64 — Go has multiple integer sizes.
+	DayOfMonth          *int               `json:"day_of_month,omitempty" db:"day_of_month"` // *int = nullable; set for monthly rules (which day to fire), nil for weekly rules
 	NextDueDate         time.Time          `json:"next_due_date" db:"next_due_date"`         // when this rule should fire next — advanced after each execution
 	IsActive            bool               `json:"is_active" db:"is_active"`                 // toggle to pause without deleting
 	AutoConfirm         bool               `json:"auto_confirm" db:"auto_confirm"`           // if true, auto-create the transaction; if false, show in "pending" list for manual confirmation

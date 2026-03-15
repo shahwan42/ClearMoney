@@ -113,9 +113,10 @@ func NewTestDB(t *testing.T) *sql.DB {
 	}
 
 	// Re-seed system categories if they were truncated by a previous test run
-	// (e.g., e2e resetDatabase). Migration 000007 seeds them once, but if the
-	// categories table gets truncated, the migration won't re-run since it's
-	// already tracked in schema_migrations.
+	// (e.g., e2e resetDatabase). Migration 000007 seeds them once, but migrations
+	// are tracked in schema_migrations — if the table was truncated after the
+	// migration was marked as applied, re-running migrations won't re-seed.
+	// This is like refreshing DatabaseSeeder data in Laravel when tests truncate tables.
 	ensureSeedCategories(t, db)
 
 	// t.Cleanup registers a function that runs when this test finishes.

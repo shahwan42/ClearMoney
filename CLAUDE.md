@@ -179,11 +179,12 @@ After implementing a feature, always follow these steps before considering it do
 3. **Run e2e tests** — run `make test-e2e` to confirm all end-to-end tests pass (Playwright browser tests against a running app)
 4. **Run linter** — run `make lint` to confirm no lint errors (requires golangci-lint installed)
 5. **Update documentation** — add or update the relevant feature doc in `docs/features/`. Update `docs/FEATURES.md` if the feature is new.
-6. **Verify logging** — check that service events and page views are logged at Info level when exercising the feature
-7. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
-8. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
-9. **Wait for approval** — do not proceed until the user confirms the feature works as expected
-10. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+6. **Update comments** — ensure package comments, struct docs, and method comments are accurate and include Laravel/Django analogies where helpful for the developer profile. Update any comments that reference line counts, file sizes, or other values that may have changed.
+7. **Verify logging** — check that service events and page views are logged at Info level when exercising the feature
+8. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
+9. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
+10. **Wait for approval** — do not proceed until the user confirms the feature works as expected
+11. **Ask to commit** — once approved, ask the user if they'd like to commit the change
 
 All three test levels, the linter, and documentation must pass/be updated before restarting the app for manual testing.
 

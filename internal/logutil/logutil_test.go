@@ -1,3 +1,9 @@
+// Tests for context-aware logging helpers.
+//
+// Verifies that SetLogger/Log correctly inject and retrieve a *slog.Logger
+// from context, that Log falls back to the default logger when none is set,
+// and that LogEvent formats structured events with the "entity.action" naming
+// convention used throughout ClearMoney's service layer.
 package logutil
 
 import (

@@ -1,3 +1,10 @@
+// validation.go — shared validation helpers used across all service files.
+//
+// These functions extract common validation patterns (required fields, positive
+// numbers, date defaults) so each service doesn't duplicate them.
+//
+// Laravel analogy: Like reusable FormRequest rules or custom Rule classes.
+// Django analogy: Like shared form validators or clean_* methods.
 package service
 
 import (

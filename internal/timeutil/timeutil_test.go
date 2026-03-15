@@ -1,3 +1,11 @@
+// Tests for timezone-aware time functions.
+//
+// Verifies that Now() returns UTC, Today/MonthStart/MonthEnd respect the user's
+// timezone (Africa/Cairo = UTC+2), ParseDateInTZ interprets date strings in the
+// user's local timezone, and InUserTZ converts UTC times for display.
+//
+// These tests are critical because ClearMoney stores all times in UTC but
+// displays them in the user's timezone — similar to Django's USE_TZ=True.
 package timeutil
 
 import (

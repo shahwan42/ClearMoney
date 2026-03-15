@@ -392,6 +392,9 @@ func seedTransactions(ctx context.Context, db *sql.DB) error {
 
 		// time.Now().AddDate(0, 0, -tx.DaysAgo) subtracts DaysAgo days from today.
 		// AddDate(years, months, days) is Go's date arithmetic.
+		// NOTE: In service/handler code, always use timeutil.Now() instead (respects
+		// the user's timezone). Here in seed.go, time.Now() is fine because seeds
+		// populate sample data, not real user transactions.
 		// Laravel equivalent: Carbon::now()->subDays($daysAgo)
 		// Django equivalent:  timezone.now() - timedelta(days=days_ago)
 		txDate := time.Now().AddDate(0, 0, -tx.DaysAgo)
@@ -408,8 +411,9 @@ func seedTransactions(ctx context.Context, db *sql.DB) error {
 		// insert is rolled back too — no orphaned transactions without
 		// corresponding balance changes.
 		//
-		// Go concept — BeginTx returns *sql.Tx (not to be confused with our tx variable):
-		//   dbTx is the database transaction handle. We use it (not db) for all
+		// Go concept — BeginTx returns *sql.Tx (database transaction handle):
+		//   dbTx is the database transaction handle (different from tx, which is the
+		//   seed data struct from the loop above). We use dbTx (not db) for all
 		//   queries that should be part of this atomic operation. The nil second
 		//   argument uses the default transaction isolation level (READ COMMITTED
 		//   in PostgreSQL).
