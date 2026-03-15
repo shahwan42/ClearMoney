@@ -642,3 +642,154 @@ func (r *TransactionRepo) HasDepositInRange(ctx context.Context, accountID strin
 	`, accountID, minAmount, from, to).Scan(&exists)
 	return exists
 }
+
+// TransactionDisplayRow extends Transaction with display fields from JOINed data.
+// Used by templates that need account name and running balance alongside the
+// base transaction data. The running balance is computed via a SQL window function
+// over all transactions for the account (not just the filtered set).
+type TransactionDisplayRow struct {
+	models.Transaction
+	AccountName    string  // from accounts.name
+	RunningBalance float64 // balance after this transaction was applied
+}
+
+// GetRecentEnriched retrieves recent transactions with account name and running balance.
+func (r *TransactionRepo) GetRecentEnriched(ctx context.Context, limit int) ([]TransactionDisplayRow, error) {
+	return r.queryTransactionsEnriched(ctx, fmt.Sprintf(`
+		SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
+			sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
+			sub.tags, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
+			sub.fee_account_id, sub.person_id, sub.linked_transaction_id,
+			sub.recurring_rule_id, sub.balance_delta, sub.created_at, sub.updated_at,
+			sub.account_name, sub.running_balance
+		FROM (
+			SELECT t.id, t.type, t.amount, t.currency, t.account_id,
+				t.counter_account_id, t.category_id, t.date, t.time, t.note,
+				t.tags, t.exchange_rate, t.counter_amount, t.fee_amount,
+				t.fee_account_id, t.person_id, t.linked_transaction_id,
+				t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
+				a.name AS account_name,
+				a.current_balance - COALESCE(
+					SUM(t.balance_delta) OVER (
+						PARTITION BY t.account_id
+						ORDER BY t.date DESC, t.created_at DESC
+						ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+					), 0
+				) AS running_balance
+			FROM transactions t
+			JOIN accounts a ON a.id = t.account_id
+		) sub
+		ORDER BY sub.date DESC, sub.created_at DESC
+		LIMIT %d
+	`, limit))
+}
+
+// GetFilteredEnriched retrieves filtered transactions with account name and running balance.
+// The running balance is computed over ALL transactions for each account (via the inner
+// subquery), then filters are applied on the outer query. This ensures the balance shown
+// is always the true account balance at that point in time, regardless of active filters.
+func (r *TransactionRepo) GetFilteredEnriched(ctx context.Context, f TransactionFilter) ([]TransactionDisplayRow, error) {
+	query := `
+		SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
+			sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
+			sub.tags, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
+			sub.fee_account_id, sub.person_id, sub.linked_transaction_id,
+			sub.recurring_rule_id, sub.balance_delta, sub.created_at, sub.updated_at,
+			sub.account_name, sub.running_balance
+		FROM (
+			SELECT t.id, t.type, t.amount, t.currency, t.account_id,
+				t.counter_account_id, t.category_id, t.date, t.time, t.note,
+				t.tags, t.exchange_rate, t.counter_amount, t.fee_amount,
+				t.fee_account_id, t.person_id, t.linked_transaction_id,
+				t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
+				a.name AS account_name,
+				a.current_balance - COALESCE(
+					SUM(t.balance_delta) OVER (
+						PARTITION BY t.account_id
+						ORDER BY t.date DESC, t.created_at DESC
+						ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+					), 0
+				) AS running_balance
+			FROM transactions t
+			JOIN accounts a ON a.id = t.account_id
+		) sub
+		WHERE 1=1`
+
+	var args []any
+	argN := 1
+
+	if f.AccountID != "" {
+		query += fmt.Sprintf(" AND sub.account_id = $%d", argN)
+		args = append(args, f.AccountID)
+		argN++
+	}
+	if f.CategoryID != "" {
+		query += fmt.Sprintf(" AND sub.category_id = $%d", argN)
+		args = append(args, f.CategoryID)
+		argN++
+	}
+	if f.Type != "" {
+		query += fmt.Sprintf(" AND sub.type = $%d", argN)
+		args = append(args, f.Type)
+		argN++
+	}
+	if f.DateFrom != nil {
+		query += fmt.Sprintf(" AND sub.date >= $%d", argN)
+		args = append(args, *f.DateFrom)
+		argN++
+	}
+	if f.DateTo != nil {
+		query += fmt.Sprintf(" AND sub.date <= $%d", argN)
+		args = append(args, *f.DateTo)
+		argN++
+	}
+	if f.Search != "" {
+		query += fmt.Sprintf(" AND sub.note ILIKE $%d", argN)
+		args = append(args, "%"+f.Search+"%")
+		argN++
+	}
+
+	query += " ORDER BY sub.date DESC, sub.created_at DESC"
+
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	query += fmt.Sprintf(" LIMIT $%d", argN)
+	args = append(args, limit)
+	argN++
+
+	if f.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argN)
+		args = append(args, f.Offset)
+	}
+
+	return r.queryTransactionsEnriched(ctx, query, args...)
+}
+
+// queryTransactionsEnriched scans transaction rows with account_name and running_balance.
+// Parallel to queryTransactions but handles 22 columns instead of 20.
+func (r *TransactionRepo) queryTransactionsEnriched(ctx context.Context, query string, args ...any) ([]TransactionDisplayRow, error) {
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("querying enriched transactions: %w", err)
+	}
+	defer rows.Close()
+
+	var results []TransactionDisplayRow
+	for rows.Next() {
+		var row TransactionDisplayRow
+		if err := rows.Scan(
+			&row.ID, &row.Type, &row.Amount, &row.Currency, &row.AccountID,
+			&row.CounterAccountID, &row.CategoryID, &row.Date, &row.Time,
+			&row.Note, pq.Array(&row.Tags), &row.ExchangeRate, &row.CounterAmount,
+			&row.FeeAmount, &row.FeeAccountID, &row.PersonID, &row.LinkedTransactionID,
+			&row.RecurringRuleID, &row.BalanceDelta, &row.CreatedAt, &row.UpdatedAt,
+			&row.AccountName, &row.RunningBalance,
+		); err != nil {
+			return nil, fmt.Errorf("scanning enriched transaction: %w", err)
+		}
+		results = append(results, row)
+	}
+	return results, rows.Err()
+}

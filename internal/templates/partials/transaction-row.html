@@ -15,7 +15,7 @@
             </span>
         </div>
         <div class="text-xs text-gray-400 ml-4 mt-0.5">
-            {{formatDateShort .Date}}
+            {{formatDateShort .Date}}{{if .ShowAccountName}} · {{.AccountName}}{{end}}
         </div>
     </div>
     <div class="flex items-center gap-2">
@@ -30,6 +30,7 @@
                 {{if lt .BalanceDelta 0.0}}-{{else}}+{{end}}{{formatCurrency .Amount .Currency}}
             </span>
             {{end}}
+            <div class="text-xs text-gray-400">Balance {{formatCurrency .RunningBalance .Currency}}</div>
         </div>
         <!-- Edit/delete buttons (visible on hover/tap) -->
         <div class="hidden group-hover:flex gap-1 flex-shrink-0">

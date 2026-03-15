@@ -18,7 +18,8 @@
     This is a core HTMX philosophy: HTML IS the API.
 
   DATA CONTEXT:
-    The dot (.) here is a []Transaction slice (not the full page data).
+    The dot (.) here is a []TransactionDisplayRow or []TransactionDisplay slice.
+    Each item has AccountName and RunningBalance in addition to Transaction fields.
     The caller explicitly passes just the transactions:
       `template "recent-transactions" .Data.RecentTransactions`
 
@@ -46,7 +47,8 @@
 -->
 {{define "recent-transactions"}}
 <!-- Recent transactions feed -- used in the dashboard and as an HTMX partial.
-     Shows the last 10-15 transactions with type, note, date, and color-coded amount. -->
+     Shows the last 10-15 transactions with type, note, date, account name,
+     color-coded amount, and running balance. -->
 {{if .}}
 <div class="space-y-2">
     {{range .}}
@@ -55,17 +57,20 @@
             <p class="text-sm text-slate-700">
                 {{if .Note}}{{deref .Note}}{{else}}{{formatType .Type}}{{end}}
             </p>
-            <p class="text-xs text-gray-400">{{formatDateShort .Date}}</p>
+            <p class="text-xs text-gray-400">{{formatDateShort .Date}} · {{.AccountName}}</p>
         </div>
-        {{if eq (string .Type) "expense"}}
-        <span class="text-sm font-semibold text-red-600">-{{formatCurrency .Amount .Currency}}</span>
-        {{else if eq (string .Type) "income"}}
-        <span class="text-sm font-semibold text-teal-600">+{{formatCurrency .Amount .Currency}}</span>
-        {{else}}
-        <span class="text-sm font-semibold {{if lt .BalanceDelta 0.0}}text-red-600{{else}}text-blue-600{{end}}">
-            {{if lt .BalanceDelta 0.0}}-{{else}}+{{end}}{{formatCurrency .Amount .Currency}}
-        </span>
-        {{end}}
+        <div class="text-right">
+            {{if eq (string .Type) "expense"}}
+            <span class="text-sm font-semibold text-red-600">-{{formatCurrency .Amount .Currency}}</span>
+            {{else if eq (string .Type) "income"}}
+            <span class="text-sm font-semibold text-teal-600">+{{formatCurrency .Amount .Currency}}</span>
+            {{else}}
+            <span class="text-sm font-semibold {{if lt .BalanceDelta 0.0}}text-red-600{{else}}text-blue-600{{end}}">
+                {{if lt .BalanceDelta 0.0}}-{{else}}+{{end}}{{formatCurrency .Amount .Currency}}
+            </span>
+            {{end}}
+            <div class="text-xs text-gray-400">Balance {{formatCurrency .RunningBalance .Currency}}</div>
+        </div>
     </div>
     {{end}}
 </div>

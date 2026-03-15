@@ -794,6 +794,22 @@ func (s *TransactionService) GetFiltered(ctx context.Context, f repository.Trans
 	return s.txRepo.GetFiltered(ctx, f)
 }
 
+// GetRecentEnriched retrieves recent transactions with account name and running balance.
+func (s *TransactionService) GetRecentEnriched(ctx context.Context, limit int) ([]repository.TransactionDisplayRow, error) {
+	if limit <= 0 {
+		limit = 15
+	}
+	return s.txRepo.GetRecentEnriched(ctx, limit)
+}
+
+// GetFilteredEnriched retrieves filtered transactions with account name and running balance.
+func (s *TransactionService) GetFilteredEnriched(ctx context.Context, f repository.TransactionFilter) ([]repository.TransactionDisplayRow, error) {
+	if f.Limit <= 0 {
+		f.Limit = 50
+	}
+	return s.txRepo.GetFilteredEnriched(ctx, f)
+}
+
 // SmartDefaults holds pre-computed defaults for the transaction entry form.
 // Pre-selects last-used account, sorts categories by frequency, and auto-selects
 // a category if it was used 3+ times consecutively.

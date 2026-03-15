@@ -85,8 +85,8 @@ type DashboardData struct {
 	// Habit streak: consecutive days with transactions and weekly count
 	Streak StreakInfo
 
-	// Recent transactions for the feed
-	RecentTransactions []models.Transaction
+	// Recent transactions for the feed (enriched with account name and running balance)
+	RecentTransactions []repository.TransactionDisplayRow
 
 	// TASK-055: Net worth sparkline data (last 30 days)
 	NetWorthHistory           []float64          // values for sparkline chart (EGP-converted)
@@ -449,7 +449,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 
 	// Load recent transactions
 	t = time.Now()
-	if txns, err := s.txRepo.GetRecent(ctx, 10); err != nil {
+	if txns, err := s.txRepo.GetRecentEnriched(ctx, 10); err != nil {
 		slog.Warn("failed to load recent transactions", "error", err)
 	} else {
 		data.RecentTransactions = txns

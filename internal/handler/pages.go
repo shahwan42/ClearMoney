@@ -171,8 +171,31 @@ type TransactionFormData struct {
 }
 
 // TransactionListData holds data for the transaction list page and partial.
+// TransactionDisplay wraps a Transaction with display-enriched fields.
+// Embeds models.Transaction so all existing template field accesses work unchanged.
+type TransactionDisplay struct {
+	models.Transaction
+	AccountName     string  // joined from accounts table
+	RunningBalance  float64 // balance after this transaction was applied
+	ShowAccountName bool    // false on account detail page (account is in header)
+}
+
+// toTransactionDisplay converts repository display rows to handler-level display structs.
+func toTransactionDisplay(rows []repository.TransactionDisplayRow, showAccountName bool) []TransactionDisplay {
+	result := make([]TransactionDisplay, len(rows))
+	for i, r := range rows {
+		result[i] = TransactionDisplay{
+			Transaction:     r.Transaction,
+			AccountName:     r.AccountName,
+			RunningBalance:  r.RunningBalance,
+			ShowAccountName: showAccountName,
+		}
+	}
+	return result
+}
+
 type TransactionListData struct {
-	Transactions []models.Transaction
+	Transactions []TransactionDisplay
 	Accounts     []models.Account
 	Categories   []models.Category
 	HasMore      bool
@@ -661,15 +684,15 @@ func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "transactions")
 	filter := h.parseTransactionFilter(r)
 
-	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
+	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), filter)
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	categories, _ := h.categorySvc.GetAll(r.Context())
 
 	data := TransactionListData{
-		Transactions: txns,
+		Transactions: toTransactionDisplay(rows, true),
 		Accounts:     accounts,
 		Categories:   categories,
-		HasMore:      len(txns) >= filter.Limit,
+		HasMore:      len(rows) >= filter.Limit,
 		NextOffset:   filter.Offset + filter.Limit,
 		AccountID:    filter.AccountID,
 		CategoryID:   filter.CategoryID,
@@ -693,11 +716,11 @@ func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) TransactionList(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "transaction-list")
 	filter := h.parseTransactionFilter(r)
-	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
+	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), filter)
 
 	data := TransactionListData{
-		Transactions: txns,
-		HasMore:      len(txns) >= filter.Limit,
+		Transactions: toTransactionDisplay(rows, true),
+		HasMore:      len(rows) >= filter.Limit,
 		NextOffset:   filter.Offset + filter.Limit,
 		AccountID:    filter.AccountID,
 		CategoryID:   filter.CategoryID,
@@ -1204,7 +1227,7 @@ func (h *PageHandler) renderPeopleList(w http.ResponseWriter, r *http.Request) {
 // or after a mutation (e.g., after creating a quick-entry transaction).
 func (h *PageHandler) RecentTransactions(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "recent-transactions")
-	txns, _ := h.txSvc.GetRecent(r.Context(), 15)
+	rows, _ := h.txSvc.GetRecentEnriched(r.Context(), 15)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["home"]
@@ -1212,7 +1235,7 @@ func (h *PageHandler) RecentTransactions(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "template not found", http.StatusInternalServerError)
 		return
 	}
-	tmpl.ExecuteTemplate(w, "recent-transactions", txns)
+	tmpl.ExecuteTemplate(w, "recent-transactions", toTransactionDisplay(rows, true))
 }
 
 // PersonDetailData holds data for the person detail page (TASK-070).
@@ -1269,12 +1292,12 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		instName = inst.Name
 	}
 
-	// Get transactions filtered to this account
+	// Get transactions filtered to this account (enriched with running balance)
 	filter := repository.TransactionFilter{
 		AccountID: id,
 		Limit:     50,
 	}
-	txns, _ := h.txSvc.GetFiltered(r.Context(), filter)
+	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), filter)
 
 	// Parse billing cycle for credit cards
 	var billingCycle *service.BillingCycleInfo
@@ -1322,8 +1345,8 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		Utilization:        utilization,
 		UtilizationHistory: utilizationHistory,
 		TransactionListData: TransactionListData{
-			Transactions: txns,
-			HasMore:      len(txns) >= filter.Limit,
+			Transactions: toTransactionDisplay(rows, false),
+			HasMore:      len(rows) >= filter.Limit,
 			NextOffset:   filter.Limit,
 			AccountID:    id,
 		},
