@@ -1487,3 +1487,158 @@ func TestVirtualAccountCreateWithAccountLink(t *testing.T) {
 		t.Errorf("expected VA account_id = %s, got %v", acc.ID, accountID)
 	}
 }
+
+// TestVirtualAccountDetail_OverAllocationWarning verifies the warning when a single
+// VA's balance exceeds the linked bank account's balance.
+func TestVirtualAccountDetail_OverAllocationWarning(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 5000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:      "Vacation",
+		AccountID: &acc.ID,
+	})
+
+	// Directly set VA balance higher than account balance
+	_, err := db.Exec(`INSERT INTO virtual_account_allocations (virtual_account_id, amount, allocated_at) VALUES ($1, 10000, NOW())`, va.ID)
+	if err != nil {
+		t.Fatalf("inserting allocation: %v", err)
+	}
+	_, err = db.Exec(`UPDATE virtual_accounts SET current_balance = 10000 WHERE id = $1`, va.ID)
+	if err != nil {
+		t.Fatalf("updating VA balance: %v", err)
+	}
+
+	router, addAuth := testRouter(t, db)
+
+	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va.ID, nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "exceeds the linked account balance") {
+		t.Error("expected over-allocation warning in response body")
+	}
+}
+
+// TestVirtualAccountDetail_GroupOverAllocationWarning verifies the warning when the
+// sum of all VA balances on the same account exceeds the bank account balance.
+func TestVirtualAccountDetail_GroupOverAllocationWarning(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+
+	// Two VAs, each under account balance individually but exceeding it together
+	va1 := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:      "Fund A",
+		AccountID: &acc.ID,
+	})
+	va2 := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:      "Fund B",
+		AccountID: &acc.ID,
+	})
+
+	// VA1: 6000, VA2: 6000, total 12000 > account 10000
+	for _, va := range []models.VirtualAccount{va1, va2} {
+		_, err := db.Exec(`INSERT INTO virtual_account_allocations (virtual_account_id, amount, allocated_at) VALUES ($1, 6000, NOW())`, va.ID)
+		if err != nil {
+			t.Fatalf("inserting allocation: %v", err)
+		}
+		_, err = db.Exec(`UPDATE virtual_accounts SET current_balance = 6000 WHERE id = $1`, va.ID)
+		if err != nil {
+			t.Fatalf("updating VA balance: %v", err)
+		}
+	}
+
+	router, addAuth := testRouter(t, db)
+
+	// View VA1 detail — individual balance (6000) < account (10000), but group total (12000) > account
+	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va1.ID, nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Total virtual account allocations") {
+		t.Error("expected group over-allocation warning in response body")
+	}
+}
+
+// TestVirtualAccountDetail_NoWarning verifies no warning when VA balance is under account balance.
+func TestVirtualAccountDetail_NoWarning(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 50000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:      "Emergency Fund",
+		AccountID: &acc.ID,
+	})
+
+	// VA balance 1000 < account balance 50000
+	_, err := db.Exec(`INSERT INTO virtual_account_allocations (virtual_account_id, amount, allocated_at) VALUES ($1, 1000, NOW())`, va.ID)
+	if err != nil {
+		t.Fatalf("inserting allocation: %v", err)
+	}
+	_, err = db.Exec(`UPDATE virtual_accounts SET current_balance = 1000 WHERE id = $1`, va.ID)
+	if err != nil {
+		t.Fatalf("updating VA balance: %v", err)
+	}
+
+	router, addAuth := testRouter(t, db)
+
+	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va.ID, nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if strings.Contains(body, "exceeds the linked account balance") || strings.Contains(body, "Total virtual account allocations") {
+		t.Error("expected no over-allocation warning, but found one")
+	}
+}

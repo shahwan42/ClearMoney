@@ -27,6 +27,21 @@
         {{end}}
     </section>
 
+    <!-- Over-allocation warnings -->
+    {{if .Data.OverAllocated}}
+    <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+        <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
+            This virtual account's balance ({{formatEGP .Data.Account.CurrentBalance}}) exceeds the linked account balance ({{formatEGP .Data.LinkedAccount.CurrentBalance}}).
+        </p>
+    </section>
+    {{else if .Data.AccountOverAllocated}}
+    <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+        <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
+            Total virtual account allocations ({{formatEGP .Data.TotalVABalance}}) exceed the linked account balance ({{formatEGP .Data.LinkedAccount.CurrentBalance}}).
+        </p>
+    </section>
+    {{end}}
+
     <!-- Allocate Funds (direct allocation — no transaction created) -->
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Allocate Funds</h3>

@@ -131,6 +131,15 @@ Two tables:
 
 When creating a transaction and selecting a VA, the handler validates that the VA's `account_id` matches the transaction's `account_id`. VAs with NULL `account_id` (legacy) are allowed for any account.
 
+### Over-allocation warnings
+
+The detail page and list page show amber warnings when:
+
+1. **Single VA exceeds account** — a VA's `current_balance` is greater than the linked bank account's `current_balance`. Shown as an amber banner on the VA detail page.
+2. **Group total exceeds account** — the sum of all VA balances linked to the same bank account exceeds that account's balance. Shown as an amber banner on both the detail page and list page, plus per-card "Exceeds account balance" text on individual VA cards.
+
+Computed in the handlers (`VirtualAccountDetail`, `VirtualAccounts`) by fetching the linked account and sibling VAs. No new database queries — reuses `GetByID` and `GetByAccountID`.
+
 ## Templates
 
 ### Virtual Accounts List

@@ -2858,16 +2858,23 @@ func (h *PageHandler) EmptyPartial(w http.ResponseWriter, r *http.Request) {
 
 // VirtualAccountsPageData holds data for the virtual accounts list page.
 type VirtualAccountsPageData struct {
-	Accounts     []models.VirtualAccount
-	BankAccounts []models.Account // for the "Linked Account" dropdown in create form
+	Accounts        []models.VirtualAccount
+	BankAccounts    []models.Account       // for the "Linked Account" dropdown in create form
+	AccountBalances map[string]float64     // account_id → bank account balance
+	VAGroupTotals   map[string]float64     // account_id → sum of VA balances for that account
+	Warnings        []string               // over-allocation warning messages
 }
 
 // VirtualAccountDetailData holds data for the virtual account detail page.
 type VirtualAccountDetailData struct {
-	Account      models.VirtualAccount
-	Transactions []models.Transaction
-	Allocations  []models.VirtualAccountAllocation // direct + tx-linked allocations for history
-	Today        time.Time
+	Account              models.VirtualAccount
+	Transactions         []models.Transaction
+	Allocations          []models.VirtualAccountAllocation // direct + tx-linked allocations for history
+	Today                time.Time
+	LinkedAccount        *models.Account // linked bank account (for balance comparison)
+	TotalVABalance       float64         // sum of all VA balances on same linked account
+	OverAllocated        bool            // this VA's balance > linked account balance
+	AccountOverAllocated bool            // total VA balance for this account > account balance
 }
 
 // VirtualAccounts renders the virtual accounts management page.
@@ -2880,7 +2887,38 @@ func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	accounts, _ := h.virtualAccountSvc.GetAll(r.Context())
 	bankAccounts, _ := h.accountSvc.GetAll(r.Context())
-	data := VirtualAccountsPageData{Accounts: accounts, BankAccounts: bankAccounts}
+
+	// Build maps for over-allocation warnings
+	accountBalances := make(map[string]float64)
+	accountNames := make(map[string]string)
+	for _, ba := range bankAccounts {
+		accountBalances[ba.ID] = ba.CurrentBalance
+		accountNames[ba.ID] = ba.Name
+	}
+	vaGroupTotals := make(map[string]float64)
+	for _, va := range accounts {
+		if va.AccountID != nil {
+			vaGroupTotals[*va.AccountID] += va.CurrentBalance
+		}
+	}
+	// Generate warning messages for over-allocated account groups
+	var warnings []string
+	for acctID, totalVA := range vaGroupTotals {
+		if acctBal, ok := accountBalances[acctID]; ok && totalVA > acctBal {
+			warnings = append(warnings, fmt.Sprintf(
+				"Total virtual account allocations (EGP %.2f) exceed %s balance (EGP %.2f)",
+				totalVA, accountNames[acctID], acctBal,
+			))
+		}
+	}
+
+	data := VirtualAccountsPageData{
+		Accounts:        accounts,
+		BankAccounts:    bankAccounts,
+		AccountBalances: accountBalances,
+		VAGroupTotals:   vaGroupTotals,
+		Warnings:        warnings,
+	}
 	RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "home", Data: data})
 }
 
@@ -2927,6 +2965,26 @@ func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Reques
 		Allocations:  allocs,
 		Today:        timeutil.Now(),
 	}
+
+	// Compute over-allocation warnings if VA is linked to a bank account
+	if account.AccountID != nil {
+		if linkedAcct, err := h.accountSvc.GetByID(r.Context(), *account.AccountID); err == nil {
+			data.LinkedAccount = &linkedAcct
+			if account.CurrentBalance > linkedAcct.CurrentBalance {
+				data.OverAllocated = true
+			}
+			// Sum all VA balances linked to the same bank account
+			if siblingVAs, err := h.virtualAccountSvc.GetByAccountID(r.Context(), *account.AccountID); err == nil {
+				for _, va := range siblingVAs {
+					data.TotalVABalance += va.CurrentBalance
+				}
+				if data.TotalVABalance > linkedAcct.CurrentBalance {
+					data.AccountOverAllocated = true
+				}
+			}
+		}
+	}
+
 	RenderPage(h.templates, w, "virtual-account-detail", PageData{ActiveTab: "home", Data: data})
 }
 
