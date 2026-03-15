@@ -159,6 +159,7 @@ type CurrencySpending struct {
 // Used in the dashboard's "This Month vs Last Month" section.
 type CategoryChange struct {
 	Name   string  // Category name (e.g., "Groceries")
+	Icon   string  // Category icon emoji (e.g., "🛒")
 	Amount float64 // This month's spending in this category
 	Change float64 // % change vs last month (positive = spending more)
 	IsUp   bool    // true if spending increased (bad for expenses)
@@ -683,12 +684,13 @@ func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, cu
 	rows, err := s.db.QueryContext(ctx, `
 		WITH this_month AS (
 			SELECT COALESCE(c.name, 'Uncategorized') AS cat_name,
+				COALESCE(c.icon, '') AS cat_icon,
 				SUM(t.amount) AS amount
 			FROM transactions t
 			LEFT JOIN categories c ON t.category_id = c.id
 			WHERE t.type = 'expense' AND t.currency = $4::currency_type
 				AND t.date >= $1 AND t.date < $2
-			GROUP BY c.name
+			GROUP BY c.name, c.icon
 			ORDER BY SUM(t.amount) DESC
 			LIMIT 3
 		),
@@ -701,7 +703,7 @@ func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, cu
 				AND t.date >= $3 AND t.date < $1
 			GROUP BY c.name
 		)
-		SELECT tm.cat_name, tm.amount,
+		SELECT tm.cat_name, tm.cat_icon, tm.amount,
 			COALESCE(lm.amount, 0) AS last_amount
 		FROM this_month tm
 		LEFT JOIN last_month lm ON tm.cat_name = lm.cat_name
@@ -713,9 +715,9 @@ func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, cu
 
 	var categories []CategoryChange
 	for rows.Next() {
-		var name string
+		var name, icon string
 		var thisAmt, lastAmt float64
-		if err := rows.Scan(&name, &thisAmt, &lastAmt); err != nil {
+		if err := rows.Scan(&name, &icon, &thisAmt, &lastAmt); err != nil {
 			continue
 		}
 		change := 0.0
@@ -724,6 +726,7 @@ func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, cu
 		}
 		categories = append(categories, CategoryChange{
 			Name:   name,
+			Icon:   icon,
 			Amount: thisAmt,
 			Change: change,
 			IsUp:   change > 0,
