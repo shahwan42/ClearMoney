@@ -5,7 +5,7 @@
 // - Cash vs credit breakdown
 // - USD conversion with exchange rates
 // - People ledger summary
-// - Virtual fund integration
+// - Virtual account integration
 //
 // Each test creates a minimal set of fixtures, calls GetDashboard(), and verifies
 // specific fields. The tests are independent — each one cleans the DB and creates

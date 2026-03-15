@@ -8,7 +8,7 @@ The home page aggregates data from 10+ sources into a single view:
 - **Month-over-month spending** — current vs previous month with percentage change
 - **Spending velocity** — daily spending rate projection for the month
 - **Budget progress** — category bars (green/amber at 80%/red at 100%)
-- **Virtual fund balances** — envelope allocation overview
+- **Virtual account balances** — envelope allocation overview
 - **Credit card summary** — utilization, payment due dates, minimum payments
 - **Account health warnings** — accounts below minimum balance or missing deposits
 - **People summary** — outstanding loans/debts
@@ -87,14 +87,14 @@ Monthly spending limits per category. Dashboard shows progress bars with three s
 
 CRUD via `/budgets` page. Budget data stored with category association and monthly limit.
 
-## Virtual Funds
+## Virtual Accounts
 
 Envelope-style budgeting system (replaces the earlier building fund feature). Allows partitioning money across named goals/purposes:
 
-- Create funds with target amounts
-- Allocate transactions to specific funds
-- Track progress toward each fund's goal
-- Archive completed funds
+- Create virtual accounts with target amounts
+- Allocate transactions to specific virtual accounts
+- Track progress toward each virtual account's goal
+- Archive completed virtual accounts
 
 ## People (Loans & Debts)
 

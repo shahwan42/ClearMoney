@@ -1,27 +1,27 @@
-{{define "title"}}ClearMoney - {{.Data.Fund.Name}}{{end}}
+{{define "title"}}ClearMoney - {{.Data.Account.Name}}{{end}}
 
 {{define "content"}}
 <div class="max-w-lg mx-auto space-y-4 py-4">
-    <!-- Fund Header -->
+    <!-- Virtual Account Header -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2">
-                {{if .Data.Fund.Icon}}<span class="text-2xl">{{.Data.Fund.Icon}}</span>{{end}}
-                <h2 class="text-lg font-bold text-slate-800">{{.Data.Fund.Name}}</h2>
+                {{if .Data.Account.Icon}}<span class="text-2xl">{{.Data.Account.Icon}}</span>{{end}}
+                <h2 class="text-lg font-bold text-slate-800">{{.Data.Account.Name}}</h2>
             </div>
-            <a href="/virtual-funds" class="text-sm text-teal-600 hover:text-teal-700">All Funds</a>
+            <a href="/virtual-accounts" class="text-sm text-teal-600 hover:text-teal-700">All Virtual Accounts</a>
         </div>
-        <p class="text-3xl font-bold mt-2" style="color: {{.Data.Fund.Color}}">
-            {{formatEGP .Data.Fund.CurrentBalance}}
+        <p class="text-3xl font-bold mt-2" style="color: {{.Data.Account.Color}}">
+            {{formatEGP .Data.Account.CurrentBalance}}
         </p>
-        {{if .Data.Fund.TargetAmount}}
+        {{if .Data.Account.TargetAmount}}
         <div class="mt-3">
             <div class="flex justify-between text-xs text-gray-400 mb-1">
                 <span>Progress</span>
-                <span>{{printf "%.0f" .Data.Fund.ProgressPct}}% of {{formatEGP (derefFloat .Data.Fund.TargetAmount)}}</span>
+                <span>{{printf "%.0f" .Data.Account.ProgressPct}}% of {{formatEGP (derefFloat .Data.Account.TargetAmount)}}</span>
             </div>
             <div class="w-full bg-gray-100 rounded-full h-3">
-                <div class="h-3 rounded-full transition-all" style="width: {{if gt .Data.Fund.ProgressPct 100.0}}100{{else}}{{printf "%.0f" .Data.Fund.ProgressPct}}{{end}}%; background-color: {{.Data.Fund.Color}}"></div>
+                <div class="h-3 rounded-full transition-all" style="width: {{if gt .Data.Account.ProgressPct 100.0}}100{{else}}{{printf "%.0f" .Data.Account.ProgressPct}}{{end}}%; background-color: {{.Data.Account.Color}}"></div>
             </div>
         </div>
         {{end}}
@@ -30,7 +30,7 @@
     <!-- Allocate Transaction -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Allocate Transaction</h3>
-        <form method="POST" action="/virtual-funds/{{.Data.Fund.ID}}/allocate" class="space-y-3">
+        <form method="POST" action="/virtual-accounts/{{.Data.Account.ID}}/allocate" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">Type</label>
@@ -90,7 +90,7 @@
             {{end}}
         </div>
         {{else}}
-        <p class="text-sm text-gray-400 text-center py-4">No transactions allocated to this fund yet.</p>
+        <p class="text-sm text-gray-400 text-center py-4">No transactions allocated to this virtual account yet.</p>
         {{end}}
     </section>
 </div>

@@ -10,7 +10,7 @@ The dashboard is the home page of ClearMoney, aggregating data from 10+ sources 
 | **Month-over-Month Spending** | Current vs previous month with percentage change |
 | **Spending Pace** | How much of last month's total you've already spent, with days remaining |
 | **Budget Progress** | Category bars (green/amber at 80%/red at 100%) |
-| **Virtual Fund Balances** | Envelope allocation overview |
+| **Virtual Account Balances** | Envelope allocation overview |
 | **Credit Card Summary** | Utilization rings, payment due dates, minimum payments |
 | **Account Health Warnings** | Accounts below minimum balance or missing deposits |
 | **People Summary** | Outstanding loans/debts |
@@ -214,7 +214,7 @@ The `DashboardService` struct (line ~156) is the core aggregator. It has:
   - `investmentRepo` — portfolio total
   - `streakSvc` — habit streak calculation
   - `snapshotSvc` — historical net worth + per-account sparklines
-  - `virtualFundSvc` — envelope fund balances
+  - `virtualAccountSvc` — envelope virtual account balances
   - `budgetSvc` — budget progress with spending
   - `healthSvc` — account health constraint violations
 
@@ -233,7 +233,7 @@ Located at line ~224. This method:
 9. Loads per-account 30-day balance histories for mini sparklines
 10. Calls `computeSpendingComparison()` for month-over-month data
 11. Loads credit card summaries with utilization and due dates
-12. Loads virtual fund balances
+12. Loads virtual account balances
 13. Loads budgets with spending progress
 14. Checks account health warnings
 
@@ -256,7 +256,7 @@ The `DashboardData` struct has ~47 fields organized into sections:
 - **Trends:** `NetWorthHistory`, `NetWorthChange`, `SpendingByCurrency []CurrencySpending` (per-currency this/last month + top categories), `ThisMonthSpending`, `LastMonthSpending`, `SpendingChange`, `TopCategories` (legacy EGP-only fields)
 - **Velocity:** `SpendingVelocity` (pace indicator)
 - **Account sparklines:** `AccountSparklines map[string][]float64`
-- **Virtual funds:** `VirtualFunds`
+- **Virtual accounts:** `VirtualAccounts`
 - **Budgets:** `Budgets []BudgetWithSpending`
 - **Health:** `HealthWarnings`
 
@@ -292,7 +292,7 @@ Structure:
 7. **Credit Cards** — mini utilization rings with due dates
 8. **Summary Cards** — cash/credit/debt breakdown grid
 9. **Budget Progress** — progress bars by category
-10. **Virtual Funds** — horizontally scrolling fund cards
+10. **Virtual Accounts** — horizontally scrolling virtual account cards
 11. **People Summary** — owed to me / I owe
 12. **Investment Portfolio** — total with link
 13. **Accounts by Institution** — collapsible sections with mini sparklines
@@ -320,7 +320,7 @@ All charts are CSS-only (no JavaScript charting libraries):
 | Spending velocity bar | CSS flexbox with `width: X%` | Current month spending rate |
 | CC utilization rings | SVG `stroke-dasharray` | Credit limit vs balance |
 | Budget progress bars | CSS `<div>` with computed width | Budget limit vs spending |
-| Virtual fund progress | CSS `<div>` with computed width | Fund balance vs target |
+| Virtual account progress | CSS `<div>` with computed width | Virtual account balance vs target |
 
 ## Wiring (router.go)
 
@@ -336,7 +336,7 @@ dashboardSvc.SetPersonRepo(personRepo)
 dashboardSvc.SetInvestmentRepo(investmentRepo)
 dashboardSvc.SetStreakService(streakSvc)
 dashboardSvc.SetSnapshotService(snapshotSvc)
-dashboardSvc.SetVirtualFundService(virtualFundSvc)
+dashboardSvc.SetVirtualAccountService(virtualAccountSvc)
 dashboardSvc.SetBudgetService(budgetSvc)
 dashboardSvc.SetAccountHealthService(healthSvc)
 dashboardSvc.SetDB(db)
@@ -379,4 +379,4 @@ The dashboard relies on:
 
 **Debug:**
 
-- Dashboard source timing logs: institutions, exchange rate, people, virtual funds, investments, streak, recent transactions, snapshots, health, budgets, spending comparison
+- Dashboard source timing logs: institutions, exchange rate, people, virtual accounts, investments, streak, recent transactions, snapshots, health, budgets, spending comparison

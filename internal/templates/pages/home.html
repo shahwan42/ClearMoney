@@ -272,16 +272,16 @@
     </section>
     {{end}}
 
-    <!-- TASK-063: Virtual Funds -->
-    {{if .Data.VirtualFunds}}
+    <!-- TASK-063: Virtual Accounts -->
+    {{if .Data.VirtualAccounts}}
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Virtual Funds</h2>
-            <a href="/virtual-funds" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
+            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Virtual Accounts</h2>
+            <a href="/virtual-accounts" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
         </div>
         <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-            {{range .Data.VirtualFunds}}
-            <a href="/virtual-funds/{{.ID}}" class="flex-shrink-0 w-36 rounded-xl p-3 border" style="border-color: {{.Color}}20; background: {{.Color}}08">
+            {{range .Data.VirtualAccounts}}
+            <a href="/virtual-accounts/{{.ID}}" class="flex-shrink-0 w-36 rounded-xl p-3 border" style="border-color: {{.Color}}20; background: {{.Color}}08">
                 {{if .Icon}}<span class="text-lg">{{.Icon}}</span>{{end}}
                 <p class="text-xs font-medium text-slate-600 mt-1 truncate">{{.Name}}</p>
                 <p class="text-sm font-bold mt-0.5" style="color: {{.Color}}">{{formatEGP .CurrentBalance}}</p>

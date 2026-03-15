@@ -1,16 +1,16 @@
-{{define "title"}}ClearMoney - Virtual Funds{{end}}
+{{define "title"}}ClearMoney - Virtual Accounts{{end}}
 
 {{define "content"}}
 <div class="max-w-lg mx-auto space-y-4 py-4">
     <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-800">Virtual Funds</h2>
+        <h2 class="text-lg font-bold text-slate-800">Virtual Accounts</h2>
         <a href="/" class="text-sm text-teal-600 hover:text-teal-700">Dashboard</a>
     </div>
 
-    <!-- Create New Fund Form -->
+    <!-- Create New Virtual Account Form -->
     <section class="bg-white rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">New Fund</h3>
-        <form method="POST" action="/virtual-funds/add" class="space-y-3">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">New Virtual Account</h3>
+        <form method="POST" action="/virtual-accounts/add" class="space-y-3">
             <div>
                 <label class="block text-xs text-gray-500 mb-1">Name</label>
                 <input type="text" name="name" required placeholder="e.g. Emergency Fund"
@@ -35,22 +35,22 @@
             </div>
             <button type="submit"
                     class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
-                Create Fund
+                Create
             </button>
         </form>
     </section>
 
-    <!-- Active Funds -->
-    {{if .Data.Funds}}
+    <!-- Active Virtual Accounts -->
+    {{if .Data.Accounts}}
     <section class="space-y-3">
-        {{range .Data.Funds}}
+        {{range .Data.Accounts}}
         <div class="bg-white rounded-2xl shadow-sm p-4">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                     {{if .Icon}}<span class="text-lg">{{.Icon}}</span>{{end}}
-                    <a href="/virtual-funds/{{.ID}}" class="font-semibold text-slate-800 hover:text-teal-600">{{.Name}}</a>
+                    <a href="/virtual-accounts/{{.ID}}" class="font-semibold text-slate-800 hover:text-teal-600">{{.Name}}</a>
                 </div>
-                <form method="POST" action="/virtual-funds/{{.ID}}/archive">
+                <form method="POST" action="/virtual-accounts/{{.ID}}/archive">
                     <button type="submit" class="text-xs text-gray-400 hover:text-red-500">Archive</button>
                 </form>
             </div>
@@ -75,7 +75,7 @@
     </section>
     {{else}}
     <section class="bg-white rounded-2xl shadow-sm p-5 text-center">
-        <p class="text-gray-400 text-sm">No virtual funds yet. Create one above!</p>
+        <p class="text-gray-400 text-sm">No virtual accounts yet. Create one above!</p>
     </section>
     {{end}}
 </div>

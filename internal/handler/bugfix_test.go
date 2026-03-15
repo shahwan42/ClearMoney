@@ -84,9 +84,9 @@ func TestBug003_TransactionNewHasIncomeCategoryOptions(t *testing.T) {
 	}
 }
 
-// TestBug004_VirtualFundDateFormat verifies the virtual fund allocation form
+// TestBug004_VirtualAccountDateFormat verifies the virtual account allocation form
 // pre-populates the date field with YYYY-MM-DD format (not "Jan 2").
-func TestBug004_VirtualFundDateFormat(t *testing.T) {
+func TestBug004_VirtualAccountDateFormat(t *testing.T) {
 	// Verify templates parse correctly with the new formatDateISO function
 	if _, err := ParseTemplates(templates.FS); err != nil {
 		t.Fatalf("parsing templates: %v", err)

@@ -193,11 +193,11 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		// HTMX endpoints return HTML fragments that get swapped into the DOM.
 		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
 		pages.SetSnapshotService(snapshotSvc) // TASK-059: account balance sparklines
-		// TASK-062/063: Wire virtual fund service
-		virtualFundRepo := repository.NewVirtualFundRepo(db)
-		virtualFundSvc := service.NewVirtualFundService(virtualFundRepo)
-		pages.SetVirtualFundService(virtualFundSvc)
-		dashboardSvc.SetVirtualFundService(virtualFundSvc)
+		// TASK-062/063: Wire virtual account service
+		virtualAccountRepo := repository.NewVirtualAccountRepo(db)
+		virtualAccountSvc := service.NewVirtualAccountService(virtualAccountRepo)
+		pages.SetVirtualAccountService(virtualAccountSvc)
+		dashboardSvc.SetVirtualAccountService(virtualAccountSvc)
 		// TASK-065: Wire budget service
 		budgetRepo := repository.NewBudgetRepo(db)
 		budgetSvc := service.NewBudgetService(budgetRepo)
@@ -275,12 +275,19 @@ func NewRouter(db *sql.DB) *chi.Mux {
 		r.Delete("/installments/{id}", pages.InstallmentDelete)
 		r.Get("/batch-entry", pages.BatchEntry)
 		r.Post("/transactions/batch", pages.BatchCreate)
-		// TASK-062: Virtual funds routes
-		r.Get("/virtual-funds", pages.VirtualFunds)
-		r.Post("/virtual-funds/add", pages.VirtualFundAdd)
-		r.Get("/virtual-funds/{id}", pages.VirtualFundDetail)
-		r.Post("/virtual-funds/{id}/archive", pages.VirtualFundArchive)
-		r.Post("/virtual-funds/{id}/allocate", pages.VirtualFundAllocate)
+		// TASK-062: Virtual account routes
+		r.Get("/virtual-accounts", pages.VirtualAccounts)
+		r.Post("/virtual-accounts/add", pages.VirtualAccountAdd)
+		r.Get("/virtual-accounts/{id}", pages.VirtualAccountDetail)
+		r.Post("/virtual-accounts/{id}/archive", pages.VirtualAccountArchive)
+		r.Post("/virtual-accounts/{id}/allocate", pages.VirtualAccountAllocate)
+		// Legacy redirects for bookmarks/PWA
+		r.Get("/virtual-funds", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/virtual-accounts", http.StatusMovedPermanently)
+		})
+		r.Get("/virtual-funds/{id}", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/virtual-accounts/"+chi.URLParam(r, "id"), http.StatusMovedPermanently)
+		})
 		// TASK-065: Budget routes
 		r.Get("/budgets", pages.Budgets)
 		r.Post("/budgets/add", pages.BudgetAdd)

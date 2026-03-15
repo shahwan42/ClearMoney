@@ -9,7 +9,7 @@ Personal finance tracker for managing multi-bank, multi-currency finances in Egy
 - **Dual currency** — EGP and USD with exchange rate tracking
 - **Transaction entry** — expenses, income, transfers, currency exchanges, batch entry, salary distribution
 - **Credit card intelligence** — statement views, billing cycles, utilization tracking, interest-free period alerts
-- **Budgets & virtual funds** — monthly category limits with threshold alerts, envelope-style fund allocation
+- **Budgets & virtual accounts** — monthly category limits with threshold alerts, envelope-style allocation
 - **People tracking** — loan/borrow/repay with debt payoff projections
 - **Recurring rules** — auto or manual-confirm recurring transactions
 - **Investments & installments** — portfolio tracking, payment plan progress

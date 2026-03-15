@@ -78,7 +78,7 @@ type Account struct {
 	InitialBalance float64         `json:"initial_balance" db:"initial_balance"`   // set once at account creation — used for reconciliation
 	CreditLimit    *float64        `json:"credit_limit,omitempty" db:"credit_limit"` // *float64 = nullable; nil for debit accounts, set for credit cards (e.g., 500000.0)
 	IsDormant      bool            `json:"is_dormant" db:"is_dormant"`             // hidden from active lists but not deleted
-	RoleTags       []string        `json:"role_tags" db:"role_tags"`               // e.g., ["primary-income", "virtual-fund"] — Go slice maps to PostgreSQL text[]
+	RoleTags       []string        `json:"role_tags" db:"role_tags"`               // e.g., ["primary-income", "virtual-account"] — Go slice maps to PostgreSQL text[]
 	DisplayOrder   int             `json:"display_order" db:"display_order"`       // UI ordering — lower numbers appear first
 	Metadata       json.RawMessage `json:"metadata" db:"metadata"`                // flexible JSONB for billing cycle info, etc. (see json.RawMessage explanation above)
 	HealthConfig   json.RawMessage `json:"health_config" db:"health_config"`      // JSONB for min_balance, min_monthly_deposit rules

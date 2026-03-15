@@ -95,7 +95,7 @@ clear-money_claude-only/
 |   |   +-- installment.go        #   InstallmentPlan struct
 |   |   +-- exchange_rate.go      #   ExchangeRateLog struct
 |   |   +-- snapshot.go           #   DailySnapshot + AccountSnapshot structs
-|   |   +-- virtual_fund.go      #   VirtualFund struct
+|   |   +-- virtual_account.go   #   VirtualAccount struct
 |   |   +-- budget.go            #   Budget struct
 |   |   +-- chart.go             #   ChartSegment struct (shared between service + handler)
 |   |
@@ -110,7 +110,7 @@ clear-money_claude-only/
 |   |   +-- installment.go        #   Same for installment plans
 |   |   +-- exchange_rate.go      #   Same for exchange rate log
 |   |   +-- snapshot.go          #   Same for snapshots (daily + account)
-|   |   +-- virtual_fund.go      #   Same for virtual funds
+|   |   +-- virtual_account.go   #   Same for virtual accounts
 |   |   +-- budget.go            #   Same for budgets
 |   |
 |   +-- service/                  # Business logic layer (like app/Services/)
@@ -130,7 +130,7 @@ clear-money_claude-only/
 |   |   +-- streak.go             #   Daily logging streak
 |   |   +-- notifications.go      #   Push notification conditions
 |   |   +-- snapshot.go          #   Daily balance snapshot capture + backfill
-|   |   +-- virtual_fund.go      #   Virtual fund CRUD + allocation
+|   |   +-- virtual_account.go   #   Virtual account CRUD + allocation
 |   |   +-- budget.go            #   Budget CRUD + threshold checks
 |   |   +-- account_health.go    #   Min-balance and min-deposit health rules
 |   |

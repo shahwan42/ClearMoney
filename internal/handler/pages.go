@@ -328,7 +328,7 @@ type PageHandler struct {
 	authSvc          *service.AuthService
 	exchangeRateRepo *repository.ExchangeRateRepo
 	snapshotSvc      *service.SnapshotService    // TASK-059: account balance sparklines
-	virtualFundSvc   *service.VirtualFundService // TASK-062: virtual funds CRUD
+	virtualAccountSvc *service.VirtualAccountService // TASK-062: virtual accounts CRUD
 	budgetSvc        *service.BudgetService      // TASK-065: budget management
 	healthSvc        *service.AccountHealthService // TASK-068: account health
 }
@@ -364,9 +364,9 @@ func (h *PageHandler) SetSnapshotService(svc *service.SnapshotService) {
 	h.snapshotSvc = svc
 }
 
-// SetVirtualFundService sets the virtual fund service for CRUD operations (TASK-062).
-func (h *PageHandler) SetVirtualFundService(svc *service.VirtualFundService) {
-	h.virtualFundSvc = svc
+// SetVirtualAccountService sets the virtual account service for CRUD operations (TASK-062).
+func (h *PageHandler) SetVirtualAccountService(svc *service.VirtualAccountService) {
+	h.virtualAccountSvc = svc
 }
 
 // SetBudgetService sets the budget service for budget management (TASK-065).
@@ -387,7 +387,7 @@ func (h *PageHandler) SetAccountHealthService(svc *service.AccountHealthService)
 // GET /
 //
 // This is the main landing page after login. It aggregates data from 10+ sources
-// (accounts, transactions, budgets, virtual funds, health, etc.) via DashboardService.
+// (accounts, transactions, budgets, virtual accounts, health, etc.) via DashboardService.
 //
 // Nil-safety: if dashboardSvc is nil (no-DB mode), renders an empty-state dashboard.
 // Like Laravel: return view('home', ['data' => $this->dashboardService?->getDashboard()])
@@ -2678,100 +2678,100 @@ func (h *PageHandler) EmptyPartial(w http.ResponseWriter, r *http.Request) {
 }
 
 // =============================================================================
-// Virtual Funds — Envelope budgeting system (TASK-062/063)
+// Virtual Accounts — Envelope budgeting system (TASK-062/063)
 // =============================================================================
 //
-// Virtual funds are like "envelopes" you allocate money into (vacation, emergency,
+// Virtual accounts are like "envelopes" you allocate money into (vacation, emergency,
 // wedding, etc.). They track progress toward a target amount. Transactions can
-// be allocated to a fund, and the fund's running balance is updated accordingly.
+// be allocated to a virtual account, and its running balance is updated accordingly.
 //
 // This is similar to YNAB's envelope system or the "jars" budgeting method.
 
-// VirtualFundsPageData holds data for the virtual funds list page.
-type VirtualFundsPageData struct {
-	Funds []models.VirtualFund
+// VirtualAccountsPageData holds data for the virtual accounts list page.
+type VirtualAccountsPageData struct {
+	Accounts []models.VirtualAccount
 }
 
-// VirtualFundDetailData holds data for the virtual fund detail page.
-type VirtualFundDetailData struct {
-	Fund         models.VirtualFund
+// VirtualAccountDetailData holds data for the virtual account detail page.
+type VirtualAccountDetailData struct {
+	Account      models.VirtualAccount
 	Transactions []models.Transaction
 	Accounts     []models.Account
 	Today        time.Time
 }
 
-// VirtualFunds renders the virtual funds management page.
-// GET /virtual-funds
-func (h *PageHandler) VirtualFunds(w http.ResponseWriter, r *http.Request) {
-	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-funds")
-	if h.virtualFundSvc == nil {
-		RenderPage(h.templates, w, "virtual-funds", PageData{ActiveTab: "home"})
+// VirtualAccounts renders the virtual accounts management page.
+// GET /virtual-accounts
+func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-accounts")
+	if h.virtualAccountSvc == nil {
+		RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "home"})
 		return
 	}
-	funds, _ := h.virtualFundSvc.GetAll(r.Context())
-	data := VirtualFundsPageData{Funds: funds}
-	RenderPage(h.templates, w, "virtual-funds", PageData{ActiveTab: "home", Data: data})
+	accounts, _ := h.virtualAccountSvc.GetAll(r.Context())
+	data := VirtualAccountsPageData{Accounts: accounts}
+	RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "home", Data: data})
 }
 
-// VirtualFundAdd creates a new virtual fund from form data.
-// POST /virtual-funds/add
-func (h *PageHandler) VirtualFundAdd(w http.ResponseWriter, r *http.Request) {
+// VirtualAccountAdd creates a new virtual account from form data.
+// POST /virtual-accounts/add
+func (h *PageHandler) VirtualAccountAdd(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	f := models.VirtualFund{
+	a := models.VirtualAccount{
 		Name:  r.FormValue("name"),
 		Icon:  r.FormValue("icon"),
 		Color: r.FormValue("color"),
 	}
 	if v := r.FormValue("target_amount"); v != "" {
 		if amt, err := parseFloat(v); err == nil && amt > 0 {
-			f.TargetAmount = &amt
+			a.TargetAmount = &amt
 		}
 	}
-	if _, err := h.virtualFundSvc.Create(r.Context(), f); err != nil {
+	if _, err := h.virtualAccountSvc.Create(r.Context(), a); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	htmxRedirect(w, r, "/virtual-funds")
+	htmxRedirect(w, r, "/virtual-accounts")
 }
 
-// VirtualFundDetail renders the virtual fund detail page with transaction history.
-// GET /virtual-funds/{id}
-func (h *PageHandler) VirtualFundDetail(w http.ResponseWriter, r *http.Request) {
-	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-fund-detail")
+// VirtualAccountDetail renders the virtual account detail page with transaction history.
+// GET /virtual-accounts/{id}
+func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-account-detail")
 	id := chi.URLParam(r, "id")
-	fund, err := h.virtualFundSvc.GetByID(r.Context(), id)
+	account, err := h.virtualAccountSvc.GetByID(r.Context(), id)
 	if err != nil {
-		http.Error(w, "fund not found", http.StatusNotFound)
+		http.Error(w, "virtual account not found", http.StatusNotFound)
 		return
 	}
-	txns, _ := h.virtualFundSvc.GetFundTransactions(r.Context(), id, 50)
+	txns, _ := h.virtualAccountSvc.GetVirtualAccountTransactions(r.Context(), id, 50)
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
-	data := VirtualFundDetailData{
-		Fund:         fund,
+	data := VirtualAccountDetailData{
+		Account:      account,
 		Transactions: txns,
 		Accounts:     accounts,
 		Today:        time.Now(),
 	}
-	RenderPage(h.templates, w, "virtual-fund-detail", PageData{ActiveTab: "home", Data: data})
+	RenderPage(h.templates, w, "virtual-account-detail", PageData{ActiveTab: "home", Data: data})
 }
 
-// VirtualFundArchive archives a virtual fund (soft-delete).
-// POST /virtual-funds/{id}/archive
-func (h *PageHandler) VirtualFundArchive(w http.ResponseWriter, r *http.Request) {
+// VirtualAccountArchive archives a virtual account (soft-delete).
+// POST /virtual-accounts/{id}/archive
+func (h *PageHandler) VirtualAccountArchive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.virtualFundSvc.Archive(r.Context(), id); err != nil {
-		authmw.Log(r.Context()).Error("failed to archive virtual fund", "id", id, "error", err)
+	if err := h.virtualAccountSvc.Archive(r.Context(), id); err != nil {
+		authmw.Log(r.Context()).Error("failed to archive virtual account", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	htmxRedirect(w, r, "/virtual-funds")
+	htmxRedirect(w, r, "/virtual-accounts")
 }
 
-// VirtualFundAllocate creates a transaction and allocates it to a fund.
-// POST /virtual-funds/{id}/allocate
-func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request) {
-	fundID := chi.URLParam(r, "id")
+// VirtualAccountAllocate creates a transaction and allocates it to a virtual account.
+// POST /virtual-accounts/{id}/allocate
+func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Request) {
+	accountID := chi.URLParam(r, "id")
 	r.ParseForm()
 
 	amount, err := parseFloat(r.FormValue("amount"))
@@ -2811,14 +2811,14 @@ func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Allocate the transaction to the fund
-	if err := h.virtualFundSvc.Allocate(r.Context(), created.ID, fundID, allocAmount); err != nil {
-		authmw.Log(r.Context()).Error("failed to allocate to virtual fund", "fund_id", fundID, "error", err)
+	// Allocate the transaction to the virtual account
+	if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, accountID, allocAmount); err != nil {
+		authmw.Log(r.Context()).Error("failed to allocate to virtual account", "account_id", accountID, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	htmxRedirect(w, r, "/virtual-funds/"+fundID)
+	htmxRedirect(w, r, "/virtual-accounts/"+accountID)
 }
 
 // =============================================================================

@@ -1,7 +1,7 @@
 // dashboard.go — DashboardService aggregates data from 10+ sources for the home page.
 //
 // This is the most complex service in ClearMoney. It pulls data from institutions,
-// accounts, transactions, exchange rates, people, investments, snapshots, virtual funds,
+// accounts, transactions, exchange rates, people, investments, snapshots, virtual accounts,
 // budgets, health checks, and credit card billing cycles — all to build a single
 // DashboardData struct that the template renders.
 //
@@ -102,8 +102,8 @@ type DashboardData struct {
 	// TASK-060: Spending velocity — pace of spending vs last month
 	SpendingVelocity SpendingVelocity
 
-	// TASK-063: Virtual funds for dashboard widget
-	VirtualFunds []models.VirtualFund
+	// TASK-063: Virtual accounts for dashboard widget
+	VirtualAccounts []models.VirtualAccount
 
 	// TASK-066: Budget progress for dashboard widget
 	Budgets []models.BudgetWithSpending
@@ -177,7 +177,7 @@ type DashboardService struct {
 	investmentRepo   *repository.InvestmentRepo
 	streakSvc        *StreakService
 	snapshotSvc      *SnapshotService
-	virtualFundSvc   *VirtualFundService
+	virtualAccountSvc *VirtualAccountService
 	budgetSvc        *BudgetService
 	healthSvc        *AccountHealthService
 	db               *sql.DB // for direct queries (month-over-month)
@@ -216,9 +216,9 @@ func (s *DashboardService) SetSnapshotService(svc *SnapshotService) {
 	s.snapshotSvc = svc
 }
 
-// SetVirtualFundService sets the virtual fund service for dashboard widget (TASK-063).
-func (s *DashboardService) SetVirtualFundService(svc *VirtualFundService) {
-	s.virtualFundSvc = svc
+// SetVirtualAccountService sets the virtual account service for dashboard widget (TASK-063).
+func (s *DashboardService) SetVirtualAccountService(svc *VirtualAccountService) {
+	s.virtualAccountSvc = svc
 }
 
 // SetBudgetService sets the budget service for dashboard widget (TASK-066).
@@ -372,13 +372,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		logutil.Log(ctx).Debug("dashboard: loaded people", "duration_ms", time.Since(t).Milliseconds())
 	}
 
-	// TASK-063: Load active virtual funds for dashboard widget
-	if s.virtualFundSvc != nil {
+	// TASK-063: Load active virtual accounts for dashboard widget
+	if s.virtualAccountSvc != nil {
 		t = time.Now()
-		if funds, err := s.virtualFundSvc.GetAll(ctx); err == nil {
-			data.VirtualFunds = funds
+		if accounts, err := s.virtualAccountSvc.GetAll(ctx); err == nil {
+			data.VirtualAccounts = accounts
 		}
-		logutil.Log(ctx).Debug("dashboard: loaded virtual funds", "duration_ms", time.Since(t).Milliseconds())
+		logutil.Log(ctx).Debug("dashboard: loaded virtual accounts", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// Investment portfolio total

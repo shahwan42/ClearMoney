@@ -113,7 +113,7 @@ func TemplateFuncs() template.FuncMap {
 			return *s
 		},
 		// derefFloat dereferences a *float64 pointer, returning 0 if nil.
-		// Used for optional numeric fields like VirtualFund.TargetAmount.
+		// Used for optional numeric fields like VirtualAccount.TargetAmount.
 		"derefFloat": func(f *float64) float64 {
 			if f == nil {
 				return 0

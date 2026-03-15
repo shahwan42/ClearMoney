@@ -11,8 +11,8 @@ export async function resetDatabase(): Promise<void> {
   const dbUrl = 'postgres://clearmoney:clearmoney@localhost:5433/clearmoney';
   const sql = `
     TRUNCATE TABLE budgets RESTART IDENTITY CASCADE;
-    TRUNCATE TABLE transaction_fund_allocations RESTART IDENTITY CASCADE;
-    TRUNCATE TABLE virtual_funds RESTART IDENTITY CASCADE;
+    TRUNCATE TABLE virtual_account_allocations RESTART IDENTITY CASCADE;
+    TRUNCATE TABLE virtual_accounts RESTART IDENTITY CASCADE;
     TRUNCATE TABLE account_snapshots RESTART IDENTITY CASCADE;
     TRUNCATE TABLE daily_snapshots RESTART IDENTITY CASCADE;
     TRUNCATE TABLE transactions RESTART IDENTITY CASCADE;
@@ -45,7 +45,7 @@ export async function resetDatabase(): Promise<void> {
       ('Entertainment',    'expense', '🎬', true, 11),
       ('Shopping',         'expense', '🛍️', true, 12),
       ('Subscriptions',    'expense', '📺', true, 13),
-      ('Virtual Fund',     'expense', '🏦', true, 14),
+      ('Virtual Account',  'expense', '🏦', true, 14),
       ('Insurance',        'expense', '🛡️', true, 15),
       ('Fees & Charges',   'expense', '💳', true, 16),
       ('Debt Payment',     'expense', '💰', true, 17),
@@ -54,7 +54,7 @@ export async function resetDatabase(): Promise<void> {
       ('Freelance',                 'income', '💻', true, 2),
       ('Investment Returns',        'income', '📈', true, 3),
       ('Refund',                    'income', '🔄', true, 4),
-      ('Virtual Fund',              'income', '🏦', true, 5),
+      ('Virtual Account',           'income', '🏦', true, 5),
       ('Loan Repayment Received',   'income', '🤝', true, 6),
       ('Other',                     'income', '💎', true, 7)
     ON CONFLICT (name, type) DO NOTHING;

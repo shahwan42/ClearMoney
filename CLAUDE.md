@@ -87,7 +87,7 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 
 `NewPageHandler` takes 15 constructor params + 4 setter-injected services:
 
-- `SetSnapshotService`, `SetVirtualFundService`, `SetBudgetService`, `SetAccountHealthService`
+- `SetSnapshotService`, `SetVirtualAccountService`, `SetBudgetService`, `SetAccountHealthService`
 
 `DashboardService` aggregates from 10+ sources via setter pattern:
 
@@ -97,7 +97,7 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 
 - **Driver**: pgx v5 (via `database/sql` stdlib interface)
 - **Migrations**: `golang-migrate` with embedded SQL files (`internal/database/migrations/`)
-- **20 migrations** (000000–000019): init → institutions → accounts → categories → persons → transactions → exchange_rates → seed_categories → user_config → recurring_rules → investments → installments → balance_delta → indexes/views → snapshots → virtual_funds → budgets → account_health → remove_checking_account_type → category_icons_and_unique
+- **22 migrations** (000000–000022): init → institutions → accounts → categories → persons → transactions → exchange_rates → seed_categories → user_config → recurring_rules → investments → installments → balance_delta → indexes/views → snapshots → virtual_funds → budgets → account_health → remove_checking_account_type → category_icons_and_unique → cash_and_wallet → rename_virtual_funds_to_virtual_accounts
 - **Materialized views**: `mv_monthly_category_totals`, `mv_daily_tx_counts`
 - **Connection**: `DATABASE_URL` env var, port `5433` (Colima, not 5432)
 
