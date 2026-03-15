@@ -47,11 +47,10 @@
 
     <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold text-slate-800">Accounts</h2>
-    </div>
-
-    <!-- Institution form (always visible at top) -->
-    <div id="institution-form-area">
-        {{template "institution-form" .}}
+        <button onclick="openCreateSheet()"
+            class="bg-teal-600 text-white text-sm px-4 py-2 min-h-[44px] rounded-xl font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center">
+            + Institution
+        </button>
     </div>
 
     <!-- Area where account form appears when "Add Account" is clicked -->
@@ -65,11 +64,25 @@
             {{end}}
         {{else}}
             <div class="bg-white rounded-xl shadow-sm p-6 text-center">
-                <p class="text-gray-400 text-sm">No institutions yet. Add one above to get started.</p>
+                <p class="text-gray-400 text-sm">No institutions yet. Tap + Institution above to get started.</p>
             </div>
         {{end}}
     </div>
 
+</div>
+
+<!-- Create institution bottom sheet overlay -->
+<div id="create-sheet-overlay" class="fixed inset-0 z-[80] bg-black/40 hidden" onclick="closeCreateSheet()"></div>
+
+<!-- Create institution bottom sheet -->
+<div id="create-sheet" class="fixed bottom-0 left-0 right-0 z-[90] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[50vh] overflow-y-auto">
+    <!-- Drag handle -->
+    <div class="flex justify-center pt-3 pb-1" id="create-sheet-handle">
+        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+    </div>
+    <div id="create-sheet-content" class="px-4 pb-6">
+        <!-- Content loaded when sheet opens -->
+    </div>
 </div>
 
 <!-- Delete institution bottom sheet overlay -->
@@ -99,6 +112,64 @@
         <!-- Content loaded via HTMX when sheet opens -->
     </div>
 </div>
+
+<script>
+function openCreateSheet() {
+    var overlay = document.getElementById('create-sheet-overlay');
+    var sheet = document.getElementById('create-sheet');
+    overlay.classList.remove('hidden');
+    sheet.offsetHeight;
+    sheet.classList.remove('translate-y-full');
+    sheet.classList.add('translate-y-0');
+    document.body.style.overflow = 'hidden';
+    htmx.ajax('GET', '/accounts/institution-form', {
+        target: '#create-sheet-content',
+        swap: 'innerHTML'
+    });
+}
+
+function closeCreateSheet() {
+    var overlay = document.getElementById('create-sheet-overlay');
+    var sheet = document.getElementById('create-sheet');
+    sheet.classList.remove('translate-y-0');
+    sheet.classList.add('translate-y-full');
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    setTimeout(function() {
+        document.getElementById('create-sheet-content').innerHTML = '';
+    }, 300);
+}
+
+(function() {
+    var handle = document.getElementById('create-sheet-handle');
+    var sheet = document.getElementById('create-sheet');
+    if (!handle || !sheet) return;
+    var startY = 0, currentY = 0, isDragging = false;
+    handle.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        sheet.style.transition = 'none';
+    });
+    handle.addEventListener('touchmove', function(e) {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
+        var diff = currentY - startY;
+        if (diff > 0) sheet.style.transform = 'translateY(' + diff + 'px)';
+    });
+    handle.addEventListener('touchend', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+        if (currentY - startY > 100) {
+            closeCreateSheet();
+        } else {
+            sheet.classList.add('translate-y-0');
+        }
+        startY = 0; currentY = 0;
+    });
+})();
+</script>
 
 <script>
 function openEditSheet(institutionId) {
