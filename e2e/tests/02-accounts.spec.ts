@@ -13,19 +13,23 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
   test('accounts page shows empty state', async ({ page }) => {
     await page.goto('/accounts');
     await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
-    // Institution form should be visible
-    await expect(page.locator('form input[name="name"]').first()).toBeVisible();
+    // FAB button to add institution should be visible
+    await expect(page.locator('button[onclick="openCreateSheet()"]')).toBeVisible();
   });
 
-  test('create institution via form shows success toast', async ({ page }) => {
+  test('create institution via bottom sheet shows success toast', async ({ page }) => {
     await page.goto('/accounts');
-    // Fill the institution form
-    await page.locator('form[hx-post="/institutions/add"] input[name="name"]').fill('HSBC');
-    await page.locator('form[hx-post="/institutions/add"] select[name="type"]').selectOption('bank');
-    await page.locator('form[hx-post="/institutions/add"] button[type="submit"]').click();
+    // Open the create institution bottom sheet
+    await page.locator('button[onclick="openCreateSheet()"]').click();
+    await expect(page.locator('#create-sheet-content form')).toBeVisible();
 
-    // Success toast should appear
-    await expect(page.locator('#institution-form-area')).toContainText('Institution added!');
+    // Fill the institution form
+    await page.locator('#create-sheet-content input[name="name"]').fill('HSBC');
+    await page.locator('#create-sheet-content select[name="type"]').selectOption('bank');
+    await page.locator('#create-sheet-content button[type="submit"]').click();
+
+    // Success toast should appear in the sheet
+    await expect(page.locator('#create-sheet-content')).toContainText('Institution added!');
     // Institution list should update via OOB swap
     await expect(page.locator('#institution-list')).toContainText('HSBC');
   });
@@ -159,9 +163,13 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
 
   test('create second institution (fintech)', async ({ page }) => {
     await page.goto('/accounts');
-    await page.locator('form[hx-post="/institutions/add"] input[name="name"]').fill('Fawry');
-    await page.locator('form[hx-post="/institutions/add"] select[name="type"]').selectOption('fintech');
-    await page.locator('form[hx-post="/institutions/add"] button[type="submit"]').click();
+    // Open the create institution bottom sheet
+    await page.locator('button[onclick="openCreateSheet()"]').click();
+    await expect(page.locator('#create-sheet-content form')).toBeVisible();
+
+    await page.locator('#create-sheet-content input[name="name"]').fill('Fawry');
+    await page.locator('#create-sheet-content select[name="type"]').selectOption('fintech');
+    await page.locator('#create-sheet-content button[type="submit"]').click();
     await expect(page.locator('#institution-list')).toContainText('Fawry');
   });
 

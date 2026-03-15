@@ -143,7 +143,7 @@ func TestAccountsPage_Renders(t *testing.T) {
 	checks := []string{
 		"HSBC",                // institution name
 		"Checking",            // account name
-		"Add Institution",     // form button
+		"openCreateSheet",     // FAB button to open create sheet
 		"EGP",                 // currency display
 	}
 	for _, check := range checks {

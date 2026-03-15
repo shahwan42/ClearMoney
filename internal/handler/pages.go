@@ -205,6 +205,11 @@ type InstitutionDeleteData struct {
 	AccountCount    int
 }
 
+// InstitutionCreateData holds data for the institution create form in the bottom sheet.
+type InstitutionCreateData struct {
+	Error string
+}
+
 // InstitutionEditData holds data for the inline institution edit form in the bottom sheet.
 type InstitutionEditData struct {
 	Institution models.Institution
@@ -2396,20 +2401,18 @@ func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
 		authmw.Log(r.Context()).Warn("institution create failed", "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		fmt.Fprintf(w, `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm mb-3">%s</div>`, err.Error())
 		if tmpl, ok := h.templates["accounts"]; ok {
-			tmpl.ExecuteTemplate(w, "institution-form", nil)
+			tmpl.ExecuteTemplate(w, "institution-form", InstitutionCreateData{Error: err.Error()})
 		}
 		return
 	}
 
-	// Success toast + OOB refresh of the institution list
+	// Success toast + close sheet + OOB refresh of the institution list
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, `<div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-center animate-toast">`)
 	fmt.Fprint(w, `<p class="text-teal-800 font-semibold text-sm">Institution added!</p>`)
 	fmt.Fprint(w, `</div>`)
-	// Auto-dismiss: HTMX loads the form back after a brief delay
-	fmt.Fprint(w, `<div hx-get="/accounts/institution-form" hx-trigger="load delay:1.5s" hx-target="#institution-form-area" hx-swap="innerHTML"></div>`)
+	fmt.Fprint(w, `<script>setTimeout(function(){ closeCreateSheet(); }, 1000);</script>`)
 	h.renderInstitutionListOOB(w, r)
 }
 
@@ -2574,7 +2577,7 @@ func (h *PageHandler) renderInstitutionListOOB(w http.ResponseWriter, r *http.Re
 func (h *PageHandler) InstitutionFormPartial(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if tmpl, ok := h.templates["accounts"]; ok {
-		tmpl.ExecuteTemplate(w, "institution-form", nil)
+		tmpl.ExecuteTemplate(w, "institution-form", InstitutionCreateData{})
 	}
 }
 

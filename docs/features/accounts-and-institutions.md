@@ -151,8 +151,13 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 | `/accounts/{id}` | DELETE | `AccountDelete()` | Delete account (bottom sheet confirmation) |
 | `/accounts/add` | POST | `AccountAdd()` | Create account |
 | `/accounts/reorder` | POST | `ReorderAccounts()` | Drag-and-drop reorder |
-| `/institutions/add` | POST | `InstitutionAdd()` | Create institution |
+| `/accounts/institution-form` | GET | `InstitutionFormPartial()` | HTMX partial: institution form for create sheet |
+| `/institutions/add` | POST | `InstitutionAdd()` | Create institution (from bottom sheet) |
 | `/institutions/reorder` | POST | `ReorderInstitutions()` | Reorder institutions |
+| `/institutions/{id}/edit-form` | GET | `InstitutionEditForm()` | HTMX partial: edit form for bottom sheet |
+| `/institutions/{id}` | PUT | `InstitutionUpdate()` | Update institution (from bottom sheet) |
+| `/institutions/{id}/delete-confirm` | GET | `InstitutionDeleteConfirm()` | HTMX partial: delete confirmation for bottom sheet |
+| `/institutions/{id}` | DELETE | `InstitutionDelete()` | Delete institution (from bottom sheet) |
 
 ## Templates
 
@@ -169,7 +174,9 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 |----------|---------|
 | `partials/institution-card.html` | Collapsible card with accounts (HTML5 `<details>/<summary>`) |
 | `partials/account-form.html` | Account creation form (HTMX) |
-| `partials/institution-form.html` | Institution creation form (HTMX) |
+| `partials/institution-form.html` | Institution creation form (loaded into create bottom sheet) |
+| `partials/institution-edit-form.html` | Institution edit form (loaded into edit bottom sheet) |
+| `partials/institution-delete-confirm.html` | Institution delete confirmation (loaded into delete bottom sheet) |
 
 ## Features Detail
 
@@ -192,6 +199,16 @@ Stored as JSONB in `health_config` column for extensibility. Two supported rules
 - `min_monthly_deposit` — alert if no deposit ≥ amount arrives during month
 
 Configured per-account on the detail page.
+
+### Institution CRUD (Bottom Sheets)
+
+All institution CRUD operations use the bottom sheet pattern:
+
+- **Create:** A floating action button (FAB, teal "+" circle) in the bottom-right opens a create sheet. The form is loaded via `htmx.ajax('GET', '/accounts/institution-form')`. On success, the sheet closes after a brief toast and the institution list refreshes via OOB swap.
+- **Edit:** Each institution card has an edit icon that opens an edit sheet. The form pre-fills name and type, and on success closes the sheet + OOB-updates the institution card.
+- **Delete:** Each institution card has a trash icon that opens a delete confirmation sheet. The user must type the institution name to enable the delete button. On success, the institution is removed from the list.
+
+All three sheets share the same UX: slide-up animation, dark overlay, drag-to-dismiss on the handle (100px threshold), and Cancel button.
 
 ### Account Deletion
 
