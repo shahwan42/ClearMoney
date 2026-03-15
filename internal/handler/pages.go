@@ -2703,7 +2703,7 @@ func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request
 		allocAmount = -amount
 	}
 
-	// Create the transaction
+	// Create the transaction (currency is set from the account by the service layer)
 	tx := models.Transaction{
 		Type:      txType,
 		Amount:    amount,
@@ -2713,11 +2713,6 @@ func (h *PageHandler) VirtualFundAllocate(w http.ResponseWriter, r *http.Request
 	}
 	if note := r.FormValue("note"); note != "" {
 		tx.Note = &note
-	}
-
-	// Look up account currency
-	if acc, err := h.accountSvc.GetByID(r.Context(), tx.AccountID); err == nil {
-		tx.Currency = acc.Currency
 	}
 
 	created, _, err := h.txSvc.Create(r.Context(), tx)

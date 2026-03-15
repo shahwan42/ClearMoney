@@ -280,9 +280,16 @@ Pre-selects last used account and most frequent categories. If the same category
 | `internal/templates/partials/quick-entry.html` | Quick-entry bottom sheet |
 | `internal/database/migrations/000005_create_transactions.up.sql` | Schema |
 
+## Currency Enforcement
+
+The service layer (`Create` and `Update`) always overrides the transaction's currency with the account's actual currency. This prevents mismatches when the frontend sends an incorrect value (e.g., hidden form field defaulting to EGP for a USD account).
+
+**Pattern:** Handlers can pass any currency value — the service will look up the account and use its currency as the source of truth. This eliminates the class of bugs where client-side currency detection fails.
+
 ## For Newcomers
 
 - **Amount is always positive** in the model. Direction is determined by `Type` and `BalanceDelta`.
+- **Currency comes from the account** — the service layer enforces this. Don't rely on form fields for currency.
 - **Transfers/exchanges create two records** linked by `LinkedTransactionID`. Deleting one deletes both.
 - **DB transactions are critical** — never update balances without wrapping in `*sql.Tx`.
 - **Exchange rate convention** — always stored as "EGP per 1 USD" regardless of direction.
