@@ -179,6 +179,17 @@ All charts support dark mode via Tailwind's `dark:` variants.
 - **Clickable header** — ClearMoney logo/title navigates to dashboard
 - **Date pre-population** — all date inputs default to today via server-side rendering
 
+## Rate Limiting
+
+Per-IP rate limiting using an in-memory token bucket algorithm:
+
+- **Login routes** — 5 req/min (prevents brute-force PIN guessing)
+- **API routes** — 60 req/min (moderate protection for JSON endpoints)
+- **Page routes** — 120 req/min (generous for normal browsing + HTMX)
+- Static files and health check are exempt
+- Returns 429 with `Retry-After` header; HTMX requests get styled HTML error partial
+- Background cleanup goroutine prunes stale IP entries every 5 minutes
+
 ## Logging
 
 Structured 3-layer logging for debugging and usage analytics:

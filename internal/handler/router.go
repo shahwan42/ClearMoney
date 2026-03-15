@@ -39,6 +39,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -155,15 +156,48 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	exportSvc := service.NewExportService(txRepo)
 	authSvc := service.NewAuthService(db)
 
-	// Auth routes (public — no auth middleware).
-	// Like Laravel: Route::get('/login', [AuthController::class, 'showLoginForm']);
-	// These are outside the auth group so unauthenticated users can reach them.
+	// ---------- Rate limiters ----------
+	// Three tiers with different limits per route type.
+	// Like Laravel's RateLimiter::for() definitions in RouteServiceProvider.
+	//
+	// Login: strict (prevent brute-force PIN guessing)
+	// API:   moderate (protect JSON endpoints)
+	// Pages: generous (normal browsing + HTMX partials)
+	loginLimiter := authmw.NewRateLimiter(authmw.RateLimitConfig{
+		Rate:            5.0 / 60.0,           // 5 requests per minute
+		Burst:           5,
+		CleanupInterval: 5 * time.Minute,
+		StaleAfter:      10 * time.Minute,
+	})
+	defer loginLimiter.Stop()
+
+	apiLimiter := authmw.NewRateLimiter(authmw.RateLimitConfig{
+		Rate:            1.0,                   // 60 requests per minute (1 token/sec)
+		Burst:           10,
+		CleanupInterval: 5 * time.Minute,
+		StaleAfter:      10 * time.Minute,
+	})
+	defer apiLimiter.Stop()
+
+	generalLimiter := authmw.NewRateLimiter(authmw.RateLimitConfig{
+		Rate:            120.0 / 60.0,         // 120 requests per minute
+		Burst:           20,
+		CleanupInterval: 5 * time.Minute,
+		StaleAfter:      10 * time.Minute,
+	})
+	defer generalLimiter.Stop()
+
+	// Auth routes (public — no auth middleware, but rate-limited to prevent brute force).
+	// Like Laravel: Route::middleware('throttle:5,1')->group(function () { ... });
 	auth := NewAuthHandler(tmpl, authSvc)
-	r.Get("/login", auth.LoginPage)
-	r.Post("/login", auth.LoginSubmit)
-	r.Get("/setup", auth.SetupPage)
-	r.Post("/setup", auth.SetupSubmit)
-	r.Post("/logout", auth.Logout)
+	r.Group(func(r chi.Router) {
+		r.Use(authmw.RateLimit(loginLimiter))
+		r.Get("/login", auth.LoginPage)
+		r.Post("/login", auth.LoginSubmit)
+		r.Get("/setup", auth.SetupPage)
+		r.Post("/setup", auth.SetupSubmit)
+		r.Post("/logout", auth.Logout)
+	})
 
 	// Protected routes — everything below requires authentication.
 	// r.Group() creates a route group with shared middleware, like:
@@ -173,137 +207,136 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	r.Group(func(r chi.Router) {
 		r.Use(authmw.Auth(authSvc))
 
-		// API routes (JSON) — RESTful endpoints consumed by HTMX and tests.
-		// r.Route() creates a sub-router at a URL prefix, like Laravel's Route::prefix().
-		// The handler's Routes method registers CRUD endpoints within that prefix.
-		// Example: r.Route("/api/institutions", handler.Routes) registers:
-		//   GET    /api/institutions      → List
-		//   POST   /api/institutions      → Create
-		//   GET    /api/institutions/{id}  → Get
-		//   PUT    /api/institutions/{id}  → Update
-		//   DELETE /api/institutions/{id}  → Delete
-		r.Route("/api/institutions", NewInstitutionHandler(institutionSvc).Routes)
-		r.Route("/api/accounts", NewAccountHandler(accountSvc).Routes)
-		r.Route("/api/categories", NewCategoryHandler(categorySvc).Routes)
-		r.Route("/api/transactions", NewTransactionHandler(txSvc).Routes)
-		r.Route("/api/persons", NewPersonHandler(personSvc).Routes)
-
-		// Page routes (HTML) — serve full pages and HTMX partials.
-		// These use form submissions (not JSON) and return HTML responses.
-		// HTMX endpoints return HTML fragments that get swapped into the DOM.
-		pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
-		pages.SetSnapshotService(snapshotSvc) // TASK-059: account balance sparklines
-		// TASK-062/063: Wire virtual account service
-		virtualAccountRepo := repository.NewVirtualAccountRepo(db)
-		virtualAccountSvc := service.NewVirtualAccountService(virtualAccountRepo)
-		pages.SetVirtualAccountService(virtualAccountSvc)
-		dashboardSvc.SetVirtualAccountService(virtualAccountSvc)
-		// TASK-065: Wire budget service
-		budgetRepo := repository.NewBudgetRepo(db)
-		budgetSvc := service.NewBudgetService(budgetRepo)
-		pages.SetBudgetService(budgetSvc)
-		dashboardSvc.SetBudgetService(budgetSvc)
-		// TASK-068: Wire account health service
-		healthSvc := service.NewAccountHealthService(accountRepo, txRepo)
-		pages.SetAccountHealthService(healthSvc)
-		dashboardSvc.SetAccountHealthService(healthSvc)
-		r.Get("/", pages.Home)
-		r.Get("/partials/recent-transactions", pages.RecentTransactions)
-		r.Get("/partials/people-summary", pages.PeopleSummary)
-		r.Get("/accounts", pages.Accounts)
-		r.Get("/accounts/form", pages.AccountForm)
-		r.Get("/accounts/list", pages.InstitutionList)
-		r.Get("/accounts/institution-form", pages.InstitutionFormPartial)
-		r.Get("/accounts/empty", pages.EmptyPartial)
-		r.Get("/accounts/{id}", pages.AccountDetail)
-		r.Get("/accounts/{id}/statement", pages.CreditCardStatement)
-		r.Post("/accounts/{id}/dormant", pages.ToggleDormant)
-		r.Post("/accounts/{id}/health", pages.AccountHealthUpdate)
-		r.Get("/accounts/{id}/edit-form", pages.AccountEditForm)
-		r.Post("/accounts/{id}/edit", pages.AccountUpdate)
-		r.Delete("/accounts/{id}", pages.AccountDelete)
-		r.Post("/accounts/add", pages.AccountAdd)
-		r.Post("/accounts/reorder", pages.ReorderAccounts)
-		r.Post("/institutions/add", pages.InstitutionAdd)
-		r.Post("/institutions/reorder", pages.ReorderInstitutions)
-		r.Get("/institutions/{id}/edit-form", pages.InstitutionEditForm)
-		r.Put("/institutions/{id}", pages.InstitutionUpdate)
-		r.Get("/institutions/{id}/delete-confirm", pages.InstitutionDeleteConfirm)
-		r.Delete("/institutions/{id}", pages.InstitutionDelete)
-		r.Get("/transactions", pages.Transactions)
-		r.Get("/transactions/list", pages.TransactionList)
-		r.Get("/transactions/new", pages.TransactionNew)
-		r.Get("/transactions/quick-form", pages.QuickEntryForm)
-		r.Post("/transactions/quick", pages.QuickEntryCreate)
-		r.Post("/transactions", pages.TransactionCreate)
-		r.Get("/transactions/edit/{id}", pages.TransactionEditForm)
-		r.Put("/transactions/{id}", pages.TransactionUpdate)
-		r.Delete("/transactions/{id}", pages.TransactionDelete)
-		r.Get("/transactions/row/{id}", pages.TransactionRow)
-		r.Get("/transfers/new", pages.TransferNew)
-		r.Post("/transactions/transfer", pages.TransferCreate)
-		r.Post("/transactions/instapay-transfer", pages.InstapayTransferCreate)
-		r.Get("/exchange/new", pages.ExchangeNew)
-		r.Get("/transactions/quick-transfer", pages.QuickTransferForm)
-		r.Get("/exchange/quick-form", pages.QuickExchangeForm)
-		r.Post("/transactions/exchange-submit", pages.ExchangeCreate)
-		r.Get("/people", pages.People)
-		r.Post("/people/add", pages.PeopleAdd)
-		r.Get("/people/{id}", pages.PersonDetail)
-		r.Post("/people/{id}/loan", pages.PeopleLoan)
-		r.Post("/people/{id}/repay", pages.PeopleRepay)
-		r.Get("/recurring", pages.Recurring)
-		r.Post("/recurring/add", pages.RecurringAdd)
-		r.Post("/recurring/{id}/confirm", pages.RecurringConfirm)
-		r.Post("/recurring/{id}/skip", pages.RecurringSkip)
-		r.Delete("/recurring/{id}", pages.RecurringDelete)
-		r.Post("/sync/transactions", pages.SyncTransactions)
-		r.Get("/reports", pages.Reports)
-		r.Get("/fawry-cashout", pages.FawryCashout)
-		r.Post("/transactions/fawry-cashout", pages.FawryCashoutCreate)
-		r.Get("/salary", pages.Salary)
-		r.Post("/salary/step2", pages.SalaryStep2)
-		r.Post("/salary/step3", pages.SalaryStep3)
-		r.Post("/salary/confirm", pages.SalaryConfirm)
-		r.Get("/investments", pages.Investments)
-		r.Post("/investments/add", pages.InvestmentAdd)
-		r.Post("/investments/{id}/update", pages.InvestmentUpdateValuation)
-		r.Delete("/investments/{id}", pages.InvestmentDelete)
-		r.Get("/installments", pages.Installments)
-		r.Post("/installments/add", pages.InstallmentAdd)
-		r.Post("/installments/{id}/pay", pages.InstallmentPay)
-		r.Delete("/installments/{id}", pages.InstallmentDelete)
-		r.Get("/batch-entry", pages.BatchEntry)
-		r.Post("/transactions/batch", pages.BatchCreate)
-		// TASK-062: Virtual account routes
-		r.Get("/virtual-accounts", pages.VirtualAccounts)
-		r.Post("/virtual-accounts/add", pages.VirtualAccountAdd)
-		r.Get("/virtual-accounts/{id}", pages.VirtualAccountDetail)
-		r.Post("/virtual-accounts/{id}/archive", pages.VirtualAccountArchive)
-		r.Post("/virtual-accounts/{id}/allocate", pages.VirtualAccountAllocate)
-		// Legacy redirects for bookmarks/PWA
-		r.Get("/virtual-funds", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/virtual-accounts", http.StatusMovedPermanently)
+		// API routes (JSON) — rate-limited at 60 req/min.
+		// Like Laravel: Route::middleware(['auth', 'throttle:60,1'])->prefix('api')->group(...)
+		r.Group(func(r chi.Router) {
+			r.Use(authmw.RateLimit(apiLimiter))
+			r.Route("/api/institutions", NewInstitutionHandler(institutionSvc).Routes)
+			r.Route("/api/accounts", NewAccountHandler(accountSvc).Routes)
+			r.Route("/api/categories", NewCategoryHandler(categorySvc).Routes)
+			r.Route("/api/transactions", NewTransactionHandler(txSvc).Routes)
+			r.Route("/api/persons", NewPersonHandler(personSvc).Routes)
 		})
-		r.Get("/virtual-funds/{id}", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/virtual-accounts/"+chi.URLParam(r, "id"), http.StatusMovedPermanently)
+
+		// Page routes (HTML) — rate-limited at 120 req/min.
+		// Like Laravel: Route::middleware(['auth', 'throttle:120,1'])->group(...)
+		r.Group(func(r chi.Router) {
+			r.Use(authmw.RateLimit(generalLimiter))
+
+			pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
+			pages.SetSnapshotService(snapshotSvc) // TASK-059: account balance sparklines
+			// TASK-062/063: Wire virtual account service
+			virtualAccountRepo := repository.NewVirtualAccountRepo(db)
+			virtualAccountSvc := service.NewVirtualAccountService(virtualAccountRepo)
+			pages.SetVirtualAccountService(virtualAccountSvc)
+			dashboardSvc.SetVirtualAccountService(virtualAccountSvc)
+			// TASK-065: Wire budget service
+			budgetRepo := repository.NewBudgetRepo(db)
+			budgetSvc := service.NewBudgetService(budgetRepo)
+			pages.SetBudgetService(budgetSvc)
+			dashboardSvc.SetBudgetService(budgetSvc)
+			// TASK-068: Wire account health service
+			healthSvc := service.NewAccountHealthService(accountRepo, txRepo)
+			pages.SetAccountHealthService(healthSvc)
+			dashboardSvc.SetAccountHealthService(healthSvc)
+			r.Get("/", pages.Home)
+			r.Get("/partials/recent-transactions", pages.RecentTransactions)
+			r.Get("/partials/people-summary", pages.PeopleSummary)
+			r.Get("/accounts", pages.Accounts)
+			r.Get("/accounts/form", pages.AccountForm)
+			r.Get("/accounts/list", pages.InstitutionList)
+			r.Get("/accounts/institution-form", pages.InstitutionFormPartial)
+			r.Get("/accounts/empty", pages.EmptyPartial)
+			r.Get("/accounts/{id}", pages.AccountDetail)
+			r.Get("/accounts/{id}/statement", pages.CreditCardStatement)
+			r.Post("/accounts/{id}/dormant", pages.ToggleDormant)
+			r.Post("/accounts/{id}/health", pages.AccountHealthUpdate)
+			r.Get("/accounts/{id}/edit-form", pages.AccountEditForm)
+			r.Post("/accounts/{id}/edit", pages.AccountUpdate)
+			r.Delete("/accounts/{id}", pages.AccountDelete)
+			r.Post("/accounts/add", pages.AccountAdd)
+			r.Post("/accounts/reorder", pages.ReorderAccounts)
+			r.Post("/institutions/add", pages.InstitutionAdd)
+			r.Post("/institutions/reorder", pages.ReorderInstitutions)
+			r.Get("/institutions/{id}/edit-form", pages.InstitutionEditForm)
+			r.Put("/institutions/{id}", pages.InstitutionUpdate)
+			r.Get("/institutions/{id}/delete-confirm", pages.InstitutionDeleteConfirm)
+			r.Delete("/institutions/{id}", pages.InstitutionDelete)
+			r.Get("/transactions", pages.Transactions)
+			r.Get("/transactions/list", pages.TransactionList)
+			r.Get("/transactions/new", pages.TransactionNew)
+			r.Get("/transactions/quick-form", pages.QuickEntryForm)
+			r.Post("/transactions/quick", pages.QuickEntryCreate)
+			r.Post("/transactions", pages.TransactionCreate)
+			r.Get("/transactions/edit/{id}", pages.TransactionEditForm)
+			r.Put("/transactions/{id}", pages.TransactionUpdate)
+			r.Delete("/transactions/{id}", pages.TransactionDelete)
+			r.Get("/transactions/row/{id}", pages.TransactionRow)
+			r.Get("/transfers/new", pages.TransferNew)
+			r.Post("/transactions/transfer", pages.TransferCreate)
+			r.Post("/transactions/instapay-transfer", pages.InstapayTransferCreate)
+			r.Get("/exchange/new", pages.ExchangeNew)
+			r.Get("/transactions/quick-transfer", pages.QuickTransferForm)
+			r.Get("/exchange/quick-form", pages.QuickExchangeForm)
+			r.Post("/transactions/exchange-submit", pages.ExchangeCreate)
+			r.Get("/people", pages.People)
+			r.Post("/people/add", pages.PeopleAdd)
+			r.Get("/people/{id}", pages.PersonDetail)
+			r.Post("/people/{id}/loan", pages.PeopleLoan)
+			r.Post("/people/{id}/repay", pages.PeopleRepay)
+			r.Get("/recurring", pages.Recurring)
+			r.Post("/recurring/add", pages.RecurringAdd)
+			r.Post("/recurring/{id}/confirm", pages.RecurringConfirm)
+			r.Post("/recurring/{id}/skip", pages.RecurringSkip)
+			r.Delete("/recurring/{id}", pages.RecurringDelete)
+			r.Post("/sync/transactions", pages.SyncTransactions)
+			r.Get("/reports", pages.Reports)
+			r.Get("/fawry-cashout", pages.FawryCashout)
+			r.Post("/transactions/fawry-cashout", pages.FawryCashoutCreate)
+			r.Get("/salary", pages.Salary)
+			r.Post("/salary/step2", pages.SalaryStep2)
+			r.Post("/salary/step3", pages.SalaryStep3)
+			r.Post("/salary/confirm", pages.SalaryConfirm)
+			r.Get("/investments", pages.Investments)
+			r.Post("/investments/add", pages.InvestmentAdd)
+			r.Post("/investments/{id}/update", pages.InvestmentUpdateValuation)
+			r.Delete("/investments/{id}", pages.InvestmentDelete)
+			r.Get("/installments", pages.Installments)
+			r.Post("/installments/add", pages.InstallmentAdd)
+			r.Post("/installments/{id}/pay", pages.InstallmentPay)
+			r.Delete("/installments/{id}", pages.InstallmentDelete)
+			r.Get("/batch-entry", pages.BatchEntry)
+			r.Post("/transactions/batch", pages.BatchCreate)
+			// TASK-062: Virtual account routes
+			r.Get("/virtual-accounts", pages.VirtualAccounts)
+			r.Post("/virtual-accounts/add", pages.VirtualAccountAdd)
+			r.Get("/virtual-accounts/{id}", pages.VirtualAccountDetail)
+			r.Post("/virtual-accounts/{id}/archive", pages.VirtualAccountArchive)
+			r.Post("/virtual-accounts/{id}/allocate", pages.VirtualAccountAllocate)
+			// Legacy redirects for bookmarks/PWA
+			r.Get("/virtual-funds", func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, "/virtual-accounts", http.StatusMovedPermanently)
+			})
+			r.Get("/virtual-funds/{id}", func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, "/virtual-accounts/"+chi.URLParam(r, "id"), http.StatusMovedPermanently)
+			})
+			// TASK-065: Budget routes
+			r.Get("/budgets", pages.Budgets)
+			r.Post("/budgets/add", pages.BudgetAdd)
+			r.Post("/budgets/{id}/delete", pages.BudgetDelete)
+
+			r.Get("/exchange-rates", pages.ExchangeRates)
+			r.Get("/settings", pages.Settings)
+			r.Post("/settings/pin", pages.ChangePin)
+			r.Get("/export/transactions", pages.ExportTransactions)
+			r.Get("/api/transactions/suggest-category", pages.SuggestCategory)
+
+			// Push notification endpoints
+			push := NewPushHandler(notificationSvc, os.Getenv("VAPID_PUBLIC_KEY"))
+			r.Get("/api/push/vapid-key", push.VAPIDKey)
+			r.Post("/api/push/subscribe", push.Subscribe)
+			r.Get("/api/push/check", push.CheckNotifications)
 		})
-		// TASK-065: Budget routes
-		r.Get("/budgets", pages.Budgets)
-		r.Post("/budgets/add", pages.BudgetAdd)
-		r.Post("/budgets/{id}/delete", pages.BudgetDelete)
-
-		r.Get("/exchange-rates", pages.ExchangeRates)
-		r.Get("/settings", pages.Settings)
-		r.Post("/settings/pin", pages.ChangePin)
-		r.Get("/export/transactions", pages.ExportTransactions)
-		r.Get("/api/transactions/suggest-category", pages.SuggestCategory)
-
-		// Push notification endpoints
-		push := NewPushHandler(notificationSvc, os.Getenv("VAPID_PUBLIC_KEY"))
-		r.Get("/api/push/vapid-key", push.VAPIDKey)
-		r.Post("/api/push/subscribe", push.Subscribe)
-		r.Get("/api/push/check", push.CheckNotifications)
 	})
 
 	return r
