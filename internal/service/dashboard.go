@@ -57,8 +57,11 @@ type DashboardData struct {
 	CreditAvail    float64 // total available credit across all credit accounts
 	DebtTotal      float64 // placeholder for loans (future)
 
-	// USD totals and conversion
-	USDTotal     float64 // sum of all USD account balances
+	// Per-currency totals
+	EGPTotal float64 // sum of all EGP account balances
+	USDTotal float64 // sum of all USD account balances
+
+	// Exchange rate (kept for institution-level conversion)
 	ExchangeRate float64 // latest EGP/USD rate (0 if none available)
 	USDInEGP     float64 // USDTotal * ExchangeRate
 
@@ -265,8 +268,11 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 			}
 			data.NetWorth += acc.CurrentBalance
 
-			if acc.Currency == models.CurrencyUSD {
+			switch acc.Currency {
+			case models.CurrencyUSD:
 				data.USDTotal += acc.CurrentBalance
+			case models.CurrencyEGP:
+				data.EGPTotal += acc.CurrentBalance
 			}
 
 			if acc.IsCreditType() {

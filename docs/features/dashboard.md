@@ -73,7 +73,7 @@ All optional data sources use nil-safe checks — if a service isn't wired, that
 
 The `DashboardData` struct has ~47 fields organized into sections:
 
-- **Net worth:** `NetWorth`, `NetWorthEGP`, `ExchangeRate`, `USDTotal`, `USDInEGP`
+- **Net worth:** `NetWorth`, `NetWorthEGP`, `EGPTotal`, `USDTotal`, `ExchangeRate`, `USDInEGP`
 - **Breakdown:** `CashTotal`, `CreditUsed`, `CreditAvail`, `DebtTotal`
 - **Institutions:** `Institutions []InstitutionGroup` (with nested accounts)
 - **People:** `PeopleOwedToMe`, `PeopleIOwe`
@@ -111,7 +111,7 @@ Calls `dashboardSvc.GetDashboard(ctx)`, renders the `"home"` template with Dashb
 **File:** `internal/templates/pages/home.html` (~377 lines)
 
 Structure:
-1. **Net Worth section** — sparkline + trend indicator
+1. **Net Worth section** — per-currency display (EGP · USD), sparkline + trend indicator
 2. **Habit Streak** — consecutive days badge
 3. **Month-over-Month Spending** — comparison with top 3 categories
 4. **Spending Velocity** — progress bar with color-coded status
