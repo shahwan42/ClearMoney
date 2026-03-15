@@ -167,7 +167,8 @@ type TransactionFormData struct {
 	IncomeCategories   []models.Category
 	Today              time.Time
 	// Pre-fill fields (for transaction duplication)
-	Prefill *models.Transaction
+	Prefill         *models.Transaction
+	VirtualAccounts []models.VirtualAccount // Optional virtual account allocation
 }
 
 // TransactionListData holds data for the transaction list page and partial.
@@ -211,9 +212,11 @@ type TransactionListData struct {
 
 // TransactionEditData holds data for the inline edit form.
 type TransactionEditData struct {
-	Transaction        models.Transaction
-	Categories         []models.Category
-	SelectedCategoryID string
+	Transaction              models.Transaction
+	Categories               []models.Category
+	SelectedCategoryID       string
+	VirtualAccounts          []models.VirtualAccount
+	SelectedVirtualAccountID string
 }
 
 // TransactionSuccessData is shown after a successful transaction creation.
@@ -585,11 +588,17 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeIncome)
 
+	var virtualAccounts []models.VirtualAccount
+	if h.virtualAccountSvc != nil {
+		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context())
+	}
+
 	data := TransactionFormData{
 		Accounts:          accounts,
 		ExpenseCategories: expenseCategories,
 		IncomeCategories:  incomeCategories,
 		Today:             timeutil.Now(),
+		VirtualAccounts:   virtualAccounts,
 	}
 
 	// If ?dup=<id> is provided, pre-fill from that transaction
@@ -653,6 +662,18 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
 		return
+	}
+
+	// Allocate to virtual account if selected
+	if vaID := r.FormValue("virtual_account_id"); vaID != "" && h.virtualAccountSvc != nil {
+		allocAmount := created.Amount
+		if created.Type == models.TransactionTypeExpense {
+			allocAmount = -created.Amount
+		}
+		if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
+			authmw.Log(r.Context()).Warn("virtual account allocation failed",
+				"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
+		}
 	}
 
 	// Determine currency label
@@ -977,6 +998,16 @@ func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request
 		selectedCatID = *tx.CategoryID
 	}
 
+	// Fetch virtual accounts and current allocation for the transaction
+	var virtualAccounts []models.VirtualAccount
+	var selectedVAID string
+	if h.virtualAccountSvc != nil {
+		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context())
+		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), id); err == nil && len(allocs) > 0 {
+			selectedVAID = allocs[0].VirtualAccountID
+		}
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["transactions"]
 	if !ok {
@@ -984,9 +1015,11 @@ func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request
 		return
 	}
 	tmpl.ExecuteTemplate(w, "transaction-edit-form", TransactionEditData{
-		Transaction:        tx,
-		Categories:         categories,
-		SelectedCategoryID: selectedCatID,
+		Transaction:              tx,
+		Categories:               categories,
+		SelectedCategoryID:       selectedCatID,
+		VirtualAccounts:          virtualAccounts,
+		SelectedVirtualAccountID: selectedVAID,
 	})
 }
 
@@ -1027,6 +1060,37 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Update virtual account allocation if changed
+	newVAID := r.FormValue("virtual_account_id")
+	if h.virtualAccountSvc != nil {
+		// Find current allocation
+		var oldVAID string
+		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), id); err == nil && len(allocs) > 0 {
+			oldVAID = allocs[0].VirtualAccountID
+		}
+
+		if oldVAID != newVAID {
+			// Deallocate from old virtual account
+			if oldVAID != "" {
+				if err := h.virtualAccountSvc.Deallocate(r.Context(), id, oldVAID); err != nil {
+					authmw.Log(r.Context()).Warn("virtual account deallocation failed",
+						"transaction_id", id, "virtual_account_id", oldVAID, "error", err)
+				}
+			}
+			// Allocate to new virtual account
+			if newVAID != "" {
+				allocAmount := updated.Amount
+				if updated.Type == models.TransactionTypeExpense {
+					allocAmount = -updated.Amount
+				}
+				if err := h.virtualAccountSvc.Allocate(r.Context(), id, newVAID, allocAmount); err != nil {
+					authmw.Log(r.Context()).Warn("virtual account allocation failed",
+						"transaction_id", id, "virtual_account_id", newVAID, "error", err)
+				}
+			}
+		}
+	}
+
 	// Re-fetch enriched data for proper display (account name, running balance)
 	row, err := h.txSvc.GetByIDEnriched(r.Context(), updated.ID)
 	if err != nil {
@@ -1057,6 +1121,20 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 // The swipe-to-delete gesture (TASK-080) triggers this endpoint.
 func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	// Deallocate from virtual accounts before deleting the transaction,
+	// so the cached current_balance gets recalculated properly.
+	if h.virtualAccountSvc != nil {
+		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), id); err == nil {
+			for _, a := range allocs {
+				if err := h.virtualAccountSvc.Deallocate(r.Context(), id, a.VirtualAccountID); err != nil {
+					authmw.Log(r.Context()).Warn("failed to deallocate virtual account",
+						"transaction_id", id, "virtual_account_id", a.VirtualAccountID, "error", err)
+				}
+			}
+		}
+	}
+
 	if err := h.txSvc.Delete(r.Context(), id); err != nil {
 		authmw.Log(r.Context()).Error("failed to delete transaction", "id", id, "error", err)
 		http.Error(w, "failed to delete", http.StatusInternalServerError)
@@ -1469,6 +1547,11 @@ func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 	// Smart defaults from transaction history
 	defaults := h.txSvc.GetSmartDefaults(r.Context(), "expense")
 
+	var virtualAccounts []models.VirtualAccount
+	if h.virtualAccountSvc != nil {
+		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context())
+	}
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["home"]
 	if !ok {
@@ -1480,6 +1563,7 @@ func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 			Accounts:          accounts,
 			ExpenseCategories: expenseCategories,
 			IncomeCategories:  incomeCategories,
+			VirtualAccounts:   virtualAccounts,
 		},
 		LastAccountID:  defaults.LastAccountID,
 		AutoCategoryID: defaults.AutoCategoryID,
@@ -1555,6 +1639,18 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
 		return
+	}
+
+	// Allocate to virtual account if selected
+	if vaID := r.FormValue("virtual_account_id"); vaID != "" && h.virtualAccountSvc != nil {
+		allocAmount := created.Amount
+		if created.Type == models.TransactionTypeExpense {
+			allocAmount = -created.Amount
+		}
+		if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
+			authmw.Log(r.Context()).Warn("virtual account allocation failed",
+				"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
+		}
 	}
 
 	cur := "EGP"

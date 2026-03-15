@@ -224,6 +224,32 @@ func SetupAuth(t *testing.T, db *sql.DB) *http.Cookie {
 	}
 }
 
+// CreateVirtualAccount inserts a test virtual account and returns it with its generated ID.
+// Defaults to an active account named "Test Fund" with teal color.
+func CreateVirtualAccount(t *testing.T, db *sql.DB, va models.VirtualAccount) models.VirtualAccount {
+	t.Helper()
+
+	if va.Name == "" {
+		va.Name = "Test Fund"
+	}
+	if va.Color == "" {
+		va.Color = "#0d9488"
+	}
+
+	err := db.QueryRow(`
+		INSERT INTO virtual_accounts (name, target_amount, current_balance, icon, color, is_archived, display_order)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at, updated_at
+	`, va.Name, va.TargetAmount, va.CurrentBalance, va.Icon, va.Color, va.IsArchived, va.DisplayOrder,
+	).Scan(&va.ID, &va.CreatedAt, &va.UpdatedAt)
+
+	if err != nil {
+		t.Fatalf("creating test virtual account: %v", err)
+	}
+
+	return va
+}
+
 // GetFirstCategoryID returns the ID of the first system category of the given type.
 // Useful for creating test transactions that need a valid category_id FK reference,
 // and for testing system category protection rules.

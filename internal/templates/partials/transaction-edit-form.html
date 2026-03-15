@@ -1,6 +1,6 @@
 {{define "transaction-edit-form"}}
 <div class="bg-white rounded-xl shadow-sm p-4 space-y-3" id="tx-{{.Transaction.ID}}">
-    <form hx-put="/transactions/{{.Transaction.ID}}" hx-target="#tx-{{.Transaction.ID}}" hx-swap="outerHTML">
+    <form hx-put="/transactions/{{.Transaction.ID}}" hx-target="#tx-{{.Transaction.ID}}" hx-swap="outerHTML" class="space-y-3">
         <div class="grid grid-cols-2 gap-2">
             <select name="type" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
                 <option value="expense" {{if eq (string .Transaction.Type) "expense"}}selected{{end}}>Expense</option>
@@ -30,6 +30,15 @@
 
         <input type="date" name="date" value="{{.Transaction.Date.Format "2006-01-02"}}"
                class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+
+        {{if .VirtualAccounts}}
+        <select name="virtual_account_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            <option value="">No virtual account</option>
+            {{range .VirtualAccounts}}
+            <option value="{{.ID}}" {{if eq .ID $.SelectedVirtualAccountID}}selected{{end}}>{{.Icon}} {{.Name}}</option>
+            {{end}}
+        </select>
+        {{end}}
 
         <input type="hidden" name="currency" value="{{.Transaction.Currency}}">
         <input type="hidden" name="account_id" value="{{.Transaction.AccountID}}">

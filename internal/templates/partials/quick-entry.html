@@ -133,6 +133,19 @@
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
 
+    <!-- Virtual account (optional envelope allocation) -->
+    {{if .VirtualAccounts}}
+    <div>
+        <select name="virtual_account_id"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">Virtual Account (optional)</option>
+            {{range .VirtualAccounts}}
+            <option value="{{.ID}}">{{.Icon}} {{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+    {{end}}
+
     <!-- Submit (TASK-082: min 44px touch target) -->
     <button type="submit"
         class="w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all active:animate-bounce">

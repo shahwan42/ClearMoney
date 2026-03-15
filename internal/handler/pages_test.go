@@ -475,6 +475,72 @@ func TestTransactionEditForm_Renders(t *testing.T) {
 	}
 }
 
+// TestTransactionEditForm_ShowsVirtualAccount verifies that the edit form displays
+// virtual accounts and pre-selects the one currently allocated to the transaction.
+func TestTransactionEditForm_ShowsVirtualAccount(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Type:           models.AccountTypeCurrent,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name: "Vacation",
+		Icon: "\U0001F3D6",
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create a transaction and allocate it to the virtual account
+	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&virtual_account_id=" + va.ID)
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	router.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Get the transaction ID
+	req = httptest.NewRequest(http.MethodGet, "/api/transactions?limit=1", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var txns []models.Transaction
+	json.NewDecoder(w.Body).Decode(&txns)
+	if len(txns) == 0 {
+		t.Fatal("expected at least 1 transaction")
+	}
+	txID := txns[0].ID
+
+	// Request edit form
+	req = httptest.NewRequest(http.MethodGet, "/transactions/edit/"+txID, nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "virtual_account_id") {
+		t.Error("expected edit form to contain virtual_account_id select")
+	}
+	if !strings.Contains(body, "Vacation") {
+		t.Error("expected edit form to show Vacation virtual account")
+	}
+	if !strings.Contains(body, va.ID) {
+		t.Error("expected edit form to contain virtual account ID")
+	}
+}
+
 // TestTransactionUpdate_ChangesBalance verifies that editing a transaction's amount
 // correctly adjusts the account balance. The service layer reverses the old amount
 // and applies the new one atomically.
@@ -1078,5 +1144,176 @@ func TestTemplateFuncs_FormatNumber(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("formatNumber(%f) = %q, want %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+func TestTransactionCreate_WithVirtualAccount(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name: "Emergency Fund",
+		Icon: "🏦",
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID +
+		"&date=2026-03-15&virtual_account_id=" + va.ID)
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Transaction saved") {
+		t.Error("expected success message in response")
+	}
+
+	// Verify allocation was created
+	var allocAmount float64
+	err := db.QueryRow(`SELECT amount FROM virtual_account_allocations WHERE virtual_account_id = $1`, va.ID).Scan(&allocAmount)
+	if err != nil {
+		t.Fatalf("expected allocation row: %v", err)
+	}
+	if allocAmount != -500 {
+		t.Errorf("expected allocation amount -500 for expense, got %f", allocAmount)
+	}
+
+	// Verify virtual account balance was updated
+	var balance float64
+	err = db.QueryRow(`SELECT current_balance FROM virtual_accounts WHERE id = $1`, va.ID).Scan(&balance)
+	if err != nil {
+		t.Fatalf("querying VA balance: %v", err)
+	}
+	if balance != -500 {
+		t.Errorf("expected VA balance -500, got %f", balance)
+	}
+}
+
+func TestTransactionCreate_WithoutVirtualAccount_NoAllocation(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+	// Create a VA but don't select it in the form
+	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Unused Fund"})
+
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("type=expense&amount=200&currency=EGP&account_id=" + acc.ID + "&date=2026-03-15")
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify no allocation was created
+	var count int
+	err := db.QueryRow(`SELECT COUNT(*) FROM virtual_account_allocations`).Scan(&count)
+	if err != nil {
+		t.Fatalf("querying allocations: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 allocations when no VA selected, got %d", count)
+	}
+}
+
+func TestTransactionDelete_RecalculatesVirtualAccountBalance(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Checking",
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 10000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Travel Fund"})
+
+	router, addAuth := testRouter(t, db)
+
+	// Create a transaction with VA allocation
+	formData := strings.NewReader("type=expense&amount=300&currency=EGP&account_id=" + acc.ID +
+		"&date=2026-03-15&virtual_account_id=" + va.ID)
+	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("create: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Get the transaction ID from the DB
+	var txID string
+	err := db.QueryRow(`SELECT id FROM transactions ORDER BY created_at DESC LIMIT 1`).Scan(&txID)
+	if err != nil {
+		t.Fatalf("getting transaction ID: %v", err)
+	}
+
+	// Verify VA balance is -300 before delete
+	var balance float64
+	err = db.QueryRow(`SELECT current_balance FROM virtual_accounts WHERE id = $1`, va.ID).Scan(&balance)
+	if err != nil {
+		t.Fatalf("querying VA balance: %v", err)
+	}
+	if balance != -300 {
+		t.Fatalf("expected VA balance -300 before delete, got %f", balance)
+	}
+
+	// Delete the transaction
+	req = httptest.NewRequest(http.MethodDelete, "/transactions/"+txID, nil)
+	addAuth(req)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("delete: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify VA balance is back to 0
+	err = db.QueryRow(`SELECT current_balance FROM virtual_accounts WHERE id = $1`, va.ID).Scan(&balance)
+	if err != nil {
+		t.Fatalf("querying VA balance after delete: %v", err)
+	}
+	if balance != 0 {
+		t.Errorf("expected VA balance 0 after delete, got %f", balance)
 	}
 }
