@@ -74,10 +74,7 @@
             <div class="flex items-center gap-1">
                 <button
                     class="text-xs text-teal-600 hover:text-teal-700 px-2 py-1"
-                    hx-get="/accounts/form?institution_id={{.Institution.ID}}"
-                    hx-target="#account-form-area"
-                    hx-swap="innerHTML"
-                    onclick="event.stopPropagation()"
+                    onclick="event.stopPropagation(); openAccountSheet('{{.Institution.ID}}')"
                 >+ Account</button>
                 <button
                     class="text-xs text-gray-400 hover:text-teal-600 px-1 py-1"

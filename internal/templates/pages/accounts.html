@@ -53,9 +53,6 @@
         </button>
     </div>
 
-    <!-- Area where account form appears when "Add Account" is clicked -->
-    <div id="account-form-area"></div>
-
     <!-- Institution list with their accounts -->
     <div id="institution-list" class="space-y-3">
         {{if .Data}}
@@ -95,6 +92,20 @@
         <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
     </div>
     <div id="delete-sheet-content" class="px-4 pb-6">
+        <!-- Content loaded via HTMX when sheet opens -->
+    </div>
+</div>
+
+<!-- Add account bottom sheet overlay -->
+<div id="account-sheet-overlay" class="fixed inset-0 z-[80] bg-black/40 hidden" onclick="closeAccountSheet()"></div>
+
+<!-- Add account bottom sheet -->
+<div id="account-sheet" class="fixed bottom-0 left-0 right-0 z-[90] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[70vh] overflow-y-auto">
+    <!-- Drag handle -->
+    <div class="flex justify-center pt-3 pb-1" id="account-sheet-handle">
+        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+    </div>
+    <div id="account-sheet-content" class="px-4 pb-6">
         <!-- Content loaded via HTMX when sheet opens -->
     </div>
 </div>
@@ -163,6 +174,64 @@ function closeCreateSheet() {
         sheet.style.transform = '';
         if (currentY - startY > 100) {
             closeCreateSheet();
+        } else {
+            sheet.classList.add('translate-y-0');
+        }
+        startY = 0; currentY = 0;
+    });
+})();
+</script>
+
+<script>
+function openAccountSheet(institutionId) {
+    var overlay = document.getElementById('account-sheet-overlay');
+    var sheet = document.getElementById('account-sheet');
+    overlay.classList.remove('hidden');
+    sheet.offsetHeight;
+    sheet.classList.remove('translate-y-full');
+    sheet.classList.add('translate-y-0');
+    document.body.style.overflow = 'hidden';
+    htmx.ajax('GET', '/accounts/form?institution_id=' + institutionId, {
+        target: '#account-sheet-content',
+        swap: 'innerHTML'
+    });
+}
+
+function closeAccountSheet() {
+    var overlay = document.getElementById('account-sheet-overlay');
+    var sheet = document.getElementById('account-sheet');
+    sheet.classList.remove('translate-y-0');
+    sheet.classList.add('translate-y-full');
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    setTimeout(function() {
+        document.getElementById('account-sheet-content').innerHTML = '';
+    }, 300);
+}
+
+(function() {
+    var handle = document.getElementById('account-sheet-handle');
+    var sheet = document.getElementById('account-sheet');
+    if (!handle || !sheet) return;
+    var startY = 0, currentY = 0, isDragging = false;
+    handle.addEventListener('touchstart', function(e) {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        sheet.style.transition = 'none';
+    });
+    handle.addEventListener('touchmove', function(e) {
+        if (!isDragging) return;
+        currentY = e.touches[0].clientY;
+        var diff = currentY - startY;
+        if (diff > 0) sheet.style.transform = 'translateY(' + diff + 'px)';
+    });
+    handle.addEventListener('touchend', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+        if (currentY - startY > 100) {
+            closeAccountSheet();
         } else {
             sheet.classList.add('translate-y-0');
         }

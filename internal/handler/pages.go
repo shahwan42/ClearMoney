@@ -151,6 +151,7 @@ type InstitutionWithAccounts struct {
 type AccountFormData struct {
 	InstitutionID   string
 	InstitutionName string
+	Error           string
 }
 
 // AccountEditFormData holds data for the account edit bottom sheet form.
@@ -2488,28 +2489,19 @@ func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
 		authmw.Log(r.Context()).Warn("account create failed", "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		fmt.Fprintf(w, `<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm mb-3">%s</div>`, err.Error())
 		if tmpl, ok := h.templates["accounts"]; ok {
 			tmpl.ExecuteTemplate(w, "account-form", AccountFormData{
 				InstitutionID:   r.FormValue("institution_id"),
 				InstitutionName: r.FormValue("institution_name_display"),
+				Error:           err.Error(),
 			})
 		}
 		return
 	}
 
-	// Success toast + OOB refresh of the institution list
+	// Success: close the bottom sheet and refresh the institution list via OOB swap
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprint(w, `<div class="bg-teal-50 border border-teal-200 rounded-xl p-4 text-center space-y-2 animate-toast">`)
-	fmt.Fprint(w, `<div class="animate-success inline-block">`)
-	fmt.Fprint(w, `<svg class="w-8 h-8 mx-auto text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">`)
-	fmt.Fprint(w, `<circle cx="12" cy="12" r="10" class="opacity-20" fill="currentColor" stroke="none"/>`)
-	fmt.Fprint(w, `<path d="M7 13l3 3 7-7" class="animate-checkmark" stroke-linecap="round" stroke-linejoin="round"/>`)
-	fmt.Fprint(w, `</svg></div>`)
-	fmt.Fprint(w, `<p class="text-teal-800 font-semibold text-sm">Account added!</p>`)
-	fmt.Fprint(w, `</div>`)
-	// Auto-dismiss: clear the form area after a brief delay
-	fmt.Fprint(w, `<div hx-get="/accounts/empty" hx-trigger="load delay:1.5s" hx-target="#account-form-area" hx-swap="innerHTML"></div>`)
+	fmt.Fprint(w, `<script>closeAccountSheet();</script>`)
 	h.renderInstitutionListOOB(w, r)
 }
 

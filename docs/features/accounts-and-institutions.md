@@ -173,7 +173,7 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 | Template | Purpose |
 |----------|---------|
 | `partials/institution-card.html` | Collapsible card with accounts (HTML5 `<details>/<summary>`) |
-| `partials/account-form.html` | Account creation form (HTMX) |
+| `partials/account-form.html` | Account creation form (rendered in bottom sheet) |
 | `partials/institution-form.html` | Institution creation form (loaded into create bottom sheet) |
 | `partials/institution-edit-form.html` | Institution edit form (loaded into edit bottom sheet) |
 | `partials/institution-delete-confirm.html` | Institution delete confirmation (loaded into delete bottom sheet) |
@@ -209,6 +209,15 @@ All institution CRUD operations use the bottom sheet pattern:
 - **Delete:** Each institution card has a trash icon that opens a delete confirmation sheet. The user must type the institution name to enable the delete button. On success, the institution is removed from the list.
 
 All three sheets share the same UX: slide-up animation, dark overlay, drag-to-dismiss on the handle (100px threshold), and Cancel button.
+
+### Account Creation (Bottom Sheet)
+
+Create a new account via a slide-up bottom sheet on the accounts page. Click "+ Account" on any institution card to open the sheet with the form pre-filled for that institution.
+
+- **Form fields:** name, type, currency, initial balance, credit limit (shown only for credit types)
+- **On success:** sheet closes automatically, institution list refreshes via OOB swap
+- **On error:** error message shown inside the sheet, form re-rendered for retry
+- **Bottom sheet UX:** Slide-up animation, swipe-to-dismiss drag handle, overlay tap-to-close, dark mode support
 
 ### Account Deletion
 
