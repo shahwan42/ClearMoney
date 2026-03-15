@@ -91,7 +91,7 @@
     <!-- Habit Streak -->
     {{if gt .Data.Streak.ConsecutiveDays 0}}
     <div class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5 flex items-center justify-between">
-        <p class="text-xs text-amber-600 dark:text-amber-400 font-medium"><span class="uppercase tracking-wide">Streak</span> <span class="font-bold text-slate-800 dark:text-slate-200">{{.Data.Streak.ConsecutiveDays}} day{{if ne .Data.Streak.ConsecutiveDays 1}}s{{end}}</span></p>
+        <p class="text-xs text-amber-600 dark:text-amber-400 font-medium"><span class="uppercase tracking-wide">Streak</span> <span class="font-bold text-slate-800 dark:text-slate-200">{{.Data.Streak.ConsecutiveDays}} day{{if ne .Data.Streak.ConsecutiveDays 1}}s{{end}}</span>{{if not .Data.Streak.ActiveToday}} <span class="text-orange-500 dark:text-orange-400">· log today to keep it!</span>{{end}}</p>
         <p class="text-xs text-gray-500 dark:text-gray-400">This week · <span class="font-semibold text-slate-700 dark:text-slate-300">{{.Data.Streak.WeeklyCount}} entries</span></p>
     </div>
     {{end}}

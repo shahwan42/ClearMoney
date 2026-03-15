@@ -55,8 +55,9 @@ func (s *StreakService) timezone() *time.Location {
 
 // StreakInfo holds the current streak and weekly count.
 type StreakInfo struct {
-	ConsecutiveDays int // consecutive days with at least one transaction
-	WeeklyCount     int // transactions this week (Mon-Sun)
+	ConsecutiveDays int  // consecutive days with at least one transaction
+	WeeklyCount     int  // transactions this week (Mon-Sun)
+	ActiveToday     bool // whether there's a transaction logged today
 }
 
 // GetStreak computes the current logging streak.
@@ -88,28 +89,48 @@ func (s *StreakService) GetStreak(ctx context.Context) (StreakInfo, error) {
 	}
 	defer rows.Close()
 
+	loc := s.timezone()
 	expected := today
 	for rows.Next() {
 		var d time.Time
 		if err := rows.Scan(&d); err != nil {
 			return info, err
 		}
-		d = d.Truncate(24 * time.Hour)
+		// Normalize DB date the same way timeutil.Today() normalizes "now":
+		// interpret the calendar date as midnight in the user's timezone → UTC.
+		d = time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, loc).UTC()
+
 		if d.Equal(expected) {
 			info.ConsecutiveDays++
+			if expected.Equal(today) {
+				info.ActiveToday = true
+			}
 			expected = expected.AddDate(0, 0, -1)
 		} else if d.Before(expected) {
-			break
+			// Grace period: if no transaction today but yesterday has one,
+			// start counting from yesterday. The user still has until end
+			// of today to extend their streak (like Duolingo/GitHub).
+			if info.ConsecutiveDays == 0 && d.Equal(today.AddDate(0, 0, -1)) {
+				info.ConsecutiveDays++
+				expected = d.AddDate(0, 0, -1)
+			} else {
+				break
+			}
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		return info, err
+	}
+
 	// Weekly count (current week, Mon-Sun)
-	now := timeutil.Now().In(s.timezone())
+	now := timeutil.Now().In(loc)
 	weekday := int(now.Weekday())
 	if weekday == 0 {
 		weekday = 7
 	}
-	monday := now.AddDate(0, 0, -(weekday - 1)).Truncate(24 * time.Hour)
+	mon := now.AddDate(0, 0, -(weekday - 1))
+	monday := time.Date(mon.Year(), mon.Month(), mon.Day(), 0, 0, 0, 0, loc).UTC()
 
 	err = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM transactions WHERE date >= $1 AND date <= $2

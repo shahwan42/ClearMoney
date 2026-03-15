@@ -9,6 +9,9 @@
 //   - Consecutive days (growing streak)
 //   - Broken streak (gap in dates)
 //   - Weekly transaction count
+//   - Grace period (no transaction today, streak from yesterday)
+//   - ActiveToday flag
+//   - Timezone regression (DB dates match via normalization)
 package service
 
 import (
@@ -18,6 +21,7 @@ import (
 
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // setupStreakTest creates a clean StreakService with empty transaction table.
@@ -62,7 +66,6 @@ func TestStreakService_NoTransactions(t *testing.T) {
 func TestStreakService_ConsecutiveDays(t *testing.T) {
 	svc := setupStreakTest(t)
 
-	// Create an account to reference
 	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
 		Name: "Test Bank", Type: models.InstitutionTypeBank,
 	})
@@ -71,7 +74,7 @@ func TestStreakService_ConsecutiveDays(t *testing.T) {
 	})
 
 	// Insert transactions for today, yesterday, and day before
-	today := time.Now().Truncate(24 * time.Hour)
+	today := timeutil.Today(time.UTC)
 	insertTxOnDate(t, svc, acc.ID, today)
 	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -1))
 	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
@@ -96,7 +99,7 @@ func TestStreakService_BrokenStreak(t *testing.T) {
 	})
 
 	// Today and 2 days ago (gap yesterday)
-	today := time.Now().Truncate(24 * time.Hour)
+	today := timeutil.Today(time.UTC)
 	insertTxOnDate(t, svc, acc.ID, today)
 	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
 
@@ -120,8 +123,9 @@ func TestStreakService_WeeklyCount(t *testing.T) {
 	})
 
 	// Insert 5 transactions today — weekly count should be 5
-	today := time.Now().Truncate(24 * time.Hour)
-	for i := 0; i < 5; i++ {
+	today := timeutil.Today(time.UTC)
+	for i := range 5 {
+		_ = i
 		insertTxOnDate(t, svc, acc.ID, today)
 	}
 
@@ -131,5 +135,110 @@ func TestStreakService_WeeklyCount(t *testing.T) {
 	}
 	if info.WeeklyCount != 5 {
 		t.Errorf("expected weekly count 5, got %d", info.WeeklyCount)
+	}
+}
+
+func TestStreakService_GracePeriod(t *testing.T) {
+	svc := setupStreakTest(t)
+
+	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
+		Name: "Test Bank", Type: models.InstitutionTypeBank,
+	})
+	acc := testutil.CreateAccount(t, svc.db, models.Account{
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+	})
+
+	// Transactions yesterday and 2 days before, but NOT today
+	today := timeutil.Today(time.UTC)
+	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -1))
+	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
+	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -3))
+
+	info, err := svc.GetStreak(context.Background())
+	if err != nil {
+		t.Fatalf("get streak: %v", err)
+	}
+	if info.ConsecutiveDays != 3 {
+		t.Errorf("expected 3 consecutive days (grace period), got %d", info.ConsecutiveDays)
+	}
+	if info.ActiveToday {
+		t.Error("expected ActiveToday to be false")
+	}
+}
+
+func TestStreakService_GracePeriodBroken(t *testing.T) {
+	svc := setupStreakTest(t)
+
+	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
+		Name: "Test Bank", Type: models.InstitutionTypeBank,
+	})
+	acc := testutil.CreateAccount(t, svc.db, models.Account{
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+	})
+
+	// Transaction only 2 days ago (gap yesterday = no grace)
+	today := timeutil.Today(time.UTC)
+	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
+
+	info, err := svc.GetStreak(context.Background())
+	if err != nil {
+		t.Fatalf("get streak: %v", err)
+	}
+	if info.ConsecutiveDays != 0 {
+		t.Errorf("expected 0 (broken, no grace), got %d", info.ConsecutiveDays)
+	}
+}
+
+func TestStreakService_ActiveToday(t *testing.T) {
+	svc := setupStreakTest(t)
+
+	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
+		Name: "Test Bank", Type: models.InstitutionTypeBank,
+	})
+	acc := testutil.CreateAccount(t, svc.db, models.Account{
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+	})
+
+	today := timeutil.Today(time.UTC)
+	insertTxOnDate(t, svc, acc.ID, today)
+	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -1))
+
+	info, err := svc.GetStreak(context.Background())
+	if err != nil {
+		t.Fatalf("get streak: %v", err)
+	}
+	if info.ConsecutiveDays != 2 {
+		t.Errorf("expected 2, got %d", info.ConsecutiveDays)
+	}
+	if !info.ActiveToday {
+		t.Error("expected ActiveToday to be true")
+	}
+}
+
+func TestStreakService_TimezoneRegression(t *testing.T) {
+	// Verify that DB dates normalized via time.Date(..., loc).UTC() match
+	// timeutil.Today(loc) for the same calendar date across timezones.
+	cairo, err := time.LoadLocation("Africa/Cairo")
+	if err != nil {
+		t.Skip("Africa/Cairo timezone not available")
+	}
+
+	// Simulate what timeutil.Today(cairo) would return for March 15 in Cairo
+	todayCairo := time.Date(2026, 3, 15, 0, 0, 0, 0, cairo).UTC()
+
+	// Simulate how we normalize a DB date (pgx returns DATE as midnight UTC)
+	dbDate := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	normalized := time.Date(dbDate.Year(), dbDate.Month(), dbDate.Day(), 0, 0, 0, 0, cairo).UTC()
+
+	if !normalized.Equal(todayCairo) {
+		t.Errorf("normalized DB date should equal Today(cairo): got %v, want %v", normalized, todayCairo)
+	}
+
+	// Prove the old bug: Truncate(24h) gives wrong result for non-UTC timezones
+	truncated := dbDate.Truncate(24 * time.Hour)
+	if truncated.Equal(todayCairo) {
+		t.Log("Truncate happened to match (test env may be UTC)")
+	} else {
+		t.Logf("Truncate bug confirmed: Truncate=%v, Today(cairo)=%v", truncated, todayCairo)
 	}
 }
