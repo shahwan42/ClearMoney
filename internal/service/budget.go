@@ -29,11 +29,26 @@ import (
 	"github.com/shahwan42/clearmoney/internal/logutil"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // BudgetService handles business logic for budgets.
 type BudgetService struct {
 	budgetRepo *repository.BudgetRepo
+	loc        *time.Location // User timezone for "this month" calculation
+}
+
+// SetTimezone sets the user's timezone for calendar-date operations.
+func (s *BudgetService) SetTimezone(loc *time.Location) {
+	s.loc = loc
+}
+
+// timezone returns the configured timezone or UTC as fallback.
+func (s *BudgetService) timezone() *time.Location {
+	if s.loc != nil {
+		return s.loc
+	}
+	return time.UTC
 }
 
 func NewBudgetService(budgetRepo *repository.BudgetRepo) *BudgetService {
@@ -44,7 +59,7 @@ func NewBudgetService(budgetRepo *repository.BudgetRepo) *BudgetService {
 // The spending data comes from a PostgreSQL JOIN: budgets LEFT JOIN transactions
 // grouped by category for the current month. The repo handles the SQL complexity.
 func (s *BudgetService) GetAllWithSpending(ctx context.Context) ([]models.BudgetWithSpending, error) {
-	now := time.Now()
+	now := timeutil.Now().In(s.timezone())
 	return s.budgetRepo.GetAllWithSpending(ctx, now.Year(), now.Month())
 }
 

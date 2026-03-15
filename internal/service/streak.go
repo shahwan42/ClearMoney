@@ -25,16 +25,32 @@ import (
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // StreakService uses *sql.DB directly (like ReportsService) for specialized queries.
 type StreakService struct {
-	db *sql.DB
+	db  *sql.DB
+	loc *time.Location // User timezone for "today" calculation
 }
 
 // NewStreakService creates the service with a database connection pool.
 func NewStreakService(db *sql.DB) *StreakService {
 	return &StreakService{db: db}
+}
+
+// SetTimezone sets the user's timezone for calendar-date operations.
+func (s *StreakService) SetTimezone(loc *time.Location) {
+	s.loc = loc
+}
+
+// timezone returns the configured timezone or UTC as fallback.
+func (s *StreakService) timezone() *time.Location {
+	if s.loc != nil {
+		return s.loc
+	}
+	return time.UTC
 }
 
 // StreakInfo holds the current streak and weekly count.
@@ -46,10 +62,10 @@ type StreakInfo struct {
 // GetStreak computes the current logging streak.
 //
 // Algorithm:
-//   1. Query DISTINCT transaction dates, sorted DESC, limited to 365 days
-//   2. Walk backwards from today: if the date matches expected, increment streak
-//   3. If there's a gap, break
-//   4. Separately count this week's total transactions (Mon-Sun)
+//  1. Query DISTINCT transaction dates, sorted DESC, limited to 365 days
+//  2. Walk backwards from today: if the date matches expected, increment streak
+//  3. If there's a gap, break
+//  4. Separately count this week's total transactions (Mon-Sun)
 //
 // Go pattern: `defer rows.Close()` ensures the database rows are released back
 // to the connection pool even if an error occurs. This is CRITICAL in Go — forgetting
@@ -58,19 +74,20 @@ type StreakInfo struct {
 func (s *StreakService) GetStreak(ctx context.Context) (StreakInfo, error) {
 	var info StreakInfo
 
+	today := timeutil.Today(s.timezone())
+
 	// Count consecutive days with transactions, going backwards from today
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT date::date AS d FROM transactions
-		WHERE date <= CURRENT_DATE
+		WHERE date <= $1
 		ORDER BY d DESC
 		LIMIT 365
-	`)
+	`, today)
 	if err != nil {
 		return info, err
 	}
 	defer rows.Close()
 
-	today := time.Now().Truncate(24 * time.Hour)
 	expected := today
 	for rows.Next() {
 		var d time.Time
@@ -87,7 +104,7 @@ func (s *StreakService) GetStreak(ctx context.Context) (StreakInfo, error) {
 	}
 
 	// Weekly count (current week, Mon-Sun)
-	now := time.Now()
+	now := timeutil.Now().In(s.timezone())
 	weekday := int(now.Weekday())
 	if weekday == 0 {
 		weekday = 7

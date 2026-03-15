@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // requireTrimmedName trims whitespace from a name field and returns an error
@@ -42,10 +44,10 @@ func requirePositiveInt(value int, fieldName string) error {
 	return nil
 }
 
-// defaultDate returns the given date if non-zero, or time.Now() otherwise.
+// defaultDate returns the given date if non-zero, or the current UTC time otherwise.
 func defaultDate(d time.Time) time.Time {
 	if d.IsZero() {
-		return time.Now()
+		return timeutil.Now()
 	}
 	return d
 }

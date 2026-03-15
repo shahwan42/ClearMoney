@@ -53,6 +53,7 @@ internal/
   service/                # Business logic (like Laravel Services)
   templates/              # Embedded HTML templates (Go html/template)
   testutil/               # Test DB helpers + fixture factories
+  timeutil/               # Timezone utilities: Now(), Today(), MonthStart/End, ParseDateInTZ
 static/                   # CSS, JS, service worker, manifest
 ```
 
@@ -118,6 +119,7 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 - Template float comparison: use `0.0` not `0` (Go templates can't compare float64 with int)
 - Error wrapping: `fmt.Errorf("operation: %w", err)` at service/repo layers
 - Structured logging: `slog.Error("msg", "key", value)` — never log PINs or secrets
+- Timezone handling: Always use `timeutil.Now()` instead of `time.Now()` for business logic. Use `timeutil.Today(loc)` for calendar-date operations (e.g., "today", streak, snapshots). Use `timeutil.MonthStart/MonthEnd` for month boundaries. Leave `time.Now()` for performance timing and infrastructure (auth, middleware). Services that need timezone get a `SetTimezone(loc *time.Location)` setter
 
 ### respondError Pattern
 
@@ -272,6 +274,7 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 | `DATABASE_URL` | (none) | PostgreSQL connection string |
 | `ENV` | `development` | Environment mode |
 | `LOG_LEVEL` | `info` | Logging level: debug, info, warn, error |
+| `APP_TIMEZONE` | `Africa/Cairo` | User timezone for date display and calendar logic |
 | `VAPID_PUBLIC_KEY` | (none) | Web Push VAPID public key |
 | `VAPID_PRIVATE_KEY` | (none) | Web Push VAPID private key |
 

@@ -32,6 +32,7 @@ import (
 
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // SnapshotService manages creation and retrieval of daily balance snapshots.
@@ -42,6 +43,20 @@ type SnapshotService struct {
 	accountRepo      *repository.AccountRepo
 	institutionRepo  *repository.InstitutionRepo
 	exchangeRateRepo *repository.ExchangeRateRepo
+	loc              *time.Location // User timezone for "today" calculation
+}
+
+// SetTimezone sets the user's timezone for calendar-date operations.
+func (s *SnapshotService) SetTimezone(loc *time.Location) {
+	s.loc = loc
+}
+
+// timezone returns the configured timezone or UTC as fallback.
+func (s *SnapshotService) timezone() *time.Location {
+	if s.loc != nil {
+		return s.loc
+	}
+	return time.UTC
 }
 
 // NewSnapshotService creates a SnapshotService with required dependencies.
@@ -68,7 +83,7 @@ func NewSnapshotService(
 // 3. Store daily snapshot (net worth, spending, income)
 // 4. Store per-account snapshots
 func (s *SnapshotService) TakeSnapshot(ctx context.Context) error {
-	today := time.Now().Truncate(24 * time.Hour)
+	today := timeutil.Today(s.timezone())
 	return s.takeSnapshotForDate(ctx, today, true)
 }
 
@@ -170,7 +185,7 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 // Idempotency: checks snapshotRepo.Exists() before creating, so calling this
 // repeatedly is safe (like Laravel's firstOrCreate or Django's get_or_create).
 func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int, error) {
-	today := time.Now().Truncate(24 * time.Hour)
+	today := timeutil.Today(s.timezone())
 	count := 0
 
 	for i := days; i >= 0; i-- {
@@ -199,8 +214,9 @@ func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int,
 // GetNetWorthHistory returns daily net worth values for the last N days.
 // Returns a slice of float64 values suitable for sparklinePoints().
 func (s *SnapshotService) GetNetWorthHistory(ctx context.Context, days int) ([]float64, error) {
-	from := time.Now().AddDate(0, 0, -days).Truncate(24 * time.Hour)
-	to := time.Now().Truncate(24 * time.Hour)
+	today := timeutil.Today(s.timezone())
+	from := today.AddDate(0, 0, -days)
+	to := today
 
 	snapshots, err := s.snapshotRepo.GetDailyRange(ctx, from, to)
 	if err != nil {
@@ -217,8 +233,9 @@ func (s *SnapshotService) GetNetWorthHistory(ctx context.Context, days int) ([]f
 // GetAccountHistory returns daily balances for a specific account over N days.
 // Returns a slice of float64 values suitable for sparklinePoints().
 func (s *SnapshotService) GetAccountHistory(ctx context.Context, accountID string, days int) ([]float64, error) {
-	from := time.Now().AddDate(0, 0, -days).Truncate(24 * time.Hour)
-	to := time.Now().Truncate(24 * time.Hour)
+	today := timeutil.Today(s.timezone())
+	from := today.AddDate(0, 0, -days)
+	to := today
 
 	snapshots, err := s.snapshotRepo.GetAccountRange(ctx, accountID, from, to)
 	if err != nil {

@@ -72,7 +72,7 @@ type TemplateMap map[string]*template.Template
 // In Django, you'd create a templatetags module with @register.filter.
 //
 // See: https://pkg.go.dev/html/template#FuncMap
-func TemplateFuncs() template.FuncMap {
+func TemplateFuncs(loc *time.Location) template.FuncMap {
 	funcs := template.FuncMap{
 		// formatEGP formats a float as Egyptian Pounds: "EGP 1,234.56"
 		"formatEGP": func(amount float64) string {
@@ -93,17 +93,17 @@ func TemplateFuncs() template.FuncMap {
 				return "EGP " + formatNumber(amount)
 			}
 		},
-		// formatDate displays a time.Time as "Jan 2, 2006"
+		// formatDate displays a time.Time as "Jan 2, 2006" in the user's timezone
 		"formatDate": func(t time.Time) string {
-			return t.Format("Jan 2, 2006")
+			return t.In(loc).Format("Jan 2, 2006")
 		},
-		// formatDateShort displays as "Jan 2"
+		// formatDateShort displays as "Jan 2" in the user's timezone
 		"formatDateShort": func(t time.Time) string {
-			return t.Format("Jan 2")
+			return t.In(loc).Format("Jan 2")
 		},
-		// formatDateISO returns "2006-01-02" for HTML date inputs
+		// formatDateISO returns "2006-01-02" in the user's timezone for HTML date inputs
 		"formatDateISO": func(t time.Time) string {
-			return t.Format("2006-01-02")
+			return t.In(loc).Format("2006-01-02")
 		},
 		// formatDuration converts seconds to a human-readable duration string.
 		// Used by the login lockout countdown display.
@@ -265,7 +265,7 @@ func formatNumber(n float64) string {
 //
 // See: https://pkg.go.dev/html/template#Template.Clone
 // See: https://pkg.go.dev/io/fs (for embedded filesystems)
-func ParseTemplates(templateFS fs.FS) (TemplateMap, error) {
+func ParseTemplates(templateFS fs.FS, loc *time.Location) (TemplateMap, error) {
 	// Shared files: layouts + components + partials (parsed once, cloned per page)
 	sharedFiles := []string{
 		"layouts/base.html",
@@ -282,7 +282,7 @@ func ParseTemplates(templateFS fs.FS) (TemplateMap, error) {
 	sharedFiles = append(sharedFiles, partialFiles...)
 
 	// Parse shared templates
-	base, err := template.New("").Funcs(TemplateFuncs()).ParseFS(templateFS, sharedFiles...)
+	base, err := template.New("").Funcs(TemplateFuncs(loc)).ParseFS(templateFS, sharedFiles...)
 	if err != nil {
 		return nil, fmt.Errorf("parsing base templates: %w", err)
 	}

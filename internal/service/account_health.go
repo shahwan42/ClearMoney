@@ -26,6 +26,7 @@ import (
 
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // AccountHealthWarning represents a violated health constraint on an account.
@@ -43,6 +44,20 @@ type AccountHealthWarning struct {
 type AccountHealthService struct {
 	accountRepo *repository.AccountRepo
 	txRepo      *repository.TransactionRepo
+	loc         *time.Location // User timezone for month boundary calculation
+}
+
+// SetTimezone sets the user's timezone for calendar-date operations.
+func (s *AccountHealthService) SetTimezone(loc *time.Location) {
+	s.loc = loc
+}
+
+// timezone returns the configured timezone or UTC as fallback.
+func (s *AccountHealthService) timezone() *time.Location {
+	if s.loc != nil {
+		return s.loc
+	}
+	return time.UTC
 }
 
 func NewAccountHealthService(accountRepo *repository.AccountRepo, txRepo *repository.TransactionRepo) *AccountHealthService {
@@ -81,9 +96,9 @@ func (s *AccountHealthService) CheckAll(ctx context.Context) []AccountHealthWarn
 
 		// Check minimum monthly deposit
 		if cfg.MinMonthlyDeposit != nil {
-			now := time.Now()
-			monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-			monthEnd := monthStart.AddDate(0, 1, 0)
+			now := timeutil.Now()
+			monthStart := timeutil.MonthStart(now, s.timezone())
+			monthEnd := timeutil.MonthEnd(now, s.timezone())
 			hasDeposit := s.txRepo.HasDepositInRange(ctx, acc.ID, *cfg.MinMonthlyDeposit, monthStart, monthEnd)
 			if !hasDeposit {
 				warnings = append(warnings, AccountHealthWarning{

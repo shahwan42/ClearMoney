@@ -29,6 +29,7 @@ import (
 	"github.com/shahwan42/clearmoney/internal/logutil"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // PersonService handles person CRUD and loan/repayment logic.
@@ -347,7 +348,7 @@ func (s *PersonService) GetDebtSummary(ctx context.Context, personID string) (De
 				avgIntervalDays := totalDays / float64(len(repaymentDates)-1)
 				paymentsNeeded := remaining / avgRepayment
 				daysToPayoff := paymentsNeeded * avgIntervalDays
-				summary.ProjectedPayoff = time.Now().AddDate(0, 0, int(daysToPayoff))
+				summary.ProjectedPayoff = timeutil.Now().AddDate(0, 0, int(daysToPayoff))
 			}
 		}
 	}

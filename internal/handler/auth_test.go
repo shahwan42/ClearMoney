@@ -28,6 +28,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/testutil"
 )
@@ -36,7 +37,7 @@ func TestLoginPage_RedirectsToSetupWhenNotConfigured(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	db.Exec("TRUNCATE TABLE user_config")
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	req := httptest.NewRequest(http.MethodGet, "/login", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -53,7 +54,7 @@ func TestSetupPage_RendersWhenNotConfigured(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	db.Exec("TRUNCATE TABLE user_config")
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -71,7 +72,7 @@ func TestSetupPage_RedirectsToLoginWhenAlreadyConfigured(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db) // creates a user_config row
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -88,7 +89,7 @@ func TestSetupSubmit_CreatesPINAndRedirects(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	db.Exec("TRUNCATE TABLE user_config")
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	form := strings.NewReader("pin=1234&confirm_pin=1234")
 	req := httptest.NewRequest(http.MethodPost, "/setup", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -119,7 +120,7 @@ func TestSetupSubmit_MismatchedPINs(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	db.Exec("TRUNCATE TABLE user_config")
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	form := strings.NewReader("pin=1234&confirm_pin=5678")
 	req := httptest.NewRequest(http.MethodPost, "/setup", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -138,7 +139,7 @@ func TestLoginSubmit_CorrectPIN(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db) // PIN is "1234"
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	form := strings.NewReader("pin=1234")
 	req := httptest.NewRequest(http.MethodPost, "/login", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -157,7 +158,7 @@ func TestLoginSubmit_WrongPIN(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db)
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	form := strings.NewReader("pin=9999")
 	req := httptest.NewRequest(http.MethodPost, "/login", form)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -176,7 +177,7 @@ func TestProtectedRoute_RedirectsWithoutAuth(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db)
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -232,7 +233,7 @@ func TestHealthz_PublicWithoutAuth(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db)
 
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -258,7 +259,7 @@ func submitLogin(t *testing.T, router http.Handler, pin string) *httptest.Respon
 func TestLoginSubmit_LockoutAfterMultipleFailures(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db)
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 
 	// 3 free failures
 	for i := 0; i < 3; i++ {
@@ -285,7 +286,7 @@ func TestLoginSubmit_LockoutAfterMultipleFailures(t *testing.T) {
 func TestLoginSubmit_LockoutBlocksCorrectPIN(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db)
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 
 	// Trigger lockout
 	for i := 0; i < 4; i++ {
@@ -305,7 +306,7 @@ func TestLoginSubmit_LockoutBlocksCorrectPIN(t *testing.T) {
 func TestLoginSubmit_SuccessResetsCounter(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db)
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 
 	// 2 failures
 	submitLogin(t, router, "9999")
@@ -329,7 +330,7 @@ func TestLoginSubmit_SuccessResetsCounter(t *testing.T) {
 func TestLoginPage_ShowsLockoutOnGET(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.SetupAuth(t, db)
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 
 	// Trigger lockout via POST
 	for i := 0; i < 4; i++ {

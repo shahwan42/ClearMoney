@@ -17,6 +17,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/models"
 )
@@ -93,18 +94,18 @@ func (r *RecurringRepo) GetAll(ctx context.Context) ([]models.RecurringRule, err
 
 // GetDue retrieves all active rules where next_due_date <= today.
 // Called at application startup to process any rules that came due since last run.
+// The today parameter should be the current date in the user's timezone (via timeutil.Today).
 //
-// CURRENT_DATE is a PostgreSQL built-in that returns today's date (server time).
-//   Laravel:  RecurringRule::where('is_active', true)->where('next_due_date', '<=', now())->get()
-//   Django:   RecurringRule.objects.filter(is_active=True, next_due_date__lte=date.today())
-func (r *RecurringRepo) GetDue(ctx context.Context) ([]models.RecurringRule, error) {
+//	Laravel:  RecurringRule::where('is_active', true)->where('next_due_date', '<=', now())->get()
+//	Django:   RecurringRule.objects.filter(is_active=True, next_due_date__lte=date.today())
+func (r *RecurringRepo) GetDue(ctx context.Context, today time.Time) ([]models.RecurringRule, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, template_transaction, frequency, day_of_month, next_due_date,
 			is_active, auto_confirm, created_at, updated_at
 		FROM recurring_rules
-		WHERE is_active = true AND next_due_date <= CURRENT_DATE
+		WHERE is_active = true AND next_due_date <= $1
 		ORDER BY next_due_date ASC
-	`)
+	`, today)
 	if err != nil {
 		return nil, fmt.Errorf("querying due rules: %w", err)
 	}

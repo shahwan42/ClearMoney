@@ -41,6 +41,7 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/repository"
 	"github.com/shahwan42/clearmoney/internal/service"
@@ -64,7 +65,7 @@ import (
 //
 // In Django, you'd import the service directly or use dependency-injector.
 // In Go, you wire it up explicitly — more typing, but no "magic" to debug.
-func TakeSnapshots(ctx context.Context, db *sql.DB) (int, error) {
+func TakeSnapshots(ctx context.Context, db *sql.DB, loc *time.Location) (int, error) {
 	// Wire up the snapshot service with its dependencies.
 	// Each repository wraps *sql.DB with typed query methods (like Laravel
 	// repositories or Django managers). The service orchestrates them.
@@ -74,6 +75,7 @@ func TakeSnapshots(ctx context.Context, db *sql.DB) (int, error) {
 	exchangeRateRepo := repository.NewExchangeRateRepo(db)
 
 	snapshotSvc := service.NewSnapshotService(snapshotRepo, accountRepo, institutionRepo, exchangeRateRepo)
+	snapshotSvc.SetTimezone(loc)
 
 	// Take today's snapshot first (uses current balances, most accurate).
 	// We log the error but continue to backfill — partial success is better

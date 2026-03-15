@@ -62,7 +62,7 @@ import (
 // dependencies explicitly, which makes the wiring visible and testable.
 //
 // See: https://go-chi.io/#/pages/routing for chi routing patterns
-func NewRouter(db *sql.DB) *chi.Mux {
+func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 	// chi.NewRouter() creates a new HTTP multiplexer (router).
 	// Like: $router = new Router() in Laravel, or urlpatterns = [] in Django.
 	r := chi.NewRouter()
@@ -88,7 +88,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	// Go embeds template files into the binary at compile time (via //go:embed).
 	// This means no file I/O at runtime — templates travel with the binary.
 	// Like Laravel's Blade compilation, but done at build time.
-	tmpl, err := ParseTemplates(templates.FS)
+	tmpl, err := ParseTemplates(templates.FS, loc)
 	if err != nil {
 		slog.Error("failed to parse templates", "error", err)
 		os.Exit(1)
@@ -105,6 +105,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	// PageHandler is nil-safe — it renders empty-state templates when services are nil.
 	if db == nil {
 		pages := NewPageHandler(tmpl, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		pages.SetTimezone(loc)
 		r.Get("/", pages.Home)
 		return r
 	}
@@ -140,15 +141,19 @@ func NewRouter(db *sql.DB) *chi.Mux {
 	investmentSvc := service.NewInvestmentService(investmentRepo)
 	dashboardSvc.SetInvestmentRepo(investmentRepo)
 	streakSvc := service.NewStreakService(db)
+	streakSvc.SetTimezone(loc)
 	dashboardSvc.SetStreakService(streakSvc)
+	dashboardSvc.SetTimezone(loc)
 	// Wire snapshot service for net worth sparkline (TASK-055)
 	snapshotRepo := repository.NewSnapshotRepo(db)
 	snapshotSvc := service.NewSnapshotService(snapshotRepo, accountRepo, institutionRepo, exchangeRateRepo)
+	snapshotSvc.SetTimezone(loc)
 	dashboardSvc.SetSnapshotService(snapshotSvc)
 	dashboardSvc.SetDB(db)
 	reportsSvc := service.NewReportsService(db)
 	recurringRepo := repository.NewRecurringRepo(db)
 	recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
+	recurringSvc.SetTimezone(loc)
 	accountSvc.SetRecurringRepo(recurringRepo) // BUG-012: clean up stale rules when account is deleted
 	installmentRepo := repository.NewInstallmentRepo(db)
 	installmentSvc := service.NewInstallmentService(installmentRepo, txSvc)
@@ -225,6 +230,7 @@ func NewRouter(db *sql.DB) *chi.Mux {
 			r.Use(authmw.RateLimit(generalLimiter))
 
 			pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
+			pages.SetTimezone(loc)
 			pages.SetSnapshotService(snapshotSvc) // TASK-059: account balance sparklines
 			// TASK-062/063: Wire virtual account service
 			virtualAccountRepo := repository.NewVirtualAccountRepo(db)
@@ -234,10 +240,12 @@ func NewRouter(db *sql.DB) *chi.Mux {
 			// TASK-065: Wire budget service
 			budgetRepo := repository.NewBudgetRepo(db)
 			budgetSvc := service.NewBudgetService(budgetRepo)
+			budgetSvc.SetTimezone(loc)
 			pages.SetBudgetService(budgetSvc)
 			dashboardSvc.SetBudgetService(budgetSvc)
 			// TASK-068: Wire account health service
 			healthSvc := service.NewAccountHealthService(accountRepo, txRepo)
+			healthSvc.SetTimezone(loc)
 			pages.SetAccountHealthService(healthSvc)
 			dashboardSvc.SetAccountHealthService(healthSvc)
 			r.Get("/", pages.Home)

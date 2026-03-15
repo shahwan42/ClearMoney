@@ -31,6 +31,7 @@ import (
 	"github.com/shahwan42/clearmoney/internal/logutil"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // RecurringService manages recurring transaction rules.
@@ -41,6 +42,20 @@ import (
 type RecurringService struct {
 	recurringRepo *repository.RecurringRepo
 	txSvc         *TransactionService
+	loc           *time.Location // User timezone for "today" calculation
+}
+
+// SetTimezone sets the user's timezone for calendar-date operations.
+func (s *RecurringService) SetTimezone(loc *time.Location) {
+	s.loc = loc
+}
+
+// timezone returns the configured timezone or UTC as fallback.
+func (s *RecurringService) timezone() *time.Location {
+	if s.loc != nil {
+		return s.loc
+	}
+	return time.UTC
 }
 
 func NewRecurringService(recurringRepo *repository.RecurringRepo, txSvc *TransactionService) *RecurringService {
@@ -73,7 +88,7 @@ func (s *RecurringService) GetAll(ctx context.Context) ([]models.RecurringRule, 
 
 // GetDuePending returns rules that are due but need user confirmation (auto_confirm=false).
 func (s *RecurringService) GetDuePending(ctx context.Context) ([]models.RecurringRule, error) {
-	rules, err := s.recurringRepo.GetDue(ctx)
+	rules, err := s.recurringRepo.GetDue(ctx, timeutil.Today(s.timezone()))
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +104,7 @@ func (s *RecurringService) GetDuePending(ctx context.Context) ([]models.Recurrin
 // ProcessDueRules checks all due rules and auto-creates transactions for auto_confirm ones.
 // Returns the number of transactions created.
 func (s *RecurringService) ProcessDueRules(ctx context.Context) (int, error) {
-	rules, err := s.recurringRepo.GetDue(ctx)
+	rules, err := s.recurringRepo.GetDue(ctx, timeutil.Today(s.timezone()))
 	if err != nil {
 		return 0, err
 	}

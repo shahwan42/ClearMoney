@@ -73,6 +73,7 @@ import (
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
 	"github.com/shahwan42/clearmoney/internal/service"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // parseFloat is a convenience wrapper around strconv.ParseFloat.
@@ -82,12 +83,12 @@ func parseFloat(s string) (float64, error) {
 	return strconv.ParseFloat(s, 64)
 }
 
-// parseDate is a convenience wrapper for parsing "YYYY-MM-DD" date strings.
-// Go's time.Parse uses a reference date layout (2006-01-02 = Jan 2, 2006).
-// In PHP: DateTime::createFromFormat('Y-m-d', $str)
-// In Python: datetime.strptime(str, '%Y-%m-%d')
-func parseDate(s string) (time.Time, error) {
-	return time.Parse("2006-01-02", s)
+// parseDate parses a "YYYY-MM-DD" date string as midnight in the user's timezone,
+// returning UTC. This ensures date inputs from forms are interpreted correctly.
+// In PHP: DateTime::createFromFormat('Y-m-d', $str, new DateTimeZone('Africa/Cairo'))
+// In Python: datetime.strptime(str, '%Y-%m-%d').replace(tzinfo=user_tz)
+func (h *PageHandler) parseDate(s string) (time.Time, error) {
+	return timeutil.ParseDateInTZ(s, h.loc)
 }
 
 // htmxRedirect sends HX-Redirect for HTMX requests or http.Redirect for standard POST forms.
@@ -313,6 +314,7 @@ type SalarySuccessData struct {
 // This allows the handler to work in "no-DB mode" for template-only rendering.
 type PageHandler struct {
 	templates      TemplateMap
+	loc            *time.Location // User timezone for date parsing and display
 	institutionSvc *service.InstitutionService
 	accountSvc     *service.AccountService
 	categorySvc    *service.CategoryService
@@ -357,6 +359,11 @@ func NewPageHandler(templates TemplateMap, institutionSvc *service.InstitutionSe
 		authSvc:          authSvc,
 		exchangeRateRepo: exchangeRateRepo,
 	}
+}
+
+// SetTimezone sets the user's timezone for date parsing and display.
+func (h *PageHandler) SetTimezone(loc *time.Location) {
+	h.loc = loc
 }
 
 // SetSnapshotService sets the snapshot service for account balance sparklines (TASK-059).
@@ -559,7 +566,7 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 		Accounts:          accounts,
 		ExpenseCategories: expenseCategories,
 		IncomeCategories:  incomeCategories,
-		Today:             time.Now(),
+		Today:             timeutil.Now(),
 	}
 
 	// If ?dup=<id> is provided, pre-fill from that transaction
@@ -612,7 +619,7 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 		tx.Note = &note
 	}
 	if dateStr := r.FormValue("date"); dateStr != "" {
-		if parsed, err := parseDate(dateStr); err == nil {
+		if parsed, err := h.parseDate(dateStr); err == nil {
 			tx.Date = parsed
 		}
 	}
@@ -726,12 +733,12 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 		}
 	}
 	if v := q.Get("date_from"); v != "" {
-		if t, err := parseDate(v); err == nil {
+		if t, err := h.parseDate(v); err == nil {
 			f.DateFrom = &t
 		}
 	}
 	if v := q.Get("date_to"); v != "" {
-		if t, err := parseDate(v); err == nil {
+		if t, err := h.parseDate(v); err == nil {
 			f.DateTo = &t
 		}
 	}
@@ -748,7 +755,7 @@ func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 		ActiveTab: "transactions",
 		Data: TransactionFormData{
 			Accounts: accounts,
-			Today:    time.Now(),
+			Today:    timeutil.Now(),
 		},
 	})
 }
@@ -762,7 +769,7 @@ func (h *PageHandler) ExchangeNew(w http.ResponseWriter, r *http.Request) {
 		ActiveTab: "transactions",
 		Data: TransactionFormData{
 			Accounts: accounts,
-			Today:    time.Now(),
+			Today:    timeutil.Now(),
 		},
 	})
 }
@@ -787,7 +794,7 @@ func (h *PageHandler) TransferCreate(w http.ResponseWriter, r *http.Request) {
 
 	var date time.Time
 	if d := r.FormValue("date"); d != "" {
-		date, _ = parseDate(d)
+		date, _ = h.parseDate(d)
 	}
 
 	// If currency not provided, look it up from the source account
@@ -829,7 +836,7 @@ func (h *PageHandler) InstapayTransferCreate(w http.ResponseWriter, r *http.Requ
 
 	var date time.Time
 	if d := r.FormValue("date"); d != "" {
-		date, _ = parseDate(d)
+		date, _ = h.parseDate(d)
 	}
 
 	// If currency not provided, look it up from source account
@@ -890,7 +897,7 @@ func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
 		params.Note = &v
 	}
 	if v := r.FormValue("date"); v != "" {
-		if t, err := parseDate(v); err == nil {
+		if t, err := h.parseDate(v); err == nil {
 			params.Date = t
 		}
 	}
@@ -984,7 +991,7 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 		tx.Note = &note
 	}
 	if dateStr := r.FormValue("date"); dateStr != "" {
-		if parsed, err := parseDate(dateStr); err == nil {
+		if parsed, err := h.parseDate(dateStr); err == nil {
 			tx.Date = parsed
 		}
 	}
@@ -1273,7 +1280,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	var billingCycle *service.BillingCycleInfo
 	if acc.IsCreditType() {
 		if meta := service.ParseBillingCycle(acc); meta != nil {
-			info := service.GetBillingCycleInfo(*meta, time.Now())
+			info := service.GetBillingCycleInfo(*meta, timeutil.Now())
 			billingCycle = &info
 		}
 	}
@@ -1450,7 +1457,7 @@ func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) 
 	}
 	tmpl.ExecuteTemplate(w, "quick-exchange-form", TransactionFormData{
 		Accounts: accounts,
-		Today:    time.Now(),
+		Today:    timeutil.Now(),
 	})
 }
 
@@ -1468,7 +1475,7 @@ func (h *PageHandler) QuickTransferForm(w http.ResponseWriter, r *http.Request) 
 	}
 	tmpl.ExecuteTemplate(w, "quick-transfer-form", TransactionFormData{
 		Accounts: accounts,
-		Today:    time.Now(),
+		Today:    timeutil.Now(),
 	})
 }
 
@@ -1494,7 +1501,7 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 		tx.Note = &note
 	}
 	if dateStr := r.FormValue("date"); dateStr != "" {
-		if parsed, err := parseDate(dateStr); err == nil {
+		if parsed, err := h.parseDate(dateStr); err == nil {
 			tx.Date = parsed
 		}
 	}
@@ -1545,7 +1552,7 @@ func (h *PageHandler) Salary(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "salary", PageData{
 		ActiveTab: "home",
-		Data:      SalaryStepData{Accounts: accounts, Today: time.Now()},
+		Data:      SalaryStepData{Accounts: accounts, Today: timeutil.Now()},
 	})
 }
 
@@ -1627,7 +1634,7 @@ func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
 
 	var date time.Time
 	if d := r.FormValue("date"); d != "" {
-		date, _ = parseDate(d)
+		date, _ = h.parseDate(d)
 	}
 
 	// Collect allocations from form fields named alloc_<account_id>
@@ -1683,7 +1690,7 @@ func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "fawry-cashout", PageData{
 		ActiveTab: "home",
-		Data:      TransactionFormData{Accounts: accounts, Today: time.Now()},
+		Data:      TransactionFormData{Accounts: accounts, Today: timeutil.Now()},
 	})
 }
 
@@ -1708,7 +1715,7 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 
 	var date time.Time
 	if d := r.FormValue("date"); d != "" {
-		date, _ = parseDate(d)
+		date, _ = h.parseDate(d)
 	}
 
 	// Look up "Fees & Charges" category
@@ -1744,7 +1751,7 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 // (income vs expenses trend). Both charts use CSS-only rendering (see charts.go).
 func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "reports")
-	now := time.Now()
+	now := timeutil.Now().In(h.loc)
 	year, month := now.Year(), now.Month()
 
 	// Parse optional year/month query params
@@ -1828,7 +1835,7 @@ func (h *PageHandler) Recurring(w http.ResponseWriter, r *http.Request) {
 			PendingRules: pendingViews,
 			Accounts:     accounts,
 			Categories:   categories,
-			Today:        time.Now(),
+			Today:        timeutil.Now(),
 		}
 	}
 
@@ -1871,7 +1878,7 @@ func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
 
 	var nextDue time.Time
 	if d := r.FormValue("next_due_date"); d != "" {
-		nextDue, _ = parseDate(d)
+		nextDue, _ = h.parseDate(d)
 	}
 
 	rule := models.RecurringRule{
@@ -2025,7 +2032,7 @@ func (h *PageHandler) SyncTransactions(w http.ResponseWriter, r *http.Request) {
 			tx.Note = &t.Note
 		}
 		if t.Date != "" {
-			if parsed, err := parseDate(t.Date); err == nil {
+			if parsed, err := h.parseDate(t.Date); err == nil {
 				tx.Date = parsed
 			}
 		}
@@ -2142,7 +2149,7 @@ func (h *PageHandler) Installments(w http.ResponseWriter, r *http.Request) {
 	plans, _ := h.installmentSvc.GetAll(r.Context())
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
-	data := InstallmentPageData{Plans: plans, Accounts: accounts, Today: time.Now()}
+	data := InstallmentPageData{Plans: plans, Accounts: accounts, Today: timeutil.Now()}
 	RenderPage(h.templates, w, "installments", PageData{ActiveTab: "more", Data: data})
 }
 
@@ -2152,7 +2159,7 @@ func (h *PageHandler) InstallmentAdd(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	totalAmount, _ := parseFloat(r.FormValue("total_amount"))
 	numInstallments, _ := strconv.Atoi(r.FormValue("num_installments"))
-	startDate, _ := parseDate(r.FormValue("start_date"))
+	startDate, _ := h.parseDate(r.FormValue("start_date"))
 
 	plan := models.InstallmentPlan{
 		AccountID:       r.FormValue("account_id"),
@@ -2212,7 +2219,7 @@ func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	expCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 
-	data := BatchEntryData{Accounts: accounts, ExpenseCategories: expCategories, Today: time.Now()}
+	data := BatchEntryData{Accounts: accounts, ExpenseCategories: expCategories, Today: timeutil.Now()}
 	RenderPage(h.templates, w, "batch-entry", PageData{ActiveTab: "transactions", Data: data})
 }
 
@@ -2244,7 +2251,7 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 			failed++
 			continue
 		}
-		date, err := parseDate(dates[i])
+		date, err := h.parseDate(dates[i])
 		if err != nil {
 			failed++
 			continue
@@ -2385,12 +2392,12 @@ func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request)
 	fromStr := r.URL.Query().Get("from")
 	toStr := r.URL.Query().Get("to")
 
-	from, err := parseDate(fromStr)
+	from, err := h.parseDate(fromStr)
 	if err != nil {
 		http.Error(w, "invalid 'from' date", http.StatusBadRequest)
 		return
 	}
-	to, err := parseDate(toStr)
+	to, err := h.parseDate(toStr)
 	if err != nil {
 		http.Error(w, "invalid 'to' date", http.StatusBadRequest)
 		return
@@ -2751,7 +2758,7 @@ func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Reques
 		Account:      account,
 		Transactions: txns,
 		Accounts:     accounts,
-		Today:        time.Now(),
+		Today:        timeutil.Now(),
 	}
 	RenderPage(h.templates, w, "virtual-account-detail", PageData{ActiveTab: "home", Data: data})
 }
@@ -2779,9 +2786,9 @@ func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "invalid amount", http.StatusBadRequest)
 		return
 	}
-	date, err := parseDate(r.FormValue("date"))
+	date, err := h.parseDate(r.FormValue("date"))
 	if err != nil {
-		date = time.Now()
+		date = timeutil.Now()
 	}
 
 	// Determine transaction type and allocation sign

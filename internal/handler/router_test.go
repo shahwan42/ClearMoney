@@ -34,12 +34,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestNewRouter_HealthzEndpoint(t *testing.T) {
 	// Pass nil for db — healthz doesn't need a database.
 	// This tests the no-DB mode (early return path in NewRouter).
-	r := NewRouter(nil)
+	r := NewRouter(nil, time.UTC)
 
 	// Create a fake GET /healthz request (no real HTTP connection).
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -60,7 +61,7 @@ func TestNewRouter_HealthzEndpoint(t *testing.T) {
 }
 
 func TestNewRouter_NotFound(t *testing.T) {
-	r := NewRouter(nil)
+	r := NewRouter(nil, time.UTC)
 
 	// Requesting a non-existent route should return 404.
 	// chi automatically handles unmatched routes — no need for a custom 404 handler.

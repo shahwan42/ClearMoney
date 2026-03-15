@@ -20,6 +20,7 @@ import (
 	"database/sql"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -47,7 +48,7 @@ func testRouter(t *testing.T, db *sql.DB) (*chi.Mux, func(req *http.Request)) {
 	t.Helper()
 	// SetupAuth creates a user_config row with PIN "1234" and returns the session cookie.
 	cookie := testutil.SetupAuth(t, db)
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 	addAuth := func(req *http.Request) {
 		req.AddCookie(cookie)
 	}

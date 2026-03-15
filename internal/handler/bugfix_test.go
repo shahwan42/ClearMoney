@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/templates"
@@ -88,12 +89,12 @@ func TestBug003_TransactionNewHasIncomeCategoryOptions(t *testing.T) {
 // pre-populates the date field with YYYY-MM-DD format (not "Jan 2").
 func TestBug004_VirtualAccountDateFormat(t *testing.T) {
 	// Verify templates parse correctly with the new formatDateISO function
-	if _, err := ParseTemplates(templates.FS); err != nil {
+	if _, err := ParseTemplates(templates.FS, time.UTC); err != nil {
 		t.Fatalf("parsing templates: %v", err)
 	}
 
 	// The formatDateISO function should exist in template funcs
-	funcs := TemplateFuncs()
+	funcs := TemplateFuncs(time.UTC)
 	if _, ok := funcs["formatDateISO"]; !ok {
 		t.Fatal("expected formatDateISO template function to exist")
 	}

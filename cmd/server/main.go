@@ -97,6 +97,7 @@ func main() {
 		accountRepo := repository.NewAccountRepo(db)
 		txSvc := service.NewTransactionService(txRepo, accountRepo)
 		recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
+		recurringSvc.SetTimezone(cfg.Location)
 
 		// context.Background() creates a top-level context with no deadline or cancellation.
 		// Think of it as the "root" context — similar to how Laravel's artisan commands
@@ -132,7 +133,7 @@ func main() {
 
 		// Take daily balance snapshots (for sparklines and trend indicators).
 		// Also backfills up to 90 missing days using transaction history.
-		backfilled, err := jobs.TakeSnapshots(context.Background(), db)
+		backfilled, err := jobs.TakeSnapshots(context.Background(), db, cfg.Location)
 		if err != nil {
 			slog.Warn("snapshot error", "error", err)
 		} else if backfilled > 0 {
@@ -142,7 +143,7 @@ func main() {
 
 	// 3. Create the HTTP router with all routes and middleware.
 	// Pass db (may be nil) — router only registers DB routes when db != nil.
-	r := handler.NewRouter(db)
+	r := handler.NewRouter(db, cfg.Location)
 
 	// 4. Configure the HTTP server with timeouts to prevent slow clients
 	// from holding connections forever (a security best practice).

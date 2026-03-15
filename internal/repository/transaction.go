@@ -23,6 +23,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // TransactionRepo handles database operations for the transactions table.
@@ -50,7 +51,7 @@ func NewTransactionRepo(db *sql.DB) *TransactionRepo {
 // placeholders unlike MySQL's `?`. The order must match the args list exactly.
 func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
 	if tx.Date.IsZero() {
-		tx.Date = time.Now()
+		tx.Date = timeutil.Now()
 	}
 
 	err := r.db.QueryRowContext(ctx, `
@@ -92,7 +93,7 @@ func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (mo
 // See: https://pkg.go.dev/database/sql#Tx
 func (r *TransactionRepo) CreateTx(ctx context.Context, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
 	if tx.Date.IsZero() {
-		tx.Date = time.Now()
+		tx.Date = timeutil.Now()
 	}
 
 	err := dbTx.QueryRowContext(ctx, `

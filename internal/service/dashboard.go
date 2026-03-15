@@ -39,6 +39,7 @@ import (
 	"github.com/shahwan42/clearmoney/internal/logutil"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // DashboardData holds the computed data for the home dashboard.
@@ -188,7 +189,21 @@ type DashboardService struct {
 	virtualAccountSvc *VirtualAccountService
 	budgetSvc        *BudgetService
 	healthSvc        *AccountHealthService
-	db               *sql.DB // for direct queries (month-over-month)
+	db               *sql.DB         // for direct queries (month-over-month)
+	loc              *time.Location   // User timezone for month boundaries
+}
+
+// SetTimezone sets the user's timezone for calendar-date operations.
+func (s *DashboardService) SetTimezone(loc *time.Location) {
+	s.loc = loc
+}
+
+// timezone returns the configured timezone or UTC as fallback.
+func (s *DashboardService) timezone() *time.Location {
+	if s.loc != nil {
+		return s.loc
+	}
+	return time.UTC
 }
 
 func NewDashboardService(institutionRepo *repository.InstitutionRepo, accountRepo *repository.AccountRepo, txRepo *repository.TransactionRepo) *DashboardService {
@@ -316,7 +331,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	}
 
 	// Check for credit cards with upcoming due dates + build CC summary (TASK-074)
-	now := time.Now()
+	now := timeutil.Now()
 	for _, group := range data.Institutions {
 		for _, acc := range group.Accounts {
 			if !acc.IsCreditType() {
@@ -518,10 +533,10 @@ func abs(v float64) float64 {
 // map well to a simple CRUD repository method.
 // See: https://pkg.go.dev/database/sql#DB.QueryContext
 func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *DashboardData) {
-	now := time.Now()
-	thisMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
-	nextMonthStart := thisMonthStart.AddDate(0, 1, 0)
+	now := timeutil.Now()
+	thisMonthStart := timeutil.MonthStart(now, s.timezone())
+	lastMonthStart := timeutil.MonthStart(thisMonthStart.AddDate(0, -1, 0), s.timezone())
+	nextMonthStart := timeutil.MonthEnd(now, s.timezone())
 
 	// Spending per currency this month
 	thisMonthByCurrency := make(map[string]float64)

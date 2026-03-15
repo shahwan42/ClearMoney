@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/testutil"
@@ -59,7 +60,7 @@ func setupTransactionHandlerTest(t *testing.T) (*httptest.ResponseRecorder, *htt
 	})
 
 	sessionCookie := testutil.SetupAuth(t, db)
-	router := NewRouter(db)
+	router := NewRouter(db, time.UTC)
 
 	// Helper to make authenticated HTTP requests against the router
 	do := func(method, path string, body string) *httptest.ResponseRecorder {

@@ -23,6 +23,7 @@ import (
 	"html/template"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/templates"
@@ -233,7 +234,7 @@ func TestComputeBarHeights_AllZero(t *testing.T) {
 // Go template syntax and can be loaded alongside all other templates.
 
 func TestChartTemplates_Parse(t *testing.T) {
-	_, err := ParseTemplates(templates.FS)
+	_, err := ParseTemplates(templates.FS, time.UTC)
 	if err != nil {
 		t.Fatalf("chart templates failed to parse: %v", err)
 	}

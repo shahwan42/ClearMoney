@@ -29,6 +29,7 @@ import (
 	"github.com/shahwan42/clearmoney/internal/logutil"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/timeutil"
 )
 
 // BillingCycleMetadata is stored in the Account.Metadata JSONB field for credit cards.
@@ -174,7 +175,7 @@ func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, sn
 		return nil, fmt.Errorf("account has no billing cycle configuration")
 	}
 
-	now := time.Now()
+	now := timeutil.Now()
 	info := GetBillingCycleInfo(*meta, now)
 
 	// If a specific period is requested (YYYY-MM), compute that period's dates

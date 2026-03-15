@@ -35,6 +35,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/templates"
@@ -44,7 +45,7 @@ import (
 // TestHomePage_Renders verifies the home page renders in no-DB mode (nil services).
 // This tests the template parsing and empty-state rendering path.
 func TestHomePage_Renders(t *testing.T) {
-	tmpl, err := ParseTemplates(templates.FS)
+	tmpl, err := ParseTemplates(templates.FS, time.UTC)
 	if err != nil {
 		t.Fatalf("parsing templates: %v", err)
 	}
@@ -78,7 +79,7 @@ func TestHomePage_Renders(t *testing.T) {
 }
 
 func TestHomePage_ContentType(t *testing.T) {
-	tmpl, err := ParseTemplates(templates.FS)
+	tmpl, err := ParseTemplates(templates.FS, time.UTC)
 	if err != nil {
 		t.Fatalf("parsing templates: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestHomePage_ContentType(t *testing.T) {
 }
 
 func TestHomePage_ActiveTab(t *testing.T) {
-	tmpl, err := ParseTemplates(templates.FS)
+	tmpl, err := ParseTemplates(templates.FS, time.UTC)
 	if err != nil {
 		t.Fatalf("parsing templates: %v", err)
 	}

@@ -19,7 +19,12 @@
 // See: https://12factor.net/config — the twelve-factor app methodology we follow
 package config
 
-import "os"
+import (
+	"os"
+	"time"
+
+	"github.com/shahwan42/clearmoney/internal/timeutil"
+)
 
 // Config holds all application-level configuration.
 // In Go, we group related settings into a struct rather than using
@@ -33,13 +38,16 @@ type Config struct {
 	DatabaseURL     string // PostgreSQL connection string (e.g. "postgres://user:pass@host:5432/db")
 	Env             string // "development" or "production"
 	LogLevel        string // slog level: "debug", "info", "warn", "error" (default: "info")
-	VAPIDPublicKey  string // VAPID public key for Web Push
-	VAPIDPrivateKey string // VAPID private key for Web Push
+	VAPIDPublicKey  string         // VAPID public key for Web Push
+	VAPIDPrivateKey string         // VAPID private key for Web Push
+	Timezone        string         // IANA timezone name (default: "Africa/Cairo")
+	Location        *time.Location // Parsed timezone location for date operations
 }
 
 // Load reads config from environment variables with sensible defaults.
 // Similar to Laravel's env() helper or Django's os.environ.get().
 func Load() Config {
+	tz := getEnv("APP_TIMEZONE", "Africa/Cairo")
 	return Config{
 		Port:            getEnv("PORT", "8080"),
 		DatabaseURL:     getEnv("DATABASE_URL", ""),
@@ -47,6 +55,8 @@ func Load() Config {
 		LogLevel:        getEnv("LOG_LEVEL", "info"),
 		VAPIDPublicKey:  getEnv("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
+		Timezone:        tz,
+		Location:        timeutil.LoadLocation(tz),
 	}
 }
 
