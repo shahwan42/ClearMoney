@@ -280,23 +280,21 @@ Calls `dashboardSvc.GetDashboard(ctx)`, renders the `"home"` template with Dashb
 
 ### Main Page
 
-**File:** `internal/templates/pages/home.html` (~377 lines)
+**File:** `internal/templates/pages/home.html`
 
-Structure:
-1. **Net Worth section** — per-currency display (EGP · USD), sparkline + trend indicator
-2. **Habit Streak** — consecutive days badge
-3. **Month-over-Month Spending** — comparison with top 3 categories
-4. **Spending Velocity** — progress bar with color-coded status
-5. **Due Date Warnings** — credit card alerts
-6. **Account Health Warnings** — min balance/deposit alerts
-7. **Credit Cards** — mini utilization rings with due dates
-8. **Summary Cards** — cash/credit/debt breakdown grid
-9. **Budget Progress** — progress bars by category
-10. **Virtual Accounts** — horizontally scrolling virtual account cards
-11. **People Summary** — owed to me / I owe
-12. **Investment Portfolio** — total with link
-13. **Accounts by Institution** — collapsible sections with mini sparklines
-14. **Recent Transactions** — latest entries
+Structure (ordered by priority — actionable items first, reference data last):
+
+1. **Alerts** — due date warnings + account health warnings (time-sensitive, shown first)
+2. **Net Worth + Summary Cards** — per-currency totals, sparkline, trend, then 2×2 breakdown (cash/credit/debt) inside the same card
+3. **Month-over-Month Spending + Velocity** — comparison with top categories and spending pace bar merged in one card
+4. **Budget Progress** — progress bars by category (follows spending context)
+5. **Credit Cards** — mini utilization rings with due dates
+6. **Virtual Accounts** — horizontally scrolling virtual account cards
+7. **Accounts by Institution** — collapsible sections with mini sparklines
+8. **People Summary** — owed to me / I owe (hidden when all balances are zero)
+9. **Investment Portfolio** — total with link (hidden when zero)
+10. **Habit Streak** — consecutive days badge (motivational, near bottom)
+11. **Recent Transactions** — latest entries
 
 ### Partials Used
 
@@ -305,8 +303,7 @@ Structure:
 | `chart-sparkline` | `partials/chart-sparkline.html` | Inline SVG polyline sparkline |
 | `chart-trend` | `partials/chart-trend.html` | Arrow (▲/▼) with % change |
 | `due-date-warning` | `partials/due-date-warning.html` | Red CC due date alert |
-| `summary-cards` | `partials/summary-cards.html` | 2×2 grid: cash/credit/debt |
-| `people-summary` | `partials/people-summary.html` | Owed to me / I owe box |
+| `people-summary` | `partials/people-summary.html` | Owed to me / I owe box (per-currency) |
 | `recent-transactions` | `partials/recent-transactions.html` | Transaction feed list |
 
 ## Charts on Dashboard
@@ -360,7 +357,6 @@ The dashboard relies on:
 | `internal/templates/pages/home.html` | Main dashboard template |
 | `internal/templates/partials/chart-sparkline.html` | Sparkline SVG partial |
 | `internal/templates/partials/chart-trend.html` | Trend arrow partial |
-| `internal/templates/partials/summary-cards.html` | Cash/credit breakdown |
 | `internal/templates/partials/recent-transactions.html` | Transaction feed |
 | `internal/templates/partials/people-summary.html` | People ledger |
 | `internal/templates/partials/due-date-warning.html` | CC due date alerts |

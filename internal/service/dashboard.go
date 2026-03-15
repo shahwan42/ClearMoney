@@ -71,9 +71,10 @@ type DashboardData struct {
 	Institutions []InstitutionGroup
 
 	// People ledger summary
-	PeopleOwedToMe   float64                 // legacy sum of positive net_balance (they owe me)
-	PeopleIOwe       float64                 // legacy sum of negative net_balance (I owe them)
-	PeopleByCurrency []PeopleCurrencySummary // per-currency people breakdown
+	PeopleOwedToMe    float64                 // legacy sum of positive net_balance (they owe me)
+	PeopleIOwe        float64                 // legacy sum of negative net_balance (I owe them)
+	PeopleByCurrency  []PeopleCurrencySummary // per-currency people breakdown
+	HasPeopleActivity bool                    // true if any person has a non-zero balance
 
 	// Total investment portfolio value
 	InvestmentTotal float64
@@ -415,6 +416,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 				data.PeopleByCurrency = append(data.PeopleByCurrency, usdSummary)
 			}
 		}
+		data.HasPeopleActivity = len(data.PeopleByCurrency) > 0 || data.PeopleOwedToMe != 0 || data.PeopleIOwe != 0
 		logutil.Log(ctx).Debug("dashboard: loaded people", "duration_ms", time.Since(t).Milliseconds())
 	}
 
