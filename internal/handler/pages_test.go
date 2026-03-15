@@ -944,8 +944,9 @@ func TestPeoplePage_LoanAndRepay(t *testing.T) {
 	}
 
 	body := w.Body.String()
-	if !strings.Contains(body, "They owe you") {
-		t.Error("expected 'They owe you' after loan out")
+	// After lending 1000 EGP, the person card should show a positive EGP balance
+	if !strings.Contains(body, "EGP 1,000") {
+		t.Error("expected EGP 1,000 balance after loan out")
 	}
 }
 

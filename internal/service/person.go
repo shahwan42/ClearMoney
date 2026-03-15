@@ -131,7 +131,7 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, accountID, accountDelta); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating account balance: %w", err)
 	}
-	if err := s.personRepo.UpdateNetBalanceTx(ctx, dbTx, personID, personDelta); err != nil {
+	if err := s.personRepo.UpdateNetBalanceTx(ctx, dbTx, personID, personDelta, currency); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating person balance: %w", err)
 	}
 
@@ -172,14 +172,21 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 	}
 	defer dbTx.Rollback()
 
-	// Determine direction based on who owes whom
+	// Determine direction based on who owes whom in this specific currency
+	var relevantBalance float64
+	if currency == models.CurrencyUSD {
+		relevantBalance = person.NetBalanceUSD
+	} else {
+		relevantBalance = person.NetBalanceEGP
+	}
+
 	var accountDelta, personDelta float64
-	if person.NetBalance > 0 {
-		// They owe me → they're paying back → money enters my account
+	if relevantBalance > 0 {
+		// They owe me in this currency → they're paying back → money enters my account
 		accountDelta = amount
 		personDelta = -amount
 	} else {
-		// I owe them → I'm paying back → money leaves my account
+		// I owe them in this currency → I'm paying back → money leaves my account
 		accountDelta = -amount
 		personDelta = amount
 	}
@@ -203,7 +210,7 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, accountID, accountDelta); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating account balance: %w", err)
 	}
-	if err := s.personRepo.UpdateNetBalanceTx(ctx, dbTx, personID, personDelta); err != nil {
+	if err := s.personRepo.UpdateNetBalanceTx(ctx, dbTx, personID, personDelta, currency); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating person balance: %w", err)
 	}
 
@@ -213,6 +220,16 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 
 	logutil.LogEvent(ctx, "person.repayment_recorded", "currency", string(currency))
 	return created, nil
+}
+
+// CurrencyDebt holds per-currency debt totals for a person.
+type CurrencyDebt struct {
+	Currency      models.Currency
+	TotalLent     float64 // sum of loan_out amounts in this currency
+	TotalBorrowed float64 // sum of loan_in amounts in this currency
+	TotalRepaid   float64 // sum of loan_repayment amounts in this currency
+	NetBalance    float64 // current balance in this currency
+	ProgressPct   float64 // 0–100 payoff progress for this currency
 }
 
 // DebtSummary holds computed data for a person's debt/loan detail page.
@@ -225,10 +242,11 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 type DebtSummary struct {
 	Person        models.Person
 	Transactions  []models.Transaction // loan + repayment history
-	TotalLent     float64              // sum of loan_out amounts (I lent them)
-	TotalBorrowed float64              // sum of loan_in amounts (they lent me)
-	TotalRepaid   float64              // sum of loan_repayment amounts
-	ProgressPct   float64              // 0–100 payoff progress
+	ByCurrency    []CurrencyDebt       // per-currency breakdown
+	TotalLent     float64              // sum of loan_out amounts across all currencies
+	TotalBorrowed float64              // sum of loan_in amounts across all currencies
+	TotalRepaid   float64              // sum of loan_repayment amounts across all currencies
+	ProgressPct   float64              // 0–100 payoff progress (aggregate)
 	// Projected payoff: estimated date when debt will be fully repaid.
 	// Based on average repayment frequency. Zero if no repayments yet.
 	ProjectedPayoff time.Time
@@ -259,21 +277,58 @@ func (s *PersonService) GetDebtSummary(ctx context.Context, personID string) (De
 		Transactions: txns,
 	}
 
-	// Tally up loan_out, loan_in, and repayment amounts
+	// Per-currency tallies
+	currencyMap := make(map[models.Currency]*CurrencyDebt)
+
+	// Tally up loan_out, loan_in, and repayment amounts — aggregate + per-currency
 	var repaymentDates []time.Time
 	for _, tx := range txns {
+		cur := tx.Currency
+		cd, ok := currencyMap[cur]
+		if !ok {
+			cd = &CurrencyDebt{Currency: cur}
+			currencyMap[cur] = cd
+		}
+
 		switch tx.Type {
 		case models.TransactionTypeLoanOut:
 			summary.TotalLent += tx.Amount
+			cd.TotalLent += tx.Amount
 		case models.TransactionTypeLoanIn:
 			summary.TotalBorrowed += tx.Amount
+			cd.TotalBorrowed += tx.Amount
 		case models.TransactionTypeLoanRepayment:
 			summary.TotalRepaid += tx.Amount
+			cd.TotalRepaid += tx.Amount
 			repaymentDates = append(repaymentDates, tx.Date)
 		}
 	}
 
-	// Progress: how much of the total debt has been repaid.
+	// Compute per-currency progress and net balances
+	for cur, cd := range currencyMap {
+		if cur == models.CurrencyUSD {
+			cd.NetBalance = person.NetBalanceUSD
+		} else {
+			cd.NetBalance = person.NetBalanceEGP
+		}
+		totalDebt := cd.TotalLent + cd.TotalBorrowed
+		if totalDebt > 0 {
+			cd.ProgressPct = (cd.TotalRepaid / totalDebt) * 100
+			if cd.ProgressPct > 100 {
+				cd.ProgressPct = 100
+			}
+		}
+	}
+
+	// Build ordered slice: EGP first, then USD
+	if cd, ok := currencyMap[models.CurrencyEGP]; ok {
+		summary.ByCurrency = append(summary.ByCurrency, *cd)
+	}
+	if cd, ok := currencyMap[models.CurrencyUSD]; ok {
+		summary.ByCurrency = append(summary.ByCurrency, *cd)
+	}
+
+	// Aggregate progress
 	totalDebt := summary.TotalLent + summary.TotalBorrowed
 	if totalDebt > 0 {
 		summary.ProgressPct = (summary.TotalRepaid / totalDebt) * 100
@@ -283,8 +338,8 @@ func (s *PersonService) GetDebtSummary(ctx context.Context, personID string) (De
 	}
 
 	// Projected payoff: average repayment interval × remaining balance.
-	// Only meaningful if there are at least 2 repayments and remaining balance > 0.
-	remaining := abs(person.NetBalance)
+	// Uses the legacy NetBalance (sum of both currencies) for projection.
+	remaining := abs(person.NetBalanceEGP) + abs(person.NetBalanceUSD)
 	if len(repaymentDates) >= 2 && remaining > 0 {
 		avgRepayment := summary.TotalRepaid / float64(len(repaymentDates))
 		if avgRepayment > 0 {

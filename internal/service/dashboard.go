@@ -70,8 +70,9 @@ type DashboardData struct {
 	Institutions []InstitutionGroup
 
 	// People ledger summary
-	PeopleOwedToMe float64 // sum of positive net_balance (they owe me)
-	PeopleIOwe     float64 // sum of negative net_balance (I owe them)
+	PeopleOwedToMe   float64                 // legacy sum of positive net_balance (they owe me)
+	PeopleIOwe       float64                 // legacy sum of negative net_balance (I owe them)
+	PeopleByCurrency []PeopleCurrencySummary // per-currency people breakdown
 
 	// Total investment portfolio value
 	InvestmentTotal float64
@@ -162,6 +163,13 @@ type CategoryChange struct {
 
 // DashboardService computes the dashboard view data.
 //
+// PeopleCurrencySummary holds per-currency people ledger totals for the dashboard.
+type PeopleCurrencySummary struct {
+	Currency string  // "EGP" or "USD"
+	OwedToMe float64 // sum of positive per-currency balance
+	IOwe     float64 // sum of negative per-currency balance (negative number)
+}
+
 // This struct has 11 dependencies — 3 required (set in constructor) and 8 optional
 // (set via setter methods). The setter injection pattern avoids a massive constructor
 // and allows the service to degrade gracefully when optional features are unavailable.
@@ -357,16 +365,38 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	}
 	// If no rate available, NetWorthEGP stays 0 (template checks this)
 
-	// People ledger summary
+	// People ledger summary — grouped by currency
 	if s.personRepo != nil {
 		t = time.Now()
 		if persons, err := s.personRepo.GetAll(ctx); err == nil {
+			egpSummary := PeopleCurrencySummary{Currency: "EGP"}
+			usdSummary := PeopleCurrencySummary{Currency: "USD"}
 			for _, p := range persons {
+				// EGP balances
+				if p.NetBalanceEGP > 0 {
+					egpSummary.OwedToMe += p.NetBalanceEGP
+				} else if p.NetBalanceEGP < 0 {
+					egpSummary.IOwe += p.NetBalanceEGP
+				}
+				// USD balances
+				if p.NetBalanceUSD > 0 {
+					usdSummary.OwedToMe += p.NetBalanceUSD
+				} else if p.NetBalanceUSD < 0 {
+					usdSummary.IOwe += p.NetBalanceUSD
+				}
+				// Legacy fields (sum across currencies)
 				if p.NetBalance > 0 {
 					data.PeopleOwedToMe += p.NetBalance
 				} else if p.NetBalance < 0 {
-					data.PeopleIOwe += p.NetBalance // negative
+					data.PeopleIOwe += p.NetBalance
 				}
+			}
+			// Only include currencies with non-zero balances
+			if egpSummary.OwedToMe != 0 || egpSummary.IOwe != 0 {
+				data.PeopleByCurrency = append(data.PeopleByCurrency, egpSummary)
+			}
+			if usdSummary.OwedToMe != 0 || usdSummary.IOwe != 0 {
+				data.PeopleByCurrency = append(data.PeopleByCurrency, usdSummary)
 			}
 		}
 		logutil.Log(ctx).Debug("dashboard: loaded people", "duration_ms", time.Since(t).Milliseconds())

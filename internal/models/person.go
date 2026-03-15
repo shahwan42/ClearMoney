@@ -26,10 +26,12 @@ import "time"
 // repayment transaction is created. This avoids expensive SUM queries on every
 // page load (similar to Laravel's withCount/withSum pattern, but pre-computed).
 type Person struct {
-	ID         string    `json:"id" db:"id"`
-	Name       string    `json:"name" db:"name"`
-	Note       *string   `json:"note,omitempty" db:"note"`         // *string = nullable; nil maps to SQL NULL. In Laravel: $table->string('note')->nullable(). In Django: CharField(null=True, blank=True)
-	NetBalance float64   `json:"net_balance" db:"net_balance"`     // cached running total, updated on each loan/repayment transaction
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
+	ID            string    `json:"id" db:"id"`
+	Name          string    `json:"name" db:"name"`
+	Note          *string   `json:"note,omitempty" db:"note"`                   // *string = nullable; nil maps to SQL NULL. In Laravel: $table->string('note')->nullable(). In Django: CharField(null=True, blank=True)
+	NetBalance    float64   `json:"net_balance" db:"net_balance"`               // legacy sum of both currencies — kept for backward compat
+	NetBalanceEGP float64   `json:"net_balance_egp" db:"net_balance_egp"`       // EGP-denominated debt balance
+	NetBalanceUSD float64   `json:"net_balance_usd" db:"net_balance_usd"`       // USD-denominated debt balance
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }

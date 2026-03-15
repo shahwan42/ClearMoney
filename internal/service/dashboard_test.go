@@ -245,8 +245,7 @@ func TestDashboardService_GetDashboard_CreditAvailable(t *testing.T) {
 	}
 }
 
-// TestDashboardService_GetDashboard_PeopleSummary verifies the people ledger aggregation.
-// Positive net_balance = they owe me, negative = I owe them.
+// TestDashboardService_GetDashboard_PeopleSummary verifies the per-currency people ledger aggregation.
 func TestDashboardService_GetDashboard_PeopleSummary(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
@@ -261,20 +260,50 @@ func TestDashboardService_GetDashboard_PeopleSummary(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetPersonRepo(personRepo)
 
-	// Create people with different net balances
-	personRepo.Create(context.Background(), models.Person{Name: "Alice", NetBalance: 5000})   // owes me
-	personRepo.Create(context.Background(), models.Person{Name: "Bob", NetBalance: -3000})     // I owe
+	// Alice: owes me 5000 EGP
+	personRepo.Create(context.Background(), models.Person{Name: "Alice", NetBalance: 5000, NetBalanceEGP: 5000})
+	// Bob: I owe 3000 EGP
+	personRepo.Create(context.Background(), models.Person{Name: "Bob", NetBalance: -3000, NetBalanceEGP: -3000})
+	// Carol: owes me 200 USD
+	personRepo.Create(context.Background(), models.Person{Name: "Carol", NetBalance: 200, NetBalanceUSD: 200})
 
 	data, err := svc.GetDashboard(context.Background())
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
 
-	if data.PeopleOwedToMe != 5000 {
-		t.Errorf("PeopleOwedToMe = %f, want 5000", data.PeopleOwedToMe)
+	// Legacy fields: sum across all currencies
+	if data.PeopleOwedToMe != 5200 {
+		t.Errorf("PeopleOwedToMe = %f, want 5200", data.PeopleOwedToMe)
 	}
 	if data.PeopleIOwe != -3000 {
 		t.Errorf("PeopleIOwe = %f, want -3000", data.PeopleIOwe)
+	}
+
+	// Per-currency breakdown
+	if len(data.PeopleByCurrency) != 2 {
+		t.Fatalf("expected 2 currency summaries, got %d", len(data.PeopleByCurrency))
+	}
+
+	// EGP should be first
+	egp := data.PeopleByCurrency[0]
+	if egp.Currency != "EGP" {
+		t.Errorf("expected first currency EGP, got %s", egp.Currency)
+	}
+	if egp.OwedToMe != 5000 {
+		t.Errorf("EGP OwedToMe = %f, want 5000", egp.OwedToMe)
+	}
+	if egp.IOwe != -3000 {
+		t.Errorf("EGP IOwe = %f, want -3000", egp.IOwe)
+	}
+
+	// USD second
+	usd := data.PeopleByCurrency[1]
+	if usd.Currency != "USD" {
+		t.Errorf("expected second currency USD, got %s", usd.Currency)
+	}
+	if usd.OwedToMe != 200 {
+		t.Errorf("USD OwedToMe = %f, want 200", usd.OwedToMe)
 	}
 }
 

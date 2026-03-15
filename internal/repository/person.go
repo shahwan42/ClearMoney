@@ -18,6 +18,14 @@ import (
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 )
 
+// balanceColumnForCurrency returns the per-currency column name to update.
+func balanceColumnForCurrency(currency models.Currency) string {
+	if currency == models.CurrencyUSD {
+		return "net_balance_usd"
+	}
+	return "net_balance_egp"
+}
+
 // PersonRepo handles database operations for the persons table.
 //   Laravel:  PersonRepository or Person Eloquent model
 //   Django:   Person.objects (Manager)
@@ -33,10 +41,10 @@ func NewPersonRepo(db *sql.DB) *PersonRepo {
 // Create inserts a new person.
 func (r *PersonRepo) Create(ctx context.Context, p models.Person) (models.Person, error) {
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO persons (name, note, net_balance)
-		VALUES ($1, $2, $3)
+		INSERT INTO persons (name, note, net_balance, net_balance_egp, net_balance_usd)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
-	`, p.Name, p.Note, p.NetBalance).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+	`, p.Name, p.Note, p.NetBalance, p.NetBalanceEGP, p.NetBalanceUSD).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return models.Person{}, fmt.Errorf("inserting person: %w", err)
 	}
@@ -47,9 +55,9 @@ func (r *PersonRepo) Create(ctx context.Context, p models.Person) (models.Person
 func (r *PersonRepo) GetByID(ctx context.Context, id string) (models.Person, error) {
 	var p models.Person
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, name, note, net_balance, created_at, updated_at
+		SELECT id, name, note, net_balance, net_balance_egp, net_balance_usd, created_at, updated_at
 		FROM persons WHERE id = $1
-	`, id).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.CreatedAt, &p.UpdatedAt)
+	`, id).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.NetBalanceEGP, &p.NetBalanceUSD, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return models.Person{}, fmt.Errorf("getting person: %w", err)
 	}
@@ -59,7 +67,7 @@ func (r *PersonRepo) GetByID(ctx context.Context, id string) (models.Person, err
 // GetAll retrieves all persons ordered by name.
 func (r *PersonRepo) GetAll(ctx context.Context) ([]models.Person, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, name, note, net_balance, created_at, updated_at
+		SELECT id, name, note, net_balance, net_balance_egp, net_balance_usd, created_at, updated_at
 		FROM persons ORDER BY name
 	`)
 	if err != nil {
@@ -70,7 +78,7 @@ func (r *PersonRepo) GetAll(ctx context.Context) ([]models.Person, error) {
 	var persons []models.Person
 	for rows.Next() {
 		var p models.Person
-		if err := rows.Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.NetBalanceEGP, &p.NetBalanceUSD, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scanning person: %w", err)
 		}
 		persons = append(persons, p)
@@ -83,8 +91,8 @@ func (r *PersonRepo) Update(ctx context.Context, p models.Person) (models.Person
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE persons SET name = $2, note = $3, updated_at = now()
 		WHERE id = $1
-		RETURNING id, name, note, net_balance, created_at, updated_at
-	`, p.ID, p.Name, p.Note).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.CreatedAt, &p.UpdatedAt)
+		RETURNING id, name, note, net_balance, net_balance_egp, net_balance_usd, created_at, updated_at
+	`, p.ID, p.Name, p.Note).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.NetBalanceEGP, &p.NetBalanceUSD, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return models.Person{}, fmt.Errorf("updating person: %w", err)
 	}
@@ -104,23 +112,24 @@ func (r *PersonRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// UpdateNetBalanceTx adjusts a person's net_balance within a DB transaction.
+// UpdateNetBalanceTx adjusts a person's per-currency balance within a DB transaction.
 //
-// Uses atomic SQL arithmetic: `net_balance = net_balance + $2`
-// This runs inside a *sql.Tx so the balance update and the transaction record
-// creation are committed together (all-or-nothing).
+// Updates the currency-specific column (net_balance_egp or net_balance_usd)
+// AND the legacy net_balance column (kept in sync for backward compat).
 //
 //   When you lend 1000 EGP:  delta = +1000 (they owe you more)
 //   When they repay 500 EGP: delta = -500  (they owe you less)
-//   When you borrow 200 EGP: delta = -200  (you owe them)
+//   When you borrow 200 USD: delta = -200  (you owe them, in USD)
 //
-//   Laravel:  DB::transaction(fn() => Person::where('id', $id)->increment('net_balance', $delta))
-//   Django:   with transaction.atomic(): Person.objects.filter(id=id).update(net_balance=F('net_balance') + delta)
-func (r *PersonRepo) UpdateNetBalanceTx(ctx context.Context, dbTx *sql.Tx, personID string, delta float64) error {
-	result, err := dbTx.ExecContext(ctx, `
-		UPDATE persons SET net_balance = net_balance + $2, updated_at = now()
+//   Laravel:  DB::transaction(fn() => Person::where('id', $id)->increment('net_balance_egp', $delta))
+//   Django:   with transaction.atomic(): Person.objects.filter(id=id).update(net_balance_egp=F('net_balance_egp') + delta)
+func (r *PersonRepo) UpdateNetBalanceTx(ctx context.Context, dbTx *sql.Tx, personID string, delta float64, currency models.Currency) error {
+	col := balanceColumnForCurrency(currency)
+	query := fmt.Sprintf(`
+		UPDATE persons SET %s = %s + $2, net_balance = net_balance + $2, updated_at = now()
 		WHERE id = $1
-	`, personID, delta)
+	`, col, col)
+	result, err := dbTx.ExecContext(ctx, query, personID, delta)
 	if err != nil {
 		return fmt.Errorf("updating person balance: %w", err)
 	}

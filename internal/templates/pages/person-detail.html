@@ -17,47 +17,60 @@
             </div>
             <div>
                 <h1 class="text-xl font-bold text-slate-900">{{.Data.Summary.Person.Name}}</h1>
-                <p class="text-sm {{if gt .Data.Summary.Person.NetBalance 0.0}}text-emerald-600{{else if lt .Data.Summary.Person.NetBalance 0.0}}text-red-600{{else}}text-gray-400{{end}}">
-                    {{if gt .Data.Summary.Person.NetBalance 0.0}}
-                        They owe you {{formatEGP .Data.Summary.Person.NetBalance}}
-                    {{else if lt .Data.Summary.Person.NetBalance 0.0}}
-                        You owe them {{formatEGP (neg .Data.Summary.Person.NetBalance)}}
-                    {{else}}
-                        Settled up
+                <div class="space-y-0.5">
+                    {{if ne .Data.Summary.Person.NetBalanceEGP 0.0}}
+                    <p class="text-sm {{if gt .Data.Summary.Person.NetBalanceEGP 0.0}}text-emerald-600{{else}}text-red-600{{end}}">
+                        {{if gt .Data.Summary.Person.NetBalanceEGP 0.0}}They owe you {{formatCurrency .Data.Summary.Person.NetBalanceEGP "EGP"}}{{else}}You owe them {{formatCurrency (neg .Data.Summary.Person.NetBalanceEGP) "EGP"}}{{end}}
+                    </p>
                     {{end}}
-                </p>
+                    {{if ne .Data.Summary.Person.NetBalanceUSD 0.0}}
+                    <p class="text-sm {{if gt .Data.Summary.Person.NetBalanceUSD 0.0}}text-emerald-600{{else}}text-red-600{{end}}">
+                        {{if gt .Data.Summary.Person.NetBalanceUSD 0.0}}They owe you {{formatCurrency .Data.Summary.Person.NetBalanceUSD "USD"}}{{else}}You owe them {{formatCurrency (neg .Data.Summary.Person.NetBalanceUSD) "USD"}}{{end}}
+                    </p>
+                    {{end}}
+                    {{if and (eq .Data.Summary.Person.NetBalanceEGP 0.0) (eq .Data.Summary.Person.NetBalanceUSD 0.0)}}
+                    <p class="text-sm text-gray-400">Settled up</p>
+                    {{end}}
+                </div>
             </div>
         </div>
 
-        <!-- Loan Summary Stats -->
-        <div class="grid grid-cols-3 gap-3 text-center">
-            {{if gt .Data.Summary.TotalLent 0.0}}
-            <div class="bg-emerald-50 rounded-lg p-2">
-                <p class="text-xs text-emerald-600 font-medium">Lent</p>
-                <p class="text-sm font-bold text-slate-800">{{formatEGP .Data.Summary.TotalLent}}</p>
+        <!-- Per-currency loan stats -->
+        {{range .Data.Summary.ByCurrency}}
+        <div class="{{if ne (string .Currency) "EGP"}}mt-3 pt-3 border-t border-gray-100{{end}}">
+            <p class="text-xs text-gray-400 font-medium mb-2">{{.Currency}}</p>
+            <div class="grid grid-cols-3 gap-3 text-center">
+                {{if gt .TotalLent 0.0}}
+                <div class="bg-emerald-50 rounded-lg p-2">
+                    <p class="text-xs text-emerald-600 font-medium">Lent</p>
+                    <p class="text-sm font-bold text-slate-800">{{formatCurrency .TotalLent .Currency}}</p>
+                </div>
+                {{end}}
+                {{if gt .TotalBorrowed 0.0}}
+                <div class="bg-blue-50 rounded-lg p-2">
+                    <p class="text-xs text-blue-600 font-medium">Borrowed</p>
+                    <p class="text-sm font-bold text-slate-800">{{formatCurrency .TotalBorrowed .Currency}}</p>
+                </div>
+                {{end}}
+                {{if gt .TotalRepaid 0.0}}
+                <div class="bg-amber-50 rounded-lg p-2">
+                    <p class="text-xs text-amber-600 font-medium">Repaid</p>
+                    <p class="text-sm font-bold text-slate-800">{{formatCurrency .TotalRepaid .Currency}}</p>
+                </div>
+                {{end}}
             </div>
-            {{end}}
-            {{if gt .Data.Summary.TotalBorrowed 0.0}}
-            <div class="bg-blue-50 rounded-lg p-2">
-                <p class="text-xs text-blue-600 font-medium">Borrowed</p>
-                <p class="text-sm font-bold text-slate-800">{{formatEGP .Data.Summary.TotalBorrowed}}</p>
-            </div>
-            {{end}}
-            {{if gt .Data.Summary.TotalRepaid 0.0}}
-            <div class="bg-amber-50 rounded-lg p-2">
-                <p class="text-xs text-amber-600 font-medium">Repaid</p>
-                <p class="text-sm font-bold text-slate-800">{{formatEGP .Data.Summary.TotalRepaid}}</p>
-            </div>
-            {{end}}
         </div>
+        {{end}}
     </section>
 
-    <!-- Payoff Progress Bar (TASK-070) -->
-    {{if gt .Data.Summary.ProgressPct 0.0}}
+    <!-- Payoff Progress — per currency -->
+    {{range .Data.Summary.ByCurrency}}
+    {{if gt .ProgressPct 0.0}}
     <section class="bg-white rounded-2xl shadow-sm p-5">
-        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Payoff Progress</h2>
-        {{template "debt-progress" .Data.Summary}}
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Payoff Progress ({{.Currency}})</h2>
+        {{template "debt-progress-currency" .}}
     </section>
+    {{end}}
     {{end}}
 
     <!-- Transaction History -->
@@ -78,7 +91,7 @@
                     {{if .Note}}<p class="text-xs text-gray-500 mt-0.5">{{deref .Note}}</p>{{end}}
                 </div>
                 <span class="text-sm font-semibold {{if eq (string .Type) "loan_repayment"}}text-emerald-600{{else if eq (string .Type) "loan_out"}}text-red-600{{else}}text-blue-600{{end}}">
-                    {{if eq (string .Type) "loan_repayment"}}+{{end}}{{formatEGP .Amount}}
+                    {{if eq (string .Type) "loan_repayment"}}+{{end}}{{formatCurrency .Amount .Currency}}
                 </span>
             </div>
             {{end}}
