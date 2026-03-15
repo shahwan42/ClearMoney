@@ -16,7 +16,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
@@ -35,14 +34,14 @@ func NewInvestmentService(repo *repository.InvestmentRepo) *InvestmentService {
 
 // Create adds a new investment holding.
 func (s *InvestmentService) Create(ctx context.Context, inv models.Investment) (models.Investment, error) {
-	if inv.FundName == "" {
-		return models.Investment{}, fmt.Errorf("fund_name is required")
+	if err := requireNotEmpty(inv.FundName, "fund_name"); err != nil {
+		return models.Investment{}, err
 	}
-	if inv.Units <= 0 {
-		return models.Investment{}, fmt.Errorf("units must be positive")
+	if err := requirePositive(inv.Units, "units"); err != nil {
+		return models.Investment{}, err
 	}
-	if inv.LastUnitPrice <= 0 {
-		return models.Investment{}, fmt.Errorf("unit_price must be positive")
+	if err := requirePositive(inv.LastUnitPrice, "unit_price"); err != nil {
+		return models.Investment{}, err
 	}
 	if inv.Platform == "" {
 		inv.Platform = "Thndr"
@@ -65,8 +64,8 @@ func (s *InvestmentService) GetAll(ctx context.Context) ([]models.Investment, er
 
 // UpdateValuation updates the unit price for an investment.
 func (s *InvestmentService) UpdateValuation(ctx context.Context, id string, unitPrice float64) error {
-	if unitPrice <= 0 {
-		return fmt.Errorf("unit_price must be positive")
+	if err := requirePositive(unitPrice, "unit_price"); err != nil {
+		return err
 	}
 	if err := s.repo.UpdateValuation(ctx, id, unitPrice); err != nil {
 		return err

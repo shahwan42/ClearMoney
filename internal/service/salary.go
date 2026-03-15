@@ -74,11 +74,11 @@ func NewSalaryService(txRepo *repository.TransactionRepo, accRepo *repository.Ac
 // If any step fails: begin → do work → return error → defer Rollback (actual rollback).
 func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistribution) error {
 	logutil.Log(ctx).Debug("distributing salary", "allocation_count", len(dist.Allocations))
-	if dist.SalaryUSD <= 0 {
-		return fmt.Errorf("salary amount must be positive")
+	if err := requirePositive(dist.SalaryUSD, "salary amount"); err != nil {
+		return err
 	}
-	if dist.ExchangeRate <= 0 {
-		return fmt.Errorf("exchange rate must be positive")
+	if err := requirePositive(dist.ExchangeRate, "exchange rate"); err != nil {
+		return err
 	}
 	if dist.USDAccountID == "" || dist.EGPAccountID == "" {
 		return fmt.Errorf("USD and EGP account IDs are required")
@@ -86,9 +86,7 @@ func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistrib
 
 	dist.SalaryEGP = dist.SalaryUSD * dist.ExchangeRate
 
-	if dist.Date.IsZero() {
-		dist.Date = time.Now()
-	}
+	dist.Date = defaultDate(dist.Date)
 
 	// Validate allocations don't exceed salary
 	var totalAlloc float64

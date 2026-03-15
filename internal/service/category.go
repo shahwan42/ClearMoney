@@ -16,7 +16,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
 	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
@@ -51,9 +50,9 @@ func (s *CategoryService) GetByID(ctx context.Context, id string) (models.Catego
 
 // Create validates and creates a new user-defined category.
 func (s *CategoryService) Create(ctx context.Context, cat models.Category) (models.Category, error) {
-	cat.Name = strings.TrimSpace(cat.Name)
-	if cat.Name == "" {
-		return models.Category{}, fmt.Errorf("category name is required")
+	var err error
+	if cat.Name, err = requireTrimmedName(cat.Name, "category name"); err != nil {
+		return models.Category{}, err
 	}
 	if cat.Type != models.CategoryTypeExpense && cat.Type != models.CategoryTypeIncome {
 		return models.Category{}, fmt.Errorf("category type must be 'expense' or 'income'")
@@ -77,9 +76,8 @@ func (s *CategoryService) Update(ctx context.Context, cat models.Category) (mode
 	if existing.IsSystem {
 		return models.Category{}, fmt.Errorf("system categories cannot be modified")
 	}
-	cat.Name = strings.TrimSpace(cat.Name)
-	if cat.Name == "" {
-		return models.Category{}, fmt.Errorf("category name is required")
+	if cat.Name, err = requireTrimmedName(cat.Name, "category name"); err != nil {
+		return models.Category{}, err
 	}
 	return s.repo.Update(ctx, cat)
 }

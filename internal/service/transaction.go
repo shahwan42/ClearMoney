@@ -155,8 +155,8 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 // In Django: with transaction.atomic(): # all 6 steps
 func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, models.Transaction, error) {
 	logutil.Log(ctx).Debug("creating transfer", "source", sourceAccountID, "dest", destAccountID)
-	if amount <= 0 {
-		return models.Transaction{}, models.Transaction{}, fmt.Errorf("amount must be positive")
+	if err := requirePositive(amount, "amount"); err != nil {
+		return models.Transaction{}, models.Transaction{}, err
 	}
 	if sourceAccountID == "" || destAccountID == "" {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("both source and destination account_id required")
@@ -178,9 +178,7 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("transfer requires same currency; use exchange for cross-currency")
 	}
 
-	if date.IsZero() {
-		date = time.Now()
-	}
+	date = defaultDate(date)
 
 	dbTx, err := s.txRepo.BeginTx(ctx)
 	if err != nil {
@@ -310,9 +308,7 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		displayRate = 1.0 / formulaRate
 	}
 
-	if p.Date.IsZero() {
-		p.Date = time.Now()
-	}
+	p.Date = defaultDate(p.Date)
 
 	dbTx, err := s.txRepo.BeginTx(ctx)
 	if err != nil {
@@ -403,8 +399,8 @@ func CalculateInstapayFee(amount float64) float64 {
 // CreateInstapayTransfer creates a transfer with an automatic InstaPay fee.
 // The fee is a separate expense transaction (category: Fees & Charges) on the source account.
 func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, float64, error) {
-	if amount <= 0 {
-		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("amount must be positive")
+	if err := requirePositive(amount, "amount"); err != nil {
+		return models.Transaction{}, models.Transaction{}, 0, err
 	}
 	if sourceAccountID == "" || destAccountID == "" {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("both source and destination account_id required")
@@ -415,9 +411,7 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 
 	fee := CalculateInstapayFee(amount)
 
-	if date.IsZero() {
-		date = time.Now()
-	}
+	date = defaultDate(date)
 
 	// Verify same currency
 	srcAcc, err := s.accRepo.GetByID(ctx, sourceAccountID)
@@ -523,8 +517,8 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 // This is commonly used in Egypt to convert credit card balance to cash
 // through Fawry prepaid services.
 func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardID, prepaidAccountID string, amount, fee float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, error) {
-	if amount <= 0 {
-		return models.Transaction{}, models.Transaction{}, fmt.Errorf("amount must be positive")
+	if err := requirePositive(amount, "amount"); err != nil {
+		return models.Transaction{}, models.Transaction{}, err
 	}
 	if fee < 0 {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("fee cannot be negative")
@@ -536,9 +530,7 @@ func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardI
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("credit card and prepaid account must be different")
 	}
 
-	if date.IsZero() {
-		date = time.Now()
-	}
+	date = defaultDate(date)
 
 	totalCharge := amount + fee
 
@@ -857,17 +849,17 @@ func (s *TransactionService) SuggestCategory(ctx context.Context, noteKeyword st
 // In Laravel, this would be in a FormRequest or a private validate() method.
 // In Django, this would be in the model's clean() method or serializer validation.
 func (s *TransactionService) validateBasic(tx models.Transaction) error {
-	if tx.Amount <= 0 {
-		return fmt.Errorf("amount must be positive")
+	if err := requirePositive(tx.Amount, "amount"); err != nil {
+		return err
 	}
-	if tx.AccountID == "" {
-		return fmt.Errorf("account_id is required")
+	if err := requireNotEmpty(tx.AccountID, "account_id"); err != nil {
+		return err
 	}
-	if tx.Type == "" {
-		return fmt.Errorf("transaction type is required")
+	if err := requireNotEmpty(string(tx.Type), "transaction type"); err != nil {
+		return err
 	}
-	if tx.Currency == "" {
-		return fmt.Errorf("currency is required")
+	if err := requireNotEmpty(string(tx.Currency), "currency"); err != nil {
+		return err
 	}
 	return nil
 }

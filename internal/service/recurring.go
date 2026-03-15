@@ -52,8 +52,8 @@ func (s *RecurringService) Create(ctx context.Context, rule models.RecurringRule
 	if len(rule.TemplateTransaction) == 0 {
 		return models.RecurringRule{}, fmt.Errorf("template_transaction is required")
 	}
-	if rule.Frequency == "" {
-		return models.RecurringRule{}, fmt.Errorf("frequency is required")
+	if err := requireNotEmpty(string(rule.Frequency), "frequency"); err != nil {
+		return models.RecurringRule{}, err
 	}
 	if rule.NextDueDate.IsZero() {
 		return models.RecurringRule{}, fmt.Errorf("next_due_date is required")

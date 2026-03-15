@@ -55,8 +55,8 @@ func (s *VirtualAccountService) GetByID(ctx context.Context, id string) (models.
 
 // Create creates a new virtual account with validation.
 func (s *VirtualAccountService) Create(ctx context.Context, a models.VirtualAccount) (models.VirtualAccount, error) {
-	if a.Name == "" {
-		return a, fmt.Errorf("virtual account name is required")
+	if err := requireNotEmpty(a.Name, "virtual account name"); err != nil {
+		return a, err
 	}
 	if a.Color == "" {
 		a.Color = "#0d9488" // default teal
@@ -71,8 +71,8 @@ func (s *VirtualAccountService) Create(ctx context.Context, a models.VirtualAcco
 
 // Update modifies an existing virtual account.
 func (s *VirtualAccountService) Update(ctx context.Context, a models.VirtualAccount) error {
-	if a.Name == "" {
-		return fmt.Errorf("virtual account name is required")
+	if err := requireNotEmpty(a.Name, "virtual account name"); err != nil {
+		return err
 	}
 	return s.accountRepo.Update(ctx, a)
 }

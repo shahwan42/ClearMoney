@@ -45,8 +45,8 @@ func NewPersonService(personRepo *repository.PersonRepo, txRepo *repository.Tran
 }
 
 func (s *PersonService) Create(ctx context.Context, p models.Person) (models.Person, error) {
-	if p.Name == "" {
-		return models.Person{}, fmt.Errorf("name is required")
+	if err := requireNotEmpty(p.Name, "name"); err != nil {
+		return models.Person{}, err
 	}
 	created, err := s.personRepo.Create(ctx, p)
 	if err != nil {
@@ -80,8 +80,8 @@ func (s *PersonService) Delete(ctx context.Context, id string) error {
 //     Money enters my account (like income from my perspective).
 func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID string, amount float64, currency models.Currency, txType models.TransactionType, note *string, date time.Time) (models.Transaction, error) {
 	logutil.Log(ctx).Debug("recording loan", "person_id", personID, "type", txType, "currency", currency)
-	if amount <= 0 {
-		return models.Transaction{}, fmt.Errorf("amount must be positive")
+	if err := requirePositive(amount, "amount"); err != nil {
+		return models.Transaction{}, err
 	}
 	if personID == "" || accountID == "" {
 		return models.Transaction{}, fmt.Errorf("person_id and account_id are required")
@@ -90,9 +90,7 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 		return models.Transaction{}, fmt.Errorf("type must be loan_out or loan_in")
 	}
 
-	if date.IsZero() {
-		date = time.Now()
-	}
+	date = defaultDate(date)
 
 	dbTx, err := s.txRepo.BeginTx(ctx)
 	if err != nil {
@@ -150,8 +148,8 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 //   - Negative net_balance (I owe them): I'm paying them back → money leaves my account
 func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, error) {
 	logutil.Log(ctx).Debug("recording repayment", "person_id", personID, "currency", currency)
-	if amount <= 0 {
-		return models.Transaction{}, fmt.Errorf("amount must be positive")
+	if err := requirePositive(amount, "amount"); err != nil {
+		return models.Transaction{}, err
 	}
 	if personID == "" || accountID == "" {
 		return models.Transaction{}, fmt.Errorf("person_id and account_id are required")
@@ -162,9 +160,7 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 		return models.Transaction{}, fmt.Errorf("person not found: %w", err)
 	}
 
-	if date.IsZero() {
-		date = time.Now()
-	}
+	date = defaultDate(date)
 
 	dbTx, err := s.txRepo.BeginTx(ctx)
 	if err != nil {

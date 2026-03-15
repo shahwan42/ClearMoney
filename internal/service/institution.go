@@ -24,7 +24,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
 	"github.com/ahmedelsamadisi/clearmoney/internal/models"
@@ -59,11 +58,9 @@ func NewInstitutionService(repo *repository.InstitutionRepo) *InstitutionService
 func (s *InstitutionService) Create(ctx context.Context, inst models.Institution) (models.Institution, error) {
 	// Validation happens here in the service layer, not in the model.
 	// In Laravel you'd use FormRequest or Validator; in Go, we validate manually.
-	inst.Name = strings.TrimSpace(inst.Name)
-	if inst.Name == "" {
-		// fmt.Errorf creates a new error — like throwing new ValidationException in Laravel.
-		// The caller receives this as the second return value.
-		return models.Institution{}, fmt.Errorf("institution name is required")
+	var err error
+	if inst.Name, err = requireTrimmedName(inst.Name, "institution name"); err != nil {
+		return models.Institution{}, err
 	}
 	// Default value assignment — like $fillable defaults in Laravel models.
 	if inst.Type == "" {
@@ -100,9 +97,9 @@ func (s *InstitutionService) GetAll(ctx context.Context) ([]models.Institution, 
 // The service layer re-validates even on update — unlike Laravel's sometimes() rule,
 // Go services typically validate every time since there's no FormRequest magic.
 func (s *InstitutionService) Update(ctx context.Context, inst models.Institution) (models.Institution, error) {
-	inst.Name = strings.TrimSpace(inst.Name)
-	if inst.Name == "" {
-		return models.Institution{}, fmt.Errorf("institution name is required")
+	var err error
+	if inst.Name, err = requireTrimmedName(inst.Name, "institution name"); err != nil {
+		return models.Institution{}, err
 	}
 	updated, err := s.repo.Update(ctx, inst)
 	if err != nil {

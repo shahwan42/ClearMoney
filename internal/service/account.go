@@ -24,7 +24,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
@@ -281,12 +280,12 @@ func (s *AccountService) SetRecurringRepo(repo *repository.RecurringRepo) {
 
 // Create validates and creates a new account.
 func (s *AccountService) Create(ctx context.Context, acc models.Account) (models.Account, error) {
-	acc.Name = strings.TrimSpace(acc.Name)
-	if acc.Name == "" {
-		return models.Account{}, fmt.Errorf("account name is required")
+	var err error
+	if acc.Name, err = requireTrimmedName(acc.Name, "account name"); err != nil {
+		return models.Account{}, err
 	}
-	if acc.InstitutionID == "" {
-		return models.Account{}, fmt.Errorf("institution_id is required")
+	if err := requireNotEmpty(acc.InstitutionID, "institution_id"); err != nil {
+		return models.Account{}, err
 	}
 
 	// Credit card/limit accounts must have a credit_limit set
@@ -320,9 +319,9 @@ func (s *AccountService) GetByInstitution(ctx context.Context, institutionID str
 }
 
 func (s *AccountService) Update(ctx context.Context, acc models.Account) (models.Account, error) {
-	acc.Name = strings.TrimSpace(acc.Name)
-	if acc.Name == "" {
-		return models.Account{}, fmt.Errorf("account name is required")
+	var err error
+	if acc.Name, err = requireTrimmedName(acc.Name, "account name"); err != nil {
+		return models.Account{}, err
 	}
 	updated, err := s.repo.Update(ctx, acc)
 	if err != nil {

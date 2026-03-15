@@ -39,17 +39,17 @@ func NewInstallmentService(repo *repository.InstallmentRepo, txSvc *TransactionS
 
 // Create adds a new installment plan.
 func (s *InstallmentService) Create(ctx context.Context, plan models.InstallmentPlan) (models.InstallmentPlan, error) {
-	if plan.Description == "" {
-		return models.InstallmentPlan{}, fmt.Errorf("description is required")
+	if err := requireNotEmpty(plan.Description, "description"); err != nil {
+		return models.InstallmentPlan{}, err
 	}
-	if plan.TotalAmount <= 0 {
-		return models.InstallmentPlan{}, fmt.Errorf("total_amount must be positive")
+	if err := requirePositive(plan.TotalAmount, "total_amount"); err != nil {
+		return models.InstallmentPlan{}, err
 	}
-	if plan.NumInstallments <= 0 {
-		return models.InstallmentPlan{}, fmt.Errorf("num_installments must be positive")
+	if err := requirePositiveInt(plan.NumInstallments, "num_installments"); err != nil {
+		return models.InstallmentPlan{}, err
 	}
-	if plan.AccountID == "" {
-		return models.InstallmentPlan{}, fmt.Errorf("account_id is required")
+	if err := requireNotEmpty(plan.AccountID, "account_id"); err != nil {
+		return models.InstallmentPlan{}, err
 	}
 
 	// Auto-compute monthly amount if not set

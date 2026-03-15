@@ -24,7 +24,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
@@ -56,11 +55,11 @@ func (s *BudgetService) GetAll(ctx context.Context) ([]models.Budget, error) {
 
 // Create creates a new budget with validation.
 func (s *BudgetService) Create(ctx context.Context, b models.Budget) (models.Budget, error) {
-	if b.CategoryID == "" {
-		return b, fmt.Errorf("category is required")
+	if err := requireNotEmpty(b.CategoryID, "category"); err != nil {
+		return b, err
 	}
-	if b.MonthlyLimit <= 0 {
-		return b, fmt.Errorf("monthly limit must be positive")
+	if err := requirePositive(b.MonthlyLimit, "monthly limit"); err != nil {
+		return b, err
 	}
 	if b.Currency == "" {
 		b.Currency = models.CurrencyEGP
