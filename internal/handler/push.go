@@ -23,8 +23,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
+	"github.com/shahwan42/clearmoney/internal/service"
 )
 
 // PushHandler manages push notification subscriptions and checking.

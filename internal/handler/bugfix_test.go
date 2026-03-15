@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/templates"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/templates"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // TestBug001_LogoutStandardRedirect verifies that POST /logout returns a

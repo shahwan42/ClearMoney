@@ -31,8 +31,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/service"
 )
 
 // TransactionHandler groups HTTP handlers for transaction endpoints.

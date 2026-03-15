@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // SnapshotRepo provides data access for daily_snapshots and account_snapshots.

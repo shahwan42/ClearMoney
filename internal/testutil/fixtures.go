@@ -46,7 +46,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 
 	"golang.org/x/crypto/bcrypt"
 )

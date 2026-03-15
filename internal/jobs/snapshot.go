@@ -42,8 +42,8 @@ import (
 	"database/sql"
 	"log/slog"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/service"
 )
 
 // TakeSnapshots runs the snapshot job: takes today's snapshot and backfills

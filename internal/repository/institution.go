@@ -61,7 +61,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // InstitutionRepo handles all database operations for the institutions table.

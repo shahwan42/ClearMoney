@@ -1,4 +1,4 @@
-module github.com/ahmedelsamadisi/clearmoney
+module github.com/shahwan42/clearmoney
 
 go 1.25.5
 

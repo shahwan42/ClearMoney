@@ -32,7 +32,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // --- Chart Data Types ---

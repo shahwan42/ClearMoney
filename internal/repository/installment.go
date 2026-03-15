@@ -13,7 +13,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // InstallmentRepo handles database operations for the installment_plans table.

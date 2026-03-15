@@ -18,7 +18,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // BudgetRepo handles database operations for the budgets table.

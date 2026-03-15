@@ -12,7 +12,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // CategoryRepo handles database operations for categories.

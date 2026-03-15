@@ -22,7 +22,7 @@ docker compose version
 ## 2. Clone and Configure
 
 ```bash
-git clone https://github.com/ahmedelsamadisi/clearmoney.git
+git clone https://github.com/shahwan42/clearmoney.git
 cd clearmoney
 
 # Create .env from example

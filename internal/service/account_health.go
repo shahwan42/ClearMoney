@@ -24,8 +24,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/repository"
 )
 
 // AccountHealthWarning represents a violated health constraint on an account.

@@ -38,7 +38,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/database"
+	"github.com/shahwan42/clearmoney/internal/database"
 )
 
 // NewTestDB creates a database connection for integration tests.

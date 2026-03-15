@@ -12,8 +12,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // setupAccountTest is a test helper that creates a clean environment.

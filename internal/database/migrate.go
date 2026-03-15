@@ -9,7 +9,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/database/migrations"
+	"github.com/shahwan42/clearmoney/internal/database/migrations"
 )
 
 // RunMigrations applies all pending SQL migrations from the embedded filesystem.

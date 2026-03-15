@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	"github.com/shahwan42/clearmoney/internal/service"
 )
 
 // Auth middleware checks for a valid session cookie on protected routes.

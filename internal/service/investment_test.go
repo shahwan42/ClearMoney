@@ -9,9 +9,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // setupInvestmentTest creates a clean InvestmentService for testing.

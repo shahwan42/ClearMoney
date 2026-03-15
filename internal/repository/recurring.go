@@ -18,7 +18,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // RecurringRepo handles database operations for the recurring_rules table.

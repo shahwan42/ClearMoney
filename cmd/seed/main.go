@@ -15,9 +15,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/config"
-	"github.com/ahmedelsamadisi/clearmoney/internal/database"
-	"github.com/ahmedelsamadisi/clearmoney/internal/database/seeds"
+	"github.com/shahwan42/clearmoney/internal/config"
+	"github.com/shahwan42/clearmoney/internal/database"
+	"github.com/shahwan42/clearmoney/internal/database/seeds"
 )
 
 func main() {

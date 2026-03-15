@@ -29,7 +29,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // CategorySpending represents spending in a single category for a period.

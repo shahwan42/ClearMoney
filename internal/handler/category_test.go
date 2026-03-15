@@ -17,8 +17,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 func TestCategoryHandler_ListAll(t *testing.T) {

@@ -37,7 +37,7 @@ package testutil
 import (
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // TestNewTestDB verifies that the test database helper returns a working connection.

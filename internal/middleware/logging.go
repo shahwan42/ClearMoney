@@ -36,7 +36,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
+	"github.com/shahwan42/clearmoney/internal/logutil"
 )
 
 // RequestLogger middleware injects a *slog.Logger into the request context

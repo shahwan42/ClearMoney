@@ -35,7 +35,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
+	"github.com/shahwan42/clearmoney/internal/logutil"
 	"golang.org/x/crypto/bcrypt"
 )
 

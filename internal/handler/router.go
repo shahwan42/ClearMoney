@@ -44,10 +44,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
-	"github.com/ahmedelsamadisi/clearmoney/internal/templates"
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
+	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/service"
+	"github.com/shahwan42/clearmoney/internal/templates"
 )
 
 // NewRouter creates the chi router with middleware and all routes.

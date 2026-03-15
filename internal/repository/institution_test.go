@@ -23,8 +23,8 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // TestInstitutionRepo_Create verifies that inserting an institution returns

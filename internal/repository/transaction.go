@@ -22,7 +22,7 @@ import (
 	// slices to/from the PostgreSQL wire format for arrays.
 	"github.com/lib/pq"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 )
 
 // TransactionRepo handles database operations for the transactions table.

@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // testRouter creates a fully-wired router with auth pre-configured for testing.

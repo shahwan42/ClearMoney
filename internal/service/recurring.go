@@ -28,9 +28,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/logutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/repository"
 )
 
 // RecurringService manages recurring transaction rules.

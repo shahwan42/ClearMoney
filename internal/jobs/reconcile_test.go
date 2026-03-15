@@ -48,8 +48,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // TestReconcileBalances_NoDiscrepancy verifies that reconciliation passes

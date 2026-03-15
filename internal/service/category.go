@@ -17,8 +17,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/repository"
 )
 
 // CategoryService handles business logic for categories.

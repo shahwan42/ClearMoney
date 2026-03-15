@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 	"golang.org/x/crypto/bcrypt"
 )
 

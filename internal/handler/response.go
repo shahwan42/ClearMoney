@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 )
 
 // respondJSON writes a JSON response with the given status code.

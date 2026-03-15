@@ -69,10 +69,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/service"
 )
 
 // parseFloat is a convenience wrapper around strconv.ParseFloat.

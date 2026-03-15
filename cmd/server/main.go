@@ -29,12 +29,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/config"
-	"github.com/ahmedelsamadisi/clearmoney/internal/database"
-	"github.com/ahmedelsamadisi/clearmoney/internal/handler"
-	"github.com/ahmedelsamadisi/clearmoney/internal/jobs"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	"github.com/shahwan42/clearmoney/internal/config"
+	"github.com/shahwan42/clearmoney/internal/database"
+	"github.com/shahwan42/clearmoney/internal/handler"
+	"github.com/shahwan42/clearmoney/internal/jobs"
+	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/service"
 )
 
 func main() {

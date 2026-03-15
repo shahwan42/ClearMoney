@@ -22,8 +22,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/database"
-	"github.com/ahmedelsamadisi/clearmoney/internal/jobs"
+	"github.com/shahwan42/clearmoney/internal/database"
+	"github.com/shahwan42/clearmoney/internal/jobs"
 )
 
 func main() {

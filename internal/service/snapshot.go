@@ -30,8 +30,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/repository"
 )
 
 // SnapshotService manages creation and retrieval of daily balance snapshots.

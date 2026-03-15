@@ -25,8 +25,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/logutil"
+	"github.com/shahwan42/clearmoney/internal/repository"
 )
 
 // ExportService wraps the transaction repo for data export operations.

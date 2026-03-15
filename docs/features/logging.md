@@ -114,8 +114,8 @@ Enabled with `LOG_LEVEL=debug`. Invisible at the default Info level.
 
 ## Import Patterns
 
-- **Handlers** import middleware: `authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"` → `authmw.Log(r.Context())`
-- **Services** import logutil: `"github.com/ahmedelsamadisi/clearmoney/internal/logutil"` → `logutil.LogEvent(ctx, ...)`
+- **Handlers** import middleware: `authmw "github.com/shahwan42/clearmoney/internal/middleware"` → `authmw.Log(r.Context())`
+- **Services** import logutil: `"github.com/shahwan42/clearmoney/internal/logutil"` → `logutil.LogEvent(ctx, ...)`
 - The `logutil` package exists to break the import cycle between middleware (imports service for AuthService) and service packages
 
 ## Adding Logging to New Features

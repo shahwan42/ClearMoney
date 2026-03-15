@@ -13,8 +13,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // TestNotificationService_GetPendingNotifications_Empty verifies that a clean database

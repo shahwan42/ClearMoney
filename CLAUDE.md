@@ -148,8 +148,8 @@ ClearMoney uses a 3-layer structured logging architecture:
 3. **Page views** (`authmw.Log(r.Context()).Info("page viewed", "page", "<name>")` in handlers): Every page handler logs which page is being viewed. HTMX partial handlers log `"partial loaded"`.
 
 **Import patterns:**
-- Handlers: `authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"` → `authmw.Log(r.Context())`
-- Services: `"github.com/ahmedelsamadisi/clearmoney/internal/logutil"` → `logutil.LogEvent(ctx, ...)`
+- Handlers: `authmw "github.com/shahwan42/clearmoney/internal/middleware"` → `authmw.Log(r.Context())`
+- Services: `"github.com/shahwan42/clearmoney/internal/logutil"` → `logutil.LogEvent(ctx, ...)`
 - Debug logging: `logutil.Log(ctx).Debug(...)` in services, `slog.Debug(...)` in handlers
 
 **Log levels:** Info for events/pages, Debug for dev tracing (enabled with `LOG_LEVEL=debug`), Warn/Error for failures.

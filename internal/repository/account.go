@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/models"
 	// pq is the PostgreSQL driver helper library.
 	// pq.Array() converts between Go slices and PostgreSQL array columns (text[], int[], etc.).
 	// This is like Laravel's array casting: protected $casts = ['role_tags' => 'array'];

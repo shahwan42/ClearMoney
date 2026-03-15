@@ -37,8 +37,8 @@ import (
 	"net/http"
 	"time"
 
-	authmw "github.com/ahmedelsamadisi/clearmoney/internal/middleware"
-	"github.com/ahmedelsamadisi/clearmoney/internal/service"
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
+	"github.com/shahwan42/clearmoney/internal/service"
 )
 
 // LoginPageData carries error and lockout state to the login template.

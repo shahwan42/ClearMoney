@@ -29,7 +29,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 func TestLoginPage_RedirectsToSetupWhenNotConfigured(t *testing.T) {

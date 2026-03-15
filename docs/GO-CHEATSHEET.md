@@ -182,7 +182,7 @@ import (
 
     "github.com/go-chi/chi/v5"   // Third-party package
 
-    "github.com/ahmedelsamadisi/clearmoney/internal/models"  // Our code
+    "github.com/shahwan42/clearmoney/internal/models"  // Our code
 )
 
 // Using imported packages:

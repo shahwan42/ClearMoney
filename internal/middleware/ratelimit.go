@@ -38,7 +38,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/logutil"
+	"github.com/shahwan42/clearmoney/internal/logutil"
 )
 
 // RateLimitConfig holds the settings for a rate limiter instance.

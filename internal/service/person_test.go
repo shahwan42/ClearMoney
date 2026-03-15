@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ahmedelsamadisi/clearmoney/internal/models"
-	"github.com/ahmedelsamadisi/clearmoney/internal/repository"
-	"github.com/ahmedelsamadisi/clearmoney/internal/testutil"
+	"github.com/shahwan42/clearmoney/internal/models"
+	"github.com/shahwan42/clearmoney/internal/repository"
+	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // zeroDT returns the zero value of time.Time — Go's equivalent of null/None for dates.
