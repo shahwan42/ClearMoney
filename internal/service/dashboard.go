@@ -89,10 +89,11 @@ type DashboardData struct {
 	NetWorthChange  float64   // % change vs 30 days ago
 
 	// TASK-056: Month-over-month spending comparison
-	ThisMonthSpending float64
-	LastMonthSpending float64
-	SpendingChange    float64          // % change (positive = spending more)
-	TopCategories     []CategoryChange // top 3 categories with change indicators
+	SpendingByCurrency []CurrencySpending // per-currency spending comparison
+	ThisMonthSpending  float64            // EGP-only (legacy, used by SpendingVelocity)
+	LastMonthSpending  float64            // EGP-only (legacy, used by SpendingVelocity)
+	SpendingChange     float64            // EGP-only % change (positive = spending more)
+	TopCategories      []CategoryChange   // EGP-only top 3 categories (legacy)
 
 	// TASK-059: Per-account balance sparklines (account ID → last 30 days)
 	AccountSparklines map[string][]float64
@@ -137,6 +138,16 @@ type DueSoonCard struct {
 	DueDate      time.Time
 	DaysUntilDue int
 	Balance      float64
+}
+
+// CurrencySpending holds per-currency month-over-month spending comparison.
+// The dashboard renders one "This Month vs Last" section per currency.
+type CurrencySpending struct {
+	Currency      string           // "EGP" or "USD"
+	ThisMonth     float64          // total spending this month in this currency
+	LastMonth     float64          // total spending last month in this currency
+	Change        float64          // % change (positive = spending more)
+	TopCategories []CategoryChange // top 3 categories for this currency
 }
 
 // CategoryChange shows a category's spending with month-over-month change.
@@ -453,29 +464,101 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 	now := time.Now()
 	thisMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	lastMonthStart := thisMonthStart.AddDate(0, -1, 0)
+	nextMonthStart := thisMonthStart.AddDate(0, 1, 0)
 
-	// Total spending this month vs last month
-	if err := s.db.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(amount), 0) FROM transactions
+	// Spending per currency this month
+	thisMonthByCurrency := make(map[string]float64)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT currency, COALESCE(SUM(amount), 0)
+		FROM transactions
 		WHERE type = 'expense' AND date >= $1 AND date < $2
-	`, thisMonthStart, thisMonthStart.AddDate(0, 1, 0)).Scan(&data.ThisMonthSpending); err != nil {
-		slog.Warn("failed to compute this month spending", "error", err)
+		GROUP BY currency ORDER BY currency
+	`, thisMonthStart, nextMonthStart)
+	if err != nil {
+		slog.Warn("failed to compute this month spending by currency", "error", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var cur string
+			var amt float64
+			if err := rows.Scan(&cur, &amt); err == nil {
+				thisMonthByCurrency[cur] = amt
+			}
+		}
 	}
 
-	if err := s.db.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(amount), 0) FROM transactions
+	// Spending per currency last month
+	lastMonthByCurrency := make(map[string]float64)
+	rows2, err := s.db.QueryContext(ctx, `
+		SELECT currency, COALESCE(SUM(amount), 0)
+		FROM transactions
 		WHERE type = 'expense' AND date >= $1 AND date < $2
-	`, lastMonthStart, thisMonthStart).Scan(&data.LastMonthSpending); err != nil {
-		slog.Warn("failed to compute last month spending", "error", err)
+		GROUP BY currency ORDER BY currency
+	`, lastMonthStart, thisMonthStart)
+	if err != nil {
+		slog.Warn("failed to compute last month spending by currency", "error", err)
+	} else {
+		defer rows2.Close()
+		for rows2.Next() {
+			var cur string
+			var amt float64
+			if err := rows2.Scan(&cur, &amt); err == nil {
+				lastMonthByCurrency[cur] = amt
+			}
+		}
 	}
 
-	// Spending change %
-	if data.LastMonthSpending > 0 {
-		data.SpendingChange = (data.ThisMonthSpending - data.LastMonthSpending) / data.LastMonthSpending * 100
+	// Collect all currencies that appear in either month
+	currencies := make(map[string]bool)
+	for c := range thisMonthByCurrency {
+		currencies[c] = true
+	}
+	for c := range lastMonthByCurrency {
+		currencies[c] = true
 	}
 
-	// TASK-060: Spending velocity
-	daysInMonth := thisMonthStart.AddDate(0, 1, 0).Sub(thisMonthStart).Hours() / 24
+	// Build CurrencySpending entries, EGP first
+	orderedCurrencies := []string{}
+	if currencies["EGP"] {
+		orderedCurrencies = append(orderedCurrencies, "EGP")
+	}
+	for c := range currencies {
+		if c != "EGP" {
+			orderedCurrencies = append(orderedCurrencies, c)
+		}
+	}
+
+	for _, cur := range orderedCurrencies {
+		thisAmt := thisMonthByCurrency[cur]
+		lastAmt := lastMonthByCurrency[cur]
+		change := 0.0
+		if lastAmt > 0 {
+			change = (thisAmt - lastAmt) / lastAmt * 100
+		}
+
+		cs := CurrencySpending{
+			Currency:  cur,
+			ThisMonth: thisAmt,
+			LastMonth: lastAmt,
+			Change:    change,
+		}
+
+		// Top 3 categories for this currency
+		cs.TopCategories = s.queryTopCategoriesForCurrency(ctx, cur, thisMonthStart, nextMonthStart, lastMonthStart)
+
+		data.SpendingByCurrency = append(data.SpendingByCurrency, cs)
+
+		// Populate legacy fields with EGP-only values (used by SpendingVelocity)
+		if cur == "EGP" {
+			data.ThisMonthSpending = thisAmt
+			data.LastMonthSpending = lastAmt
+			data.SpendingChange = change
+			data.TopCategories = cs.TopCategories
+		}
+	}
+
+	// TASK-060: Spending velocity (uses EGP-only legacy fields)
+	daysInMonth := nextMonthStart.Sub(thisMonthStart).Hours() / 24
 	daysElapsed := now.Day()
 	daysLeft := int(daysInMonth) - daysElapsed
 	dayProgress := float64(daysElapsed) / daysInMonth * 100
@@ -499,15 +582,19 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 		sv.Status = "red"
 	}
 	data.SpendingVelocity = sv
+}
 
-	// Top 3 categories with the largest spending this month + their change vs last month
+// queryTopCategoriesForCurrency returns the top 3 spending categories for a given
+// currency in the current month, with their month-over-month change %.
+func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, currency string, thisMonthStart, nextMonthStart, lastMonthStart time.Time) []CategoryChange {
 	rows, err := s.db.QueryContext(ctx, `
 		WITH this_month AS (
 			SELECT COALESCE(c.name, 'Uncategorized') AS cat_name,
 				SUM(t.amount) AS amount
 			FROM transactions t
 			LEFT JOIN categories c ON t.category_id = c.id
-			WHERE t.type = 'expense' AND t.date >= $1 AND t.date < $2
+			WHERE t.type = 'expense' AND t.currency = $4::currency_type
+				AND t.date >= $1 AND t.date < $2
 			GROUP BY c.name
 			ORDER BY SUM(t.amount) DESC
 			LIMIT 3
@@ -517,19 +604,21 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 				SUM(t.amount) AS amount
 			FROM transactions t
 			LEFT JOIN categories c ON t.category_id = c.id
-			WHERE t.type = 'expense' AND t.date >= $3 AND t.date < $1
+			WHERE t.type = 'expense' AND t.currency = $4::currency_type
+				AND t.date >= $3 AND t.date < $1
 			GROUP BY c.name
 		)
 		SELECT tm.cat_name, tm.amount,
 			COALESCE(lm.amount, 0) AS last_amount
 		FROM this_month tm
 		LEFT JOIN last_month lm ON tm.cat_name = lm.cat_name
-	`, thisMonthStart, thisMonthStart.AddDate(0, 1, 0), lastMonthStart)
+	`, thisMonthStart, nextMonthStart, lastMonthStart, currency)
 	if err != nil {
-		return
+		return nil
 	}
 	defer rows.Close()
 
+	var categories []CategoryChange
 	for rows.Next() {
 		var name string
 		var thisAmt, lastAmt float64
@@ -540,11 +629,12 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 		if lastAmt > 0 {
 			change = (thisAmt - lastAmt) / lastAmt * 100
 		}
-		data.TopCategories = append(data.TopCategories, CategoryChange{
+		categories = append(categories, CategoryChange{
 			Name:   name,
 			Amount: thisAmt,
 			Change: change,
 			IsUp:   change > 0,
 		})
 	}
+	return categories
 }

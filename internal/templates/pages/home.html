@@ -102,44 +102,70 @@
     </div>
     {{end}}
 
-    <!-- Month-over-Month Spending (TASK-056) -->
-    {{if or (gt .Data.ThisMonthSpending 0.0) (gt .Data.LastMonthSpending 0.0)}}
-    <section class="bg-white rounded-2xl shadow-sm p-5">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">This Month vs Last</h2>
-            {{if ne .Data.SpendingChange 0.0}}
-            {{template "chart-trend" (dict "Change" .Data.SpendingChange "Label" "" "IsGood" (lt .Data.SpendingChange 0.0))}}
+    <!-- Month-over-Month Spending with currency tabs (TASK-056) -->
+    {{if .Data.SpendingByCurrency}}
+    <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">This Month vs Last</h2>
+        {{if gt (len .Data.SpendingByCurrency) 1}}
+        <div class="flex gap-2 mb-3" id="spending-tabs">
+            {{range $i, $cs := .Data.SpendingByCurrency}}
+            <button type="button" id="spending-tab-btn-{{$cs.Currency}}"
+                class="flex-1 py-2 text-sm font-medium text-center rounded-lg border min-h-[44px] {{if eq $i 0}}bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900 dark:text-teal-300 dark:border-teal-700{{else}}bg-gray-50 text-gray-500 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600{{end}}"
+                onclick="switchSpendingTab('{{$cs.Currency}}')">
+                {{$cs.Currency}}
+            </button>
             {{end}}
         </div>
-        <div class="flex items-end gap-6">
-            <div>
-                <p class="text-xs text-gray-400">This month</p>
-                <p class="text-xl font-bold text-slate-900">{{formatEGP .Data.ThisMonthSpending}}</p>
-            </div>
-            <div>
-                <p class="text-xs text-gray-400">Last month</p>
-                <p class="text-sm font-medium text-gray-500">{{formatEGP .Data.LastMonthSpending}}</p>
-            </div>
-        </div>
-        <!-- Loop over top spending categories.
-             Inside the range, dot (.) becomes the current TopCategory item.
-             Blade: @foreach($cats as $cat)  |  Jinja2: for cat in cats -->
-        {{if .Data.TopCategories}}
-        <div class="mt-3 pt-3 border-t border-gray-100 space-y-2">
-            {{range .Data.TopCategories}}
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-600">{{.Name}}</span>
-                <div class="flex items-center gap-2">
-                    <span class="font-medium text-slate-800">{{formatEGP .Amount}}</span>
-                    {{if ne .Change 0.0}}
-                    {{template "chart-trend" (dict "Change" .Change "Label" "" "IsGood" (lt .Change 0.0))}}
-                    {{end}}
+        {{end}}
+        {{range $i, $cs := .Data.SpendingByCurrency}}
+        <div id="spending-panel-{{$cs.Currency}}" class="{{if ne $i 0}}hidden{{end}}">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-end gap-6">
+                    <div>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">This month</p>
+                        <p class="text-xl font-bold text-slate-900 dark:text-slate-100">{{formatCurrency $cs.ThisMonth $cs.Currency}}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">Last month</p>
+                        <p class="text-sm font-medium text-gray-500 dark:text-slate-400">{{formatCurrency $cs.LastMonth $cs.Currency}}</p>
+                    </div>
                 </div>
+                {{if ne $cs.Change 0.0}}
+                {{template "chart-trend" (dict "Change" $cs.Change "Label" "" "IsGood" (lt $cs.Change 0.0))}}
+                {{end}}
+            </div>
+            {{if $cs.TopCategories}}
+            <div class="pt-3 border-t border-gray-100 dark:border-slate-700 space-y-2">
+                {{range $cs.TopCategories}}
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-slate-600 dark:text-slate-300">{{.Name}}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium text-slate-800 dark:text-slate-200">{{formatCurrency .Amount $cs.Currency}}</span>
+                        {{if ne .Change 0.0}}
+                        {{template "chart-trend" (dict "Change" .Change "Label" "" "IsGood" (lt .Change 0.0))}}
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
             </div>
             {{end}}
         </div>
         {{end}}
     </section>
+    <script>
+    function switchSpendingTab(currency) {
+        document.querySelectorAll('[id^="spending-panel-"]').forEach(function(p) {
+            p.classList.add('hidden');
+        });
+        var panel = document.getElementById('spending-panel-' + currency);
+        if (panel) panel.classList.remove('hidden');
+        var active = 'flex-1 py-2 text-sm font-medium text-center rounded-lg border min-h-[44px] bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900 dark:text-teal-300 dark:border-teal-700';
+        var inactive = 'flex-1 py-2 text-sm font-medium text-center rounded-lg border min-h-[44px] bg-gray-50 text-gray-500 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600';
+        document.querySelectorAll('#spending-tabs button').forEach(function(btn) {
+            btn.className = (btn.id === 'spending-tab-btn-' + currency) ? active : inactive;
+        });
+    }
+    </script>
     {{end}}
 
     <!-- TASK-060: Spending Velocity Indicator -->

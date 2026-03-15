@@ -17,6 +17,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -353,5 +355,182 @@ func TestDashboardService_InstitutionTotal_ConvertsCurrency(t *testing.T) {
 	expectedTotal := 47850.0 + 2100.0*50.0
 	if data.Institutions[0].Total != expectedTotal {
 		t.Errorf("institution total = %f, want %f", data.Institutions[0].Total, expectedTotal)
+	}
+}
+
+// insertExpense is a test helper that inserts an expense transaction with the given
+// currency, amount, date, and optional category name.
+func insertExpense(t *testing.T, db *sql.DB, accountID string, currency string, amount float64, date time.Time, categoryName string) {
+	t.Helper()
+	var categoryID *string
+	if categoryName != "" {
+		var id string
+		err := db.QueryRow(`SELECT id FROM categories WHERE name = $1 LIMIT 1`, categoryName).Scan(&id)
+		if err != nil {
+			t.Fatalf("finding category %q: %v", categoryName, err)
+		}
+		categoryID = &id
+	}
+	_, err := db.Exec(`
+		INSERT INTO transactions (type, amount, currency, account_id, date, category_id)
+		VALUES ('expense', $1, $2::currency_type, $3, $4, $5)
+	`, amount, currency, accountID, date, categoryID)
+	if err != nil {
+		t.Fatalf("inserting expense: %v", err)
+	}
+}
+
+// TestDashboardService_SpendingByCurrency verifies that spending is grouped by currency.
+// EGP and USD expenses should appear as separate CurrencySpending entries.
+func TestDashboardService_SpendingByCurrency(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	instRepo := repository.NewInstitutionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+	svc := NewDashboardService(instRepo, accRepo, txRepo)
+	svc.SetDB(db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	egpAcc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "EGP Checking",
+		Currency: models.CurrencyEGP, InitialBalance: 100000,
+	})
+	usdAcc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "USD Savings",
+		Currency: models.CurrencyUSD, InitialBalance: 5000,
+	})
+
+	now := time.Now()
+	thisMonth := time.Date(now.Year(), now.Month(), 5, 0, 0, 0, 0, time.UTC)
+	lastMonth := thisMonth.AddDate(0, -1, 0)
+
+	// EGP expenses: this month 3000, last month 2000
+	insertExpense(t, db, egpAcc.ID, "EGP", 1500, thisMonth, "Food & Groceries")
+	insertExpense(t, db, egpAcc.ID, "EGP", 1000, thisMonth, "Transport")
+	insertExpense(t, db, egpAcc.ID, "EGP", 500, thisMonth, "Health")
+	insertExpense(t, db, egpAcc.ID, "EGP", 1200, lastMonth, "Food & Groceries")
+	insertExpense(t, db, egpAcc.ID, "EGP", 800, lastMonth, "Transport")
+
+	// USD expenses: this month 200, last month 300
+	insertExpense(t, db, usdAcc.ID, "USD", 120, thisMonth, "Subscriptions")
+	insertExpense(t, db, usdAcc.ID, "USD", 80, thisMonth, "Entertainment")
+	insertExpense(t, db, usdAcc.ID, "USD", 200, lastMonth, "Subscriptions")
+	insertExpense(t, db, usdAcc.ID, "USD", 100, lastMonth, "Entertainment")
+
+	data, err := svc.GetDashboard(context.Background())
+	if err != nil {
+		t.Fatalf("get dashboard: %v", err)
+	}
+
+	// Should have 2 currency entries: EGP first, then USD
+	if len(data.SpendingByCurrency) != 2 {
+		t.Fatalf("expected 2 currency entries, got %d", len(data.SpendingByCurrency))
+	}
+
+	egp := data.SpendingByCurrency[0]
+	if egp.Currency != "EGP" {
+		t.Errorf("first currency = %s, want EGP", egp.Currency)
+	}
+	if egp.ThisMonth != 3000 {
+		t.Errorf("EGP this month = %f, want 3000", egp.ThisMonth)
+	}
+	if egp.LastMonth != 2000 {
+		t.Errorf("EGP last month = %f, want 2000", egp.LastMonth)
+	}
+	// Change = (3000 - 2000) / 2000 * 100 = 50%
+	expectedChange := 50.0
+	if fmt.Sprintf("%.1f", egp.Change) != fmt.Sprintf("%.1f", expectedChange) {
+		t.Errorf("EGP change = %.1f%%, want %.1f%%", egp.Change, expectedChange)
+	}
+	if len(egp.TopCategories) != 3 {
+		t.Errorf("EGP top categories = %d, want 3", len(egp.TopCategories))
+	}
+
+	usd := data.SpendingByCurrency[1]
+	if usd.Currency != "USD" {
+		t.Errorf("second currency = %s, want USD", usd.Currency)
+	}
+	if usd.ThisMonth != 200 {
+		t.Errorf("USD this month = %f, want 200", usd.ThisMonth)
+	}
+	if usd.LastMonth != 300 {
+		t.Errorf("USD last month = %f, want 300", usd.LastMonth)
+	}
+	// Change = (200 - 300) / 300 * 100 = -33.3%
+	if usd.Change >= 0 {
+		t.Errorf("USD change = %.1f%%, want negative (spending decreased)", usd.Change)
+	}
+
+	// Legacy fields should be EGP-only
+	if data.ThisMonthSpending != 3000 {
+		t.Errorf("legacy ThisMonthSpending = %f, want 3000 (EGP only)", data.ThisMonthSpending)
+	}
+	if data.LastMonthSpending != 2000 {
+		t.Errorf("legacy LastMonthSpending = %f, want 2000 (EGP only)", data.LastMonthSpending)
+	}
+}
+
+// TestDashboardService_SpendingByCurrency_EGPOnly verifies that when only EGP expenses
+// exist, SpendingByCurrency has a single entry and no USD section appears.
+func TestDashboardService_SpendingByCurrency_EGPOnly(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	instRepo := repository.NewInstitutionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+	svc := NewDashboardService(instRepo, accRepo, txRepo)
+	svc.SetDB(db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID: inst.ID, Name: "Checking",
+		Currency: models.CurrencyEGP, InitialBalance: 50000,
+	})
+
+	now := time.Now()
+	thisMonth := time.Date(now.Year(), now.Month(), 10, 0, 0, 0, 0, time.UTC)
+	insertExpense(t, db, acc.ID, "EGP", 500, thisMonth, "Food & Groceries")
+
+	data, err := svc.GetDashboard(context.Background())
+	if err != nil {
+		t.Fatalf("get dashboard: %v", err)
+	}
+
+	if len(data.SpendingByCurrency) != 1 {
+		t.Fatalf("expected 1 currency entry, got %d", len(data.SpendingByCurrency))
+	}
+	if data.SpendingByCurrency[0].Currency != "EGP" {
+		t.Errorf("currency = %s, want EGP", data.SpendingByCurrency[0].Currency)
+	}
+}
+
+// TestDashboardService_SpendingByCurrency_Empty verifies that when there are no
+// expenses, SpendingByCurrency is empty and the section won't render.
+func TestDashboardService_SpendingByCurrency_Empty(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	instRepo := repository.NewInstitutionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+	svc := NewDashboardService(instRepo, accRepo, txRepo)
+	svc.SetDB(db)
+
+	data, err := svc.GetDashboard(context.Background())
+	if err != nil {
+		t.Fatalf("get dashboard: %v", err)
+	}
+
+	if len(data.SpendingByCurrency) != 0 {
+		t.Errorf("expected 0 currency entries, got %d", len(data.SpendingByCurrency))
 	}
 }
