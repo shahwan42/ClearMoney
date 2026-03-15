@@ -239,6 +239,7 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 - **Category dropdowns**: Use `<optgroup label="Expenses">` and `<optgroup label="Income">` — pass both `ExpenseCategories` and `IncomeCategories` to templates
 - **Enum casting in SQL**: When filtering by enum columns (e.g., `currency`), cast the Go string: `WHERE currency = $1::currency_type`
 - **OOB swaps**: When an HTMX response needs to update multiple page sections, write the primary response first, then OOB divs with `hx-swap-oob="true"`
+- **Transaction currency**: Never trust the form's currency field — the service layer overrides it from the account. Don't add client-side currency logic; the server is the source of truth
 
 ### Startup Sequence
 

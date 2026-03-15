@@ -917,6 +917,92 @@ func TestTransactionService_FawryCashout_ValidationErrors(t *testing.T) {
 	}
 }
 
+// TestTransactionService_Create_OverridesCurrencyFromAccount verifies that the service
+// always uses the account's currency, even if the caller passes a wrong one.
+// Regression test: USD accounts had transactions recorded as EGP because the hidden
+// form field defaulted to EGP and the JS currency detection was fragile.
+func TestTransactionService_Create_OverridesCurrencyFromAccount(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	usdAcc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "USD Savings",
+		Type:           models.AccountTypeSavings,
+		Currency:       models.CurrencyUSD,
+		InitialBalance: 1000,
+	})
+
+	// Simulate the bug: caller passes EGP currency for a USD account
+	created, _, err := svc.Create(context.Background(), models.Transaction{
+		Type:      models.TransactionTypeExpense,
+		Amount:    50,
+		Currency:  models.CurrencyEGP, // wrong — should be overridden to USD
+		AccountID: usdAcc.ID,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if created.Currency != models.CurrencyUSD {
+		t.Errorf("expected currency USD, got %s — service should override from account", created.Currency)
+	}
+}
+
+// TestTransactionService_Update_OverridesCurrencyFromAccount verifies the same
+// currency override behavior for transaction updates.
+func TestTransactionService_Update_OverridesCurrencyFromAccount(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	txRepo := repository.NewTransactionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	svc := NewTransactionService(txRepo, accRepo)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	usdAcc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "USD Savings",
+		Type:           models.AccountTypeSavings,
+		Currency:       models.CurrencyUSD,
+		InitialBalance: 1000,
+	})
+
+	// Create with correct currency
+	created, _, err := svc.Create(context.Background(), models.Transaction{
+		Type:      models.TransactionTypeExpense,
+		Amount:    50,
+		Currency:  models.CurrencyUSD,
+		AccountID: usdAcc.ID,
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Update with wrong currency — should be overridden
+	updated, _, err := svc.Update(context.Background(), models.Transaction{
+		ID:        created.ID,
+		Type:      models.TransactionTypeExpense,
+		Amount:    75,
+		Currency:  models.CurrencyEGP, // wrong — should be overridden to USD
+		AccountID: usdAcc.ID,
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.Currency != models.CurrencyUSD {
+		t.Errorf("expected currency USD after update, got %s", updated.Currency)
+	}
+}
+
 func TestTransactionService_SmartDefaults_RecentCategories(t *testing.T) {
 	svc, acc, catID := setupTransactionServiceTest(t)
 	ctx := context.Background()

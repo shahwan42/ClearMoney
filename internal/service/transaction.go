@@ -81,18 +81,24 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 		return models.Transaction{}, 0, err
 	}
 
+	// Always use the account's currency as the source of truth.
+	// The form may send a stale or incorrect currency (e.g., defaulting to EGP
+	// when the account is USD), so we override it from the account record.
+	acc, err := s.accRepo.GetByID(ctx, tx.AccountID)
+	if err != nil {
+		return models.Transaction{}, 0, fmt.Errorf("looking up account: %w", err)
+	}
+	tx.Currency = acc.Currency
+
 	// Calculate balance delta based on transaction type
 	delta := s.balanceDelta(tx)
 
 	// Credit card validation: check if expense would exceed credit limit
-	if delta < 0 {
-		acc, err := s.accRepo.GetByID(ctx, tx.AccountID)
-		if err == nil && acc.IsCreditType() && acc.CreditLimit != nil {
-			newBalance := acc.CurrentBalance + delta
-			if newBalance < -*acc.CreditLimit {
-				return models.Transaction{}, 0, fmt.Errorf(
-					"would exceed credit limit (available: %.2f)", acc.AvailableCredit())
-			}
+	if delta < 0 && acc.IsCreditType() && acc.CreditLimit != nil {
+		newBalance := acc.CurrentBalance + delta
+		if newBalance < -*acc.CreditLimit {
+			return models.Transaction{}, 0, fmt.Errorf(
+				"would exceed credit limit (available: %.2f)", acc.AvailableCredit())
 		}
 	}
 
@@ -121,8 +127,8 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 		return models.Transaction{}, 0, fmt.Errorf("committing transaction: %w", err)
 	}
 
-	// Fetch the updated balance to return to the caller
-	acc, err := s.accRepo.GetByID(ctx, tx.AccountID)
+	// Re-fetch account to get the updated balance
+	acc, err = s.accRepo.GetByID(ctx, tx.AccountID)
 	if err != nil {
 		return created, 0, nil // transaction succeeded, just can't return balance
 	}
@@ -652,6 +658,13 @@ func (s *TransactionService) Update(ctx context.Context, updated models.Transact
 		return models.Transaction{}, 0, err
 	}
 
+	// Always use the account's currency as the source of truth
+	acc, err := s.accRepo.GetByID(ctx, old.AccountID)
+	if err != nil {
+		return models.Transaction{}, 0, fmt.Errorf("looking up account: %w", err)
+	}
+	updated.Currency = acc.Currency
+
 	oldDelta := s.balanceDelta(old)
 	newDelta := s.balanceDelta(updated)
 	balanceAdjustment := newDelta - oldDelta // net change to apply
@@ -677,10 +690,6 @@ func (s *TransactionService) Update(ctx context.Context, updated models.Transact
 		return models.Transaction{}, 0, fmt.Errorf("committing: %w", err)
 	}
 
-	acc, err := s.accRepo.GetByID(ctx, old.AccountID)
-	if err != nil {
-		return result, 0, nil
-	}
 	return result, acc.CurrentBalance, nil
 }
 
