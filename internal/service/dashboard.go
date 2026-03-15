@@ -88,8 +88,9 @@ type DashboardData struct {
 	RecentTransactions []models.Transaction
 
 	// TASK-055: Net worth sparkline data (last 30 days)
-	NetWorthHistory []float64 // values for sparkline chart
-	NetWorthChange  float64   // % change vs 30 days ago
+	NetWorthHistory           []float64          // values for sparkline chart (EGP-converted)
+	NetWorthChange            float64            // % change vs 30 days ago
+	NetWorthHistoryByCurrency map[string][]float64 // per-currency sparkline data (e.g., "EGP" and "USD")
 
 	// TASK-056: Month-over-month spending comparison
 	SpendingByCurrency []CurrencySpending // per-currency spending comparison
@@ -466,6 +467,13 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 			}
 		}
 		logutil.Log(ctx).Debug("dashboard: loaded net worth history", "duration_ms", time.Since(t).Milliseconds())
+
+		// Per-currency net worth history for dual sparkline
+		t = time.Now()
+		if byCurrency, err := s.snapshotSvc.GetNetWorthByCurrency(ctx, 30); err == nil && len(byCurrency) > 0 {
+			data.NetWorthHistoryByCurrency = byCurrency
+		}
+		logutil.Log(ctx).Debug("dashboard: loaded per-currency history", "duration_ms", time.Since(t).Milliseconds())
 	}
 
 	// TASK-059: Per-account balance sparklines (last 30 days)

@@ -230,6 +230,14 @@ func (s *SnapshotService) GetNetWorthHistory(ctx context.Context, days int) ([]f
 	return values, nil
 }
 
+// GetNetWorthByCurrency returns per-currency net worth history for the last N days.
+// Returns a map keyed by currency code (e.g., "EGP", "USD") with daily total slices.
+func (s *SnapshotService) GetNetWorthByCurrency(ctx context.Context, days int) (map[string][]float64, error) {
+	today := timeutil.Today(s.timezone())
+	from := today.AddDate(0, 0, -days)
+	return s.snapshotRepo.GetNetWorthByCurrency(ctx, from, today)
+}
+
 // GetAccountHistory returns daily balances for a specific account over N days.
 // Returns a slice of float64 values suitable for sparklinePoints().
 func (s *SnapshotService) GetAccountHistory(ctx context.Context, accountID string, days int) ([]float64, error) {

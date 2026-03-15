@@ -136,6 +136,36 @@ func (r *SnapshotRepo) GetAccountRange(ctx context.Context, accountID string, fr
 	return snapshots, rows.Err()
 }
 
+// GetNetWorthByCurrency returns per-currency net worth history between two dates.
+// Sums account_snapshots balances grouped by currency and date, returning a map
+// keyed by currency code (e.g., "EGP", "USD") with a slice of daily totals.
+func (r *SnapshotRepo) GetNetWorthByCurrency(ctx context.Context, from, to time.Time) (map[string][]float64, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT s.date, a.currency, SUM(s.balance) as total
+		FROM account_snapshots s
+		JOIN accounts a ON a.id = s.account_id
+		WHERE s.date >= $1 AND s.date <= $2
+		GROUP BY s.date, a.currency
+		ORDER BY s.date ASC
+	`, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("querying net worth by currency: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]float64)
+	for rows.Next() {
+		var date time.Time
+		var currency string
+		var total float64
+		if err := rows.Scan(&date, &currency, &total); err != nil {
+			return nil, fmt.Errorf("scanning net worth by currency: %w", err)
+		}
+		result[currency] = append(result[currency], total)
+	}
+	return result, rows.Err()
+}
+
 // Exists checks if a daily snapshot already exists for the given date.
 //
 // SELECT EXISTS(SELECT 1 FROM ... WHERE ...) is the most efficient existence check.

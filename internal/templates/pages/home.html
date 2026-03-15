@@ -53,21 +53,14 @@
     <section class="bg-white rounded-2xl shadow-sm p-5">
         <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Net Worth</h2>
 
-        <!-- Two-column grid for per-currency totals -->
-        <div class="grid {{if ne .Data.USDTotal 0.0}}grid-cols-2 gap-4{{else}}grid-cols-1{{end}} mt-3">
-            <div>
-                <p class="text-xs text-gray-400 mb-0.5">EGP</p>
-                <p class="text-2xl font-bold {{if lt .Data.EGPTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">
-                    {{formatEGP .Data.EGPTotal}}
-                </p>
-            </div>
+        <div class="flex items-baseline gap-4 mt-3">
+            <p class="text-xl font-bold {{if lt .Data.EGPTotal 0.0}}text-red-600{{else}}text-teal-600{{end}}">
+                <span class="text-sm font-medium text-gray-400 mr-1">EGP</span>{{formatNum .Data.EGPTotal}}
+            </p>
             {{if ne .Data.USDTotal 0.0}}
-            <div>
-                <p class="text-xs text-gray-400 mb-0.5">USD</p>
-                <p class="text-2xl font-bold {{if lt .Data.USDTotal 0.0}}text-red-600{{else}}text-slate-900{{end}}">
-                    {{formatUSD .Data.USDTotal}}
-                </p>
-            </div>
+            <p class="text-xl font-bold {{if lt .Data.USDTotal 0.0}}text-red-600{{else}}text-blue-500{{end}}">
+                <span class="text-sm font-medium text-gray-400 mr-1">USD</span>{{formatNum .Data.USDTotal}}
+            </p>
             {{end}}
         </div>
 
@@ -80,7 +73,11 @@
             {{else}}
             <div></div>
             {{end}}
-            {{if .Data.NetWorthHistory}}
+            {{if .Data.NetWorthHistoryByCurrency}}
+            <div class="flex-shrink-0">
+                {{template "chart-sparkline-dual" (dict "Values1" (index .Data.NetWorthHistoryByCurrency "EGP") "Color1" "#0d9488" "Values2" (index .Data.NetWorthHistoryByCurrency "USD") "Color2" "#3b82f6" "Width" 100 "Height" 36)}}
+            </div>
+            {{else if .Data.NetWorthHistory}}
             <div class="flex-shrink-0">
                 {{template "chart-sparkline" (dict "Values" .Data.NetWorthHistory "Color" "#0d9488" "Width" 100 "Height" 36)}}
             </div>

@@ -78,6 +78,10 @@ func TemplateFuncs(loc *time.Location) template.FuncMap {
 		"formatEGP": func(amount float64) string {
 			return "EGP " + formatNumber(amount)
 		},
+		// formatNum formats a float with thousand separators, no currency prefix: "1,234.56"
+		"formatNum": func(amount float64) string {
+			return formatNumber(amount)
+		},
 		// formatUSD formats a float as US Dollars: "$1,234.56"
 		"formatUSD": func(amount float64) string {
 			return "$" + formatNumber(amount)
