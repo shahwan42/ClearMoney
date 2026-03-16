@@ -75,6 +75,12 @@ var BottomSheet = (function() {
         });
     }
 
+    // Focus the first visible input/textarea/select inside a container
+    function focusFirstInput(container) {
+        var el = container.querySelector('input:not([type="hidden"]), textarea, select');
+        if (el) el.focus();
+    }
+
     function open(name, opts) {
         // Always re-register to get fresh DOM references (hx-boost swaps the body)
         var s = register(name);
@@ -92,6 +98,14 @@ var BottomSheet = (function() {
                 target: '#' + name + '-content',
                 swap: 'innerHTML'
             });
+            // Focus first input after HTMX content settles
+            s.content.addEventListener('htmx:afterSettle', function handler() {
+                s.content.removeEventListener('htmx:afterSettle', handler);
+                focusFirstInput(s.content);
+            });
+        } else if (s.content) {
+            // For static/pre-loaded content, focus after slide-up animation (300ms)
+            setTimeout(function() { focusFirstInput(s.content); }, 300);
         }
 
         // Fire a custom HTMX trigger event on the sheet element
