@@ -169,7 +169,7 @@ type CreditCardSummary struct {
 // so callers can use errors.Is() or errors.As() to inspect the chain.
 // Like PHP's previous exception parameter: throw new Exception("msg", 0, $previous).
 // See: https://pkg.go.dev/fmt#Errorf (the %w verb)
-func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, snapshotSvc *SnapshotService, ctx context.Context, periodStr string) (*StatementData, error) {
+func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, snapshotSvc *SnapshotService, ctx context.Context, userID string, periodStr string) (*StatementData, error) {
 	meta := ParseBillingCycle(acc)
 	if meta == nil {
 		return nil, fmt.Errorf("account has no billing cycle configuration")
@@ -187,7 +187,7 @@ func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, sn
 		}
 	}
 
-	txns, err := txRepo.GetByAccountDateRange(ctx, acc.ID, info.PeriodStart, info.PeriodEnd)
+	txns, err := txRepo.GetByAccountDateRange(ctx, userID, acc.ID, info.PeriodStart, info.PeriodEnd)
 	if err != nil {
 		return nil, fmt.Errorf("loading statement transactions: %w", err)
 	}
@@ -227,7 +227,7 @@ func GetStatementData(acc models.Account, txRepo *repository.TransactionRepo, sn
 
 	// TASK-075: Payment history
 	if txRepo != nil {
-		payments, err := txRepo.GetPaymentsToAccount(ctx, acc.ID, 10)
+		payments, err := txRepo.GetPaymentsToAccount(ctx, userID, acc.ID, 10)
 		if err == nil {
 			sd.PaymentHistory = payments
 		}
@@ -280,7 +280,7 @@ func (s *AccountService) SetRecurringRepo(repo *repository.RecurringRepo) {
 }
 
 // Create validates and creates a new account.
-func (s *AccountService) Create(ctx context.Context, acc models.Account) (models.Account, error) {
+func (s *AccountService) Create(ctx context.Context, userID string, acc models.Account) (models.Account, error) {
 	var err error
 	if acc.Name, err = requireTrimmedName(acc.Name, "account name"); err != nil {
 		return models.Account{}, err
@@ -299,7 +299,8 @@ func (s *AccountService) Create(ctx context.Context, acc models.Account) (models
 		return models.Account{}, fmt.Errorf("cash accounts cannot have a credit limit")
 	}
 
-	created, err := s.repo.Create(ctx, acc)
+	acc.UserID = userID
+	created, err := s.repo.Create(ctx, userID, acc)
 	if err != nil {
 		return models.Account{}, err
 	}
@@ -307,24 +308,24 @@ func (s *AccountService) Create(ctx context.Context, acc models.Account) (models
 	return created, nil
 }
 
-func (s *AccountService) GetByID(ctx context.Context, id string) (models.Account, error) {
-	return s.repo.GetByID(ctx, id)
+func (s *AccountService) GetByID(ctx context.Context, userID string, id string) (models.Account, error) {
+	return s.repo.GetByID(ctx, userID, id)
 }
 
-func (s *AccountService) GetAll(ctx context.Context) ([]models.Account, error) {
-	return s.repo.GetAll(ctx)
+func (s *AccountService) GetAll(ctx context.Context, userID string) ([]models.Account, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
-func (s *AccountService) GetByInstitution(ctx context.Context, institutionID string) ([]models.Account, error) {
-	return s.repo.GetByInstitution(ctx, institutionID)
+func (s *AccountService) GetByInstitution(ctx context.Context, userID string, institutionID string) ([]models.Account, error) {
+	return s.repo.GetByInstitution(ctx, userID, institutionID)
 }
 
-func (s *AccountService) Update(ctx context.Context, acc models.Account) (models.Account, error) {
+func (s *AccountService) Update(ctx context.Context, userID string, acc models.Account) (models.Account, error) {
 	var err error
 	if acc.Name, err = requireTrimmedName(acc.Name, "account name"); err != nil {
 		return models.Account{}, err
 	}
-	updated, err := s.repo.Update(ctx, acc)
+	updated, err := s.repo.Update(ctx, userID, acc)
 	if err != nil {
 		return models.Account{}, err
 	}
@@ -335,13 +336,13 @@ func (s *AccountService) Update(ctx context.Context, acc models.Account) (models
 // Delete removes an account, cleaning up any recurring rules that reference it first.
 // Without this cleanup, confirming a recurring rule after its account is deleted
 // causes a FK violation on transactions.account_id (BUG-012).
-func (s *AccountService) Delete(ctx context.Context, id string) error {
+func (s *AccountService) Delete(ctx context.Context, userID string, id string) error {
 	if s.recurringRepo != nil {
-		if err := s.recurringRepo.DeleteByAccountID(ctx, id); err != nil {
+		if err := s.recurringRepo.DeleteByAccountID(ctx, userID, id); err != nil {
 			return fmt.Errorf("cleaning up recurring rules: %w", err)
 		}
 	}
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.repo.Delete(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "account.deleted", "id", id)
@@ -351,8 +352,8 @@ func (s *AccountService) Delete(ctx context.Context, id string) error {
 // ToggleDormant flips the dormant status for an account.
 // Dormant accounts are hidden from the main dashboard but not deleted.
 // Like Laravel's soft delete, but for visibility rather than existence.
-func (s *AccountService) ToggleDormant(ctx context.Context, id string) error {
-	if err := s.repo.ToggleDormant(ctx, id); err != nil {
+func (s *AccountService) ToggleDormant(ctx context.Context, userID string, id string) error {
+	if err := s.repo.ToggleDormant(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "account.dormant_toggled", "id", id)
@@ -360,6 +361,6 @@ func (s *AccountService) ToggleDormant(ctx context.Context, id string) error {
 }
 
 // UpdateDisplayOrder sets the display order for an account.
-func (s *AccountService) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
-	return s.repo.UpdateDisplayOrder(ctx, id, order)
+func (s *AccountService) UpdateDisplayOrder(ctx context.Context, userID string, id string, order int) error {
+	return s.repo.UpdateDisplayOrder(ctx, userID, id, order)
 }

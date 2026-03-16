@@ -23,14 +23,16 @@ func TestReportsService_GetMonthlyReport(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
+	userID := testutil.SetupTestUser(t, db)
+
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	txSvc := NewTransactionService(txRepo, accRepo)
 	reportsSvc := NewReportsService(db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Main", Currency: models.CurrencyEGP, InitialBalance: 100000,
+		InstitutionID: inst.ID, Name: "Main", Currency: models.CurrencyEGP, InitialBalance: 100000, UserID: userID,
 	})
 	catID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
 
@@ -38,25 +40,25 @@ func TestReportsService_GetMonthlyReport(t *testing.T) {
 	now := time.Now()
 
 	// Create expenses in current month
-	txSvc.Create(ctx, models.Transaction{
+	txSvc.Create(ctx, userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 5000,
 		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
 		Date: now,
 	})
-	txSvc.Create(ctx, models.Transaction{
+	txSvc.Create(ctx, userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 3000,
 		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
 		Date: now,
 	})
 
 	// Create income in current month
-	txSvc.Create(ctx, models.Transaction{
+	txSvc.Create(ctx, userID, models.Transaction{
 		Type: models.TransactionTypeIncome, Amount: 20000,
 		Currency: models.CurrencyEGP, AccountID: acc.ID,
 		Date: now,
 	})
 
-	report, err := reportsSvc.GetMonthlyReport(ctx, now.Year(), now.Month(), ReportFilter{})
+	report, err := reportsSvc.GetMonthlyReport(ctx, userID, now.Year(), now.Month(), ReportFilter{})
 	if err != nil {
 		t.Fatalf("GetMonthlyReport: %v", err)
 	}
@@ -89,9 +91,11 @@ func TestReportsService_GetMonthlyReport_EmptyMonth(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
 
+	userID := testutil.SetupTestUser(t, db)
+
 	reportsSvc := NewReportsService(db)
 
-	report, err := reportsSvc.GetMonthlyReport(context.Background(), 2025, 1, ReportFilter{})
+	report, err := reportsSvc.GetMonthlyReport(context.Background(), userID, 2025, 1, ReportFilter{})
 	if err != nil {
 		t.Fatalf("GetMonthlyReport: %v", err)
 	}

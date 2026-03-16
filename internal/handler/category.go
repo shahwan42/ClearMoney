@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/service"
 )
@@ -50,15 +51,16 @@ func (h *CategoryHandler) Routes(r chi.Router) {
 // This gives compile-time type checking while still being a string underneath.
 func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 	catType := r.URL.Query().Get("type")
+	userID := authmw.UserID(r.Context())
 
 	var (
 		categories []models.Category
 		err        error
 	)
 	if catType != "" {
-		categories, err = h.svc.GetByType(r.Context(), models.CategoryType(catType))
+		categories, err = h.svc.GetByType(r.Context(), userID, models.CategoryType(catType))
 	} else {
-		categories, err = h.svc.GetAll(r.Context())
+		categories, err = h.svc.GetAll(r.Context(), userID)
 	}
 	if err != nil {
 		respondError(w, r, http.StatusInternalServerError, "failed to list categories")
@@ -77,7 +79,8 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	created, err := h.svc.Create(r.Context(), cat)
+	userID := authmw.UserID(r.Context())
+	created, err := h.svc.Create(r.Context(), userID, cat)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -94,8 +97,9 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cat.ID = id
+	userID := authmw.UserID(r.Context())
 
-	updated, err := h.svc.Update(r.Context(), cat)
+	updated, err := h.svc.Update(r.Context(), userID, cat)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -106,7 +110,8 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 // Archive soft-deletes a custom category.
 func (h *CategoryHandler) Archive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.svc.Archive(r.Context(), id); err != nil {
+	userID := authmw.UserID(r.Context())
+	if err := h.svc.Archive(r.Context(), userID, id); err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}

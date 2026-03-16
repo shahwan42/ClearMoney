@@ -430,9 +430,10 @@ func (h *PageHandler) SetAccountHealthService(svc *service.AccountHealthService)
 // Like Laravel: return view('home', ['data' => $this->dashboardService?->getDashboard()])
 func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "dashboard")
+	userID := authmw.UserID(r.Context())
 	var data any
 	if h.dashboardSvc != nil {
-		dashData, err := h.dashboardSvc.GetDashboard(r.Context())
+		dashData, err := h.dashboardSvc.GetDashboard(r.Context(), userID)
 		if err != nil {
 			authmw.Log(r.Context()).Error("failed to load dashboard", "error", err)
 		} else {
@@ -453,7 +454,8 @@ func (h *PageHandler) Home(w http.ResponseWriter, r *http.Request) {
 // The template iterates over []InstitutionWithAccounts to render institution cards.
 func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "accounts")
-	institutions, err := h.institutionSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	institutions, err := h.institutionSvc.GetAll(r.Context(), userID)
 	if err != nil {
 		authmw.Log(r.Context()).Error("failed to load institutions", "error", err)
 		http.Error(w, "failed to load institutions", http.StatusInternalServerError)
@@ -463,7 +465,7 @@ func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 	// Build institution-with-accounts list for the template
 	var data []InstitutionWithAccounts
 	for _, inst := range institutions {
-		accounts, err := h.accountSvc.GetByInstitution(r.Context(), inst.ID)
+		accounts, err := h.accountSvc.GetByInstitution(r.Context(), userID, inst.ID)
 		if err != nil {
 			accounts = []models.Account{}
 		}
@@ -488,6 +490,7 @@ func (h *PageHandler) Accounts(w http.ResponseWriter, r *http.Request) {
 // HTML partials for HTMX — like rendering a Blade @include without @extends.
 func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "account-form")
+	userID := authmw.UserID(r.Context())
 	institutionID := r.URL.Query().Get("institution_id")
 	if institutionID == "" {
 		http.Error(w, "institution_id required", http.StatusBadRequest)
@@ -495,7 +498,7 @@ func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	instName := ""
-	inst, err := h.institutionSvc.GetByID(r.Context(), institutionID)
+	inst, err := h.institutionSvc.GetByID(r.Context(), userID, institutionID)
 	if err == nil {
 		instName = inst.Name
 	}
@@ -516,8 +519,9 @@ func (h *PageHandler) AccountForm(w http.ResponseWriter, r *http.Request) {
 // GET /accounts/{id}/edit-form — called by HTMX when the edit sheet opens.
 func (h *PageHandler) AccountEditForm(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "account-edit-form")
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	acc, err := h.accountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "account not found", http.StatusNotFound)
 		return
@@ -536,13 +540,14 @@ func (h *PageHandler) AccountEditForm(w http.ResponseWriter, r *http.Request) {
 // POST /accounts/{id}/edit — called by HTMX from the edit bottom sheet.
 func (h *PageHandler) AccountUpdate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
 
 	// Fetch existing account to preserve non-editable fields (balance, metadata, etc.)
-	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	acc, err := h.accountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "account not found", http.StatusNotFound)
 		return
@@ -561,7 +566,7 @@ func (h *PageHandler) AccountUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := h.accountSvc.Update(r.Context(), acc); err != nil {
+	if _, err := h.accountSvc.Update(r.Context(), userID, acc); err != nil {
 		authmw.Log(r.Context()).Warn("account update failed", "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -585,16 +590,17 @@ func (h *PageHandler) AccountUpdate(w http.ResponseWriter, r *http.Request) {
 // an existing transaction. This saves time for repetitive expenses.
 func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "transaction-new")
-	accounts, err := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	accounts, err := h.accountSvc.GetAll(r.Context(), userID)
 	if err != nil {
 		accounts = []models.Account{}
 	}
-	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
-	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeIncome)
+	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeExpense)
+	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeIncome)
 
 	var virtualAccounts []models.VirtualAccount
 	if h.virtualAccountSvc != nil {
-		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context())
+		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context(), userID)
 	}
 
 	data := TransactionFormData{
@@ -607,7 +613,7 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 
 	// If ?dup=<id> is provided, pre-fill from that transaction
 	if dupID := r.URL.Query().Get("dup"); dupID != "" {
-		if tx, err := h.txSvc.GetByID(r.Context(), dupID); err == nil {
+		if tx, err := h.txSvc.GetByID(r.Context(), userID, dupID); err == nil {
 			data.Prefill = &tx
 		}
 	}
@@ -634,6 +640,7 @@ func (h *PageHandler) TransactionNew(w http.ResponseWriter, r *http.Request) {
 //   r.FormValue("amount") gets a single field value.
 //   This is like Laravel's $request->input('amount') or Django's request.POST['amount'].
 func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -660,7 +667,7 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	created, newBalance, err := h.txSvc.Create(r.Context(), tx)
+	created, newBalance, err := h.txSvc.Create(r.Context(), userID, tx)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -670,13 +677,13 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 
 	// Allocate to virtual account if selected (validate account linkage)
 	if vaID := r.FormValue("virtual_account_id"); vaID != "" && h.virtualAccountSvc != nil {
-		if va, err := h.virtualAccountSvc.GetByID(r.Context(), vaID); err == nil {
+		if va, err := h.virtualAccountSvc.GetByID(r.Context(), userID, vaID); err == nil {
 			if va.AccountID == nil || *va.AccountID == created.AccountID {
 				allocAmount := created.Amount
 				if created.Type == models.TransactionTypeExpense {
 					allocAmount = -created.Amount
 				}
-				if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
+				if err := h.virtualAccountSvc.Allocate(r.Context(), userID, created.ID, vaID, allocAmount); err != nil {
 					authmw.Log(r.Context()).Warn("virtual account allocation failed",
 						"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
 				}
@@ -715,11 +722,12 @@ func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) 
 // without a full page reload — filter dropdowns trigger hx-get with query params.
 func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "transactions")
+	userID := authmw.UserID(r.Context())
 	filter := h.parseTransactionFilter(r)
 
-	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), filter)
-	accounts, _ := h.accountSvc.GetAll(r.Context())
-	categories, _ := h.categorySvc.GetAll(r.Context())
+	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), userID, filter)
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
+	categories, _ := h.categorySvc.GetAll(r.Context(), userID)
 
 	data := TransactionListData{
 		Transactions: toTransactionDisplay(rows, true),
@@ -748,8 +756,9 @@ func (h *PageHandler) Transactions(w http.ResponseWriter, r *http.Request) {
 // This pattern is fundamental to HTMX: full page = RenderPage(), partial = ExecuteTemplate().
 func (h *PageHandler) TransactionList(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "transaction-list")
+	userID := authmw.UserID(r.Context())
 	filter := h.parseTransactionFilter(r)
-	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), filter)
+	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), userID, filter)
 
 	data := TransactionListData{
 		Transactions: toTransactionDisplay(rows, true),
@@ -806,7 +815,8 @@ func (h *PageHandler) parseTransactionFilter(r *http.Request) repository.Transac
 // GET /transfers/new
 func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "transfer-new")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 	RenderPage(h.templates, w, "transfer", PageData{
 		ActiveTab: "transactions",
 		Data: TransactionFormData{
@@ -820,7 +830,8 @@ func (h *PageHandler) TransferNew(w http.ResponseWriter, r *http.Request) {
 // GET /exchange/new
 func (h *PageHandler) ExchangeNew(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "exchange-new")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 	RenderPage(h.templates, w, "exchange", PageData{
 		ActiveTab: "transactions",
 		Data: TransactionFormData{
@@ -833,6 +844,7 @@ func (h *PageHandler) ExchangeNew(w http.ResponseWriter, r *http.Request) {
 // TransferCreate handles the transfer form submission.
 // POST /transactions/transfer — returns success or error partial.
 func (h *PageHandler) TransferCreate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -855,12 +867,12 @@ func (h *PageHandler) TransferCreate(w http.ResponseWriter, r *http.Request) {
 
 	// If currency not provided, look it up from the source account
 	if currency == "" {
-		if acc, err := h.accountSvc.GetByID(r.Context(), sourceID); err == nil {
+		if acc, err := h.accountSvc.GetByID(r.Context(), userID, sourceID); err == nil {
 			currency = acc.Currency
 		}
 	}
 
-	_, _, err := h.txSvc.CreateTransfer(r.Context(), sourceID, destID, amount, currency, note, date)
+	_, _, err := h.txSvc.CreateTransfer(r.Context(), userID, sourceID, destID, amount, currency, note, date)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -875,6 +887,7 @@ func (h *PageHandler) TransferCreate(w http.ResponseWriter, r *http.Request) {
 // InstapayTransferCreate handles an InstaPay transfer with auto-calculated fee.
 // POST /transactions/instapay-transfer
 func (h *PageHandler) InstapayTransferCreate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -897,14 +910,14 @@ func (h *PageHandler) InstapayTransferCreate(w http.ResponseWriter, r *http.Requ
 
 	// If currency not provided, look it up from source account
 	if currency == "" {
-		if acc, err := h.accountSvc.GetByID(r.Context(), sourceID); err == nil {
+		if acc, err := h.accountSvc.GetByID(r.Context(), userID, sourceID); err == nil {
 			currency = acc.Currency
 		}
 	}
 
 	// Look up "Fees & Charges" category ID
 	feesCatID := ""
-	if cats, err := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense); err == nil {
+	if cats, err := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeExpense); err == nil {
 		for _, c := range cats {
 			if c.Name == "Fees & Charges" {
 				feesCatID = c.ID
@@ -913,7 +926,7 @@ func (h *PageHandler) InstapayTransferCreate(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	_, _, fee, err := h.txSvc.CreateInstapayTransfer(r.Context(), sourceID, destID, amount, currency, note, date, feesCatID)
+	_, _, fee, err := h.txSvc.CreateInstapayTransfer(r.Context(), userID, sourceID, destID, amount, currency, note, date, feesCatID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		h.renderHTMXResult(w, "error", err.Error(), "")
@@ -926,6 +939,7 @@ func (h *PageHandler) InstapayTransferCreate(w http.ResponseWriter, r *http.Requ
 // ExchangeCreate handles the exchange form submission.
 // POST /transactions/exchange-submit — returns success or error partial.
 func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -958,7 +972,7 @@ func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, _, err := h.txSvc.CreateExchange(r.Context(), params)
+	_, _, err := h.txSvc.CreateExchange(r.Context(), userID, params)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -996,14 +1010,15 @@ func (h *PageHandler) ExchangeCreate(w http.ResponseWriter, r *http.Request) {
 // This is like inline editing in a spreadsheet — no modal, no page navigation.
 func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "transaction-edit-form")
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	tx, err := h.txSvc.GetByID(r.Context(), id)
+	tx, err := h.txSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "transaction not found", http.StatusNotFound)
 		return
 	}
 
-	categories, _ := h.categorySvc.GetAll(r.Context())
+	categories, _ := h.categorySvc.GetAll(r.Context(), userID)
 
 	selectedCatID := ""
 	if tx.CategoryID != nil {
@@ -1014,8 +1029,8 @@ func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request
 	var virtualAccounts []models.VirtualAccount
 	var selectedVAID string
 	if h.virtualAccountSvc != nil {
-		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context())
-		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), id); err == nil && len(allocs) > 0 {
+		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context(), userID)
+		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), userID, id); err == nil && len(allocs) > 0 {
 			selectedVAID = allocs[0].VirtualAccountID
 		}
 	}
@@ -1039,6 +1054,7 @@ func (h *PageHandler) TransactionEditForm(w http.ResponseWriter, r *http.Request
 // PUT /transactions/{id} — called by HTMX, returns updated row partial.
 func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1064,7 +1080,7 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	updated, _, err := h.txSvc.Update(r.Context(), tx)
+	updated, _, err := h.txSvc.Update(r.Context(), userID, tx)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -1077,27 +1093,27 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 	if h.virtualAccountSvc != nil {
 		// Find current allocation
 		var oldVAID string
-		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), id); err == nil && len(allocs) > 0 {
+		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), userID, id); err == nil && len(allocs) > 0 {
 			oldVAID = allocs[0].VirtualAccountID
 		}
 
 		if oldVAID != newVAID {
 			// Deallocate from old virtual account
 			if oldVAID != "" {
-				if err := h.virtualAccountSvc.Deallocate(r.Context(), id, oldVAID); err != nil {
+				if err := h.virtualAccountSvc.Deallocate(r.Context(), userID, id, oldVAID); err != nil {
 					authmw.Log(r.Context()).Warn("virtual account deallocation failed",
 						"transaction_id", id, "virtual_account_id", oldVAID, "error", err)
 				}
 			}
 			// Allocate to new virtual account (with account linkage validation)
 			if newVAID != "" {
-				if va, err := h.virtualAccountSvc.GetByID(r.Context(), newVAID); err == nil {
+				if va, err := h.virtualAccountSvc.GetByID(r.Context(), userID, newVAID); err == nil {
 					if va.AccountID == nil || *va.AccountID == updated.AccountID {
 						allocAmount := updated.Amount
 						if updated.Type == models.TransactionTypeExpense {
 							allocAmount = -updated.Amount
 						}
-						if err := h.virtualAccountSvc.Allocate(r.Context(), id, newVAID, allocAmount); err != nil {
+						if err := h.virtualAccountSvc.Allocate(r.Context(), userID, id, newVAID, allocAmount); err != nil {
 							authmw.Log(r.Context()).Warn("virtual account allocation failed",
 								"transaction_id", id, "virtual_account_id", newVAID, "error", err)
 						}
@@ -1111,7 +1127,7 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Re-fetch enriched data for proper display (account name, running balance)
-	row, err := h.txSvc.GetByIDEnriched(r.Context(), updated.ID)
+	row, err := h.txSvc.GetByIDEnriched(r.Context(), userID, updated.ID)
 	if err != nil {
 		// Fallback: render with basic data if enriched fetch fails
 		row.Transaction = updated
@@ -1140,13 +1156,14 @@ func (h *PageHandler) TransactionUpdate(w http.ResponseWriter, r *http.Request) 
 // The swipe-to-delete gesture (TASK-080) triggers this endpoint.
 func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 
 	// Deallocate from virtual accounts before deleting the transaction,
 	// so the cached current_balance gets recalculated properly.
 	if h.virtualAccountSvc != nil {
-		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), id); err == nil {
+		if allocs, err := h.virtualAccountSvc.GetTransactionAllocations(r.Context(), userID, id); err == nil {
 			for _, a := range allocs {
-				if err := h.virtualAccountSvc.Deallocate(r.Context(), id, a.VirtualAccountID); err != nil {
+				if err := h.virtualAccountSvc.Deallocate(r.Context(), userID, id, a.VirtualAccountID); err != nil {
 					authmw.Log(r.Context()).Warn("failed to deallocate virtual account",
 						"transaction_id", id, "virtual_account_id", a.VirtualAccountID, "error", err)
 				}
@@ -1154,7 +1171,7 @@ func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	if err := h.txSvc.Delete(r.Context(), id); err != nil {
+	if err := h.txSvc.Delete(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to delete transaction", "id", id, "error", err)
 		http.Error(w, "failed to delete", http.StatusInternalServerError)
 		return
@@ -1167,8 +1184,9 @@ func (h *PageHandler) TransactionDelete(w http.ResponseWriter, r *http.Request) 
 // TransactionRow renders a single transaction row partial.
 // GET /transactions/row/{id} — used by HTMX to cancel edit (swap back to row).
 func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	row, err := h.txSvc.GetByIDEnriched(r.Context(), id)
+	row, err := h.txSvc.GetByIDEnriched(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
@@ -1201,8 +1219,9 @@ func (h *PageHandler) TransactionRow(w http.ResponseWriter, r *http.Request) {
 // Each person card includes loan/repay forms powered by HTMX.
 func (h *PageHandler) People(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "people")
-	persons, _ := h.personSvc.GetAll(r.Context())
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	persons, _ := h.personSvc.GetAll(r.Context(), userID)
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	var cards []PersonCardData
 	for _, p := range persons {
@@ -1218,6 +1237,7 @@ func (h *PageHandler) People(w http.ResponseWriter, r *http.Request) {
 // PeopleAdd adds a new person via form submission.
 // POST /people/add — returns updated people list partial.
 func (h *PageHandler) PeopleAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1229,7 +1249,7 @@ func (h *PageHandler) PeopleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.personSvc.Create(r.Context(), models.Person{Name: name})
+	_, err := h.personSvc.Create(r.Context(), userID, models.Person{Name: name})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -1242,6 +1262,7 @@ func (h *PageHandler) PeopleAdd(w http.ResponseWriter, r *http.Request) {
 // POST /people/{id}/loan
 func (h *PageHandler) PeopleLoan(w http.ResponseWriter, r *http.Request) {
 	personID := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1253,7 +1274,7 @@ func (h *PageHandler) PeopleLoan(w http.ResponseWriter, r *http.Request) {
 
 	// Get currency from account
 	currency := models.CurrencyEGP
-	if acc, err := h.accountSvc.GetByID(r.Context(), accountID); err == nil {
+	if acc, err := h.accountSvc.GetByID(r.Context(), userID, accountID); err == nil {
 		currency = acc.Currency
 	}
 
@@ -1262,7 +1283,7 @@ func (h *PageHandler) PeopleLoan(w http.ResponseWriter, r *http.Request) {
 		note = &n
 	}
 
-	_, err := h.personSvc.RecordLoan(r.Context(), personID, accountID, amount, currency, loanType, note, time.Time{})
+	_, err := h.personSvc.RecordLoan(r.Context(), userID, personID, accountID, amount, currency, loanType, note, time.Time{})
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -1277,6 +1298,7 @@ func (h *PageHandler) PeopleLoan(w http.ResponseWriter, r *http.Request) {
 // POST /people/{id}/repay
 func (h *PageHandler) PeopleRepay(w http.ResponseWriter, r *http.Request) {
 	personID := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1286,7 +1308,7 @@ func (h *PageHandler) PeopleRepay(w http.ResponseWriter, r *http.Request) {
 	accountID := r.FormValue("account_id")
 
 	currency := models.CurrencyEGP
-	if acc, err := h.accountSvc.GetByID(r.Context(), accountID); err == nil {
+	if acc, err := h.accountSvc.GetByID(r.Context(), userID, accountID); err == nil {
 		currency = acc.Currency
 	}
 
@@ -1295,7 +1317,7 @@ func (h *PageHandler) PeopleRepay(w http.ResponseWriter, r *http.Request) {
 		note = &n
 	}
 
-	_, err := h.personSvc.RecordRepayment(r.Context(), personID, accountID, amount, currency, note, time.Time{})
+	_, err := h.personSvc.RecordRepayment(r.Context(), userID, personID, accountID, amount, currency, note, time.Time{})
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -1311,8 +1333,9 @@ func (h *PageHandler) PeopleRepay(w http.ResponseWriter, r *http.Request) {
 // and PeopleRepay to re-render the people list after a mutation.
 // HTMX receives this HTML and swaps it into the people list container.
 func (h *PageHandler) renderPeopleList(w http.ResponseWriter, r *http.Request) {
-	persons, _ := h.personSvc.GetAll(r.Context())
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	persons, _ := h.personSvc.GetAll(r.Context(), userID)
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["people"]
@@ -1344,7 +1367,8 @@ func (h *PageHandler) renderPeopleList(w http.ResponseWriter, r *http.Request) {
 // or after a mutation (e.g., after creating a quick-entry transaction).
 func (h *PageHandler) RecentTransactions(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "recent-transactions")
-	rows, _ := h.txSvc.GetRecentEnriched(r.Context(), 15)
+	userID := authmw.UserID(r.Context())
+	rows, _ := h.txSvc.GetRecentEnriched(r.Context(), userID, 15)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["home"]
@@ -1366,15 +1390,16 @@ type PersonDetailData struct {
 // GET /people/{id}
 func (h *PageHandler) PersonDetail(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "person-detail")
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
 
-	summary, err := h.personSvc.GetDebtSummary(r.Context(), id)
+	summary, err := h.personSvc.GetDebtSummary(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "person not found", http.StatusNotFound)
 		return
 	}
 
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	RenderPage(h.templates, w, "person-detail", PageData{
 		ActiveTab: "more",
@@ -1395,9 +1420,10 @@ func (h *PageHandler) PersonDetail(w http.ResponseWriter, r *http.Request) {
 //   - Account health constraints (min balance, min deposit)
 func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "account-detail")
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
 
-	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	acc, err := h.accountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "account not found", http.StatusNotFound)
 		return
@@ -1405,7 +1431,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Get institution name
 	instName := ""
-	if inst, err := h.institutionSvc.GetByID(r.Context(), acc.InstitutionID); err == nil {
+	if inst, err := h.institutionSvc.GetByID(r.Context(), userID, acc.InstitutionID); err == nil {
 		instName = inst.Name
 	}
 
@@ -1414,7 +1440,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		AccountID: id,
 		Limit:     50,
 	}
-	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), filter)
+	rows, _ := h.txSvc.GetFilteredEnriched(r.Context(), userID, filter)
 
 	// Parse billing cycle for credit cards
 	var billingCycle *service.BillingCycleInfo
@@ -1428,7 +1454,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	// TASK-059: Fetch 30-day balance history for sparkline
 	var balanceHistory []float64
 	if h.snapshotSvc != nil {
-		if history, err := h.snapshotSvc.GetAccountHistory(r.Context(), id, 30); err != nil {
+		if history, err := h.snapshotSvc.GetAccountHistory(r.Context(), userID, id, 30); err != nil {
 			authmw.Log(r.Context()).Warn("failed to load balance history", "account_id", id, "error", err)
 		} else {
 			balanceHistory = history
@@ -1456,7 +1482,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	// Fetch linked virtual accounts for this bank account
 	var virtualAccounts []models.VirtualAccount
 	if h.virtualAccountSvc != nil {
-		if vas, err := h.virtualAccountSvc.GetByAccountID(r.Context(), id); err != nil {
+		if vas, err := h.virtualAccountSvc.GetByAccountID(r.Context(), userID, id); err != nil {
 			authmw.Log(r.Context()).Warn("failed to load virtual accounts", "account_id", id, "error", err)
 		} else {
 			virtualAccounts = vas
@@ -1466,7 +1492,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 	// Compute excluded VA balance for "your money" display
 	var excludedVABalance float64
 	if h.virtualAccountSvc != nil {
-		excludedVABalance, _ = h.virtualAccountSvc.GetExcludedBalanceByAccountID(r.Context(), id)
+		excludedVABalance, _ = h.virtualAccountSvc.GetExcludedBalanceByAccountID(r.Context(), userID, id)
 	}
 
 	data := AccountDetailData{
@@ -1493,13 +1519,14 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 // SuggestCategory returns the most likely category ID based on note text (TASK-079).
 // GET /api/transactions/suggest-category?note=...
 func (h *PageHandler) SuggestCategory(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	note := r.URL.Query().Get("note")
 	if note == "" {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	categoryID := h.txSvc.SuggestCategory(r.Context(), note)
+	categoryID := h.txSvc.SuggestCategory(r.Context(), userID, note)
 	if categoryID == "" {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -1513,10 +1540,11 @@ func (h *PageHandler) SuggestCategory(w http.ResponseWriter, r *http.Request) {
 // GET /accounts/{id}/statement?period=YYYY-MM (optional)
 func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "cc-statement")
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
 	periodStr := r.URL.Query().Get("period")
 
-	acc, err := h.accountSvc.GetByID(r.Context(), id)
+	acc, err := h.accountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "account not found", http.StatusNotFound)
 		return
@@ -1527,7 +1555,7 @@ func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	stmtData, err := service.GetStatementData(acc, h.txSvc.TxRepo(), h.snapshotSvc, r.Context(), periodStr)
+	stmtData, err := service.GetStatementData(acc, h.txSvc.TxRepo(), h.snapshotSvc, r.Context(), userID, periodStr)
 	if err != nil {
 		// BUG-008: show friendly message for missing billing cycle config
 		RenderPage(h.templates, w, "credit-card-statement-error", PageData{
@@ -1577,16 +1605,17 @@ func (h *PageHandler) CreditCardStatement(w http.ResponseWriter, r *http.Request
 // if the same one was used 3+ times consecutively.
 func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "quick-entry-form")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
-	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
-	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeIncome)
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
+	expenseCategories, _ := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeExpense)
+	incomeCategories, _ := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeIncome)
 
 	// Smart defaults from transaction history
-	defaults := h.txSvc.GetSmartDefaults(r.Context(), "expense")
+	defaults := h.txSvc.GetSmartDefaults(r.Context(), userID, "expense")
 
 	var virtualAccounts []models.VirtualAccount
 	if h.virtualAccountSvc != nil {
-		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context())
+		virtualAccounts, _ = h.virtualAccountSvc.GetAll(r.Context(), userID)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -1611,7 +1640,8 @@ func (h *PageHandler) QuickEntryForm(w http.ResponseWriter, r *http.Request) {
 // GET /exchange/quick-form — loaded by HTMX when the "Exchange" tab is tapped.
 func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "quick-exchange-form")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["home"]
@@ -1629,7 +1659,8 @@ func (h *PageHandler) QuickExchangeForm(w http.ResponseWriter, r *http.Request) 
 // GET /transactions/quick-transfer — loaded by HTMX when the "Transfer" tab is tapped.
 func (h *PageHandler) QuickTransferForm(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "quick-transfer-form")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["home"]
@@ -1646,6 +1677,7 @@ func (h *PageHandler) QuickTransferForm(w http.ResponseWriter, r *http.Request) 
 // QuickEntryCreate handles the quick-entry form submission.
 // POST /transactions/quick — returns success toast or error message.
 func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1670,7 +1702,7 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	created, newBalance, err := h.txSvc.Create(r.Context(), tx)
+	created, newBalance, err := h.txSvc.Create(r.Context(), userID, tx)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -1680,13 +1712,13 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Allocate to virtual account if selected (validate account linkage)
 	if vaID := r.FormValue("virtual_account_id"); vaID != "" && h.virtualAccountSvc != nil {
-		if va, err := h.virtualAccountSvc.GetByID(r.Context(), vaID); err == nil {
+		if va, err := h.virtualAccountSvc.GetByID(r.Context(), userID, vaID); err == nil {
 			if va.AccountID == nil || *va.AccountID == created.AccountID {
 				allocAmount := created.Amount
 				if created.Type == models.TransactionTypeExpense {
 					allocAmount = -created.Amount
 				}
-				if err := h.virtualAccountSvc.Allocate(r.Context(), created.ID, vaID, allocAmount); err != nil {
+				if err := h.virtualAccountSvc.Allocate(r.Context(), userID, created.ID, vaID, allocAmount); err != nil {
 					authmw.Log(r.Context()).Warn("virtual account allocation failed",
 						"transaction_id", created.ID, "virtual_account_id", vaID, "error", err)
 				}
@@ -1733,7 +1765,8 @@ func (h *PageHandler) QuickEntryCreate(w http.ResponseWriter, r *http.Request) {
 // GET /salary
 func (h *PageHandler) Salary(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "salary")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 	RenderPage(h.templates, w, "salary", PageData{
 		ActiveTab: "more",
 		Data:      SalaryStepData{Accounts: accounts, Today: timeutil.Now()},
@@ -1768,6 +1801,7 @@ func (h *PageHandler) SalaryStep2(w http.ResponseWriter, r *http.Request) {
 // SalaryStep3 processes step 2 and renders the allocation step.
 // POST /salary/step3
 func (h *PageHandler) SalaryStep3(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1778,7 +1812,7 @@ func (h *PageHandler) SalaryStep3(w http.ResponseWriter, r *http.Request) {
 	salaryEGP := salaryUSD * exchangeRate
 
 	// Get all EGP accounts for allocation targets
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 	var egpAccounts []models.Account
 	for _, a := range accounts {
 		if a.Currency == models.CurrencyEGP {
@@ -1808,6 +1842,7 @@ func (h *PageHandler) SalaryStep3(w http.ResponseWriter, r *http.Request) {
 // SalaryConfirm processes the final step and creates all salary transactions.
 // POST /salary/confirm
 func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1846,7 +1881,7 @@ func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
 		Date:         date,
 	}
 
-	if err := h.salarySvc.DistributeSalary(r.Context(), dist); err != nil {
+	if err := h.salarySvc.DistributeSalary(r.Context(), userID, dist); err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(`<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">` + err.Error() + `</div>`))
@@ -1871,7 +1906,8 @@ func (h *PageHandler) SalaryConfirm(w http.ResponseWriter, r *http.Request) {
 // GET /fawry-cashout
 func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "fawry-cashout")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 	RenderPage(h.templates, w, "fawry-cashout", PageData{
 		ActiveTab: "more",
 		Data:      TransactionFormData{Accounts: accounts, Today: timeutil.Now()},
@@ -1881,6 +1917,7 @@ func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
 // FawryCashoutCreate handles the Fawry cash-out form submission.
 // POST /transactions/fawry-cashout
 func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -1904,7 +1941,7 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 
 	// Look up "Fees & Charges" category
 	feesCatID := ""
-	if cats, err := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense); err == nil {
+	if cats, err := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeExpense); err == nil {
 		for _, c := range cats {
 			if c.Name == "Fees & Charges" {
 				feesCatID = c.ID
@@ -1913,7 +1950,7 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	_, _, err := h.txSvc.CreateFawryCashout(r.Context(), creditCardID, prepaidAccountID, amount, fee, currency, note, date, feesCatID)
+	_, _, err := h.txSvc.CreateFawryCashout(r.Context(), userID, creditCardID, prepaidAccountID, amount, fee, currency, note, date, feesCatID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		h.renderHTMXResult(w, "error", err.Error(), "")
@@ -1935,6 +1972,7 @@ func (h *PageHandler) FawryCashoutCreate(w http.ResponseWriter, r *http.Request)
 // (income vs expenses trend). Both charts use CSS-only rendering (see charts.go).
 func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "reports")
+	userID := authmw.UserID(r.Context())
 	now := timeutil.Now().In(h.loc)
 	year, month := now.Year(), now.Month()
 
@@ -1957,7 +1995,7 @@ func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
 
 	var data *service.ReportsData
 	if h.reportsSvc != nil {
-		report, err := h.reportsSvc.GetMonthlyReport(r.Context(), year, month, filter)
+		report, err := h.reportsSvc.GetMonthlyReport(r.Context(), userID, year, month, filter)
 		if err == nil {
 			data = &report
 		}
@@ -1973,10 +2011,11 @@ func (h *PageHandler) Reports(w http.ResponseWriter, r *http.Request) {
 // GET /partials/people-summary
 func (h *PageHandler) PeopleSummary(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "people-summary")
+	userID := authmw.UserID(r.Context())
 	if h.dashboardSvc == nil {
 		return
 	}
-	data, err := h.dashboardSvc.GetDashboard(r.Context())
+	data, err := h.dashboardSvc.GetDashboard(r.Context(), userID)
 	if err != nil {
 		return
 	}
@@ -1997,13 +2036,14 @@ func (h *PageHandler) PeopleSummary(w http.ResponseWriter, r *http.Request) {
 func (h *PageHandler) Recurring(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "recurring")
 	ctx := r.Context()
-	accounts, _ := h.accountSvc.GetAll(ctx)
-	categories, _ := h.categorySvc.GetAll(ctx)
+	userID := authmw.UserID(ctx)
+	accounts, _ := h.accountSvc.GetAll(ctx, userID)
+	categories, _ := h.categorySvc.GetAll(ctx, userID)
 
 	var data *RecurringPageData
 	if h.recurringSvc != nil {
-		rules, _ := h.recurringSvc.GetAll(ctx)
-		pending, _ := h.recurringSvc.GetDuePending(ctx)
+		rules, _ := h.recurringSvc.GetAll(ctx, userID)
+		pending, _ := h.recurringSvc.GetDuePending(ctx, userID)
 
 		ruleViews := make([]RecurringRuleView, 0, len(rules))
 		for _, rule := range rules {
@@ -2029,6 +2069,7 @@ func (h *PageHandler) Recurring(w http.ResponseWriter, r *http.Request) {
 // RecurringAdd creates a new recurring rule.
 // POST /recurring/add
 func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -2049,7 +2090,7 @@ func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Look up account currency
-	if acc, err := h.accountSvc.GetByID(r.Context(), tmpl.AccountID); err == nil {
+	if acc, err := h.accountSvc.GetByID(r.Context(), userID, tmpl.AccountID); err == nil {
 		tmpl.Currency = acc.Currency
 	}
 
@@ -2073,7 +2114,7 @@ func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
 		AutoConfirm:         r.FormValue("auto_confirm") == "true",
 	}
 
-	_, err = h.recurringSvc.Create(r.Context(), rule)
+	_, err = h.recurringSvc.Create(r.Context(), userID, rule)
 	if err != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusBadRequest)
@@ -2087,8 +2128,9 @@ func (h *PageHandler) RecurringAdd(w http.ResponseWriter, r *http.Request) {
 // RecurringConfirm confirms a pending recurring rule and creates the transaction.
 // POST /recurring/{id}/confirm
 func (h *PageHandler) RecurringConfirm(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.recurringSvc.ConfirmRule(r.Context(), id); err != nil {
+	if err := h.recurringSvc.ConfirmRule(r.Context(), userID, id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -2098,8 +2140,9 @@ func (h *PageHandler) RecurringConfirm(w http.ResponseWriter, r *http.Request) {
 // RecurringSkip skips a pending recurring rule without creating a transaction.
 // POST /recurring/{id}/skip
 func (h *PageHandler) RecurringSkip(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.recurringSvc.SkipRule(r.Context(), id); err != nil {
+	if err := h.recurringSvc.SkipRule(r.Context(), userID, id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -2109,8 +2152,9 @@ func (h *PageHandler) RecurringSkip(w http.ResponseWriter, r *http.Request) {
 // RecurringDelete deletes a recurring rule.
 // DELETE /recurring/{id}
 func (h *PageHandler) RecurringDelete(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.recurringSvc.Delete(r.Context(), id); err != nil {
+	if err := h.recurringSvc.Delete(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to delete recurring rule", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -2120,7 +2164,8 @@ func (h *PageHandler) RecurringDelete(w http.ResponseWriter, r *http.Request) {
 
 // renderRecurringList renders the recurring rules list partial.
 func (h *PageHandler) renderRecurringList(w http.ResponseWriter, r *http.Request) {
-	rules, _ := h.recurringSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	rules, _ := h.recurringSvc.GetAll(r.Context(), userID)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if len(rules) == 0 {
 		w.Write([]byte(`<p class="text-sm text-gray-400 text-center">No recurring rules yet.</p>`))
@@ -2183,6 +2228,7 @@ func recurringRuleToView(rule models.RecurringRule) RecurringRuleView {
 // to this endpoint when connectivity is restored. Unlike other page handlers
 // that use form data, this one accepts JSON (from the service worker's fetch).
 func (h *PageHandler) SyncTransactions(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	var payload struct {
 		Transactions []struct {
 			Type       string `json:"type"`
@@ -2221,7 +2267,7 @@ func (h *PageHandler) SyncTransactions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if _, _, err := h.txSvc.Create(r.Context(), tx); err != nil {
+		if _, _, err := h.txSvc.Create(r.Context(), userID, tx); err != nil {
 			failed++
 		} else {
 			created++
@@ -2249,8 +2295,9 @@ type InvestmentPageData struct {
 // GET /investments
 func (h *PageHandler) Investments(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "investments")
-	investments, _ := h.investmentSvc.GetAll(r.Context())
-	total, _ := h.investmentSvc.GetTotalValuation(r.Context())
+	userID := authmw.UserID(r.Context())
+	investments, _ := h.investmentSvc.GetAll(r.Context(), userID)
+	total, _ := h.investmentSvc.GetTotalValuation(r.Context(), userID)
 
 	data := InvestmentPageData{
 		Investments:    investments,
@@ -2267,6 +2314,7 @@ func (h *PageHandler) Investments(w http.ResponseWriter, r *http.Request) {
 // This is used when the entire page needs to refresh (not just a partial swap).
 // Like Laravel's return redirect('/investments') but through an HTMX header.
 func (h *PageHandler) InvestmentAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	r.ParseForm()
 	units, _ := parseFloat(r.FormValue("units"))
 	unitPrice, _ := parseFloat(r.FormValue("unit_price"))
@@ -2279,7 +2327,7 @@ func (h *PageHandler) InvestmentAdd(w http.ResponseWriter, r *http.Request) {
 		Currency:      models.Currency(r.FormValue("currency")),
 	}
 
-	if _, err := h.investmentSvc.Create(r.Context(), inv); err != nil {
+	if _, err := h.investmentSvc.Create(r.Context(), userID, inv); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -2290,11 +2338,12 @@ func (h *PageHandler) InvestmentAdd(w http.ResponseWriter, r *http.Request) {
 // InvestmentUpdateValuation updates the unit price for an investment.
 // POST /investments/{id}/update
 func (h *PageHandler) InvestmentUpdateValuation(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
 	r.ParseForm()
 	unitPrice, _ := parseFloat(r.FormValue("unit_price"))
 
-	if err := h.investmentSvc.UpdateValuation(r.Context(), id, unitPrice); err != nil {
+	if err := h.investmentSvc.UpdateValuation(r.Context(), userID, id, unitPrice); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -2305,8 +2354,9 @@ func (h *PageHandler) InvestmentUpdateValuation(w http.ResponseWriter, r *http.R
 // InvestmentDelete removes an investment holding.
 // DELETE /investments/{id}
 func (h *PageHandler) InvestmentDelete(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.investmentSvc.Delete(r.Context(), id); err != nil {
+	if err := h.investmentSvc.Delete(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to delete investment", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -2330,8 +2380,9 @@ type InstallmentPageData struct {
 // GET /installments
 func (h *PageHandler) Installments(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "installments")
-	plans, _ := h.installmentSvc.GetAll(r.Context())
-	accounts, _ := h.accountSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	plans, _ := h.installmentSvc.GetAll(r.Context(), userID)
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	data := InstallmentPageData{Plans: plans, Accounts: accounts, Today: timeutil.Now()}
 	RenderPage(h.templates, w, "installments", PageData{ActiveTab: "more", Data: data})
@@ -2340,6 +2391,7 @@ func (h *PageHandler) Installments(w http.ResponseWriter, r *http.Request) {
 // InstallmentAdd creates a new installment plan.
 // POST /installments/add
 func (h *PageHandler) InstallmentAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	r.ParseForm()
 	totalAmount, _ := parseFloat(r.FormValue("total_amount"))
 	numInstallments, _ := strconv.Atoi(r.FormValue("num_installments"))
@@ -2353,7 +2405,7 @@ func (h *PageHandler) InstallmentAdd(w http.ResponseWriter, r *http.Request) {
 		StartDate:       startDate,
 	}
 
-	if _, err := h.installmentSvc.Create(r.Context(), plan); err != nil {
+	if _, err := h.installmentSvc.Create(r.Context(), userID, plan); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -2364,8 +2416,9 @@ func (h *PageHandler) InstallmentAdd(w http.ResponseWriter, r *http.Request) {
 // InstallmentPay records a payment on an installment plan.
 // POST /installments/{id}/pay
 func (h *PageHandler) InstallmentPay(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.installmentSvc.RecordPayment(r.Context(), id); err != nil {
+	if err := h.installmentSvc.RecordPayment(r.Context(), userID, id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -2376,8 +2429,9 @@ func (h *PageHandler) InstallmentPay(w http.ResponseWriter, r *http.Request) {
 // InstallmentDelete removes an installment plan.
 // DELETE /installments/{id}
 func (h *PageHandler) InstallmentDelete(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.installmentSvc.Delete(r.Context(), id); err != nil {
+	if err := h.installmentSvc.Delete(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to delete installment", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -2400,8 +2454,9 @@ type BatchEntryData struct {
 // GET /batch-entry
 func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "batch-entry")
-	accounts, _ := h.accountSvc.GetAll(r.Context())
-	expCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
+	userID := authmw.UserID(r.Context())
+	accounts, _ := h.accountSvc.GetAll(r.Context(), userID)
+	expCategories, _ := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeExpense)
 
 	data := BatchEntryData{Accounts: accounts, ExpenseCategories: expCategories, Today: timeutil.Now()}
 	RenderPage(h.templates, w, "batch-entry", PageData{ActiveTab: "more", Data: data})
@@ -2416,6 +2471,7 @@ func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
 // r.Form["type[]"] returns []string{"expense", "income"} — a slice of all values.
 // This is like PHP's $_POST['type'] returning an array.
 func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	r.ParseForm()
 
 	types := r.Form["type[]"]
@@ -2455,7 +2511,7 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 			tx.Note = &notes[i]
 		}
 
-		if _, _, err := h.txSvc.Create(r.Context(), tx); err != nil {
+		if _, _, err := h.txSvc.Create(r.Context(), userID, tx); err != nil {
 			failed++
 		} else {
 			created++
@@ -2472,8 +2528,9 @@ func (h *PageHandler) BatchCreate(w http.ResponseWriter, r *http.Request) {
 // ToggleDormant toggles the dormant status of an account.
 // POST /accounts/{id}/dormant
 func (h *PageHandler) ToggleDormant(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.accountSvc.ToggleDormant(r.Context(), id); err != nil {
+	if err := h.accountSvc.ToggleDormant(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to toggle dormant", "account_id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -2484,10 +2541,11 @@ func (h *PageHandler) ToggleDormant(w http.ResponseWriter, r *http.Request) {
 // ReorderAccounts updates display_order for a list of account IDs.
 // POST /accounts/reorder
 func (h *PageHandler) ReorderAccounts(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	r.ParseForm()
 	ids := r.Form["id[]"]
 	for i, id := range ids {
-		if err := h.accountSvc.UpdateDisplayOrder(r.Context(), id, i); err != nil {
+		if err := h.accountSvc.UpdateDisplayOrder(r.Context(), userID, id, i); err != nil {
 			http.Error(w, "failed to reorder", http.StatusInternalServerError)
 			return
 		}
@@ -2498,10 +2556,11 @@ func (h *PageHandler) ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 // ReorderInstitutions updates display_order for a list of institution IDs.
 // POST /institutions/reorder
 func (h *PageHandler) ReorderInstitutions(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	r.ParseForm()
 	ids := r.Form["id[]"]
 	for i, id := range ids {
-		if err := h.institutionSvc.UpdateDisplayOrder(r.Context(), id, i); err != nil {
+		if err := h.institutionSvc.UpdateDisplayOrder(r.Context(), userID, id, i); err != nil {
 			http.Error(w, "failed to reorder", http.StatusInternalServerError)
 			return
 		}
@@ -2541,31 +2600,6 @@ func (h *PageHandler) Settings(w http.ResponseWriter, r *http.Request) {
 	RenderPage(h.templates, w, "settings", PageData{ActiveTab: "more"})
 }
 
-// ChangePin handles PIN change from the settings page.
-// POST /settings/pin
-func (h *PageHandler) ChangePin(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	currentPin := r.FormValue("current_pin")
-	newPin := r.FormValue("new_pin")
-
-	if len(newPin) < 4 {
-		w.Write([]byte(`<p class="text-red-600 text-sm">PIN must be at least 4 digits</p>`))
-		return
-	}
-
-	if h.authSvc == nil {
-		w.Write([]byte(`<p class="text-red-600 text-sm">Auth service not available</p>`))
-		return
-	}
-
-	if err := h.authSvc.ChangePin(r.Context(), currentPin, newPin); err != nil {
-		w.Write([]byte(`<p class="text-red-600 text-sm">` + err.Error() + `</p>`))
-		return
-	}
-
-	w.Write([]byte(`<p class="text-teal-600 text-sm font-medium">PIN changed successfully</p>`))
-}
-
 // ExportTransactions exports transactions as CSV file download.
 // GET /export/transactions?from=2026-01-01&to=2026-03-31
 //
@@ -2573,6 +2607,7 @@ func (h *PageHandler) ChangePin(w http.ResponseWriter, r *http.Request) {
 // The ExportService writes CSV data directly to the ResponseWriter (streaming).
 // This is like Laravel's Response::download() or Django's StreamingHttpResponse.
 func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	fromStr := r.URL.Query().Get("from")
 	toStr := r.URL.Query().Get("to")
 
@@ -2590,7 +2625,7 @@ func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=transactions_%s_%s.csv", fromStr, toStr))
 
-	if err := h.exportSvc.ExportTransactionsCSV(r.Context(), w, from, to); err != nil {
+	if err := h.exportSvc.ExportTransactionsCSV(r.Context(), userID, w, from, to); err != nil {
 		authmw.Log(r.Context()).Error("failed to export CSV", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -2609,6 +2644,7 @@ func (h *PageHandler) ExportTransactions(w http.ResponseWriter, r *http.Request)
 // On success: returns success toast in #institution-form-area + OOB refresh of #institution-list.
 // On error: returns error banner + re-rendered form in #institution-form-area.
 func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
@@ -2617,7 +2653,7 @@ func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
 		Name: r.FormValue("name"),
 		Type: models.InstitutionType(r.FormValue("type")),
 	}
-	if _, err := h.institutionSvc.Create(r.Context(), inst); err != nil {
+	if _, err := h.institutionSvc.Create(r.Context(), userID, inst); err != nil {
 		authmw.Log(r.Context()).Warn("institution create failed", "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -2639,14 +2675,15 @@ func (h *PageHandler) InstitutionAdd(w http.ResponseWriter, r *http.Request) {
 // InstitutionDeleteConfirm returns the delete confirmation sheet content.
 // GET /institutions/{id}/delete-confirm — loaded into the bottom sheet via HTMX.
 func (h *PageHandler) InstitutionDeleteConfirm(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	inst, err := h.institutionSvc.GetByID(r.Context(), id)
+	inst, err := h.institutionSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		authmw.Log(r.Context()).Warn("institution not found for delete confirm", "id", id, "error", err)
 		http.Error(w, "institution not found", http.StatusNotFound)
 		return
 	}
-	accounts, _ := h.accountSvc.GetByInstitution(r.Context(), id)
+	accounts, _ := h.accountSvc.GetByInstitution(r.Context(), userID, id)
 	data := InstitutionDeleteData{
 		InstitutionID:   inst.ID,
 		InstitutionName: inst.Name,
@@ -2664,8 +2701,9 @@ func (h *PageHandler) InstitutionDeleteConfirm(w http.ResponseWriter, r *http.Re
 // InstitutionDelete removes an institution and cascades to its accounts.
 // DELETE /institutions/{id} — called from the delete confirmation sheet.
 func (h *PageHandler) InstitutionDelete(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.institutionSvc.Delete(r.Context(), id); err != nil {
+	if err := h.institutionSvc.Delete(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to delete institution", "id", id, "error", err)
 		h.renderHTMXResult(w, "error", "Failed to delete institution", err.Error())
 		return
@@ -2683,6 +2721,7 @@ func (h *PageHandler) InstitutionDelete(w http.ResponseWriter, r *http.Request) 
 // On success: returns success toast in #account-form-area + OOB refresh of #institution-list.
 // On error: returns error banner + re-rendered form in #account-form-area.
 func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
@@ -2704,7 +2743,7 @@ func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
 			acc.CreditLimit = &f
 		}
 	}
-	if _, err := h.accountSvc.Create(r.Context(), acc); err != nil {
+	if _, err := h.accountSvc.Create(r.Context(), userID, acc); err != nil {
 		authmw.Log(r.Context()).Warn("account create failed", "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -2731,7 +2770,8 @@ func (h *PageHandler) AccountAdd(w http.ResponseWriter, r *http.Request) {
 // Each card includes the institution's accounts. HTMX replaces the entire
 // institution list container with this response.
 func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
-	institutions, err := h.institutionSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	institutions, err := h.institutionSvc.GetAll(r.Context(), userID)
 	if err != nil {
 		authmw.Log(r.Context()).Error("failed to load institutions", "error", err)
 		http.Error(w, "failed to load institutions", http.StatusInternalServerError)
@@ -2740,7 +2780,7 @@ func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 
 	var data []InstitutionWithAccounts
 	for _, inst := range institutions {
-		accounts, _ := h.accountSvc.GetByInstitution(r.Context(), inst.ID)
+		accounts, _ := h.accountSvc.GetByInstitution(r.Context(), userID, inst.ID)
 		data = append(data, InstitutionWithAccounts{
 			Institution: inst,
 			Accounts:    accounts,
@@ -2763,13 +2803,14 @@ func (h *PageHandler) InstitutionList(w http.ResponseWriter, r *http.Request) {
 // This is appended to the response body after a success toast so HTMX updates
 // #institution-list alongside the primary swap target (e.g., #account-form-area).
 func (h *PageHandler) renderInstitutionListOOB(w http.ResponseWriter, r *http.Request) {
-	institutions, err := h.institutionSvc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	institutions, err := h.institutionSvc.GetAll(r.Context(), userID)
 	if err != nil {
 		return
 	}
 	var data []InstitutionWithAccounts
 	for _, inst := range institutions {
-		accounts, _ := h.accountSvc.GetByInstitution(r.Context(), inst.ID)
+		accounts, _ := h.accountSvc.GetByInstitution(r.Context(), userID, inst.ID)
 		data = append(data, InstitutionWithAccounts{Institution: inst, Accounts: accounts})
 	}
 	tmpl, ok := h.templates["accounts"]
@@ -2796,8 +2837,9 @@ func (h *PageHandler) InstitutionFormPartial(w http.ResponseWriter, r *http.Requ
 // InstitutionEditForm returns the edit form partial for the bottom sheet.
 // GET /institutions/{id}/edit-form — loaded into the edit sheet via HTMX.
 func (h *PageHandler) InstitutionEditForm(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	inst, err := h.institutionSvc.GetByID(r.Context(), id)
+	inst, err := h.institutionSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "institution not found", http.StatusNotFound)
 		return
@@ -2818,6 +2860,7 @@ func (h *PageHandler) InstitutionEditForm(w http.ResponseWriter, r *http.Request
 // PUT /institutions/{id} — on success, closes the sheet and refreshes the card via OOB swap.
 func (h *PageHandler) InstitutionUpdate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form data", http.StatusBadRequest)
 		return
@@ -2829,7 +2872,7 @@ func (h *PageHandler) InstitutionUpdate(w http.ResponseWriter, r *http.Request) 
 		Type: models.InstitutionType(r.FormValue("type")),
 	}
 
-	updated, err := h.institutionSvc.Update(r.Context(), inst)
+	updated, err := h.institutionSvc.Update(r.Context(), userID, inst)
 	if err != nil {
 		authmw.Log(r.Context()).Warn("institution update failed", "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -2847,7 +2890,7 @@ func (h *PageHandler) InstitutionUpdate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Success: close the sheet and refresh the card via OOB swap
-	accounts, _ := h.accountSvc.GetByInstitution(r.Context(), updated.ID)
+	accounts, _ := h.accountSvc.GetByInstitution(r.Context(), userID, updated.ID)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, `<script>closeEditSheet();</script>`)
 	tmpl, ok := h.templates["accounts"]
@@ -2909,12 +2952,13 @@ type VirtualAccountEditFormData struct {
 // GET /virtual-accounts
 func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-accounts")
+	userID := authmw.UserID(r.Context())
 	if h.virtualAccountSvc == nil {
 		RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "more"})
 		return
 	}
-	accounts, _ := h.virtualAccountSvc.GetAll(r.Context())
-	bankAccounts, _ := h.accountSvc.GetAll(r.Context())
+	accounts, _ := h.virtualAccountSvc.GetAll(r.Context(), userID)
+	bankAccounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	// Build maps for over-allocation warnings
 	accountBalances := make(map[string]float64)
@@ -2953,6 +2997,7 @@ func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
 // VirtualAccountAdd creates a new virtual account from form data.
 // POST /virtual-accounts/add
 func (h *PageHandler) VirtualAccountAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	r.ParseForm()
 	a := models.VirtualAccount{
 		Name:  r.FormValue("name"),
@@ -2968,7 +3013,7 @@ func (h *PageHandler) VirtualAccountAdd(w http.ResponseWriter, r *http.Request) 
 		a.AccountID = &acctID
 	}
 	a.ExcludeFromNetWorth = r.FormValue("exclude_from_net_worth") == "on"
-	if _, err := h.virtualAccountSvc.Create(r.Context(), a); err != nil {
+	if _, err := h.virtualAccountSvc.Create(r.Context(), userID, a); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -2979,14 +3024,15 @@ func (h *PageHandler) VirtualAccountAdd(w http.ResponseWriter, r *http.Request) 
 // GET /virtual-accounts/{id}
 func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-account-detail")
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	account, err := h.virtualAccountSvc.GetByID(r.Context(), id)
+	account, err := h.virtualAccountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "virtual account not found", http.StatusNotFound)
 		return
 	}
-	txns, _ := h.virtualAccountSvc.GetVirtualAccountTransactions(r.Context(), id, 50)
-	allocs, _ := h.virtualAccountSvc.GetVirtualAccountAllocations(r.Context(), id, 50)
+	txns, _ := h.virtualAccountSvc.GetVirtualAccountTransactions(r.Context(), userID, id, 50)
+	allocs, _ := h.virtualAccountSvc.GetVirtualAccountAllocations(r.Context(), userID, id, 50)
 
 	data := VirtualAccountDetailData{
 		Account:      account,
@@ -2997,13 +3043,13 @@ func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Reques
 
 	// Compute over-allocation warnings if VA is linked to a bank account
 	if account.AccountID != nil {
-		if linkedAcct, err := h.accountSvc.GetByID(r.Context(), *account.AccountID); err == nil {
+		if linkedAcct, err := h.accountSvc.GetByID(r.Context(), userID, *account.AccountID); err == nil {
 			data.LinkedAccount = &linkedAcct
 			if account.CurrentBalance > linkedAcct.CurrentBalance {
 				data.OverAllocated = true
 			}
 			// Sum all VA balances linked to the same bank account
-			if siblingVAs, err := h.virtualAccountSvc.GetByAccountID(r.Context(), *account.AccountID); err == nil {
+			if siblingVAs, err := h.virtualAccountSvc.GetByAccountID(r.Context(), userID, *account.AccountID); err == nil {
 				for _, va := range siblingVAs {
 					data.TotalVABalance += va.CurrentBalance
 				}
@@ -3020,8 +3066,9 @@ func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Reques
 // VirtualAccountArchive archives a virtual account (soft-delete).
 // POST /virtual-accounts/{id}/archive
 func (h *PageHandler) VirtualAccountArchive(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.virtualAccountSvc.Archive(r.Context(), id); err != nil {
+	if err := h.virtualAccountSvc.Archive(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to archive virtual account", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -3032,6 +3079,7 @@ func (h *PageHandler) VirtualAccountArchive(w http.ResponseWriter, r *http.Reque
 // VirtualAccountAllocate earmarks existing funds in a virtual account (no transaction created).
 // POST /virtual-accounts/{id}/allocate
 func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	vaID := chi.URLParam(r, "id")
 	r.ParseForm()
 
@@ -3049,7 +3097,7 @@ func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Requ
 
 	note := r.FormValue("note")
 
-	if err := h.virtualAccountSvc.DirectAllocate(r.Context(), vaID, allocAmount, note, timeutil.Now()); err != nil {
+	if err := h.virtualAccountSvc.DirectAllocate(r.Context(), userID, vaID, allocAmount, note, timeutil.Now()); err != nil {
 		authmw.Log(r.Context()).Warn("direct allocation failed", "virtual_account_id", vaID, "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -3061,14 +3109,15 @@ func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Requ
 // VirtualAccountToggleExclude toggles the exclude_from_net_worth flag.
 // POST /virtual-accounts/{id}/toggle-exclude
 func (h *PageHandler) VirtualAccountToggleExclude(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	account, err := h.virtualAccountSvc.GetByID(r.Context(), id)
+	account, err := h.virtualAccountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "virtual account not found", http.StatusNotFound)
 		return
 	}
 	account.ExcludeFromNetWorth = !account.ExcludeFromNetWorth
-	if err := h.virtualAccountSvc.Update(r.Context(), account); err != nil {
+	if err := h.virtualAccountSvc.Update(r.Context(), userID, account); err != nil {
 		authmw.Log(r.Context()).Error("failed to toggle exclude from net worth", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -3080,13 +3129,14 @@ func (h *PageHandler) VirtualAccountToggleExclude(w http.ResponseWriter, r *http
 // GET /virtual-accounts/{id}/edit-form — called by HTMX when the edit sheet opens.
 func (h *PageHandler) VirtualAccountEditForm(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("partial loaded", "partial", "virtual-account-edit-form")
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	va, err := h.virtualAccountSvc.GetByID(r.Context(), id)
+	va, err := h.virtualAccountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "virtual account not found", http.StatusNotFound)
 		return
 	}
-	bankAccounts, _ := h.accountSvc.GetAll(r.Context())
+	bankAccounts, _ := h.accountSvc.GetAll(r.Context(), userID)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl, ok := h.templates["virtual-account-detail"]
@@ -3104,13 +3154,14 @@ func (h *PageHandler) VirtualAccountEditForm(w http.ResponseWriter, r *http.Requ
 // POST /virtual-accounts/{id}/edit — called by HTMX from the edit bottom sheet.
 func (h *PageHandler) VirtualAccountUpdate(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
 
 	// Fetch existing VA to preserve non-editable fields (balance, archived status, etc.)
-	va, err := h.virtualAccountSvc.GetByID(r.Context(), id)
+	va, err := h.virtualAccountSvc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		http.Error(w, "virtual account not found", http.StatusNotFound)
 		return
@@ -3137,7 +3188,7 @@ func (h *PageHandler) VirtualAccountUpdate(w http.ResponseWriter, r *http.Reques
 
 	va.ExcludeFromNetWorth = r.FormValue("exclude_from_net_worth") == "on"
 
-	if err := h.virtualAccountSvc.Update(r.Context(), va); err != nil {
+	if err := h.virtualAccountSvc.Update(r.Context(), userID, va); err != nil {
 		authmw.Log(r.Context()).Warn("virtual account update failed", "error", err)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -3166,11 +3217,12 @@ type BudgetPageData struct {
 // GET /budgets
 func (h *PageHandler) Budgets(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "budgets")
-	categories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
+	userID := authmw.UserID(r.Context())
+	categories, _ := h.categorySvc.GetByType(r.Context(), userID, models.CategoryTypeExpense)
 	var budgets []models.BudgetWithSpending
 	if h.budgetSvc != nil {
 		var err error
-		budgets, err = h.budgetSvc.GetAllWithSpending(r.Context())
+		budgets, err = h.budgetSvc.GetAllWithSpending(r.Context(), userID)
 		if err != nil {
 			authmw.Log(r.Context()).Error("failed to load budgets", "error", err)
 		}
@@ -3182,6 +3234,7 @@ func (h *PageHandler) Budgets(w http.ResponseWriter, r *http.Request) {
 // BudgetAdd creates a new budget from form data.
 // POST /budgets/add
 func (h *PageHandler) BudgetAdd(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	r.ParseForm()
 	limit, _ := parseFloat(r.FormValue("monthly_limit"))
 	b := models.Budget{
@@ -3189,7 +3242,7 @@ func (h *PageHandler) BudgetAdd(w http.ResponseWriter, r *http.Request) {
 		MonthlyLimit: limit,
 		Currency:     models.Currency(r.FormValue("currency")),
 	}
-	if _, err := h.budgetSvc.Create(r.Context(), b); err != nil {
+	if _, err := h.budgetSvc.Create(r.Context(), userID, b); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -3199,8 +3252,9 @@ func (h *PageHandler) BudgetAdd(w http.ResponseWriter, r *http.Request) {
 // BudgetDelete removes a budget.
 // POST /budgets/{id}/delete
 func (h *PageHandler) BudgetDelete(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.budgetSvc.Delete(r.Context(), id); err != nil {
+	if err := h.budgetSvc.Delete(r.Context(), userID, id); err != nil {
 		authmw.Log(r.Context()).Error("failed to delete budget", "id", id, "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -3220,6 +3274,7 @@ func (h *PageHandler) BudgetDelete(w http.ResponseWriter, r *http.Request) {
 // AccountHealthUpdate saves health constraints for an account.
 // POST /accounts/{id}/health
 func (h *PageHandler) AccountHealthUpdate(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
 	r.ParseForm()
 
@@ -3236,7 +3291,7 @@ func (h *PageHandler) AccountHealthUpdate(w http.ResponseWriter, r *http.Request
 	}
 
 	if h.healthSvc != nil {
-		if err := h.healthSvc.UpdateHealthConfig(r.Context(), id, cfg); err != nil {
+		if err := h.healthSvc.UpdateHealthConfig(r.Context(), userID, id, cfg); err != nil {
 			authmw.Log(r.Context()).Error("failed to update health config", "account_id", id, "error", err)
 		}
 	}
@@ -3247,8 +3302,9 @@ func (h *PageHandler) AccountHealthUpdate(w http.ResponseWriter, r *http.Request
 // AccountDelete removes an account and all its cascading data (transactions, snapshots).
 // DELETE /accounts/{id} — called from the confirmation bottom sheet on the account detail page.
 func (h *PageHandler) AccountDelete(w http.ResponseWriter, r *http.Request) {
+	userID := authmw.UserID(r.Context())
 	id := chi.URLParam(r, "id")
-	if err := h.accountSvc.Delete(r.Context(), id); err != nil {
+	if err := h.accountSvc.Delete(r.Context(), userID, id); err != nil {
 		// FK violation — installment plans use RESTRICT, not CASCADE
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23503" {

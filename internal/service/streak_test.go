@@ -25,33 +25,34 @@ import (
 )
 
 // setupStreakTest creates a clean StreakService with empty transaction table.
-func setupStreakTest(t *testing.T) *StreakService {
+func setupStreakTest(t *testing.T) (*StreakService, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
-	return NewStreakService(db)
+	userID := testutil.SetupTestUser(t, db)
+	return NewStreakService(db), userID
 }
 
 // insertTxOnDate inserts a minimal transaction for a given date (needs an account).
 // Uses direct SQL exec instead of the service layer — bypasses validation for speed.
 // The svc.db field is accessible because tests are in the same package (package service).
-func insertTxOnDate(t *testing.T, svc *StreakService, accountID string, date time.Time) {
+func insertTxOnDate(t *testing.T, svc *StreakService, accountID, userID string, date time.Time) {
 	t.Helper()
 	_, err := svc.db.Exec(`
-		INSERT INTO transactions (type, amount, currency, account_id, date)
-		VALUES ('expense', 10, 'EGP', $1, $2)
-	`, accountID, date)
+		INSERT INTO transactions (type, amount, currency, account_id, user_id, date)
+		VALUES ('expense', 10, 'EGP', $1, $2, $3)
+	`, accountID, userID, date)
 	if err != nil {
 		t.Fatalf("insert tx: %v", err)
 	}
 }
 
 func TestStreakService_NoTransactions(t *testing.T) {
-	svc := setupStreakTest(t)
+	svc, userID := setupStreakTest(t)
 
-	info, err := svc.GetStreak(context.Background())
+	info, err := svc.GetStreak(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get streak: %v", err)
 	}
@@ -64,22 +65,22 @@ func TestStreakService_NoTransactions(t *testing.T) {
 }
 
 func TestStreakService_ConsecutiveDays(t *testing.T) {
-	svc := setupStreakTest(t)
+	svc, userID := setupStreakTest(t)
 
 	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent, UserID: userID,
 	})
 
 	// Insert transactions for today, yesterday, and day before
 	today := timeutil.Today(time.UTC)
-	insertTxOnDate(t, svc, acc.ID, today)
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -1))
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
+	insertTxOnDate(t, svc, acc.ID, userID, today)
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -1))
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -2))
 
-	info, err := svc.GetStreak(context.Background())
+	info, err := svc.GetStreak(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get streak: %v", err)
 	}
@@ -89,21 +90,21 @@ func TestStreakService_ConsecutiveDays(t *testing.T) {
 }
 
 func TestStreakService_BrokenStreak(t *testing.T) {
-	svc := setupStreakTest(t)
+	svc, userID := setupStreakTest(t)
 
 	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent, UserID: userID,
 	})
 
 	// Today and 2 days ago (gap yesterday)
 	today := timeutil.Today(time.UTC)
-	insertTxOnDate(t, svc, acc.ID, today)
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
+	insertTxOnDate(t, svc, acc.ID, userID, today)
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -2))
 
-	info, err := svc.GetStreak(context.Background())
+	info, err := svc.GetStreak(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get streak: %v", err)
 	}
@@ -113,23 +114,23 @@ func TestStreakService_BrokenStreak(t *testing.T) {
 }
 
 func TestStreakService_WeeklyCount(t *testing.T) {
-	svc := setupStreakTest(t)
+	svc, userID := setupStreakTest(t)
 
 	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent, UserID: userID,
 	})
 
 	// Insert 5 transactions today — weekly count should be 5
 	today := timeutil.Today(time.UTC)
 	for i := range 5 {
 		_ = i
-		insertTxOnDate(t, svc, acc.ID, today)
+		insertTxOnDate(t, svc, acc.ID, userID, today)
 	}
 
-	info, err := svc.GetStreak(context.Background())
+	info, err := svc.GetStreak(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get streak: %v", err)
 	}
@@ -139,22 +140,22 @@ func TestStreakService_WeeklyCount(t *testing.T) {
 }
 
 func TestStreakService_GracePeriod(t *testing.T) {
-	svc := setupStreakTest(t)
+	svc, userID := setupStreakTest(t)
 
 	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent, UserID: userID,
 	})
 
 	// Transactions yesterday and 2 days before, but NOT today
 	today := timeutil.Today(time.UTC)
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -1))
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -3))
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -1))
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -2))
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -3))
 
-	info, err := svc.GetStreak(context.Background())
+	info, err := svc.GetStreak(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get streak: %v", err)
 	}
@@ -167,20 +168,20 @@ func TestStreakService_GracePeriod(t *testing.T) {
 }
 
 func TestStreakService_GracePeriodBroken(t *testing.T) {
-	svc := setupStreakTest(t)
+	svc, userID := setupStreakTest(t)
 
 	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent, UserID: userID,
 	})
 
 	// Transaction only 2 days ago (gap yesterday = no grace)
 	today := timeutil.Today(time.UTC)
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -2))
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -2))
 
-	info, err := svc.GetStreak(context.Background())
+	info, err := svc.GetStreak(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get streak: %v", err)
 	}
@@ -190,20 +191,20 @@ func TestStreakService_GracePeriodBroken(t *testing.T) {
 }
 
 func TestStreakService_ActiveToday(t *testing.T) {
-	svc := setupStreakTest(t)
+	svc, userID := setupStreakTest(t)
 
 	inst := testutil.CreateInstitution(t, svc.db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, svc.db, models.Account{
-		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
+		Name: "Cash", InstitutionID: inst.ID, Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent, UserID: userID,
 	})
 
 	today := timeutil.Today(time.UTC)
-	insertTxOnDate(t, svc, acc.ID, today)
-	insertTxOnDate(t, svc, acc.ID, today.AddDate(0, 0, -1))
+	insertTxOnDate(t, svc, acc.ID, userID, today)
+	insertTxOnDate(t, svc, acc.ID, userID, today.AddDate(0, 0, -1))
 
-	info, err := svc.GetStreak(context.Background())
+	info, err := svc.GetStreak(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get streak: %v", err)
 	}

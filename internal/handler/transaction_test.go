@@ -31,6 +31,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shahwan42/clearmoney/internal/config"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/testutil"
 )
@@ -39,8 +40,9 @@ import (
 // Returns: (unused, unused, do function, test account with 10,000 EGP balance)
 //
 // The `do` function is a test helper closure that makes authenticated HTTP requests:
-//   w := do("POST", "/api/transactions", `{"type":"expense",...}`)
-//   w := do("GET", "/api/transactions", "")
+//
+//	w := do("POST", "/api/transactions", `{"type":"expense",...}`)
+//	w := do("GET", "/api/transactions", "")
 //
 // t.Helper() marks this as a test helper so error line numbers point to the calling test.
 func setupTransactionHandlerTest(t *testing.T) (*httptest.ResponseRecorder, *http.Request, func(method, path string, body string) *httptest.ResponseRecorder, models.Account) {
@@ -50,17 +52,19 @@ func setupTransactionHandlerTest(t *testing.T) (*httptest.ResponseRecorder, *htt
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	sessionCookie, userID := testutil.SetupAuthWithUserID(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 
-	sessionCookie := testutil.SetupAuth(t, db)
-	router := NewRouter(db, time.UTC)
+	router := NewRouter(db, time.UTC, config.Config{})
 
 	// Helper to make authenticated HTTP requests against the router
 	do := func(method, path string, body string) *httptest.ResponseRecorder {

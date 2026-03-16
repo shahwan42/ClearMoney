@@ -23,6 +23,7 @@ import "time"
 // current month to compute actual spending against this limit.
 type Budget struct {
 	ID           string    `json:"id" db:"id"`
+	UserID       string    `json:"user_id" db:"user_id"`
 	CategoryID   string    `json:"category_id" db:"category_id"`     // FK to categories — one budget per category
 	MonthlyLimit float64   `json:"monthly_limit" db:"monthly_limit"` // the spending cap in the given currency (e.g., 3000.0 for E£3,000/month)
 	Currency     Currency  `json:"currency" db:"currency"`           // which currency this limit is expressed in

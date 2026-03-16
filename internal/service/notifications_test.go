@@ -21,6 +21,7 @@ import (
 // produces zero notifications (no due credit cards, no pending recurring rules).
 func TestNotificationService_GetPendingNotifications_Empty(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "recurring_rules")
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
@@ -37,7 +38,7 @@ func TestNotificationService_GetPendingNotifications_Empty(t *testing.T) {
 	notifSvc := NewNotificationService(dashSvc, recurringSvc)
 	ctx := context.Background()
 
-	notifications, err := notifSvc.GetPendingNotifications(ctx)
+	notifications, err := notifSvc.GetPendingNotifications(ctx, userID)
 	if err != nil {
 		t.Fatalf("GetPendingNotifications: %v", err)
 	}
@@ -55,7 +56,7 @@ func TestNotificationService_NilServices(t *testing.T) {
 	notifSvc := NewNotificationService(nil, nil)
 	ctx := context.Background()
 
-	notifications, err := notifSvc.GetPendingNotifications(ctx)
+	notifications, err := notifSvc.GetPendingNotifications(ctx, "nonexistent-user")
 	if err != nil {
 		t.Fatalf("GetPendingNotifications: %v", err)
 	}

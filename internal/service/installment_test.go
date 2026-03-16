@@ -1,12 +1,4 @@
 // Tests for InstallmentService — covers plan creation, payment recording, and deletion.
-//
-// The setup creates a credit card account (typical for installment plans in Egypt).
-// Note the Go closure for creating a *float64 pointer inline:
-//   CreditLimit: func() *float64 { v := 50000.0; return &v }()
-// This is an IIFE (immediately invoked function expression) — Go's way of creating
-// a pointer to a literal value. In PHP, you'd just use 50000.0 (nullable by default).
-// In Go, you can't take the address of a literal (&50000.0 is invalid), so this pattern
-// is used. Alternative: declare a variable first, then use &variable.
 package service
 
 import (
@@ -20,13 +12,14 @@ import (
 )
 
 // setupInstallmentTest creates a service with a credit card account for testing.
-func setupInstallmentTest(t *testing.T) (*InstallmentService, models.Account) {
+func setupInstallmentTest(t *testing.T) (*InstallmentService, models.Account, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "installment_plans")
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
@@ -34,23 +27,24 @@ func setupInstallmentTest(t *testing.T) (*InstallmentService, models.Account) {
 	txSvc := NewTransactionService(txRepo, accRepo)
 	svc := NewInstallmentService(installRepo, txSvc)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "TRU"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "TRU", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID:  inst.ID,
-		Name:           "TRU Credit",
-		Type:           models.AccountTypeCreditCard,
-		Currency:       models.CurrencyEGP,
-		CreditLimit:    func() *float64 { v := 50000.0; return &v }(),
+		InstitutionID: inst.ID,
+		Name:          "TRU Credit",
+		Type:          models.AccountTypeCreditCard,
+		Currency:      models.CurrencyEGP,
+		CreditLimit:   func() *float64 { v := 50000.0; return &v }(),
+		UserID:        userID,
 	})
 
-	return svc, acc
+	return svc, acc, userID
 }
 
 func TestInstallmentService_Create(t *testing.T) {
-	svc, acc := setupInstallmentTest(t)
+	svc, acc, userID := setupInstallmentTest(t)
 	ctx := context.Background()
 
-	plan, err := svc.Create(ctx, models.InstallmentPlan{
+	plan, err := svc.Create(ctx, userID, models.InstallmentPlan{
 		AccountID:       acc.ID,
 		Description:     "iPhone 16 Pro",
 		TotalAmount:     60000,
@@ -73,7 +67,7 @@ func TestInstallmentService_Create(t *testing.T) {
 }
 
 func TestInstallmentService_Create_ValidationErrors(t *testing.T) {
-	svc, acc := setupInstallmentTest(t)
+	svc, acc, userID := setupInstallmentTest(t)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -87,7 +81,7 @@ func TestInstallmentService_Create_ValidationErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.Create(ctx, tt.plan)
+			_, err := svc.Create(ctx, userID, tt.plan)
 			if err == nil {
 				t.Error("expected error")
 			}
@@ -96,10 +90,10 @@ func TestInstallmentService_Create_ValidationErrors(t *testing.T) {
 }
 
 func TestInstallmentService_RecordPayment(t *testing.T) {
-	svc, acc := setupInstallmentTest(t)
+	svc, acc, userID := setupInstallmentTest(t)
 	ctx := context.Background()
 
-	plan, _ := svc.Create(ctx, models.InstallmentPlan{
+	plan, _ := svc.Create(ctx, userID, models.InstallmentPlan{
 		AccountID:       acc.ID,
 		Description:     "Laptop",
 		TotalAmount:     30000,
@@ -107,13 +101,13 @@ func TestInstallmentService_RecordPayment(t *testing.T) {
 		StartDate:       time.Now(),
 	})
 
-	err := svc.RecordPayment(ctx, plan.ID)
+	err := svc.RecordPayment(ctx, userID, plan.ID)
 	if err != nil {
 		t.Fatalf("RecordPayment: %v", err)
 	}
 
 	// Verify remaining decreased
-	plans, _ := svc.GetAll(ctx)
+	plans, _ := svc.GetAll(ctx, userID)
 	if len(plans) != 1 {
 		t.Fatalf("expected 1 plan, got %d", len(plans))
 	}
@@ -123,10 +117,10 @@ func TestInstallmentService_RecordPayment(t *testing.T) {
 }
 
 func TestInstallmentService_Delete(t *testing.T) {
-	svc, acc := setupInstallmentTest(t)
+	svc, acc, userID := setupInstallmentTest(t)
 	ctx := context.Background()
 
-	plan, _ := svc.Create(ctx, models.InstallmentPlan{
+	plan, _ := svc.Create(ctx, userID, models.InstallmentPlan{
 		AccountID:       acc.ID,
 		Description:     "Test",
 		TotalAmount:     1000,
@@ -134,12 +128,12 @@ func TestInstallmentService_Delete(t *testing.T) {
 		StartDate:       time.Now(),
 	})
 
-	err := svc.Delete(ctx, plan.ID)
+	err := svc.Delete(ctx, userID, plan.ID)
 	if err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
-	plans, _ := svc.GetAll(ctx)
+	plans, _ := svc.GetAll(ctx, userID)
 	if len(plans) != 0 {
 		t.Errorf("expected 0 plans after delete, got %d", len(plans))
 	}

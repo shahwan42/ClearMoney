@@ -1,11 +1,4 @@
 // Tests for RecurringService — verifies recurring rule processing, confirmation, and skipping.
-//
-// These tests demonstrate service-to-service dependency testing: RecurringService depends on
-// TransactionService. In the test setup, we create BOTH services and verify they work together.
-// This is integration testing at the service layer — no mocks, real database.
-//
-// The makeTemplate() helper uses json.Marshal to create JSON template data — the same
-// format that gets stored in the recurring_rules.template_transaction JSONB column.
 package service
 
 import (
@@ -19,15 +12,15 @@ import (
 	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
-// setupRecurringTest creates a full test environment: recurring service, transaction service,
-// an account with funds, and an expense category. Returns all four for test use.
-func setupRecurringTest(t *testing.T) (*RecurringService, *TransactionService, models.Account, string) {
+// setupRecurringTest creates a full test environment with a user, services, and an account.
+func setupRecurringTest(t *testing.T) (*RecurringService, *TransactionService, models.Account, string, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "recurring_rules")
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
@@ -35,21 +28,19 @@ func setupRecurringTest(t *testing.T) (*RecurringService, *TransactionService, m
 	txSvc := NewTransactionService(txRepo, accRepo)
 	recurringSvc := NewRecurringService(recurringRepo, txSvc)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 	catID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
 
-	return recurringSvc, txSvc, acc, catID
+	return recurringSvc, txSvc, acc, catID, userID
 }
 
-// makeTemplate creates a JSON transaction template for testing recurring rules.
-// This helper produces the same JSON format stored in the DB's JSONB column.
-// json.Marshal converts a Go struct to []byte (JSON) — like json_encode() in PHP.
 func makeTemplate(t *testing.T, acc models.Account, catID string, amount float64) json.RawMessage {
 	t.Helper()
 	note := "Monthly rent"
@@ -69,10 +60,10 @@ func makeTemplate(t *testing.T, acc models.Account, catID string, amount float64
 }
 
 func TestRecurringService_Create(t *testing.T) {
-	svc, _, acc, catID := setupRecurringTest(t)
+	svc, _, acc, catID, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
-	rule, err := svc.Create(ctx, models.RecurringRule{
+	rule, err := svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 5000),
 		Frequency:           models.RecurringFrequencyMonthly,
 		NextDueDate:         time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC),
@@ -91,7 +82,7 @@ func TestRecurringService_Create(t *testing.T) {
 }
 
 func TestRecurringService_Create_ValidationErrors(t *testing.T) {
-	svc, _, _, _ := setupRecurringTest(t)
+	svc, _, _, _, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -114,7 +105,7 @@ func TestRecurringService_Create_ValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.Create(ctx, tt.rule)
+			_, err := svc.Create(ctx, userID, tt.rule)
 			if err == nil {
 				t.Error("expected error")
 			}
@@ -123,14 +114,13 @@ func TestRecurringService_Create_ValidationErrors(t *testing.T) {
 }
 
 func TestRecurringService_ProcessDueRules_AutoConfirm(t *testing.T) {
-	svc, _, acc, catID := setupRecurringTest(t)
+	svc, _, acc, catID, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
-	// Create an auto-confirm rule due today
-	_, err := svc.Create(ctx, models.RecurringRule{
+	_, err := svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 1000),
 		Frequency:           models.RecurringFrequencyMonthly,
-		NextDueDate:         time.Now().AddDate(0, 0, -1), // yesterday = due
+		NextDueDate:         time.Now().AddDate(0, 0, -1),
 		IsActive:            true,
 		AutoConfirm:         true,
 	})
@@ -138,7 +128,7 @@ func TestRecurringService_ProcessDueRules_AutoConfirm(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	processed, err := svc.ProcessDueRules(ctx)
+	processed, err := svc.ProcessDueRules(ctx, userID)
 	if err != nil {
 		t.Fatalf("ProcessDueRules: %v", err)
 	}
@@ -146,8 +136,7 @@ func TestRecurringService_ProcessDueRules_AutoConfirm(t *testing.T) {
 		t.Errorf("processed = %d, want 1", processed)
 	}
 
-	// Verify the rule's next_due_date was advanced
-	rules, _ := svc.GetAll(ctx)
+	rules, _ := svc.GetAll(ctx, userID)
 	if len(rules) != 1 {
 		t.Fatalf("expected 1 rule, got %d", len(rules))
 	}
@@ -157,11 +146,10 @@ func TestRecurringService_ProcessDueRules_AutoConfirm(t *testing.T) {
 }
 
 func TestRecurringService_ProcessDueRules_SkipsManual(t *testing.T) {
-	svc, _, acc, catID := setupRecurringTest(t)
+	svc, _, acc, catID, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
-	// Create a manual rule (auto_confirm=false) due today
-	_, err := svc.Create(ctx, models.RecurringRule{
+	_, err := svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 2000),
 		Frequency:           models.RecurringFrequencyWeekly,
 		NextDueDate:         time.Now().AddDate(0, 0, -1),
@@ -172,7 +160,7 @@ func TestRecurringService_ProcessDueRules_SkipsManual(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	processed, err := svc.ProcessDueRules(ctx)
+	processed, err := svc.ProcessDueRules(ctx, userID)
 	if err != nil {
 		t.Fatalf("ProcessDueRules: %v", err)
 	}
@@ -182,10 +170,10 @@ func TestRecurringService_ProcessDueRules_SkipsManual(t *testing.T) {
 }
 
 func TestRecurringService_ConfirmRule(t *testing.T) {
-	svc, _, acc, catID := setupRecurringTest(t)
+	svc, _, acc, catID, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
-	rule, err := svc.Create(ctx, models.RecurringRule{
+	rule, err := svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 3000),
 		Frequency:           models.RecurringFrequencyMonthly,
 		NextDueDate:         time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
@@ -196,13 +184,12 @@ func TestRecurringService_ConfirmRule(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	err = svc.ConfirmRule(ctx, rule.ID)
+	err = svc.ConfirmRule(ctx, userID, rule.ID)
 	if err != nil {
 		t.Fatalf("ConfirmRule: %v", err)
 	}
 
-	// Verify next_due_date advanced by 1 month
-	rules, _ := svc.GetAll(ctx)
+	rules, _ := svc.GetAll(ctx, userID)
 	if len(rules) != 1 {
 		t.Fatalf("expected 1 rule, got %d", len(rules))
 	}
@@ -213,10 +200,10 @@ func TestRecurringService_ConfirmRule(t *testing.T) {
 }
 
 func TestRecurringService_SkipRule(t *testing.T) {
-	svc, _, acc, catID := setupRecurringTest(t)
+	svc, _, acc, catID, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
-	rule, err := svc.Create(ctx, models.RecurringRule{
+	rule, err := svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 1500),
 		Frequency:           models.RecurringFrequencyWeekly,
 		NextDueDate:         time.Date(2026, 3, 7, 0, 0, 0, 0, time.UTC),
@@ -226,13 +213,12 @@ func TestRecurringService_SkipRule(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	err = svc.SkipRule(ctx, rule.ID)
+	err = svc.SkipRule(ctx, userID, rule.ID)
 	if err != nil {
 		t.Fatalf("SkipRule: %v", err)
 	}
 
-	// Verify next_due_date advanced by 7 days (weekly)
-	rules, _ := svc.GetAll(ctx)
+	rules, _ := svc.GetAll(ctx, userID)
 	expected := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
 	if !rules[0].NextDueDate.Equal(expected) {
 		t.Errorf("next_due_date = %v, want %v", rules[0].NextDueDate, expected)
@@ -240,40 +226,39 @@ func TestRecurringService_SkipRule(t *testing.T) {
 }
 
 func TestRecurringService_Delete(t *testing.T) {
-	svc, _, acc, catID := setupRecurringTest(t)
+	svc, _, acc, catID, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
-	rule, _ := svc.Create(ctx, models.RecurringRule{
+	rule, _ := svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 500),
 		Frequency:           models.RecurringFrequencyMonthly,
 		NextDueDate:         time.Now().AddDate(0, 1, 0),
 		IsActive:            true,
 	})
 
-	err := svc.Delete(ctx, rule.ID)
+	err := svc.Delete(ctx, userID, rule.ID)
 	if err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
-	rules, _ := svc.GetAll(ctx)
+	rules, _ := svc.GetAll(ctx, userID)
 	if len(rules) != 0 {
 		t.Errorf("expected 0 rules after delete, got %d", len(rules))
 	}
 }
 
 func TestRecurringService_GetDuePending(t *testing.T) {
-	svc, _, acc, catID := setupRecurringTest(t)
+	svc, _, acc, catID, userID := setupRecurringTest(t)
 	ctx := context.Background()
 
-	// Create one auto and one manual, both due
-	svc.Create(ctx, models.RecurringRule{
+	svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 1000),
 		Frequency:           models.RecurringFrequencyMonthly,
 		NextDueDate:         time.Now().AddDate(0, 0, -1),
 		IsActive:            true,
 		AutoConfirm:         true,
 	})
-	svc.Create(ctx, models.RecurringRule{
+	svc.Create(ctx, userID, models.RecurringRule{
 		TemplateTransaction: makeTemplate(t, acc, catID, 2000),
 		Frequency:           models.RecurringFrequencyMonthly,
 		NextDueDate:         time.Now().AddDate(0, 0, -1),
@@ -281,7 +266,7 @@ func TestRecurringService_GetDuePending(t *testing.T) {
 		AutoConfirm:         false,
 	})
 
-	pending, err := svc.GetDuePending(ctx)
+	pending, err := svc.GetDuePending(ctx, userID)
 	if err != nil {
 		t.Fatalf("GetDuePending: %v", err)
 	}

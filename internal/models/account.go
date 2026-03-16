@@ -70,6 +70,7 @@ const (
 // for simplicity.
 type Account struct {
 	ID             string          `json:"id" db:"id"`
+	UserID         string          `json:"user_id" db:"user_id"`
 	InstitutionID  string          `json:"institution_id" db:"institution_id"`     // FK to Institution — like $table->foreignId('institution_id') in Laravel
 	Name           string          `json:"name" db:"name"`
 	Type           AccountType     `json:"type" db:"type"`

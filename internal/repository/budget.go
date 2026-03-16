@@ -34,12 +34,12 @@ func NewBudgetRepo(db *sql.DB) *BudgetRepo {
 }
 
 // GetAll returns all active budgets.
-func (r *BudgetRepo) GetAll(ctx context.Context) ([]models.Budget, error) {
+func (r *BudgetRepo) GetAll(ctx context.Context, userID string) ([]models.Budget, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, category_id, monthly_limit, currency, is_active, created_at, updated_at
-		FROM budgets WHERE is_active = true
+		FROM budgets WHERE is_active = true AND user_id = $1
 		ORDER BY created_at
-	`)
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (r *BudgetRepo) GetAll(ctx context.Context) ([]models.Budget, error) {
 //
 // After scanning, Go computes derived fields (remaining, percentage, status).
 // This keeps SQL focused on data retrieval and Go handles presentation logic.
-func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month time.Month) ([]models.BudgetWithSpending, error) {
+func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, userID string, year int, month time.Month) ([]models.BudgetWithSpending, error) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)
 
@@ -95,10 +95,10 @@ func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month tim
 		    AND t.type = 'expense'
 		    AND t.date >= $1 AND t.date < $2
 		    AND t.currency = b.currency::currency_type
-		WHERE b.is_active = true
+		WHERE b.is_active = true AND b.user_id = $3
 		GROUP BY b.id, c.name, c.icon
 		ORDER BY c.name
-	`, startDate, endDate)
+	`, startDate, endDate, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -131,30 +131,31 @@ func (r *BudgetRepo) GetAllWithSpending(ctx context.Context, year int, month tim
 }
 
 // Create inserts a new budget.
-func (r *BudgetRepo) Create(ctx context.Context, b models.Budget) (models.Budget, error) {
+func (r *BudgetRepo) Create(ctx context.Context, userID string, b models.Budget) (models.Budget, error) {
+	b.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO budgets (category_id, monthly_limit, currency)
-		VALUES ($1, $2, $3)
+		INSERT INTO budgets (user_id, category_id, monthly_limit, currency)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, category_id, monthly_limit, currency, is_active, created_at, updated_at
-	`, b.CategoryID, b.MonthlyLimit, b.Currency).Scan(
+	`, userID, b.CategoryID, b.MonthlyLimit, b.Currency).Scan(
 		&b.ID, &b.CategoryID, &b.MonthlyLimit, &b.Currency,
 		&b.IsActive, &b.CreatedAt, &b.UpdatedAt)
 	return b, err
 }
 
 // Delete removes a budget by ID.
-func (r *BudgetRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM budgets WHERE id = $1`, id)
+func (r *BudgetRepo) Delete(ctx context.Context, userID string, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM budgets WHERE id = $1 AND user_id = $2`, id, userID)
 	return err
 }
 
 // GetByID returns a single budget by ID.
-func (r *BudgetRepo) GetByID(ctx context.Context, id string) (models.Budget, error) {
+func (r *BudgetRepo) GetByID(ctx context.Context, userID string, id string) (models.Budget, error) {
 	var b models.Budget
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, category_id, monthly_limit, currency, is_active, created_at, updated_at
-		FROM budgets WHERE id = $1
-	`, id).Scan(&b.ID, &b.CategoryID, &b.MonthlyLimit, &b.Currency,
+		FROM budgets WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(&b.ID, &b.CategoryID, &b.MonthlyLimit, &b.Currency,
 		&b.IsActive, &b.CreatedAt, &b.UpdatedAt)
 	return b, err
 }

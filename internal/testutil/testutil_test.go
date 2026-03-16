@@ -71,12 +71,13 @@ func TestNewTestDB(t *testing.T) {
 //	$this->assertEquals('Test Bank', $inst->name);
 func TestCreateInstitution_Defaults(t *testing.T) {
 	db := NewTestDB(t)
+	userID := SetupTestUser(t, db)
 	CleanTable(t, db, "institutions")
 
-	// Pass an empty struct — all fields use zero values.
+	// Pass a struct with only UserID set — all other fields use zero values.
 	// Go's zero value for string is "", for int is 0, for bool is false.
 	// Our factory detects "" and replaces it with a default.
-	inst := CreateInstitution(t, db, models.Institution{})
+	inst := CreateInstitution(t, db, models.Institution{UserID: userID})
 
 	if inst.ID == "" {
 		t.Error("expected institution to have an ID")
@@ -95,11 +96,13 @@ func TestCreateInstitution_Defaults(t *testing.T) {
 //	$inst = Institution::factory()->create(['name' => 'HSBC']);
 func TestCreateInstitution_CustomValues(t *testing.T) {
 	db := NewTestDB(t)
+	userID := SetupTestUser(t, db)
 	CleanTable(t, db, "institutions")
 
 	inst := CreateInstitution(t, db, models.Institution{
-		Name: "HSBC",
-		Type: models.InstitutionTypeBank,
+		UserID: userID,
+		Name:   "HSBC",
+		Type:   models.InstitutionTypeBank,
 	})
 
 	if inst.Name != "HSBC" {
@@ -111,14 +114,16 @@ func TestCreateInstitution_CustomValues(t *testing.T) {
 // the correct initial and current balance, and links it to an institution.
 func TestCreateAccount(t *testing.T) {
 	db := NewTestDB(t)
+	userID := SetupTestUser(t, db)
 	CleanTable(t, db, "institutions")
 
 	// Create the parent institution first (accounts have a FK to institutions).
 	// This dependency chain is explicit in Go, unlike Laravel where you might
 	// use Institution::factory()->has(Account::factory()) for nested creation.
-	inst := CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := CreateInstitution(t, db, models.Institution{UserID: userID, Name: "CIB"})
 
 	acc := CreateAccount(t, db, models.Account{
+		UserID:         userID,
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Type:           models.AccountTypeSavings,
@@ -145,14 +150,16 @@ func TestCreateAccount(t *testing.T) {
 // are simply null/non-null, and Django where they're None/value.
 func TestCreateAccount_CreditCard(t *testing.T) {
 	db := NewTestDB(t)
+	userID := SetupTestUser(t, db)
 	CleanTable(t, db, "institutions")
 
-	inst := CreateInstitution(t, db, models.Institution{})
+	inst := CreateInstitution(t, db, models.Institution{UserID: userID})
 	// &limit takes the address of the variable, creating a *float64 pointer.
 	// This is Go's way of saying "this field has a value" vs nil (no value/NULL).
 	limit := 500000.0
 
 	acc := CreateAccount(t, db, models.Account{
+		UserID:        userID,
 		InstitutionID: inst.ID,
 		Name:          "HSBC Credit Card",
 		Type:          models.AccountTypeCreditCard,
@@ -192,9 +199,10 @@ func TestGetFirstCategoryID(t *testing.T) {
 // other with leftover data, causing flaky failures.
 func TestCleanTable(t *testing.T) {
 	db := NewTestDB(t)
+	userID := SetupTestUser(t, db)
 
 	// Create some data that should be removed
-	CreateInstitution(t, db, models.Institution{Name: "To Be Deleted"})
+	CreateInstitution(t, db, models.Institution{UserID: userID, Name: "To Be Deleted"})
 
 	// Clean it
 	CleanTable(t, db, "institutions")

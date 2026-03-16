@@ -59,37 +59,25 @@ import (
 // This is similar to PHPUnit's test_function_name_scenario or pytest's
 // test_function_name_when_condition pattern.
 func TestReconcileBalances_NoDiscrepancy(t *testing.T) {
-	// ARRANGE: Set up test database and create test data.
-	// NewTestDB connects to the test database and runs migrations.
-	// If TEST_DATABASE_URL is not set, the test is skipped (not failed).
 	db := testutil.NewTestDB(t)
-
-	// Clean tables in dependency order (transactions depends on accounts,
-	// accounts depends on institutions). CleanTable uses TRUNCATE CASCADE
-	// so order doesn't strictly matter, but it documents the dependencies.
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
-	// Factory helpers create test data with sensible defaults.
-	// Override only the fields you care about — similar to Laravel's
-	// Institution::factory()->create(['name' => 'Test Bank']).
 	inst := testutil.CreateInstitution(t, db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		Name: "Cash", InstitutionID: inst.ID,
 		Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
-		InitialBalance: 1000,
+		InitialBalance: 1000, UserID: userID,
 	})
 
-	// Insert a transaction with correct balance_delta using raw SQL.
-	// In Go tests, it's common to use raw SQL for setup data that doesn't
-	// need a factory — especially when testing the exact SQL logic.
 	_, err := db.Exec(`
-		INSERT INTO transactions (type, amount, currency, account_id, date, balance_delta)
-		VALUES ('expense', 100, 'EGP', $1, CURRENT_DATE, -100)
-	`, acc.ID)
+		INSERT INTO transactions (type, amount, currency, account_id, user_id, date, balance_delta)
+		VALUES ('expense', 100, 'EGP', $1, $2, CURRENT_DATE, -100)
+	`, acc.ID, userID)
 	if err != nil {
 		t.Fatalf("insert tx: %v", err)
 	}
@@ -100,17 +88,11 @@ func TestReconcileBalances_NoDiscrepancy(t *testing.T) {
 		t.Fatalf("update balance: %v", err)
 	}
 
-	// ACT: Run reconciliation with autoFix=false (report only, don't fix).
-	// context.Background() creates a non-cancellable context — fine for tests.
 	discrepancies, err := ReconcileBalances(context.Background(), db, false)
-
-	// ASSERT: Expect no errors and no discrepancies.
 	if err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
 	if len(discrepancies) != 0 {
-		// %+v prints struct field names — useful for debugging test failures.
-		// Output: [{AccountID:abc AccountName:Cash CachedBalance:900 ...}]
 		t.Errorf("expected 0 discrepancies, got %d: %+v", len(discrepancies), discrepancies)
 	}
 }
@@ -122,42 +104,35 @@ func TestReconcileBalances_DetectsDiscrepancy(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	inst := testutil.CreateInstitution(t, db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		Name: "Cash", InstitutionID: inst.ID,
 		Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
-		InitialBalance: 1000,
+		InitialBalance: 1000, UserID: userID,
 	})
 
-	// Insert a transaction with balance_delta
 	_, err := db.Exec(`
-		INSERT INTO transactions (type, amount, currency, account_id, date, balance_delta)
-		VALUES ('expense', 200, 'EGP', $1, CURRENT_DATE, -200)
-	`, acc.ID)
+		INSERT INTO transactions (type, amount, currency, account_id, user_id, date, balance_delta)
+		VALUES ('expense', 200, 'EGP', $1, $2, CURRENT_DATE, -200)
+	`, acc.ID, userID)
 	if err != nil {
 		t.Fatalf("insert tx: %v", err)
 	}
 
 	// Set cached balance to WRONG value (should be 800, set to 900).
-	// This simulates what happens if a bug causes the balance to drift.
 	_, err = db.Exec(`UPDATE accounts SET current_balance = 900 WHERE id = $1`, acc.ID)
 	if err != nil {
 		t.Fatalf("update balance: %v", err)
 	}
 
-	// ACT
 	discrepancies, err := ReconcileBalances(context.Background(), db, false)
-
-	// ASSERT: Expect exactly 1 discrepancy with the correct values.
 	if err != nil {
 		t.Fatalf("reconcile: %v", err)
 	}
-	// t.Fatalf stops the test here if the precondition fails, preventing a
-	// nil-pointer panic on discrepancies[0] below. This is a common Go pattern:
-	// use Fatalf for preconditions, Errorf for the actual assertions.
 	if len(discrepancies) != 1 {
 		t.Fatalf("expected 1 discrepancy, got %d", len(discrepancies))
 	}
@@ -172,30 +147,27 @@ func TestReconcileBalances_DetectsDiscrepancy(t *testing.T) {
 
 // TestReconcileBalances_AutoFix verifies that autoFix=true actually updates
 // the database to correct the cached balance.
-//
-// This test follows the "Arrange, Act, Assert, Verify Side Effect" pattern:
-// after calling the function, we query the database to confirm the fix was applied.
-// This is similar to Laravel's assertDatabaseHas() or Django's assertQuerysetEqual().
 func TestReconcileBalances_AutoFix(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	inst := testutil.CreateInstitution(t, db, models.Institution{
-		Name: "Test Bank", Type: models.InstitutionTypeBank,
+		Name: "Test Bank", Type: models.InstitutionTypeBank, UserID: userID,
 	})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		Name: "Cash", InstitutionID: inst.ID,
 		Currency: models.CurrencyEGP, Type: models.AccountTypeCurrent,
-		InitialBalance: 500,
+		InitialBalance: 500, UserID: userID,
 	})
 
 	// Insert transaction: income of 300, so expected balance = 500 + 300 = 800
 	_, err := db.Exec(`
-		INSERT INTO transactions (type, amount, currency, account_id, date, balance_delta)
-		VALUES ('income', 300, 'EGP', $1, CURRENT_DATE, 300)
-	`, acc.ID)
+		INSERT INTO transactions (type, amount, currency, account_id, user_id, date, balance_delta)
+		VALUES ('income', 300, 'EGP', $1, $2, CURRENT_DATE, 300)
+	`, acc.ID, userID)
 	if err != nil {
 		t.Fatalf("insert tx: %v", err)
 	}
@@ -206,7 +178,6 @@ func TestReconcileBalances_AutoFix(t *testing.T) {
 		t.Fatalf("update balance: %v", err)
 	}
 
-	// ACT: Run with autoFix = true — this should UPDATE the database
 	discrepancies, err := ReconcileBalances(context.Background(), db, true)
 	if err != nil {
 		t.Fatalf("reconcile: %v", err)
@@ -215,10 +186,7 @@ func TestReconcileBalances_AutoFix(t *testing.T) {
 		t.Fatalf("expected 1 discrepancy, got %d", len(discrepancies))
 	}
 
-	// VERIFY SIDE EFFECT: Query the database to confirm the balance was fixed.
-	// db.QueryRow().Scan() is Go's way of fetching a single value from the DB.
-	// This is like Laravel's DB::table('accounts')->value('current_balance')
-	// or Django's Account.objects.values_list('current_balance', flat=True).first()
+	// Verify the balance was fixed
 	var balance float64
 	err = db.QueryRow(`SELECT current_balance FROM accounts WHERE id = $1`, acc.ID).Scan(&balance)
 	if err != nil {

@@ -27,12 +27,13 @@ func NewInstallmentRepo(db *sql.DB) *InstallmentRepo {
 }
 
 // Create inserts a new installment plan.
-func (r *InstallmentRepo) Create(ctx context.Context, plan models.InstallmentPlan) (models.InstallmentPlan, error) {
+func (r *InstallmentRepo) Create(ctx context.Context, userID string, plan models.InstallmentPlan) (models.InstallmentPlan, error) {
+	plan.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO installment_plans (account_id, description, total_amount, num_installments, monthly_amount, start_date, remaining_installments)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO installment_plans (user_id, account_id, description, total_amount, num_installments, monthly_amount, start_date, remaining_installments)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, created_at, updated_at
-	`, plan.AccountID, plan.Description, plan.TotalAmount,
+	`, userID, plan.AccountID, plan.Description, plan.TotalAmount,
 		plan.NumInstallments, plan.MonthlyAmount, plan.StartDate, plan.RemainingInstallments,
 	).Scan(&plan.ID, &plan.CreatedAt, &plan.UpdatedAt)
 	if err != nil {
@@ -45,13 +46,13 @@ func (r *InstallmentRepo) Create(ctx context.Context, plan models.InstallmentPla
 // Plans with more remaining payments appear first so the user sees active plans at the top.
 //   Laravel:  InstallmentPlan::orderByDesc('remaining_installments')->orderByDesc('start_date')->get()
 //   Django:   InstallmentPlan.objects.order_by('-remaining_installments', '-start_date')
-func (r *InstallmentRepo) GetAll(ctx context.Context) ([]models.InstallmentPlan, error) {
+func (r *InstallmentRepo) GetAll(ctx context.Context, userID string) ([]models.InstallmentPlan, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, account_id, description, total_amount, num_installments,
 			monthly_amount, start_date, remaining_installments, created_at, updated_at
-		FROM installment_plans
+		FROM installment_plans WHERE user_id = $1
 		ORDER BY remaining_installments DESC, start_date DESC
-	`)
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying installment plans: %w", err)
 	}
@@ -71,13 +72,13 @@ func (r *InstallmentRepo) GetAll(ctx context.Context) ([]models.InstallmentPlan,
 }
 
 // GetByID retrieves a single installment plan.
-func (r *InstallmentRepo) GetByID(ctx context.Context, id string) (models.InstallmentPlan, error) {
+func (r *InstallmentRepo) GetByID(ctx context.Context, userID string, id string) (models.InstallmentPlan, error) {
 	var p models.InstallmentPlan
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, account_id, description, total_amount, num_installments,
 			monthly_amount, start_date, remaining_installments, created_at, updated_at
-		FROM installment_plans WHERE id = $1
-	`, id).Scan(&p.ID, &p.AccountID, &p.Description, &p.TotalAmount,
+		FROM installment_plans WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(&p.ID, &p.AccountID, &p.Description, &p.TotalAmount,
 		&p.NumInstallments, &p.MonthlyAmount, &p.StartDate,
 		&p.RemainingInstallments, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
@@ -94,17 +95,17 @@ func (r *InstallmentRepo) GetByID(ctx context.Context, id string) (models.Instal
 //
 //   Laravel:  InstallmentPlan::where('id', $id)->where('remaining_installments', '>', 0)->decrement('remaining_installments')
 //   Django:   InstallmentPlan.objects.filter(id=id, remaining_installments__gt=0).update(remaining_installments=F('remaining_installments') - 1)
-func (r *InstallmentRepo) RecordPayment(ctx context.Context, id string) error {
+func (r *InstallmentRepo) RecordPayment(ctx context.Context, userID string, id string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE installment_plans
 		SET remaining_installments = remaining_installments - 1, updated_at = NOW()
-		WHERE id = $1 AND remaining_installments > 0
-	`, id)
+		WHERE id = $1 AND remaining_installments > 0 AND user_id = $2
+	`, id, userID)
 	return err
 }
 
 // Delete removes an installment plan.
-func (r *InstallmentRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM installment_plans WHERE id = $1`, id)
+func (r *InstallmentRepo) Delete(ctx context.Context, userID string, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM installment_plans WHERE id = $1 AND user_id = $2`, id, userID)
 	return err
 }

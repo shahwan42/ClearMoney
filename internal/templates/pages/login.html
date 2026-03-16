@@ -1,96 +1,54 @@
 <!--
 =============================================================================
-  LOGIN PAGE -- Auth Flow with the "bare" Layout
+  LOGIN PAGE -- Magic Link Auth
 =============================================================================
 
-  This page uses the "bare" layout (no header, no bottom nav, no HTMX).
-  The handler renders it with: tpl.ExecuteTemplate(w, "bare", data)
+  Email-based login form with honeypot and timing protection.
 
   DATA CONTEXT:
-    .Data is a LoginPageData struct with fields:
-      .Data.Error          — error message string (e.g., "Invalid PIN")
-      .Data.Locked         — true if currently locked out
-      .Data.SecondsLeft    — countdown seconds until lockout expires
-      .Data.FailedAttempts — number of consecutive failed attempts
-
-  BRUTE-FORCE PROTECTION:
-    After 3 failed attempts, progressive lockout kicks in (30s → 1h).
-    When locked, the form is disabled and a countdown timer is shown.
-    A small inline script counts down and re-enables the form on expiry.
-
-  Docs: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/inputmode
+    .Data is a map[string]any with:
+      .Data.Error      — error message string (e.g., "Email is required")
+      .Data.RenderTime — Unix timestamp for timing check
 =============================================================================
 -->
-{{define "title"}}ClearMoney - Login{{end}}
+{{define "title"}}ClearMoney - Sign In{{end}}
 
 {{define "content"}}
 <div class="max-w-sm mx-auto py-20 px-4">
     <div class="text-center mb-8">
         <h1 class="text-2xl font-bold text-slate-800 dark:text-white">ClearMoney</h1>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your PIN to continue</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign in with your email</p>
     </div>
 
-    {{if .Data.Locked}}
-    <div class="bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 p-4 rounded-lg text-sm text-center mb-4" id="lockout-banner">
-        <p class="font-semibold mb-1">Too many failed attempts</p>
-        <p>Try again in <span id="lockout-countdown">{{formatDuration .Data.SecondsLeft}}</span></p>
-    </div>
-    {{else if .Data.Error}}
+    {{if .Data.Error}}
     <div class="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm text-center mb-4">
         <p>{{.Data.Error}}</p>
-        {{if eq .Data.FailedAttempts 3}}
-        <p class="mt-1 text-xs text-red-500 dark:text-red-400">1 attempt remaining before lockout</p>
-        {{end}}
     </div>
     {{end}}
 
-    <form method="POST" action="/login" id="login-form" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
+    <form method="POST" action="/login" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
+        <!-- Honeypot: hidden field that bots fill. Real users never see this. -->
+        <div style="position: absolute; left: -9999px;" aria-hidden="true">
+            <input type="text" name="website" tabindex="-1" autocomplete="off">
+        </div>
+        <!-- Timing: page render timestamp for bot detection -->
+        <input type="hidden" name="_rt" value="{{.Data.RenderTime}}">
+
         <div>
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-2 text-center">PIN</label>
-            <input type="password" name="pin" required autofocus
-                inputmode="numeric" pattern="[0-9]*" maxlength="6" minlength="4"
-                placeholder="----"
-                {{if .Data.Locked}}disabled{{end}}
-                class="w-full text-3xl font-bold text-center tracking-[0.5em] border border-gray-300 dark:border-slate-600 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-slate-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed">
+            <label for="email" class="block text-xs text-gray-500 dark:text-gray-400 mb-2">Email address</label>
+            <input type="email" name="email" id="email" required autofocus
+                placeholder="you@example.com"
+                class="w-full text-base border border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-slate-700 dark:text-white">
         </div>
 
-        <button type="submit" id="login-btn"
-            {{if .Data.Locked}}disabled{{end}}
-            class="w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-teal-600">
-            Unlock
+        <button type="submit"
+            class="w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+            Send magic link
         </button>
     </form>
+
+    <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+        Don't have an account? <a href="/register" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">Create one</a>
+    </p>
 </div>
-
-{{if .Data.Locked}}
-<script>
-(function() {
-    var seconds = {{.Data.SecondsLeft}};
-    var countdown = document.getElementById('lockout-countdown');
-    var btn = document.getElementById('login-btn');
-    var pin = document.querySelector('input[name="pin"]');
-    var banner = document.getElementById('lockout-banner');
-
-    function fmt(s) {
-        if (s < 60) return s + (s === 1 ? ' second' : ' seconds');
-        var m = Math.floor(s / 60), r = s % 60;
-        if (r === 0) return m + (m === 1 ? ' minute' : ' minutes');
-        return m + ' min ' + r + ' sec';
-    }
-
-    var timer = setInterval(function() {
-        seconds--;
-        if (seconds <= 0) {
-            clearInterval(timer);
-            banner.style.display = 'none';
-            btn.disabled = false;
-            pin.disabled = false;
-            pin.focus();
-            return;
-        }
-        countdown.textContent = fmt(seconds);
-    }, 1000);
-})();
-</script>
-{{end}}
 {{end}}

@@ -34,6 +34,7 @@ import "time"
 // historical net worth values remain consistent even if exchange rates change.
 type DailySnapshot struct {
 	ID            string    `json:"id" db:"id"`
+	UserID        string    `json:"user_id" db:"user_id"`
 	Date          time.Time `json:"date" db:"date"`                    // DATE type in PostgreSQL — one row per calendar day
 	NetWorthEGP   float64   `json:"net_worth_egp" db:"net_worth_egp"`  // all balances converted to EGP using that day's exchange rate
 	NetWorthRaw   float64   `json:"net_worth_raw" db:"net_worth_raw"`  // raw sum without currency conversion (mixing EGP and USD — less accurate but simpler)
@@ -57,6 +58,7 @@ type DailySnapshot struct {
 // for the same account on the same day.
 type AccountSnapshot struct {
 	ID        string    `json:"id" db:"id"`
+	UserID    string    `json:"user_id" db:"user_id"`
 	Date      time.Time `json:"date" db:"date"`                  // DATE — one row per account per calendar day
 	AccountID string    `json:"account_id" db:"account_id"`      // FK to accounts table
 	Balance   float64   `json:"balance" db:"balance"`            // the account's CurrentBalance at end of this day

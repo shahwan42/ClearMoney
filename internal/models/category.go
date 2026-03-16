@@ -44,6 +44,7 @@ const (
 // that every user needs.
 type Category struct {
 	ID           string       `json:"id" db:"id"`
+	UserID       string       `json:"user_id" db:"user_id"`
 	Name         string       `json:"name" db:"name"`
 	Type         CategoryType `json:"type" db:"type"`                   // expense or income — determines which transaction types can use it
 	Icon         *string      `json:"icon,omitempty" db:"icon"`         // *string = nullable; nil means no icon set (SQL NULL). In Go, a plain string defaults to "" (empty), which is different from NULL.

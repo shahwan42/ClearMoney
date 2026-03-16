@@ -63,7 +63,7 @@ func NewRecurringService(recurringRepo *repository.RecurringRepo, txSvc *Transac
 }
 
 // Create creates a new recurring rule.
-func (s *RecurringService) Create(ctx context.Context, rule models.RecurringRule) (models.RecurringRule, error) {
+func (s *RecurringService) Create(ctx context.Context, userID string, rule models.RecurringRule) (models.RecurringRule, error) {
 	if len(rule.TemplateTransaction) == 0 {
 		return models.RecurringRule{}, fmt.Errorf("template_transaction is required")
 	}
@@ -73,7 +73,8 @@ func (s *RecurringService) Create(ctx context.Context, rule models.RecurringRule
 	if rule.NextDueDate.IsZero() {
 		return models.RecurringRule{}, fmt.Errorf("next_due_date is required")
 	}
-	created, err := s.recurringRepo.Create(ctx, rule)
+	rule.UserID = userID
+	created, err := s.recurringRepo.Create(ctx, userID, rule)
 	if err != nil {
 		return models.RecurringRule{}, err
 	}
@@ -82,13 +83,13 @@ func (s *RecurringService) Create(ctx context.Context, rule models.RecurringRule
 }
 
 // GetAll returns all recurring rules.
-func (s *RecurringService) GetAll(ctx context.Context) ([]models.RecurringRule, error) {
-	return s.recurringRepo.GetAll(ctx)
+func (s *RecurringService) GetAll(ctx context.Context, userID string) ([]models.RecurringRule, error) {
+	return s.recurringRepo.GetAll(ctx, userID)
 }
 
 // GetDuePending returns rules that are due but need user confirmation (auto_confirm=false).
-func (s *RecurringService) GetDuePending(ctx context.Context) ([]models.RecurringRule, error) {
-	rules, err := s.recurringRepo.GetDue(ctx, timeutil.Today(s.timezone()))
+func (s *RecurringService) GetDuePending(ctx context.Context, userID string) ([]models.RecurringRule, error) {
+	rules, err := s.recurringRepo.GetDue(ctx, userID, timeutil.Today(s.timezone()))
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +104,8 @@ func (s *RecurringService) GetDuePending(ctx context.Context) ([]models.Recurrin
 
 // ProcessDueRules checks all due rules and auto-creates transactions for auto_confirm ones.
 // Returns the number of transactions created.
-func (s *RecurringService) ProcessDueRules(ctx context.Context) (int, error) {
-	rules, err := s.recurringRepo.GetDue(ctx, timeutil.Today(s.timezone()))
+func (s *RecurringService) ProcessDueRules(ctx context.Context, userID string) (int, error) {
+	rules, err := s.recurringRepo.GetDue(ctx, userID, timeutil.Today(s.timezone()))
 	if err != nil {
 		return 0, err
 	}
@@ -115,7 +116,7 @@ func (s *RecurringService) ProcessDueRules(ctx context.Context) (int, error) {
 			continue
 		}
 
-		if err := s.executeRule(ctx, rule); err != nil {
+		if err := s.executeRule(ctx, userID, rule); err != nil {
 			continue // skip failed rules
 		}
 		created++
@@ -126,12 +127,12 @@ func (s *RecurringService) ProcessDueRules(ctx context.Context) (int, error) {
 }
 
 // ConfirmRule creates the transaction for a pending rule and advances the due date.
-func (s *RecurringService) ConfirmRule(ctx context.Context, ruleID string) error {
-	rule, err := s.recurringRepo.GetByID(ctx, ruleID)
+func (s *RecurringService) ConfirmRule(ctx context.Context, userID string, ruleID string) error {
+	rule, err := s.recurringRepo.GetByID(ctx, userID, ruleID)
 	if err != nil {
 		return err
 	}
-	if err := s.executeRule(ctx, rule); err != nil {
+	if err := s.executeRule(ctx, userID, rule); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "recurring.confirmed", "id", ruleID)
@@ -139,13 +140,13 @@ func (s *RecurringService) ConfirmRule(ctx context.Context, ruleID string) error
 }
 
 // SkipRule advances the due date without creating a transaction.
-func (s *RecurringService) SkipRule(ctx context.Context, ruleID string) error {
-	rule, err := s.recurringRepo.GetByID(ctx, ruleID)
+func (s *RecurringService) SkipRule(ctx context.Context, userID string, ruleID string) error {
+	rule, err := s.recurringRepo.GetByID(ctx, userID, ruleID)
 	if err != nil {
 		return err
 	}
 	nextDate := s.advanceDueDate(rule)
-	if err := s.recurringRepo.UpdateNextDueDate(ctx, ruleID, nextDate); err != nil {
+	if err := s.recurringRepo.UpdateNextDueDate(ctx, userID, ruleID, nextDate); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "recurring.skipped", "id", ruleID)
@@ -153,8 +154,8 @@ func (s *RecurringService) SkipRule(ctx context.Context, ruleID string) error {
 }
 
 // Delete removes a recurring rule.
-func (s *RecurringService) Delete(ctx context.Context, id string) error {
-	if err := s.recurringRepo.Delete(ctx, id); err != nil {
+func (s *RecurringService) Delete(ctx context.Context, userID string, id string) error {
+	if err := s.recurringRepo.Delete(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "recurring.deleted", "id", id)
@@ -167,7 +168,7 @@ func (s *RecurringService) Delete(ctx context.Context, id string) error {
 // json.Unmarshal: converts the stored JSON template bytes into a TransactionTemplate struct.
 // This is like json_decode() in PHP or json.loads() in Python, but type-safe — it
 // maps JSON keys to struct fields using the `json:"..."` tags.
-func (s *RecurringService) executeRule(ctx context.Context, rule models.RecurringRule) error {
+func (s *RecurringService) executeRule(ctx context.Context, userID string, rule models.RecurringRule) error {
 	var tmpl models.TransactionTemplate
 	if err := json.Unmarshal(rule.TemplateTransaction, &tmpl); err != nil {
 		return fmt.Errorf("parsing template: %w", err)
@@ -188,14 +189,15 @@ func (s *RecurringService) executeRule(ctx context.Context, rule models.Recurrin
 		Note:           tmpl.Note,
 		Date:           rule.NextDueDate,
 		RecurringRuleID: &rule.ID,
+		UserID:         userID,
 	}
 
-	if _, _, err := s.txSvc.Create(ctx, tx); err != nil {
+	if _, _, err := s.txSvc.Create(ctx, userID, tx); err != nil {
 		return fmt.Errorf("creating transaction: %w", err)
 	}
 
 	nextDate := s.advanceDueDate(rule)
-	return s.recurringRepo.UpdateNextDueDate(ctx, rule.ID, nextDate)
+	return s.recurringRepo.UpdateNextDueDate(ctx, userID, rule.ID, nextDate)
 }
 
 // advanceDueDate calculates the next due date based on frequency.

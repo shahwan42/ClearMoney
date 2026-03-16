@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/service"
 )
@@ -50,7 +51,8 @@ func (h *PersonHandler) Routes(r chi.Router) {
 // List returns all persons.
 // GET /api/persons
 func (h *PersonHandler) List(w http.ResponseWriter, r *http.Request) {
-	persons, err := h.svc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	persons, err := h.svc.GetAll(r.Context(), userID)
 	if err != nil {
 		respondError(w, r, http.StatusInternalServerError, "failed to list persons")
 		return
@@ -69,7 +71,8 @@ func (h *PersonHandler) Create(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	created, err := h.svc.Create(r.Context(), p)
+	userID := authmw.UserID(r.Context())
+	created, err := h.svc.Create(r.Context(), userID, p)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -81,7 +84,8 @@ func (h *PersonHandler) Create(w http.ResponseWriter, r *http.Request) {
 // GET /api/persons/{id}
 func (h *PersonHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	p, err := h.svc.GetByID(r.Context(), id)
+	userID := authmw.UserID(r.Context())
+	p, err := h.svc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "person not found")
@@ -103,7 +107,8 @@ func (h *PersonHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.ID = id
-	updated, err := h.svc.Update(r.Context(), p)
+	userID := authmw.UserID(r.Context())
+	updated, err := h.svc.Update(r.Context(), userID, p)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -115,7 +120,8 @@ func (h *PersonHandler) Update(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/persons/{id}
 func (h *PersonHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.svc.Delete(r.Context(), id); err != nil {
+	userID := authmw.UserID(r.Context())
+	if err := h.svc.Delete(r.Context(), userID, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "person not found")
 			return
@@ -146,7 +152,8 @@ func (h *PersonHandler) RecordLoan(w http.ResponseWriter, r *http.Request) {
 		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	tx, err := h.svc.RecordLoan(r.Context(), personID, req.AccountID, req.Amount, req.Currency, req.Type, req.Note, time.Time{})
+	userID := authmw.UserID(r.Context())
+	tx, err := h.svc.RecordLoan(r.Context(), userID, personID, req.AccountID, req.Amount, req.Currency, req.Type, req.Note, time.Time{})
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -170,7 +177,8 @@ func (h *PersonHandler) RecordRepayment(w http.ResponseWriter, r *http.Request) 
 		respondError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	tx, err := h.svc.RecordRepayment(r.Context(), personID, req.AccountID, req.Amount, req.Currency, req.Note, time.Time{})
+	userID := authmw.UserID(r.Context())
+	tx, err := h.svc.RecordRepayment(r.Context(), userID, personID, req.AccountID, req.Amount, req.Currency, req.Note, time.Time{})
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return

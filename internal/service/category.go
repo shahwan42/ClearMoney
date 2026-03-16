@@ -32,24 +32,24 @@ func NewCategoryService(repo *repository.CategoryRepo) *CategoryService {
 }
 
 // GetAll returns all categories (both expense and income).
-func (s *CategoryService) GetAll(ctx context.Context) ([]models.Category, error) {
-	return s.repo.GetAll(ctx)
+func (s *CategoryService) GetAll(ctx context.Context, userID string) ([]models.Category, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
 // GetByType returns categories filtered by type ("expense" or "income").
 // models.CategoryType is a string alias — Go uses type aliases for domain semantics.
 // Like Laravel's enum cast or Django's TextChoices.
-func (s *CategoryService) GetByType(ctx context.Context, catType models.CategoryType) ([]models.Category, error) {
-	return s.repo.GetByType(ctx, catType)
+func (s *CategoryService) GetByType(ctx context.Context, userID string, catType models.CategoryType) ([]models.Category, error) {
+	return s.repo.GetByType(ctx, userID, catType)
 }
 
 // GetByID returns a single category by its UUID.
-func (s *CategoryService) GetByID(ctx context.Context, id string) (models.Category, error) {
-	return s.repo.GetByID(ctx, id)
+func (s *CategoryService) GetByID(ctx context.Context, userID string, id string) (models.Category, error) {
+	return s.repo.GetByID(ctx, userID, id)
 }
 
 // Create validates and creates a new user-defined category.
-func (s *CategoryService) Create(ctx context.Context, cat models.Category) (models.Category, error) {
+func (s *CategoryService) Create(ctx context.Context, userID string, cat models.Category) (models.Category, error) {
 	var err error
 	if cat.Name, err = requireTrimmedName(cat.Name, "category name"); err != nil {
 		return models.Category{}, err
@@ -57,7 +57,8 @@ func (s *CategoryService) Create(ctx context.Context, cat models.Category) (mode
 	if cat.Type != models.CategoryTypeExpense && cat.Type != models.CategoryTypeIncome {
 		return models.Category{}, fmt.Errorf("category type must be 'expense' or 'income'")
 	}
-	return s.repo.Create(ctx, cat)
+	cat.UserID = userID
+	return s.repo.Create(ctx, userID, cat)
 }
 
 // Update modifies a category. System categories cannot be renamed.
@@ -66,10 +67,10 @@ func (s *CategoryService) Create(ctx context.Context, cat models.Category) (mode
 // not a system category before allowing modification. In Laravel, you'd do
 // the same in a policy or FormRequest. In Go, this guard logic lives here
 // in the service layer.
-func (s *CategoryService) Update(ctx context.Context, cat models.Category) (models.Category, error) {
+func (s *CategoryService) Update(ctx context.Context, userID string, cat models.Category) (models.Category, error) {
 	// Load the existing record to check the IsSystem flag.
 	// This is an extra DB query, but it ensures system categories can't be modified.
-	existing, err := s.repo.GetByID(ctx, cat.ID)
+	existing, err := s.repo.GetByID(ctx, userID, cat.ID)
 	if err != nil {
 		return models.Category{}, err
 	}
@@ -79,19 +80,19 @@ func (s *CategoryService) Update(ctx context.Context, cat models.Category) (mode
 	if cat.Name, err = requireTrimmedName(cat.Name, "category name"); err != nil {
 		return models.Category{}, err
 	}
-	return s.repo.Update(ctx, cat)
+	return s.repo.Update(ctx, userID, cat)
 }
 
 // Archive soft-deletes a category. System categories cannot be archived.
 // Like Laravel's SoftDeletes trait — the record stays in the DB with a
 // deleted_at/archived timestamp, but is excluded from normal queries.
-func (s *CategoryService) Archive(ctx context.Context, id string) error {
-	existing, err := s.repo.GetByID(ctx, id)
+func (s *CategoryService) Archive(ctx context.Context, userID string, id string) error {
+	existing, err := s.repo.GetByID(ctx, userID, id)
 	if err != nil {
 		return err
 	}
 	if existing.IsSystem {
 		return fmt.Errorf("system categories cannot be archived")
 	}
-	return s.repo.Archive(ctx, id)
+	return s.repo.Archive(ctx, userID, id)
 }

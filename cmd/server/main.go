@@ -90,8 +90,8 @@ func main() {
 		}
 		slog.Info("migrations complete")
 
-		// Process any due recurring rules on startup (auto_confirm ones only).
-		// Like Laravel's schedule:run — we check for overdue rules and execute them.
+		// Process any due recurring rules on startup for all users.
+		userRepo := repository.NewUserRepo(db)
 		recurringRepo := repository.NewRecurringRepo(db)
 		txRepo := repository.NewTransactionRepo(db)
 		accountRepo := repository.NewAccountRepo(db)
@@ -99,15 +99,18 @@ func main() {
 		recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
 		recurringSvc.SetTimezone(cfg.Location)
 
-		// context.Background() creates a top-level context with no deadline or cancellation.
-		// Think of it as the "root" context — similar to how Laravel's artisan commands
-		// run without a request lifecycle. Child contexts can be derived with timeouts.
-		// See: https://pkg.go.dev/context#Background
-		processed, err := recurringSvc.ProcessDueRules(context.Background())
+		userIDs, err := userRepo.GetAllIDs(context.Background())
 		if err != nil {
-			slog.Warn("recurring rules processing error", "error", err)
-		} else if processed > 0 {
-			slog.Info("recurring: auto-created transactions", "count", processed)
+			slog.Warn("failed to list users for recurring rules", "error", err)
+		} else {
+			for _, uid := range userIDs {
+				processed, err := recurringSvc.ProcessDueRules(context.Background(), uid)
+				if err != nil {
+					slog.Warn("recurring rules processing error", "user_id", uid, "error", err)
+				} else if processed > 0 {
+					slog.Info("recurring: auto-created transactions", "user_id", uid, "count", processed)
+				}
+			}
 		}
 
 		// Run balance reconciliation on startup (report only, no auto-fix).
@@ -143,7 +146,7 @@ func main() {
 
 	// 3. Create the HTTP router with all routes and middleware.
 	// Pass db (may be nil) — router only registers DB routes when db != nil.
-	r := handler.NewRouter(db, cfg.Location)
+	r := handler.NewRouter(db, cfg.Location, cfg)
 
 	// 4. Configure the HTTP server with timeouts to prevent slow clients
 	// from holding connections forever (a security best practice).

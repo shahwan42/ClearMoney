@@ -1,174 +1,217 @@
-# Authentication
+# Authentication — Magic Link (Multi-User)
 
-Single-user PIN-based authentication system with bcrypt hashing and HMAC session tokens.
+Multi-user magic link authentication system using Resend email API with server-side database sessions.
 
 ## Overview
 
-ClearMoney is a single-user app. Authentication uses a 4-6 digit PIN (not username/password):
+ClearMoney uses passwordless magic link authentication:
 
-1. **First visit** → setup flow to create PIN
-2. **Subsequent visits** → login with PIN
-3. **Session** → 30-day cookie with HMAC token
+1. **Login** → enter email → receive magic link → click → logged in
+2. **Registration** → enter email → receive magic link → click → account created + categories seeded
+3. **Session** → 30-day cookie backed by database sessions
 
-## Setup Flow
-
-**Route:** `GET /setup` → `POST /setup`
-
-**Handler:** `internal/handler/auth.go` (line ~105)
-
-1. User enters PIN + confirmation
-2. Service validates PIN length (4-6 digits) and match
-3. PIN hashed with `bcrypt.DefaultCost` (10 rounds)
-4. Random HMAC session key generated
-5. Both stored in `user_config` table
-6. Session cookie created, redirect to dashboard
-
-**Template:** `internal/templates/pages/setup.html` — bare page (no header/nav)
+No passwords, no PINs. Magic links are single-use, expire in 15 minutes.
 
 ## Login Flow
 
 **Route:** `GET /login` → `POST /login`
 
-**Handler:** `internal/handler/auth.go` (line ~61)
+**Handler:** `internal/handler/auth.go`
 
-1. If no PIN configured yet → redirect to `/setup`
-2. User enters PIN
-3. Service verifies via `bcrypt.CompareHashAndPassword()` (constant-time)
-4. On success: HMAC session token created, 30-day cookie set
-5. Redirect to dashboard
+1. User enters email address
+2. Honeypot + timing check (anti-bot)
+3. Service checks if user exists in `users` table
+4. If user exists: generate token, send email via Resend
+5. If user doesn't exist: show same "Check your email" page (prevents email enumeration)
+6. No email sent for unknown addresses — zero quota cost
 
-**Template:** `internal/templates/pages/login.html` — bare page
+**Template:** `internal/templates/pages/login.html` — bare page (no header/nav)
+
+## Registration Flow
+
+**Route:** `GET /register` → `POST /register`
+
+**Handler:** `internal/handler/auth.go`
+
+1. User enters email address
+2. Honeypot + timing check (anti-bot)
+3. Service checks if email already registered → error if so
+4. Generate registration token, send email via Resend
+5. Show "Check your email" page
+
+**Template:** `internal/templates/pages/register.html` — bare page
+
+## Magic Link Verification
+
+**Route:** `GET /auth/verify?token=xxx`
+
+**Handler:** `internal/handler/auth.go`
+
+1. Look up token in `auth_tokens` table
+2. Validate: exists, not expired (15 min TTL), not already used
+3. Mark token as used
+4. **Login token:** find existing user → create session
+5. **Registration token:** create user → seed 25 default categories → create session
+6. Set session cookie, redirect to dashboard
+
+**Template:** `internal/templates/pages/link-expired.html` — shown if token is invalid/expired
+
+## New User Onboarding
+
+When a registration magic link is verified:
+
+1. User row created in `users` table
+2. `CategoryRepo.SeedDefaults(ctx, userID)` inserts 25 default categories (18 expense + 7 income)
+3. Session created, user redirected to dashboard (empty state with seeded categories)
+
+**File:** `internal/repository/category.go` — `SeedDefaults` method
 
 ## Session Management
 
-### HMAC Token
+### Database Sessions
 
-**File:** `internal/middleware/auth.go` (lines ~125-175)
+**File:** `internal/repository/session.go`
 
-- `CreateSessionToken()` generates SHA-256 HMAC signature using the stored session key
-- `ValidateSessionToken()` verifies with constant-time comparison
-- Token is identity-based (doesn't contain user data), secure against tampering
+- Sessions stored in `sessions` table with `user_id`, `token`, `expires_at`
+- Token: 32-byte `crypto/rand`, base64url-encoded
+- Expiry: 30 days from creation
+- Validated on every request by auth middleware
 
 ### Cookie
 
 - Name: `clearmoney_session`
 - MaxAge: 30 days
-- Flags: `HttpOnly` (prevents XSS access), `SameSite=Lax` (CSRF protection)
+- Flags: `HttpOnly` (prevents XSS), `SameSite=Lax` (CSRF protection), `Secure` when HTTPS
 - `SetSessionCookie()` / `ClearSessionCookie()` helpers in middleware
 
 ## Auth Middleware
 
-**File:** `internal/middleware/auth.go` (line ~59)
+**File:** `internal/middleware/auth.go`
 
 The `Auth()` middleware:
 1. Checks if request path is public (no auth required)
 2. Reads session cookie
-3. Validates HMAC token
-4. If valid: attaches user context, proceeds
-5. If invalid: redirects to `/setup` or `/login`
+3. Calls `authSvc.ValidateSession(token)` — looks up session in DB, checks expiry
+4. If valid: stores `(userID, email)` in request context via `WithUser()`
+5. If invalid: redirects to `/login`
+
+### Context Helpers
+
+```go
+authmw.UserID(r.Context())    // extract user ID from context
+authmw.UserEmail(r.Context()) // extract user email from context
+```
+
+Every handler extracts `userID` and passes it through service → repository layers. All queries include `WHERE user_id = $N` for data isolation.
 
 ### Public Paths (no auth required)
 
-- `/login`, `/setup` — auth pages themselves
+- `/login`, `/register` — auth pages
+- `/auth/verify` — magic link verification
 - `/healthz` — health check endpoint
 - `/static/*` — CSS, JS, images, manifest
 
-All other routes are protected.
+## Email Quota Protection
 
-## Brute-Force Protection
+Resend free tier = 100 emails/day. Aggressive rate limiting preserves quota:
 
-**Migration:** `000023_add_login_lockout` — adds `failed_attempts` and `locked_until` columns to `user_config`
+| Layer | Limit | Purpose |
+|-------|-------|---------|
+| Token reuse | If unexpired token exists, don't send new email | Zero cost for repeat requests |
+| Per-email cooldown | 1 email per 5 min | Prevent spam to one address |
+| Per-email daily | 3 per address per day | Hard cap per user |
+| Global daily cap | 50/day (configurable `MAX_DAILY_EMAILS`) | Leaves 50-email buffer |
+| Honeypot | Hidden field — bots fill it → silent reject | No email for bots |
+| Timing check | Submit < 2s → reject | No email for automated submissions |
+| Login: existing users only | Unknown emails → no email sent, same UX | Zero cost for enumeration attempts |
 
-Since PINs are only 4-6 digits (10K–1M possibilities), progressive lockout prevents automated brute-force attacks.
+## Email Service
 
-### Lockout Strategy
+**File:** `internal/service/email.go`
 
-| Failed Attempts | Lockout Duration |
-|-----------------|-----------------|
-| 1–3             | None (free) |
-| 4               | 30 seconds |
-| 5               | 1 minute |
-| 6               | 5 minutes |
-| 7               | 15 minutes |
-| 8+              | 1 hour |
+Wraps the Resend SDK. In dev mode (no `RESEND_API_KEY`), logs emails instead of sending them.
 
-### How It Works
+## Data Isolation (IDOR Prevention)
 
-1. **`CheckAndVerifyPIN(ctx, pin)`** in `internal/service/auth.go` handles all lockout logic:
-   - Checks if `locked_until` is in the future → rejects without checking PIN
-   - On wrong PIN → atomically increments `failed_attempts` and sets `locked_until`
-   - On correct PIN → resets `failed_attempts` to 0, clears `locked_until`
-2. **Lockout persists in the database** — survives app restarts
-3. **ChangePin shares the same counter** — prevents brute-force via settings page
-4. **GET /login checks lockout** — shows countdown immediately on page load via `GetLockoutStatus()`
+Every database query filters by `user_id`:
 
-### UI Behavior
+```go
+// Even PK lookups filter by user_id
+func (r *AccountRepo) GetByID(ctx context.Context, userID, id string) (models.Account, error) {
+    // SELECT ... FROM accounts WHERE id = $1 AND user_id = $2
+}
+```
 
-- **Locked:** amber banner with "Too many failed attempts", countdown timer, disabled form
-- **3rd failure warning:** "1 attempt remaining before lockout"
-- **JS countdown:** inline script counts down and re-enables the form when lockout expires
-- **Dark mode compatible**
-
-### Key Methods
-
-| Method | Purpose |
-|--------|---------|
-| `CheckAndVerifyPIN(ctx, pin)` | Lockout-aware PIN verification (returns `LoginResult`) |
-| `GetLockoutStatus(ctx)` | Read-only lockout check (for GET /login) |
-| `lockoutDuration(attempts)` | Maps attempt count to delay duration |
+This prevents Insecure Direct Object Reference (IDOR) attacks — User A cannot access User B's data even if they know the UUID.
 
 ## Logout
 
 **Route:** `POST /logout`
 
-**Handler:** `internal/handler/auth.go` (line ~150)
+Deletes session from database, clears cookie, redirects to `/login`. Uses standard `http.Redirect` (not HTMX redirect).
 
-Clears session cookie (MaxAge=-1), redirects to `/login`. Uses standard `http.Redirect` (not HTMX redirect) since the logout form is a standard POST.
+## Expired Token/Session Cleanup
 
-## Service
+On app startup and periodically: `authSvc.CleanupExpired(ctx)` deletes expired tokens and sessions from the database.
 
-**File:** `internal/service/auth.go`
+## Database Tables
 
-| Method | Purpose |
-|--------|---------|
-| `Setup(ctx, pin)` | Hash PIN, generate session key, store in user_config |
-| `VerifyPIN(ctx, pin)` | bcrypt comparison (constant-time) |
-| `CheckAndVerifyPIN(ctx, pin)` | Lockout-aware PIN verification |
-| `GetLockoutStatus(ctx)` | Read-only lockout check for page load |
-| `ChangePin(ctx, oldPin, newPin)` | Verify old (with lockout), hash new, update |
-| `IsSetup(ctx)` | Check if PIN exists in user_config |
+| Table | Purpose |
+|-------|---------|
+| `users` | User accounts (id, email, created_at, updated_at) |
+| `sessions` | Server-side sessions (user_id, token, expires_at) |
+| `auth_tokens` | Magic link tokens (email, token, purpose, expires_at, used) |
 
-## Database
-
-PIN hash and session key stored in `user_config` table (single row for single-user app). Created by migration 000008.
+**Migrations:** 000027 (users, sessions, auth_tokens), 000028 (user_id on all data tables), 000029 (materialized views with user_id), 000030 (category unique index fix for multi-user)
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/handler/auth.go` | Login, Setup, Logout handlers |
-| `internal/middleware/auth.go` | Auth middleware, session token creation/validation, cookie management |
-| `internal/service/auth.go` | PIN hashing, verification, session logic |
-| `internal/templates/pages/login.html` | Login page |
-| `internal/templates/pages/setup.html` | Setup page |
+| `internal/handler/auth.go` | Login, Register, Verify, Logout handlers |
+| `internal/middleware/auth.go` | Auth middleware, session validation, context injection |
+| `internal/service/auth.go` | Magic link flow, rate limits, token management |
+| `internal/service/email.go` | Resend SDK wrapper |
+| `internal/repository/user.go` | User CRUD |
+| `internal/repository/session.go` | Session CRUD |
+| `internal/repository/auth_token.go` | Token CRUD + rate limit queries |
+| `internal/repository/category.go` | `SeedDefaults` for new user onboarding |
+| `internal/templates/pages/login.html` | Login page (email form) |
+| `internal/templates/pages/register.html` | Registration page |
+| `internal/templates/pages/check-email.html` | "Check your email" confirmation |
+| `internal/templates/pages/link-expired.html` | Expired/invalid link page |
 
-## For Newcomers
+## Environment Variables
 
-- **Single-user** — there's no user table or user IDs. The `user_config` table has one row.
-- **bcrypt** — same algorithm as Laravel's `Hash::make()`. Go uses `golang.org/x/crypto/bcrypt`.
-- **HMAC** — the session token is an HMAC signature, not a JWT. No payload — just proof of authentication.
-- **Bare pages** — login and setup templates skip the header/nav bar. They're listed in the `barePages` map in `templates.go`.
-- **No HTMX** — auth forms use standard `<form method="POST">` with `http.Redirect`, not HTMX.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RESEND_API_KEY` | (none) | Resend API key (dev mode if unset) |
+| `EMAIL_FROM` | `noreply@clearmoney.app` | Verified sender address |
+| `APP_URL` | `http://localhost:8080` | Base URL for magic links |
+| `MAX_DAILY_EMAILS` | `50` | Global daily email cap |
 
 ## Logging
 
 **Service events:**
 
-- `auth.setup_completed` — initial PIN setup finished
-- `auth.login_success` — successful PIN login
-- `auth.login_failed` — wrong PIN entered
-- `auth.login_blocked_lockout` — login attempt blocked by active lockout
-- `auth.pin_changed` — PIN changed via settings
+- `auth.login_link_sent` — magic link emailed for login
+- `auth.registration_link_sent` — magic link emailed for registration
+- `auth.login_completed` — login magic link verified
+- `auth.user_registered` — new user created via registration link
+- `auth.token_reused` — existing unexpired token found (no email sent)
 - `auth.logout` — user logged out
 
-**Page views:** `login`, `setup`
+**Page views:** `login`, `register`, `check-email`, `link-expired`
+
+## Security Checklist
+
+| Measure | Implementation |
+|---------|---------------|
+| No passwords | Magic links eliminate password attacks |
+| Token generation | 32-byte `crypto/rand`, base64url |
+| Token expiry | 15-minute TTL, single-use |
+| Session tokens | 32-byte `crypto/rand`, DB-stored, 30-day expiry |
+| Cookie flags | HttpOnly + SameSite=Lax (+ Secure on HTTPS) |
+| Email enumeration | Always "Check your email" regardless of account existence |
+| IDOR prevention | Every query: `AND user_id = $N` |
+| Email uniqueness | Case-insensitive: `UNIQUE INDEX ON LOWER(email)` |

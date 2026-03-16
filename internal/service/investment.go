@@ -33,7 +33,7 @@ func NewInvestmentService(repo *repository.InvestmentRepo) *InvestmentService {
 }
 
 // Create adds a new investment holding.
-func (s *InvestmentService) Create(ctx context.Context, inv models.Investment) (models.Investment, error) {
+func (s *InvestmentService) Create(ctx context.Context, userID string, inv models.Investment) (models.Investment, error) {
 	if err := requireNotEmpty(inv.FundName, "fund_name"); err != nil {
 		return models.Investment{}, err
 	}
@@ -49,7 +49,8 @@ func (s *InvestmentService) Create(ctx context.Context, inv models.Investment) (
 	if inv.Currency == "" {
 		inv.Currency = models.CurrencyEGP
 	}
-	created, err := s.repo.Create(ctx, inv)
+	inv.UserID = userID
+	created, err := s.repo.Create(ctx, userID, inv)
 	if err != nil {
 		return models.Investment{}, err
 	}
@@ -58,16 +59,16 @@ func (s *InvestmentService) Create(ctx context.Context, inv models.Investment) (
 }
 
 // GetAll returns all investment holdings.
-func (s *InvestmentService) GetAll(ctx context.Context) ([]models.Investment, error) {
-	return s.repo.GetAll(ctx)
+func (s *InvestmentService) GetAll(ctx context.Context, userID string) ([]models.Investment, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
 // UpdateValuation updates the unit price for an investment.
-func (s *InvestmentService) UpdateValuation(ctx context.Context, id string, unitPrice float64) error {
+func (s *InvestmentService) UpdateValuation(ctx context.Context, userID string, id string, unitPrice float64) error {
 	if err := requirePositive(unitPrice, "unit_price"); err != nil {
 		return err
 	}
-	if err := s.repo.UpdateValuation(ctx, id, unitPrice); err != nil {
+	if err := s.repo.UpdateValuation(ctx, userID, id, unitPrice); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "investment.valuation_updated", "id", id)
@@ -75,8 +76,8 @@ func (s *InvestmentService) UpdateValuation(ctx context.Context, id string, unit
 }
 
 // Delete removes an investment.
-func (s *InvestmentService) Delete(ctx context.Context, id string) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
+func (s *InvestmentService) Delete(ctx context.Context, userID string, id string) error {
+	if err := s.repo.Delete(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "investment.deleted", "id", id)
@@ -86,6 +87,6 @@ func (s *InvestmentService) Delete(ctx context.Context, id string) error {
 // GetTotalValuation returns the total portfolio value (sum of units * price).
 // This aggregate query runs in PostgreSQL: SUM(units * last_unit_price).
 // Used by DashboardService to show total investment value.
-func (s *InvestmentService) GetTotalValuation(ctx context.Context) (float64, error) {
-	return s.repo.GetTotalValuation(ctx)
+func (s *InvestmentService) GetTotalValuation(ctx context.Context, userID string) (float64, error) {
+	return s.repo.GetTotalValuation(ctx, userID)
 }

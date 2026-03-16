@@ -38,7 +38,7 @@ func NewInstallmentService(repo *repository.InstallmentRepo, txSvc *TransactionS
 }
 
 // Create adds a new installment plan.
-func (s *InstallmentService) Create(ctx context.Context, plan models.InstallmentPlan) (models.InstallmentPlan, error) {
+func (s *InstallmentService) Create(ctx context.Context, userID string, plan models.InstallmentPlan) (models.InstallmentPlan, error) {
 	if err := requireNotEmpty(plan.Description, "description"); err != nil {
 		return models.InstallmentPlan{}, err
 	}
@@ -59,7 +59,8 @@ func (s *InstallmentService) Create(ctx context.Context, plan models.Installment
 	// Set remaining = total on creation
 	plan.RemainingInstallments = plan.NumInstallments
 
-	created, err := s.repo.Create(ctx, plan)
+	plan.UserID = userID
+	created, err := s.repo.Create(ctx, userID, plan)
 	if err != nil {
 		return models.InstallmentPlan{}, err
 	}
@@ -68,8 +69,8 @@ func (s *InstallmentService) Create(ctx context.Context, plan models.Installment
 }
 
 // GetAll returns all installment plans.
-func (s *InstallmentService) GetAll(ctx context.Context) ([]models.InstallmentPlan, error) {
-	return s.repo.GetAll(ctx)
+func (s *InstallmentService) GetAll(ctx context.Context, userID string) ([]models.InstallmentPlan, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
 // RecordPayment decrements remaining installments and creates an expense transaction.
@@ -78,8 +79,8 @@ func (s *InstallmentService) GetAll(ctx context.Context) ([]models.InstallmentPl
 //
 // Note: plan.PaidInstallments() is a computed method on the model — like a Laravel
 // accessor or Django @property. It returns NumInstallments - RemainingInstallments.
-func (s *InstallmentService) RecordPayment(ctx context.Context, planID string) error {
-	plan, err := s.repo.GetByID(ctx, planID)
+func (s *InstallmentService) RecordPayment(ctx context.Context, userID string, planID string) error {
+	plan, err := s.repo.GetByID(ctx, userID, planID)
 	if err != nil {
 		return err
 	}
@@ -95,12 +96,13 @@ func (s *InstallmentService) RecordPayment(ctx context.Context, planID string) e
 		Currency:  models.CurrencyEGP,
 		AccountID: plan.AccountID,
 		Note:      &note,
+		UserID:    userID,
 	}
-	if _, _, err := s.txSvc.Create(ctx, tx); err != nil {
+	if _, _, err := s.txSvc.Create(ctx, userID, tx); err != nil {
 		return fmt.Errorf("creating payment transaction: %w", err)
 	}
 
-	if err := s.repo.RecordPayment(ctx, planID); err != nil {
+	if err := s.repo.RecordPayment(ctx, userID, planID); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "installment.payment_recorded", "id", planID)
@@ -108,8 +110,8 @@ func (s *InstallmentService) RecordPayment(ctx context.Context, planID string) e
 }
 
 // Delete removes an installment plan.
-func (s *InstallmentService) Delete(ctx context.Context, id string) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
+func (s *InstallmentService) Delete(ctx context.Context, userID string, id string) error {
+	if err := s.repo.Delete(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "installment.deleted", "id", id)

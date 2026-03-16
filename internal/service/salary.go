@@ -72,7 +72,7 @@ func NewSalaryService(txRepo *repository.TransactionRepo, accRepo *repository.Ac
 // The pattern: `defer dbTx.Rollback()` is safe because Rollback() is a no-op
 // after Commit(). So the flow is: begin → do work → commit (success) → defer Rollback (no-op).
 // If any step fails: begin → do work → return error → defer Rollback (actual rollback).
-func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistribution) error {
+func (s *SalaryService) DistributeSalary(ctx context.Context, userID string, dist SalaryDistribution) error {
 	logutil.Log(ctx).Debug("distributing salary", "allocation_count", len(dist.Allocations))
 	if err := requirePositive(dist.SalaryUSD, "salary amount"); err != nil {
 		return err
@@ -115,12 +115,13 @@ func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistrib
 		AccountID: dist.USDAccountID,
 		Note:      &salaryNote,
 		Date:      dist.Date,
+		UserID:    userID,
 	}
-	_, err = s.txRepo.CreateTx(ctx, dbTx, salaryTx)
+	_, err = s.txRepo.CreateTx(ctx, userID, dbTx, salaryTx)
 	if err != nil {
 		return fmt.Errorf("creating salary income: %w", err)
 	}
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, dist.USDAccountID, dist.SalaryUSD); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, dist.USDAccountID, dist.SalaryUSD); err != nil {
 		return fmt.Errorf("crediting USD account: %w", err)
 	}
 
@@ -138,8 +139,9 @@ func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistrib
 		CounterAmount: &counterAmount,
 		Note:          &exchangeNote,
 		Date:          dist.Date,
+		UserID:        userID,
 	}
-	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
+	createdDebit, err := s.txRepo.CreateTx(ctx, userID, dbTx, debit)
 	if err != nil {
 		return fmt.Errorf("creating exchange debit: %w", err)
 	}
@@ -154,21 +156,22 @@ func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistrib
 		CounterAmount: &dist.SalaryUSD,
 		Note:          &exchangeNote,
 		Date:          dist.Date,
+		UserID:        userID,
 	}
-	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
+	createdCredit, err := s.txRepo.CreateTx(ctx, userID, dbTx, credit)
 	if err != nil {
 		return fmt.Errorf("creating exchange credit: %w", err)
 	}
 
-	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
+	if err := s.txRepo.LinkTransactionsTx(ctx, userID, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
 		return fmt.Errorf("linking exchange: %w", err)
 	}
 
 	// Exchange balance: USD goes down, EGP goes up
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, dist.USDAccountID, -dist.SalaryUSD); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, dist.USDAccountID, -dist.SalaryUSD); err != nil {
 		return fmt.Errorf("debiting USD: %w", err)
 	}
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, dist.EGPAccountID, dist.SalaryEGP); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, dist.EGPAccountID, dist.SalaryEGP); err != nil {
 		return fmt.Errorf("crediting EGP: %w", err)
 	}
 
@@ -190,8 +193,9 @@ func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistrib
 			CounterAccountID: &alloc.AccountID,
 			Note:             &allocNote,
 			Date:             dist.Date,
+			UserID:           userID,
 		}
-		createdTD, err := s.txRepo.CreateTx(ctx, dbTx, transferDebit)
+		createdTD, err := s.txRepo.CreateTx(ctx, userID, dbTx, transferDebit)
 		if err != nil {
 			return fmt.Errorf("creating allocation debit: %w", err)
 		}
@@ -204,20 +208,21 @@ func (s *SalaryService) DistributeSalary(ctx context.Context, dist SalaryDistrib
 			CounterAccountID: &dist.EGPAccountID,
 			Note:             &allocNote,
 			Date:             dist.Date,
+			UserID:           userID,
 		}
-		createdTC, err := s.txRepo.CreateTx(ctx, dbTx, transferCredit)
+		createdTC, err := s.txRepo.CreateTx(ctx, userID, dbTx, transferCredit)
 		if err != nil {
 			return fmt.Errorf("creating allocation credit: %w", err)
 		}
 
-		if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdTD.ID, createdTC.ID); err != nil {
+		if err := s.txRepo.LinkTransactionsTx(ctx, userID, dbTx, createdTD.ID, createdTC.ID); err != nil {
 			return fmt.Errorf("linking allocation: %w", err)
 		}
 
-		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, dist.EGPAccountID, -alloc.Amount); err != nil {
+		if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, dist.EGPAccountID, -alloc.Amount); err != nil {
 			return fmt.Errorf("debiting EGP: %w", err)
 		}
-		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, alloc.AccountID, alloc.Amount); err != nil {
+		if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, alloc.AccountID, alloc.Amount); err != nil {
 			return fmt.Errorf("crediting allocation: %w", err)
 		}
 	}

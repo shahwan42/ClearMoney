@@ -41,14 +41,14 @@ func NewVirtualAccountRepo(db *sql.DB) *VirtualAccountRepo {
 }
 
 // GetAll returns all non-archived virtual accounts, ordered by display_order.
-func (r *VirtualAccountRepo) GetAll(ctx context.Context) ([]models.VirtualAccount, error) {
+func (r *VirtualAccountRepo) GetAll(ctx context.Context, userID string) ([]models.VirtualAccount, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
 		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
 		FROM virtual_accounts
-		WHERE is_archived = false
+		WHERE is_archived = false AND user_id = $1
 		ORDER BY display_order, created_at
-	`)
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,13 +57,14 @@ func (r *VirtualAccountRepo) GetAll(ctx context.Context) ([]models.VirtualAccoun
 }
 
 // GetAllIncludingArchived returns all virtual accounts (for settings/management).
-func (r *VirtualAccountRepo) GetAllIncludingArchived(ctx context.Context) ([]models.VirtualAccount, error) {
+func (r *VirtualAccountRepo) GetAllIncludingArchived(ctx context.Context, userID string) ([]models.VirtualAccount, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
 		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
 		FROM virtual_accounts
+		WHERE user_id = $1
 		ORDER BY display_order, created_at
-	`)
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -72,38 +73,39 @@ func (r *VirtualAccountRepo) GetAllIncludingArchived(ctx context.Context) ([]mod
 }
 
 // GetByID returns a single virtual account by ID.
-func (r *VirtualAccountRepo) GetByID(ctx context.Context, id string) (models.VirtualAccount, error) {
+func (r *VirtualAccountRepo) GetByID(ctx context.Context, userID string, id string) (models.VirtualAccount, error) {
 	var a models.VirtualAccount
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
 		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
-		FROM virtual_accounts WHERE id = $1
-	`, id).Scan(&a.ID, &a.Name, &a.TargetAmount, &a.CurrentBalance, &a.Icon, &a.Color,
+		FROM virtual_accounts WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(&a.ID, &a.Name, &a.TargetAmount, &a.CurrentBalance, &a.Icon, &a.Color,
 		&a.IsArchived, &a.ExcludeFromNetWorth, &a.DisplayOrder, &a.AccountID, &a.CreatedAt, &a.UpdatedAt)
 	return a, err
 }
 
 // Create inserts a new virtual account and returns the created record.
-func (r *VirtualAccountRepo) Create(ctx context.Context, a models.VirtualAccount) (models.VirtualAccount, error) {
+func (r *VirtualAccountRepo) Create(ctx context.Context, userID string, a models.VirtualAccount) (models.VirtualAccount, error) {
+	a.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO virtual_accounts (name, target_amount, icon, color, display_order, account_id, exclude_from_net_worth)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO virtual_accounts (user_id, name, target_amount, icon, color, display_order, account_id, exclude_from_net_worth)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, name, target_amount, current_balance, icon, color,
 		          is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
-	`, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID, a.ExcludeFromNetWorth).Scan(
+	`, userID, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID, a.ExcludeFromNetWorth).Scan(
 		&a.ID, &a.Name, &a.TargetAmount, &a.CurrentBalance, &a.Icon, &a.Color,
 		&a.IsArchived, &a.ExcludeFromNetWorth, &a.DisplayOrder, &a.AccountID, &a.CreatedAt, &a.UpdatedAt)
 	return a, err
 }
 
 // Update modifies a virtual account's name, target, icon, color, and order.
-func (r *VirtualAccountRepo) Update(ctx context.Context, a models.VirtualAccount) error {
+func (r *VirtualAccountRepo) Update(ctx context.Context, userID string, a models.VirtualAccount) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE virtual_accounts
 		SET name = $2, target_amount = $3, icon = $4, color = $5,
 		    display_order = $6, account_id = $7, exclude_from_net_worth = $8, updated_at = NOW()
-		WHERE id = $1
-	`, a.ID, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID, a.ExcludeFromNetWorth)
+		WHERE id = $1 AND user_id = $9
+	`, a.ID, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID, a.ExcludeFromNetWorth, userID)
 	return err
 }
 
@@ -111,18 +113,18 @@ func (r *VirtualAccountRepo) Update(ctx context.Context, a models.VirtualAccount
 // Unlike hard delete, archived virtual accounts preserve their allocations and can be restored.
 //   Laravel:  $account->update(['is_archived' => true]);  // like SoftDeletes
 //   Django:   account.is_archived = True; account.save()
-func (r *VirtualAccountRepo) Archive(ctx context.Context, id string) error {
+func (r *VirtualAccountRepo) Archive(ctx context.Context, userID string, id string) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE virtual_accounts SET is_archived = true, updated_at = NOW() WHERE id = $1
-	`, id)
+		UPDATE virtual_accounts SET is_archived = true, updated_at = NOW() WHERE id = $1 AND user_id = $2
+	`, id, userID)
 	return err
 }
 
 // Unarchive restores an archived virtual account.
-func (r *VirtualAccountRepo) Unarchive(ctx context.Context, id string) error {
+func (r *VirtualAccountRepo) Unarchive(ctx context.Context, userID string, id string) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE virtual_accounts SET is_archived = false, updated_at = NOW() WHERE id = $1
-	`, id)
+		UPDATE virtual_accounts SET is_archived = false, updated_at = NOW() WHERE id = $1 AND user_id = $2
+	`, id, userID)
 	return err
 }
 
@@ -139,15 +141,15 @@ func (r *VirtualAccountRepo) Unarchive(ctx context.Context, id string) error {
 //
 // The $1 parameter is used in BOTH the subquery WHERE and the outer WHERE — PostgreSQL
 // reuses the same placeholder value in both positions.
-func (r *VirtualAccountRepo) RecalculateBalance(ctx context.Context, accountID string) error {
+func (r *VirtualAccountRepo) RecalculateBalance(ctx context.Context, userID string, accountID string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE virtual_accounts
 		SET current_balance = COALESCE((
 			SELECT SUM(amount) FROM virtual_account_allocations WHERE virtual_account_id = $1
 		), 0),
 		updated_at = NOW()
-		WHERE id = $1
-	`, accountID)
+		WHERE id = $1 AND user_id = $2
+	`, accountID, userID)
 	return err
 }
 
@@ -161,7 +163,7 @@ func (r *VirtualAccountRepo) RecalculateBalance(ctx context.Context, accountID s
 //
 //   Laravel:  $account->transactions()->syncWithoutDetaching([$txId => ['amount' => $amount]])
 //   Django:   VirtualAccountAllocation.objects.update_or_create(transaction=tx, virtual_account=account, defaults={'amount': amount})
-func (r *VirtualAccountRepo) Allocate(ctx context.Context, alloc models.VirtualAccountAllocation) error {
+func (r *VirtualAccountRepo) Allocate(ctx context.Context, userID string, alloc models.VirtualAccountAllocation) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO virtual_account_allocations (transaction_id, virtual_account_id, amount)
 		VALUES ($1, $2, $3)
@@ -173,7 +175,7 @@ func (r *VirtualAccountRepo) Allocate(ctx context.Context, alloc models.VirtualA
 
 // DirectAllocate creates a direct allocation (no transaction) to earmark existing funds.
 // Used from the virtual account detail page for envelope budgeting contributions/withdrawals.
-func (r *VirtualAccountRepo) DirectAllocate(ctx context.Context, alloc models.VirtualAccountAllocation) error {
+func (r *VirtualAccountRepo) DirectAllocate(ctx context.Context, userID string, alloc models.VirtualAccountAllocation) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO virtual_account_allocations (virtual_account_id, amount, note, allocated_at)
 		VALUES ($1, $2, $3, $4)
@@ -182,7 +184,7 @@ func (r *VirtualAccountRepo) DirectAllocate(ctx context.Context, alloc models.Vi
 }
 
 // Deallocate removes a transaction's allocation from a virtual account.
-func (r *VirtualAccountRepo) Deallocate(ctx context.Context, transactionID, accountID string) error {
+func (r *VirtualAccountRepo) Deallocate(ctx context.Context, userID string, transactionID, accountID string) error {
 	_, err := r.db.ExecContext(ctx, `
 		DELETE FROM virtual_account_allocations
 		WHERE transaction_id = $1 AND virtual_account_id = $2
@@ -192,25 +194,26 @@ func (r *VirtualAccountRepo) Deallocate(ctx context.Context, transactionID, acco
 
 // GetAllocationsForAccount returns all allocations for a virtual account, most recent first.
 // Uses LEFT JOIN so both transaction-linked and direct allocations appear.
-func (r *VirtualAccountRepo) GetAllocationsForAccount(ctx context.Context, accountID string, limit int) ([]models.VirtualAccountAllocation, error) {
+func (r *VirtualAccountRepo) GetAllocationsForAccount(ctx context.Context, userID string, accountID string, limit int) ([]models.VirtualAccountAllocation, error) {
 	query := `
 		SELECT a.id, a.transaction_id, a.virtual_account_id, a.amount,
 		       a.note, a.allocated_at, a.created_at
 		FROM virtual_account_allocations a
 		LEFT JOIN transactions t ON a.transaction_id = t.id
-		WHERE a.virtual_account_id = $1
+		JOIN virtual_accounts va ON a.virtual_account_id = va.id
+		WHERE a.virtual_account_id = $1 AND va.user_id = $2
 		ORDER BY COALESCE(t.date, a.allocated_at) DESC, a.created_at DESC
 	`
 	if limit > 0 {
-		query += " LIMIT $2"
+		query += " LIMIT $3"
 	}
 
 	var rows *sql.Rows
 	var err error
 	if limit > 0 {
-		rows, err = r.db.QueryContext(ctx, query, accountID, limit)
+		rows, err = r.db.QueryContext(ctx, query, accountID, userID, limit)
 	} else {
-		rows, err = r.db.QueryContext(ctx, query, accountID)
+		rows, err = r.db.QueryContext(ctx, query, accountID, userID)
 	}
 	if err != nil {
 		return nil, err
@@ -230,13 +233,14 @@ func (r *VirtualAccountRepo) GetAllocationsForAccount(ctx context.Context, accou
 }
 
 // GetAllocationsForTransaction returns all virtual account allocations for a transaction.
-func (r *VirtualAccountRepo) GetAllocationsForTransaction(ctx context.Context, txID string) ([]models.VirtualAccountAllocation, error) {
+func (r *VirtualAccountRepo) GetAllocationsForTransaction(ctx context.Context, userID string, txID string) ([]models.VirtualAccountAllocation, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, transaction_id, virtual_account_id, amount, note, allocated_at, created_at
-		FROM virtual_account_allocations
-		WHERE transaction_id = $1
-		ORDER BY created_at
-	`, txID)
+		SELECT a.id, a.transaction_id, a.virtual_account_id, a.amount, a.note, a.allocated_at, a.created_at
+		FROM virtual_account_allocations a
+		JOIN virtual_accounts va ON a.virtual_account_id = va.id
+		WHERE a.transaction_id = $1 AND va.user_id = $2
+		ORDER BY a.created_at
+	`, txID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +264,7 @@ func (r *VirtualAccountRepo) GetAllocationsForTransaction(ctx context.Context, t
 //
 //   Laravel:  $account->transactions()->orderByDesc('date')->limit($limit)->get()
 //   Django:   Transaction.objects.filter(account_allocations__virtual_account_id=account_id).order_by('-date')[:limit]
-func (r *VirtualAccountRepo) GetTransactionsForAccount(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
+func (r *VirtualAccountRepo) GetTransactionsForAccount(ctx context.Context, userID string, accountID string, limit int) ([]models.Transaction, error) {
 	query := `
 		SELECT t.id, t.type, t.amount, t.currency, t.account_id,
 		       t.counter_account_id, t.category_id, t.date, t.time,
@@ -270,14 +274,15 @@ func (r *VirtualAccountRepo) GetTransactionsForAccount(ctx context.Context, acco
 		       t.created_at, t.updated_at
 		FROM transactions t
 		JOIN virtual_account_allocations a ON t.id = a.transaction_id
-		WHERE a.virtual_account_id = $1
+		JOIN virtual_accounts va ON a.virtual_account_id = va.id
+		WHERE a.virtual_account_id = $1 AND va.user_id = $2
 		ORDER BY t.date DESC, t.created_at DESC
 	`
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, accountID)
+	rows, err := r.db.QueryContext(ctx, query, accountID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -331,23 +336,25 @@ func scanVirtualAccounts(rows *sql.Rows) ([]models.VirtualAccount, error) {
 // COUNT(*) always returns a value (0 for no rows), so no NullInt64 needed.
 //   Laravel:  $account->allocations()->count()
 //   Django:   account.allocations.count()
-func (r *VirtualAccountRepo) CountAllocationsForAccount(ctx context.Context, accountID string) (int, error) {
+func (r *VirtualAccountRepo) CountAllocationsForAccount(ctx context.Context, userID string, accountID string) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM virtual_account_allocations WHERE virtual_account_id = $1
-	`, accountID).Scan(&count)
+		SELECT COUNT(*) FROM virtual_account_allocations a
+		JOIN virtual_accounts va ON a.virtual_account_id = va.id
+		WHERE a.virtual_account_id = $1 AND va.user_id = $2
+	`, accountID, userID).Scan(&count)
 	return count, err
 }
 
 // GetByAccountID returns non-archived virtual accounts linked to a specific bank account.
-func (r *VirtualAccountRepo) GetByAccountID(ctx context.Context, accountID string) ([]models.VirtualAccount, error) {
+func (r *VirtualAccountRepo) GetByAccountID(ctx context.Context, userID string, accountID string) ([]models.VirtualAccount, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
 		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
 		FROM virtual_accounts
-		WHERE account_id = $1 AND is_archived = false
+		WHERE account_id = $1 AND is_archived = false AND user_id = $2
 		ORDER BY display_order, created_at
-	`, accountID)
+	`, accountID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -357,30 +364,30 @@ func (r *VirtualAccountRepo) GetByAccountID(ctx context.Context, accountID strin
 
 // GetExcludedBalanceByAccountID returns total excluded VA balance for a bank account.
 // Used to compute per-account "net balance" (actual balance - money held for others).
-func (r *VirtualAccountRepo) GetExcludedBalanceByAccountID(ctx context.Context, accountID string) (float64, error) {
+func (r *VirtualAccountRepo) GetExcludedBalanceByAccountID(ctx context.Context, userID string, accountID string) (float64, error) {
 	var total float64
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(current_balance), 0)
 		FROM virtual_accounts
-		WHERE account_id = $1 AND exclude_from_net_worth = true AND is_archived = false
-	`, accountID).Scan(&total)
+		WHERE account_id = $1 AND exclude_from_net_worth = true AND is_archived = false AND user_id = $2
+	`, accountID, userID).Scan(&total)
 	return total, err
 }
 
 // GetTotalExcludedBalance returns the total balance across all excluded VAs.
 // Used to adjust net worth on the dashboard — subtracting money held for others.
-func (r *VirtualAccountRepo) GetTotalExcludedBalance(ctx context.Context) (float64, error) {
+func (r *VirtualAccountRepo) GetTotalExcludedBalance(ctx context.Context, userID string) (float64, error) {
 	var total float64
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(current_balance), 0)
 		FROM virtual_accounts
-		WHERE exclude_from_net_worth = true AND is_archived = false
-	`).Scan(&total)
+		WHERE exclude_from_net_worth = true AND is_archived = false AND user_id = $1
+	`, userID).Scan(&total)
 	return total, err
 }
 
 // Delete removes a virtual account entirely (only if no allocations exist).
-func (r *VirtualAccountRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM virtual_accounts WHERE id = $1`, id)
+func (r *VirtualAccountRepo) Delete(ctx context.Context, userID string, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM virtual_accounts WHERE id = $1 AND user_id = $2`, id, userID)
 	return err
 }

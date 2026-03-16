@@ -13,6 +13,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -22,37 +23,41 @@ import (
 )
 
 // setupSalaryTest creates a SalaryService with USD and EGP accounts (both at $0).
-// Returns the service and both accounts for use in test assertions.
-func setupSalaryTest(t *testing.T) (*SalaryService, models.Account, models.Account) {
+// Returns the service, both accounts, the userID, and the db for use in test assertions.
+func setupSalaryTest(t *testing.T) (*SalaryService, models.Account, models.Account, string, *sql.DB) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
+	userID := testutil.SetupTestUser(t, db)
+
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewSalaryService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	usdAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "USD Savings",
 		Currency:       models.CurrencyUSD,
 		InitialBalance: 0,
+		UserID:         userID,
 	})
 	egpAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "EGP Main",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0,
+		UserID:         userID,
 	})
 
-	return svc, usdAcc, egpAcc
+	return svc, usdAcc, egpAcc, userID, db
 }
 
 func TestSalaryService_DistributeSalary_Basic(t *testing.T) {
-	svc, usdAcc, egpAcc := setupSalaryTest(t)
+	svc, usdAcc, egpAcc, userID, _ := setupSalaryTest(t)
 
 	dist := SalaryDistribution{
 		SalaryUSD:    1000,
@@ -62,35 +67,35 @@ func TestSalaryService_DistributeSalary_Basic(t *testing.T) {
 		Date:         time.Now(),
 	}
 
-	err := svc.DistributeSalary(context.Background(), dist)
+	err := svc.DistributeSalary(context.Background(), userID, dist)
 	if err != nil {
 		t.Fatalf("DistributeSalary: %v", err)
 	}
 
 	// USD account should be net zero (salary in, exchange out)
-	updatedUSD, _ := svc.accRepo.GetByID(context.Background(), usdAcc.ID)
+	updatedUSD, _ := svc.accRepo.GetByID(context.Background(), userID, usdAcc.ID)
 	if updatedUSD.CurrentBalance != 0 {
 		t.Errorf("USD balance = %f, want 0", updatedUSD.CurrentBalance)
 	}
 
 	// EGP account should have full salary: 1000 * 50 = 50000
-	updatedEGP, _ := svc.accRepo.GetByID(context.Background(), egpAcc.ID)
+	updatedEGP, _ := svc.accRepo.GetByID(context.Background(), userID, egpAcc.ID)
 	if updatedEGP.CurrentBalance != 50000 {
 		t.Errorf("EGP balance = %f, want 50000", updatedEGP.CurrentBalance)
 	}
 }
 
 func TestSalaryService_DistributeSalary_WithAllocations(t *testing.T) {
-	svc, usdAcc, egpAcc := setupSalaryTest(t)
+	svc, usdAcc, egpAcc, userID, db := setupSalaryTest(t)
 
 	// Create an additional EGP account for allocation
-	db := testutil.NewTestDB(t)
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank2"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank2", UserID: userID})
 	savingsAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "EGP Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0,
+		UserID:         userID,
 	})
 
 	dist := SalaryDistribution{
@@ -104,19 +109,19 @@ func TestSalaryService_DistributeSalary_WithAllocations(t *testing.T) {
 		Date: time.Now(),
 	}
 
-	err := svc.DistributeSalary(context.Background(), dist)
+	err := svc.DistributeSalary(context.Background(), userID, dist)
 	if err != nil {
 		t.Fatalf("DistributeSalary: %v", err)
 	}
 
 	// EGP main should have 50000 - 10000 = 40000
-	updatedEGP, _ := svc.accRepo.GetByID(context.Background(), egpAcc.ID)
+	updatedEGP, _ := svc.accRepo.GetByID(context.Background(), userID, egpAcc.ID)
 	if updatedEGP.CurrentBalance != 40000 {
 		t.Errorf("EGP main balance = %f, want 40000", updatedEGP.CurrentBalance)
 	}
 
 	// Savings should have 10000
-	updatedSavings, _ := svc.accRepo.GetByID(context.Background(), savingsAcc.ID)
+	updatedSavings, _ := svc.accRepo.GetByID(context.Background(), userID, savingsAcc.ID)
 	if updatedSavings.CurrentBalance != 10000 {
 		t.Errorf("savings balance = %f, want 10000", updatedSavings.CurrentBalance)
 	}
@@ -126,7 +131,7 @@ func TestSalaryService_DistributeSalary_WithAllocations(t *testing.T) {
 // to verify all validation paths. Each test case provides invalid input and
 // expects an error. This ensures the service rejects bad data before touching the DB.
 func TestSalaryService_DistributeSalary_ValidationErrors(t *testing.T) {
-	svc, usdAcc, egpAcc := setupSalaryTest(t)
+	svc, usdAcc, egpAcc, userID, _ := setupSalaryTest(t)
 
 	tests := []struct {
 		name string
@@ -158,7 +163,7 @@ func TestSalaryService_DistributeSalary_ValidationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := svc.DistributeSalary(context.Background(), tt.dist)
+			err := svc.DistributeSalary(context.Background(), userID, tt.dist)
 			if err == nil {
 				t.Errorf("expected error for %s, got nil", tt.name)
 			}

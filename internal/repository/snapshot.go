@@ -50,17 +50,18 @@ func NewSnapshotRepo(db *sql.DB) *SnapshotRepo {
 //   Django:   DailySnapshot.objects.update_or_create(date=date, defaults={...})
 //
 // The ON CONFLICT clause requires a UNIQUE constraint on the (date) column.
-func (r *SnapshotRepo) UpsertDaily(ctx context.Context, snap models.DailySnapshot) error {
+func (r *SnapshotRepo) UpsertDaily(ctx context.Context, userID string, snap models.DailySnapshot) error {
+	snap.UserID = userID
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO daily_snapshots (date, net_worth_egp, net_worth_raw, exchange_rate, daily_spending, daily_income)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (date) DO UPDATE SET
+		INSERT INTO daily_snapshots (user_id, date, net_worth_egp, net_worth_raw, exchange_rate, daily_spending, daily_income)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (date, user_id) DO UPDATE SET
 			net_worth_egp = EXCLUDED.net_worth_egp,
 			net_worth_raw = EXCLUDED.net_worth_raw,
 			exchange_rate = EXCLUDED.exchange_rate,
 			daily_spending = EXCLUDED.daily_spending,
 			daily_income = EXCLUDED.daily_income
-	`, snap.Date, snap.NetWorthEGP, snap.NetWorthRaw, snap.ExchangeRate,
+	`, userID, snap.Date, snap.NetWorthEGP, snap.NetWorthRaw, snap.ExchangeRate,
 		snap.DailySpending, snap.DailyIncome)
 	if err != nil {
 		return fmt.Errorf("upserting daily snapshot: %w", err)
@@ -71,13 +72,14 @@ func (r *SnapshotRepo) UpsertDaily(ctx context.Context, snap models.DailySnapsho
 // UpsertAccount creates or updates an account snapshot for the given date+account.
 // Uses ON CONFLICT (date, account_id) DO UPDATE for idempotency.
 // The UNIQUE constraint is on the compound key (date, account_id).
-func (r *SnapshotRepo) UpsertAccount(ctx context.Context, snap models.AccountSnapshot) error {
+func (r *SnapshotRepo) UpsertAccount(ctx context.Context, userID string, snap models.AccountSnapshot) error {
+	snap.UserID = userID
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO account_snapshots (date, account_id, balance)
-		VALUES ($1, $2, $3)
+		INSERT INTO account_snapshots (user_id, date, account_id, balance)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (date, account_id) DO UPDATE SET
 			balance = EXCLUDED.balance
-	`, snap.Date, snap.AccountID, snap.Balance)
+	`, userID, snap.Date, snap.AccountID, snap.Balance)
 	if err != nil {
 		return fmt.Errorf("upserting account snapshot: %w", err)
 	}
@@ -86,14 +88,14 @@ func (r *SnapshotRepo) UpsertAccount(ctx context.Context, snap models.AccountSna
 
 // GetDailyRange returns daily snapshots between two dates (inclusive), ordered by date ASC.
 // Used for sparklines: e.g., "last 30 days of net worth".
-func (r *SnapshotRepo) GetDailyRange(ctx context.Context, from, to time.Time) ([]models.DailySnapshot, error) {
+func (r *SnapshotRepo) GetDailyRange(ctx context.Context, userID string, from, to time.Time) ([]models.DailySnapshot, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, date, net_worth_egp, net_worth_raw, exchange_rate,
 			daily_spending, daily_income, created_at
 		FROM daily_snapshots
-		WHERE date >= $1 AND date <= $2
+		WHERE date >= $1 AND date <= $2 AND user_id = $3
 		ORDER BY date ASC
-	`, from, to)
+	`, from, to, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying daily snapshots: %w", err)
 	}
@@ -113,13 +115,13 @@ func (r *SnapshotRepo) GetDailyRange(ctx context.Context, from, to time.Time) ([
 
 // GetAccountRange returns account snapshots for a specific account between two dates.
 // Used for per-account sparklines.
-func (r *SnapshotRepo) GetAccountRange(ctx context.Context, accountID string, from, to time.Time) ([]models.AccountSnapshot, error) {
+func (r *SnapshotRepo) GetAccountRange(ctx context.Context, userID string, accountID string, from, to time.Time) ([]models.AccountSnapshot, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, date, account_id, balance, created_at
 		FROM account_snapshots
-		WHERE account_id = $1 AND date >= $2 AND date <= $3
+		WHERE account_id = $1 AND date >= $2 AND date <= $3 AND user_id = $4
 		ORDER BY date ASC
-	`, accountID, from, to)
+	`, accountID, from, to, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying account snapshots: %w", err)
 	}
@@ -139,15 +141,15 @@ func (r *SnapshotRepo) GetAccountRange(ctx context.Context, accountID string, fr
 // GetNetWorthByCurrency returns per-currency net worth history between two dates.
 // Sums account_snapshots balances grouped by currency and date, returning a map
 // keyed by currency code (e.g., "EGP", "USD") with a slice of daily totals.
-func (r *SnapshotRepo) GetNetWorthByCurrency(ctx context.Context, from, to time.Time) (map[string][]float64, error) {
+func (r *SnapshotRepo) GetNetWorthByCurrency(ctx context.Context, userID string, from, to time.Time) (map[string][]float64, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT s.date, a.currency, SUM(s.balance) as total
 		FROM account_snapshots s
 		JOIN accounts a ON a.id = s.account_id
-		WHERE s.date >= $1 AND s.date <= $2
+		WHERE s.date >= $1 AND s.date <= $2 AND s.user_id = $3
 		GROUP BY s.date, a.currency
 		ORDER BY s.date ASC
-	`, from, to)
+	`, from, to, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying net worth by currency: %w", err)
 	}
@@ -174,11 +176,11 @@ func (r *SnapshotRepo) GetNetWorthByCurrency(ctx context.Context, from, to time.
 //
 //   Laravel:  DailySnapshot::where('date', $date)->exists()
 //   Django:   DailySnapshot.objects.filter(date=date).exists()
-func (r *SnapshotRepo) Exists(ctx context.Context, date time.Time) (bool, error) {
+func (r *SnapshotRepo) Exists(ctx context.Context, userID string, date time.Time) (bool, error) {
 	var exists bool
 	err := r.db.QueryRowContext(ctx, `
-		SELECT EXISTS(SELECT 1 FROM daily_snapshots WHERE date = $1)
-	`, date).Scan(&exists)
+		SELECT EXISTS(SELECT 1 FROM daily_snapshots WHERE date = $1 AND user_id = $2)
+	`, date, userID).Scan(&exists)
 	return exists, err
 }
 
@@ -191,11 +193,11 @@ func (r *SnapshotRepo) Exists(ctx context.Context, date time.Time) (bool, error)
 // time.Time{} is Go's "zero value" for time (January 1, year 1, 00:00:00 UTC).
 // We return it when there are no snapshots — callers check with date.IsZero().
 // See: https://pkg.go.dev/database/sql#NullTime
-func (r *SnapshotRepo) GetLatestDate(ctx context.Context) (time.Time, error) {
+func (r *SnapshotRepo) GetLatestDate(ctx context.Context, userID string) (time.Time, error) {
 	var date sql.NullTime
 	err := r.db.QueryRowContext(ctx, `
-		SELECT MAX(date) FROM daily_snapshots
-	`).Scan(&date)
+		SELECT MAX(date) FROM daily_snapshots WHERE user_id = $1
+	`, userID).Scan(&date)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -214,12 +216,12 @@ func (r *SnapshotRepo) GetLatestDate(ctx context.Context) (time.Time, error) {
 //   PostgreSQL:  ::date is a type cast (shorthand for CAST(x AS DATE))
 //   Laravel:     whereDate('date', $date) — Laravel generates DATE() function
 //   Django:      filter(date__date=date) — Django uses __date lookup
-func (r *SnapshotRepo) GetDailySpending(ctx context.Context, date time.Time) (float64, error) {
+func (r *SnapshotRepo) GetDailySpending(ctx context.Context, userID string, date time.Time) (float64, error) {
 	var total sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, `
 		SELECT SUM(amount) FROM transactions
-		WHERE date::date = $1::date AND type = 'expense'
-	`, date).Scan(&total)
+		WHERE date::date = $1::date AND type = 'expense' AND user_id = $2
+	`, date, userID).Scan(&total)
 	if err != nil {
 		return 0, err
 	}
@@ -230,12 +232,12 @@ func (r *SnapshotRepo) GetDailySpending(ctx context.Context, date time.Time) (fl
 }
 
 // GetDailyIncome returns the sum of income amounts for a given date.
-func (r *SnapshotRepo) GetDailyIncome(ctx context.Context, date time.Time) (float64, error) {
+func (r *SnapshotRepo) GetDailyIncome(ctx context.Context, userID string, date time.Time) (float64, error) {
 	var total sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, `
 		SELECT SUM(amount) FROM transactions
-		WHERE date::date = $1::date AND type = 'income'
-	`, date).Scan(&total)
+		WHERE date::date = $1::date AND type = 'income' AND user_id = $2
+	`, date, userID).Scan(&total)
 	if err != nil {
 		return 0, err
 	}
@@ -257,12 +259,12 @@ func (r *SnapshotRepo) GetDailyIncome(ctx context.Context, date time.Time) (floa
 //
 // Example: current_balance = 10000, sum of deltas after Jan 15 = 3000
 //   → balance on Jan 15 was 10000 - 3000 = 7000
-func (r *SnapshotRepo) GetBalanceDeltaAfterDate(ctx context.Context, accountID string, date time.Time) (float64, error) {
+func (r *SnapshotRepo) GetBalanceDeltaAfterDate(ctx context.Context, userID string, accountID string, date time.Time) (float64, error) {
 	var total sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, `
 		SELECT SUM(balance_delta) FROM transactions
-		WHERE account_id = $1 AND date::date > $2::date
-	`, accountID, date).Scan(&total)
+		WHERE account_id = $1 AND date::date > $2::date AND user_id = $3
+	`, accountID, date, userID).Scan(&total)
 	if err != nil {
 		return 0, err
 	}

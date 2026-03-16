@@ -26,10 +26,10 @@ import (
 func TestAccountHandler_CreateAndList(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
 
 	// Need an institution first
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 
 	// POST — create account
 	body := fmt.Sprintf(`{
@@ -76,9 +76,9 @@ func TestAccountHandler_CreateAndList(t *testing.T) {
 func TestAccountHandler_Create_CreditCardWithoutLimit(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 
 	body := fmt.Sprintf(`{
 		"institution_id": %q,
@@ -101,14 +101,14 @@ func TestAccountHandler_Create_CreditCardWithoutLimit(t *testing.T) {
 func TestAccountHandler_FilterByInstitution(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
 
-	inst1 := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
-	inst2 := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst1 := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
+	inst2 := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 
-	testutil.CreateAccount(t, db, models.Account{InstitutionID: inst1.ID, Name: "A1"})
-	testutil.CreateAccount(t, db, models.Account{InstitutionID: inst1.ID, Name: "A2"})
-	testutil.CreateAccount(t, db, models.Account{InstitutionID: inst2.ID, Name: "B1"})
+	testutil.CreateAccount(t, db, models.Account{InstitutionID: inst1.ID, Name: "A1", UserID: userID})
+	testutil.CreateAccount(t, db, models.Account{InstitutionID: inst1.ID, Name: "A2", UserID: userID})
+	testutil.CreateAccount(t, db, models.Account{InstitutionID: inst2.ID, Name: "B1", UserID: userID})
 
 	// Filter by inst1
 	req := httptest.NewRequest(http.MethodGet, "/api/accounts?institution_id="+inst1.ID, nil)

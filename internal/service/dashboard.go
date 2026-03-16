@@ -275,13 +275,13 @@ func (s *DashboardService) SetDB(db *sql.DB) {
 // Performance note: This makes multiple sequential DB queries. In a high-traffic app,
 // you'd use goroutines + channels for parallel loading. For a single-user app like
 // ClearMoney, sequential is fine and much simpler to reason about.
-func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, error) {
+func (s *DashboardService) GetDashboard(ctx context.Context, userID string) (DashboardData, error) {
 	dashStart := time.Now()
 	var data DashboardData
 
 	// Load all institutions
 	t := time.Now()
-	institutions, err := s.institutionRepo.GetAll(ctx)
+	institutions, err := s.institutionRepo.GetAll(ctx, userID)
 	if err != nil {
 		return data, err
 	}
@@ -299,7 +299,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 
 	// For each institution, load accounts and compute totals
 	for _, inst := range institutions {
-		accounts, err := s.accountRepo.GetByInstitution(ctx, inst.ID)
+		accounts, err := s.accountRepo.GetByInstitution(ctx, userID, inst.ID)
 		if err != nil {
 			continue
 		}
@@ -379,7 +379,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// Subtract excluded virtual account balances (money held for others)
 	// This must happen before NetWorthEGP so the conversion uses the adjusted totals.
 	if s.virtualAccountSvc != nil {
-		if excluded, err := s.virtualAccountSvc.GetTotalExcludedBalance(ctx); err == nil && excluded > 0 {
+		if excluded, err := s.virtualAccountSvc.GetTotalExcludedBalance(ctx, userID); err == nil && excluded > 0 {
 			data.ExcludedVATotal = excluded
 			data.NetWorth -= excluded
 			data.EGPTotal -= excluded  // VAs are EGP-denominated
@@ -400,7 +400,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// People ledger summary — grouped by currency
 	if s.personRepo != nil {
 		t = time.Now()
-		if persons, err := s.personRepo.GetAll(ctx); err == nil {
+		if persons, err := s.personRepo.GetAll(ctx, userID); err == nil {
 			egpSummary := PeopleCurrencySummary{Currency: "EGP"}
 			usdSummary := PeopleCurrencySummary{Currency: "USD"}
 			for _, p := range persons {
@@ -438,7 +438,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// TASK-063: Load active virtual accounts for dashboard widget
 	if s.virtualAccountSvc != nil {
 		t = time.Now()
-		if accounts, err := s.virtualAccountSvc.GetAll(ctx); err == nil {
+		if accounts, err := s.virtualAccountSvc.GetAll(ctx, userID); err == nil {
 			data.VirtualAccounts = accounts
 		}
 		logutil.Log(ctx).Debug("dashboard: loaded virtual accounts", "duration_ms", time.Since(t).Milliseconds())
@@ -447,7 +447,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// Investment portfolio total
 	if s.investmentRepo != nil {
 		t = time.Now()
-		if total, err := s.investmentRepo.GetTotalValuation(ctx); err == nil {
+		if total, err := s.investmentRepo.GetTotalValuation(ctx, userID); err == nil {
 			data.InvestmentTotal = total
 		}
 		logutil.Log(ctx).Debug("dashboard: loaded investments", "duration_ms", time.Since(t).Milliseconds())
@@ -456,7 +456,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// Habit streak
 	if s.streakSvc != nil {
 		t = time.Now()
-		if streak, err := s.streakSvc.GetStreak(ctx); err == nil {
+		if streak, err := s.streakSvc.GetStreak(ctx, userID); err == nil {
 			data.Streak = streak
 		}
 		logutil.Log(ctx).Debug("dashboard: loaded streak", "duration_ms", time.Since(t).Milliseconds())
@@ -464,7 +464,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 
 	// Load recent transactions
 	t = time.Now()
-	if txns, err := s.txRepo.GetRecentEnriched(ctx, 10); err != nil {
+	if txns, err := s.txRepo.GetRecentEnriched(ctx, userID, 10); err != nil {
 		slog.Warn("failed to load recent transactions", "error", err)
 	} else {
 		data.RecentTransactions = txns
@@ -474,7 +474,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// TASK-055: Net worth sparkline (last 30 days from snapshots)
 	if s.snapshotSvc != nil {
 		t = time.Now()
-		if history, err := s.snapshotSvc.GetNetWorthHistory(ctx, 30); err == nil && len(history) >= 2 {
+		if history, err := s.snapshotSvc.GetNetWorthHistory(ctx, userID, 30); err == nil && len(history) >= 2 {
 			data.NetWorthHistory = history
 			// % change: (current - oldest) / |oldest| * 100
 			oldest := history[0]
@@ -487,7 +487,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 
 		// Per-currency net worth history for dual sparkline
 		t = time.Now()
-		if byCurrency, err := s.snapshotSvc.GetNetWorthByCurrency(ctx, 30); err == nil && len(byCurrency) > 0 {
+		if byCurrency, err := s.snapshotSvc.GetNetWorthByCurrency(ctx, userID, 30); err == nil && len(byCurrency) > 0 {
 			data.NetWorthHistoryByCurrency = byCurrency
 		}
 		logutil.Log(ctx).Debug("dashboard: loaded per-currency history", "duration_ms", time.Since(t).Milliseconds())
@@ -499,7 +499,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 		sparklines := make(map[string][]float64)
 		for _, group := range data.Institutions {
 			for _, acc := range group.Accounts {
-				if history, err := s.snapshotSvc.GetAccountHistory(ctx, acc.ID, 30); err == nil && len(history) >= 2 {
+				if history, err := s.snapshotSvc.GetAccountHistory(ctx, userID, acc.ID, 30); err == nil && len(history) >= 2 {
 					sparklines[acc.ID] = history
 				}
 			}
@@ -513,14 +513,14 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// TASK-069: Check account health constraints
 	if s.healthSvc != nil {
 		t = time.Now()
-		data.HealthWarnings = s.healthSvc.CheckAll(ctx)
+		data.HealthWarnings = s.healthSvc.CheckAll(ctx, userID)
 		logutil.Log(ctx).Debug("dashboard: checked health", "duration_ms", time.Since(t).Milliseconds(), "warnings", len(data.HealthWarnings))
 	}
 
 	// TASK-066: Load budgets with spending for dashboard widget
 	if s.budgetSvc != nil {
 		t = time.Now()
-		if budgets, err := s.budgetSvc.GetAllWithSpending(ctx); err == nil {
+		if budgets, err := s.budgetSvc.GetAllWithSpending(ctx, userID); err == nil {
 			data.Budgets = budgets
 		}
 		logutil.Log(ctx).Debug("dashboard: loaded budgets", "duration_ms", time.Since(t).Milliseconds())
@@ -529,7 +529,7 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 	// TASK-056: Month-over-month spending comparison
 	if s.db != nil {
 		t = time.Now()
-		s.computeSpendingComparison(ctx, &data)
+		s.computeSpendingComparison(ctx, userID, &data)
 		logutil.Log(ctx).Debug("dashboard: computed spending comparison", "duration_ms", time.Since(t).Milliseconds())
 	}
 
@@ -557,7 +557,7 @@ func abs(v float64) float64 {
 // this is a complex aggregate query with CTEs (Common Table Expressions) that doesn't
 // map well to a simple CRUD repository method.
 // See: https://pkg.go.dev/database/sql#DB.QueryContext
-func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *DashboardData) {
+func (s *DashboardService) computeSpendingComparison(ctx context.Context, userID string, data *DashboardData) {
 	now := timeutil.Now()
 	thisMonthStart := timeutil.MonthStart(now, s.timezone())
 	lastMonthStart := timeutil.MonthStart(thisMonthStart.AddDate(0, -1, 0), s.timezone())
@@ -568,9 +568,9 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT currency, COALESCE(SUM(amount), 0)
 		FROM transactions
-		WHERE type = 'expense' AND date >= $1 AND date < $2
+		WHERE type = 'expense' AND date >= $1 AND date < $2 AND user_id = $3
 		GROUP BY currency ORDER BY currency
-	`, thisMonthStart, nextMonthStart)
+	`, thisMonthStart, nextMonthStart, userID)
 	if err != nil {
 		slog.Warn("failed to compute this month spending by currency", "error", err)
 	} else {
@@ -589,9 +589,9 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 	rows2, err := s.db.QueryContext(ctx, `
 		SELECT currency, COALESCE(SUM(amount), 0)
 		FROM transactions
-		WHERE type = 'expense' AND date >= $1 AND date < $2
+		WHERE type = 'expense' AND date >= $1 AND date < $2 AND user_id = $3
 		GROUP BY currency ORDER BY currency
-	`, lastMonthStart, thisMonthStart)
+	`, lastMonthStart, thisMonthStart, userID)
 	if err != nil {
 		slog.Warn("failed to compute last month spending by currency", "error", err)
 	} else {
@@ -641,7 +641,7 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 		}
 
 		// Top 3 categories for this currency
-		cs.TopCategories = s.queryTopCategoriesForCurrency(ctx, cur, thisMonthStart, nextMonthStart, lastMonthStart)
+		cs.TopCategories = s.queryTopCategoriesForCurrency(ctx, userID, cur, thisMonthStart, nextMonthStart, lastMonthStart)
 
 		data.SpendingByCurrency = append(data.SpendingByCurrency, cs)
 
@@ -694,7 +694,7 @@ func (s *DashboardService) computeSpendingComparison(ctx context.Context, data *
 
 // queryTopCategoriesForCurrency returns the top 3 spending categories for a given
 // currency in the current month, with their month-over-month change %.
-func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, currency string, thisMonthStart, nextMonthStart, lastMonthStart time.Time) []CategoryChange {
+func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, userID string, currency string, thisMonthStart, nextMonthStart, lastMonthStart time.Time) []CategoryChange {
 	rows, err := s.db.QueryContext(ctx, `
 		WITH this_month AS (
 			SELECT COALESCE(c.name, 'Uncategorized') AS cat_name,
@@ -704,6 +704,7 @@ func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, cu
 			LEFT JOIN categories c ON t.category_id = c.id
 			WHERE t.type = 'expense' AND t.currency = $4::currency_type
 				AND t.date >= $1 AND t.date < $2
+				AND t.user_id = $5
 			GROUP BY c.name, c.icon
 			ORDER BY SUM(t.amount) DESC
 			LIMIT 3
@@ -715,13 +716,14 @@ func (s *DashboardService) queryTopCategoriesForCurrency(ctx context.Context, cu
 			LEFT JOIN categories c ON t.category_id = c.id
 			WHERE t.type = 'expense' AND t.currency = $4::currency_type
 				AND t.date >= $3 AND t.date < $1
+				AND t.user_id = $5
 			GROUP BY c.name
 		)
 		SELECT tm.cat_name, tm.cat_icon, tm.amount,
 			COALESCE(lm.amount, 0) AS last_amount
 		FROM this_month tm
 		LEFT JOIN last_month lm ON tm.cat_name = lm.cat_name
-	`, thisMonthStart, nextMonthStart, lastMonthStart, currency)
+	`, thisMonthStart, nextMonthStart, lastMonthStart, currency, userID)
 	if err != nil {
 		return nil
 	}

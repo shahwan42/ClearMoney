@@ -73,7 +73,8 @@ func (h *PushHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 // to check for new notifications (budget alerts, recurring transaction reminders,
 // account health warnings). This is simpler than server-push for a single-user app.
 func (h *PushHandler) CheckNotifications(w http.ResponseWriter, r *http.Request) {
-	notifications, err := h.notificationSvc.GetPendingNotifications(r.Context())
+	userID := authmw.UserID(r.Context())
+	notifications, err := h.notificationSvc.GetPendingNotifications(r.Context(), userID)
 	if err != nil {
 		authmw.Log(r.Context()).Error("failed to check notifications", "error", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

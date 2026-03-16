@@ -181,15 +181,17 @@ func TestGetCreditCardUtilization_WithBalance(t *testing.T) {
 // TestAccountService_Create_CashWithCreditLimit verifies cash accounts cannot have a credit limit.
 func TestAccountService_Create_CashWithCreditLimit(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "institutions")
 	inst := testutil.CreateInstitution(t, db, models.Institution{
-		Name: "Cash",
-		Type: models.InstitutionTypeWallet,
+		Name:   "Cash",
+		Type:   models.InstitutionTypeWallet,
+		UserID: userID,
 	})
 	svc := NewAccountService(repository.NewAccountRepo(db))
 
 	limit := 10000.0
-	_, err := svc.Create(context.Background(), models.Account{
+	_, err := svc.Create(context.Background(), userID, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Bad Cash",
 		Type:           models.AccountTypeCash,
@@ -204,14 +206,16 @@ func TestAccountService_Create_CashWithCreditLimit(t *testing.T) {
 // TestAccountService_Create_Cash verifies cash accounts can be created successfully.
 func TestAccountService_Create_Cash(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "institutions")
 	inst := testutil.CreateInstitution(t, db, models.Institution{
-		Name: "Cash",
-		Type: models.InstitutionTypeWallet,
+		Name:   "Cash",
+		Type:   models.InstitutionTypeWallet,
+		UserID: userID,
 	})
 	svc := NewAccountService(repository.NewAccountRepo(db))
 
-	acc, err := svc.Create(context.Background(), models.Account{
+	acc, err := svc.Create(context.Background(), userID, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "EGP Cash",
 		Type:           models.AccountTypeCash,

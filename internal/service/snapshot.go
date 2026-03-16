@@ -88,17 +88,17 @@ func NewSnapshotService(
 // 2. Convert USD balances to EGP using latest exchange rate
 // 3. Store daily snapshot (net worth, spending, income)
 // 4. Store per-account snapshots
-func (s *SnapshotService) TakeSnapshot(ctx context.Context) error {
+func (s *SnapshotService) TakeSnapshot(ctx context.Context, userID string) error {
 	today := timeutil.Today(s.timezone())
-	return s.takeSnapshotForDate(ctx, today, true)
+	return s.takeSnapshotForDate(ctx, userID, today, true)
 }
 
 // takeSnapshotForDate captures the financial state for a specific date.
 // If useCurrentBalances is true, uses accounts' current_balance.
 // If false, computes historical balances by subtracting future balance_deltas.
-func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Time, useCurrentBalances bool) error {
+func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, userID string, date time.Time, useCurrentBalances bool) error {
 	// Get all institutions and their accounts
-	institutions, err := s.institutionRepo.GetAll(ctx)
+	institutions, err := s.institutionRepo.GetAll(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 	var accountBalances []accountBalance
 
 	for _, inst := range institutions {
-		accounts, err := s.accountRepo.GetByInstitution(ctx, inst.ID)
+		accounts, err := s.accountRepo.GetByInstitution(ctx, userID, inst.ID)
 		if err != nil {
 			continue
 		}
@@ -119,7 +119,7 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 			balance := acc.CurrentBalance
 			if !useCurrentBalances {
 				// Historical balance: current_balance minus future transactions
-				futureDeltas, err := s.snapshotRepo.GetBalanceDeltaAfterDate(ctx, acc.ID, date)
+				futureDeltas, err := s.snapshotRepo.GetBalanceDeltaAfterDate(ctx, userID, acc.ID, date)
 				if err != nil {
 					slog.Error("snapshot: error computing historical balance", "account", acc.Name, "error", err)
 					continue
@@ -136,7 +136,7 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 
 	// Subtract excluded virtual account balances (money held for others)
 	if s.virtualAccountSvc != nil {
-		if excluded, err := s.virtualAccountSvc.GetTotalExcludedBalance(ctx); err == nil && excluded > 0 {
+		if excluded, err := s.virtualAccountSvc.GetTotalExcludedBalance(ctx, userID); err == nil && excluded > 0 {
 			netWorthRaw -= excluded
 		}
 	}
@@ -154,17 +154,18 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 	}
 
 	// Get daily spending and income for this date
-	spending, _ := s.snapshotRepo.GetDailySpending(ctx, date)
-	income, _ := s.snapshotRepo.GetDailyIncome(ctx, date)
+	spending, _ := s.snapshotRepo.GetDailySpending(ctx, userID, date)
+	income, _ := s.snapshotRepo.GetDailyIncome(ctx, userID, date)
 
 	// Upsert daily snapshot
-	err = s.snapshotRepo.UpsertDaily(ctx, models.DailySnapshot{
+	err = s.snapshotRepo.UpsertDaily(ctx, userID, models.DailySnapshot{
 		Date:          date,
 		NetWorthEGP:   netWorthEGP,
 		NetWorthRaw:   netWorthRaw,
 		ExchangeRate:  exchangeRate,
 		DailySpending: spending,
 		DailyIncome:   income,
+		UserID:        userID,
 	})
 	if err != nil {
 		return err
@@ -172,10 +173,11 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 
 	// Upsert per-account snapshots
 	for _, ab := range accountBalances {
-		if err := s.snapshotRepo.UpsertAccount(ctx, models.AccountSnapshot{
+		if err := s.snapshotRepo.UpsertAccount(ctx, userID, models.AccountSnapshot{
 			Date:      date,
 			AccountID: ab.ID,
 			Balance:   ab.Balance,
+			UserID:    userID,
 		}); err != nil {
 			slog.Error("snapshot: error saving account snapshot", "account_id", ab.ID, "error", err)
 		}
@@ -197,13 +199,13 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 //
 // Idempotency: checks snapshotRepo.Exists() before creating, so calling this
 // repeatedly is safe (like Laravel's firstOrCreate or Django's get_or_create).
-func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int, error) {
+func (s *SnapshotService) BackfillSnapshots(ctx context.Context, userID string, days int) (int, error) {
 	today := timeutil.Today(s.timezone())
 	count := 0
 
 	for i := days; i >= 0; i-- {
 		date := today.AddDate(0, 0, -i)
-		exists, err := s.snapshotRepo.Exists(ctx, date)
+		exists, err := s.snapshotRepo.Exists(ctx, userID, date)
 		if err != nil {
 			slog.Warn("snapshot: error checking date", "date", date.Format("2006-01-02"), "error", err)
 			continue
@@ -214,7 +216,7 @@ func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int,
 
 		// Use current balances for today, historical calculation for past dates
 		useCurrentBalances := i == 0
-		if err := s.takeSnapshotForDate(ctx, date, useCurrentBalances); err != nil {
+		if err := s.takeSnapshotForDate(ctx, userID, date, useCurrentBalances); err != nil {
 			slog.Warn("snapshot: error backfilling", "date", date.Format("2006-01-02"), "error", err)
 			continue
 		}
@@ -226,12 +228,12 @@ func (s *SnapshotService) BackfillSnapshots(ctx context.Context, days int) (int,
 
 // GetNetWorthHistory returns daily net worth values for the last N days.
 // Returns a slice of float64 values suitable for sparklinePoints().
-func (s *SnapshotService) GetNetWorthHistory(ctx context.Context, days int) ([]float64, error) {
+func (s *SnapshotService) GetNetWorthHistory(ctx context.Context, userID string, days int) ([]float64, error) {
 	today := timeutil.Today(s.timezone())
 	from := today.AddDate(0, 0, -days)
 	to := today
 
-	snapshots, err := s.snapshotRepo.GetDailyRange(ctx, from, to)
+	snapshots, err := s.snapshotRepo.GetDailyRange(ctx, userID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -245,20 +247,20 @@ func (s *SnapshotService) GetNetWorthHistory(ctx context.Context, days int) ([]f
 
 // GetNetWorthByCurrency returns per-currency net worth history for the last N days.
 // Returns a map keyed by currency code (e.g., "EGP", "USD") with daily total slices.
-func (s *SnapshotService) GetNetWorthByCurrency(ctx context.Context, days int) (map[string][]float64, error) {
+func (s *SnapshotService) GetNetWorthByCurrency(ctx context.Context, userID string, days int) (map[string][]float64, error) {
 	today := timeutil.Today(s.timezone())
 	from := today.AddDate(0, 0, -days)
-	return s.snapshotRepo.GetNetWorthByCurrency(ctx, from, today)
+	return s.snapshotRepo.GetNetWorthByCurrency(ctx, userID, from, today)
 }
 
 // GetAccountHistory returns daily balances for a specific account over N days.
 // Returns a slice of float64 values suitable for sparklinePoints().
-func (s *SnapshotService) GetAccountHistory(ctx context.Context, accountID string, days int) ([]float64, error) {
+func (s *SnapshotService) GetAccountHistory(ctx context.Context, userID string, accountID string, days int) ([]float64, error) {
 	today := timeutil.Today(s.timezone())
 	from := today.AddDate(0, 0, -days)
 	to := today
 
-	snapshots, err := s.snapshotRepo.GetAccountRange(ctx, accountID, from, to)
+	snapshots, err := s.snapshotRepo.GetAccountRange(ctx, userID, accountID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +274,6 @@ func (s *SnapshotService) GetAccountHistory(ctx context.Context, accountID strin
 
 // GetDailySnapshots returns full daily snapshot records for a date range.
 // Useful for month-over-month comparisons that need spending/income data.
-func (s *SnapshotService) GetDailySnapshots(ctx context.Context, from, to time.Time) ([]models.DailySnapshot, error) {
-	return s.snapshotRepo.GetDailyRange(ctx, from, to)
+func (s *SnapshotService) GetDailySnapshots(ctx context.Context, userID string, from, to time.Time) ([]models.DailySnapshot, error) {
+	return s.snapshotRepo.GetDailyRange(ctx, userID, from, to)
 }

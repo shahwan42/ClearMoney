@@ -121,7 +121,7 @@ func NewReportsService(db *sql.DB) *ReportsService {
 }
 
 // GetMonthlyReport generates the full report for a given month with optional filters.
-func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month time.Month, filter ReportFilter) (ReportsData, error) {
+func (s *ReportsService) GetMonthlyReport(ctx context.Context, userID string, year int, month time.Month, filter ReportFilter) (ReportsData, error) {
 	data := ReportsData{
 		Year:   year,
 		Month:  month,
@@ -129,7 +129,7 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 	}
 
 	// Spending by category
-	spending, total, err := s.getSpendingByCategory(ctx, year, month, filter)
+	spending, total, err := s.getSpendingByCategory(ctx, userID, year, month, filter)
 	if err != nil {
 		return data, fmt.Errorf("spending by category: %w", err)
 	}
@@ -137,7 +137,7 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 	data.TotalSpending = total
 
 	// Current month summary
-	if summary, err := s.getMonthSummary(ctx, year, month, filter); err != nil {
+	if summary, err := s.getMonthSummary(ctx, userID, year, month, filter); err != nil {
 		slog.Warn("failed to get current month summary", "year", year, "month", month, "error", err)
 	} else {
 		data.CurrentMonth = summary
@@ -149,7 +149,7 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 		prevMonth = 12
 		prevYear--
 	}
-	if summary, err := s.getMonthSummary(ctx, prevYear, prevMonth, filter); err != nil {
+	if summary, err := s.getMonthSummary(ctx, userID, prevYear, prevMonth, filter); err != nil {
 		slog.Warn("failed to get previous month summary", "year", prevYear, "month", prevMonth, "error", err)
 	} else {
 		data.PreviousMonth = summary
@@ -161,7 +161,7 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 		nextMonth = 1
 		nextYear++
 	}
-	if summary, err := s.getMonthSummary(ctx, nextYear, nextMonth, filter); err != nil {
+	if summary, err := s.getMonthSummary(ctx, userID, nextYear, nextMonth, filter); err != nil {
 		slog.Warn("failed to get next month summary", "year", nextYear, "month", nextMonth, "error", err)
 	} else {
 		data.NextMonth = summary
@@ -172,7 +172,7 @@ func (s *ReportsService) GetMonthlyReport(ctx context.Context, year int, month t
 	data.ChartSegments = s.buildChartSegments(spending, total)
 
 	// TASK-058: 6-month income vs expenses history for bar chart
-	data.MonthlyHistory = s.getMonthlyHistory(ctx, year, month, filter)
+	data.MonthlyHistory = s.getMonthlyHistory(ctx, userID, year, month, filter)
 	data.BarGroups, data.BarLegend = s.buildBarChart(data.MonthlyHistory)
 
 	return data, nil
@@ -244,7 +244,7 @@ func (s *ReportsService) buildBarChart(history []MonthSummary) ([]BarGroup, []Le
 }
 
 // getMonthlyHistory returns income/expenses for the last 6 months (for the bar chart).
-func (s *ReportsService) getMonthlyHistory(ctx context.Context, year int, month time.Month, filter ReportFilter) []MonthSummary {
+func (s *ReportsService) getMonthlyHistory(ctx context.Context, userID string, year int, month time.Month, filter ReportFilter) []MonthSummary {
 	var history []MonthSummary
 	for i := 5; i >= 0; i-- {
 		// Walk backward from current month
@@ -254,7 +254,7 @@ func (s *ReportsService) getMonthlyHistory(ctx context.Context, year int, month 
 			m += 12
 			y--
 		}
-		summary, err := s.getMonthSummary(ctx, y, m, filter)
+		summary, err := s.getMonthSummary(ctx, userID, y, m, filter)
 		if err != nil {
 			summary = MonthSummary{Year: y, Month: m}
 		}
@@ -273,7 +273,7 @@ func (s *ReportsService) getMonthlyHistory(ctx context.Context, year int, month 
 //
 // The `args := []any{...}` uses Go's `any` type (alias for `interface{}`) which
 // can hold any value — like PHP's mixed type or Python's Any type hint.
-func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, month time.Month, filter ReportFilter) ([]CategorySpending, float64, error) {
+func (s *ReportsService) getSpendingByCategory(ctx context.Context, userID string, year int, month time.Month, filter ReportFilter) ([]CategorySpending, float64, error) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)
 
@@ -281,9 +281,9 @@ func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, mo
 		SELECT COALESCE(t.category_id::text, ''), COALESCE(c.name, 'Uncategorized'), COALESCE(c.icon, ''), SUM(t.amount)
 		FROM transactions t
 		LEFT JOIN categories c ON t.category_id = c.id
-		WHERE t.type = 'expense' AND t.date >= $1 AND t.date < $2`
-	args := []any{startDate, endDate}
-	argN := 3
+		WHERE t.type = 'expense' AND t.date >= $1 AND t.date < $2 AND t.user_id = $3`
+	args := []any{startDate, endDate, userID}
+	argN := 4
 
 	if filter.AccountID != "" {
 		query += fmt.Sprintf(" AND t.account_id = $%d", argN)
@@ -325,7 +325,7 @@ func (s *ReportsService) getSpendingByCategory(ctx context.Context, year int, mo
 }
 
 // getMonthSummary returns income and expense totals for a month.
-func (s *ReportsService) getMonthSummary(ctx context.Context, year int, month time.Month, filter ReportFilter) (MonthSummary, error) {
+func (s *ReportsService) getMonthSummary(ctx context.Context, userID string, year int, month time.Month, filter ReportFilter) (MonthSummary, error) {
 	startDate := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)
 
@@ -336,9 +336,9 @@ func (s *ReportsService) getMonthSummary(ctx context.Context, year int, month ti
 			COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0),
 			COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)
 		FROM transactions
-		WHERE date >= $1 AND date < $2`
-	args := []any{startDate, endDate}
-	argN := 3
+		WHERE date >= $1 AND date < $2 AND user_id = $3`
+	args := []any{startDate, endDate, userID}
+	argN := 4
 
 	if filter.AccountID != "" {
 		query += fmt.Sprintf(" AND account_id = $%d", argN)

@@ -32,6 +32,7 @@ import "time"
 //   - In PHP: null vs 0. In Python: None vs 0.
 type VirtualAccount struct {
 	ID             string    `json:"id" db:"id"`
+	UserID         string    `json:"user_id" db:"user_id"`
 	Name           string    `json:"name" db:"name"`
 	TargetAmount   *float64  `json:"target_amount" db:"target_amount"`     // *float64 = nullable; nil means "open-ended virtual account with no target"
 	CurrentBalance float64   `json:"current_balance" db:"current_balance"` // cached sum of all allocations (denormalized for performance)

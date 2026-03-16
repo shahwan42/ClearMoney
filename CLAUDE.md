@@ -1,7 +1,7 @@
 # ClearMoney — AI Assistant Instructions
 
 > Personal finance tracker built with Go, HTMX, Tailwind CSS, and PostgreSQL.
-> Single-user PWA for tracking accounts, transactions, budgets, and investments across Egyptian banks.
+> Multi-user PWA with magic link auth for tracking accounts, transactions, budgets, and investments across Egyptian banks.
 
 ## ⚠️ Production App — No Breaking Changes
 
@@ -47,7 +47,7 @@ internal/
   database/               # Connection, migrations (golang-migrate, embedded SQL)
   handler/                # HTTP handlers + routes (like Laravel Controllers + routes/web.php)
   jobs/                   # Background tasks: reconcile, snapshots, refresh views
-  middleware/              # Auth (PIN-based) + request logging (slog)
+  middleware/              # Auth (magic link, DB sessions) + request logging (slog)
   models/                 # Domain structs (like Eloquent models, no ORM)
   repository/             # Database queries (like Laravel Repositories)
   service/                # Business logic (like Laravel Services)
@@ -75,7 +75,7 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 | Template rendering | Clone-per-page: base layout + components cloned, page parsed on top |
 | Monetary values | `NUMERIC(15,2)` in DB, `float64` in Go |
 | Nullable fields | Pointer types (`*string`, `*float64`) = SQL NULL |
-| Auth | PIN-based with bcrypt, HMAC session tokens, cookie-based sessions |
+| Auth | Magic link via Resend, server-side DB sessions, per-user data isolation |
 | Balance tracking | Atomic updates via DB transactions, `balance_delta` per transaction for reconciliation |
 | Logging | 3-layer structured logging: StructuredLogger middleware → service events (`logutil.LogEvent`) → page views (`authmw.Log(ctx)`) |
 | Charts | CSS-only (conic-gradient donuts, flexbox bars, inline SVG sparklines) — no Chart.js |
@@ -98,7 +98,7 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 
 - **Driver**: pgx v5 (via `database/sql` stdlib interface)
 - **Migrations**: `golang-migrate` with embedded SQL files (`internal/database/migrations/`)
-- **22 migrations** (000000–000022): init → institutions → accounts → categories → persons → transactions → exchange_rates → seed_categories → user_config → recurring_rules → investments → installments → balance_delta → indexes/views → snapshots → virtual_funds → budgets → account_health → remove_checking_account_type → category_icons_and_unique → cash_and_wallet → rename_virtual_funds_to_virtual_accounts
+- **30 migrations** (000000–000030): init → institutions → accounts → categories → persons → transactions → exchange_rates → seed_categories → user_config → recurring_rules → investments → installments → balance_delta → indexes/views → snapshots → virtual_funds → budgets → account_health → remove_checking_account_type → category_icons_and_unique → cash_and_wallet → rename_virtual_funds_to_virtual_accounts → person_currency_balances → login_lockout → rate_limiter → ip_rate_limiter → brute_force → multi_user_tables → user_id_all_tables → materialized_views_user_id → category_unique_index_fix
 - **Materialized views**: `mv_monthly_category_totals`, `mv_daily_tx_counts`
 - **Connection**: `DATABASE_URL` env var, port `5433` (Colima, not 5432)
 
@@ -219,7 +219,7 @@ Choose the right response type based on the action:
 - **Pages**: `internal/templates/pages/foo.html` — must define `{{define "title"}}` and `{{define "content"}}` blocks
 - **Partials**: `internal/templates/partials/foo.html` — define `{{define "foo"}}...{{end}}`, auto-discovered
 - **View models**: Define a struct in `pages.go` near line 125 (e.g., `FooPageData`) — becomes the `.Data` field in `PageData`
-- **Bare pages** (no header/nav): Add page name to `barePages` map in `templates.go` (currently: login, setup)
+- **Bare pages** (no header/nav): Add page name to `barePages` map in `templates.go` (currently: login, register, check-email, link-expired)
 - **Template functions**: Add to `TemplateFuncs()` in `templates.go` — available in all templates as `{{funcName .Arg}}`
 - **Pass multiple values to partials**: Use `{{template "partial" (dict "Key1" .Val1 "Key2" .Val2)}}`
 
@@ -265,7 +265,7 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 
 ### Startup Sequence
 
-`main.go` runs: migrations → process recurring rules → reconcile balances → refresh materialized views → take snapshots → start HTTP server
+`main.go` runs: migrations → cleanup expired auth tokens/sessions → process recurring rules → reconcile balances → refresh materialized views → take snapshots → start HTTP server
 
 ## Environment Variables
 
@@ -276,6 +276,10 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 | `ENV` | `development` | Environment mode |
 | `LOG_LEVEL` | `info` | Logging level: debug, info, warn, error |
 | `APP_TIMEZONE` | `Africa/Cairo` | User timezone for date display and calendar logic |
+| `RESEND_API_KEY` | (none) | Resend API key (dev mode if unset — logs emails) |
+| `EMAIL_FROM` | `noreply@clearmoney.app` | Verified sender address for magic links |
+| `APP_URL` | `http://localhost:8080` | Base URL for magic links in emails |
+| `MAX_DAILY_EMAILS` | `50` | Global daily email cap (Resend free tier buffer) |
 | `VAPID_PUBLIC_KEY` | (none) | Web Push VAPID public key |
 | `VAPID_PRIVATE_KEY` | (none) | Web Push VAPID private key |
 
@@ -284,5 +288,6 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 - `github.com/go-chi/chi/v5` — HTTP router
 - `github.com/golang-migrate/migrate/v4` — Database migrations
 - `github.com/jackc/pgx/v5` — PostgreSQL driver
-- `golang.org/x/crypto` — bcrypt for PIN hashing
+- `github.com/resend/resend-go/v2` — Resend email API (magic link delivery)
+- `golang.org/x/crypto` — bcrypt (legacy, kept for compatibility)
 - `log/slog` — Structured logging (stdlib, no external dep)

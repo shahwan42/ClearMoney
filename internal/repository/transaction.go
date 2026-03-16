@@ -47,21 +47,22 @@ func NewTransactionRepo(db *sql.DB) *TransactionRepo {
 // job inside a database transaction (see service.TransactionService.Create).
 // The repository is "dumb" — it only inserts/reads data, no business logic.
 //
-// The query uses 18 positional parameters ($1..$18). PostgreSQL requires numbered
+// The query uses 19 positional parameters ($1..$19). PostgreSQL requires numbered
 // placeholders unlike MySQL's `?`. The order must match the args list exactly.
-func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
+func (r *TransactionRepo) Create(ctx context.Context, userID string, tx models.Transaction) (models.Transaction, error) {
+	tx.UserID = userID
 	if tx.Date.IsZero() {
 		tx.Date = timeutil.Now()
 	}
 
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO transactions (type, amount, currency, account_id, counter_account_id,
+		INSERT INTO transactions (user_id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, created_at, updated_at
-	`, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
+	`, userID, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
 		tx.CategoryID, tx.Date, tx.Time, tx.Note, pq.Array(tx.Tags),
 		tx.ExchangeRate, tx.CounterAmount, tx.FeeAmount, tx.FeeAccountID,
 		tx.PersonID, tx.LinkedTransactionID, tx.RecurringRuleID,
@@ -91,19 +92,20 @@ func (r *TransactionRepo) Create(ctx context.Context, tx models.Transaction) (mo
 //   4. Commit or Rollback
 //
 // See: https://pkg.go.dev/database/sql#Tx
-func (r *TransactionRepo) CreateTx(ctx context.Context, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
+func (r *TransactionRepo) CreateTx(ctx context.Context, userID string, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
+	tx.UserID = userID
 	if tx.Date.IsZero() {
 		tx.Date = timeutil.Now()
 	}
 
 	err := dbTx.QueryRowContext(ctx, `
-		INSERT INTO transactions (type, amount, currency, account_id, counter_account_id,
+		INSERT INTO transactions (user_id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 		RETURNING id, created_at, updated_at
-	`, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
+	`, userID, tx.Type, tx.Amount, tx.Currency, tx.AccountID, tx.CounterAccountID,
 		tx.CategoryID, tx.Date, tx.Time, tx.Note, pq.Array(tx.Tags),
 		tx.ExchangeRate, tx.CounterAmount, tx.FeeAmount, tx.FeeAccountID,
 		tx.PersonID, tx.LinkedTransactionID, tx.RecurringRuleID,
@@ -124,15 +126,15 @@ func (r *TransactionRepo) CreateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 //   Laravel:  nullable columns are simply null in PHP (dynamic typing)
 //   Django:   nullable fields are None
 //   Go:       use *string for nullable strings, *float64 for nullable floats
-func (r *TransactionRepo) GetByID(ctx context.Context, id string) (models.Transaction, error) {
+func (r *TransactionRepo) GetByID(ctx context.Context, userID string, id string) (models.Transaction, error) {
 	var tx models.Transaction
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions WHERE id = $1
-	`, id).Scan(
+		FROM transactions WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(
 		&tx.ID, &tx.Type, &tx.Amount, &tx.Currency, &tx.AccountID,
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
 		&tx.Note, pq.Array(&tx.Tags), &tx.ExchangeRate, &tx.CounterAmount,
@@ -146,26 +148,26 @@ func (r *TransactionRepo) GetByID(ctx context.Context, id string) (models.Transa
 }
 
 // GetRecent retrieves the most recent transactions across all accounts.
-func (r *TransactionRepo) GetRecent(ctx context.Context, limit int) ([]models.Transaction, error) {
+func (r *TransactionRepo) GetRecent(ctx context.Context, userID string, limit int) ([]models.Transaction, error) {
 	return r.queryTransactions(ctx, `
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions ORDER BY date DESC, created_at DESC LIMIT $1
-	`, limit)
+		FROM transactions WHERE user_id = $1 ORDER BY date DESC, created_at DESC LIMIT $2
+	`, userID, limit)
 }
 
 // GetByAccount retrieves transactions for a specific account.
-func (r *TransactionRepo) GetByAccount(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
+func (r *TransactionRepo) GetByAccount(ctx context.Context, userID string, accountID string, limit int) ([]models.Transaction, error) {
 	return r.queryTransactions(ctx, `
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions WHERE account_id = $1
-		ORDER BY date DESC, created_at DESC LIMIT $2
-	`, accountID, limit)
+		FROM transactions WHERE account_id = $1 AND user_id = $2
+		ORDER BY date DESC, created_at DESC LIMIT $3
+	`, accountID, userID, limit)
 }
 
 // Update modifies a transaction's editable fields (type, amount, currency, category, note, date).
@@ -174,18 +176,18 @@ func (r *TransactionRepo) GetByAccount(ctx context.Context, accountID string, li
 // and ensures we return the most current data.
 //   Laravel:  $tx->update([...]); $tx->fresh();  // two queries
 //   Go:       UPDATE ... RETURNING *               // one query, PostgreSQL-specific
-func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (models.Transaction, error) {
+func (r *TransactionRepo) Update(ctx context.Context, userID string, tx models.Transaction) (models.Transaction, error) {
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE transactions SET
 			type = $2, amount = $3, currency = $4, category_id = $5,
 			note = $6, date = $7, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $8
 		RETURNING id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
 	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
-		tx.Note, tx.Date,
+		tx.Note, tx.Date, userID,
 	).Scan(
 		&tx.ID, &tx.Type, &tx.Amount, &tx.Currency, &tx.AccountID,
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
@@ -202,18 +204,18 @@ func (r *TransactionRepo) Update(ctx context.Context, tx models.Transaction) (mo
 // UpdateTx modifies a transaction within an existing database transaction (*sql.Tx).
 // Same as Update() but uses the passed-in *sql.Tx instead of the connection pool.
 // This ensures the update is part of an atomic operation with balance adjustments.
-func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
+func (r *TransactionRepo) UpdateTx(ctx context.Context, userID string, dbTx *sql.Tx, tx models.Transaction) (models.Transaction, error) {
 	err := dbTx.QueryRowContext(ctx, `
 		UPDATE transactions SET
 			type = $2, amount = $3, currency = $4, category_id = $5,
 			note = $6, date = $7, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $8
 		RETURNING id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
 	`, tx.ID, tx.Type, tx.Amount, tx.Currency, tx.CategoryID,
-		tx.Note, tx.Date,
+		tx.Note, tx.Date, userID,
 	).Scan(
 		&tx.ID, &tx.Type, &tx.Amount, &tx.Currency, &tx.AccountID,
 		&tx.CounterAccountID, &tx.CategoryID, &tx.Date, &tx.Time,
@@ -231,16 +233,16 @@ func (r *TransactionRepo) UpdateTx(ctx context.Context, dbTx *sql.Tx, tx models.
 // Used for transfers: the "from" and "to" transaction records point at each other
 // via linked_transaction_id, creating a bidirectional link. Two UPDATE statements
 // are needed because each row references the other.
-func (r *TransactionRepo) LinkTransactionsTx(ctx context.Context, dbTx *sql.Tx, id1, id2 string) error {
+func (r *TransactionRepo) LinkTransactionsTx(ctx context.Context, userID string, dbTx *sql.Tx, id1, id2 string) error {
 	_, err := dbTx.ExecContext(ctx, `
-		UPDATE transactions SET linked_transaction_id = $2 WHERE id = $1
-	`, id1, id2)
+		UPDATE transactions SET linked_transaction_id = $2 WHERE id = $1 AND user_id = $3
+	`, id1, id2, userID)
 	if err != nil {
 		return fmt.Errorf("linking %s → %s: %w", id1, id2, err)
 	}
 	_, err = dbTx.ExecContext(ctx, `
-		UPDATE transactions SET linked_transaction_id = $2 WHERE id = $1
-	`, id2, id1)
+		UPDATE transactions SET linked_transaction_id = $2 WHERE id = $1 AND user_id = $3
+	`, id2, id1, userID)
 	if err != nil {
 		return fmt.Errorf("linking %s → %s: %w", id2, id1, err)
 	}
@@ -248,8 +250,8 @@ func (r *TransactionRepo) LinkTransactionsTx(ctx context.Context, dbTx *sql.Tx, 
 }
 
 // Delete removes a transaction by ID.
-func (r *TransactionRepo) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM transactions WHERE id = $1`, id)
+func (r *TransactionRepo) Delete(ctx context.Context, userID string, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM transactions WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("deleting transaction: %w", err)
 	}
@@ -261,8 +263,8 @@ func (r *TransactionRepo) Delete(ctx context.Context, id string) error {
 }
 
 // DeleteTx removes a transaction within an existing database transaction.
-func (r *TransactionRepo) DeleteTx(ctx context.Context, dbTx *sql.Tx, id string) error {
-	result, err := dbTx.ExecContext(ctx, `DELETE FROM transactions WHERE id = $1`, id)
+func (r *TransactionRepo) DeleteTx(ctx context.Context, userID string, dbTx *sql.Tx, id string) error {
+	result, err := dbTx.ExecContext(ctx, `DELETE FROM transactions WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("deleting transaction: %w", err)
 	}
@@ -290,11 +292,11 @@ func (r *TransactionRepo) BeginTx(ctx context.Context) (*sql.Tx, error) {
 }
 
 // UpdateBalanceTx updates an account balance within a database transaction.
-func (r *TransactionRepo) UpdateBalanceTx(ctx context.Context, dbTx *sql.Tx, accountID string, delta float64) error {
+func (r *TransactionRepo) UpdateBalanceTx(ctx context.Context, userID string, dbTx *sql.Tx, accountID string, delta float64) error {
 	result, err := dbTx.ExecContext(ctx, `
 		UPDATE accounts SET current_balance = current_balance + $2, updated_at = now()
-		WHERE id = $1
-	`, accountID, delta)
+		WHERE id = $1 AND user_id = $3
+	`, accountID, delta, userID)
 	if err != nil {
 		return fmt.Errorf("updating balance: %w", err)
 	}
@@ -345,16 +347,17 @@ type TransactionFilter struct {
 //
 // ILIKE is PostgreSQL's case-insensitive LIKE (MySQL uses LIKE with a
 // case-insensitive collation by default; PostgreSQL's LIKE is case-sensitive).
-func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) ([]models.Transaction, error) {
+func (r *TransactionRepo) GetFiltered(ctx context.Context, userID string, f TransactionFilter) ([]models.Transaction, error) {
 	query := `
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions WHERE 1=1`
+		FROM transactions WHERE user_id = $1`
 
 	var args []any
-	argN := 1
+	args = append(args, userID)
+	argN := 2
 
 	if f.AccountID != "" {
 		query += fmt.Sprintf(" AND account_id = $%d", argN)
@@ -407,13 +410,13 @@ func (r *TransactionRepo) GetFiltered(ctx context.Context, f TransactionFilter) 
 
 // GetLastUsedAccountID returns the account_id from the most recent expense or income transaction.
 // Returns empty string if no history exists.
-func (r *TransactionRepo) GetLastUsedAccountID(ctx context.Context) (string, error) {
+func (r *TransactionRepo) GetLastUsedAccountID(ctx context.Context, userID string) (string, error) {
 	var accountID string
 	err := r.db.QueryRowContext(ctx, `
 		SELECT account_id FROM transactions
-		WHERE type IN ('expense', 'income')
+		WHERE type IN ('expense', 'income') AND user_id = $1
 		ORDER BY created_at DESC LIMIT 1
-	`).Scan(&accountID)
+	`, userID).Scan(&accountID)
 	if err != nil {
 		return "", err
 	}
@@ -432,7 +435,7 @@ func (r *TransactionRepo) GetLastUsedAccountID(ctx context.Context) (string, err
 //
 // This is used by the "smart category suggest" feature (TASK-079) to pre-select
 // the most likely category when creating a new transaction.
-func (r *TransactionRepo) GetRecentCategoryIDs(ctx context.Context, txType string, limit int) ([]string, error) {
+func (r *TransactionRepo) GetRecentCategoryIDs(ctx context.Context, userID string, txType string, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -440,12 +443,12 @@ func (r *TransactionRepo) GetRecentCategoryIDs(ctx context.Context, txType strin
 		SELECT category_id FROM (
 			SELECT category_id, MAX(created_at) as last_used, COUNT(*) as freq
 			FROM transactions
-			WHERE category_id IS NOT NULL AND type = $1
+			WHERE category_id IS NOT NULL AND type = $1 AND user_id = $2
 			GROUP BY category_id
 		) sub
 		ORDER BY freq DESC, last_used DESC
-		LIMIT $2
-	`, txType, limit)
+		LIMIT $3
+	`, txType, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("querying recent categories: %w", err)
 	}
@@ -464,15 +467,15 @@ func (r *TransactionRepo) GetRecentCategoryIDs(ctx context.Context, txType strin
 
 // GetConsecutiveCategoryID returns the category_id if it was used for the last N
 // consecutive expense or income transactions. Returns empty string otherwise.
-func (r *TransactionRepo) GetConsecutiveCategoryID(ctx context.Context, txType string, consecutiveCount int) (string, error) {
+func (r *TransactionRepo) GetConsecutiveCategoryID(ctx context.Context, userID string, txType string, consecutiveCount int) (string, error) {
 	if consecutiveCount <= 0 {
 		consecutiveCount = 3
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT category_id FROM transactions
-		WHERE type = $1 AND category_id IS NOT NULL
-		ORDER BY created_at DESC LIMIT $2
-	`, txType, consecutiveCount)
+		WHERE type = $1 AND category_id IS NOT NULL AND user_id = $2
+		ORDER BY created_at DESC LIMIT $3
+	`, txType, userID, consecutiveCount)
 	if err != nil {
 		return "", fmt.Errorf("querying consecutive categories: %w", err)
 	}
@@ -500,15 +503,15 @@ func (r *TransactionRepo) GetConsecutiveCategoryID(ctx context.Context, txType s
 }
 
 // GetByDateRange retrieves all transactions within a date range (for CSV export).
-func (r *TransactionRepo) GetByDateRange(ctx context.Context, from, to time.Time) ([]models.Transaction, error) {
+func (r *TransactionRepo) GetByDateRange(ctx context.Context, userID string, from, to time.Time) ([]models.Transaction, error) {
 	return r.queryTransactions(ctx, `
 		SELECT id, type, amount, currency, account_id, counter_account_id, category_id,
 			date, time, note, tags, exchange_rate, counter_amount, fee_amount, fee_account_id,
 			person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions WHERE date >= $1 AND date <= $2
+		FROM transactions WHERE date >= $1 AND date <= $2 AND user_id = $3
 		ORDER BY date DESC, created_at DESC
-	`, from, to)
+	`, from, to, userID)
 }
 
 // queryTransactions is the shared DRY helper for scanning transaction rows.
@@ -544,7 +547,7 @@ func (r *TransactionRepo) queryTransactions(ctx context.Context, query string, a
 
 // GetByPersonID returns all transactions linked to a specific person (loans, repayments).
 // Used by the person detail page (TASK-070).
-func (r *TransactionRepo) GetByPersonID(ctx context.Context, personID string, limit int) ([]models.Transaction, error) {
+func (r *TransactionRepo) GetByPersonID(ctx context.Context, userID string, personID string, limit int) ([]models.Transaction, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -553,27 +556,27 @@ func (r *TransactionRepo) GetByPersonID(ctx context.Context, personID string, li
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions WHERE person_id = $1
+		FROM transactions WHERE person_id = $1 AND user_id = $2
 		ORDER BY date DESC, created_at DESC LIMIT %d
-	`, limit), personID)
+	`, limit), personID, userID)
 }
 
 // GetByAccountDateRange returns transactions for a specific account within a date range.
 // Used by credit card statement view (TASK-071) to show transactions in a billing period.
-func (r *TransactionRepo) GetByAccountDateRange(ctx context.Context, accountID string, from, to time.Time) ([]models.Transaction, error) {
+func (r *TransactionRepo) GetByAccountDateRange(ctx context.Context, userID string, accountID string, from, to time.Time) ([]models.Transaction, error) {
 	return r.queryTransactions(ctx, `
 		SELECT id, type, amount, currency, account_id, counter_account_id,
 			category_id, date, time, note, tags, exchange_rate, counter_amount,
 			fee_amount, fee_account_id, person_id, linked_transaction_id,
 			recurring_rule_id, balance_delta, created_at, updated_at
-		FROM transactions WHERE account_id = $1 AND date >= $2 AND date <= $3
+		FROM transactions WHERE account_id = $1 AND date >= $2 AND date <= $3 AND user_id = $4
 		ORDER BY date DESC, created_at DESC
-	`, accountID, from, to)
+	`, accountID, from, to, userID)
 }
 
 // GetPaymentsToAccount returns income/transfer transactions that credit a specific account.
 // Used by credit card payment history (TASK-075).
-func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
+func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, userID string, accountID string, limit int) ([]models.Transaction, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -586,9 +589,10 @@ func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, accountID st
 		WHERE (account_id = $1 OR counter_account_id = $1)
 		  AND balance_delta > 0
 		  AND type IN ('income', 'transfer')
+		  AND user_id = $2
 		ORDER BY date DESC, created_at DESC
 		LIMIT %d
-	`, limit), accountID)
+	`, limit), accountID, userID)
 }
 
 // SuggestCategory returns the most common category ID for transactions whose note matches a keyword.
@@ -603,18 +607,18 @@ func (r *TransactionRepo) GetPaymentsToAccount(ctx context.Context, accountID st
 //   Django:   filter(note__icontains=keyword)
 //
 // Returns empty string on error or no match (silently fails — acceptable for suggestions).
-func (r *TransactionRepo) SuggestCategory(ctx context.Context, noteKeyword string) string {
+func (r *TransactionRepo) SuggestCategory(ctx context.Context, userID string, noteKeyword string) string {
 	if noteKeyword == "" {
 		return ""
 	}
 	var categoryID string
 	err := r.db.QueryRowContext(ctx, `
 		SELECT category_id FROM transactions
-		WHERE note ILIKE '%' || $1 || '%' AND category_id IS NOT NULL
+		WHERE note ILIKE '%' || $1 || '%' AND category_id IS NOT NULL AND user_id = $2
 		GROUP BY category_id
 		ORDER BY COUNT(*) DESC
 		LIMIT 1
-	`, noteKeyword).Scan(&categoryID)
+	`, noteKeyword, userID).Scan(&categoryID)
 	if err != nil {
 		return ""
 	}
@@ -631,15 +635,15 @@ func (r *TransactionRepo) SuggestCategory(ctx context.Context, noteKeyword strin
 //
 // The `_ = ...Scan(&exists)` discards any error — on failure, exists defaults to false.
 // This is acceptable here because a failed check should not block the UI.
-func (r *TransactionRepo) HasDepositInRange(ctx context.Context, accountID string, minAmount float64, from, to time.Time) bool {
+func (r *TransactionRepo) HasDepositInRange(ctx context.Context, userID string, accountID string, minAmount float64, from, to time.Time) bool {
 	var exists bool
 	_ = r.db.QueryRowContext(ctx, `
 		SELECT EXISTS(
 			SELECT 1 FROM transactions
 			WHERE account_id = $1 AND type = 'income' AND amount >= $2
-			  AND date >= $3 AND date < $4
+			  AND date >= $3 AND date < $4 AND user_id = $5
 		)
-	`, accountID, minAmount, from, to).Scan(&exists)
+	`, accountID, minAmount, from, to, userID).Scan(&exists)
 	return exists
 }
 
@@ -654,7 +658,7 @@ type TransactionDisplayRow struct {
 }
 
 // GetByIDEnriched retrieves a single transaction with account name and running balance.
-func (r *TransactionRepo) GetByIDEnriched(ctx context.Context, id string) (TransactionDisplayRow, error) {
+func (r *TransactionRepo) GetByIDEnriched(ctx context.Context, userID string, id string) (TransactionDisplayRow, error) {
 	rows, err := r.queryTransactionsEnriched(ctx, `
 		SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
 			sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
@@ -678,9 +682,10 @@ func (r *TransactionRepo) GetByIDEnriched(ctx context.Context, id string) (Trans
 				) AS running_balance
 			FROM transactions t
 			JOIN accounts a ON a.id = t.account_id
+			WHERE t.user_id = $1
 		) sub
-		WHERE sub.id = $1
-	`, id)
+		WHERE sub.id = $2
+	`, userID, id)
 	if err != nil {
 		return TransactionDisplayRow{}, fmt.Errorf("getting enriched transaction: %w", err)
 	}
@@ -691,7 +696,7 @@ func (r *TransactionRepo) GetByIDEnriched(ctx context.Context, id string) (Trans
 }
 
 // GetRecentEnriched retrieves recent transactions with account name and running balance.
-func (r *TransactionRepo) GetRecentEnriched(ctx context.Context, limit int) ([]TransactionDisplayRow, error) {
+func (r *TransactionRepo) GetRecentEnriched(ctx context.Context, userID string, limit int) ([]TransactionDisplayRow, error) {
 	return r.queryTransactionsEnriched(ctx, fmt.Sprintf(`
 		SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
 			sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
@@ -715,17 +720,18 @@ func (r *TransactionRepo) GetRecentEnriched(ctx context.Context, limit int) ([]T
 				) AS running_balance
 			FROM transactions t
 			JOIN accounts a ON a.id = t.account_id
+			WHERE t.user_id = $1
 		) sub
 		ORDER BY sub.date DESC, sub.created_at DESC
 		LIMIT %d
-	`, limit))
+	`, limit), userID)
 }
 
 // GetFilteredEnriched retrieves filtered transactions with account name and running balance.
 // The running balance is computed over ALL transactions for each account (via the inner
 // subquery), then filters are applied on the outer query. This ensures the balance shown
 // is always the true account balance at that point in time, regardless of active filters.
-func (r *TransactionRepo) GetFilteredEnriched(ctx context.Context, f TransactionFilter) ([]TransactionDisplayRow, error) {
+func (r *TransactionRepo) GetFilteredEnriched(ctx context.Context, userID string, f TransactionFilter) ([]TransactionDisplayRow, error) {
 	query := `
 		SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
 			sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
@@ -749,11 +755,13 @@ func (r *TransactionRepo) GetFilteredEnriched(ctx context.Context, f Transaction
 				) AS running_balance
 			FROM transactions t
 			JOIN accounts a ON a.id = t.account_id
+			WHERE t.user_id = $1
 		) sub
 		WHERE 1=1`
 
 	var args []any
-	argN := 1
+	args = append(args, userID)
+	argN := 2
 
 	if f.AccountID != "" {
 		query += fmt.Sprintf(" AND sub.account_id = $%d", argN)

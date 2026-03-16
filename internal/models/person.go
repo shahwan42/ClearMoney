@@ -27,6 +27,7 @@ import "time"
 // page load (similar to Laravel's withCount/withSum pattern, but pre-computed).
 type Person struct {
 	ID            string    `json:"id" db:"id"`
+	UserID        string    `json:"user_id" db:"user_id"`
 	Name          string    `json:"name" db:"name"`
 	Note          *string   `json:"note,omitempty" db:"note"`                   // *string = nullable; nil maps to SQL NULL. In Laravel: $table->string('note')->nullable(). In Django: CharField(null=True, blank=True)
 	NetBalance    float64   `json:"net_balance" db:"net_balance"`               // legacy sum of both currencies — kept for backward compat

@@ -55,7 +55,7 @@ func NewInstitutionService(repo *repository.InstitutionRepo) *InstitutionService
 //
 // Returns (models.Institution, error) — Go uses multiple return values instead of
 // throwing exceptions. The caller MUST check `err` (like Laravel's try/catch but explicit).
-func (s *InstitutionService) Create(ctx context.Context, inst models.Institution) (models.Institution, error) {
+func (s *InstitutionService) Create(ctx context.Context, userID string, inst models.Institution) (models.Institution, error) {
 	// Validation happens here in the service layer, not in the model.
 	// In Laravel you'd use FormRequest or Validator; in Go, we validate manually.
 	var err error
@@ -69,9 +69,10 @@ func (s *InstitutionService) Create(ctx context.Context, inst models.Institution
 	if inst.Type != models.InstitutionTypeBank && inst.Type != models.InstitutionTypeFintech && inst.Type != models.InstitutionTypeWallet {
 		return models.Institution{}, fmt.Errorf("invalid institution type: %s", inst.Type)
 	}
+	inst.UserID = userID
 	// Delegate to the repository for the actual DB insert.
 	// The repo returns the created model with its generated ID (like Eloquent's create()).
-	created, err := s.repo.Create(ctx, inst)
+	created, err := s.repo.Create(ctx, userID, inst)
 	if err != nil {
 		return models.Institution{}, err
 	}
@@ -82,26 +83,26 @@ func (s *InstitutionService) Create(ctx context.Context, inst models.Institution
 // GetByID retrieves an institution by ID.
 // Like Eloquent's Institution::findOrFail($id) or Django's Institution.objects.get(id=id).
 // Returns an error if not found (no exceptions — Go uses error return values).
-func (s *InstitutionService) GetByID(ctx context.Context, id string) (models.Institution, error) {
-	return s.repo.GetByID(ctx, id)
+func (s *InstitutionService) GetByID(ctx context.Context, userID string, id string) (models.Institution, error) {
+	return s.repo.GetByID(ctx, userID, id)
 }
 
 // GetAll retrieves all institutions.
 // Like Eloquent's Institution::all() or Django's Institution.objects.all().
 // Returns an empty slice (not nil) if no records exist.
-func (s *InstitutionService) GetAll(ctx context.Context) ([]models.Institution, error) {
-	return s.repo.GetAll(ctx)
+func (s *InstitutionService) GetAll(ctx context.Context, userID string) ([]models.Institution, error) {
+	return s.repo.GetAll(ctx, userID)
 }
 
 // Update validates and updates an institution.
 // The service layer re-validates even on update — unlike Laravel's sometimes() rule,
 // Go services typically validate every time since there's no FormRequest magic.
-func (s *InstitutionService) Update(ctx context.Context, inst models.Institution) (models.Institution, error) {
+func (s *InstitutionService) Update(ctx context.Context, userID string, inst models.Institution) (models.Institution, error) {
 	var err error
 	if inst.Name, err = requireTrimmedName(inst.Name, "institution name"); err != nil {
 		return models.Institution{}, err
 	}
-	updated, err := s.repo.Update(ctx, inst)
+	updated, err := s.repo.Update(ctx, userID, inst)
 	if err != nil {
 		return models.Institution{}, err
 	}
@@ -113,8 +114,8 @@ func (s *InstitutionService) Update(ctx context.Context, inst models.Institution
 // Note: returns only error, not (model, error). When a Go function returns
 // a single error, it means the operation either succeeded (nil) or failed (non-nil).
 // This is like Laravel's $institution->delete() which returns bool.
-func (s *InstitutionService) Delete(ctx context.Context, id string) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
+func (s *InstitutionService) Delete(ctx context.Context, userID string, id string) error {
+	if err := s.repo.Delete(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "institution.deleted", "id", id)
@@ -124,6 +125,6 @@ func (s *InstitutionService) Delete(ctx context.Context, id string) error {
 // UpdateDisplayOrder sets the display order for an institution.
 // Used for drag-and-drop reordering in the UI. The order int maps to
 // a display_order column in the database (like Laravel's sortable trait).
-func (s *InstitutionService) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
-	return s.repo.UpdateDisplayOrder(ctx, id, order)
+func (s *InstitutionService) UpdateDisplayOrder(ctx context.Context, userID string, id string, order int) error {
+	return s.repo.UpdateDisplayOrder(ctx, userID, id, order)
 }

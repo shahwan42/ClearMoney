@@ -24,33 +24,37 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/shahwan42/clearmoney/internal/config"
 	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
 // testRouter creates a fully-wired router with auth pre-configured for testing.
-// Returns the router and an addAuth function that adds the session cookie to requests.
+// Returns the router, an addAuth function that adds the session cookie to requests,
+// and the authenticated user's ID (needed for setting UserID on fixture data).
 //
 // Usage in tests:
-//   router, addAuth := testRouter(t, db)
-//   req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
-//   addAuth(req)  // adds the clearmoney_session cookie
-//   w := httptest.NewRecorder()
-//   router.ServeHTTP(w, req)
+//
+//	router, addAuth, userID := testRouter(t, db)
+//	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
+//	req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
+//	addAuth(req)  // adds the clearmoney_session cookie
+//	w := httptest.NewRecorder()
+//	router.ServeHTTP(w, req)
 //
 // This pattern is similar to:
 //   - Laravel: $this->actingAs($user)->get('/accounts')
 //   - Django: self.client.login(username='test', password='test')
 //
 // The addAuth function is a closure — it captures the session cookie from
-// testutil.SetupAuth and adds it to any request. Closures in Go work like
+// testutil.SetupAuthWithUserID and adds it to any request. Closures in Go work like
 // PHP's use() keyword in anonymous functions, or Python's closures.
-func testRouter(t *testing.T, db *sql.DB) (*chi.Mux, func(req *http.Request)) {
+func testRouter(t *testing.T, db *sql.DB) (*chi.Mux, func(req *http.Request), string) {
 	t.Helper()
-	// SetupAuth creates a user_config row with PIN "1234" and returns the session cookie.
-	cookie := testutil.SetupAuth(t, db)
-	router := NewRouter(db, time.UTC)
+	// SetupAuthWithUserID creates a user and session, returning both cookie and user ID.
+	cookie, userID := testutil.SetupAuthWithUserID(t, db)
+	router := NewRouter(db, time.UTC, config.Config{})
 	addAuth := func(req *http.Request) {
 		req.AddCookie(cookie)
 	}
-	return router, addAuth
+	return router, addAuth, userID
 }

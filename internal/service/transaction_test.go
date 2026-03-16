@@ -35,36 +35,38 @@ import (
 // setupTransactionServiceTest creates a clean environment with a transaction service,
 // an account, and an expense category for testing.
 //
-// Returns (service, account, categoryID) — a Go idiom for returning multiple values from helpers.
+// Returns (service, account, categoryID, userID) — a Go idiom for returning multiple values from helpers.
 // The t.Helper() call marks this as a helper so stack traces skip to the calling test.
-func setupTransactionServiceTest(t *testing.T) (*TransactionService, models.Account, string) {
+func setupTransactionServiceTest(t *testing.T) (*TransactionService, models.Account, string, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 	catID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
 
-	return svc, acc, catID
+	return svc, acc, catID, userID
 }
 
 func TestTransactionService_Create_Expense(t *testing.T) {
-	svc, acc, catID := setupTransactionServiceTest(t)
+	svc, acc, catID, userID := setupTransactionServiceTest(t)
 
-	created, newBalance, err := svc.Create(context.Background(), models.Transaction{
+	created, newBalance, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:       models.TransactionTypeExpense,
 		Amount:     3000,
 		Currency:   models.CurrencyEGP,
@@ -84,10 +86,10 @@ func TestTransactionService_Create_Expense(t *testing.T) {
 }
 
 func TestTransactionService_Create_Income(t *testing.T) {
-	svc, acc, _ := setupTransactionServiceTest(t)
+	svc, acc, _, userID := setupTransactionServiceTest(t)
 	catID := testutil.GetFirstCategoryID(t, testutil.NewTestDB(t), models.CategoryTypeIncome)
 
-	created, newBalance, err := svc.Create(context.Background(), models.Transaction{
+	created, newBalance, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:       models.TransactionTypeIncome,
 		Amount:     5000,
 		Currency:   models.CurrencyEGP,
@@ -119,7 +121,7 @@ func TestTransactionService_Create_Income(t *testing.T) {
 // Benefits: each sub-test runs independently, has its own name, and can be run in isolation:
 //   go test -run TestTransactionService_Create_Validation/zero_amount
 func TestTransactionService_Create_Validation(t *testing.T) {
-	svc, acc, _ := setupTransactionServiceTest(t)
+	svc, acc, _, userID := setupTransactionServiceTest(t)
 
 	// Anonymous struct: Go lets you define struct types inline for one-off use.
 	// Each element has a test name and a Transaction with intentionally invalid data.
@@ -136,7 +138,7 @@ func TestTransactionService_Create_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := svc.Create(context.Background(), tt.tx)
+			_, _, err := svc.Create(context.Background(), userID, tt.tx)
 			if err == nil {
 				t.Errorf("expected validation error for %s", tt.name)
 			}
@@ -145,10 +147,10 @@ func TestTransactionService_Create_Validation(t *testing.T) {
 }
 
 func TestTransactionService_Delete_ReversesBalance(t *testing.T) {
-	svc, acc, _ := setupTransactionServiceTest(t)
+	svc, acc, _, userID := setupTransactionServiceTest(t)
 
 	// Create an expense that decreases balance by 2000
-	created, _, err := svc.Create(context.Background(), models.Transaction{
+	created, _, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeExpense,
 		Amount:    2000,
 		Currency:  models.CurrencyEGP,
@@ -159,12 +161,12 @@ func TestTransactionService_Delete_ReversesBalance(t *testing.T) {
 	}
 
 	// Delete it — balance should be restored to 10000
-	if err := svc.Delete(context.Background(), created.ID); err != nil {
+	if err := svc.Delete(context.Background(), userID, created.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
 	// Verify balance is restored
-	_, newBalance, err := svc.Create(context.Background(), models.Transaction{
+	_, newBalance, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeExpense,
 		Amount:    0.01, // tiny transaction just to check balance
 		Currency:  models.CurrencyEGP,
@@ -181,10 +183,10 @@ func TestTransactionService_Delete_ReversesBalance(t *testing.T) {
 }
 
 func TestTransactionService_GetRecent(t *testing.T) {
-	svc, acc, _ := setupTransactionServiceTest(t)
+	svc, acc, _, userID := setupTransactionServiceTest(t)
 
 	for i := 0; i < 3; i++ {
-		svc.Create(context.Background(), models.Transaction{
+		svc.Create(context.Background(), userID, models.Transaction{
 			Type:      models.TransactionTypeExpense,
 			Amount:    float64(100 * (i + 1)),
 			Currency:  models.CurrencyEGP,
@@ -192,7 +194,7 @@ func TestTransactionService_GetRecent(t *testing.T) {
 		})
 	}
 
-	txns, err := svc.GetRecent(context.Background(), 2)
+	txns, err := svc.GetRecent(context.Background(), userID, 2)
 	if err != nil {
 		t.Fatalf("get recent: %v", err)
 	}
@@ -202,10 +204,10 @@ func TestTransactionService_GetRecent(t *testing.T) {
 }
 
 func TestTransactionService_GetRecent_DefaultLimit(t *testing.T) {
-	svc, _, _ := setupTransactionServiceTest(t)
+	svc, _, _, userID := setupTransactionServiceTest(t)
 
 	// Passing 0 should default to 15
-	txns, err := svc.GetRecent(context.Background(), 0)
+	txns, err := svc.GetRecent(context.Background(), userID, 0)
 	if err != nil {
 		t.Fatalf("get recent: %v", err)
 	}
@@ -214,14 +216,14 @@ func TestTransactionService_GetRecent_DefaultLimit(t *testing.T) {
 }
 
 func TestTransactionService_GetByAccount(t *testing.T) {
-	svc, acc, _ := setupTransactionServiceTest(t)
+	svc, acc, _, userID := setupTransactionServiceTest(t)
 
-	svc.Create(context.Background(), models.Transaction{
+	svc.Create(context.Background(), userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 100,
 		Currency: models.CurrencyEGP, AccountID: acc.ID,
 	})
 
-	txns, err := svc.GetByAccount(context.Background(), acc.ID, 10)
+	txns, err := svc.GetByAccount(context.Background(), userID, acc.ID, 10)
 	if err != nil {
 		t.Fatalf("get by account: %v", err)
 	}
@@ -235,20 +237,21 @@ func TestTransactionService_CreateTransfer(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	src := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Checking", Currency: models.CurrencyEGP, InitialBalance: 10000,
+		InstitutionID: inst.ID, Name: "Checking", Currency: models.CurrencyEGP, InitialBalance: 10000, UserID: userID,
 	})
 	dst := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP, InitialBalance: 5000,
+		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP, InitialBalance: 5000, UserID: userID,
 	})
 
-	debit, credit, err := svc.CreateTransfer(context.Background(), src.ID, dst.ID, 3000, models.CurrencyEGP, nil, time.Time{})
+	debit, credit, err := svc.CreateTransfer(context.Background(), userID, src.ID, dst.ID, 3000, models.CurrencyEGP, nil, time.Time{})
 	if err != nil {
 		t.Fatalf("create transfer: %v", err)
 	}
@@ -264,8 +267,8 @@ func TestTransactionService_CreateTransfer(t *testing.T) {
 	}
 
 	// Verify balances: src = 10000 - 3000 = 7000, dst = 5000 + 3000 = 8000
-	srcAcc, _ := accRepo.GetByID(context.Background(), src.ID)
-	dstAcc, _ := accRepo.GetByID(context.Background(), dst.ID)
+	srcAcc, _ := accRepo.GetByID(context.Background(), userID, src.ID)
+	dstAcc, _ := accRepo.GetByID(context.Background(), userID, dst.ID)
 
 	if srcAcc.CurrentBalance != 7000 {
 		t.Errorf("source balance: expected 7000, got %f", srcAcc.CurrentBalance)
@@ -276,9 +279,9 @@ func TestTransactionService_CreateTransfer(t *testing.T) {
 }
 
 func TestTransactionService_CreateTransfer_SameAccount(t *testing.T) {
-	svc, acc, _ := setupTransactionServiceTest(t)
+	svc, acc, _, userID := setupTransactionServiceTest(t)
 
-	_, _, err := svc.CreateTransfer(context.Background(), acc.ID, acc.ID, 1000, models.CurrencyEGP, nil, time.Time{})
+	_, _, err := svc.CreateTransfer(context.Background(), userID, acc.ID, acc.ID, 1000, models.CurrencyEGP, nil, time.Time{})
 	if err == nil {
 		t.Error("expected error for same-account transfer")
 	}
@@ -289,20 +292,21 @@ func TestTransactionService_CreateTransfer_CrossCurrency(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	egp := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 10000,
+		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 10000, UserID: userID,
 	})
 	usd := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 5000,
+		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 5000, UserID: userID,
 	})
 
-	_, _, err := svc.CreateTransfer(context.Background(), egp.ID, usd.ID, 1000, models.CurrencyEGP, nil, time.Time{})
+	_, _, err := svc.CreateTransfer(context.Background(), userID, egp.ID, usd.ID, 1000, models.CurrencyEGP, nil, time.Time{})
 	if err == nil {
 		t.Error("expected error for cross-currency transfer")
 	}
@@ -313,32 +317,33 @@ func TestTransactionService_DeleteTransfer_ReversesBothBalances(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	src := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Checking", Currency: models.CurrencyEGP, InitialBalance: 10000,
+		InstitutionID: inst.ID, Name: "Checking", Currency: models.CurrencyEGP, InitialBalance: 10000, UserID: userID,
 	})
 	dst := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP, InitialBalance: 5000,
+		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP, InitialBalance: 5000, UserID: userID,
 	})
 
-	debit, _, err := svc.CreateTransfer(context.Background(), src.ID, dst.ID, 3000, models.CurrencyEGP, nil, time.Time{})
+	debit, _, err := svc.CreateTransfer(context.Background(), userID, src.ID, dst.ID, 3000, models.CurrencyEGP, nil, time.Time{})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
 	// Delete the debit leg — should also delete credit and reverse both
-	if err := svc.Delete(context.Background(), debit.ID); err != nil {
+	if err := svc.Delete(context.Background(), userID, debit.ID); err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
 	// Balances should be restored
-	srcAcc, _ := accRepo.GetByID(context.Background(), src.ID)
-	dstAcc, _ := accRepo.GetByID(context.Background(), dst.ID)
+	srcAcc, _ := accRepo.GetByID(context.Background(), userID, src.ID)
+	dstAcc, _ := accRepo.GetByID(context.Background(), userID, dst.ID)
 
 	if srcAcc.CurrentBalance != 10000 {
 		t.Errorf("source: expected 10000, got %f", srcAcc.CurrentBalance)
@@ -353,12 +358,13 @@ func TestTransactionService_CreditCard_ExpenseMakesNegative(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	creditLimit := 500000.0
 	cc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
@@ -367,10 +373,11 @@ func TestTransactionService_CreditCard_ExpenseMakesNegative(t *testing.T) {
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0,
 		CreditLimit:    &creditLimit,
+		UserID:         userID,
 	})
 
 	// Expense on credit card: balance should go negative
-	_, newBalance, err := svc.Create(context.Background(), models.Transaction{
+	_, newBalance, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeExpense,
 		Amount:    50000,
 		Currency:  models.CurrencyEGP,
@@ -389,12 +396,13 @@ func TestTransactionService_CreditCard_PaymentRestoresBalance(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	creditLimit := 500000.0
 	cc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
@@ -403,16 +411,17 @@ func TestTransactionService_CreditCard_PaymentRestoresBalance(t *testing.T) {
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0,
 		CreditLimit:    &creditLimit,
+		UserID:         userID,
 	})
 
 	// Expense: 0 → -100000
-	svc.Create(context.Background(), models.Transaction{
+	svc.Create(context.Background(), userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 100000,
 		Currency: models.CurrencyEGP, AccountID: cc.ID,
 	})
 
 	// Payment (income): -100000 → -70000
-	_, newBalance, err := svc.Create(context.Background(), models.Transaction{
+	_, newBalance, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeIncome,
 		Amount:    30000,
 		Currency:  models.CurrencyEGP,
@@ -431,12 +440,13 @@ func TestTransactionService_CreditCard_ExceedLimit(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	creditLimit := 10000.0
 	cc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
@@ -445,10 +455,11 @@ func TestTransactionService_CreditCard_ExceedLimit(t *testing.T) {
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0,
 		CreditLimit:    &creditLimit,
+		UserID:         userID,
 	})
 
 	// Try to exceed the 10000 limit
-	_, _, err := svc.Create(context.Background(), models.Transaction{
+	_, _, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeExpense,
 		Amount:    15000,
 		Currency:  models.CurrencyEGP,
@@ -464,6 +475,7 @@ func TestTransactionService_CreateExchange(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
@@ -471,18 +483,18 @@ func TestTransactionService_CreateExchange(t *testing.T) {
 	svc := NewTransactionService(txRepo, accRepo)
 	svc.SetExchangeRateRepo(rateRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	usd := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "USD Account", Currency: models.CurrencyUSD, InitialBalance: 5000,
+		InstitutionID: inst.ID, Name: "USD Account", Currency: models.CurrencyUSD, InitialBalance: 5000, UserID: userID,
 	})
 	egp := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "EGP Account", Currency: models.CurrencyEGP, InitialBalance: 100000,
+		InstitutionID: inst.ID, Name: "EGP Account", Currency: models.CurrencyEGP, InitialBalance: 100000, UserID: userID,
 	})
 
 	// Exchange 1000 USD at rate 50.5 → 50500 EGP
 	amount := 1000.0
 	rate := 50.5
-	debit, credit, err := svc.CreateExchange(context.Background(), ExchangeParams{
+	debit, credit, err := svc.CreateExchange(context.Background(), userID, ExchangeParams{
 		SourceAccountID: usd.ID,
 		DestAccountID:   egp.ID,
 		Amount:          &amount,
@@ -503,8 +515,8 @@ func TestTransactionService_CreateExchange(t *testing.T) {
 	}
 
 	// Verify balances
-	usdAcc, _ := accRepo.GetByID(context.Background(), usd.ID)
-	egpAcc, _ := accRepo.GetByID(context.Background(), egp.ID)
+	usdAcc, _ := accRepo.GetByID(context.Background(), userID, usd.ID)
+	egpAcc, _ := accRepo.GetByID(context.Background(), userID, egp.ID)
 
 	if usdAcc.CurrentBalance != 4000 {
 		t.Errorf("USD balance: expected 4000, got %f", usdAcc.CurrentBalance)
@@ -519,23 +531,24 @@ func TestTransactionService_CreateExchange_AutoCalcRate(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	usd := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 5000,
+		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 5000, UserID: userID,
 	})
 	egp := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 100000,
+		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 100000, UserID: userID,
 	})
 
 	// Provide amount + counter_amount, rate should be auto-calculated
 	amount := 100.0
 	counterAmount := 5050.0
-	_, _, err := svc.CreateExchange(context.Background(), ExchangeParams{
+	_, _, err := svc.CreateExchange(context.Background(), userID, ExchangeParams{
 		SourceAccountID: usd.ID,
 		DestAccountID:   egp.ID,
 		Amount:          &amount,
@@ -546,7 +559,7 @@ func TestTransactionService_CreateExchange_AutoCalcRate(t *testing.T) {
 	}
 
 	// Rate should be 5050/100 = 50.5
-	usdAcc, _ := accRepo.GetByID(context.Background(), usd.ID)
+	usdAcc, _ := accRepo.GetByID(context.Background(), userID, usd.ID)
 	if usdAcc.CurrentBalance != 4900 {
 		t.Errorf("expected 4900, got %f", usdAcc.CurrentBalance)
 	}
@@ -557,22 +570,23 @@ func TestTransactionService_CreateExchange_SameCurrency(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	acc1 := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "A1", Currency: models.CurrencyEGP, InitialBalance: 1000,
+		InstitutionID: inst.ID, Name: "A1", Currency: models.CurrencyEGP, InitialBalance: 1000, UserID: userID,
 	})
 	acc2 := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "A2", Currency: models.CurrencyEGP, InitialBalance: 1000,
+		InstitutionID: inst.ID, Name: "A2", Currency: models.CurrencyEGP, InitialBalance: 1000, UserID: userID,
 	})
 
 	amount := 100.0
 	rate := 1.0
-	_, _, err := svc.CreateExchange(context.Background(), ExchangeParams{
+	_, _, err := svc.CreateExchange(context.Background(), userID, ExchangeParams{
 		SourceAccountID: acc1.ID,
 		DestAccountID:   acc2.ID,
 		Amount:          &amount,
@@ -592,6 +606,7 @@ func TestTransactionService_CreateExchange_EGPtoUSD(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 	testutil.CleanTable(t, db, "exchange_rate_log")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
@@ -599,18 +614,18 @@ func TestTransactionService_CreateExchange_EGPtoUSD(t *testing.T) {
 	svc := NewTransactionService(txRepo, accRepo)
 	svc.SetExchangeRateRepo(rateRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank", UserID: userID})
 	egp := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "EGP Account", Currency: models.CurrencyEGP, InitialBalance: 100000,
+		InstitutionID: inst.ID, Name: "EGP Account", Currency: models.CurrencyEGP, InitialBalance: 100000, UserID: userID,
 	})
 	usd := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "USD Account", Currency: models.CurrencyUSD, InitialBalance: 2000,
+		InstitutionID: inst.ID, Name: "USD Account", Currency: models.CurrencyUSD, InitialBalance: 2000, UserID: userID,
 	})
 
 	// Exchange 5000 EGP at rate 50 (1 USD = 50 EGP) → should yield 100 USD
 	amount := 5000.0
 	rate := 50.0
-	debit, credit, err := svc.CreateExchange(context.Background(), ExchangeParams{
+	debit, credit, err := svc.CreateExchange(context.Background(), userID, ExchangeParams{
 		SourceAccountID: egp.ID,
 		DestAccountID:   usd.ID,
 		Amount:          &amount,
@@ -635,8 +650,8 @@ func TestTransactionService_CreateExchange_EGPtoUSD(t *testing.T) {
 	}
 
 	// Verify balances
-	egpAcc, _ := accRepo.GetByID(context.Background(), egp.ID)
-	usdAcc, _ := accRepo.GetByID(context.Background(), usd.ID)
+	egpAcc, _ := accRepo.GetByID(context.Background(), userID, egp.ID)
+	usdAcc, _ := accRepo.GetByID(context.Background(), userID, usd.ID)
 	if egpAcc.CurrentBalance != 95000 {
 		t.Errorf("EGP balance: expected 95000, got %f", egpAcc.CurrentBalance)
 	}
@@ -665,6 +680,7 @@ func TestTransactionService_CreateExchange_EGPtoUSD_AutoCalc(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 	testutil.CleanTable(t, db, "exchange_rate_log")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
@@ -672,18 +688,18 @@ func TestTransactionService_CreateExchange_EGPtoUSD_AutoCalc(t *testing.T) {
 	svc := NewTransactionService(txRepo, accRepo)
 	svc.SetExchangeRateRepo(rateRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Bank", UserID: userID})
 	egp := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 100000,
+		InstitutionID: inst.ID, Name: "EGP", Currency: models.CurrencyEGP, InitialBalance: 100000, UserID: userID,
 	})
 	usd := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 2000,
+		InstitutionID: inst.ID, Name: "USD", Currency: models.CurrencyUSD, InitialBalance: 2000, UserID: userID,
 	})
 
 	// Provide amount (EGP) + counter_amount (USD), rate should be auto-logged as 50
 	amount := 5000.0
 	counter := 100.0
-	_, _, err := svc.CreateExchange(context.Background(), ExchangeParams{
+	_, _, err := svc.CreateExchange(context.Background(), userID, ExchangeParams{
 		SourceAccountID: egp.ID,
 		DestAccountID:   usd.ID,
 		Amount:          &amount,
@@ -731,23 +747,24 @@ func TestTransactionService_CreateInstapayTransfer(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	src := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Source", Currency: models.CurrencyEGP, InitialBalance: 50000,
+		InstitutionID: inst.ID, Name: "Source", Currency: models.CurrencyEGP, InitialBalance: 50000, UserID: userID,
 	})
 	dest := testutil.CreateAccount(t, db, models.Account{
-		InstitutionID: inst.ID, Name: "Dest", Currency: models.CurrencyEGP, InitialBalance: 10000,
+		InstitutionID: inst.ID, Name: "Dest", Currency: models.CurrencyEGP, InitialBalance: 10000, UserID: userID,
 	})
 
 	feesCatID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
 
 	_, _, fee, err := svc.CreateInstapayTransfer(
-		context.Background(), src.ID, dest.ID, 10000, models.CurrencyEGP, nil, time.Now(), feesCatID,
+		context.Background(), userID, src.ID, dest.ID, 10000, models.CurrencyEGP, nil, time.Now(), feesCatID,
 	)
 	if err != nil {
 		t.Fatalf("instapay transfer: %v", err)
@@ -757,62 +774,62 @@ func TestTransactionService_CreateInstapayTransfer(t *testing.T) {
 	}
 
 	// Source balance: 50000 - 10000 (transfer) - 10 (fee) = 39990
-	srcAcc, _ := accRepo.GetByID(context.Background(), src.ID)
+	srcAcc, _ := accRepo.GetByID(context.Background(), userID, src.ID)
 	if srcAcc.CurrentBalance != 39990 {
 		t.Errorf("expected source balance 39990, got %f", srcAcc.CurrentBalance)
 	}
 
 	// Dest balance: 10000 + 10000 = 20000
-	destAcc, _ := accRepo.GetByID(context.Background(), dest.ID)
+	destAcc, _ := accRepo.GetByID(context.Background(), userID, dest.ID)
 	if destAcc.CurrentBalance != 20000 {
 		t.Errorf("expected dest balance 20000, got %f", destAcc.CurrentBalance)
 	}
 }
 
 func TestTransactionService_SmartDefaults_LastAccount(t *testing.T) {
-	svc, acc, catID := setupTransactionServiceTest(t)
+	svc, acc, catID, userID := setupTransactionServiceTest(t)
 	ctx := context.Background()
 
 	// No history: defaults should be empty
-	defaults := svc.GetSmartDefaults(ctx, "expense")
+	defaults := svc.GetSmartDefaults(ctx, userID, "expense")
 	if defaults.LastAccountID != "" {
 		t.Errorf("expected empty last account, got %q", defaults.LastAccountID)
 	}
 
 	// Create a transaction
-	svc.Create(ctx, models.Transaction{
+	svc.Create(ctx, userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 100,
 		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
 	})
 
-	defaults = svc.GetSmartDefaults(ctx, "expense")
+	defaults = svc.GetSmartDefaults(ctx, userID, "expense")
 	if defaults.LastAccountID != acc.ID {
 		t.Errorf("expected last account %q, got %q", acc.ID, defaults.LastAccountID)
 	}
 }
 
 func TestTransactionService_SmartDefaults_AutoCategory(t *testing.T) {
-	svc, acc, catID := setupTransactionServiceTest(t)
+	svc, acc, catID, userID := setupTransactionServiceTest(t)
 	ctx := context.Background()
 
 	// Create 2 transactions with same category — not enough for auto-select
 	for i := 0; i < 2; i++ {
-		svc.Create(ctx, models.Transaction{
+		svc.Create(ctx, userID, models.Transaction{
 			Type: models.TransactionTypeExpense, Amount: 50,
 			Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
 		})
 	}
-	defaults := svc.GetSmartDefaults(ctx, "expense")
+	defaults := svc.GetSmartDefaults(ctx, userID, "expense")
 	if defaults.AutoCategoryID != "" {
 		t.Error("expected no auto-category with only 2 consecutive uses")
 	}
 
 	// Third consecutive use — should trigger auto-select
-	svc.Create(ctx, models.Transaction{
+	svc.Create(ctx, userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 50,
 		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
 	})
-	defaults = svc.GetSmartDefaults(ctx, "expense")
+	defaults = svc.GetSmartDefaults(ctx, userID, "expense")
 	if defaults.AutoCategoryID != catID {
 		t.Errorf("expected auto-category %q after 3 uses, got %q", catID, defaults.AutoCategoryID)
 	}
@@ -823,24 +840,25 @@ func TestTransactionService_FawryCashout(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	creditLimit := 100000.0
 	cc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "Credit Card", Type: models.AccountTypeCreditCard,
-		Currency: models.CurrencyEGP, InitialBalance: 0, CreditLimit: &creditLimit,
+		Currency: models.CurrencyEGP, InitialBalance: 0, CreditLimit: &creditLimit, UserID: userID,
 	})
 	prepaid := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "Fawry Prepaid", Type: models.AccountTypePrepaid,
-		Currency: models.CurrencyEGP, InitialBalance: 0,
+		Currency: models.CurrencyEGP, InitialBalance: 0, UserID: userID,
 	})
 
 	charge, credit, err := svc.CreateFawryCashout(
-		context.Background(), cc.ID, prepaid.ID,
+		context.Background(), userID, cc.ID, prepaid.ID,
 		5000, 50, models.CurrencyEGP, nil, time.Now(), "",
 	)
 	if err != nil {
@@ -864,13 +882,13 @@ func TestTransactionService_FawryCashout(t *testing.T) {
 	}
 
 	// Credit card: 0 - 5050 = -5050
-	ccAcc, _ := accRepo.GetByID(context.Background(), cc.ID)
+	ccAcc, _ := accRepo.GetByID(context.Background(), userID, cc.ID)
 	if ccAcc.CurrentBalance != -5050 {
 		t.Errorf("cc balance = %f, want -5050", ccAcc.CurrentBalance)
 	}
 
 	// Prepaid: 0 + 5000 = 5000
-	prepaidAcc, _ := accRepo.GetByID(context.Background(), prepaid.ID)
+	prepaidAcc, _ := accRepo.GetByID(context.Background(), userID, prepaid.ID)
 	if prepaidAcc.CurrentBalance != 5000 {
 		t.Errorf("prepaid balance = %f, want 5000", prepaidAcc.CurrentBalance)
 	}
@@ -886,6 +904,7 @@ func TestTransactionService_FawryCashout_ValidationErrors(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
@@ -907,7 +926,7 @@ func TestTransactionService_FawryCashout_ValidationErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, _, err := svc.CreateFawryCashout(
-				context.Background(), tt.ccID, tt.prepaidID,
+				context.Background(), userID, tt.ccID, tt.prepaidID,
 				tt.amount, tt.fee, models.CurrencyEGP, nil, time.Now(), "",
 			)
 			if err == nil {
@@ -926,22 +945,24 @@ func TestTransactionService_Create_OverridesCurrencyFromAccount(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	usdAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "USD Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyUSD,
 		InitialBalance: 1000,
+		UserID:         userID,
 	})
 
 	// Simulate the bug: caller passes EGP currency for a USD account
-	created, _, err := svc.Create(context.Background(), models.Transaction{
+	created, _, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeExpense,
 		Amount:    50,
 		Currency:  models.CurrencyEGP, // wrong — should be overridden to USD
@@ -962,22 +983,24 @@ func TestTransactionService_Update_OverridesCurrencyFromAccount(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
 	txRepo := repository.NewTransactionRepo(db)
 	accRepo := repository.NewAccountRepo(db)
 	svc := NewTransactionService(txRepo, accRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	usdAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "USD Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyUSD,
 		InitialBalance: 1000,
+		UserID:         userID,
 	})
 
 	// Create with correct currency
-	created, _, err := svc.Create(context.Background(), models.Transaction{
+	created, _, err := svc.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeExpense,
 		Amount:    50,
 		Currency:  models.CurrencyUSD,
@@ -988,7 +1011,7 @@ func TestTransactionService_Update_OverridesCurrencyFromAccount(t *testing.T) {
 	}
 
 	// Update with wrong currency — should be overridden
-	updated, _, err := svc.Update(context.Background(), models.Transaction{
+	updated, _, err := svc.Update(context.Background(), userID, models.Transaction{
 		ID:        created.ID,
 		Type:      models.TransactionTypeExpense,
 		Amount:    75,
@@ -1004,16 +1027,16 @@ func TestTransactionService_Update_OverridesCurrencyFromAccount(t *testing.T) {
 }
 
 func TestTransactionService_SmartDefaults_RecentCategories(t *testing.T) {
-	svc, acc, catID := setupTransactionServiceTest(t)
+	svc, acc, catID, userID := setupTransactionServiceTest(t)
 	ctx := context.Background()
 
 	// Create a few transactions
-	svc.Create(ctx, models.Transaction{
+	svc.Create(ctx, userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 100,
 		Currency: models.CurrencyEGP, AccountID: acc.ID, CategoryID: &catID,
 	})
 
-	defaults := svc.GetSmartDefaults(ctx, "expense")
+	defaults := svc.GetSmartDefaults(ctx, userID, "expense")
 	if len(defaults.RecentCategoryIDs) == 0 {
 		t.Error("expected at least 1 recent category")
 	}

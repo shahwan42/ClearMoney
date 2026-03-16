@@ -78,6 +78,7 @@ const (
 //     $hidden but conditional on emptiness.
 type Institution struct {
 	ID           string          `json:"id" db:"id"`
+	UserID       string          `json:"user_id" db:"user_id"`
 	Name         string          `json:"name" db:"name"`
 	Type         InstitutionType `json:"type" db:"type"`
 	Color        *string         `json:"color,omitempty" db:"color"` // hex color for UI theming; *string means nullable — nil = no color set (SQL NULL)

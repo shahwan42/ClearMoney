@@ -65,7 +65,7 @@ func TestHomePage_Renders(t *testing.T) {
 	checks := []string{
 		"ClearMoney",          // header
 		"tailwindcss",         // Tailwind CDN
-		"htmx.org",            // HTMX script
+		"htmx.org",           // HTMX script
 		"Welcome to ClearMoney", // dashboard empty state (TASK-081)
 		"/static/css/app.css",      // custom CSS link
 		"/static/manifest.json",    // PWA manifest
@@ -120,17 +120,19 @@ func TestAccountsPage_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
+	router, addAuth, userID := testRouter(t, db)
+
 	// Create an institution with an account
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -159,7 +161,7 @@ func TestAccountsPage_Empty(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/accounts", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -181,16 +183,18 @@ func TestTransactionNewPage_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
+	router, addAuth, userID := testRouter(t, db)
+
 	// Create an account so the dropdown has data
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Savings",
 		Type:          models.AccountTypeSavings,
 		Currency:      models.CurrencyEGP,
+		UserID:        userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/transactions/new", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -225,16 +229,17 @@ func TestTransactionCreatePage_Success(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&date=2026-03-06")
 	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
@@ -262,16 +267,18 @@ func TestDashboardPage_WithData(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
+		UserID:         userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -301,19 +308,20 @@ func TestTransactionsPage_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
+	router, addAuth, userID := testRouter(t, db)
+
 	// Create an institution, account, and a transaction
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 
 	// Create a transaction via the service (to update balance atomically)
-	router, addAuth := testRouter(t, db)
-
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&date=2026-03-06&note=Test+expense")
 	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -352,7 +360,7 @@ func TestTransactionsPage_Empty(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/transactions", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -375,16 +383,17 @@ func TestTransactionsPage_FilterByType(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create an expense
 	formData := strings.NewReader("type=expense&amount=100&currency=EGP&account_id=" + acc.ID + "&note=expense+item")
@@ -425,16 +434,17 @@ func TestTransactionEditForm_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create a transaction
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&note=Test")
@@ -485,21 +495,23 @@ func TestTransactionEditForm_ShowsVirtualAccount(t *testing.T) {
 	testutil.CleanTable(t, db, "institutions")
 	testutil.CleanTable(t, db, "virtual_accounts")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Vacation",
 		Icon:      "\U0001F3D6",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create a transaction and allocate it to the virtual account
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&virtual_account_id=" + va.ID)
@@ -551,18 +563,19 @@ func TestTransactionUpdate_ChangesBalance(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 
-	router, addAuth := testRouter(t, db)
-
-	// Create expense of 500 (balance → 9500)
+	// Create expense of 500 (balance -> 9500)
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID)
 	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -578,7 +591,7 @@ func TestTransactionUpdate_ChangesBalance(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&txns)
 	txID := txns[0].ID
 
-	// Update amount from 500 to 800 (additional 300 deduction, balance → 9200)
+	// Update amount from 500 to 800 (additional 300 deduction, balance -> 9200)
 	formData = strings.NewReader("type=expense&amount=800&currency=EGP&account_id=" + acc.ID + "&date=2026-03-07")
 	req = httptest.NewRequest(http.MethodPut, "/transactions/"+txID, formData)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -610,16 +623,17 @@ func TestTransactionDelete_FromUI(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create expense
 	formData := strings.NewReader("type=expense&amount=2000&currency=EGP&account_id=" + acc.ID)
@@ -669,15 +683,16 @@ func TestTransactionDuplicate_PrefillsForm(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create a transaction with a note
 	formData := strings.NewReader("type=expense&amount=750&currency=EGP&account_id=" + acc.ID + "&note=Coffee+beans")
@@ -726,15 +741,16 @@ func TestAccountDetailPage_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings EGP",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 25000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create a transaction on this account
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID + "&note=Test+expense")
@@ -776,7 +792,9 @@ func TestAccountDetailPage_CreditCard(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	limit := 50000.0
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
@@ -785,9 +803,8 @@ func TestAccountDetailPage_CreditCard(t *testing.T) {
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0,
 		CreditLimit:    &limit,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create an expense
 	formData := strings.NewReader("type=expense&amount=10000&currency=EGP&account_id=" + acc.ID)
@@ -817,7 +834,7 @@ func TestAccountDetailPage_CreditCard(t *testing.T) {
 
 func TestAccountDetailPage_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/accounts/nonexistent-id", nil)
 	addAuth(req)
@@ -837,25 +854,28 @@ func TestAccountDetailPage_ShowsLinkedVirtualAccounts(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings EGP",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
+		UserID:         userID,
 	})
 
 	target := 50000.0
 	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:           "Emergency Fund",
-		Icon:           "🛡️",
+		Icon:           "\U0001F6E1\uFE0F",
 		Color:          "#ef4444",
 		TargetAmount:   &target,
 		CurrentBalance: 20000,
 		AccountID:      &acc.ID,
+		UserID:         userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/accounts/"+acc.ID, nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -887,15 +907,17 @@ func TestAccountDetailPage_NoVirtualAccountSection_WhenNoneLinked(t *testing.T) 
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Test Account",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/accounts/"+acc.ID, nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -916,14 +938,16 @@ func TestQuickEntryForm_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Savings",
 		Currency:      models.CurrencyEGP,
+		UserID:        userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/transactions/quick-form", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -954,15 +978,16 @@ func TestQuickEntryCreate_Success(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 5000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	formData := strings.NewReader("type=expense&amount=300&currency=EGP&account_id=" + acc.ID + "&date=2026-03-07")
 	req := httptest.NewRequest(http.MethodPost, "/transactions/quick", formData)
@@ -990,7 +1015,7 @@ func TestQuickEntryCreate_Error(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	// Submit with invalid account_id
 	formData := strings.NewReader("type=expense&amount=100&currency=EGP&account_id=nonexistent&date=2026-03-07")
@@ -1014,7 +1039,7 @@ func TestPeoplePage_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "persons")
 
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	// Add a person
 	formData := strings.NewReader("name=Ahmed")
@@ -1051,15 +1076,16 @@ func TestPeoplePage_LoanAndRepay(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Add person
 	formData := strings.NewReader("name=Omar")
@@ -1106,21 +1132,24 @@ func TestInstitutionDeleteConfirm_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Checking",
 		Type:          models.AccountTypeCurrent,
 		Currency:      models.CurrencyEGP,
+		UserID:        userID,
 	})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Savings",
 		Type:          models.AccountTypeSavings,
 		Currency:      models.CurrencyEGP,
+		UserID:        userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/institutions/"+inst.ID+"/delete-confirm", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -1150,15 +1179,16 @@ func TestInstitutionDelete_Success(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "TestBank"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "TestBank", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "TestAccount",
 		Type:          models.AccountTypeCurrent,
 		Currency:      models.CurrencyEGP,
+		UserID:        userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Delete the institution
 	req := httptest.NewRequest(http.MethodDelete, "/institutions/"+inst.ID, nil)
@@ -1192,7 +1222,7 @@ func TestInstitutionDelete_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
 
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodDelete, "/institutions/00000000-0000-0000-0000-000000000000", nil)
 	req.Header.Set("HX-Request", "true")
 	addAuth(req)
@@ -1237,20 +1267,22 @@ func TestTransactionCreate_WithVirtualAccount(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Emergency Fund",
-		Icon:      "🏦",
+		Icon:      "\U0001F3E6",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	formData := strings.NewReader("type=expense&amount=500&currency=EGP&account_id=" + acc.ID +
 		"&date=2026-03-15&virtual_account_id=" + va.ID)
@@ -1298,17 +1330,18 @@ func TestTransactionCreate_WithoutVirtualAccount_NoAllocation(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 	// Create a VA but don't select it in the form
-	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Unused Fund"})
-
-	router, addAuth := testRouter(t, db)
+	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Unused Fund", UserID: userID})
 
 	formData := strings.NewReader("type=expense&amount=200&currency=EGP&account_id=" + acc.ID + "&date=2026-03-15")
 	req := httptest.NewRequest(http.MethodPost, "/transactions", formData)
@@ -1340,16 +1373,17 @@ func TestTransactionDelete_RecalculatesVirtualAccountBalance(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
-	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Travel Fund", AccountID: &acc.ID})
-
-	router, addAuth := testRouter(t, db)
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{Name: "Travel Fund", AccountID: &acc.ID, UserID: userID})
 
 	// Create a transaction with VA allocation
 	formData := strings.NewReader("type=expense&amount=300&currency=EGP&account_id=" + acc.ID +
@@ -1411,20 +1445,22 @@ func TestVirtualAccountDirectAllocate(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Emergency Fund",
-		Icon:      "🏦",
+		Icon:      "\U0001F3E6",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// POST a contribution of 1000
 	formData := strings.NewReader("type=contribution&amount=1000&note=Initial+allocation")
@@ -1492,20 +1528,22 @@ func TestVirtualAccountDirectAllocate_Withdrawal(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:           "Emergency Fund",
 		CurrentBalance: 5000,
 		AccountID:      &acc.ID,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	formData := strings.NewReader("type=withdrawal&amount=2000&note=Withdrawal")
 	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/"+va.ID+"/allocate", formData)
@@ -1537,15 +1575,16 @@ func TestVirtualAccountCreateWithAccountLink(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	formData := strings.NewReader("name=New+Fund&account_id=" + acc.ID + "&color=%230d9488")
 	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/add", formData)
@@ -1579,16 +1618,20 @@ func TestVirtualAccountDetail_OverAllocationWarning(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 5000,
+		UserID:         userID,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Vacation",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
 
 	// Directly set VA balance higher than account balance
@@ -1600,8 +1643,6 @@ func TestVirtualAccountDetail_OverAllocationWarning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updating VA balance: %v", err)
 	}
-
-	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va.ID, nil)
 	addAuth(req)
@@ -1628,22 +1669,27 @@ func TestVirtualAccountDetail_GroupOverAllocationWarning(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 
 	// Two VAs, each under account balance individually but exceeding it together
 	va1 := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Fund A",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
 	va2 := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Fund B",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
 
 	// VA1: 6000, VA2: 6000, total 12000 > account 10000
@@ -1658,9 +1704,7 @@ func TestVirtualAccountDetail_GroupOverAllocationWarning(t *testing.T) {
 		}
 	}
 
-	router, addAuth := testRouter(t, db)
-
-	// View VA1 detail — individual balance (6000) < account (10000), but group total (12000) > account
+	// View VA1 detail -- individual balance (6000) < account (10000), but group total (12000) > account
 	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va1.ID, nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -1685,16 +1729,20 @@ func TestVirtualAccountDetail_NoWarning(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Emergency Fund",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
 
 	// VA balance 1000 < account balance 50000
@@ -1706,8 +1754,6 @@ func TestVirtualAccountDetail_NoWarning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updating VA balance: %v", err)
 	}
-
-	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va.ID, nil)
 	addAuth(req)
@@ -1733,24 +1779,27 @@ func TestVirtualAccountEditForm_Renders(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
+		UserID:         userID,
 	})
 	target := 50000.0
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:         "Emergency Fund",
-		Icon:         "🛡️",
+		Icon:         "\U0001F6E1\uFE0F",
 		Color:        "#ff5500",
 		TargetAmount: &target,
 		AccountID:    &acc.ID,
+		UserID:       userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va.ID+"/edit-form", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -1764,7 +1813,7 @@ func TestVirtualAccountEditForm_Renders(t *testing.T) {
 	checks := []string{
 		"Emergency Fund",
 		"#ff5500",
-		"🛡️",
+		"\U0001F6E1\uFE0F",
 		"50000",
 		"selected",
 	}
@@ -1784,24 +1833,26 @@ func TestVirtualAccountUpdate_Success(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
+		UserID:         userID,
 	})
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name:      "Old Name",
-		Icon:      "🏦",
+		Icon:      "\U0001F3E6",
 		Color:     "#0d9488",
 		AccountID: &acc.ID,
+		UserID:    userID,
 	})
 
-	router, addAuth := testRouter(t, db)
-
-	formData := strings.NewReader("name=New+Name&icon=🚀&color=%23ff0000&target_amount=25000&account_id=" + acc.ID)
+	formData := strings.NewReader("name=New+Name&icon=\U0001F680&color=%23ff0000&target_amount=25000&account_id=" + acc.ID)
 	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/"+va.ID+"/edit", formData)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("HX-Request", "true")
@@ -1820,23 +1871,23 @@ func TestVirtualAccountUpdate_Success(t *testing.T) {
 
 	// Verify the VA was actually updated in the DB
 	var name, icon, color string
-	var target *float64
+	var tgt *float64
 	err := db.QueryRow(`SELECT name, icon, color, target_amount FROM virtual_accounts WHERE id = $1`, va.ID).
-		Scan(&name, &icon, &color, &target)
+		Scan(&name, &icon, &color, &tgt)
 	if err != nil {
 		t.Fatalf("querying updated VA: %v", err)
 	}
 	if name != "New Name" {
 		t.Errorf("expected name 'New Name', got %q", name)
 	}
-	if icon != "🚀" {
-		t.Errorf("expected icon '🚀', got %q", icon)
+	if icon != "\U0001F680" {
+		t.Errorf("expected icon '\U0001F680', got %q", icon)
 	}
 	if color != "#ff0000" {
 		t.Errorf("expected color '#ff0000', got %q", color)
 	}
-	if target == nil || *target != 25000 {
-		t.Errorf("expected target 25000, got %v", target)
+	if tgt == nil || *tgt != 25000 {
+		t.Errorf("expected target 25000, got %v", tgt)
 	}
 }
 
@@ -1849,14 +1900,15 @@ func TestVirtualAccountUpdate_EmptyName(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
+	router, addAuth, userID := testRouter(t, db)
+
 	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
-		Name:  "Original Name",
-		Color: "#0d9488",
+		Name:   "Original Name",
+		Color:  "#0d9488",
+		UserID: userID,
 	})
 
-	router, addAuth := testRouter(t, db)
-
-	formData := strings.NewReader("name=&icon=🏦&color=%230d9488")
+	formData := strings.NewReader("name=&icon=\U0001F3E6&color=%230d9488")
 	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/"+va.ID+"/edit", formData)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("HX-Request", "true")

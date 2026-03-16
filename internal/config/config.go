@@ -21,6 +21,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/shahwan42/clearmoney/internal/timeutil"
@@ -42,12 +43,23 @@ type Config struct {
 	VAPIDPrivateKey string         // VAPID private key for Web Push
 	Timezone        string         // IANA timezone name (default: "Africa/Cairo")
 	Location        *time.Location // Parsed timezone location for date operations
+	ResendAPIKey    string         // Resend API key for sending magic link emails
+	EmailFrom       string         // Verified sender address (default: "noreply@clearmoney.app")
+	AppURL          string         // Base URL for magic links (default: "http://localhost:8080")
+	MaxDailyEmails  int            // Global daily email cap (default: 50, protects Resend free tier)
 }
 
 // Load reads config from environment variables with sensible defaults.
 // Similar to Laravel's env() helper or Django's os.environ.get().
 func Load() Config {
 	tz := getEnv("APP_TIMEZONE", "Africa/Cairo")
+	maxDaily := 50
+	if v := getEnv("MAX_DAILY_EMAILS", ""); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxDaily = n
+		}
+	}
+
 	return Config{
 		Port:            getEnv("PORT", "8080"),
 		DatabaseURL:     getEnv("DATABASE_URL", ""),
@@ -57,6 +69,10 @@ func Load() Config {
 		VAPIDPrivateKey: getEnv("VAPID_PRIVATE_KEY", ""),
 		Timezone:        tz,
 		Location:        timeutil.LoadLocation(tz),
+		ResendAPIKey:    getEnv("RESEND_API_KEY", ""),
+		EmailFrom:       getEnv("EMAIL_FROM", "noreply@clearmoney.app"),
+		AppURL:          getEnv("APP_URL", "http://localhost:8080"),
+		MaxDailyEmails:  maxDaily,
 	}
 }
 

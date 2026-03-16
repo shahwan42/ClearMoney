@@ -48,8 +48,8 @@ func NewExportService(txRepo *repository.TransactionRepo) *ExportService {
 //
 // csv.NewWriter wraps the io.Writer and handles escaping, quoting, and newlines.
 // `defer writer.Flush()` ensures all buffered data is written when the function returns.
-func (s *ExportService) ExportTransactionsCSV(ctx context.Context, w io.Writer, from, to time.Time) error {
-	txs, err := s.txRepo.GetByDateRange(ctx, from, to)
+func (s *ExportService) ExportTransactionsCSV(ctx context.Context, userID string, w io.Writer, from, to time.Time) error {
+	txs, err := s.txRepo.GetByDateRange(ctx, userID, from, to)
 	if err != nil {
 		return fmt.Errorf("querying transactions: %w", err)
 	}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/service"
 )
@@ -57,15 +58,16 @@ func (h *AccountHandler) Routes(r chi.Router) {
 func (h *AccountHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Optional filter by institution_id query param
 	institutionID := r.URL.Query().Get("institution_id")
+	userID := authmw.UserID(r.Context())
 
 	var (
 		accounts []models.Account
 		err      error
 	)
 	if institutionID != "" {
-		accounts, err = h.svc.GetByInstitution(r.Context(), institutionID)
+		accounts, err = h.svc.GetByInstitution(r.Context(), userID, institutionID)
 	} else {
-		accounts, err = h.svc.GetAll(r.Context())
+		accounts, err = h.svc.GetAll(r.Context(), userID)
 	}
 	if err != nil {
 		respondError(w, r, http.StatusInternalServerError, "failed to list accounts")
@@ -86,7 +88,8 @@ func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := h.svc.Create(r.Context(), acc)
+	userID := authmw.UserID(r.Context())
+	created, err := h.svc.Create(r.Context(), userID, acc)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -98,8 +101,9 @@ func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 // GET /api/accounts/{id}
 func (h *AccountHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 
-	acc, err := h.svc.GetByID(r.Context(), id)
+	acc, err := h.svc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "account not found")
@@ -122,8 +126,9 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc.ID = id
+	userID := authmw.UserID(r.Context())
 
-	updated, err := h.svc.Update(r.Context(), acc)
+	updated, err := h.svc.Update(r.Context(), userID, acc)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "account not found")
@@ -139,8 +144,9 @@ func (h *AccountHandler) Update(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/accounts/{id}
 func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 
-	if err := h.svc.Delete(r.Context(), id); err != nil {
+	if err := h.svc.Delete(r.Context(), userID, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "account not found")
 			return

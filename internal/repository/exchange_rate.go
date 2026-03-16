@@ -3,6 +3,9 @@
 // This repository tracks historical USD/EGP exchange rates for multi-currency
 // net worth calculations. Rates are logged manually by the user.
 //
+// Note: Exchange rates are GLOBAL data — they are the same for all users.
+// This table does NOT have a user_id column.
+//
 // Note: ExchangeRateLog is defined here (not in models/) because it's only used
 // by the repository layer. If other packages needed it, it would move to models/.
 // This is a pragmatic Go pattern — keep types close to where they're used.
@@ -49,8 +52,8 @@ func NewExchangeRateRepo(db *sql.DB) *ExchangeRateRepo {
 // This is an INSERT-only operation — rates are never updated or deleted.
 // Uses ExecContext (not QueryRowContext) because we don't need any data back.
 //
-//   Laravel:  ExchangeRateLog::create(['date' => $date, 'rate' => $rate, ...])
-//   Django:   ExchangeRateLog.objects.create(date=date, rate=rate, ...)
+//	Laravel:  ExchangeRateLog::create(['date' => $date, 'rate' => $rate, ...])
+//	Django:   ExchangeRateLog.objects.create(date=date, rate=rate, ...)
 func (r *ExchangeRateRepo) Log(ctx context.Context, date time.Time, rate float64, source, note *string) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO exchange_rate_log (date, rate, source, note) VALUES ($1, $2, $3, $4)
@@ -87,8 +90,9 @@ func (r *ExchangeRateRepo) GetAll(ctx context.Context) ([]ExchangeRateLog, error
 // Used by the dashboard and snapshot service for net worth calculations.
 //
 // ORDER BY date DESC, created_at DESC LIMIT 1 gets the newest entry.
-//   Laravel:  ExchangeRateLog::latest('date')->value('rate')
-//   Django:   ExchangeRateLog.objects.latest('date').rate
+//
+//	Laravel:  ExchangeRateLog::latest('date')->value('rate')
+//	Django:   ExchangeRateLog.objects.latest('date').rate
 func (r *ExchangeRateRepo) GetLatest(ctx context.Context) (float64, error) {
 	var rate float64
 	err := r.db.QueryRowContext(ctx, `

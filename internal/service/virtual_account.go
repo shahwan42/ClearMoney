@@ -40,29 +40,30 @@ func NewVirtualAccountService(accountRepo *repository.VirtualAccountRepo) *Virtu
 }
 
 // GetAll returns all active (non-archived) virtual accounts.
-func (s *VirtualAccountService) GetAll(ctx context.Context) ([]models.VirtualAccount, error) {
-	return s.accountRepo.GetAll(ctx)
+func (s *VirtualAccountService) GetAll(ctx context.Context, userID string) ([]models.VirtualAccount, error) {
+	return s.accountRepo.GetAll(ctx, userID)
 }
 
 // GetAllIncludingArchived returns all virtual accounts for management pages.
-func (s *VirtualAccountService) GetAllIncludingArchived(ctx context.Context) ([]models.VirtualAccount, error) {
-	return s.accountRepo.GetAllIncludingArchived(ctx)
+func (s *VirtualAccountService) GetAllIncludingArchived(ctx context.Context, userID string) ([]models.VirtualAccount, error) {
+	return s.accountRepo.GetAllIncludingArchived(ctx, userID)
 }
 
 // GetByID returns a single virtual account by ID.
-func (s *VirtualAccountService) GetByID(ctx context.Context, id string) (models.VirtualAccount, error) {
-	return s.accountRepo.GetByID(ctx, id)
+func (s *VirtualAccountService) GetByID(ctx context.Context, userID string, id string) (models.VirtualAccount, error) {
+	return s.accountRepo.GetByID(ctx, userID, id)
 }
 
 // Create creates a new virtual account with validation.
-func (s *VirtualAccountService) Create(ctx context.Context, a models.VirtualAccount) (models.VirtualAccount, error) {
+func (s *VirtualAccountService) Create(ctx context.Context, userID string, a models.VirtualAccount) (models.VirtualAccount, error) {
 	if err := requireNotEmpty(a.Name, "virtual account name"); err != nil {
 		return a, err
 	}
 	if a.Color == "" {
 		a.Color = "#0d9488" // default teal
 	}
-	created, err := s.accountRepo.Create(ctx, a)
+	a.UserID = userID
+	created, err := s.accountRepo.Create(ctx, userID, a)
 	if err != nil {
 		return a, err
 	}
@@ -71,11 +72,11 @@ func (s *VirtualAccountService) Create(ctx context.Context, a models.VirtualAcco
 }
 
 // Update modifies an existing virtual account.
-func (s *VirtualAccountService) Update(ctx context.Context, a models.VirtualAccount) error {
+func (s *VirtualAccountService) Update(ctx context.Context, userID string, a models.VirtualAccount) error {
 	if err := requireNotEmpty(a.Name, "virtual account name"); err != nil {
 		return err
 	}
-	if err := s.accountRepo.Update(ctx, a); err != nil {
+	if err := s.accountRepo.Update(ctx, userID, a); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "virtual_account.updated", "id", a.ID)
@@ -85,8 +86,8 @@ func (s *VirtualAccountService) Update(ctx context.Context, a models.VirtualAcco
 // Archive soft-deletes a virtual account (hides from dashboard, keeps data).
 // Like Laravel's SoftDeletes — the record remains in the DB with an archived_at
 // timestamp. GetAll() excludes archived; GetAllIncludingArchived() includes them.
-func (s *VirtualAccountService) Archive(ctx context.Context, id string) error {
-	if err := s.accountRepo.Archive(ctx, id); err != nil {
+func (s *VirtualAccountService) Archive(ctx context.Context, userID string, id string) error {
+	if err := s.accountRepo.Archive(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "virtual_account.archived", "id", id)
@@ -94,8 +95,8 @@ func (s *VirtualAccountService) Archive(ctx context.Context, id string) error {
 }
 
 // Unarchive restores an archived virtual account.
-func (s *VirtualAccountService) Unarchive(ctx context.Context, id string) error {
-	return s.accountRepo.Unarchive(ctx, id)
+func (s *VirtualAccountService) Unarchive(ctx context.Context, userID string, id string) error {
+	return s.accountRepo.Unarchive(ctx, userID, id)
 }
 
 // Allocate links a transaction to a virtual account and recalculates the balance.
@@ -106,11 +107,11 @@ func (s *VirtualAccountService) Unarchive(ctx context.Context, id string) error 
 // This ensures the cached balance is always consistent with the source data.
 //
 // Like Laravel's sync() or attach() on a pivot, but with a recalculation step.
-func (s *VirtualAccountService) Allocate(ctx context.Context, transactionID, vaID string, amount float64) error {
+func (s *VirtualAccountService) Allocate(ctx context.Context, userID string, transactionID, vaID string, amount float64) error {
 	if amount == 0 {
 		return fmt.Errorf("allocation amount cannot be zero")
 	}
-	err := s.accountRepo.Allocate(ctx, models.VirtualAccountAllocation{
+	err := s.accountRepo.Allocate(ctx, userID, models.VirtualAccountAllocation{
 		TransactionID:    &transactionID,
 		VirtualAccountID: vaID,
 		Amount:           amount,
@@ -118,7 +119,7 @@ func (s *VirtualAccountService) Allocate(ctx context.Context, transactionID, vaI
 	if err != nil {
 		return fmt.Errorf("allocating transaction: %w", err)
 	}
-	if err := s.accountRepo.RecalculateBalance(ctx, vaID); err != nil {
+	if err := s.accountRepo.RecalculateBalance(ctx, userID, vaID); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "virtual_account.allocated", "virtual_account_id", vaID, "transaction_id", transactionID)
@@ -127,7 +128,7 @@ func (s *VirtualAccountService) Allocate(ctx context.Context, transactionID, vaI
 
 // DirectAllocate earmarks existing funds in a virtual account without creating a transaction.
 // Used from the VA detail page for envelope budgeting contributions/withdrawals.
-func (s *VirtualAccountService) DirectAllocate(ctx context.Context, vaID string, amount float64, note string, date time.Time) error {
+func (s *VirtualAccountService) DirectAllocate(ctx context.Context, userID string, vaID string, amount float64, note string, date time.Time) error {
 	if amount == 0 {
 		return fmt.Errorf("allocation amount cannot be zero")
 	}
@@ -139,10 +140,10 @@ func (s *VirtualAccountService) DirectAllocate(ctx context.Context, vaID string,
 	if note != "" {
 		alloc.Note = &note
 	}
-	if err := s.accountRepo.DirectAllocate(ctx, alloc); err != nil {
+	if err := s.accountRepo.DirectAllocate(ctx, userID, alloc); err != nil {
 		return fmt.Errorf("direct allocating to virtual account: %w", err)
 	}
-	if err := s.accountRepo.RecalculateBalance(ctx, vaID); err != nil {
+	if err := s.accountRepo.RecalculateBalance(ctx, userID, vaID); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "virtual_account.direct_allocated", "virtual_account_id", vaID)
@@ -150,42 +151,42 @@ func (s *VirtualAccountService) DirectAllocate(ctx context.Context, vaID string,
 }
 
 // Deallocate removes a transaction's allocation from a virtual account and recalculates.
-func (s *VirtualAccountService) Deallocate(ctx context.Context, transactionID, accountID string) error {
-	err := s.accountRepo.Deallocate(ctx, transactionID, accountID)
+func (s *VirtualAccountService) Deallocate(ctx context.Context, userID string, transactionID, accountID string) error {
+	err := s.accountRepo.Deallocate(ctx, userID, transactionID, accountID)
 	if err != nil {
 		return fmt.Errorf("deallocating transaction: %w", err)
 	}
-	return s.accountRepo.RecalculateBalance(ctx, accountID)
+	return s.accountRepo.RecalculateBalance(ctx, userID, accountID)
 }
 
 // GetVirtualAccountTransactions returns transactions allocated to a virtual account.
-func (s *VirtualAccountService) GetVirtualAccountTransactions(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
-	return s.accountRepo.GetTransactionsForAccount(ctx, accountID, limit)
+func (s *VirtualAccountService) GetVirtualAccountTransactions(ctx context.Context, userID string, accountID string, limit int) ([]models.Transaction, error) {
+	return s.accountRepo.GetTransactionsForAccount(ctx, userID, accountID, limit)
 }
 
 // GetVirtualAccountAllocations returns allocation records for a virtual account.
-func (s *VirtualAccountService) GetVirtualAccountAllocations(ctx context.Context, accountID string, limit int) ([]models.VirtualAccountAllocation, error) {
-	return s.accountRepo.GetAllocationsForAccount(ctx, accountID, limit)
+func (s *VirtualAccountService) GetVirtualAccountAllocations(ctx context.Context, userID string, accountID string, limit int) ([]models.VirtualAccountAllocation, error) {
+	return s.accountRepo.GetAllocationsForAccount(ctx, userID, accountID, limit)
 }
 
 // GetTransactionAllocations returns all virtual account allocations for a specific transaction.
-func (s *VirtualAccountService) GetTransactionAllocations(ctx context.Context, txID string) ([]models.VirtualAccountAllocation, error) {
-	return s.accountRepo.GetAllocationsForTransaction(ctx, txID)
+func (s *VirtualAccountService) GetTransactionAllocations(ctx context.Context, userID string, txID string) ([]models.VirtualAccountAllocation, error) {
+	return s.accountRepo.GetAllocationsForTransaction(ctx, userID, txID)
 }
 
 // GetByAccountID returns non-archived virtual accounts linked to a specific bank account.
-func (s *VirtualAccountService) GetByAccountID(ctx context.Context, accountID string) ([]models.VirtualAccount, error) {
-	return s.accountRepo.GetByAccountID(ctx, accountID)
+func (s *VirtualAccountService) GetByAccountID(ctx context.Context, userID string, accountID string) ([]models.VirtualAccount, error) {
+	return s.accountRepo.GetByAccountID(ctx, userID, accountID)
 }
 
 // GetExcludedBalanceByAccountID returns the total excluded VA balance for a bank account.
 // Used to compute "your money" = actual balance - money held for others.
-func (s *VirtualAccountService) GetExcludedBalanceByAccountID(ctx context.Context, accountID string) (float64, error) {
-	return s.accountRepo.GetExcludedBalanceByAccountID(ctx, accountID)
+func (s *VirtualAccountService) GetExcludedBalanceByAccountID(ctx context.Context, userID string, accountID string) (float64, error) {
+	return s.accountRepo.GetExcludedBalanceByAccountID(ctx, userID, accountID)
 }
 
 // GetTotalExcludedBalance returns the total balance across all excluded VAs.
 // Used to adjust net worth on the dashboard.
-func (s *VirtualAccountService) GetTotalExcludedBalance(ctx context.Context) (float64, error) {
-	return s.accountRepo.GetTotalExcludedBalance(ctx)
+func (s *VirtualAccountService) GetTotalExcludedBalance(ctx context.Context, userID string) (float64, error) {
+	return s.accountRepo.GetTotalExcludedBalance(ctx, userID)
 }

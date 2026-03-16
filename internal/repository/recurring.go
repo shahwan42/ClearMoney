@@ -37,12 +37,13 @@ func NewRecurringRepo(db *sql.DB) *RecurringRepo {
 // Create inserts a new recurring rule.
 // The template_transaction field is JSONB — it stores the transaction blueprint
 // as raw JSON bytes (Go type: json.RawMessage in the model).
-func (r *RecurringRepo) Create(ctx context.Context, rule models.RecurringRule) (models.RecurringRule, error) {
+func (r *RecurringRepo) Create(ctx context.Context, userID string, rule models.RecurringRule) (models.RecurringRule, error) {
+	rule.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO recurring_rules (template_transaction, frequency, day_of_month, next_due_date, is_active, auto_confirm)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO recurring_rules (user_id, template_transaction, frequency, day_of_month, next_due_date, is_active, auto_confirm)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at
-	`, rule.TemplateTransaction, rule.Frequency, rule.DayOfMonth,
+	`, userID, rule.TemplateTransaction, rule.Frequency, rule.DayOfMonth,
 		rule.NextDueDate, rule.IsActive, rule.AutoConfirm,
 	).Scan(&rule.ID, &rule.CreatedAt, &rule.UpdatedAt)
 	if err != nil {
@@ -52,13 +53,13 @@ func (r *RecurringRepo) Create(ctx context.Context, rule models.RecurringRule) (
 }
 
 // GetByID retrieves a recurring rule by ID.
-func (r *RecurringRepo) GetByID(ctx context.Context, id string) (models.RecurringRule, error) {
+func (r *RecurringRepo) GetByID(ctx context.Context, userID string, id string) (models.RecurringRule, error) {
 	var rule models.RecurringRule
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, template_transaction, frequency, day_of_month, next_due_date,
 			is_active, auto_confirm, created_at, updated_at
-		FROM recurring_rules WHERE id = $1
-	`, id).Scan(&rule.ID, &rule.TemplateTransaction, &rule.Frequency,
+		FROM recurring_rules WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(&rule.ID, &rule.TemplateTransaction, &rule.Frequency,
 		&rule.DayOfMonth, &rule.NextDueDate,
 		&rule.IsActive, &rule.AutoConfirm, &rule.CreatedAt, &rule.UpdatedAt)
 	if err != nil {
@@ -68,12 +69,12 @@ func (r *RecurringRepo) GetByID(ctx context.Context, id string) (models.Recurrin
 }
 
 // GetAll retrieves all recurring rules.
-func (r *RecurringRepo) GetAll(ctx context.Context) ([]models.RecurringRule, error) {
+func (r *RecurringRepo) GetAll(ctx context.Context, userID string) ([]models.RecurringRule, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, template_transaction, frequency, day_of_month, next_due_date,
 			is_active, auto_confirm, created_at, updated_at
-		FROM recurring_rules ORDER BY next_due_date ASC
-	`)
+		FROM recurring_rules WHERE user_id = $1 ORDER BY next_due_date ASC
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying recurring rules: %w", err)
 	}
@@ -98,14 +99,14 @@ func (r *RecurringRepo) GetAll(ctx context.Context) ([]models.RecurringRule, err
 //
 //	Laravel:  RecurringRule::where('is_active', true)->where('next_due_date', '<=', now())->get()
 //	Django:   RecurringRule.objects.filter(is_active=True, next_due_date__lte=date.today())
-func (r *RecurringRepo) GetDue(ctx context.Context, today time.Time) ([]models.RecurringRule, error) {
+func (r *RecurringRepo) GetDue(ctx context.Context, userID string, today time.Time) ([]models.RecurringRule, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, template_transaction, frequency, day_of_month, next_due_date,
 			is_active, auto_confirm, created_at, updated_at
 		FROM recurring_rules
-		WHERE is_active = true AND next_due_date <= $1
+		WHERE is_active = true AND next_due_date <= $1 AND user_id = $2
 		ORDER BY next_due_date ASC
-	`, today)
+	`, today, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying due rules: %w", err)
 	}
@@ -129,16 +130,16 @@ func (r *RecurringRepo) GetDue(ctx context.Context, today time.Time) ([]models.R
 // time.Time and nil (for disabling a rule by clearing its due date).
 //   Laravel:  $rule->update(['next_due_date' => $nextDate])
 //   Django:   rule.next_due_date = next_date; rule.save()
-func (r *RecurringRepo) UpdateNextDueDate(ctx context.Context, id string, nextDate interface{}) error {
+func (r *RecurringRepo) UpdateNextDueDate(ctx context.Context, userID string, id string, nextDate interface{}) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE recurring_rules SET next_due_date = $2, updated_at = NOW() WHERE id = $1
-	`, id, nextDate)
+		UPDATE recurring_rules SET next_due_date = $2, updated_at = NOW() WHERE id = $1 AND user_id = $3
+	`, id, nextDate, userID)
 	return err
 }
 
 // Delete removes a recurring rule.
-func (r *RecurringRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM recurring_rules WHERE id = $1`, id)
+func (r *RecurringRepo) Delete(ctx context.Context, userID string, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM recurring_rules WHERE id = $1 AND user_id = $2`, id, userID)
 	return err
 }
 
@@ -150,11 +151,11 @@ func (r *RecurringRepo) Delete(ctx context.Context, id string) error {
 //   template_transaction->>'account_id'  reads the "account_id" key from the JSONB blob.
 //   Laravel: whereRaw("template_transaction->>'account_id' = ?", [$accountId])->delete()
 //   Django:  RecurringRule.objects.filter(template_transaction__account_id=account_id).delete()
-func (r *RecurringRepo) DeleteByAccountID(ctx context.Context, accountID string) error {
+func (r *RecurringRepo) DeleteByAccountID(ctx context.Context, userID string, accountID string) error {
 	_, err := r.db.ExecContext(ctx, `
 		DELETE FROM recurring_rules
-		WHERE template_transaction->>'account_id' = $1
-	`, accountID)
+		WHERE template_transaction->>'account_id' = $1 AND user_id = $2
+	`, accountID, userID)
 	if err != nil {
 		return fmt.Errorf("deleting recurring rules for account: %w", err)
 	}

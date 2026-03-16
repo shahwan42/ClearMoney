@@ -23,7 +23,8 @@ import (
 
 func TestCategoryHandler_ListAll(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
+	testutil.SeedCategories(t, db, userID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/categories", nil)
 	addAuth(req)
@@ -45,7 +46,8 @@ func TestCategoryHandler_ListAll(t *testing.T) {
 
 func TestCategoryHandler_ListByType(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
+	testutil.SeedCategories(t, db, userID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/categories?type=expense", nil)
 	addAuth(req)
@@ -67,7 +69,7 @@ func TestCategoryHandler_ListByType(t *testing.T) {
 
 func TestCategoryHandler_CreateCustom(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	// Clean up any leftover from previous test runs before the unique constraint
 	db.Exec(`DELETE FROM categories WHERE name = 'Pet Expenses' AND is_system = false`)
@@ -97,7 +99,7 @@ func TestCategoryHandler_CreateCustom(t *testing.T) {
 
 func TestCategoryHandler_CannotModifySystem(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	// Get a system category ID
 	systemID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)

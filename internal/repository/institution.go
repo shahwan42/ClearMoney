@@ -112,12 +112,13 @@ func NewInstitutionRepo(db *sql.DB) *InstitutionRepo {
 // fmt.Errorf("...: %w", err) wraps the error with context while preserving the
 // original error. The %w verb enables errors.Is() / errors.As() checks up the chain.
 // See: https://pkg.go.dev/fmt#Errorf
-func (r *InstitutionRepo) Create(ctx context.Context, inst models.Institution) (models.Institution, error) {
+func (r *InstitutionRepo) Create(ctx context.Context, userID string, inst models.Institution) (models.Institution, error) {
+	inst.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO institutions (name, type, color, icon, display_order)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO institutions (user_id, name, type, color, icon, display_order)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
-	`, inst.Name, inst.Type, inst.Color, inst.Icon, inst.DisplayOrder,
+	`, userID, inst.Name, inst.Type, inst.Color, inst.Icon, inst.DisplayOrder,
 	).Scan(&inst.ID, &inst.CreatedAt, &inst.UpdatedAt)
 
 	if err != nil {
@@ -135,12 +136,12 @@ func (r *InstitutionRepo) Create(ctx context.Context, inst models.Institution) (
 //
 // You can check for "not found" upstream with: errors.Is(err, sql.ErrNoRows)
 // See: https://pkg.go.dev/database/sql#pkg-variables
-func (r *InstitutionRepo) GetByID(ctx context.Context, id string) (models.Institution, error) {
+func (r *InstitutionRepo) GetByID(ctx context.Context, userID string, id string) (models.Institution, error) {
 	var inst models.Institution
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, name, type, color, icon, display_order, created_at, updated_at
-		FROM institutions WHERE id = $1
-	`, id).Scan(
+		FROM institutions WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(
 		&inst.ID, &inst.Name, &inst.Type, &inst.Color, &inst.Icon,
 		&inst.DisplayOrder, &inst.CreatedAt, &inst.UpdatedAt,
 	)
@@ -165,11 +166,11 @@ func (r *InstitutionRepo) GetByID(ctx context.Context, id string) (models.Instit
 //   3. for rows.Next() — iterate like a PHP foreach or Python for-in
 //   4. rows.Scan(&...) — read each row's columns into a struct
 //   5. rows.Err() — check for errors that happened DURING iteration
-func (r *InstitutionRepo) GetAll(ctx context.Context) ([]models.Institution, error) {
+func (r *InstitutionRepo) GetAll(ctx context.Context, userID string) ([]models.Institution, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, type, color, icon, display_order, created_at, updated_at
-		FROM institutions ORDER BY display_order, name
-	`)
+		FROM institutions WHERE user_id = $1 ORDER BY display_order, name
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("listing institutions: %w", err)
 	}
@@ -210,13 +211,13 @@ func (r *InstitutionRepo) GetAll(ctx context.Context) ([]models.Institution, err
 //   Django:   inst.save(update_fields=[...]) // Django auto-updates auto_now fields
 //
 // Fails with sql.ErrNoRows (wrapped) if the ID doesn't exist in the table.
-func (r *InstitutionRepo) Update(ctx context.Context, inst models.Institution) (models.Institution, error) {
+func (r *InstitutionRepo) Update(ctx context.Context, userID string, inst models.Institution) (models.Institution, error) {
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE institutions
 		SET name = $2, type = $3, color = $4, icon = $5, display_order = $6, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $7
 		RETURNING updated_at
-	`, inst.ID, inst.Name, inst.Type, inst.Color, inst.Icon, inst.DisplayOrder,
+	`, inst.ID, inst.Name, inst.Type, inst.Color, inst.Icon, inst.DisplayOrder, userID,
 	).Scan(&inst.UpdatedAt)
 
 	if err != nil {
@@ -235,10 +236,10 @@ func (r *InstitutionRepo) Update(ctx context.Context, inst models.Institution) (
 //   Django:   Institution.objects.filter(id=id).update(display_order=order)
 //
 // See: https://pkg.go.dev/database/sql#DB.ExecContext
-func (r *InstitutionRepo) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
+func (r *InstitutionRepo) UpdateDisplayOrder(ctx context.Context, userID string, id string, order int) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE institutions SET display_order = $2, updated_at = now() WHERE id = $1
-	`, id, order)
+		UPDATE institutions SET display_order = $2, updated_at = now() WHERE id = $1 AND user_id = $3
+	`, id, order, userID)
 	return err
 }
 
@@ -255,8 +256,8 @@ func (r *InstitutionRepo) UpdateDisplayOrder(ctx context.Context, id string, ord
 //   Django:   count, _ = Institution.objects.filter(id=id).delete(); if count == 0: raise ...
 //
 // See: https://pkg.go.dev/database/sql#Result
-func (r *InstitutionRepo) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM institutions WHERE id = $1`, id)
+func (r *InstitutionRepo) Delete(ctx context.Context, userID string, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM institutions WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("deleting institution: %w", err)
 	}

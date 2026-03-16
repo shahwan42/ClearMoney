@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/service"
 )
@@ -78,7 +79,8 @@ func (h *TransactionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, newBalance, err := h.svc.Create(r.Context(), tx)
+	userID := authmw.UserID(r.Context())
+	created, newBalance, err := h.svc.Create(r.Context(), userID, tx)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -120,7 +122,8 @@ func (h *TransactionHandler) Transfer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	debit, credit, err := h.svc.CreateTransfer(r.Context(), req.SourceAccountID, req.DestAccountID, req.Amount, req.Currency, req.Note, date)
+	userID := authmw.UserID(r.Context())
+	debit, credit, err := h.svc.CreateTransfer(r.Context(), userID, req.SourceAccountID, req.DestAccountID, req.Amount, req.Currency, req.Note, date)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -166,7 +169,8 @@ func (h *TransactionHandler) Exchange(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	debit, credit, err := h.svc.CreateExchange(r.Context(), params)
+	userID := authmw.UserID(r.Context())
+	debit, credit, err := h.svc.CreateExchange(r.Context(), userID, params)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -187,15 +191,16 @@ func (h *TransactionHandler) Exchange(w http.ResponseWriter, r *http.Request) {
 func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 	accountID := r.URL.Query().Get("account_id")
 	limit := parseLimit(r.URL.Query().Get("limit"), 15)
+	userID := authmw.UserID(r.Context())
 
 	var (
 		txns []models.Transaction
 		err  error
 	)
 	if accountID != "" {
-		txns, err = h.svc.GetByAccount(r.Context(), accountID, limit)
+		txns, err = h.svc.GetByAccount(r.Context(), userID, accountID, limit)
 	} else {
-		txns, err = h.svc.GetRecent(r.Context(), limit)
+		txns, err = h.svc.GetRecent(r.Context(), userID, limit)
 	}
 	if err != nil {
 		respondError(w, r, http.StatusInternalServerError, "failed to list transactions")
@@ -211,8 +216,9 @@ func (h *TransactionHandler) List(w http.ResponseWriter, r *http.Request) {
 // GET /api/transactions/{id}
 func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 
-	tx, err := h.svc.GetByID(r.Context(), id)
+	tx, err := h.svc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "transaction not found")
@@ -228,8 +234,9 @@ func (h *TransactionHandler) Get(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/transactions/{id}
 func (h *TransactionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 
-	if err := h.svc.Delete(r.Context(), id); err != nil {
+	if err := h.svc.Delete(r.Context(), userID, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "transaction not found")
 			return

@@ -71,8 +71,8 @@ func NewAccountHealthService(accountRepo *repository.AccountRepo, txRepo *reposi
 // Note: returns []AccountHealthWarning (not error). On DB failure, returns nil (empty).
 // This is a deliberate design choice: health checks are advisory, not critical.
 // The dashboard can render normally even if health checks fail.
-func (s *AccountHealthService) CheckAll(ctx context.Context) []AccountHealthWarning {
-	accounts, err := s.accountRepo.GetAll(ctx)
+func (s *AccountHealthService) CheckAll(ctx context.Context, userID string) []AccountHealthWarning {
+	accounts, err := s.accountRepo.GetAll(ctx, userID)
 	if err != nil {
 		return nil
 	}
@@ -99,7 +99,7 @@ func (s *AccountHealthService) CheckAll(ctx context.Context) []AccountHealthWarn
 			now := timeutil.Now()
 			monthStart := timeutil.MonthStart(now, s.timezone())
 			monthEnd := timeutil.MonthEnd(now, s.timezone())
-			hasDeposit := s.txRepo.HasDepositInRange(ctx, acc.ID, *cfg.MinMonthlyDeposit, monthStart, monthEnd)
+			hasDeposit := s.txRepo.HasDepositInRange(ctx, userID, acc.ID, *cfg.MinMonthlyDeposit, monthStart, monthEnd)
 			if !hasDeposit {
 				warnings = append(warnings, AccountHealthWarning{
 					AccountName: acc.Name,
@@ -118,10 +118,10 @@ func (s *AccountHealthService) CheckAll(ctx context.Context) []AccountHealthWarn
 // The config is serialized to JSON and stored in the account's health_config JSONB column.
 // json.Marshal converts the Go struct to JSON bytes — like json_encode() in PHP
 // or json.dumps() in Python.
-func (s *AccountHealthService) UpdateHealthConfig(ctx context.Context, accountID string, cfg models.AccountHealthConfig) error {
+func (s *AccountHealthService) UpdateHealthConfig(ctx context.Context, userID string, accountID string, cfg models.AccountHealthConfig) error {
 	data, err := json.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-	return s.accountRepo.UpdateHealthConfig(ctx, accountID, data)
+	return s.accountRepo.UpdateHealthConfig(ctx, userID, accountID, data)
 }

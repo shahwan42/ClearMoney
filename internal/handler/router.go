@@ -44,6 +44,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/shahwan42/clearmoney/internal/config"
 	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 	"github.com/shahwan42/clearmoney/internal/repository"
 	"github.com/shahwan42/clearmoney/internal/service"
@@ -62,7 +63,7 @@ import (
 // dependencies explicitly, which makes the wiring visible and testable.
 //
 // See: https://go-chi.io/#/pages/routing for chi routing patterns
-func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
+func NewRouter(db *sql.DB, loc *time.Location, cfg config.Config) *chi.Mux {
 	// chi.NewRouter() creates a new HTTP multiplexer (router).
 	// Like: $router = new Router() in Laravel, or urlpatterns = [] in Django.
 	r := chi.NewRouter()
@@ -159,7 +160,22 @@ func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 	installmentSvc := service.NewInstallmentService(installmentRepo, txSvc)
 	notificationSvc := service.NewNotificationService(dashboardSvc, recurringSvc)
 	exportSvc := service.NewExportService(txRepo)
-	authSvc := service.NewAuthService(db)
+
+	// Auth system — magic link authentication via Resend email API.
+	userRepo := repository.NewUserRepo(db)
+	sessionRepo := repository.NewSessionRepo(db)
+	authTokenRepo := repository.NewAuthTokenRepo(db)
+	emailSvc := service.NewEmailService(
+		cfg.ResendAPIKey,
+		cfg.EmailFrom,
+		cfg.AppURL,
+	)
+	maxDaily := cfg.MaxDailyEmails
+	if maxDaily == 0 {
+		maxDaily = 50
+	}
+	authSvc := service.NewAuthService(userRepo, sessionRepo, authTokenRepo, emailSvc, maxDaily)
+	authSvc.SetCategoryRepo(categoryRepo)
 
 	// ---------- Rate limiters ----------
 	// Three tiers with different limits per route type.
@@ -193,15 +209,15 @@ func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 	})
 
 
-	// Auth routes (public — no auth middleware, but rate-limited to prevent brute force).
-	// Like Laravel: Route::middleware('throttle:5,1')->group(function () { ... });
+	// Auth routes (public — no auth middleware, but rate-limited).
 	auth := NewAuthHandler(tmpl, authSvc)
 	r.Group(func(r chi.Router) {
 		r.Use(authmw.RateLimit(loginLimiter))
 		r.Get("/login", auth.LoginPage)
 		r.Post("/login", auth.LoginSubmit)
-		r.Get("/setup", auth.SetupPage)
-		r.Post("/setup", auth.SetupSubmit)
+		r.Get("/register", auth.RegisterPage)
+		r.Post("/register", auth.RegisterSubmit)
+		r.Get("/auth/verify", auth.VerifyMagicLink)
 		r.Post("/logout", auth.Logout)
 	})
 
@@ -209,7 +225,7 @@ func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 	// r.Group() creates a route group with shared middleware, like:
 	//   Laravel: Route::middleware('auth')->group(function () { ... })
 	//   Django: decorating views with @login_required
-	// Auth middleware checks the session cookie and redirects to /login or /setup as needed.
+	// Auth middleware checks the session cookie and redirects to /login as needed.
 	r.Group(func(r chi.Router) {
 		r.Use(authmw.Auth(authSvc))
 
@@ -340,7 +356,6 @@ func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 
 			r.Get("/exchange-rates", pages.ExchangeRates)
 			r.Get("/settings", pages.Settings)
-			r.Post("/settings/pin", pages.ChangePin)
 			r.Get("/export/transactions", pages.ExportTransactions)
 			r.Get("/api/transactions/suggest-category", pages.SuggestCategory)
 

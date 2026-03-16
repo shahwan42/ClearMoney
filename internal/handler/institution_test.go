@@ -13,7 +13,7 @@
 //     Like Laravel's DatabaseTransactions trait or Django's TransactionTestCase.
 //
 //   testRouter(t, db): Creates a full router with auth pre-configured (see test_helpers_test.go).
-//     Returns the router and an addAuth function that adds the session cookie to requests.
+//     Returns the router, an addAuth function, and the authenticated userID.
 //     This avoids repeating auth setup in every test.
 //
 //   testutil.CreateInstitution(t, db, ...): Factory helper that inserts a test record.
@@ -41,7 +41,7 @@ import (
 func TestInstitutionHandler_CreateAndList(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	// POST — create an institution
 	body := `{"name":"HSBC","type":"bank"}`
@@ -85,10 +85,10 @@ func TestInstitutionHandler_CreateAndList(t *testing.T) {
 func TestInstitutionHandler_GetByID(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
 
 	// Create first
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 
 	// GET by ID
 	req := httptest.NewRequest(http.MethodGet, "/api/institutions/"+inst.ID, nil)
@@ -109,7 +109,7 @@ func TestInstitutionHandler_GetByID(t *testing.T) {
 
 func TestInstitutionHandler_GetByID_NotFound(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/institutions/00000000-0000-0000-0000-000000000000", nil)
 	addAuth(req)
@@ -124,9 +124,9 @@ func TestInstitutionHandler_GetByID_NotFound(t *testing.T) {
 func TestInstitutionHandler_Update(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Old"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Old", UserID: userID})
 
 	body := `{"name":"New Name","type":"fintech"}`
 	req := httptest.NewRequest(http.MethodPut, "/api/institutions/"+inst.ID, bytes.NewBufferString(body))
@@ -149,9 +149,9 @@ func TestInstitutionHandler_Update(t *testing.T) {
 func TestInstitutionHandler_Delete(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, userID := testRouter(t, db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "To Delete"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "To Delete", UserID: userID})
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/institutions/"+inst.ID, nil)
 	addAuth(req)
@@ -175,7 +175,7 @@ func TestInstitutionHandler_Delete(t *testing.T) {
 
 func TestInstitutionHandler_Create_EmptyName(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	body := `{"name":"","type":"bank"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/institutions", bytes.NewBufferString(body))
@@ -191,7 +191,7 @@ func TestInstitutionHandler_Create_EmptyName(t *testing.T) {
 
 func TestInstitutionHandler_Create_InvalidJSON(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/institutions", bytes.NewBufferString("not json"))
 	req.Header.Set("Content-Type", "application/json")
@@ -209,7 +209,7 @@ func TestInstitutionHandler_Create_InvalidJSON(t *testing.T) {
 func TestInstitutionHandler_ListEmpty(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "institutions")
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/institutions", nil)
 	addAuth(req)

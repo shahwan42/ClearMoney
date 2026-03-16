@@ -58,18 +58,18 @@ func NewBudgetService(budgetRepo *repository.BudgetRepo) *BudgetService {
 // GetAllWithSpending returns budgets with current month's actual spending computed.
 // The spending data comes from a PostgreSQL JOIN: budgets LEFT JOIN transactions
 // grouped by category for the current month. The repo handles the SQL complexity.
-func (s *BudgetService) GetAllWithSpending(ctx context.Context) ([]models.BudgetWithSpending, error) {
+func (s *BudgetService) GetAllWithSpending(ctx context.Context, userID string) ([]models.BudgetWithSpending, error) {
 	now := timeutil.Now().In(s.timezone())
-	return s.budgetRepo.GetAllWithSpending(ctx, now.Year(), now.Month())
+	return s.budgetRepo.GetAllWithSpending(ctx, userID, now.Year(), now.Month())
 }
 
 // GetAll returns all active budgets (without spending data).
-func (s *BudgetService) GetAll(ctx context.Context) ([]models.Budget, error) {
-	return s.budgetRepo.GetAll(ctx)
+func (s *BudgetService) GetAll(ctx context.Context, userID string) ([]models.Budget, error) {
+	return s.budgetRepo.GetAll(ctx, userID)
 }
 
 // Create creates a new budget with validation.
-func (s *BudgetService) Create(ctx context.Context, b models.Budget) (models.Budget, error) {
+func (s *BudgetService) Create(ctx context.Context, userID string, b models.Budget) (models.Budget, error) {
 	if err := requireNotEmpty(b.CategoryID, "category"); err != nil {
 		return b, err
 	}
@@ -79,7 +79,8 @@ func (s *BudgetService) Create(ctx context.Context, b models.Budget) (models.Bud
 	if b.Currency == "" {
 		b.Currency = models.CurrencyEGP
 	}
-	created, err := s.budgetRepo.Create(ctx, b)
+	b.UserID = userID
+	created, err := s.budgetRepo.Create(ctx, userID, b)
 	if err != nil {
 		return b, err
 	}
@@ -88,8 +89,8 @@ func (s *BudgetService) Create(ctx context.Context, b models.Budget) (models.Bud
 }
 
 // Delete removes a budget by ID.
-func (s *BudgetService) Delete(ctx context.Context, id string) error {
-	if err := s.budgetRepo.Delete(ctx, id); err != nil {
+func (s *BudgetService) Delete(ctx context.Context, userID string, id string) error {
+	if err := s.budgetRepo.Delete(ctx, userID, id); err != nil {
 		return err
 	}
 	logutil.LogEvent(ctx, "budget.deleted", "id", id)

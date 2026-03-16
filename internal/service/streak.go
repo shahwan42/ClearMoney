@@ -72,7 +72,7 @@ type StreakInfo struct {
 // to the connection pool even if an error occurs. This is CRITICAL in Go — forgetting
 // to close rows leaks database connections. Like PHP's PDO cleanup or Django's
 // cursor.close(), but in Go it's your responsibility (no garbage collector for DB resources).
-func (s *StreakService) GetStreak(ctx context.Context) (StreakInfo, error) {
+func (s *StreakService) GetStreak(ctx context.Context, userID string) (StreakInfo, error) {
 	var info StreakInfo
 
 	today := timeutil.Today(s.timezone())
@@ -80,10 +80,10 @@ func (s *StreakService) GetStreak(ctx context.Context) (StreakInfo, error) {
 	// Count consecutive days with transactions, going backwards from today
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT date::date AS d FROM transactions
-		WHERE date <= $1
+		WHERE date <= $1 AND user_id = $2
 		ORDER BY d DESC
 		LIMIT 365
-	`, today)
+	`, today, userID)
 	if err != nil {
 		return info, err
 	}
@@ -133,8 +133,8 @@ func (s *StreakService) GetStreak(ctx context.Context) (StreakInfo, error) {
 	monday := time.Date(mon.Year(), mon.Month(), mon.Day(), 0, 0, 0, 0, loc).UTC()
 
 	err = s.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM transactions WHERE date >= $1 AND date <= $2
-	`, monday, now).Scan(&info.WeeklyCount)
+		SELECT COUNT(*) FROM transactions WHERE date >= $1 AND date <= $2 AND user_id = $3
+	`, monday, now, userID).Scan(&info.WeeklyCount)
 	if err != nil {
 		return info, err
 	}

@@ -39,12 +39,13 @@ func NewPersonRepo(db *sql.DB) *PersonRepo {
 }
 
 // Create inserts a new person.
-func (r *PersonRepo) Create(ctx context.Context, p models.Person) (models.Person, error) {
+func (r *PersonRepo) Create(ctx context.Context, userID string, p models.Person) (models.Person, error) {
+	p.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO persons (name, note, net_balance, net_balance_egp, net_balance_usd)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO persons (user_id, name, note, net_balance, net_balance_egp, net_balance_usd)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, created_at, updated_at
-	`, p.Name, p.Note, p.NetBalance, p.NetBalanceEGP, p.NetBalanceUSD).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
+	`, userID, p.Name, p.Note, p.NetBalance, p.NetBalanceEGP, p.NetBalanceUSD).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return models.Person{}, fmt.Errorf("inserting person: %w", err)
 	}
@@ -52,12 +53,12 @@ func (r *PersonRepo) Create(ctx context.Context, p models.Person) (models.Person
 }
 
 // GetByID retrieves a single person.
-func (r *PersonRepo) GetByID(ctx context.Context, id string) (models.Person, error) {
+func (r *PersonRepo) GetByID(ctx context.Context, userID string, id string) (models.Person, error) {
 	var p models.Person
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, name, note, net_balance, net_balance_egp, net_balance_usd, created_at, updated_at
-		FROM persons WHERE id = $1
-	`, id).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.NetBalanceEGP, &p.NetBalanceUSD, &p.CreatedAt, &p.UpdatedAt)
+		FROM persons WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.NetBalanceEGP, &p.NetBalanceUSD, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return models.Person{}, fmt.Errorf("getting person: %w", err)
 	}
@@ -65,11 +66,11 @@ func (r *PersonRepo) GetByID(ctx context.Context, id string) (models.Person, err
 }
 
 // GetAll retrieves all persons ordered by name.
-func (r *PersonRepo) GetAll(ctx context.Context) ([]models.Person, error) {
+func (r *PersonRepo) GetAll(ctx context.Context, userID string) ([]models.Person, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, note, net_balance, net_balance_egp, net_balance_usd, created_at, updated_at
-		FROM persons ORDER BY name
-	`)
+		FROM persons WHERE user_id = $1 ORDER BY name
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying persons: %w", err)
 	}
@@ -87,12 +88,12 @@ func (r *PersonRepo) GetAll(ctx context.Context) ([]models.Person, error) {
 }
 
 // Update modifies a person's name and note.
-func (r *PersonRepo) Update(ctx context.Context, p models.Person) (models.Person, error) {
+func (r *PersonRepo) Update(ctx context.Context, userID string, p models.Person) (models.Person, error) {
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE persons SET name = $2, note = $3, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $4
 		RETURNING id, name, note, net_balance, net_balance_egp, net_balance_usd, created_at, updated_at
-	`, p.ID, p.Name, p.Note).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.NetBalanceEGP, &p.NetBalanceUSD, &p.CreatedAt, &p.UpdatedAt)
+	`, p.ID, p.Name, p.Note, userID).Scan(&p.ID, &p.Name, &p.Note, &p.NetBalance, &p.NetBalanceEGP, &p.NetBalanceUSD, &p.CreatedAt, &p.UpdatedAt)
 	if err != nil {
 		return models.Person{}, fmt.Errorf("updating person: %w", err)
 	}
@@ -100,8 +101,8 @@ func (r *PersonRepo) Update(ctx context.Context, p models.Person) (models.Person
 }
 
 // Delete removes a person.
-func (r *PersonRepo) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM persons WHERE id = $1`, id)
+func (r *PersonRepo) Delete(ctx context.Context, userID string, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM persons WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("deleting person: %w", err)
 	}
@@ -123,13 +124,13 @@ func (r *PersonRepo) Delete(ctx context.Context, id string) error {
 //
 //   Laravel:  DB::transaction(fn() => Person::where('id', $id)->increment('net_balance_egp', $delta))
 //   Django:   with transaction.atomic(): Person.objects.filter(id=id).update(net_balance_egp=F('net_balance_egp') + delta)
-func (r *PersonRepo) UpdateNetBalanceTx(ctx context.Context, dbTx *sql.Tx, personID string, delta float64, currency models.Currency) error {
+func (r *PersonRepo) UpdateNetBalanceTx(ctx context.Context, userID string, dbTx *sql.Tx, personID string, delta float64, currency models.Currency) error {
 	col := balanceColumnForCurrency(currency)
 	query := fmt.Sprintf(`
 		UPDATE persons SET %s = %s + $2, net_balance = net_balance + $2, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $3
 	`, col, col)
-	result, err := dbTx.ExecContext(ctx, query, personID, delta)
+	result, err := dbTx.ExecContext(ctx, query, personID, delta, userID)
 	if err != nil {
 		return fmt.Errorf("updating person balance: %w", err)
 	}

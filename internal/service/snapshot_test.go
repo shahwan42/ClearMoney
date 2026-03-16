@@ -1,15 +1,4 @@
 // Tests for SnapshotService — verifies daily snapshot creation, idempotency, and backfill.
-//
-// These tests are particularly important because snapshots power the sparkline charts
-// on the dashboard. The idempotency test ensures calling TakeSnapshot twice doesn't
-// create duplicate records (UPSERT behavior).
-//
-// Note the test naming convention:
-//   TestSnapshotService_TakeSnapshot — basic creation
-//   TestSnapshotService_Idempotent — calling twice is safe
-//   TestSnapshotService_BackfillSnapshots — fills missing historical data
-//   TestSnapshotService_GetNetWorthHistory — reads back sparkline data
-//   TestSnapshotService_GetAccountHistory — reads per-account sparkline data
 package service
 
 import (
@@ -22,8 +11,6 @@ import (
 	"github.com/shahwan42/clearmoney/internal/testutil"
 )
 
-// TestSnapshotService_TakeSnapshot verifies that a daily snapshot is created with
-// correct net worth values and per-account balances.
 func TestSnapshotService_TakeSnapshot(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "account_snapshots")
@@ -31,15 +18,16 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
-	// Create test data: two accounts with known balances
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	acc1 := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 	acc2 := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
@@ -47,24 +35,22 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
+		UserID:         userID,
 	})
 
-	// Wire up the snapshot service
 	snapshotRepo := repository.NewSnapshotRepo(db)
 	accountRepo := repository.NewAccountRepo(db)
 	institutionRepo := repository.NewInstitutionRepo(db)
 	exchangeRateRepo := repository.NewExchangeRateRepo(db)
 	svc := NewSnapshotService(snapshotRepo, accountRepo, institutionRepo, exchangeRateRepo)
 
-	// Take a snapshot
-	err := svc.TakeSnapshot(context.Background())
+	err := svc.TakeSnapshot(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("TakeSnapshot: %v", err)
 	}
 
-	// Verify daily snapshot was created
 	today := time.Now().Truncate(24 * time.Hour)
-	exists, err := snapshotRepo.Exists(context.Background(), today)
+	exists, err := snapshotRepo.Exists(context.Background(), userID, today)
 	if err != nil {
 		t.Fatalf("Exists: %v", err)
 	}
@@ -72,8 +58,7 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 		t.Error("expected today's snapshot to exist")
 	}
 
-	// Verify net worth values
-	snapshots, err := snapshotRepo.GetDailyRange(context.Background(), today, today)
+	snapshots, err := snapshotRepo.GetDailyRange(context.Background(), userID, today, today)
 	if err != nil {
 		t.Fatalf("GetDailyRange: %v", err)
 	}
@@ -89,8 +74,7 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 		t.Errorf("expected net worth raw %f, got %f", expectedNetWorth, snap.NetWorthRaw)
 	}
 
-	// Verify account snapshots
-	acc1Snaps, err := snapshotRepo.GetAccountRange(context.Background(), acc1.ID, today, today)
+	acc1Snaps, err := snapshotRepo.GetAccountRange(context.Background(), userID, acc1.ID, today, today)
 	if err != nil {
 		t.Fatalf("GetAccountRange acc1: %v", err)
 	}
@@ -98,7 +82,7 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 		t.Errorf("expected acc1 balance 50000, got %v", acc1Snaps)
 	}
 
-	acc2Snaps, err := snapshotRepo.GetAccountRange(context.Background(), acc2.ID, today, today)
+	acc2Snaps, err := snapshotRepo.GetAccountRange(context.Background(), userID, acc2.ID, today, today)
 	if err != nil {
 		t.Fatalf("GetAccountRange acc2: %v", err)
 	}
@@ -107,9 +91,6 @@ func TestSnapshotService_TakeSnapshot(t *testing.T) {
 	}
 }
 
-// TestSnapshotService_Idempotent verifies UPSERT behavior — calling TakeSnapshot
-// twice for the same day should update (not duplicate) the record.
-// This is critical because TakeSnapshot runs on every app startup.
 func TestSnapshotService_Idempotent(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "account_snapshots")
@@ -117,13 +98,15 @@ func TestSnapshotService_Idempotent(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 
 	snapshotRepo := repository.NewSnapshotRepo(db)
@@ -133,17 +116,15 @@ func TestSnapshotService_Idempotent(t *testing.T) {
 		repository.NewExchangeRateRepo(db),
 	)
 
-	// Take snapshot twice — should not error or create duplicates
-	if err := svc.TakeSnapshot(context.Background()); err != nil {
+	if err := svc.TakeSnapshot(context.Background(), userID); err != nil {
 		t.Fatalf("first TakeSnapshot: %v", err)
 	}
-	if err := svc.TakeSnapshot(context.Background()); err != nil {
+	if err := svc.TakeSnapshot(context.Background(), userID); err != nil {
 		t.Fatalf("second TakeSnapshot: %v", err)
 	}
 
-	// Verify only one daily snapshot exists for today
 	today := time.Now().Truncate(24 * time.Hour)
-	snaps, err := snapshotRepo.GetDailyRange(context.Background(), today, today)
+	snaps, err := snapshotRepo.GetDailyRange(context.Background(), userID, today, today)
 	if err != nil {
 		t.Fatalf("GetDailyRange: %v", err)
 	}
@@ -152,8 +133,6 @@ func TestSnapshotService_Idempotent(t *testing.T) {
 	}
 }
 
-// TestSnapshotService_BackfillSnapshots verifies that missing historical snapshots
-// are created on first run, and that a second run creates zero (all days exist).
 func TestSnapshotService_BackfillSnapshots(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	testutil.CleanTable(t, db, "account_snapshots")
@@ -161,13 +140,15 @@ func TestSnapshotService_BackfillSnapshots(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 20000,
+		UserID:         userID,
 	})
 
 	svc := NewSnapshotService(
@@ -177,18 +158,15 @@ func TestSnapshotService_BackfillSnapshots(t *testing.T) {
 		repository.NewExchangeRateRepo(db),
 	)
 
-	// Backfill 7 days
-	count, err := svc.BackfillSnapshots(context.Background(), 7)
+	count, err := svc.BackfillSnapshots(context.Background(), userID, 7)
 	if err != nil {
 		t.Fatalf("BackfillSnapshots: %v", err)
 	}
-	// Should have backfilled 8 days (7 + today)
 	if count != 8 {
 		t.Errorf("expected 8 backfilled days, got %d", count)
 	}
 
-	// Second backfill should not create new snapshots
-	count2, err := svc.BackfillSnapshots(context.Background(), 7)
+	count2, err := svc.BackfillSnapshots(context.Background(), userID, 7)
 	if err != nil {
 		t.Fatalf("second BackfillSnapshots: %v", err)
 	}
@@ -204,13 +182,15 @@ func TestSnapshotService_GetNetWorthHistory(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 30000,
+		UserID:         userID,
 	})
 
 	snapshotRepo := repository.NewSnapshotRepo(db)
@@ -220,18 +200,15 @@ func TestSnapshotService_GetNetWorthHistory(t *testing.T) {
 		repository.NewExchangeRateRepo(db),
 	)
 
-	// Backfill a few days so there's history
-	svc.BackfillSnapshots(context.Background(), 5)
+	svc.BackfillSnapshots(context.Background(), userID, 5)
 
-	// Get history
-	values, err := svc.GetNetWorthHistory(context.Background(), 5)
+	values, err := svc.GetNetWorthHistory(context.Background(), userID, 5)
 	if err != nil {
 		t.Fatalf("GetNetWorthHistory: %v", err)
 	}
 	if len(values) == 0 {
 		t.Error("expected non-empty net worth history")
 	}
-	// All values should be 30000 (no transactions, constant balance)
 	for i, v := range values {
 		if v != 30000 {
 			t.Errorf("day %d: expected 30000, got %f", i, v)
@@ -246,13 +223,15 @@ func TestSnapshotService_GetAccountHistory(t *testing.T) {
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
+	userID := testutil.SetupTestUser(t, db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 75000,
+		UserID:         userID,
 	})
 
 	svc := NewSnapshotService(
@@ -262,11 +241,9 @@ func TestSnapshotService_GetAccountHistory(t *testing.T) {
 		repository.NewExchangeRateRepo(db),
 	)
 
-	// Backfill
-	svc.BackfillSnapshots(context.Background(), 3)
+	svc.BackfillSnapshots(context.Background(), userID, 3)
 
-	// Get account history
-	values, err := svc.GetAccountHistory(context.Background(), acc.ID, 3)
+	values, err := svc.GetAccountHistory(context.Background(), userID, acc.ID, 3)
 	if err != nil {
 		t.Fatalf("GetAccountHistory: %v", err)
 	}

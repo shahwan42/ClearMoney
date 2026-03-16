@@ -28,40 +28,43 @@ import (
 // Tables are cleaned in reverse-dependency order: transactions first (depends on
 // accounts), accounts second (depends on institutions), institutions last.
 // This respects foreign key constraints.
-//   Laravel:  This is like DatabaseMigrations::setUp() with truncation
-//   Django:   This is like TransactionTestCase with flush
-func setupTransactionTest(t *testing.T) (*TransactionRepo, *AccountRepo, models.Account) {
+//
+//	Laravel:  This is like DatabaseMigrations::setUp() with truncation
+//	Django:   This is like TransactionTestCase with flush
+func setupTransactionTest(t *testing.T) (*TransactionRepo, *AccountRepo, models.Account, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 10000,
+		UserID:         userID,
 	})
 
-	return NewTransactionRepo(db), NewAccountRepo(db), acc
+	return NewTransactionRepo(db), NewAccountRepo(db), acc, userID
 }
 
 // TestTransactionRepo_Create verifies basic transaction creation with a category.
 // testutil.GetFirstCategoryID fetches a seeded system category from the DB.
 func TestTransactionRepo_Create(t *testing.T) {
-	txRepo, _, acc := setupTransactionTest(t)
+	txRepo, _, acc, userID := setupTransactionTest(t)
 	catID := testutil.GetFirstCategoryID(t, txRepo.db, models.CategoryTypeExpense)
 
-	created, err := txRepo.Create(context.Background(), models.Transaction{
-		Type:      models.TransactionTypeExpense,
-		Amount:    250.50,
-		Currency:  models.CurrencyEGP,
-		AccountID: acc.ID,
+	created, err := txRepo.Create(context.Background(), userID, models.Transaction{
+		Type:       models.TransactionTypeExpense,
+		Amount:     250.50,
+		Currency:   models.CurrencyEGP,
+		AccountID:  acc.ID,
 		CategoryID: &catID,
-		Date:      time.Now(),
+		Date:       time.Now(),
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -80,11 +83,11 @@ func TestTransactionRepo_Create(t *testing.T) {
 // the transaction is rolled back automatically. After Commit(), Rollback() is a no-op.
 // This is a critical Go pattern for DB transactions — always defer Rollback.
 //
-//   Laravel:  DB::transaction(fn () => ...);  // auto-rollback on exception
-//   Django:   with transaction.atomic(): ...  // auto-rollback on exception
-//   Go:       defer dbTx.Rollback()           // explicit safety net
+//	Laravel:  DB::transaction(fn () => ...);  // auto-rollback on exception
+//	Django:   with transaction.atomic(): ...  // auto-rollback on exception
+//	Go:       defer dbTx.Rollback()           // explicit safety net
 func TestTransactionRepo_CreateTx(t *testing.T) {
-	txRepo, _, acc := setupTransactionTest(t)
+	txRepo, _, acc, userID := setupTransactionTest(t)
 
 	dbTx, err := txRepo.BeginTx(context.Background())
 	if err != nil {
@@ -92,7 +95,7 @@ func TestTransactionRepo_CreateTx(t *testing.T) {
 	}
 	defer dbTx.Rollback()
 
-	created, err := txRepo.CreateTx(context.Background(), dbTx, models.Transaction{
+	created, err := txRepo.CreateTx(context.Background(), userID, dbTx, models.Transaction{
 		Type:      models.TransactionTypeIncome,
 		Amount:    5000,
 		Currency:  models.CurrencyEGP,
@@ -110,10 +113,10 @@ func TestTransactionRepo_CreateTx(t *testing.T) {
 }
 
 func TestTransactionRepo_GetByID(t *testing.T) {
-	txRepo, _, acc := setupTransactionTest(t)
+	txRepo, _, acc, userID := setupTransactionTest(t)
 	note := "Grocery shopping"
 
-	created, _ := txRepo.Create(context.Background(), models.Transaction{
+	created, _ := txRepo.Create(context.Background(), userID, models.Transaction{
 		Type:      models.TransactionTypeExpense,
 		Amount:    150,
 		Currency:  models.CurrencyEGP,
@@ -121,7 +124,7 @@ func TestTransactionRepo_GetByID(t *testing.T) {
 		Note:      &note,
 	})
 
-	found, err := txRepo.GetByID(context.Background(), created.ID)
+	found, err := txRepo.GetByID(context.Background(), userID, created.ID)
 	if err != nil {
 		t.Fatalf("get by id: %v", err)
 	}
@@ -134,11 +137,11 @@ func TestTransactionRepo_GetByID(t *testing.T) {
 }
 
 func TestTransactionRepo_GetRecent(t *testing.T) {
-	txRepo, _, acc := setupTransactionTest(t)
+	txRepo, _, acc, userID := setupTransactionTest(t)
 
 	// Create 3 transactions
 	for i := 0; i < 3; i++ {
-		txRepo.Create(context.Background(), models.Transaction{
+		txRepo.Create(context.Background(), userID, models.Transaction{
 			Type:      models.TransactionTypeExpense,
 			Amount:    float64(100 * (i + 1)),
 			Currency:  models.CurrencyEGP,
@@ -146,7 +149,7 @@ func TestTransactionRepo_GetRecent(t *testing.T) {
 		})
 	}
 
-	recent, err := txRepo.GetRecent(context.Background(), 2)
+	recent, err := txRepo.GetRecent(context.Background(), userID, 2)
 	if err != nil {
 		t.Fatalf("get recent: %v", err)
 	}
@@ -156,18 +159,18 @@ func TestTransactionRepo_GetRecent(t *testing.T) {
 }
 
 func TestTransactionRepo_GetByAccount(t *testing.T) {
-	txRepo, _, acc := setupTransactionTest(t)
+	txRepo, _, acc, userID := setupTransactionTest(t)
 
-	txRepo.Create(context.Background(), models.Transaction{
+	txRepo.Create(context.Background(), userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 100,
 		Currency: models.CurrencyEGP, AccountID: acc.ID,
 	})
-	txRepo.Create(context.Background(), models.Transaction{
+	txRepo.Create(context.Background(), userID, models.Transaction{
 		Type: models.TransactionTypeIncome, Amount: 200,
 		Currency: models.CurrencyEGP, AccountID: acc.ID,
 	})
 
-	txns, err := txRepo.GetByAccount(context.Background(), acc.ID, 10)
+	txns, err := txRepo.GetByAccount(context.Background(), userID, acc.ID, 10)
 	if err != nil {
 		t.Fatalf("get by account: %v", err)
 	}
@@ -177,19 +180,19 @@ func TestTransactionRepo_GetByAccount(t *testing.T) {
 }
 
 func TestTransactionRepo_Delete(t *testing.T) {
-	txRepo, _, acc := setupTransactionTest(t)
+	txRepo, _, acc, userID := setupTransactionTest(t)
 
-	created, _ := txRepo.Create(context.Background(), models.Transaction{
+	created, _ := txRepo.Create(context.Background(), userID, models.Transaction{
 		Type: models.TransactionTypeExpense, Amount: 500,
 		Currency: models.CurrencyEGP, AccountID: acc.ID,
 	})
 
-	err := txRepo.Delete(context.Background(), created.ID)
+	err := txRepo.Delete(context.Background(), userID, created.ID)
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	_, err = txRepo.GetByID(context.Background(), created.ID)
+	_, err = txRepo.GetByID(context.Background(), userID, created.ID)
 	if err == nil {
 		t.Error("expected error after deletion")
 	}
@@ -198,7 +201,7 @@ func TestTransactionRepo_Delete(t *testing.T) {
 // TestTransactionRepo_UpdateBalanceTx verifies that balance updates within a
 // DB transaction are atomic — the balance change is only visible after Commit.
 func TestTransactionRepo_UpdateBalanceTx(t *testing.T) {
-	txRepo, accRepo, acc := setupTransactionTest(t)
+	txRepo, accRepo, acc, userID := setupTransactionTest(t)
 
 	dbTx, err := txRepo.BeginTx(context.Background())
 	if err != nil {
@@ -207,14 +210,14 @@ func TestTransactionRepo_UpdateBalanceTx(t *testing.T) {
 	defer dbTx.Rollback()
 
 	// Subtract 3000 from balance (simulating expense)
-	if err := txRepo.UpdateBalanceTx(context.Background(), dbTx, acc.ID, -3000); err != nil {
+	if err := txRepo.UpdateBalanceTx(context.Background(), userID, dbTx, acc.ID, -3000); err != nil {
 		t.Fatalf("update balance: %v", err)
 	}
 	if err := dbTx.Commit(); err != nil {
 		t.Fatalf("commit: %v", err)
 	}
 
-	updated, _ := accRepo.GetByID(context.Background(), acc.ID)
+	updated, _ := accRepo.GetByID(context.Background(), userID, acc.ID)
 	if updated.CurrentBalance != 7000 {
 		t.Errorf("expected 7000, got %f", updated.CurrentBalance)
 	}

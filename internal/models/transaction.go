@@ -64,6 +64,7 @@ const (
 //      this field to verify that InitialBalance + SUM(balance_delta) == CurrentBalance.
 type Transaction struct {
 	ID                  string          `json:"id" db:"id"`
+	UserID              string          `json:"user_id" db:"user_id"`
 	Type                TransactionType `json:"type" db:"type"`
 	Amount              float64         `json:"amount" db:"amount"`                                        // always positive — Type + BalanceDelta determine direction
 	Currency            Currency        `json:"currency" db:"currency"`

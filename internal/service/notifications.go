@@ -63,12 +63,12 @@ func NewNotificationService(dashboardSvc *DashboardService, recurringSvc *Recurr
 //
 // nil-safe pattern: each source is wrapped in `if s.xxxSvc != nil { ... }`.
 // This ensures the method works even if some services weren't injected.
-func (s *NotificationService) GetPendingNotifications(ctx context.Context) ([]Notification, error) {
+func (s *NotificationService) GetPendingNotifications(ctx context.Context, userID string) ([]Notification, error) {
 	var notifications []Notification
 
 	// Check credit card due dates (within 3 days) and budget thresholds
 	if s.dashboardSvc != nil {
-		data, err := s.dashboardSvc.GetDashboard(ctx)
+		data, err := s.dashboardSvc.GetDashboard(ctx, userID)
 		if err == nil {
 			for _, card := range data.DueSoonCards {
 				if card.DaysUntilDue <= 3 {
@@ -114,7 +114,7 @@ func (s *NotificationService) GetPendingNotifications(ctx context.Context) ([]No
 
 	// Check recurring transactions due
 	if s.recurringSvc != nil {
-		pending, err := s.recurringSvc.GetDuePending(ctx)
+		pending, err := s.recurringSvc.GetDuePending(ctx, userID)
 		if err == nil {
 			for _, rule := range pending {
 				notifications = append(notifications, Notification{

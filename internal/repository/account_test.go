@@ -22,21 +22,22 @@ import (
 // this function, Go reports the line number of the CALLER, not this function.
 // Like PHPUnit's setUp() method, but called explicitly.
 //
-// Returns: the AccountRepo and a pre-created Institution (accounts need a parent institution).
-func setupAccountTest(t *testing.T) (*AccountRepo, models.Institution) {
+// Returns: the AccountRepo, a pre-created Institution, and the test user ID.
+func setupAccountTest(t *testing.T) (*AccountRepo, models.Institution, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "institutions")
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
-	return NewAccountRepo(db), inst
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
+	return NewAccountRepo(db), inst, userID
 }
 
 // TestAccountRepo_Create verifies that creating an account sets current_balance = initial_balance
 // and auto-generates an ID.
 func TestAccountRepo_Create(t *testing.T) {
-	repo, inst := setupAccountTest(t)
+	repo, inst, userID := setupAccountTest(t)
 
-	acc, err := repo.Create(context.Background(), models.Account{
+	acc, err := repo.Create(context.Background(), userID, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
@@ -58,10 +59,10 @@ func TestAccountRepo_Create(t *testing.T) {
 // The credit_limit is a *float64 (pointer) because it's nullable — only credit cards have one.
 // In Go, a nil pointer means "not set" (like NULL in SQL, None in Python, null in PHP).
 func TestAccountRepo_Create_CreditCard(t *testing.T) {
-	repo, inst := setupAccountTest(t)
+	repo, inst, userID := setupAccountTest(t)
 	limit := 500000.0
 
-	acc, err := repo.Create(context.Background(), models.Account{
+	acc, err := repo.Create(context.Background(), userID, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Credit Card",
 		Type:          models.AccountTypeCreditCard,
@@ -77,16 +78,16 @@ func TestAccountRepo_Create_CreditCard(t *testing.T) {
 }
 
 func TestAccountRepo_GetByID(t *testing.T) {
-	repo, inst := setupAccountTest(t)
+	repo, inst, userID := setupAccountTest(t)
 
-	created, _ := repo.Create(context.Background(), models.Account{
+	created, _ := repo.Create(context.Background(), userID, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Savings",
 		Type:          models.AccountTypeSavings,
 		Currency:      models.CurrencyUSD,
 	})
 
-	found, err := repo.GetByID(context.Background(), created.ID)
+	found, err := repo.GetByID(context.Background(), userID, created.ID)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -99,16 +100,16 @@ func TestAccountRepo_GetByID(t *testing.T) {
 }
 
 func TestAccountRepo_GetByInstitution(t *testing.T) {
-	repo, inst := setupAccountTest(t)
+	repo, inst, userID := setupAccountTest(t)
 
-	repo.Create(context.Background(), models.Account{
+	repo.Create(context.Background(), userID, models.Account{
 		InstitutionID: inst.ID, Name: "Checking", Type: models.AccountTypeCurrent, Currency: models.CurrencyEGP,
 	})
-	repo.Create(context.Background(), models.Account{
+	repo.Create(context.Background(), userID, models.Account{
 		InstitutionID: inst.ID, Name: "Savings", Type: models.AccountTypeSavings, Currency: models.CurrencyEGP,
 	})
 
-	accounts, err := repo.GetByInstitution(context.Background(), inst.ID)
+	accounts, err := repo.GetByInstitution(context.Background(), userID, inst.ID)
 	if err != nil {
 		t.Fatalf("get by institution: %v", err)
 	}
@@ -121,9 +122,9 @@ func TestAccountRepo_GetByInstitution(t *testing.T) {
 // Tests both positive (income) and negative (expense) deltas to ensure
 // the SQL arithmetic `current_balance = current_balance + $delta` works correctly.
 func TestAccountRepo_UpdateBalance(t *testing.T) {
-	repo, inst := setupAccountTest(t)
+	repo, inst, userID := setupAccountTest(t)
 
-	acc, _ := repo.Create(context.Background(), models.Account{
+	acc, _ := repo.Create(context.Background(), userID, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Test",
 		Type:           models.AccountTypeCurrent,
@@ -132,19 +133,19 @@ func TestAccountRepo_UpdateBalance(t *testing.T) {
 	})
 
 	// Add 5000
-	err := repo.UpdateBalance(context.Background(), acc.ID, 5000)
+	err := repo.UpdateBalance(context.Background(), userID, acc.ID, 5000)
 	if err != nil {
 		t.Fatalf("update balance: %v", err)
 	}
 
-	updated, _ := repo.GetByID(context.Background(), acc.ID)
+	updated, _ := repo.GetByID(context.Background(), userID, acc.ID)
 	if updated.CurrentBalance != 15000 {
 		t.Errorf("expected 15000, got %f", updated.CurrentBalance)
 	}
 
 	// Subtract 3000
-	repo.UpdateBalance(context.Background(), acc.ID, -3000)
-	updated, _ = repo.GetByID(context.Background(), acc.ID)
+	repo.UpdateBalance(context.Background(), userID, acc.ID, -3000)
+	updated, _ = repo.GetByID(context.Background(), userID, acc.ID)
 	if updated.CurrentBalance != 12000 {
 		t.Errorf("expected 12000, got %f", updated.CurrentBalance)
 	}
@@ -153,14 +154,16 @@ func TestAccountRepo_UpdateBalance(t *testing.T) {
 // TestAccountRepo_Create_Cash verifies cash accounts can be created under a wallet institution.
 func TestAccountRepo_Create_Cash(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "institutions")
 	wallet := testutil.CreateInstitution(t, db, models.Institution{
-		Name: "Cash",
-		Type: models.InstitutionTypeWallet,
+		Name:   "Cash",
+		Type:   models.InstitutionTypeWallet,
+		UserID: userID,
 	})
 	repo := NewAccountRepo(db)
 
-	acc, err := repo.Create(context.Background(), models.Account{
+	acc, err := repo.Create(context.Background(), userID, models.Account{
 		InstitutionID:  wallet.ID,
 		Name:           "EGP Cash",
 		Type:           models.AccountTypeCash,
@@ -185,19 +188,19 @@ func TestAccountRepo_Create_Cash(t *testing.T) {
 }
 
 func TestAccountRepo_Delete(t *testing.T) {
-	repo, inst := setupAccountTest(t)
+	repo, inst, userID := setupAccountTest(t)
 
-	acc, _ := repo.Create(context.Background(), models.Account{
+	acc, _ := repo.Create(context.Background(), userID, models.Account{
 		InstitutionID: inst.ID, Name: "To Delete",
 		Type: models.AccountTypeCurrent, Currency: models.CurrencyEGP,
 	})
 
-	err := repo.Delete(context.Background(), acc.ID)
+	err := repo.Delete(context.Background(), userID, acc.ID)
 	if err != nil {
 		t.Fatalf("delete: %v", err)
 	}
 
-	_, err = repo.GetByID(context.Background(), acc.ID)
+	_, err = repo.GetByID(context.Background(), userID, acc.ID)
 	if err == nil {
 		t.Error("expected error after deletion")
 	}

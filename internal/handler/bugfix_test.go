@@ -21,7 +21,7 @@ import (
 // navigates to /login without HTMX intercepting.
 func TestBug001_LogoutStandardRedirect(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodPost, "/logout", nil)
 	addAuth(req)
@@ -44,7 +44,7 @@ func TestBug001_LogoutStandardRedirect(t *testing.T) {
 // uses a standard form POST (not hx-post) for the logout button.
 func TestBug001_SettingsLogoutFormIsStandardPOST(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/settings", nil)
 	addAuth(req)
@@ -65,7 +65,7 @@ func TestBug001_SettingsLogoutFormIsStandardPOST(t *testing.T) {
 // transaction form includes both expense and income category optgroups.
 func TestBug003_TransactionNewHasIncomeCategoryOptions(t *testing.T) {
 	db := testutil.NewTestDB(t)
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/transactions/new", nil)
 	addAuth(req)
@@ -107,14 +107,16 @@ func TestBug004_BatchEntryHasDateJS(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Savings",
 		Currency:      models.CurrencyEGP,
+		UserID:        userID,
 	})
 
-	router, addAuth := testRouter(t, db)
 	req := httptest.NewRequest(http.MethodGet, "/batch-entry", nil)
 	addAuth(req)
 	w := httptest.NewRecorder()
@@ -134,7 +136,7 @@ func TestBug006_BudgetListShowsBudgets(t *testing.T) {
 
 	catID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
 
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	// Create a budget via POST
 	formData := strings.NewReader("category_id=" + catID + "&monthly_limit=5000&currency=EGP")
@@ -176,7 +178,7 @@ func TestBug007_BudgetCreateRedirectsSeeOther(t *testing.T) {
 
 	catID := testutil.GetFirstCategoryID(t, db, models.CategoryTypeExpense)
 
-	router, addAuth := testRouter(t, db)
+	router, addAuth, _ := testRouter(t, db)
 
 	formData := strings.NewReader("category_id=" + catID + "&monthly_limit=2000&currency=EGP")
 	req := httptest.NewRequest(http.MethodPost, "/budgets/add", formData)
@@ -206,7 +208,9 @@ func TestBug008_CCStatementNoBillingCycle(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	limit := 50000.0
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
@@ -215,9 +219,8 @@ func TestBug008_CCStatementNoBillingCycle(t *testing.T) {
 		Currency:       models.CurrencyEGP,
 		CreditLimit:    &limit,
 		InitialBalance: 0,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	req := httptest.NewRequest(http.MethodGet, "/accounts/"+acc.ID+"/statement", nil)
 	addAuth(req)
@@ -247,14 +250,15 @@ func TestBug010_RecurringListPartialHasDeleteButton(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID,
 		Name:          "Checking",
 		Currency:      models.CurrencyEGP,
+		UserID:        userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create a recurring rule via HTMX form POST
 	formData := strings.NewReader(
@@ -290,16 +294,17 @@ func TestBug011_ReportsUSDFilter(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "USD Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyUSD,
 		InitialBalance: 5000,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Create a USD transaction
 	formData := strings.NewReader("type=expense&amount=100&currency=USD&account_id=" + acc.ID + "&date=2026-03-05")
@@ -341,15 +346,16 @@ func TestBug012_DeleteAccountCleansUpRecurringRules(t *testing.T) {
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	router, addAuth, userID := testRouter(t, db)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Salary Account",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0,
+		UserID:         userID,
 	})
-
-	router, addAuth := testRouter(t, db)
 
 	// Step 1: Create a recurring rule referencing the account.
 	formData := strings.NewReader(

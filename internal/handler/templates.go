@@ -110,7 +110,6 @@ func TemplateFuncs(loc *time.Location) template.FuncMap {
 			return t.In(loc).Format("2006-01-02")
 		},
 		// formatDuration converts seconds to a human-readable duration string.
-		// Used by the login lockout countdown display.
 		"formatDuration": func(seconds int) string {
 			if seconds < 60 {
 				if seconds == 1 {
@@ -321,15 +320,17 @@ func ParseTemplates(templateFS fs.FS, loc *time.Location) (TemplateMap, error) {
 	return templates, nil
 }
 
-// barePages lists pages that use the "bare" layout (no header/nav) — like login and setup.
+// barePages lists pages that use the "bare" layout (no header/nav) — auth pages.
 var barePages = map[string]bool{
-	"login": true,
-	"setup": true,
+	"login":        true,
+	"register":     true,
+	"check-email":  true,
+	"link-expired": true,
 }
 
 // RenderPage renders a named page template with the given data.
 // The page name maps to a file in templates/pages/ (e.g., "home" -> pages/home.html).
-// Auth pages (login, setup) use the "bare" layout without header/nav.
+// Auth pages (login, register, check-email, link-expired) use the "bare" layout without header/nav.
 //
 // This is the Go equivalent of:
 //   - Laravel: return view('home', $data);

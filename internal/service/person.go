@@ -45,11 +45,12 @@ func NewPersonService(personRepo *repository.PersonRepo, txRepo *repository.Tran
 	return &PersonService{personRepo: personRepo, txRepo: txRepo}
 }
 
-func (s *PersonService) Create(ctx context.Context, p models.Person) (models.Person, error) {
+func (s *PersonService) Create(ctx context.Context, userID string, p models.Person) (models.Person, error) {
 	if err := requireNotEmpty(p.Name, "name"); err != nil {
 		return models.Person{}, err
 	}
-	created, err := s.personRepo.Create(ctx, p)
+	p.UserID = userID
+	created, err := s.personRepo.Create(ctx, userID, p)
 	if err != nil {
 		return models.Person{}, err
 	}
@@ -57,20 +58,20 @@ func (s *PersonService) Create(ctx context.Context, p models.Person) (models.Per
 	return created, nil
 }
 
-func (s *PersonService) GetByID(ctx context.Context, id string) (models.Person, error) {
-	return s.personRepo.GetByID(ctx, id)
+func (s *PersonService) GetByID(ctx context.Context, userID string, id string) (models.Person, error) {
+	return s.personRepo.GetByID(ctx, userID, id)
 }
 
-func (s *PersonService) GetAll(ctx context.Context) ([]models.Person, error) {
-	return s.personRepo.GetAll(ctx)
+func (s *PersonService) GetAll(ctx context.Context, userID string) ([]models.Person, error) {
+	return s.personRepo.GetAll(ctx, userID)
 }
 
-func (s *PersonService) Update(ctx context.Context, p models.Person) (models.Person, error) {
-	return s.personRepo.Update(ctx, p)
+func (s *PersonService) Update(ctx context.Context, userID string, p models.Person) (models.Person, error) {
+	return s.personRepo.Update(ctx, userID, p)
 }
 
-func (s *PersonService) Delete(ctx context.Context, id string) error {
-	return s.personRepo.Delete(ctx, id)
+func (s *PersonService) Delete(ctx context.Context, userID string, id string) error {
+	return s.personRepo.Delete(ctx, userID, id)
 }
 
 // RecordLoan creates a loan transaction and updates the person's net balance.
@@ -79,7 +80,7 @@ func (s *PersonService) Delete(ctx context.Context, id string) error {
 //     Money leaves my account (like an expense from my perspective).
 //   - loan_in: I borrowed from them → their balance goes negative (I owe them)
 //     Money enters my account (like income from my perspective).
-func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID string, amount float64, currency models.Currency, txType models.TransactionType, note *string, date time.Time) (models.Transaction, error) {
+func (s *PersonService) RecordLoan(ctx context.Context, userID string, personID, accountID string, amount float64, currency models.Currency, txType models.TransactionType, note *string, date time.Time) (models.Transaction, error) {
 	logutil.Log(ctx).Debug("recording loan", "person_id", personID, "type", txType, "currency", currency)
 	if err := requirePositive(amount, "amount"); err != nil {
 		return models.Transaction{}, err
@@ -120,17 +121,18 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 		Note:         note,
 		Date:         date,
 		BalanceDelta: accountDelta,
+		UserID:       userID,
 	}
 
-	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
+	created, err := s.txRepo.CreateTx(ctx, userID, dbTx, tx)
 	if err != nil {
 		return models.Transaction{}, err
 	}
 
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, accountID, accountDelta); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, accountID, accountDelta); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating account balance: %w", err)
 	}
-	if err := s.personRepo.UpdateNetBalanceTx(ctx, dbTx, personID, personDelta, currency); err != nil {
+	if err := s.personRepo.UpdateNetBalanceTx(ctx, userID, dbTx, personID, personDelta, currency); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating person balance: %w", err)
 	}
 
@@ -147,7 +149,7 @@ func (s *PersonService) RecordLoan(ctx context.Context, personID, accountID stri
 // Direction is determined by the current net_balance:
 //   - Positive net_balance (they owe me): they're paying me back → money enters my account
 //   - Negative net_balance (I owe them): I'm paying them back → money leaves my account
-func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, error) {
+func (s *PersonService) RecordRepayment(ctx context.Context, userID string, personID, accountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, error) {
 	logutil.Log(ctx).Debug("recording repayment", "person_id", personID, "currency", currency)
 	if err := requirePositive(amount, "amount"); err != nil {
 		return models.Transaction{}, err
@@ -156,7 +158,7 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 		return models.Transaction{}, fmt.Errorf("person_id and account_id are required")
 	}
 
-	person, err := s.personRepo.GetByID(ctx, personID)
+	person, err := s.personRepo.GetByID(ctx, userID, personID)
 	if err != nil {
 		return models.Transaction{}, fmt.Errorf("person not found: %w", err)
 	}
@@ -197,17 +199,18 @@ func (s *PersonService) RecordRepayment(ctx context.Context, personID, accountID
 		Note:         note,
 		Date:         date,
 		BalanceDelta: accountDelta,
+		UserID:       userID,
 	}
 
-	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
+	created, err := s.txRepo.CreateTx(ctx, userID, dbTx, tx)
 	if err != nil {
 		return models.Transaction{}, err
 	}
 
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, accountID, accountDelta); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, accountID, accountDelta); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating account balance: %w", err)
 	}
-	if err := s.personRepo.UpdateNetBalanceTx(ctx, dbTx, personID, personDelta, currency); err != nil {
+	if err := s.personRepo.UpdateNetBalanceTx(ctx, userID, dbTx, personID, personDelta, currency); err != nil {
 		return models.Transaction{}, fmt.Errorf("updating person balance: %w", err)
 	}
 
@@ -258,13 +261,13 @@ type DebtSummary struct {
 //
 // In Laravel, you might compute these aggregates with Eloquent's sum(), count(),
 // and Collection methods. In Go, we iterate manually — more verbose but explicit.
-func (s *PersonService) GetDebtSummary(ctx context.Context, personID string) (DebtSummary, error) {
-	person, err := s.personRepo.GetByID(ctx, personID)
+func (s *PersonService) GetDebtSummary(ctx context.Context, userID string, personID string) (DebtSummary, error) {
+	person, err := s.personRepo.GetByID(ctx, userID, personID)
 	if err != nil {
 		return DebtSummary{}, fmt.Errorf("person not found: %w", err)
 	}
 
-	txns, err := s.txRepo.GetByPersonID(ctx, personID, 200)
+	txns, err := s.txRepo.GetByPersonID(ctx, userID, personID, 200)
 	if err != nil {
 		return DebtSummary{}, fmt.Errorf("loading transactions: %w", err)
 	}
@@ -357,6 +360,6 @@ func (s *PersonService) GetDebtSummary(ctx context.Context, personID string) (De
 }
 
 // GetPersonTransactions returns transactions for a specific person.
-func (s *PersonService) GetPersonTransactions(ctx context.Context, personID string, limit int) ([]models.Transaction, error) {
-	return s.txRepo.GetByPersonID(ctx, personID, limit)
+func (s *PersonService) GetPersonTransactions(ctx context.Context, userID string, personID string, limit int) ([]models.Transaction, error) {
+	return s.txRepo.GetByPersonID(ctx, userID, personID, limit)
 }

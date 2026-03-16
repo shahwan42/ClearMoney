@@ -32,33 +32,33 @@ func NewCategoryRepo(db *sql.DB) *CategoryRepo {
 // The `WHERE is_archived = false` acts as a soft-delete filter.
 //   Laravel:  Category::where('is_archived', false)->orderBy('type')->get()
 //   Django:   Category.objects.filter(is_archived=False).order_by('type', 'display_order', 'name')
-func (r *CategoryRepo) GetAll(ctx context.Context) ([]models.Category, error) {
+func (r *CategoryRepo) GetAll(ctx context.Context, userID string) ([]models.Category, error) {
 	return r.queryCategories(ctx, `
 		SELECT id, name, type, icon, is_system, is_archived, display_order, created_at, updated_at
-		FROM categories WHERE is_archived = false
+		FROM categories WHERE is_archived = false AND user_id = $1
 		ORDER BY type, display_order, name
-	`)
+	`, userID)
 }
 
 // GetByType retrieves non-archived categories of a specific type (expense/income).
 // catType is a typed string constant (models.CategoryType) — Go's way of doing enums.
 //   Laravel:  Category::where('type', $catType)->where('is_archived', false)->get()
 //   Django:   Category.objects.filter(type=cat_type, is_archived=False)
-func (r *CategoryRepo) GetByType(ctx context.Context, catType models.CategoryType) ([]models.Category, error) {
+func (r *CategoryRepo) GetByType(ctx context.Context, userID string, catType models.CategoryType) ([]models.Category, error) {
 	return r.queryCategories(ctx, `
 		SELECT id, name, type, icon, is_system, is_archived, display_order, created_at, updated_at
-		FROM categories WHERE type = $1 AND is_archived = false
+		FROM categories WHERE type = $1 AND is_archived = false AND user_id = $2
 		ORDER BY display_order, name
-	`, catType)
+	`, catType, userID)
 }
 
 // GetByID retrieves a single category.
-func (r *CategoryRepo) GetByID(ctx context.Context, id string) (models.Category, error) {
+func (r *CategoryRepo) GetByID(ctx context.Context, userID string, id string) (models.Category, error) {
 	var cat models.Category
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, name, type, icon, is_system, is_archived, display_order, created_at, updated_at
-		FROM categories WHERE id = $1
-	`, id).Scan(
+		FROM categories WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(
 		&cat.ID, &cat.Name, &cat.Type, &cat.Icon, &cat.IsSystem,
 		&cat.IsArchived, &cat.DisplayOrder, &cat.CreatedAt, &cat.UpdatedAt,
 	)
@@ -71,12 +71,13 @@ func (r *CategoryRepo) GetByID(ctx context.Context, id string) (models.Category,
 // Create inserts a new custom category.
 // Note: is_system is hardcoded to false in the SQL — only migrations create system categories.
 // RETURNING returns multiple auto-set columns in one round-trip to avoid a separate SELECT.
-func (r *CategoryRepo) Create(ctx context.Context, cat models.Category) (models.Category, error) {
+func (r *CategoryRepo) Create(ctx context.Context, userID string, cat models.Category) (models.Category, error) {
+	cat.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO categories (name, type, icon, is_system, display_order)
-		VALUES ($1, $2, $3, false, $4)
+		INSERT INTO categories (user_id, name, type, icon, is_system, display_order)
+		VALUES ($1, $2, $3, $4, false, $5)
 		RETURNING id, is_system, is_archived, created_at, updated_at
-	`, cat.Name, cat.Type, cat.Icon, cat.DisplayOrder,
+	`, userID, cat.Name, cat.Type, cat.Icon, cat.DisplayOrder,
 	).Scan(&cat.ID, &cat.IsSystem, &cat.IsArchived, &cat.CreatedAt, &cat.UpdatedAt)
 
 	if err != nil {
@@ -86,12 +87,12 @@ func (r *CategoryRepo) Create(ctx context.Context, cat models.Category) (models.
 }
 
 // Update modifies a category's name, icon, and display_order.
-func (r *CategoryRepo) Update(ctx context.Context, cat models.Category) (models.Category, error) {
+func (r *CategoryRepo) Update(ctx context.Context, userID string, cat models.Category) (models.Category, error) {
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE categories SET name = $2, icon = $3, display_order = $4, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $5
 		RETURNING updated_at
-	`, cat.ID, cat.Name, cat.Icon, cat.DisplayOrder,
+	`, cat.ID, cat.Name, cat.Icon, cat.DisplayOrder, userID,
 	).Scan(&cat.UpdatedAt)
 	if err != nil {
 		return models.Category{}, fmt.Errorf("updating category: %w", err)
@@ -103,16 +104,53 @@ func (r *CategoryRepo) Update(ctx context.Context, cat models.Category) (models.
 // Soft-delete keeps the data for historical transactions but hides it from the UI.
 //   Laravel:  $category->update(['is_archived' => true]);  // like SoftDeletes but with a bool
 //   Django:   category.is_archived = True; category.save()
-func (r *CategoryRepo) Archive(ctx context.Context, id string) error {
+func (r *CategoryRepo) Archive(ctx context.Context, userID string, id string) error {
 	result, err := r.db.ExecContext(ctx, `
-		UPDATE categories SET is_archived = true, updated_at = now() WHERE id = $1
-	`, id)
+		UPDATE categories SET is_archived = true, updated_at = now() WHERE id = $1 AND user_id = $2
+	`, id, userID)
 	if err != nil {
 		return fmt.Errorf("archiving category: %w", err)
 	}
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// SeedDefaults inserts the default system categories for a new user.
+// Mirrors the categories from migration 000007 + icon updates from 000019 + renames from 000020.
+func (r *CategoryRepo) SeedDefaults(ctx context.Context, userID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO categories (user_id, name, type, icon, is_system, display_order) VALUES
+			($1, 'Household',        'expense', '🏠', true, 1),
+			($1, 'Food & Groceries', 'expense', '🛒', true, 2),
+			($1, 'Transport',        'expense', '🚗', true, 3),
+			($1, 'Health',           'expense', '🏥', true, 4),
+			($1, 'Education',        'expense', '📚', true, 5),
+			($1, 'Mobile',           'expense', '📱', true, 6),
+			($1, 'Electricity',      'expense', '⚡', true, 7),
+			($1, 'Gas',              'expense', '🔥', true, 8),
+			($1, 'Internet',         'expense', '🌐', true, 9),
+			($1, 'Gifts',            'expense', '🎁', true, 10),
+			($1, 'Entertainment',    'expense', '🎬', true, 11),
+			($1, 'Shopping',         'expense', '🛍️', true, 12),
+			($1, 'Subscriptions',    'expense', '📺', true, 13),
+			($1, 'Virtual Fund',     'expense', '🏦', true, 14),
+			($1, 'Insurance',        'expense', '🛡️', true, 15),
+			($1, 'Fees & Charges',   'expense', '💳', true, 16),
+			($1, 'Debt Payment',     'expense', '💰', true, 17),
+			($1, 'Other',            'expense', '🔖', true, 18),
+			($1, 'Salary',                    'income', '💵', true, 1),
+			($1, 'Freelance',                 'income', '💻', true, 2),
+			($1, 'Investment Returns',        'income', '📈', true, 3),
+			($1, 'Refund',                    'income', '🔄', true, 4),
+			($1, 'Virtual Fund',              'income', '🏦', true, 5),
+			($1, 'Loan Repayment Received',   'income', '🤝', true, 6),
+			($1, 'Other',                     'income', '💎', true, 7)
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("seeding default categories: %w", err)
 	}
 	return nil
 }

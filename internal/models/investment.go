@@ -26,6 +26,7 @@ import "time"
 // (which is different from UpdatedAt, which tracks when any field was modified).
 type Investment struct {
 	ID            string    `json:"id" db:"id"`
+	UserID        string    `json:"user_id" db:"user_id"`
 	Platform      string    `json:"platform" db:"platform"`              // investment platform name (e.g., "Thndr", "EFG Hermes")
 	FundName      string    `json:"fund_name" db:"fund_name"`            // specific fund name (e.g., "Banque Misr Money Market Fund")
 	Units         float64   `json:"units" db:"units"`                    // number of fund units owned (can be fractional, e.g., 152.347)

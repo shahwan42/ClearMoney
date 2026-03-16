@@ -37,6 +37,7 @@ import "time"
 // See: https://go.dev/tour/methods/4
 type InstallmentPlan struct {
 	ID                    string    `json:"id" db:"id"`
+	UserID                string    `json:"user_id" db:"user_id"`
 	AccountID             string    `json:"account_id" db:"account_id"`                         // FK to Account — typically a credit card or credit limit account
 	Description           string    `json:"description" db:"description"`                       // what was purchased (e.g., "MacBook Pro 16-inch")
 	TotalAmount           float64   `json:"total_amount" db:"total_amount"`                     // full purchase price before splitting (e.g., 24000.0)

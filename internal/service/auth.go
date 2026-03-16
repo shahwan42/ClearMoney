@@ -1,298 +1,364 @@
-// auth.go — AuthService handles PIN-based authentication for ClearMoney.
+// auth.go — AuthService handles magic-link authentication for ClearMoney.
 //
-// This is a SINGLE-USER app — there's one PIN, one session key, no users table.
-// The auth flow is:
-//   1. First visit: setup page asks for a 4-6 digit PIN
-//   2. PIN is hashed with bcrypt and stored in user_config table
-//   3. A random session key is generated for signing HMAC session cookies
-//   4. On login: user enters PIN, service verifies against bcrypt hash
-//   5. On success: a signed cookie is set (valid for 30 days)
+// Authentication is passwordless: users enter their email, receive a magic link,
+// click it, and get a server-side session. No passwords are ever stored.
 //
-// Laravel analogy: Like a stripped-down Auth system. Laravel uses bcrypt by default
-// (Hash::make($pin)) and stores it in the users table. Here, we use the same bcrypt
-// but with a simpler user_config table (just pin_hash + session_key, no email/name).
-// The session cookie is like Laravel's session guard but signed with HMAC instead of
-// using session IDs stored in a database/file.
+// The auth flow:
+//   1. User enters email on /login or /register
+//   2. Server generates a crypto-random token, stores it in auth_tokens
+//   3. Email with magic link is sent via Resend API
+//   4. User clicks link → GET /auth/verify?token=xxx
+//   5. Server validates token (not expired, not used, single-use)
+//   6. Login: find existing user → create session
+//      Registration: create user → seed categories → create session
+//   7. Session cookie set (30-day expiry)
 //
-// Django analogy: Like a simplified django.contrib.auth with make_password/check_password
-// for bcrypt hashing, and a signed cookie using Django's signing framework.
+// Rate limiting (protects Resend free tier — 100 emails/day):
+//   - Token reuse: if an unexpired token exists, don't send a new email
+//   - Per-email cooldown: 1 email per 5 minutes per address
+//   - Per-email daily: 3 emails per address per day
+//   - Global daily cap: configurable MAX_DAILY_EMAILS (default 50)
+//   - Login only sends to existing users (unknown emails = no email sent)
 //
-// Security packages used:
-//   - golang.org/x/crypto/bcrypt: same bcrypt algorithm as PHP's password_hash().
-//     See: https://pkg.go.dev/golang.org/x/crypto/bcrypt
-//   - crypto/rand: cryptographically secure random number generator for session keys.
-//     Like PHP's random_bytes() or Python's secrets module.
-//     See: https://pkg.go.dev/crypto/rand
-//   - encoding/hex: converts random bytes to hex string (for session key storage).
-//     See: https://pkg.go.dev/encoding/hex
+// Laravel analogy: Like a combined Auth + PasswordBroker but for magic links.
+// Django analogy: Like django-sesame with custom rate limiting.
 package service
 
 import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/shahwan42/clearmoney/internal/logutil"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/shahwan42/clearmoney/internal/repository"
 )
 
-// AuthService handles PIN-based authentication.
-// Uses *sql.DB directly (no repository) because auth operations are simple
-// and tightly coupled to the schema (user_config table with just 2 columns).
+const (
+	// SessionCookieName is the name of the auth session cookie.
+	SessionCookieName = "clearmoney_session"
+
+	// SessionMaxAge is how long sessions last (30 days).
+	SessionMaxAge = 30 * 24 * time.Hour
+
+	// tokenTTLMinutes is how long a magic link token is valid (15 minutes).
+	tokenTTLMinutes = 15
+
+	// emailCooldownMinutes is the per-email cooldown between magic link requests.
+	emailCooldownMinutes = 5
+
+	// maxDailyPerEmail is the max magic link emails per address per day.
+	maxDailyPerEmail = 3
+)
+
+// AuthService handles magic-link authentication, sessions, and rate limiting.
 type AuthService struct {
-	db *sql.DB
+	userRepo       *repository.UserRepo
+	sessionRepo    *repository.SessionRepo
+	tokenRepo      *repository.AuthTokenRepo
+	categoryRepo   *repository.CategoryRepo // seeds default categories for new users
+	emailSvc       *EmailService
+	maxDailyEmails int // global daily email cap (protects Resend free tier)
 }
 
-func NewAuthService(db *sql.DB) *AuthService {
-	return &AuthService{db: db}
-}
-
-// IsSetup checks if a PIN has been configured.
-// Returns true if a user_config row exists. On first run, this returns false,
-// and the app redirects to the setup page. Like checking if Laravel's .env has been
-// configured or if Django's initial migration has run.
-func (s *AuthService) IsSetup(ctx context.Context) bool {
-	var count int
-	if err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM user_config").Scan(&count); err != nil {
-		return false
+// NewAuthService creates a new auth service with all dependencies.
+func NewAuthService(
+	userRepo *repository.UserRepo,
+	sessionRepo *repository.SessionRepo,
+	tokenRepo *repository.AuthTokenRepo,
+	emailSvc *EmailService,
+	maxDailyEmails int,
+) *AuthService {
+	if maxDailyEmails <= 0 {
+		maxDailyEmails = 50
 	}
-	return count > 0
+	return &AuthService{
+		userRepo:       userRepo,
+		sessionRepo:    sessionRepo,
+		tokenRepo:      tokenRepo,
+		emailSvc:       emailSvc,
+		maxDailyEmails: maxDailyEmails,
+	}
 }
 
-// Setup creates the initial PIN and session key (first-time setup only).
-// PIN is hashed with bcrypt (same algorithm as PHP's password_hash() which Laravel uses).
-// bcrypt.DefaultCost is 10 — the same as Laravel's default rounds.
-//
-// The session key is a random 32-byte hex string used for HMAC-signing cookies.
-// This is like Laravel's APP_KEY — it signs cookies so they can't be tampered with.
-func (s *AuthService) Setup(ctx context.Context, pin string) error {
-	if len(pin) < 4 || len(pin) > 6 {
-		return fmt.Errorf("PIN must be 4-6 digits")
+// SetCategoryRepo sets the category repo for seeding defaults on registration.
+func (s *AuthService) SetCategoryRepo(repo *repository.CategoryRepo) {
+	s.categoryRepo = repo
+}
+
+// RequestLoginLink sends a magic link to an existing user's email.
+// If the email doesn't belong to a registered user, no email is sent — but the
+// same "Check your email" response is shown (prevents email enumeration).
+// Returns (emailSent, error). emailSent=false means no email was sent (unknown user,
+// rate limited, or token reuse) but is NOT an error — caller should still show
+// "Check your email" page.
+func (s *AuthService) RequestLoginLink(ctx context.Context, email string) (bool, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return false, fmt.Errorf("email is required")
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
+	// Only send to existing users — unknown emails get the same UX (prevent enumeration)
+	_, err := s.userRepo.GetByEmail(ctx, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		slog.Info("login request for unknown email (no email sent)", "email", email)
+		return false, nil // not an error — just don't send
+	}
 	if err != nil {
-		return fmt.Errorf("hashing PIN: %w", err)
+		return false, fmt.Errorf("checking user: %w", err)
 	}
 
-	sessionKey, err := generateSessionKey()
-	if err != nil {
-		return fmt.Errorf("generating session key: %w", err)
-	}
-
-	// Delete any existing config — single-user app, only one row should exist.
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM user_config`); err != nil {
-		return fmt.Errorf("clearing existing config: %w", err)
-	}
-	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO user_config (pin_hash, session_key) VALUES ($1, $2)
-	`, string(hash), sessionKey)
-	if err != nil {
-		return fmt.Errorf("saving config: %w", err)
-	}
-	logutil.LogEvent(ctx, "auth.setup_completed")
-	return nil
+	return s.sendMagicLink(ctx, email, "login")
 }
 
-// VerifyPIN checks if the given PIN matches the stored hash.
-// bcrypt.CompareHashAndPassword is constant-time (prevents timing attacks).
-// Returns bool (not error) — a simplified API since the caller only needs yes/no.
-// Like Laravel's Hash::check($pin, $hash) or Django's check_password().
-func (s *AuthService) VerifyPIN(ctx context.Context, pin string) bool {
-	var hash string
-	err := s.db.QueryRowContext(ctx, "SELECT pin_hash FROM user_config LIMIT 1").Scan(&hash)
-	if err != nil {
-		return false
+// RequestRegistrationLink sends a magic link for a new user registration.
+// Returns an error if the email is already registered.
+func (s *AuthService) RequestRegistrationLink(ctx context.Context, email string) (bool, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return false, fmt.Errorf("email is required")
 	}
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pin)) == nil
-}
 
-// LoginResult holds the outcome of a login attempt, including lockout state.
-// The handler uses this to decide what to render (success, error, or lockout countdown).
-type LoginResult struct {
-	Success        bool
-	Locked         bool
-	LockedUntil    time.Time
-	FailedAttempts int
-}
-
-// lockoutDuration returns the lockout duration based on the number of consecutive
-// failed attempts. First 3 attempts are free, then delays escalate progressively.
-// This makes brute-forcing a 4-digit PIN infeasible while being forgiving of typos.
-func lockoutDuration(attempts int) time.Duration {
-	switch {
-	case attempts <= 3:
-		return 0
-	case attempts == 4:
-		return 30 * time.Second
-	case attempts == 5:
-		return 1 * time.Minute
-	case attempts == 6:
-		return 5 * time.Minute
-	case attempts == 7:
-		return 15 * time.Minute
-	default:
-		return 1 * time.Hour
+	// Reject if already registered
+	_, err := s.userRepo.GetByEmail(ctx, email)
+	if err == nil {
+		return false, fmt.Errorf("an account with this email already exists")
 	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, fmt.Errorf("checking user: %w", err)
+	}
+
+	return s.sendMagicLink(ctx, email, "registration")
 }
 
-// formatLockoutDuration converts seconds to a human-readable duration string.
-func formatLockoutDuration(seconds int) string {
-	if seconds < 60 {
-		if seconds == 1 {
-			return "1 second"
+// sendMagicLink handles shared logic for both login and registration link requests.
+// Applies rate limiting, token reuse, and sends the email.
+func (s *AuthService) sendMagicLink(ctx context.Context, email, purpose string) (bool, error) {
+	// Token reuse: if an unexpired token already exists, don't send a new email
+	existingToken, err := s.tokenRepo.GetUnexpiredToken(ctx, email, purpose)
+	if err == nil {
+		if s.emailSvc.IsDevMode() {
+			slog.Info("reusing existing token (dev mode)",
+				"email", email,
+				"link", s.emailSvc.LinkURL(existingToken),
+			)
+		} else {
+			slog.Info("reusing existing token (no email sent)", "email", email, "purpose", purpose)
 		}
-		return fmt.Sprintf("%d seconds", seconds)
+		return false, nil
 	}
-	m := seconds / 60
-	s := seconds % 60
-	if s == 0 {
-		if m == 1 {
-			return "1 minute"
-		}
-		return fmt.Sprintf("%d minutes", m)
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, fmt.Errorf("checking existing token: %w", err)
 	}
-	return fmt.Sprintf("%d min %d sec", m, s)
+
+	// Per-email cooldown: 1 per 5 minutes
+	recentCount, err := s.tokenRepo.CountRecentByEmail(ctx, email, emailCooldownMinutes)
+	if err != nil {
+		return false, fmt.Errorf("checking email cooldown: %w", err)
+	}
+	if recentCount > 0 {
+		slog.Warn("email cooldown active (no email sent)", "email", email)
+		return false, nil
+	}
+
+	// Per-email daily limit: 3 per day
+	dailyByEmail, err := s.tokenRepo.CountTodayByEmail(ctx, email)
+	if err != nil {
+		return false, fmt.Errorf("checking daily email limit: %w", err)
+	}
+	if dailyByEmail >= maxDailyPerEmail {
+		slog.Warn("daily per-email limit reached (no email sent)", "email", email, "count", dailyByEmail)
+		return false, nil
+	}
+
+	// Global daily cap
+	globalCount, err := s.tokenRepo.CountToday(ctx)
+	if err != nil {
+		return false, fmt.Errorf("checking global daily cap: %w", err)
+	}
+	if globalCount >= s.maxDailyEmails {
+		slog.Error("global daily email cap reached", "count", globalCount, "max", s.maxDailyEmails)
+		return false, nil
+	}
+
+	// Generate token
+	token, err := generateSecureToken()
+	if err != nil {
+		return false, fmt.Errorf("generating token: %w", err)
+	}
+
+	// Store token in DB
+	_, err = s.tokenRepo.Create(ctx, email, token, purpose, tokenTTLMinutes)
+	if err != nil {
+		return false, fmt.Errorf("storing token: %w", err)
+	}
+
+	// Send email
+	if err := s.emailSvc.SendMagicLink(ctx, email, token); err != nil {
+		return false, fmt.Errorf("sending email: %w", err)
+	}
+
+	logutil.LogEvent(ctx, "auth.magic_link_sent", "email", email, "purpose", purpose)
+	return true, nil
 }
 
-// CheckAndVerifyPIN verifies a PIN with brute-force protection.
-// It checks lockout state before attempting verification, increments the failure
-// counter on wrong PINs, and resets it on success. Lockout state is persisted in
-// the database so it survives app restarts.
-//
-// This is like Laravel's ThrottlesLogins trait or Django's django-axes package,
-// but simpler since we only have one user.
-func (s *AuthService) CheckAndVerifyPIN(ctx context.Context, pin string) LoginResult {
-	var hash string
-	var failedAttempts int
-	var lockedUntil sql.NullTime
+// VerifyResult holds the outcome of verifying a magic link token.
+type VerifyResult struct {
+	SessionToken string
+	UserID       string
+	IsNewUser    bool
+}
 
-	err := s.db.QueryRowContext(ctx,
-		"SELECT pin_hash, failed_attempts, locked_until FROM user_config LIMIT 1",
-	).Scan(&hash, &failedAttempts, &lockedUntil)
+// VerifyMagicLink validates a magic link token and creates a session.
+// For login tokens: finds existing user → creates session.
+// For registration tokens: creates user → creates session.
+func (s *AuthService) VerifyMagicLink(ctx context.Context, token string) (VerifyResult, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return VerifyResult{}, fmt.Errorf("token is required")
+	}
+
+	// Look up token
+	at, err := s.tokenRepo.GetByToken(ctx, token)
+	if errors.Is(err, sql.ErrNoRows) {
+		return VerifyResult{}, fmt.Errorf("invalid or expired link")
+	}
 	if err != nil {
-		return LoginResult{}
+		return VerifyResult{}, fmt.Errorf("looking up token: %w", err)
 	}
 
-	// Check if currently locked out
-	if lockedUntil.Valid && lockedUntil.Time.After(time.Now()) {
-		logutil.LogEvent(ctx, "auth.login_blocked_lockout")
-		return LoginResult{Locked: true, LockedUntil: lockedUntil.Time, FailedAttempts: failedAttempts}
+	// Check if already used
+	if at.Used {
+		return VerifyResult{}, fmt.Errorf("this link has already been used")
 	}
 
-	// Verify PIN
-	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(pin)) != nil {
-		// Wrong PIN — increment counter atomically and set lockout
-		var newAttempts int
-		err := s.db.QueryRowContext(ctx,
-			`UPDATE user_config
-			 SET failed_attempts = failed_attempts + 1,
-			     locked_until = CASE
-			         WHEN failed_attempts + 1 > 3 THEN $1::timestamptz
-			         ELSE NULL
-			     END
-			 RETURNING failed_attempts`,
-			time.Now().Add(lockoutDuration(failedAttempts+1)),
-		).Scan(&newAttempts)
+	// Check expiry
+	if time.Now().After(at.ExpiresAt) {
+		return VerifyResult{}, fmt.Errorf("this link has expired")
+	}
+
+	// Mark as used immediately (single-use)
+	if err := s.tokenRepo.MarkUsed(ctx, at.ID); err != nil {
+		return VerifyResult{}, fmt.Errorf("marking token used: %w", err)
+	}
+
+	var userID string
+	var isNewUser bool
+
+	switch at.Purpose {
+	case "login":
+		// Find existing user
+		user, err := s.userRepo.GetByEmail(ctx, at.Email)
 		if err != nil {
-			return LoginResult{FailedAttempts: failedAttempts + 1}
+			return VerifyResult{}, fmt.Errorf("finding user: %w", err)
 		}
-		logutil.LogEvent(ctx, "auth.login_failed")
-		result := LoginResult{FailedAttempts: newAttempts}
-		if d := lockoutDuration(newAttempts); d > 0 {
-			result.Locked = true
-			result.LockedUntil = time.Now().Add(d)
+		userID = user.ID
+
+	case "registration":
+		// Create new user
+		user, err := s.userRepo.Create(ctx, at.Email)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("creating user: %w", err)
 		}
-		return result
-	}
+		userID = user.ID
+		isNewUser = true
 
-	// Correct PIN — reset counter
-	_, _ = s.db.ExecContext(ctx,
-		"UPDATE user_config SET failed_attempts = 0, locked_until = NULL",
-	)
-	logutil.LogEvent(ctx, "auth.login_success")
-	return LoginResult{Success: true}
-}
-
-// GetLockoutStatus returns the current lockout state without attempting verification.
-// Used by the GET /login handler to show the countdown on page load.
-func (s *AuthService) GetLockoutStatus(ctx context.Context) (locked bool, lockedUntil time.Time, err error) {
-	var failedAttempts int
-	var lt sql.NullTime
-	err = s.db.QueryRowContext(ctx,
-		"SELECT failed_attempts, locked_until FROM user_config LIMIT 1",
-	).Scan(&failedAttempts, &lt)
-	if err != nil {
-		return false, time.Time{}, fmt.Errorf("getting lockout status: %w", err)
-	}
-	if lt.Valid && lt.Time.After(time.Now()) {
-		return true, lt.Time, nil
-	}
-	return false, time.Time{}, nil
-}
-
-// GetSessionKey retrieves the session signing key.
-func (s *AuthService) GetSessionKey(ctx context.Context) (string, error) {
-	var key string
-	err := s.db.QueryRowContext(ctx, "SELECT session_key FROM user_config LIMIT 1").Scan(&key)
-	if err != nil {
-		return "", fmt.Errorf("getting session key: %w", err)
-	}
-	return key, nil
-}
-
-// ChangePin verifies the current PIN and updates to a new one.
-// Uses CheckAndVerifyPIN so that brute-force protection applies here too —
-// an attacker with an active session can't bypass lockout via the settings page.
-func (s *AuthService) ChangePin(ctx context.Context, currentPin, newPin string) error {
-	result := s.CheckAndVerifyPIN(ctx, currentPin)
-	if result.Locked {
-		remaining := int(time.Until(result.LockedUntil).Seconds())
-		if remaining < 1 {
-			remaining = 1
+		// Seed default categories for the new user
+		if s.categoryRepo != nil {
+			if err := s.categoryRepo.SeedDefaults(ctx, userID); err != nil {
+				slog.Error("failed to seed categories for new user", "user_id", userID, "error", err)
+				// Non-fatal: user can still use the app, categories can be added manually
+			}
 		}
-		return fmt.Errorf("too many failed attempts. Try again in %s", formatLockoutDuration(remaining))
-	}
-	if !result.Success {
-		return fmt.Errorf("current PIN is incorrect")
-	}
-	if len(newPin) < 4 || len(newPin) > 6 {
-		return fmt.Errorf("new PIN must be 4-6 digits")
+
+		logutil.LogEvent(ctx, "auth.user_registered", "email", at.Email)
+
+	default:
+		return VerifyResult{}, fmt.Errorf("unknown token purpose: %s", at.Purpose)
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPin), bcrypt.DefaultCost)
+	// Create session
+	sessionToken, err := generateSecureToken()
 	if err != nil {
-		return fmt.Errorf("hashing PIN: %w", err)
+		return VerifyResult{}, fmt.Errorf("generating session token: %w", err)
 	}
 
-	_, err = s.db.ExecContext(ctx, `UPDATE user_config SET pin_hash = $1`, string(hash))
+	expiresAt := time.Now().Add(SessionMaxAge)
+	_, err = s.sessionRepo.Create(ctx, userID, sessionToken, expiresAt)
 	if err != nil {
-		return fmt.Errorf("updating PIN: %w", err)
+		return VerifyResult{}, fmt.Errorf("creating session: %w", err)
 	}
-	logutil.LogEvent(ctx, "auth.pin_changed")
-	return nil
+
+	logutil.LogEvent(ctx, "auth.login_success", "purpose", at.Purpose)
+
+	return VerifyResult{
+		SessionToken: sessionToken,
+		UserID:       userID,
+		IsNewUser:    isNewUser,
+	}, nil
 }
 
-// SessionCookieName is the name of the auth session cookie.
-// Go constants are typed and immutable (like PHP's const or Python's convention).
-// See: https://go.dev/tour/basics/15
-const SessionCookieName = "clearmoney_session"
-
-// SessionMaxAge is how long the session cookie lasts (30 days).
-// time.Duration is Go's way of representing time spans. The expression
-// 30 * 24 * time.Hour reads naturally as "30 days worth of hours."
-const SessionMaxAge = 30 * 24 * time.Hour
-
-// generateSessionKey creates a random 32-byte hex string for signing cookies.
-// crypto/rand.Read fills a byte slice with cryptographically secure random data.
-// This is unexported (lowercase) — only callable within this package.
-func generateSessionKey() (string, error) {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
+// ValidateSession checks if a session token is valid and returns the user ID and email.
+// Called by the auth middleware on every protected request.
+func (s *AuthService) ValidateSession(ctx context.Context, token string) (userID, email string, err error) {
+	session, err := s.sessionRepo.GetByToken(ctx, token)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid session: %w", err)
 	}
-	return hex.EncodeToString(bytes), nil
+
+	// Check expiry
+	if time.Now().After(session.ExpiresAt) {
+		// Clean up expired session
+		_ = s.sessionRepo.DeleteByToken(ctx, token)
+		return "", "", fmt.Errorf("session expired")
+	}
+
+	// Get user email for context
+	user, err := s.userRepo.GetByID(ctx, session.UserID)
+	if err != nil {
+		return "", "", fmt.Errorf("user not found: %w", err)
+	}
+
+	return user.ID, user.Email, nil
+}
+
+// Logout deletes the session (server-side logout).
+func (s *AuthService) Logout(ctx context.Context, token string) {
+	if err := s.sessionRepo.DeleteByToken(ctx, token); err != nil {
+		slog.Error("logout: failed to delete session", "error", err)
+	}
+	logutil.LogEvent(ctx, "auth.logout")
+}
+
+// CleanupExpired removes expired tokens and sessions.
+// Called at startup and periodically.
+func (s *AuthService) CleanupExpired(ctx context.Context) {
+	tokenCount, err := s.tokenRepo.DeleteExpired(ctx)
+	if err != nil {
+		slog.Error("cleanup: failed to delete expired tokens", "error", err)
+	} else if tokenCount > 0 {
+		slog.Info("cleanup: deleted expired auth tokens", "count", tokenCount)
+	}
+
+	sessionCount, err := s.sessionRepo.DeleteExpired(ctx)
+	if err != nil {
+		slog.Error("cleanup: failed to delete expired sessions", "error", err)
+	} else if sessionCount > 0 {
+		slog.Info("cleanup: deleted expired sessions", "count", sessionCount)
+	}
+}
+
+// generateSecureToken creates a cryptographically secure random token.
+// Uses 32 bytes (256 bits) of entropy, encoded as URL-safe base64.
+func generateSecureToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generating random bytes: %w", err)
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
 }

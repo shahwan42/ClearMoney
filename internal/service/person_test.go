@@ -23,10 +23,11 @@ import (
 func zeroDT() time.Time { return time.Time{} }
 
 // setupPersonServiceTest creates a clean test environment with a PersonService,
-// an EGP account, and a USD account for multi-currency testing.
-func setupPersonServiceTest(t *testing.T) (*PersonService, models.Account, models.Account) {
+// a userID, an EGP account, and a USD account for multi-currency testing.
+func setupPersonServiceTest(t *testing.T) (*PersonService, string, models.Account, models.Account) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "persons")
 	testutil.CleanTable(t, db, "accounts")
@@ -36,28 +37,30 @@ func setupPersonServiceTest(t *testing.T) (*PersonService, models.Account, model
 	txRepo := repository.NewTransactionRepo(db)
 	svc := NewPersonService(personRepo, txRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	egpAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking EGP",
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 	usdAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings USD",
 		Currency:       models.CurrencyUSD,
 		InitialBalance: 5000,
+		UserID:         userID,
 	})
 
-	return svc, egpAcc, usdAcc
+	return svc, userID, egpAcc, usdAcc
 }
 
 func TestPersonService_Create(t *testing.T) {
-	svc, _, _ := setupPersonServiceTest(t)
+	svc, userID, _, _ := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	p, err := svc.Create(ctx, models.Person{Name: "Ahmed"})
+	p, err := svc.Create(ctx, userID, models.Person{Name: "Ahmed"})
 	if err != nil {
 		t.Fatalf("create person: %v", err)
 	}
@@ -76,27 +79,27 @@ func TestPersonService_Create(t *testing.T) {
 }
 
 func TestPersonService_Create_EmptyName(t *testing.T) {
-	svc, _, _ := setupPersonServiceTest(t)
-	_, err := svc.Create(context.Background(), models.Person{})
+	svc, userID, _, _ := setupPersonServiceTest(t)
+	_, err := svc.Create(context.Background(), userID, models.Person{})
 	if err == nil {
 		t.Error("expected error for empty name")
 	}
 }
 
 func TestPersonService_LoanOut(t *testing.T) {
-	svc, acc, _ := setupPersonServiceTest(t)
+	svc, userID, acc, _ := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	p, _ := svc.Create(ctx, models.Person{Name: "Ali"})
+	p, _ := svc.Create(ctx, userID, models.Person{Name: "Ali"})
 
 	// Lend 1000 EGP to Ali
-	_, err := svc.RecordLoan(ctx, p.ID, acc.ID, 1000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
+	_, err := svc.RecordLoan(ctx, userID, p.ID, acc.ID, 1000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
 	if err != nil {
 		t.Fatalf("record loan: %v", err)
 	}
 
 	// Check per-currency balance: EGP should be +1000, USD should be 0
-	updated, _ := svc.GetByID(ctx, p.ID)
+	updated, _ := svc.GetByID(ctx, userID, p.ID)
 	if updated.NetBalanceEGP != 1000 {
 		t.Errorf("expected net_balance_egp 1000, got %f", updated.NetBalanceEGP)
 	}
@@ -106,19 +109,19 @@ func TestPersonService_LoanOut(t *testing.T) {
 }
 
 func TestPersonService_LoanIn(t *testing.T) {
-	svc, acc, _ := setupPersonServiceTest(t)
+	svc, userID, acc, _ := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	p, _ := svc.Create(ctx, models.Person{Name: "Sara"})
+	p, _ := svc.Create(ctx, userID, models.Person{Name: "Sara"})
 
 	// Borrow 2000 EGP from Sara
-	_, err := svc.RecordLoan(ctx, p.ID, acc.ID, 2000, models.CurrencyEGP, models.TransactionTypeLoanIn, nil, zeroDT())
+	_, err := svc.RecordLoan(ctx, userID, p.ID, acc.ID, 2000, models.CurrencyEGP, models.TransactionTypeLoanIn, nil, zeroDT())
 	if err != nil {
 		t.Fatalf("record loan: %v", err)
 	}
 
 	// Check per-currency balance: EGP should be -2000
-	updated, _ := svc.GetByID(ctx, p.ID)
+	updated, _ := svc.GetByID(ctx, userID, p.ID)
 	if updated.NetBalanceEGP != -2000 {
 		t.Errorf("expected net_balance_egp -2000, got %f", updated.NetBalanceEGP)
 	}
@@ -130,28 +133,28 @@ func TestPersonService_LoanIn(t *testing.T) {
 // TestPersonService_LoanAndRepayment tests the full lifecycle: lend → partial repay → full repay.
 // Verifies that per-currency net_balance correctly tracks outstanding debt through multiple operations.
 func TestPersonService_LoanAndRepayment(t *testing.T) {
-	svc, acc, _ := setupPersonServiceTest(t)
+	svc, userID, acc, _ := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	p, _ := svc.Create(ctx, models.Person{Name: "Omar"})
+	p, _ := svc.Create(ctx, userID, models.Person{Name: "Omar"})
 
 	// Lend 1000 EGP
-	svc.RecordLoan(ctx, p.ID, acc.ID, 1000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
+	svc.RecordLoan(ctx, userID, p.ID, acc.ID, 1000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
 
 	// Partial repayment of 500
-	_, err := svc.RecordRepayment(ctx, p.ID, acc.ID, 500, models.CurrencyEGP, nil, zeroDT())
+	_, err := svc.RecordRepayment(ctx, userID, p.ID, acc.ID, 500, models.CurrencyEGP, nil, zeroDT())
 	if err != nil {
 		t.Fatalf("record repayment: %v", err)
 	}
 
-	updated, _ := svc.GetByID(ctx, p.ID)
+	updated, _ := svc.GetByID(ctx, userID, p.ID)
 	if updated.NetBalanceEGP != 500 {
 		t.Errorf("expected net_balance_egp 500 after partial repayment, got %f", updated.NetBalanceEGP)
 	}
 
 	// Full repayment
-	svc.RecordRepayment(ctx, p.ID, acc.ID, 500, models.CurrencyEGP, nil, zeroDT())
-	updated, _ = svc.GetByID(ctx, p.ID)
+	svc.RecordRepayment(ctx, userID, p.ID, acc.ID, 500, models.CurrencyEGP, nil, zeroDT())
+	updated, _ = svc.GetByID(ctx, userID, p.ID)
 	if updated.NetBalanceEGP != 0 {
 		t.Errorf("expected net_balance_egp 0 after full repayment, got %f", updated.NetBalanceEGP)
 	}
@@ -159,24 +162,24 @@ func TestPersonService_LoanAndRepayment(t *testing.T) {
 
 // TestPersonService_MultiCurrency verifies that EGP and USD balances are tracked independently.
 func TestPersonService_MultiCurrency(t *testing.T) {
-	svc, egpAcc, usdAcc := setupPersonServiceTest(t)
+	svc, userID, egpAcc, usdAcc := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	p, _ := svc.Create(ctx, models.Person{Name: "Nadia"})
+	p, _ := svc.Create(ctx, userID, models.Person{Name: "Nadia"})
 
 	// Lend 5000 EGP
-	_, err := svc.RecordLoan(ctx, p.ID, egpAcc.ID, 5000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
+	_, err := svc.RecordLoan(ctx, userID, p.ID, egpAcc.ID, 5000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
 	if err != nil {
 		t.Fatalf("EGP loan: %v", err)
 	}
 
 	// Borrow 200 USD from the same person
-	_, err = svc.RecordLoan(ctx, p.ID, usdAcc.ID, 200, models.CurrencyUSD, models.TransactionTypeLoanIn, nil, zeroDT())
+	_, err = svc.RecordLoan(ctx, userID, p.ID, usdAcc.ID, 200, models.CurrencyUSD, models.TransactionTypeLoanIn, nil, zeroDT())
 	if err != nil {
 		t.Fatalf("USD loan: %v", err)
 	}
 
-	updated, _ := svc.GetByID(ctx, p.ID)
+	updated, _ := svc.GetByID(ctx, userID, p.ID)
 	if updated.NetBalanceEGP != 5000 {
 		t.Errorf("expected net_balance_egp 5000, got %f", updated.NetBalanceEGP)
 	}
@@ -191,23 +194,23 @@ func TestPersonService_MultiCurrency(t *testing.T) {
 
 // TestPersonService_MultiCurrencyRepayment verifies repayment direction is per-currency.
 func TestPersonService_MultiCurrencyRepayment(t *testing.T) {
-	svc, egpAcc, usdAcc := setupPersonServiceTest(t)
+	svc, userID, egpAcc, usdAcc := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	p, _ := svc.Create(ctx, models.Person{Name: "Karim"})
+	p, _ := svc.Create(ctx, userID, models.Person{Name: "Karim"})
 
 	// Lend 1000 EGP (they owe me EGP)
-	svc.RecordLoan(ctx, p.ID, egpAcc.ID, 1000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
+	svc.RecordLoan(ctx, userID, p.ID, egpAcc.ID, 1000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
 	// Borrow 500 USD (I owe them USD)
-	svc.RecordLoan(ctx, p.ID, usdAcc.ID, 500, models.CurrencyUSD, models.TransactionTypeLoanIn, nil, zeroDT())
+	svc.RecordLoan(ctx, userID, p.ID, usdAcc.ID, 500, models.CurrencyUSD, models.TransactionTypeLoanIn, nil, zeroDT())
 
 	// Repay 300 USD — should reduce my USD debt (direction: I owe them → money leaves my account)
-	_, err := svc.RecordRepayment(ctx, p.ID, usdAcc.ID, 300, models.CurrencyUSD, nil, zeroDT())
+	_, err := svc.RecordRepayment(ctx, userID, p.ID, usdAcc.ID, 300, models.CurrencyUSD, nil, zeroDT())
 	if err != nil {
 		t.Fatalf("USD repayment: %v", err)
 	}
 
-	updated, _ := svc.GetByID(ctx, p.ID)
+	updated, _ := svc.GetByID(ctx, userID, p.ID)
 	if updated.NetBalanceEGP != 1000 {
 		t.Errorf("EGP balance should be unchanged at 1000, got %f", updated.NetBalanceEGP)
 	}
@@ -218,19 +221,19 @@ func TestPersonService_MultiCurrencyRepayment(t *testing.T) {
 
 // TestPersonService_DebtSummaryByCurrency verifies per-currency grouping in debt summary.
 func TestPersonService_DebtSummaryByCurrency(t *testing.T) {
-	svc, egpAcc, usdAcc := setupPersonServiceTest(t)
+	svc, userID, egpAcc, usdAcc := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	p, _ := svc.Create(ctx, models.Person{Name: "Layla"})
+	p, _ := svc.Create(ctx, userID, models.Person{Name: "Layla"})
 
 	// EGP: lend 2000
-	svc.RecordLoan(ctx, p.ID, egpAcc.ID, 2000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
+	svc.RecordLoan(ctx, userID, p.ID, egpAcc.ID, 2000, models.CurrencyEGP, models.TransactionTypeLoanOut, nil, zeroDT())
 	// USD: lend 100
-	svc.RecordLoan(ctx, p.ID, usdAcc.ID, 100, models.CurrencyUSD, models.TransactionTypeLoanOut, nil, zeroDT())
+	svc.RecordLoan(ctx, userID, p.ID, usdAcc.ID, 100, models.CurrencyUSD, models.TransactionTypeLoanOut, nil, zeroDT())
 	// EGP: repay 500
-	svc.RecordRepayment(ctx, p.ID, egpAcc.ID, 500, models.CurrencyEGP, nil, zeroDT())
+	svc.RecordRepayment(ctx, userID, p.ID, egpAcc.ID, 500, models.CurrencyEGP, nil, zeroDT())
 
-	summary, err := svc.GetDebtSummary(ctx, p.ID)
+	summary, err := svc.GetDebtSummary(ctx, userID, p.ID)
 	if err != nil {
 		t.Fatalf("debt summary: %v", err)
 	}
@@ -261,13 +264,13 @@ func TestPersonService_DebtSummaryByCurrency(t *testing.T) {
 }
 
 func TestPersonService_GetAll(t *testing.T) {
-	svc, _, _ := setupPersonServiceTest(t)
+	svc, userID, _, _ := setupPersonServiceTest(t)
 	ctx := context.Background()
 
-	svc.Create(ctx, models.Person{Name: "Zara"})
-	svc.Create(ctx, models.Person{Name: "Ahmed"})
+	svc.Create(ctx, userID, models.Person{Name: "Zara"})
+	svc.Create(ctx, userID, models.Person{Name: "Ahmed"})
 
-	all, err := svc.GetAll(ctx)
+	all, err := svc.GetAll(ctx, userID)
 	if err != nil {
 		t.Fatalf("get all: %v", err)
 	}

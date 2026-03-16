@@ -31,6 +31,7 @@ import (
 // with two debit accounts under one institution.
 func TestDashboardService_GetDashboard(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -41,13 +42,14 @@ func TestDashboardService_GetDashboard(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 
 	// Create test data
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 50000,
+		UserID:         userID,
 	})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
@@ -55,9 +57,10 @@ func TestDashboardService_GetDashboard(t *testing.T) {
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
+		UserID:         userID,
 	})
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -84,6 +87,7 @@ func TestDashboardService_GetDashboard(t *testing.T) {
 // Credit card balances are negative (money owed), so they reduce net worth.
 func TestDashboardService_GetDashboard_WithCredit(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -93,13 +97,14 @@ func TestDashboardService_GetDashboard_WithCredit(t *testing.T) {
 	txRepo := repository.NewTransactionRepo(db)
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Checking",
 		Type:           models.AccountTypeCurrent,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 80000,
+		UserID:         userID,
 	})
 
 	limit := 500000.0
@@ -110,9 +115,10 @@ func TestDashboardService_GetDashboard_WithCredit(t *testing.T) {
 		Currency:       models.CurrencyEGP,
 		InitialBalance: -120000, // owes 120K
 		CreditLimit:    &limit,
+		UserID:         userID,
 	})
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -133,6 +139,7 @@ func TestDashboardService_GetDashboard_WithCredit(t *testing.T) {
 // This is a boundary test — ensures no panics or errors when there are no institutions/accounts.
 func TestDashboardService_GetDashboard_Empty(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -142,7 +149,7 @@ func TestDashboardService_GetDashboard_Empty(t *testing.T) {
 	txRepo := repository.NewTransactionRepo(db)
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -160,6 +167,7 @@ func TestDashboardService_GetDashboard_Empty(t *testing.T) {
 // the optional exchange rate dependency. Without it, USD values appear raw.
 func TestDashboardService_GetDashboard_USDConversion(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "exchange_rate_log")
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
@@ -172,20 +180,22 @@ func TestDashboardService_GetDashboard_USDConversion(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetExchangeRateRepo(rateRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "EGP Checking",
 		Currency: models.CurrencyEGP, InitialBalance: 100000,
+		UserID: userID,
 	})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "USD Savings",
 		Currency: models.CurrencyUSD, InitialBalance: 2000,
+		UserID: userID,
 	})
 
-	// Log an exchange rate
+	// Log an exchange rate (global, no userID)
 	rateRepo.Log(context.Background(), time.Now(), 50.0, nil, nil)
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -219,6 +229,7 @@ func TestDashboardService_GetDashboard_USDConversion(t *testing.T) {
 
 func TestDashboardService_GetDashboard_CreditAvailable(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -228,14 +239,15 @@ func TestDashboardService_GetDashboard_CreditAvailable(t *testing.T) {
 	txRepo := repository.NewTransactionRepo(db)
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	limit := 100000.0
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "CC", Type: models.AccountTypeCreditCard,
 		Currency: models.CurrencyEGP, InitialBalance: -30000, CreditLimit: &limit,
+		UserID: userID,
 	})
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -248,6 +260,7 @@ func TestDashboardService_GetDashboard_CreditAvailable(t *testing.T) {
 // TestDashboardService_GetDashboard_PeopleSummary verifies the per-currency people ledger aggregation.
 func TestDashboardService_GetDashboard_PeopleSummary(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "persons")
 	testutil.CleanTable(t, db, "accounts")
@@ -261,13 +274,13 @@ func TestDashboardService_GetDashboard_PeopleSummary(t *testing.T) {
 	svc.SetPersonRepo(personRepo)
 
 	// Alice: owes me 5000 EGP
-	personRepo.Create(context.Background(), models.Person{Name: "Alice", NetBalance: 5000, NetBalanceEGP: 5000})
+	personRepo.Create(context.Background(), userID, models.Person{Name: "Alice", NetBalance: 5000, NetBalanceEGP: 5000})
 	// Bob: I owe 3000 EGP
-	personRepo.Create(context.Background(), models.Person{Name: "Bob", NetBalance: -3000, NetBalanceEGP: -3000})
+	personRepo.Create(context.Background(), userID, models.Person{Name: "Bob", NetBalance: -3000, NetBalanceEGP: -3000})
 	// Carol: owes me 200 USD
-	personRepo.Create(context.Background(), models.Person{Name: "Carol", NetBalance: 200, NetBalanceUSD: 200})
+	personRepo.Create(context.Background(), userID, models.Person{Name: "Carol", NetBalance: 200, NetBalanceUSD: 200})
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -309,6 +322,7 @@ func TestDashboardService_GetDashboard_PeopleSummary(t *testing.T) {
 
 func TestDashboardService_GetDashboard_NoExchangeRate(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "exchange_rate_log")
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
@@ -321,13 +335,14 @@ func TestDashboardService_GetDashboard_NoExchangeRate(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetExchangeRateRepo(rateRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "USD Savings",
 		Currency: models.CurrencyUSD, InitialBalance: 1000,
+		UserID: userID,
 	})
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -346,6 +361,7 @@ func TestDashboardService_GetDashboard_NoExchangeRate(t *testing.T) {
 // raw values across currencies. Regression test for BUG-005.
 func TestDashboardService_InstitutionTotal_ConvertsCurrency(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "exchange_rate_log")
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
@@ -358,21 +374,23 @@ func TestDashboardService_InstitutionTotal_ConvertsCurrency(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetExchangeRateRepo(rateRepo)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "EGP Savings",
 		Currency: models.CurrencyEGP, InitialBalance: 47850,
+		UserID: userID,
 	})
 	testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "USD Savings",
 		Currency: models.CurrencyUSD, InitialBalance: 2100,
+		UserID: userID,
 	})
 
-	// Log exchange rate: 1 USD = 50 EGP
+	// Log exchange rate: 1 USD = 50 EGP (global, no userID)
 	source := "test"
 	rateRepo.Log(context.Background(), time.Now(), 50.0, &source, nil)
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -389,7 +407,7 @@ func TestDashboardService_InstitutionTotal_ConvertsCurrency(t *testing.T) {
 
 // insertExpense is a test helper that inserts an expense transaction with the given
 // currency, amount, date, and optional category name.
-func insertExpense(t *testing.T, db *sql.DB, accountID string, currency string, amount float64, date time.Time, categoryName string) {
+func insertExpense(t *testing.T, db *sql.DB, userID string, accountID string, currency string, amount float64, date time.Time, categoryName string) {
 	t.Helper()
 	var categoryID *string
 	if categoryName != "" {
@@ -401,9 +419,9 @@ func insertExpense(t *testing.T, db *sql.DB, accountID string, currency string, 
 		categoryID = &id
 	}
 	_, err := db.Exec(`
-		INSERT INTO transactions (type, amount, currency, account_id, date, category_id)
-		VALUES ('expense', $1, $2::currency_type, $3, $4, $5)
-	`, amount, currency, accountID, date, categoryID)
+		INSERT INTO transactions (type, amount, currency, account_id, date, category_id, user_id)
+		VALUES ('expense', $1, $2::currency_type, $3, $4, $5, $6)
+	`, amount, currency, accountID, date, categoryID, userID)
 	if err != nil {
 		t.Fatalf("inserting expense: %v", err)
 	}
@@ -413,6 +431,7 @@ func insertExpense(t *testing.T, db *sql.DB, accountID string, currency string, 
 // EGP and USD expenses should appear as separate CurrencySpending entries.
 func TestDashboardService_SpendingByCurrency(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -423,14 +442,16 @@ func TestDashboardService_SpendingByCurrency(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetDB(db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	egpAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "EGP Checking",
 		Currency: models.CurrencyEGP, InitialBalance: 100000,
+		UserID: userID,
 	})
 	usdAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "USD Savings",
 		Currency: models.CurrencyUSD, InitialBalance: 5000,
+		UserID: userID,
 	})
 
 	now := time.Now()
@@ -438,19 +459,19 @@ func TestDashboardService_SpendingByCurrency(t *testing.T) {
 	lastMonth := thisMonth.AddDate(0, -1, 0)
 
 	// EGP expenses: this month 3000, last month 2000
-	insertExpense(t, db, egpAcc.ID, "EGP", 1500, thisMonth, "Food & Groceries")
-	insertExpense(t, db, egpAcc.ID, "EGP", 1000, thisMonth, "Transport")
-	insertExpense(t, db, egpAcc.ID, "EGP", 500, thisMonth, "Health")
-	insertExpense(t, db, egpAcc.ID, "EGP", 1200, lastMonth, "Food & Groceries")
-	insertExpense(t, db, egpAcc.ID, "EGP", 800, lastMonth, "Transport")
+	insertExpense(t, db, userID, egpAcc.ID, "EGP", 1500, thisMonth, "Food & Groceries")
+	insertExpense(t, db, userID, egpAcc.ID, "EGP", 1000, thisMonth, "Transport")
+	insertExpense(t, db, userID, egpAcc.ID, "EGP", 500, thisMonth, "Health")
+	insertExpense(t, db, userID, egpAcc.ID, "EGP", 1200, lastMonth, "Food & Groceries")
+	insertExpense(t, db, userID, egpAcc.ID, "EGP", 800, lastMonth, "Transport")
 
 	// USD expenses: this month 200, last month 300
-	insertExpense(t, db, usdAcc.ID, "USD", 120, thisMonth, "Subscriptions")
-	insertExpense(t, db, usdAcc.ID, "USD", 80, thisMonth, "Entertainment")
-	insertExpense(t, db, usdAcc.ID, "USD", 200, lastMonth, "Subscriptions")
-	insertExpense(t, db, usdAcc.ID, "USD", 100, lastMonth, "Entertainment")
+	insertExpense(t, db, userID, usdAcc.ID, "USD", 120, thisMonth, "Subscriptions")
+	insertExpense(t, db, userID, usdAcc.ID, "USD", 80, thisMonth, "Entertainment")
+	insertExpense(t, db, userID, usdAcc.ID, "USD", 200, lastMonth, "Subscriptions")
+	insertExpense(t, db, userID, usdAcc.ID, "USD", 100, lastMonth, "Entertainment")
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -507,6 +528,7 @@ func TestDashboardService_SpendingByCurrency(t *testing.T) {
 // exist, SpendingByCurrency has a single entry and no USD section appears.
 func TestDashboardService_SpendingByCurrency_EGPOnly(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -517,17 +539,18 @@ func TestDashboardService_SpendingByCurrency_EGPOnly(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetDB(db)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "CIB", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "Checking",
 		Currency: models.CurrencyEGP, InitialBalance: 50000,
+		UserID: userID,
 	})
 
 	now := time.Now()
 	thisMonth := time.Date(now.Year(), now.Month(), 10, 0, 0, 0, 0, time.UTC)
-	insertExpense(t, db, acc.ID, "EGP", 500, thisMonth, "Food & Groceries")
+	insertExpense(t, db, userID, acc.ID, "EGP", 500, thisMonth, "Food & Groceries")
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -544,6 +567,7 @@ func TestDashboardService_SpendingByCurrency_EGPOnly(t *testing.T) {
 // expenses, SpendingByCurrency is empty and the section won't render.
 func TestDashboardService_SpendingByCurrency_Empty(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -554,7 +578,7 @@ func TestDashboardService_SpendingByCurrency_Empty(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetDB(db)
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -568,6 +592,7 @@ func TestDashboardService_SpendingByCurrency_Empty(t *testing.T) {
 // is computed from total spending across all currencies (not EGP-only).
 func TestDashboardService_SpendingVelocity(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "transactions")
 	testutil.CleanTable(t, db, "accounts")
 	testutil.CleanTable(t, db, "institutions")
@@ -578,7 +603,7 @@ func TestDashboardService_SpendingVelocity(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetDB(db)
 
-	// Set up exchange rate so USD→EGP conversion works
+	// Set up exchange rate so USD->EGP conversion works
 	erRepo := repository.NewExchangeRateRepo(db)
 	svc.SetExchangeRateRepo(erRepo)
 	_, err := db.Exec(`INSERT INTO exchange_rate_log (date, rate) VALUES (CURRENT_DATE, 50.0)`)
@@ -586,21 +611,22 @@ func TestDashboardService_SpendingVelocity(t *testing.T) {
 		t.Fatalf("inserting exchange rate: %v", err)
 	}
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "TestBank"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "TestBank", UserID: userID})
 	usdAcc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID: inst.ID, Name: "USD Account",
 		Currency: models.CurrencyUSD, InitialBalance: 5000,
+		UserID: userID,
 	})
 
 	now := time.Now()
 	thisMonth := time.Date(now.Year(), now.Month(), 5, 0, 0, 0, 0, time.UTC)
 	lastMonth := thisMonth.AddDate(0, -1, 0)
 
-	// USD only: this month $200, last month $400 → pace = 50%
-	insertExpense(t, db, usdAcc.ID, "USD", 200, thisMonth, "Subscriptions")
-	insertExpense(t, db, usdAcc.ID, "USD", 400, lastMonth, "Subscriptions")
+	// USD only: this month $200, last month $400 -> pace = 50%
+	insertExpense(t, db, userID, usdAcc.ID, "USD", 200, thisMonth, "Subscriptions")
+	insertExpense(t, db, userID, usdAcc.ID, "USD", 400, lastMonth, "Subscriptions")
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -618,6 +644,7 @@ func TestDashboardService_SpendingVelocity(t *testing.T) {
 // excluded VA balances are subtracted from net worth, EGPTotal, and CashTotal.
 func TestDashboardService_GetDashboard_ExcludedVirtualAccounts(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "virtual_account_allocations")
 	testutil.CleanTable(t, db, "virtual_accounts")
 	testutil.CleanTable(t, db, "transactions")
@@ -632,27 +659,30 @@ func TestDashboardService_GetDashboard_ExcludedVirtualAccounts(t *testing.T) {
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetVirtualAccountService(vaSvc)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 100000,
+		UserID:         userID,
 	})
 
 	// Create an excluded VA (building fund — money held for others)
 	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name: "Building Fund", Color: "#ff0000", CurrentBalance: 30000,
 		AccountID: &acc.ID, ExcludeFromNetWorth: true,
+		UserID: userID,
 	})
 	// Create a normal VA (not excluded)
 	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name: "Emergency", Color: "#00ff00", CurrentBalance: 20000,
 		AccountID: &acc.ID, ExcludeFromNetWorth: false,
+		UserID: userID,
 	})
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}
@@ -677,6 +707,7 @@ func TestDashboardService_GetDashboard_ExcludedVirtualAccounts(t *testing.T) {
 // This happens when the user has spent money they're holding for others.
 func TestDashboardService_GetDashboard_ExcludedVA_NegativeNetWorth(t *testing.T) {
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "virtual_account_allocations")
 	testutil.CleanTable(t, db, "virtual_accounts")
 	testutil.CleanTable(t, db, "transactions")
@@ -691,22 +722,24 @@ func TestDashboardService_GetDashboard_ExcludedVA_NegativeNetWorth(t *testing.T)
 	svc := NewDashboardService(instRepo, accRepo, txRepo)
 	svc.SetVirtualAccountService(vaSvc)
 
-	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC", UserID: userID})
 	acc := testutil.CreateAccount(t, db, models.Account{
 		InstitutionID:  inst.ID,
 		Name:           "Savings",
 		Type:           models.AccountTypeSavings,
 		Currency:       models.CurrencyEGP,
 		InitialBalance: 0, // spent everything
+		UserID:         userID,
 	})
 
 	// Building fund: 70K held for others, but account is at 0
 	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
 		Name: "Building Fund", Color: "#ff0000", CurrentBalance: 70000,
 		AccountID: &acc.ID, ExcludeFromNetWorth: true,
+		UserID: userID,
 	})
 
-	data, err := svc.GetDashboard(context.Background())
+	data, err := svc.GetDashboard(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("get dashboard: %v", err)
 	}

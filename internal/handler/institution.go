@@ -30,6 +30,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 	"github.com/shahwan42/clearmoney/internal/models"
 	"github.com/shahwan42/clearmoney/internal/service"
 )
@@ -83,7 +84,8 @@ func (h *InstitutionHandler) Routes(r chi.Router) {
 // Returns [] (empty array) instead of null when no institutions exist —
 // this is a JSON best practice so clients don't need null checks.
 func (h *InstitutionHandler) List(w http.ResponseWriter, r *http.Request) {
-	institutions, err := h.svc.GetAll(r.Context())
+	userID := authmw.UserID(r.Context())
+	institutions, err := h.svc.GetAll(r.Context(), userID)
 	if err != nil {
 		respondError(w, r, http.StatusInternalServerError, "failed to list institutions")
 		return
@@ -113,7 +115,8 @@ func (h *InstitutionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	created, err := h.svc.Create(r.Context(), inst)
+	userID := authmw.UserID(r.Context())
+	created, err := h.svc.Create(r.Context(), userID, inst)
 	if err != nil {
 		respondError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -134,8 +137,9 @@ func (h *InstitutionHandler) Create(w http.ResponseWriter, r *http.Request) {
 // in Laravel or ObjectDoesNotExist in Django.
 func (h *InstitutionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 
-	inst, err := h.svc.GetByID(r.Context(), id)
+	inst, err := h.svc.GetByID(r.Context(), userID, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "institution not found")
@@ -158,8 +162,9 @@ func (h *InstitutionHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inst.ID = id
+	userID := authmw.UserID(r.Context())
 
-	updated, err := h.svc.Update(r.Context(), inst)
+	updated, err := h.svc.Update(r.Context(), userID, inst)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "institution not found")
@@ -178,8 +183,9 @@ func (h *InstitutionHandler) Update(w http.ResponseWriter, r *http.Request) {
 // This is the REST convention for successful deletions.
 func (h *InstitutionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	userID := authmw.UserID(r.Context())
 
-	if err := h.svc.Delete(r.Context(), id); err != nil {
+	if err := h.svc.Delete(r.Context(), userID, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondError(w, r, http.StatusNotFound, "institution not found")
 			return

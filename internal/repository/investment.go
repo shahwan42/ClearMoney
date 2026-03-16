@@ -27,12 +27,13 @@ func NewInvestmentRepo(db *sql.DB) *InvestmentRepo {
 }
 
 // Create inserts a new investment holding.
-func (r *InvestmentRepo) Create(ctx context.Context, inv models.Investment) (models.Investment, error) {
+func (r *InvestmentRepo) Create(ctx context.Context, userID string, inv models.Investment) (models.Investment, error) {
+	inv.UserID = userID
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO investments (platform, fund_name, units, last_unit_price, currency)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO investments (user_id, platform, fund_name, units, last_unit_price, currency)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING id, last_updated, created_at, updated_at
-	`, inv.Platform, inv.FundName, inv.Units, inv.LastUnitPrice, inv.Currency,
+	`, userID, inv.Platform, inv.FundName, inv.Units, inv.LastUnitPrice, inv.Currency,
 	).Scan(&inv.ID, &inv.LastUpdated, &inv.CreatedAt, &inv.UpdatedAt)
 	if err != nil {
 		return inv, fmt.Errorf("creating investment: %w", err)
@@ -41,12 +42,12 @@ func (r *InvestmentRepo) Create(ctx context.Context, inv models.Investment) (mod
 }
 
 // GetAll returns all investments ordered by platform, fund name.
-func (r *InvestmentRepo) GetAll(ctx context.Context) ([]models.Investment, error) {
+func (r *InvestmentRepo) GetAll(ctx context.Context, userID string) ([]models.Investment, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, platform, fund_name, units, last_unit_price, currency,
 			last_updated, created_at, updated_at
-		FROM investments ORDER BY platform, fund_name
-	`)
+		FROM investments WHERE user_id = $1 ORDER BY platform, fund_name
+	`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("querying investments: %w", err)
 	}
@@ -66,13 +67,13 @@ func (r *InvestmentRepo) GetAll(ctx context.Context) ([]models.Investment, error
 }
 
 // GetByID retrieves a single investment.
-func (r *InvestmentRepo) GetByID(ctx context.Context, id string) (models.Investment, error) {
+func (r *InvestmentRepo) GetByID(ctx context.Context, userID string, id string) (models.Investment, error) {
 	var inv models.Investment
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, platform, fund_name, units, last_unit_price, currency,
 			last_updated, created_at, updated_at
-		FROM investments WHERE id = $1
-	`, id).Scan(&inv.ID, &inv.Platform, &inv.FundName,
+		FROM investments WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(&inv.ID, &inv.Platform, &inv.FundName,
 		&inv.Units, &inv.LastUnitPrice, &inv.Currency,
 		&inv.LastUpdated, &inv.CreatedAt, &inv.UpdatedAt)
 	if err != nil {
@@ -84,17 +85,17 @@ func (r *InvestmentRepo) GetByID(ctx context.Context, id string) (models.Investm
 // UpdateValuation updates the unit price and last_updated timestamp.
 // NOW() is PostgreSQL's current timestamp function (server-side, not Go-side).
 // Using server-side time ensures consistency regardless of client clock skew.
-func (r *InvestmentRepo) UpdateValuation(ctx context.Context, id string, unitPrice float64) error {
+func (r *InvestmentRepo) UpdateValuation(ctx context.Context, userID string, id string, unitPrice float64) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE investments SET last_unit_price = $2, last_updated = NOW(), updated_at = NOW()
-		WHERE id = $1
-	`, id, unitPrice)
+		WHERE id = $1 AND user_id = $3
+	`, id, unitPrice, userID)
 	return err
 }
 
 // Delete removes an investment.
-func (r *InvestmentRepo) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM investments WHERE id = $1`, id)
+func (r *InvestmentRepo) Delete(ctx context.Context, userID string, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM investments WHERE id = $1 AND user_id = $2`, id, userID)
 	return err
 }
 
@@ -110,11 +111,11 @@ func (r *InvestmentRepo) Delete(ctx context.Context, id string) error {
 // Alternative: use COALESCE(SUM(...), 0) in SQL to avoid NullFloat64.
 // Both approaches work — this file uses NullFloat64 for demonstration.
 // See: https://pkg.go.dev/database/sql#NullFloat64
-func (r *InvestmentRepo) GetTotalValuation(ctx context.Context) (float64, error) {
+func (r *InvestmentRepo) GetTotalValuation(ctx context.Context, userID string) (float64, error) {
 	var total sql.NullFloat64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT SUM(units * last_unit_price) FROM investments
-	`).Scan(&total)
+		SELECT SUM(units * last_unit_price) FROM investments WHERE user_id = $1
+	`, userID).Scan(&total)
 	if err != nil {
 		return 0, err
 	}

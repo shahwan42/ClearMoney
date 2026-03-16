@@ -77,7 +77,7 @@ func (s *TransactionService) TxRepo() *repository.TransactionRepo {
 //   - income:   balance += amount (money comes in)
 //
 // Returns the created transaction and the new account balance.
-func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) (models.Transaction, float64, error) {
+func (s *TransactionService) Create(ctx context.Context, userID string, tx models.Transaction) (models.Transaction, float64, error) {
 	logutil.Log(ctx).Debug("creating transaction", "type", tx.Type, "account_id", tx.AccountID)
 	if err := s.validateBasic(tx); err != nil {
 		return models.Transaction{}, 0, err
@@ -86,11 +86,12 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 	// Always use the account's currency as the source of truth.
 	// The form may send a stale or incorrect currency (e.g., defaulting to EGP
 	// when the account is USD), so we override it from the account record.
-	acc, err := s.accRepo.GetByID(ctx, tx.AccountID)
+	acc, err := s.accRepo.GetByID(ctx, userID, tx.AccountID)
 	if err != nil {
 		return models.Transaction{}, 0, fmt.Errorf("looking up account: %w", err)
 	}
 	tx.Currency = acc.Currency
+	tx.UserID = userID
 
 	// Calculate balance delta based on transaction type
 	delta := s.balanceDelta(tx)
@@ -114,13 +115,13 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 
 	// 1. Insert the transaction record with its balance impact
 	tx.BalanceDelta = delta
-	created, err := s.txRepo.CreateTx(ctx, dbTx, tx)
+	created, err := s.txRepo.CreateTx(ctx, userID, dbTx, tx)
 	if err != nil {
 		return models.Transaction{}, 0, err
 	}
 
 	// 2. Update the account balance atomically
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, tx.AccountID, delta); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, tx.AccountID, delta); err != nil {
 		return models.Transaction{}, 0, fmt.Errorf("updating balance: %w", err)
 	}
 
@@ -130,7 +131,7 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 	}
 
 	// Re-fetch account to get the updated balance
-	acc, err = s.accRepo.GetByID(ctx, tx.AccountID)
+	acc, err = s.accRepo.GetByID(ctx, userID, tx.AccountID)
 	if err != nil {
 		return created, 0, nil // transaction succeeded, just can't return balance
 	}
@@ -153,7 +154,7 @@ func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) 
 //
 // In Laravel: DB::transaction(function() { /* all 6 steps */ });
 // In Django: with transaction.atomic(): # all 6 steps
-func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, models.Transaction, error) {
+func (s *TransactionService) CreateTransfer(ctx context.Context, userID string, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time) (models.Transaction, models.Transaction, error) {
 	logutil.Log(ctx).Debug("creating transfer", "source", sourceAccountID, "dest", destAccountID)
 	if err := requirePositive(amount, "amount"); err != nil {
 		return models.Transaction{}, models.Transaction{}, err
@@ -166,11 +167,11 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 	}
 
 	// Verify same currency
-	srcAcc, err := s.accRepo.GetByID(ctx, sourceAccountID)
+	srcAcc, err := s.accRepo.GetByID(ctx, userID, sourceAccountID)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("source account not found: %w", err)
 	}
-	destAcc, err := s.accRepo.GetByID(ctx, destAccountID)
+	destAcc, err := s.accRepo.GetByID(ctx, userID, destAccountID)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("destination account not found: %w", err)
 	}
@@ -196,8 +197,9 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 		Note:             note,
 		Date:             date,
 		BalanceDelta:     -amount,
+		UserID:           userID,
 	}
-	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
+	createdDebit, err := s.txRepo.CreateTx(ctx, userID, dbTx, debit)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating debit: %w", err)
 	}
@@ -212,22 +214,23 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, sourceAccountID
 		Note:             note,
 		Date:             date,
 		BalanceDelta:     amount,
+		UserID:           userID,
 	}
-	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
+	createdCredit, err := s.txRepo.CreateTx(ctx, userID, dbTx, credit)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating credit: %w", err)
 	}
 
 	// Link the two transactions
-	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
+	if err := s.txRepo.LinkTransactionsTx(ctx, userID, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
 		return models.Transaction{}, models.Transaction{}, err
 	}
 
 	// Update balances: source loses, destination gains
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, sourceAccountID, -amount); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, sourceAccountID, -amount); err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("debiting source: %w", err)
 	}
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, destAccountID, amount); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, destAccountID, amount); err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("crediting destination: %w", err)
 	}
 
@@ -262,7 +265,7 @@ type ExchangeParams struct {
 // CreateExchange creates a currency exchange between two accounts in different currencies.
 // Creates two linked transactions (debit in source currency, credit in dest currency).
 // Logs the exchange rate.
-func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParams) (models.Transaction, models.Transaction, error) {
+func (s *TransactionService) CreateExchange(ctx context.Context, userID string, p ExchangeParams) (models.Transaction, models.Transaction, error) {
 	logutil.Log(ctx).Debug("creating exchange", "source", p.SourceAccountID, "dest", p.DestAccountID)
 	if p.SourceAccountID == "" || p.DestAccountID == "" {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("both source and destination account_id required")
@@ -272,11 +275,11 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 	}
 
 	// Verify different currencies
-	srcAcc, err := s.accRepo.GetByID(ctx, p.SourceAccountID)
+	srcAcc, err := s.accRepo.GetByID(ctx, userID, p.SourceAccountID)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("source account not found: %w", err)
 	}
-	destAcc, err := s.accRepo.GetByID(ctx, p.DestAccountID)
+	destAcc, err := s.accRepo.GetByID(ctx, userID, p.DestAccountID)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("destination account not found: %w", err)
 	}
@@ -328,8 +331,9 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		Note:             p.Note,
 		Date:             p.Date,
 		BalanceDelta:     -amount,
+		UserID:           userID,
 	}
-	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
+	createdDebit, err := s.txRepo.CreateTx(ctx, userID, dbTx, debit)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating debit: %w", err)
 	}
@@ -346,22 +350,23 @@ func (s *TransactionService) CreateExchange(ctx context.Context, p ExchangeParam
 		Note:             p.Note,
 		Date:             p.Date,
 		BalanceDelta:     counterAmount,
+		UserID:           userID,
 	}
-	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
+	createdCredit, err := s.txRepo.CreateTx(ctx, userID, dbTx, credit)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating credit: %w", err)
 	}
 
 	// Link them
-	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
+	if err := s.txRepo.LinkTransactionsTx(ctx, userID, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
 		return models.Transaction{}, models.Transaction{}, err
 	}
 
 	// Update balances
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, p.SourceAccountID, -amount); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, p.SourceAccountID, -amount); err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("debiting source: %w", err)
 	}
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, p.DestAccountID, counterAmount); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, p.DestAccountID, counterAmount); err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("crediting destination: %w", err)
 	}
 
@@ -398,7 +403,7 @@ func CalculateInstapayFee(amount float64) float64 {
 
 // CreateInstapayTransfer creates a transfer with an automatic InstaPay fee.
 // The fee is a separate expense transaction (category: Fees & Charges) on the source account.
-func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, float64, error) {
+func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, userID string, sourceAccountID, destAccountID string, amount float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, float64, error) {
 	if err := requirePositive(amount, "amount"); err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, err
 	}
@@ -414,11 +419,11 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 	date = defaultDate(date)
 
 	// Verify same currency
-	srcAcc, err := s.accRepo.GetByID(ctx, sourceAccountID)
+	srcAcc, err := s.accRepo.GetByID(ctx, userID, sourceAccountID)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("source account not found: %w", err)
 	}
-	destAcc, err := s.accRepo.GetByID(ctx, destAccountID)
+	destAcc, err := s.accRepo.GetByID(ctx, userID, destAccountID)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("destination account not found: %w", err)
 	}
@@ -446,8 +451,9 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 		Note:             &instapayNote,
 		FeeAmount:        &fee,
 		Date:             date,
+		UserID:           userID,
 	}
-	createdDebit, err := s.txRepo.CreateTx(ctx, dbTx, debit)
+	createdDebit, err := s.txRepo.CreateTx(ctx, userID, dbTx, debit)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("creating debit: %w", err)
 	}
@@ -461,14 +467,15 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 		CounterAccountID: &sourceAccountID,
 		Note:             &instapayNote,
 		Date:             date,
+		UserID:           userID,
 	}
-	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, credit)
+	createdCredit, err := s.txRepo.CreateTx(ctx, userID, dbTx, credit)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("creating credit: %w", err)
 	}
 
 	// Link the two legs
-	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
+	if err := s.txRepo.LinkTransactionsTx(ctx, userID, dbTx, createdDebit.ID, createdCredit.ID); err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, err
 	}
 
@@ -481,20 +488,21 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 		AccountID: sourceAccountID,
 		Note:      &feeNote,
 		Date:      date,
+		UserID:    userID,
 	}
 	if feesCategoryID != "" {
 		feeTx.CategoryID = &feesCategoryID
 	}
-	_, err = s.txRepo.CreateTx(ctx, dbTx, feeTx)
+	_, err = s.txRepo.CreateTx(ctx, userID, dbTx, feeTx)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("creating fee: %w", err)
 	}
 
 	// Update balances: source loses amount + fee, destination gains amount
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, sourceAccountID, -(amount + fee)); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, sourceAccountID, -(amount + fee)); err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("debiting source: %w", err)
 	}
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, destAccountID, amount); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, destAccountID, amount); err != nil {
 		return models.Transaction{}, models.Transaction{}, 0, fmt.Errorf("crediting destination: %w", err)
 	}
 
@@ -516,7 +524,7 @@ func (s *TransactionService) CreateInstapayTransfer(ctx context.Context, sourceA
 //
 // This is commonly used in Egypt to convert credit card balance to cash
 // through Fawry prepaid services.
-func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardID, prepaidAccountID string, amount, fee float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, error) {
+func (s *TransactionService) CreateFawryCashout(ctx context.Context, userID string, creditCardID, prepaidAccountID string, amount, fee float64, currency models.Currency, note *string, date time.Time, feesCategoryID string) (models.Transaction, models.Transaction, error) {
 	if err := requirePositive(amount, "amount"); err != nil {
 		return models.Transaction{}, models.Transaction{}, err
 	}
@@ -554,11 +562,12 @@ func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardI
 		FeeAmount:        &fee,
 		Note:             &chargeNote,
 		Date:             date,
+		UserID:           userID,
 	}
 	if feesCategoryID != "" {
 		chargeTx.CategoryID = &feesCategoryID
 	}
-	createdCharge, err := s.txRepo.CreateTx(ctx, dbTx, chargeTx)
+	createdCharge, err := s.txRepo.CreateTx(ctx, userID, dbTx, chargeTx)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating charge: %w", err)
 	}
@@ -576,22 +585,23 @@ func (s *TransactionService) CreateFawryCashout(ctx context.Context, creditCardI
 		CounterAccountID: &creditCardID,
 		Note:             &creditNote,
 		Date:             date,
+		UserID:           userID,
 	}
-	createdCredit, err := s.txRepo.CreateTx(ctx, dbTx, creditTx)
+	createdCredit, err := s.txRepo.CreateTx(ctx, userID, dbTx, creditTx)
 	if err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("creating credit: %w", err)
 	}
 
 	// Link the two transactions
-	if err := s.txRepo.LinkTransactionsTx(ctx, dbTx, createdCharge.ID, createdCredit.ID); err != nil {
+	if err := s.txRepo.LinkTransactionsTx(ctx, userID, dbTx, createdCharge.ID, createdCredit.ID); err != nil {
 		return models.Transaction{}, models.Transaction{}, err
 	}
 
 	// Update balances: credit card goes down by total, prepaid goes up by net amount
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, creditCardID, -totalCharge); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, creditCardID, -totalCharge); err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("debiting credit card: %w", err)
 	}
-	if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, prepaidAccountID, amount); err != nil {
+	if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, prepaidAccountID, amount); err != nil {
 		return models.Transaction{}, models.Transaction{}, fmt.Errorf("crediting prepaid: %w", err)
 	}
 
@@ -648,19 +658,19 @@ func resolveExchangeFields(amount, rate, counterAmount *float64) (float64, float
 //   3. Apply the net change to the account balance
 //
 // All inside a DB transaction for atomicity.
-func (s *TransactionService) Update(ctx context.Context, updated models.Transaction) (models.Transaction, float64, error) {
+func (s *TransactionService) Update(ctx context.Context, userID string, updated models.Transaction) (models.Transaction, float64, error) {
 	if err := s.validateBasic(updated); err != nil {
 		return models.Transaction{}, 0, err
 	}
 
 	// Get the old transaction to calculate the balance diff
-	old, err := s.txRepo.GetByID(ctx, updated.ID)
+	old, err := s.txRepo.GetByID(ctx, userID, updated.ID)
 	if err != nil {
 		return models.Transaction{}, 0, err
 	}
 
 	// Always use the account's currency as the source of truth
-	acc, err := s.accRepo.GetByID(ctx, old.AccountID)
+	acc, err := s.accRepo.GetByID(ctx, userID, old.AccountID)
 	if err != nil {
 		return models.Transaction{}, 0, fmt.Errorf("looking up account: %w", err)
 	}
@@ -676,13 +686,13 @@ func (s *TransactionService) Update(ctx context.Context, updated models.Transact
 	}
 	defer dbTx.Rollback()
 
-	result, err := s.txRepo.UpdateTx(ctx, dbTx, updated)
+	result, err := s.txRepo.UpdateTx(ctx, userID, dbTx, updated)
 	if err != nil {
 		return models.Transaction{}, 0, err
 	}
 
 	if balanceAdjustment != 0 {
-		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, old.AccountID, balanceAdjustment); err != nil {
+		if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, old.AccountID, balanceAdjustment); err != nil {
 			return models.Transaction{}, 0, fmt.Errorf("adjusting balance: %w", err)
 		}
 	}
@@ -701,8 +711,8 @@ func (s *TransactionService) Update(ctx context.Context, updated models.Transact
 // This is the inverse of Create: it undoes the balance change. For transfers,
 // it must also find and delete the linked (counterpart) transaction and reverse
 // both account balances. All within a single DB transaction.
-func (s *TransactionService) Delete(ctx context.Context, id string) error {
-	tx, err := s.txRepo.GetByID(ctx, id)
+func (s *TransactionService) Delete(ctx context.Context, userID string, id string) error {
+	tx, err := s.txRepo.GetByID(ctx, userID, id)
 	if err != nil {
 		return err
 	}
@@ -714,7 +724,7 @@ func (s *TransactionService) Delete(ctx context.Context, id string) error {
 	defer dbTx.Rollback()
 
 	// Delete this transaction
-	if err := s.txRepo.DeleteTx(ctx, dbTx, id); err != nil {
+	if err := s.txRepo.DeleteTx(ctx, userID, dbTx, id); err != nil {
 		return err
 	}
 
@@ -723,23 +733,23 @@ func (s *TransactionService) Delete(ctx context.Context, id string) error {
 	if isLinked {
 		// Transfer/exchange: this leg's account was debited, linked leg's was credited.
 		// Reverse: add amount back to this account, subtract from linked account.
-		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, tx.AccountID, tx.Amount); err != nil {
+		if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, tx.AccountID, tx.Amount); err != nil {
 			return fmt.Errorf("reversing balance: %w", err)
 		}
 
-		linked, err := s.txRepo.GetByID(ctx, *tx.LinkedTransactionID)
+		linked, err := s.txRepo.GetByID(ctx, userID, *tx.LinkedTransactionID)
 		if err == nil {
-			if err := s.txRepo.DeleteTx(ctx, dbTx, linked.ID); err != nil {
+			if err := s.txRepo.DeleteTx(ctx, userID, dbTx, linked.ID); err != nil {
 				return fmt.Errorf("deleting linked: %w", err)
 			}
-			if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, linked.AccountID, -linked.Amount); err != nil {
+			if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, linked.AccountID, -linked.Amount); err != nil {
 				return fmt.Errorf("reversing linked balance: %w", err)
 			}
 		}
 	} else {
 		// Simple expense/income reversal
 		reverseDelta := -s.balanceDelta(tx)
-		if err := s.txRepo.UpdateBalanceTx(ctx, dbTx, tx.AccountID, reverseDelta); err != nil {
+		if err := s.txRepo.UpdateBalanceTx(ctx, userID, dbTx, tx.AccountID, reverseDelta); err != nil {
 			return fmt.Errorf("reversing balance: %w", err)
 		}
 	}
@@ -748,22 +758,22 @@ func (s *TransactionService) Delete(ctx context.Context, id string) error {
 	return dbTx.Commit()
 }
 
-func (s *TransactionService) GetByID(ctx context.Context, id string) (models.Transaction, error) {
-	return s.txRepo.GetByID(ctx, id)
+func (s *TransactionService) GetByID(ctx context.Context, userID string, id string) (models.Transaction, error) {
+	return s.txRepo.GetByID(ctx, userID, id)
 }
 
-func (s *TransactionService) GetRecent(ctx context.Context, limit int) ([]models.Transaction, error) {
+func (s *TransactionService) GetRecent(ctx context.Context, userID string, limit int) ([]models.Transaction, error) {
 	if limit <= 0 {
 		limit = 15
 	}
-	return s.txRepo.GetRecent(ctx, limit)
+	return s.txRepo.GetRecent(ctx, userID, limit)
 }
 
-func (s *TransactionService) GetByAccount(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
+func (s *TransactionService) GetByAccount(ctx context.Context, userID string, accountID string, limit int) ([]models.Transaction, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	return s.txRepo.GetByAccount(ctx, accountID, limit)
+	return s.txRepo.GetByAccount(ctx, userID, accountID, limit)
 }
 
 // balanceDelta calculates how a transaction affects its account's balance.
@@ -787,32 +797,32 @@ func (s *TransactionService) balanceDelta(tx models.Transaction) float64 {
 }
 
 // GetFiltered retrieves transactions matching the given filters.
-func (s *TransactionService) GetFiltered(ctx context.Context, f repository.TransactionFilter) ([]models.Transaction, error) {
+func (s *TransactionService) GetFiltered(ctx context.Context, userID string, f repository.TransactionFilter) ([]models.Transaction, error) {
 	if f.Limit <= 0 {
 		f.Limit = 50
 	}
-	return s.txRepo.GetFiltered(ctx, f)
+	return s.txRepo.GetFiltered(ctx, userID, f)
 }
 
 // GetByIDEnriched retrieves a single transaction with account name and running balance.
-func (s *TransactionService) GetByIDEnriched(ctx context.Context, id string) (repository.TransactionDisplayRow, error) {
-	return s.txRepo.GetByIDEnriched(ctx, id)
+func (s *TransactionService) GetByIDEnriched(ctx context.Context, userID string, id string) (repository.TransactionDisplayRow, error) {
+	return s.txRepo.GetByIDEnriched(ctx, userID, id)
 }
 
 // GetRecentEnriched retrieves recent transactions with account name and running balance.
-func (s *TransactionService) GetRecentEnriched(ctx context.Context, limit int) ([]repository.TransactionDisplayRow, error) {
+func (s *TransactionService) GetRecentEnriched(ctx context.Context, userID string, limit int) ([]repository.TransactionDisplayRow, error) {
 	if limit <= 0 {
 		limit = 15
 	}
-	return s.txRepo.GetRecentEnriched(ctx, limit)
+	return s.txRepo.GetRecentEnriched(ctx, userID, limit)
 }
 
 // GetFilteredEnriched retrieves filtered transactions with account name and running balance.
-func (s *TransactionService) GetFilteredEnriched(ctx context.Context, f repository.TransactionFilter) ([]repository.TransactionDisplayRow, error) {
+func (s *TransactionService) GetFilteredEnriched(ctx context.Context, userID string, f repository.TransactionFilter) ([]repository.TransactionDisplayRow, error) {
 	if f.Limit <= 0 {
 		f.Limit = 50
 	}
-	return s.txRepo.GetFilteredEnriched(ctx, f)
+	return s.txRepo.GetFilteredEnriched(ctx, userID, f)
 }
 
 // SmartDefaults holds pre-computed defaults for the transaction entry form.
@@ -829,18 +839,18 @@ type SmartDefaults struct {
 }
 
 // GetSmartDefaults computes smart defaults for the entry form based on history.
-func (s *TransactionService) GetSmartDefaults(ctx context.Context, txType string) SmartDefaults {
+func (s *TransactionService) GetSmartDefaults(ctx context.Context, userID string, txType string) SmartDefaults {
 	defaults := SmartDefaults{}
 
-	if lastAcc, err := s.txRepo.GetLastUsedAccountID(ctx); err == nil {
+	if lastAcc, err := s.txRepo.GetLastUsedAccountID(ctx, userID); err == nil {
 		defaults.LastAccountID = lastAcc
 	}
 
-	if recentCats, err := s.txRepo.GetRecentCategoryIDs(ctx, txType, 20); err == nil {
+	if recentCats, err := s.txRepo.GetRecentCategoryIDs(ctx, userID, txType, 20); err == nil {
 		defaults.RecentCategoryIDs = recentCats
 	}
 
-	if autoCat, err := s.txRepo.GetConsecutiveCategoryID(ctx, txType, 3); err == nil {
+	if autoCat, err := s.txRepo.GetConsecutiveCategoryID(ctx, userID, txType, 3); err == nil {
 		defaults.AutoCategoryID = autoCat
 	}
 
@@ -849,20 +859,20 @@ func (s *TransactionService) GetSmartDefaults(ctx context.Context, txType string
 
 // GetByAccountDateRange returns transactions for an account within a date range.
 // Used by credit card statement view (TASK-071).
-func (s *TransactionService) GetByAccountDateRange(ctx context.Context, accountID string, from, to time.Time) ([]models.Transaction, error) {
-	return s.txRepo.GetByAccountDateRange(ctx, accountID, from, to)
+func (s *TransactionService) GetByAccountDateRange(ctx context.Context, userID string, accountID string, from, to time.Time) ([]models.Transaction, error) {
+	return s.txRepo.GetByAccountDateRange(ctx, userID, accountID, from, to)
 }
 
 // GetPaymentsToAccount returns income/transfer payments that credit a specific account.
 // Used by credit card payment history (TASK-075).
-func (s *TransactionService) GetPaymentsToAccount(ctx context.Context, accountID string, limit int) ([]models.Transaction, error) {
-	return s.txRepo.GetPaymentsToAccount(ctx, accountID, limit)
+func (s *TransactionService) GetPaymentsToAccount(ctx context.Context, userID string, accountID string, limit int) ([]models.Transaction, error) {
+	return s.txRepo.GetPaymentsToAccount(ctx, userID, accountID, limit)
 }
 
 // SuggestCategory returns the most likely category ID based on note keywords (TASK-079).
 // Uses historical transaction data to suggest a category when the user types a note.
-func (s *TransactionService) SuggestCategory(ctx context.Context, noteKeyword string) string {
-	return s.txRepo.SuggestCategory(ctx, noteKeyword)
+func (s *TransactionService) SuggestCategory(ctx context.Context, userID string, noteKeyword string) string {
+	return s.txRepo.SuggestCategory(ctx, userID, noteKeyword)
 }
 
 // validateBasic performs basic field validation on a transaction.

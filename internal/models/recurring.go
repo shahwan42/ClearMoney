@@ -52,6 +52,7 @@ const (
 // See: https://pkg.go.dev/encoding/json#RawMessage
 type RecurringRule struct {
 	ID                  string             `json:"id" db:"id"`
+	UserID              string             `json:"user_id" db:"user_id"`
 	TemplateTransaction json.RawMessage    `json:"template_transaction" db:"template_transaction"` // raw JSON blob — decode with json.Unmarshal(&template) when needed
 	Frequency           RecurringFrequency `json:"frequency" db:"frequency"`
 	DayOfMonth          *int               `json:"day_of_month,omitempty" db:"day_of_month"` // *int = nullable; set for monthly rules (which day to fire), nil for weekly rules

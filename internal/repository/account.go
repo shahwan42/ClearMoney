@@ -44,7 +44,8 @@ func NewAccountRepo(db *sql.DB) *AccountRepo {
 // Go returns errors as values instead of throwing exceptions. The (Account, error)
 // return is like: [$account, $error] = $repo->create($data) — you always check
 // the error. There's no try/catch in Go.
-func (r *AccountRepo) Create(ctx context.Context, acc models.Account) (models.Account, error) {
+func (r *AccountRepo) Create(ctx context.Context, userID string, acc models.Account) (models.Account, error) {
+	acc.UserID = userID
 	acc.CurrentBalance = acc.InitialBalance
 
 	// Default metadata to empty JSON object if nil.
@@ -57,11 +58,11 @@ func (r *AccountRepo) Create(ctx context.Context, acc models.Account) (models.Ac
 	// $1, $2, ... are PostgreSQL placeholders (Laravel uses ?, Django uses %s).
 	// They prevent SQL injection — equivalent to prepared statements.
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO accounts (institution_id, name, type, currency, current_balance,
+		INSERT INTO accounts (user_id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags, display_order, metadata)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		RETURNING id, created_at, updated_at
-	`, acc.InstitutionID, acc.Name, acc.Type, acc.Currency,
+	`, userID, acc.InstitutionID, acc.Name, acc.Type, acc.Currency,
 		acc.CurrentBalance, acc.InitialBalance, acc.CreditLimit,
 		acc.IsDormant, pq.Array(acc.RoleTags), acc.DisplayOrder, acc.Metadata,
 	).Scan(&acc.ID, &acc.CreatedAt, &acc.UpdatedAt)
@@ -84,14 +85,14 @@ func (r *AccountRepo) Create(ctx context.Context, acc models.Account) (models.Ac
 //   Laravel:  protected $casts = ['metadata' => 'array', 'health_config' => 'array'];
 //   Django:   metadata = JSONField(default=dict)
 //   Go:       json.RawMessage (raw bytes, decoded when needed)
-func (r *AccountRepo) GetByID(ctx context.Context, id string) (models.Account, error) {
+func (r *AccountRepo) GetByID(ctx context.Context, userID string, id string) (models.Account, error) {
 	var acc models.Account
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
 			display_order, metadata, COALESCE(health_config, '{}'::jsonb), created_at, updated_at
-		FROM accounts WHERE id = $1
-	`, id).Scan(
+		FROM accounts WHERE id = $1 AND user_id = $2
+	`, id, userID).Scan(
 		&acc.ID, &acc.InstitutionID, &acc.Name, &acc.Type, &acc.Currency,
 		&acc.CurrentBalance, &acc.InitialBalance, &acc.CreditLimit,
 		&acc.IsDormant, pq.Array(&acc.RoleTags), &acc.DisplayOrder,
@@ -106,25 +107,25 @@ func (r *AccountRepo) GetByID(ctx context.Context, id string) (models.Account, e
 // GetAll retrieves all accounts ordered by display_order.
 //   Laravel:  Account::orderBy('display_order')->orderBy('name')->get()
 //   Django:   Account.objects.order_by('display_order', 'name')
-func (r *AccountRepo) GetAll(ctx context.Context) ([]models.Account, error) {
+func (r *AccountRepo) GetAll(ctx context.Context, userID string) ([]models.Account, error) {
 	return r.queryAccounts(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
 			display_order, metadata, COALESCE(health_config, '{}'::jsonb), created_at, updated_at
-		FROM accounts ORDER BY display_order, name
-	`)
+		FROM accounts WHERE user_id = $1 ORDER BY display_order, name
+	`, userID)
 }
 
 // GetByInstitution retrieves all accounts for a given institution.
 // Similar to $institution->accounts in Laravel Eloquent.
-func (r *AccountRepo) GetByInstitution(ctx context.Context, institutionID string) ([]models.Account, error) {
+func (r *AccountRepo) GetByInstitution(ctx context.Context, userID string, institutionID string) ([]models.Account, error) {
 	return r.queryAccounts(ctx, `
 		SELECT id, institution_id, name, type, currency, current_balance,
 			initial_balance, credit_limit, is_dormant, role_tags,
 			display_order, metadata, COALESCE(health_config, '{}'::jsonb), created_at, updated_at
-		FROM accounts WHERE institution_id = $1
+		FROM accounts WHERE institution_id = $1 AND user_id = $2
 		ORDER BY display_order, name
-	`, institutionID)
+	`, institutionID, userID)
 }
 
 // Update modifies an existing account's fields (not balance — that's done via transactions).
@@ -133,16 +134,16 @@ func (r *AccountRepo) GetByInstitution(ctx context.Context, institutionID string
 // UpdateBalance() or UpdateBalanceTx() which use atomic SQL (current_balance + $delta).
 // This prevents race conditions when concurrent requests modify the balance.
 //   Laravel analogy: DB::table('accounts')->where('id', $id)->increment('current_balance', $delta)
-func (r *AccountRepo) Update(ctx context.Context, acc models.Account) (models.Account, error) {
+func (r *AccountRepo) Update(ctx context.Context, userID string, acc models.Account) (models.Account, error) {
 	err := r.db.QueryRowContext(ctx, `
 		UPDATE accounts
 		SET name = $2, type = $3, currency = $4, credit_limit = $5,
 			is_dormant = $6, role_tags = $7, display_order = $8,
 			metadata = $9, updated_at = now()
-		WHERE id = $1
+		WHERE id = $1 AND user_id = $10
 		RETURNING updated_at
 	`, acc.ID, acc.Name, acc.Type, acc.Currency, acc.CreditLimit,
-		acc.IsDormant, pq.Array(acc.RoleTags), acc.DisplayOrder, acc.Metadata,
+		acc.IsDormant, pq.Array(acc.RoleTags), acc.DisplayOrder, acc.Metadata, userID,
 	).Scan(&acc.UpdatedAt)
 
 	if err != nil {
@@ -158,10 +159,10 @@ func (r *AccountRepo) Update(ctx context.Context, acc models.Account) (models.Ac
 //   Example JSON: {"min_balance": 5000, "min_monthly_deposit": 1000}
 //   PostgreSQL:   health_config JSONB DEFAULT '{}'
 //   Go:           json.RawMessage (alias for []byte)
-func (r *AccountRepo) UpdateHealthConfig(ctx context.Context, id string, config json.RawMessage) error {
+func (r *AccountRepo) UpdateHealthConfig(ctx context.Context, userID string, id string, config json.RawMessage) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE accounts SET health_config = $2, updated_at = now() WHERE id = $1
-	`, id, config)
+		UPDATE accounts SET health_config = $2, updated_at = now() WHERE id = $1 AND user_id = $3
+	`, id, config, userID)
 	return err
 }
 
@@ -174,11 +175,11 @@ func (r *AccountRepo) UpdateHealthConfig(ctx context.Context, id string, config 
 //
 //   Laravel:  DB::table('accounts')->where('id', $id)->increment('current_balance', $delta)
 //   Django:   Account.objects.filter(id=id).update(current_balance=F('current_balance') + delta)
-func (r *AccountRepo) UpdateBalance(ctx context.Context, id string, delta float64) error {
+func (r *AccountRepo) UpdateBalance(ctx context.Context, userID string, id string, delta float64) error {
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE accounts SET current_balance = current_balance + $2, updated_at = now()
-		WHERE id = $1
-	`, id, delta)
+		WHERE id = $1 AND user_id = $3
+	`, id, delta, userID)
 	if err != nil {
 		return fmt.Errorf("updating balance: %w", err)
 	}
@@ -190,8 +191,8 @@ func (r *AccountRepo) UpdateBalance(ctx context.Context, id string, delta float6
 }
 
 // Delete removes an account by ID.
-func (r *AccountRepo) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `DELETE FROM accounts WHERE id = $1`, id)
+func (r *AccountRepo) Delete(ctx context.Context, userID string, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM accounts WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return fmt.Errorf("deleting account: %w", err)
 	}
@@ -208,19 +209,19 @@ func (r *AccountRepo) Delete(ctx context.Context, id string) error {
 //
 //   Laravel:  DB::statement('UPDATE accounts SET is_dormant = NOT is_dormant WHERE id = ?', [$id])
 //   Django:   Account.objects.filter(id=id).update(is_dormant=~F('is_dormant'))  // bitwise NOT
-func (r *AccountRepo) ToggleDormant(ctx context.Context, id string) error {
+func (r *AccountRepo) ToggleDormant(ctx context.Context, userID string, id string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE accounts SET is_dormant = NOT is_dormant, updated_at = now()
-		WHERE id = $1
-	`, id)
+		WHERE id = $1 AND user_id = $2
+	`, id, userID)
 	return err
 }
 
 // UpdateDisplayOrder sets the display_order for an account.
-func (r *AccountRepo) UpdateDisplayOrder(ctx context.Context, id string, order int) error {
+func (r *AccountRepo) UpdateDisplayOrder(ctx context.Context, userID string, id string, order int) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE accounts SET display_order = $2, updated_at = now() WHERE id = $1
-	`, id, order)
+		UPDATE accounts SET display_order = $2, updated_at = now() WHERE id = $1 AND user_id = $3
+	`, id, order, userID)
 	return err
 }
 

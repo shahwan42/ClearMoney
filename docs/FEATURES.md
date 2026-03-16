@@ -138,18 +138,19 @@ Historical USD/EGP exchange rate log. Used for:
 
 ## Settings
 
-- PIN change
-- Dark mode toggle (class-based, persisted in user_config)
+- Dark mode toggle (class-based)
 - CSV export of transactions
 - Push notification subscription (VAPID-based)
 
 ## Auth
 
-Single-user PIN-based authentication:
-- First visit → setup flow to create 4-6 digit PIN
-- PIN stored as bcrypt hash in `user_config` table
-- Login generates HMAC session token in a 30-day cookie
-- Auth middleware guards all routes except login/setup/health
+Multi-user magic link authentication via Resend email API:
+- **Login** → enter email → receive magic link → click → logged in (30-day session)
+- **Registration** → enter email → magic link → click → account created + 25 default categories seeded
+- Server-side database sessions (not HMAC tokens)
+- All data isolated per user (`WHERE user_id = $N` on every query)
+- Aggressive email quota protection: token reuse, per-email/IP/global daily caps, honeypot + timing checks
+- Email enumeration prevention: unknown emails show same "Check your email" page, no email sent
 
 ## PWA
 

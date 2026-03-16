@@ -1,60 +1,37 @@
-// auth.go — Authentication handlers for PIN-based login, first-time setup, and logout.
+// auth.go — Authentication handlers for magic link login, registration, and logout.
 //
-// ClearMoney uses a simple PIN-based authentication system (no usernames or passwords).
-// This is a single-user app, so there's one PIN stored as a bcrypt hash in user_config.
+// ClearMoney uses passwordless magic link authentication via email (Resend API).
+// Users enter their email, receive a link, click it, and get logged in.
 //
 // Authentication flow:
-//   1. First visit: No PIN set -> redirect to /setup
-//   2. /setup: User enters PIN + confirmation -> bcrypt hash stored in DB
-//   3. /login: User enters PIN -> verified against bcrypt hash
-//   4. On success: HMAC session token created and set as a cookie
-//   5. Auth middleware checks the cookie on every protected request
-//   6. /logout: Cookie cleared (MaxAge -1)
+//   1. /login: User enters email → server sends magic link (if user exists)
+//   2. /register: New user enters email → server sends registration link
+//   3. /auth/verify?token=xxx: User clicks link → session created → redirect to /
+//   4. /logout: Session deleted, cookie cleared
 //
-// Session tokens use HMAC (Hash-based Message Authentication Code):
-//   - The server holds a secret key in user_config
-//   - The token is an HMAC signature that the middleware can verify
-//   - No server-side session storage needed (stateless)
-//
-// This is simpler than:
-//   - Laravel: Auth::attempt(['email' => $e, 'password' => $p]) with session store
-//   - Django: authenticate(request, username=u, password=p) with django.contrib.sessions
+// Anti-abuse measures:
+//   - Honeypot field: hidden input that bots fill → silent reject
+//   - Timing check: submit < 2s after page load → silent reject
+//   - Rate limiting: per-email, per-IP, global daily (handled by service + middleware)
+//   - Login only sends emails to existing users (prevent email enumeration)
 //
 // Form handling in Go:
-//   r.ParseForm() — parses the request body as application/x-www-form-urlencoded
-//   r.FormValue("pin") — gets a form field value
-//   These are like:
-//     - Laravel: $request->input('pin') or $request->validate(['pin' => 'required'])
-//     - Django: request.POST.get('pin') or form.cleaned_data['pin']
-//
-// See: https://pkg.go.dev/net/http#Request.ParseForm
-// See: https://pkg.go.dev/net/http#Request.FormValue
+//   r.ParseForm() — parses the request body
+//   r.FormValue("email") — gets a form field value
+//   These are like Laravel's $request->input() or Django's request.POST.get()
 package handler
 
 import (
 	"log/slog"
-	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	authmw "github.com/shahwan42/clearmoney/internal/middleware"
 	"github.com/shahwan42/clearmoney/internal/service"
 )
 
-// LoginPageData carries error and lockout state to the login template.
-// When the user is locked out, SecondsLeft tells the template how long to show
-// the countdown timer. FailedAttempts lets us warn "1 attempt remaining."
-type LoginPageData struct {
-	Error          string
-	Locked         bool
-	SecondsLeft    int
-	FailedAttempts int
-}
-
-// AuthHandler manages login, setup, and logout pages.
-// Unlike other handlers that return JSON, this one renders HTML templates
-// and uses form POST submissions (not JSON). It follows the traditional
-// web app pattern of form submit -> server-side processing -> redirect.
+// AuthHandler manages login, registration, magic link verification, and logout.
 type AuthHandler struct {
 	templates TemplateMap
 	authSvc   *service.AuthService
@@ -64,139 +41,154 @@ func NewAuthHandler(templates TemplateMap, authSvc *service.AuthService) *AuthHa
 	return &AuthHandler{templates: templates, authSvc: authSvc}
 }
 
-// LoginPage renders the PIN entry form.
+// LoginPage renders the email-based login form.
 // GET /login
-//
-// Redirects to /setup if no PIN has been configured yet.
-// http.Redirect sends a 302 Found response with a Location header.
-// This is like Laravel's return redirect('/setup') or Django's HttpResponseRedirect('/setup').
 func (h *AuthHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "login")
-	// If not set up yet, redirect to setup
-	if !h.authSvc.IsSetup(r.Context()) {
-		http.Redirect(w, r, "/setup", http.StatusFound)
-		return
-	}
-
-	// Check if currently locked out so we show the countdown on page load
-	data := LoginPageData{}
-	locked, lockedUntil, err := h.authSvc.GetLockoutStatus(r.Context())
-	if err == nil && locked {
-		data.Locked = true
-		data.SecondsLeft = int(math.Ceil(time.Until(lockedUntil).Seconds()))
+	data := map[string]any{
+		"RenderTime": time.Now().Unix(),
 	}
 	RenderPage(h.templates, w, "login", PageData{Data: data})
 }
 
-// LoginSubmit verifies the PIN and creates a session.
+// LoginSubmit processes the login form and sends a magic link.
 // POST /login
 //
-// Flow: parse form -> verify PIN -> create session token -> set cookie -> redirect to /
-// On failure: re-render the login page with an error message (no redirect).
-//
-// This is the PRG (Post-Redirect-Get) pattern:
-//   - Success: POST /login -> 302 redirect to / -> GET /
-//   - Failure: POST /login -> 200 with error message (re-render form)
+// Always shows "Check your email" regardless of whether the email is registered.
+// This prevents email enumeration attacks.
 func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
 
-	pin := r.FormValue("pin")
-	result := h.authSvc.CheckAndVerifyPIN(r.Context(), pin)
+	// Honeypot check: hidden field that bots fill
+	if r.FormValue("website") != "" {
+		slog.Info("login: honeypot triggered (bot detected)")
+		RenderPage(h.templates, w, "check-email", PageData{})
+		return
+	}
 
-	if result.Locked {
-		slog.Warn("login: account locked", "until", result.LockedUntil)
-		data := LoginPageData{
-			Locked:         true,
-			SecondsLeft:    int(math.Ceil(time.Until(result.LockedUntil).Seconds())),
-			FailedAttempts: result.FailedAttempts,
+	// Timing check: reject if submitted too fast (< 2 seconds)
+	if renderTime := r.FormValue("_rt"); renderTime != "" {
+		if rt, err := strconv.ParseInt(renderTime, 10, 64); err == nil {
+			if time.Now().Unix()-rt < 2 {
+				slog.Info("login: timing check failed (too fast)")
+				RenderPage(h.templates, w, "check-email", PageData{})
+				return
+			}
+		}
+	}
+
+	email := r.FormValue("email")
+	if email == "" {
+		data := map[string]any{
+			"Error":      "Email is required",
+			"RenderTime": time.Now().Unix(),
 		}
 		RenderPage(h.templates, w, "login", PageData{Data: data})
 		return
 	}
 
-	if !result.Success {
-		slog.Warn("login: invalid PIN attempt", "failed_attempts", result.FailedAttempts)
-		data := LoginPageData{
-			Error:          "Invalid PIN. Please try again.",
-			FailedAttempts: result.FailedAttempts,
-		}
-		RenderPage(h.templates, w, "login", PageData{Data: data})
-		return
-	}
-
-	slog.Info("auth event", "event", "auth.login_success")
-
-	// Create session
-	sessionKey, err := h.authSvc.GetSessionKey(r.Context())
+	_, err := h.authSvc.RequestLoginLink(r.Context(), email)
 	if err != nil {
-		slog.Error("login: session key error", "error", err)
-		http.Error(w, "session error", http.StatusInternalServerError)
-		return
+		slog.Error("login: failed to request magic link", "error", err)
 	}
-	token := authmw.CreateSessionToken(sessionKey)
-	authmw.SetSessionCookie(w, token)
 
-	http.Redirect(w, r, "/", http.StatusFound)
+	// Always show "check your email" — even if user doesn't exist (prevent enumeration)
+	RenderPage(h.templates, w, "check-email", PageData{Data: map[string]any{"Email": email}})
 }
 
-// SetupPage renders the first-time PIN setup form.
-// GET /setup
-func (h *AuthHandler) SetupPage(w http.ResponseWriter, r *http.Request) {
-	authmw.Log(r.Context()).Info("page viewed", "page", "setup")
-	// If already set up, redirect to login
-	if h.authSvc.IsSetup(r.Context()) {
-		http.Redirect(w, r, "/login", http.StatusFound)
-		return
+// RegisterPage renders the registration form.
+// GET /register
+func (h *AuthHandler) RegisterPage(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("page viewed", "page", "register")
+	data := map[string]any{
+		"RenderTime": time.Now().Unix(),
 	}
-	RenderPage(h.templates, w, "setup", PageData{})
+	RenderPage(h.templates, w, "register", PageData{Data: data})
 }
 
-// SetupSubmit saves the PIN and creates a session.
-// POST /setup
-func (h *AuthHandler) SetupSubmit(w http.ResponseWriter, r *http.Request) {
+// RegisterSubmit processes the registration form and sends a magic link.
+// POST /register
+func (h *AuthHandler) RegisterSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
 
-	pin := r.FormValue("pin")
-	confirmPin := r.FormValue("confirm_pin")
-
-	if pin != confirmPin {
-		RenderPage(h.templates, w, "setup", PageData{Data: "PINs do not match."})
+	// Honeypot check
+	if r.FormValue("website") != "" {
+		slog.Info("register: honeypot triggered (bot detected)")
+		RenderPage(h.templates, w, "check-email", PageData{})
 		return
 	}
 
-	if err := h.authSvc.Setup(r.Context(), pin); err != nil {
-		RenderPage(h.templates, w, "setup", PageData{Data: err.Error()})
+	// Timing check
+	if renderTime := r.FormValue("_rt"); renderTime != "" {
+		if rt, err := strconv.ParseInt(renderTime, 10, 64); err == nil {
+			if time.Now().Unix()-rt < 2 {
+				slog.Info("register: timing check failed (too fast)")
+				RenderPage(h.templates, w, "check-email", PageData{})
+				return
+			}
+		}
+	}
+
+	email := r.FormValue("email")
+	if email == "" {
+		data := map[string]any{
+			"Error":      "Email is required",
+			"RenderTime": time.Now().Unix(),
+		}
+		RenderPage(h.templates, w, "register", PageData{Data: data})
 		return
 	}
 
-	slog.Info("auth event", "event", "auth.setup_success")
-
-	// Auto-login after setup
-	sessionKey, err := h.authSvc.GetSessionKey(r.Context())
+	_, err := h.authSvc.RequestRegistrationLink(r.Context(), email)
 	if err != nil {
-		slog.Error("setup: session key error after PIN setup", "error", err)
-		http.Redirect(w, r, "/login", http.StatusFound)
+		// Show error for registration (safe to reveal "already registered" since user initiated it)
+		data := map[string]any{
+			"Error":      err.Error(),
+			"RenderTime": time.Now().Unix(),
+		}
+		RenderPage(h.templates, w, "register", PageData{Data: data})
 		return
 	}
-	token := authmw.CreateSessionToken(sessionKey)
-	authmw.SetSessionCookie(w, token)
 
+	RenderPage(h.templates, w, "check-email", PageData{Data: map[string]any{"Email": email}})
+}
+
+// VerifyMagicLink validates the token from a magic link and creates a session.
+// GET /auth/verify?token=xxx
+func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		RenderPage(h.templates, w, "link-expired", PageData{})
+		return
+	}
+
+	result, err := h.authSvc.VerifyMagicLink(r.Context(), token)
+	if err != nil {
+		slog.Warn("auth: magic link verification failed", "error", err)
+		RenderPage(h.templates, w, "link-expired", PageData{Data: map[string]any{"Error": err.Error()}})
+		return
+	}
+
+	// Set session cookie and redirect
+	authmw.SetSessionCookie(w, result.SessionToken)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 // Logout clears the session and redirects to login.
 // POST /logout
-//
-// ClearSessionCookie sets the cookie MaxAge to -1, which tells the browser
-// to delete it immediately. This is the standard way to "log out" with cookies.
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	slog.Info("auth event", "event", "auth.logout")
+	// Delete server-side session
+	cookie, err := r.Cookie(service.SessionCookieName)
+	if err == nil && cookie.Value != "" {
+		h.authSvc.Logout(r.Context(), cookie.Value)
+	}
+
 	authmw.ClearSessionCookie(w)
 	http.Redirect(w, r, "/login", http.StatusFound)
 }

@@ -15,19 +15,20 @@ import (
 )
 
 // setupInvestmentTest creates a clean InvestmentService for testing.
-func setupInvestmentTest(t *testing.T) *InvestmentService {
+func setupInvestmentTest(t *testing.T) (*InvestmentService, string) {
 	t.Helper()
 	db := testutil.NewTestDB(t)
+	userID := testutil.SetupTestUser(t, db)
 	testutil.CleanTable(t, db, "investments")
 	repo := repository.NewInvestmentRepo(db)
-	return NewInvestmentService(repo)
+	return NewInvestmentService(repo), userID
 }
 
 func TestInvestmentService_Create(t *testing.T) {
-	svc := setupInvestmentTest(t)
+	svc, userID := setupInvestmentTest(t)
 	ctx := context.Background()
 
-	inv, err := svc.Create(ctx, models.Investment{
+	inv, err := svc.Create(ctx, userID, models.Investment{
 		Platform:      "Thndr",
 		FundName:      "AZG",
 		Units:         100.5,
@@ -47,7 +48,7 @@ func TestInvestmentService_Create(t *testing.T) {
 }
 
 func TestInvestmentService_Create_ValidationErrors(t *testing.T) {
-	svc := setupInvestmentTest(t)
+	svc, userID := setupInvestmentTest(t)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -60,7 +61,7 @@ func TestInvestmentService_Create_ValidationErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.Create(ctx, tt.inv)
+			_, err := svc.Create(ctx, userID, tt.inv)
 			if err == nil {
 				t.Error("expected error")
 			}
@@ -69,35 +70,35 @@ func TestInvestmentService_Create_ValidationErrors(t *testing.T) {
 }
 
 func TestInvestmentService_UpdateValuation(t *testing.T) {
-	svc := setupInvestmentTest(t)
+	svc, userID := setupInvestmentTest(t)
 	ctx := context.Background()
 
-	inv, _ := svc.Create(ctx, models.Investment{
+	inv, _ := svc.Create(ctx, userID, models.Investment{
 		FundName:      "BCO",
 		Units:         50,
 		LastUnitPrice: 10,
 	})
 
-	err := svc.UpdateValuation(ctx, inv.ID, 12.50)
+	err := svc.UpdateValuation(ctx, userID, inv.ID, 12.50)
 	if err != nil {
 		t.Fatalf("UpdateValuation: %v", err)
 	}
 
 	// Verify total valuation changed (50 * 12.50 = 625)
-	total, _ := svc.GetTotalValuation(ctx)
+	total, _ := svc.GetTotalValuation(ctx, userID)
 	if total != 625 {
 		t.Errorf("total = %f, want 625", total)
 	}
 }
 
 func TestInvestmentService_GetTotalValuation(t *testing.T) {
-	svc := setupInvestmentTest(t)
+	svc, userID := setupInvestmentTest(t)
 	ctx := context.Background()
 
-	svc.Create(ctx, models.Investment{FundName: "A", Units: 100, LastUnitPrice: 10})
-	svc.Create(ctx, models.Investment{FundName: "B", Units: 50, LastUnitPrice: 20})
+	svc.Create(ctx, userID, models.Investment{FundName: "A", Units: 100, LastUnitPrice: 10})
+	svc.Create(ctx, userID, models.Investment{FundName: "B", Units: 50, LastUnitPrice: 20})
 
-	total, err := svc.GetTotalValuation(ctx)
+	total, err := svc.GetTotalValuation(ctx, userID)
 	if err != nil {
 		t.Fatalf("GetTotalValuation: %v", err)
 	}
@@ -108,17 +109,17 @@ func TestInvestmentService_GetTotalValuation(t *testing.T) {
 }
 
 func TestInvestmentService_Delete(t *testing.T) {
-	svc := setupInvestmentTest(t)
+	svc, userID := setupInvestmentTest(t)
 	ctx := context.Background()
 
-	inv, _ := svc.Create(ctx, models.Investment{FundName: "X", Units: 10, LastUnitPrice: 5})
+	inv, _ := svc.Create(ctx, userID, models.Investment{FundName: "X", Units: 10, LastUnitPrice: 5})
 
-	err := svc.Delete(ctx, inv.ID)
+	err := svc.Delete(ctx, userID, inv.ID)
 	if err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
 
-	all, _ := svc.GetAll(ctx)
+	all, _ := svc.GetAll(ctx, userID)
 	if len(all) != 0 {
 		t.Errorf("expected 0 investments after delete, got %d", len(all))
 	}
