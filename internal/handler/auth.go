@@ -90,13 +90,19 @@ func (h *AuthHandler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.authSvc.RequestLoginLink(r.Context(), email)
+	result, err := h.authSvc.RequestLoginLink(r.Context(), email)
 	if err != nil {
 		slog.Error("login: failed to request magic link", "error", err)
 	}
 
-	// Always show "check your email" — even if user doesn't exist (prevent enumeration)
-	RenderPage(h.templates, w, "check-email", PageData{Data: map[string]any{"Email": email}})
+	// Always show "check your email" — even if user doesn't exist (prevent enumeration).
+	// The Hint flag shows for ALL non-sent outcomes (unknown email, cooldown, daily limit)
+	// so it reveals nothing about whether the account exists.
+	data := map[string]any{"Email": email}
+	if result != service.SendResultSent {
+		data["Hint"] = true
+	}
+	RenderPage(h.templates, w, "check-email", PageData{Data: data})
 }
 
 // RegisterPage renders the registration form.
@@ -145,11 +151,22 @@ func (h *AuthHandler) RegisterSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.authSvc.RequestRegistrationLink(r.Context(), email)
+	result, err := h.authSvc.RequestRegistrationLink(r.Context(), email)
 	if err != nil {
 		// Show error for registration (safe to reveal "already registered" since user initiated it)
 		data := map[string]any{
 			"Error":      err.Error(),
+			"RenderTime": time.Now().Unix(),
+		}
+		RenderPage(h.templates, w, "register", PageData{Data: data})
+		return
+	}
+
+	// Registration already reveals email existence, so specific rate-limit messages are safe
+	if result != service.SendResultSent {
+		msg := rateLimitMessage(result)
+		data := map[string]any{
+			"Error":      msg,
 			"RenderTime": time.Now().Unix(),
 		}
 		RenderPage(h.templates, w, "register", PageData{Data: data})
@@ -178,6 +195,22 @@ func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 	// Set session cookie and redirect
 	authmw.SetSessionCookie(w, result.SessionToken)
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// rateLimitMessage returns a user-facing message for a non-sent magic link result.
+func rateLimitMessage(result service.SendResult) string {
+	switch result {
+	case service.SendResultReused:
+		return "A sign-in link was already sent. Please check your inbox."
+	case service.SendResultCooldown:
+		return "Please wait a few minutes before requesting another link."
+	case service.SendResultDailyLimit:
+		return "You've reached the daily limit for sign-in links. Please try again tomorrow."
+	case service.SendResultGlobalCap:
+		return "Our email system is temporarily at capacity. Please try again later."
+	default:
+		return "Please try again later."
+	}
 }
 
 // Logout clears the session and redirects to login.

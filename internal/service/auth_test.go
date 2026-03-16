@@ -46,13 +46,13 @@ func TestRequestLoginLink_UnknownEmail(t *testing.T) {
 	svc, _ := setupMagicLinkTest(t)
 	ctx := context.Background()
 
-	// Unknown email — should not error, but emailSent should be false
-	sent, err := svc.RequestLoginLink(ctx, "unknown@example.com")
+	// Unknown email — should return SendResultSkipped (no email sent)
+	result, err := svc.RequestLoginLink(ctx, "unknown@example.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if sent {
-		t.Error("expected emailSent=false for unknown email")
+	if result != SendResultSkipped {
+		t.Errorf("expected SendResultSkipped for unknown email, got %d", result)
 	}
 }
 
@@ -67,12 +67,12 @@ func TestRequestLoginLink_ExistingUser(t *testing.T) {
 	}
 
 	// Known email — should send (dev mode logs instead)
-	sent, err := svc.RequestLoginLink(ctx, "authtest@example.com")
+	result, err := svc.RequestLoginLink(ctx, "authtest@example.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !sent {
-		t.Error("expected emailSent=true for known email")
+	if result != SendResultSent {
+		t.Errorf("expected SendResultSent for known email, got %d", result)
 	}
 }
 
@@ -86,21 +86,21 @@ func TestRequestLoginLink_TokenReuse(t *testing.T) {
 	}
 
 	// First request — sends email
-	sent1, err := svc.RequestLoginLink(ctx, "authtest@example.com")
+	result1, err := svc.RequestLoginLink(ctx, "authtest@example.com")
 	if err != nil {
 		t.Fatalf("first request: %v", err)
 	}
-	if !sent1 {
-		t.Error("expected first request to send email")
+	if result1 != SendResultSent {
+		t.Errorf("expected SendResultSent for first request, got %d", result1)
 	}
 
 	// Second request immediately — should reuse existing token (no email sent)
-	sent2, err := svc.RequestLoginLink(ctx, "authtest@example.com")
+	result2, err := svc.RequestLoginLink(ctx, "authtest@example.com")
 	if err != nil {
 		t.Fatalf("second request: %v", err)
 	}
-	if sent2 {
-		t.Error("expected second request to NOT send email (token reuse)")
+	if result2 != SendResultReused {
+		t.Errorf("expected SendResultReused for second request, got %d", result2)
 	}
 }
 
@@ -108,12 +108,12 @@ func TestRequestRegistrationLink_NewEmail(t *testing.T) {
 	svc, _ := setupMagicLinkTest(t)
 	ctx := context.Background()
 
-	sent, err := svc.RequestRegistrationLink(ctx, "authnew@example.com")
+	result, err := svc.RequestRegistrationLink(ctx, "authnew@example.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !sent {
-		t.Error("expected emailSent=true for new registration")
+	if result != SendResultSent {
+		t.Errorf("expected SendResultSent for new registration, got %d", result)
 	}
 }
 

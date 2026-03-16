@@ -33,6 +33,11 @@
         <p class="text-xs text-gray-400 dark:text-gray-500">
             The link expires in 15 minutes. Check your spam folder if you don't see it.
         </p>
+        {{if .Data.Hint}}
+        <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">
+            Already requested a link? Check your inbox — a previously sent link may still be valid.
+        </p>
+        {{end}}
     </div>
 
     <p class="text-sm text-gray-500 dark:text-gray-400 mt-6">

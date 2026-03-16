@@ -56,6 +56,22 @@ const (
 	maxDailyPerEmail = 3
 )
 
+// SendResult describes the outcome of a magic link request.
+// Used by handlers to decide what message to show the user.
+//
+// Laravel analogy: Like returning an enum from a Mail job — the caller checks
+// the status to decide what flash message to show.
+type SendResult int
+
+const (
+	SendResultSent       SendResult = iota // Email was sent successfully
+	SendResultReused                       // Existing unexpired token — no new email
+	SendResultCooldown                     // Per-email cooldown active (5 min)
+	SendResultDailyLimit                   // Per-email daily limit reached (3/day)
+	SendResultGlobalCap                    // Global daily email cap reached
+	SendResultSkipped                      // Not sent (unknown email on login)
+)
+
 // AuthService handles magic-link authentication, sessions, and rate limiting.
 type AuthService struct {
 	userRepo       *repository.UserRepo
@@ -94,23 +110,23 @@ func (s *AuthService) SetCategoryRepo(repo *repository.CategoryRepo) {
 // RequestLoginLink sends a magic link to an existing user's email.
 // If the email doesn't belong to a registered user, no email is sent — but the
 // same "Check your email" response is shown (prevents email enumeration).
-// Returns (emailSent, error). emailSent=false means no email was sent (unknown user,
-// rate limited, or token reuse) but is NOT an error — caller should still show
-// "Check your email" page.
-func (s *AuthService) RequestLoginLink(ctx context.Context, email string) (bool, error) {
+// Returns (SendResult, error). Any result other than SendResultSent means no email
+// was sent (unknown user, rate limited, or token reuse) but is NOT an error —
+// caller should still show "Check your email" page.
+func (s *AuthService) RequestLoginLink(ctx context.Context, email string) (SendResult, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
-		return false, fmt.Errorf("email is required")
+		return SendResultSkipped, fmt.Errorf("email is required")
 	}
 
 	// Only send to existing users — unknown emails get the same UX (prevent enumeration)
 	_, err := s.userRepo.GetByEmail(ctx, email)
 	if errors.Is(err, sql.ErrNoRows) {
 		slog.Info("login request for unknown email (no email sent)", "email", email)
-		return false, nil // not an error — just don't send
+		return SendResultSkipped, nil // not an error — just don't send
 	}
 	if err != nil {
-		return false, fmt.Errorf("checking user: %w", err)
+		return SendResultSkipped, fmt.Errorf("checking user: %w", err)
 	}
 
 	return s.sendMagicLink(ctx, email, "login")
@@ -118,19 +134,19 @@ func (s *AuthService) RequestLoginLink(ctx context.Context, email string) (bool,
 
 // RequestRegistrationLink sends a magic link for a new user registration.
 // Returns an error if the email is already registered.
-func (s *AuthService) RequestRegistrationLink(ctx context.Context, email string) (bool, error) {
+func (s *AuthService) RequestRegistrationLink(ctx context.Context, email string) (SendResult, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
-		return false, fmt.Errorf("email is required")
+		return SendResultSkipped, fmt.Errorf("email is required")
 	}
 
 	// Reject if already registered
 	_, err := s.userRepo.GetByEmail(ctx, email)
 	if err == nil {
-		return false, fmt.Errorf("an account with this email already exists")
+		return SendResultSkipped, fmt.Errorf("an account with this email already exists")
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return false, fmt.Errorf("checking user: %w", err)
+		return SendResultSkipped, fmt.Errorf("checking user: %w", err)
 	}
 
 	return s.sendMagicLink(ctx, email, "registration")
@@ -138,7 +154,7 @@ func (s *AuthService) RequestRegistrationLink(ctx context.Context, email string)
 
 // sendMagicLink handles shared logic for both login and registration link requests.
 // Applies rate limiting, token reuse, and sends the email.
-func (s *AuthService) sendMagicLink(ctx context.Context, email, purpose string) (bool, error) {
+func (s *AuthService) sendMagicLink(ctx context.Context, email, purpose string) (SendResult, error) {
 	// Token reuse: if an unexpired token already exists, don't send a new email
 	existingToken, err := s.tokenRepo.GetUnexpiredToken(ctx, email, purpose)
 	if err == nil {
@@ -150,61 +166,61 @@ func (s *AuthService) sendMagicLink(ctx context.Context, email, purpose string) 
 		} else {
 			slog.Info("reusing existing token (no email sent)", "email", email, "purpose", purpose)
 		}
-		return false, nil
+		return SendResultReused, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return false, fmt.Errorf("checking existing token: %w", err)
+		return SendResultSkipped, fmt.Errorf("checking existing token: %w", err)
 	}
 
 	// Per-email cooldown: 1 per 5 minutes
 	recentCount, err := s.tokenRepo.CountRecentByEmail(ctx, email, emailCooldownMinutes)
 	if err != nil {
-		return false, fmt.Errorf("checking email cooldown: %w", err)
+		return SendResultSkipped, fmt.Errorf("checking email cooldown: %w", err)
 	}
 	if recentCount > 0 {
 		slog.Warn("email cooldown active (no email sent)", "email", email)
-		return false, nil
+		return SendResultCooldown, nil
 	}
 
 	// Per-email daily limit: 3 per day
 	dailyByEmail, err := s.tokenRepo.CountTodayByEmail(ctx, email)
 	if err != nil {
-		return false, fmt.Errorf("checking daily email limit: %w", err)
+		return SendResultSkipped, fmt.Errorf("checking daily email limit: %w", err)
 	}
 	if dailyByEmail >= maxDailyPerEmail {
 		slog.Warn("daily per-email limit reached (no email sent)", "email", email, "count", dailyByEmail)
-		return false, nil
+		return SendResultDailyLimit, nil
 	}
 
 	// Global daily cap
 	globalCount, err := s.tokenRepo.CountToday(ctx)
 	if err != nil {
-		return false, fmt.Errorf("checking global daily cap: %w", err)
+		return SendResultSkipped, fmt.Errorf("checking global daily cap: %w", err)
 	}
 	if globalCount >= s.maxDailyEmails {
 		slog.Error("global daily email cap reached", "count", globalCount, "max", s.maxDailyEmails)
-		return false, nil
+		return SendResultGlobalCap, nil
 	}
 
 	// Generate token
 	token, err := generateSecureToken()
 	if err != nil {
-		return false, fmt.Errorf("generating token: %w", err)
+		return SendResultSkipped, fmt.Errorf("generating token: %w", err)
 	}
 
 	// Store token in DB
 	_, err = s.tokenRepo.Create(ctx, email, token, purpose, tokenTTLMinutes)
 	if err != nil {
-		return false, fmt.Errorf("storing token: %w", err)
+		return SendResultSkipped, fmt.Errorf("storing token: %w", err)
 	}
 
 	// Send email
 	if err := s.emailSvc.SendMagicLink(ctx, email, token); err != nil {
-		return false, fmt.Errorf("sending email: %w", err)
+		return SendResultSkipped, fmt.Errorf("sending email: %w", err)
 	}
 
 	logutil.LogEvent(ctx, "auth.magic_link_sent", "email", email, "purpose", purpose)
-	return true, nil
+	return SendResultSent, nil
 }
 
 // VerifyResult holds the outcome of verifying a magic link token.
