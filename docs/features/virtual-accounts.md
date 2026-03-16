@@ -132,6 +132,8 @@ Two tables:
 | `/virtual-accounts/{id}/archive` | POST | `VirtualAccountArchive()` | Archive virtual account |
 | `/virtual-accounts/{id}/allocate` | POST | `VirtualAccountAllocate()` | Direct allocation (no transaction created) |
 | `/virtual-accounts/{id}/toggle-exclude` | POST | `VirtualAccountToggleExclude()` | Toggle exclude_from_net_worth flag |
+| `/virtual-accounts/{id}/edit-form` | GET | `VirtualAccountEditForm()` | Load edit form partial into bottom sheet |
+| `/virtual-accounts/{id}/edit` | POST | `VirtualAccountUpdate()` | Update virtual account from edit form |
 
 ### Account linkage validation
 
@@ -174,9 +176,18 @@ The net balance can go negative: if the bank account has 0 but an excluded VA st
 
 **File:** `internal/templates/pages/virtual-account-detail.html`
 
-- Header: icon, name, balance, progress bar
+- Header: icon, name, balance, progress bar, **Edit** button (opens bottom sheet)
+- Edit bottom sheet: name, target amount, color, icon, linked account, exclude from net worth
 - Allocate form: type (contribution/withdrawal), amount, note — **no account/date fields** (direct allocation)
 - History: both direct allocations and transaction-linked allocations
+
+### Virtual Account Edit Form
+
+**File:** `internal/templates/partials/virtual-account-edit-form.html`
+
+- Loaded via HTMX into a bottom sheet from the detail page
+- Pre-populated with current values (name, target, color, icon, linked account, exclude flag)
+- Follows the same pattern as account editing (see `account-edit-form.html`)
 
 ### Transaction Forms
 
@@ -191,7 +202,8 @@ VA dropdown in transaction-new.html and quick-entry.html includes `data-account-
 | `internal/service/virtual_account.go` | Validation, allocate/deallocate with cache sync |
 | `internal/handler/pages.go` | Handlers for VA pages and allocation |
 | `internal/templates/pages/virtual-accounts.html` | List page |
-| `internal/templates/pages/virtual-account-detail.html` | Detail page |
+| `internal/templates/pages/virtual-account-detail.html` | Detail page with edit bottom sheet |
+| `internal/templates/partials/virtual-account-edit-form.html` | Edit form partial (loaded into bottom sheet) |
 | `internal/database/migrations/000025_fix_virtual_account_allocations.up.sql` | Direct allocation + account linkage migration |
 
 ## Logging
@@ -201,6 +213,8 @@ VA dropdown in transaction-new.html and quick-entry.html includes `data-account-
 - `virtual_account.created` — new virtual account created
 - `virtual_account.archived` — virtual account archived (id)
 - `virtual_account.allocated` — transaction allocated to virtual account (virtual_account_id, transaction_id)
+- `virtual_account.updated` — virtual account details edited (id)
 - `virtual_account.direct_allocated` — direct allocation to virtual account (virtual_account_id)
 
 **Page views:** `virtual-accounts`, `virtual-account-detail`
+**Partial views:** `virtual-account-edit-form`

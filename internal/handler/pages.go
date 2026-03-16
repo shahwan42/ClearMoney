@@ -2899,6 +2899,12 @@ type VirtualAccountDetailData struct {
 	AccountOverAllocated bool            // total VA balance for this account > account balance
 }
 
+// VirtualAccountEditFormData holds data for the virtual account edit form partial.
+type VirtualAccountEditFormData struct {
+	Account      models.VirtualAccount
+	BankAccounts []models.Account // for the "Linked Account" dropdown
+}
+
 // VirtualAccounts renders the virtual accounts management page.
 // GET /virtual-accounts
 func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
@@ -3067,6 +3073,78 @@ func (h *PageHandler) VirtualAccountToggleExclude(w http.ResponseWriter, r *http
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	htmxRedirect(w, r, "/virtual-accounts/"+id)
+}
+
+// VirtualAccountEditForm renders the virtual account edit form partial for the bottom sheet.
+// GET /virtual-accounts/{id}/edit-form — called by HTMX when the edit sheet opens.
+func (h *PageHandler) VirtualAccountEditForm(w http.ResponseWriter, r *http.Request) {
+	authmw.Log(r.Context()).Info("partial loaded", "partial", "virtual-account-edit-form")
+	id := chi.URLParam(r, "id")
+	va, err := h.virtualAccountSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "virtual account not found", http.StatusNotFound)
+		return
+	}
+	bankAccounts, _ := h.accountSvc.GetAll(r.Context())
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl, ok := h.templates["virtual-account-detail"]
+	if !ok {
+		http.Error(w, "template not found", http.StatusInternalServerError)
+		return
+	}
+	tmpl.ExecuteTemplate(w, "virtual-account-edit-form", VirtualAccountEditFormData{
+		Account:      va,
+		BankAccounts: bankAccounts,
+	})
+}
+
+// VirtualAccountUpdate handles the form submission for editing a virtual account.
+// POST /virtual-accounts/{id}/edit — called by HTMX from the edit bottom sheet.
+func (h *PageHandler) VirtualAccountUpdate(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch existing VA to preserve non-editable fields (balance, archived status, etc.)
+	va, err := h.virtualAccountSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "virtual account not found", http.StatusNotFound)
+		return
+	}
+
+	// Override editable fields from form
+	va.Name = r.FormValue("name")
+	va.Icon = r.FormValue("icon")
+	va.Color = r.FormValue("color")
+
+	// Parse target amount (nullable)
+	va.TargetAmount = nil
+	if v := r.FormValue("target_amount"); v != "" {
+		if f, err := parseFloat(v); err == nil && f > 0 {
+			va.TargetAmount = &f
+		}
+	}
+
+	// Parse linked account (nullable)
+	va.AccountID = nil
+	if acctID := r.FormValue("account_id"); acctID != "" {
+		va.AccountID = &acctID
+	}
+
+	va.ExcludeFromNetWorth = r.FormValue("exclude_from_net_worth") == "on"
+
+	if err := h.virtualAccountSvc.Update(r.Context(), va); err != nil {
+		authmw.Log(r.Context()).Warn("virtual account update failed", "error", err)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprintf(w, `<div class="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-3 rounded-lg text-sm mb-3">%s</div>`, err.Error())
+		return
+	}
+
 	htmxRedirect(w, r, "/virtual-accounts/"+id)
 }
 

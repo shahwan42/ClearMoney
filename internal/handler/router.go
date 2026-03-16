@@ -324,6 +324,8 @@ func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 			r.Post("/virtual-accounts/{id}/archive", pages.VirtualAccountArchive)
 			r.Post("/virtual-accounts/{id}/allocate", pages.VirtualAccountAllocate)
 			r.Post("/virtual-accounts/{id}/toggle-exclude", pages.VirtualAccountToggleExclude)
+			r.Get("/virtual-accounts/{id}/edit-form", pages.VirtualAccountEditForm)
+			r.Post("/virtual-accounts/{id}/edit", pages.VirtualAccountUpdate)
 			// Legacy redirects for bookmarks/PWA
 			r.Get("/virtual-funds", func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/virtual-accounts", http.StatusMovedPermanently)

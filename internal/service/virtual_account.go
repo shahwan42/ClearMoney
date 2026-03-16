@@ -75,7 +75,11 @@ func (s *VirtualAccountService) Update(ctx context.Context, a models.VirtualAcco
 	if err := requireNotEmpty(a.Name, "virtual account name"); err != nil {
 		return err
 	}
-	return s.accountRepo.Update(ctx, a)
+	if err := s.accountRepo.Update(ctx, a); err != nil {
+		return err
+	}
+	logutil.LogEvent(ctx, "virtual_account.updated", "id", a.ID)
+	return nil
 }
 
 // Archive soft-deletes a virtual account (hides from dashboard, keeps data).

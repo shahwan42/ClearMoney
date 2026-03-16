@@ -9,7 +9,10 @@
                 {{if .Data.Account.Icon}}<span class="text-2xl">{{.Data.Account.Icon}}</span>{{end}}
                 <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{.Data.Account.Name}}</h2>
             </div>
-            <a href="/virtual-accounts" class="text-sm text-teal-600 hover:text-teal-700">All Virtual Accounts</a>
+            <div class="flex items-center gap-3">
+                <button onclick="openEditVirtualAccount()" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium">Edit</button>
+                <a href="/virtual-accounts" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300">All Virtual Accounts</a>
+            </div>
         </div>
         <p class="text-3xl font-bold mt-2" style="color: {{.Data.Account.Color}}">
             {{formatEGP .Data.Account.CurrentBalance}}
@@ -25,19 +28,13 @@
             </div>
         </div>
         {{end}}
-        <div class="mt-3 flex items-center justify-between">
-            <form method="POST" action="/virtual-accounts/{{.Data.Account.ID}}/toggle-exclude">
-                {{if .Data.Account.ExcludeFromNetWorth}}
-                <button type="submit" class="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 rounded-full hover:bg-amber-200 transition">
-                    Not my money &middot; Excluded from net worth
-                </button>
-                {{else}}
-                <button type="submit" class="text-xs bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-slate-400 px-3 py-1 rounded-full hover:bg-gray-200 transition">
-                    Include in net worth
-                </button>
-                {{end}}
-            </form>
+        {{if .Data.Account.ExcludeFromNetWorth}}
+        <div class="mt-3">
+            <span class="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 rounded-full">
+                Not my money &middot; Excluded from net worth
+            </span>
         </div>
+        {{end}}
     </section>
 
     <!-- Over-allocation warnings -->
@@ -120,4 +117,14 @@
         {{end}}
     </section>
 </div>
+
+<!-- Edit virtual account bottom sheet -->
+{{template "bottom-sheet" (dict "Name" "edit-virtual-account")}}
+
+<script>
+function openEditVirtualAccount() {
+    BottomSheet.open('edit-virtual-account', {url: '/virtual-accounts/{{.Data.Account.ID}}/edit-form'});
+}
+function closeEditVirtualAccount() { BottomSheet.close('edit-virtual-account'); }
+</script>
 {{end}}

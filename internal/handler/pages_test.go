@@ -1723,3 +1723,155 @@ func TestVirtualAccountDetail_NoWarning(t *testing.T) {
 		t.Error("expected no over-allocation warning, but found one")
 	}
 }
+
+// TestVirtualAccountEditForm_Renders verifies that the edit form partial loads
+// with pre-populated values for the virtual account.
+func TestVirtualAccountEditForm_Renders(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Type:           models.AccountTypeSavings,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 100000,
+	})
+	target := 50000.0
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:         "Emergency Fund",
+		Icon:         "🛡️",
+		Color:        "#ff5500",
+		TargetAmount: &target,
+		AccountID:    &acc.ID,
+	})
+
+	router, addAuth := testRouter(t, db)
+	req := httptest.NewRequest(http.MethodGet, "/virtual-accounts/"+va.ID+"/edit-form", nil)
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	checks := []string{
+		"Emergency Fund",
+		"#ff5500",
+		"🛡️",
+		"50000",
+		"selected",
+	}
+	for _, check := range checks {
+		if !strings.Contains(body, check) {
+			t.Errorf("expected edit form to contain %q", check)
+		}
+	}
+}
+
+// TestVirtualAccountUpdate_Success verifies that submitting the edit form
+// updates the virtual account and redirects to the detail page.
+func TestVirtualAccountUpdate_Success(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "Test Bank"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Type:           models.AccountTypeSavings,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 100000,
+	})
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:      "Old Name",
+		Icon:      "🏦",
+		Color:     "#0d9488",
+		AccountID: &acc.ID,
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("name=New+Name&icon=🚀&color=%23ff0000&target_amount=25000&account_id=" + acc.ID)
+	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/"+va.ID+"/edit", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// HTMX redirect returns 200 with HX-Redirect header
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	redirect := w.Header().Get("HX-Redirect")
+	if redirect != "/virtual-accounts/"+va.ID {
+		t.Errorf("expected HX-Redirect to /virtual-accounts/%s, got %q", va.ID, redirect)
+	}
+
+	// Verify the VA was actually updated in the DB
+	var name, icon, color string
+	var target *float64
+	err := db.QueryRow(`SELECT name, icon, color, target_amount FROM virtual_accounts WHERE id = $1`, va.ID).
+		Scan(&name, &icon, &color, &target)
+	if err != nil {
+		t.Fatalf("querying updated VA: %v", err)
+	}
+	if name != "New Name" {
+		t.Errorf("expected name 'New Name', got %q", name)
+	}
+	if icon != "🚀" {
+		t.Errorf("expected icon '🚀', got %q", icon)
+	}
+	if color != "#ff0000" {
+		t.Errorf("expected color '#ff0000', got %q", color)
+	}
+	if target == nil || *target != 25000 {
+		t.Errorf("expected target 25000, got %v", target)
+	}
+}
+
+// TestVirtualAccountUpdate_EmptyName verifies that submitting with an empty name
+// returns a validation error in the bottom sheet.
+func TestVirtualAccountUpdate_EmptyName(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	va := testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name:  "Original Name",
+		Color: "#0d9488",
+	})
+
+	router, addAuth := testRouter(t, db)
+
+	formData := strings.NewReader("name=&icon=🏦&color=%230d9488")
+	req := httptest.NewRequest(http.MethodPost, "/virtual-accounts/"+va.ID+"/edit", formData)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("HX-Request", "true")
+	addAuth(req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Verify name was NOT changed in DB
+	var name string
+	db.QueryRow(`SELECT name FROM virtual_accounts WHERE id = $1`, va.ID).Scan(&name)
+	if name != "Original Name" {
+		t.Errorf("expected name unchanged 'Original Name', got %q", name)
+	}
+}
