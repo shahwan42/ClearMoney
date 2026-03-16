@@ -10,6 +10,7 @@ Virtual accounts don't move real money between accounts — they logically tag f
 - **Target amount** (optional — nil means no goal)
 - **Current balance** (denormalized cache of SUM allocations)
 - **Linked bank account** (optional — links the VA to a specific real account)
+- **Exclude from net worth** flag — when true, the VA's balance is subtracted from net worth (money held for others)
 - **Archive** capability (soft-delete for completed virtual accounts)
 
 ### Two types of allocations
@@ -31,9 +32,10 @@ type VirtualAccount struct {
     CurrentBalance float64        // cached denormalized sum of allocations
     Icon           string
     Color          string
-    IsArchived     bool
-    DisplayOrder   int
-    AccountID      *string        // linked bank account (nullable for legacy VAs)
+    IsArchived          bool
+    ExcludeFromNetWorth bool       // when true, balance subtracted from net worth
+    DisplayOrder        int
+    AccountID           *string    // linked bank account (nullable for legacy VAs)
     CreatedAt      time.Time
     UpdatedAt      time.Time
 }
@@ -64,6 +66,7 @@ This is a junction/pivot table linking allocations to virtual accounts. Direct a
 - `000015_create_virtual_funds.up.sql` — original creation
 - `000022_rename_virtual_funds_to_virtual_accounts.up.sql` — rename
 - `000025_fix_virtual_account_allocations.up.sql` — add account_id, allow direct allocations
+- `000026_add_virtual_account_exclude_net_worth.up.sql` — add exclude_from_net_worth flag
 
 Two tables:
 
@@ -82,8 +85,10 @@ Two tables:
 | `GetAllIncludingArchived()` | All virtual accounts (for settings) |
 | `GetByID(id)` | Single virtual account |
 | `GetByAccountID(accountID)` | VAs linked to a specific bank account |
-| `Create(account)` | Insert with RETURNING (includes account_id) |
-| `Update(account)` | Update name, target, icon, color, order, account_id |
+| `GetTotalExcludedBalance()` | Sum of `current_balance` for all excluded, non-archived VAs |
+| `GetExcludedBalanceByAccountID(accountID)` | Sum of excluded VA balances for a specific bank account |
+| `Create(account)` | Insert with RETURNING (includes account_id, exclude_from_net_worth) |
+| `Update(account)` | Update name, target, icon, color, order, account_id, exclude_from_net_worth |
 | `Archive(id)` | Set `is_archived = true` |
 | `Unarchive(id)` | Set `is_archived = false` |
 | `Delete(id)` | Hard delete (only if no allocations) |
@@ -126,6 +131,7 @@ Two tables:
 | `/virtual-accounts/{id}` | GET | `VirtualAccountDetail()` | Detail page with allocation history |
 | `/virtual-accounts/{id}/archive` | POST | `VirtualAccountArchive()` | Archive virtual account |
 | `/virtual-accounts/{id}/allocate` | POST | `VirtualAccountAllocate()` | Direct allocation (no transaction created) |
+| `/virtual-accounts/{id}/toggle-exclude` | POST | `VirtualAccountToggleExclude()` | Toggle exclude_from_net_worth flag |
 
 ### Account linkage validation
 
@@ -143,6 +149,17 @@ The detail page and list page show amber warnings when:
 2. **Group total exceeds account** — the sum of all VA balances linked to the same bank account exceeds that account's balance. Shown as an amber banner on both the detail page and list page, plus per-card "Exceeds account balance" text on individual VA cards.
 
 Computed in the handlers (`VirtualAccountDetail`, `VirtualAccounts`) by fetching the linked account and sibling VAs. No new database queries — reuses `GetByID` and `GetByAccountID`.
+
+### Exclude from net worth
+
+Virtual accounts can be marked "Not my money" — meaning the balance is held for others (e.g., building fund contributions). When `exclude_from_net_worth` is true:
+
+- **Dashboard**: Net worth, EGPTotal, and CashTotal are reduced by the excluded VA's balance
+- **Snapshots**: Historical net worth snapshots also subtract excluded balances
+- **Account detail**: Shows "Holding for others" and "Your money" (can go negative if the user has spent others' money)
+- **VA list/detail**: Shows a "held" badge and a toggle button
+
+The net balance can go negative: if the bank account has 0 but an excluded VA still has 70K, the user's net balance is -70K — clearly showing they owe 70K back.
 
 ## Templates
 

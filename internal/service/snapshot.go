@@ -39,11 +39,17 @@ import (
 // This service has 4 dependencies — all required (injected via constructor).
 // It reads from accounts and exchange rates, and writes to snapshots.
 type SnapshotService struct {
-	snapshotRepo     *repository.SnapshotRepo
-	accountRepo      *repository.AccountRepo
-	institutionRepo  *repository.InstitutionRepo
-	exchangeRateRepo *repository.ExchangeRateRepo
-	loc              *time.Location // User timezone for "today" calculation
+	snapshotRepo      *repository.SnapshotRepo
+	accountRepo       *repository.AccountRepo
+	institutionRepo   *repository.InstitutionRepo
+	exchangeRateRepo  *repository.ExchangeRateRepo
+	virtualAccountSvc *VirtualAccountService // optional: adjusts net worth for excluded VAs
+	loc               *time.Location         // User timezone for "today" calculation
+}
+
+// SetVirtualAccountService sets the virtual account service for excluding VA balances from snapshots.
+func (s *SnapshotService) SetVirtualAccountService(svc *VirtualAccountService) {
+	s.virtualAccountSvc = svc
 }
 
 // SetTimezone sets the user's timezone for calendar-date operations.
@@ -125,6 +131,13 @@ func (s *SnapshotService) takeSnapshotForDate(ctx context.Context, date time.Tim
 				usdTotal += balance
 			}
 			accountBalances = append(accountBalances, accountBalance{ID: acc.ID, Balance: balance})
+		}
+	}
+
+	// Subtract excluded virtual account balances (money held for others)
+	if s.virtualAccountSvc != nil {
+		if excluded, err := s.virtualAccountSvc.GetTotalExcludedBalance(ctx); err == nil && excluded > 0 {
+			netWorthRaw -= excluded
 		}
 	}
 

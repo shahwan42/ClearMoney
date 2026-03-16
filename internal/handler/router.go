@@ -237,6 +237,7 @@ func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 			virtualAccountSvc := service.NewVirtualAccountService(virtualAccountRepo)
 			pages.SetVirtualAccountService(virtualAccountSvc)
 			dashboardSvc.SetVirtualAccountService(virtualAccountSvc)
+			snapshotSvc.SetVirtualAccountService(virtualAccountSvc)
 			// TASK-065: Wire budget service
 			budgetRepo := repository.NewBudgetRepo(db)
 			budgetSvc := service.NewBudgetService(budgetRepo)
@@ -322,6 +323,7 @@ func NewRouter(db *sql.DB, loc *time.Location) *chi.Mux {
 			r.Get("/virtual-accounts/{id}", pages.VirtualAccountDetail)
 			r.Post("/virtual-accounts/{id}/archive", pages.VirtualAccountArchive)
 			r.Post("/virtual-accounts/{id}/allocate", pages.VirtualAccountAllocate)
+			r.Post("/virtual-accounts/{id}/toggle-exclude", pages.VirtualAccountToggleExclude)
 			// Legacy redirects for bookmarks/PWA
 			r.Get("/virtual-funds", func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/virtual-accounts", http.StatusMovedPermanently)

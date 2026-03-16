@@ -613,3 +613,106 @@ func TestDashboardService_SpendingVelocity(t *testing.T) {
 		t.Error("SpendingVelocity.DaysTotal should not be 0")
 	}
 }
+
+// TestDashboardService_GetDashboard_ExcludedVirtualAccounts verifies that
+// excluded VA balances are subtracted from net worth, EGPTotal, and CashTotal.
+func TestDashboardService_GetDashboard_ExcludedVirtualAccounts(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	instRepo := repository.NewInstitutionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+	vaRepo := repository.NewVirtualAccountRepo(db)
+	vaSvc := NewVirtualAccountService(vaRepo)
+	svc := NewDashboardService(instRepo, accRepo, txRepo)
+	svc.SetVirtualAccountService(vaSvc)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Type:           models.AccountTypeSavings,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 100000,
+	})
+
+	// Create an excluded VA (building fund — money held for others)
+	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name: "Building Fund", Color: "#ff0000", CurrentBalance: 30000,
+		AccountID: &acc.ID, ExcludeFromNetWorth: true,
+	})
+	// Create a normal VA (not excluded)
+	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name: "Emergency", Color: "#00ff00", CurrentBalance: 20000,
+		AccountID: &acc.ID, ExcludeFromNetWorth: false,
+	})
+
+	data, err := svc.GetDashboard(context.Background())
+	if err != nil {
+		t.Fatalf("get dashboard: %v", err)
+	}
+
+	// Net worth = 100000 - 30000 (excluded) = 70000
+	if data.NetWorth != 70000 {
+		t.Errorf("NetWorth = %f, want 70000", data.NetWorth)
+	}
+	if data.EGPTotal != 70000 {
+		t.Errorf("EGPTotal = %f, want 70000", data.EGPTotal)
+	}
+	if data.CashTotal != 70000 {
+		t.Errorf("CashTotal = %f, want 70000", data.CashTotal)
+	}
+	if data.ExcludedVATotal != 30000 {
+		t.Errorf("ExcludedVATotal = %f, want 30000", data.ExcludedVATotal)
+	}
+}
+
+// TestDashboardService_GetDashboard_ExcludedVA_NegativeNetWorth verifies that
+// when account balance < excluded VA balance, net worth goes negative.
+// This happens when the user has spent money they're holding for others.
+func TestDashboardService_GetDashboard_ExcludedVA_NegativeNetWorth(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	testutil.CleanTable(t, db, "virtual_account_allocations")
+	testutil.CleanTable(t, db, "virtual_accounts")
+	testutil.CleanTable(t, db, "transactions")
+	testutil.CleanTable(t, db, "accounts")
+	testutil.CleanTable(t, db, "institutions")
+
+	instRepo := repository.NewInstitutionRepo(db)
+	accRepo := repository.NewAccountRepo(db)
+	txRepo := repository.NewTransactionRepo(db)
+	vaRepo := repository.NewVirtualAccountRepo(db)
+	vaSvc := NewVirtualAccountService(vaRepo)
+	svc := NewDashboardService(instRepo, accRepo, txRepo)
+	svc.SetVirtualAccountService(vaSvc)
+
+	inst := testutil.CreateInstitution(t, db, models.Institution{Name: "HSBC"})
+	acc := testutil.CreateAccount(t, db, models.Account{
+		InstitutionID:  inst.ID,
+		Name:           "Savings",
+		Type:           models.AccountTypeSavings,
+		Currency:       models.CurrencyEGP,
+		InitialBalance: 0, // spent everything
+	})
+
+	// Building fund: 70K held for others, but account is at 0
+	testutil.CreateVirtualAccount(t, db, models.VirtualAccount{
+		Name: "Building Fund", Color: "#ff0000", CurrentBalance: 70000,
+		AccountID: &acc.ID, ExcludeFromNetWorth: true,
+	})
+
+	data, err := svc.GetDashboard(context.Background())
+	if err != nil {
+		t.Fatalf("get dashboard: %v", err)
+	}
+
+	// Net worth = 0 - 70000 = -70000 (user dipped into others' money)
+	if data.NetWorth != -70000 {
+		t.Errorf("NetWorth = %f, want -70000", data.NetWorth)
+	}
+}

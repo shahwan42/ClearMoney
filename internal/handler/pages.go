@@ -267,6 +267,8 @@ type AccountDetailData struct {
 	UtilizationHistory []float64
 	// Linked virtual accounts for this bank account
 	VirtualAccounts []models.VirtualAccount
+	// Total balance of excluded VAs (money held for others)
+	ExcludedVABalance float64
 }
 
 // PersonCardData wraps a person with accounts for the card template.
@@ -1461,6 +1463,12 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Compute excluded VA balance for "your money" display
+	var excludedVABalance float64
+	if h.virtualAccountSvc != nil {
+		excludedVABalance, _ = h.virtualAccountSvc.GetExcludedBalanceByAccountID(r.Context(), id)
+	}
+
 	data := AccountDetailData{
 		Account:            acc,
 		InstitutionName:    instName,
@@ -1470,6 +1478,7 @@ func (h *PageHandler) AccountDetail(w http.ResponseWriter, r *http.Request) {
 		Utilization:        utilization,
 		UtilizationHistory: utilizationHistory,
 		VirtualAccounts:    virtualAccounts,
+		ExcludedVABalance:  excludedVABalance,
 		TransactionListData: TransactionListData{
 			Transactions: toTransactionDisplay(rows, false),
 			HasMore:      len(rows) >= filter.Limit,
@@ -2952,6 +2961,7 @@ func (h *PageHandler) VirtualAccountAdd(w http.ResponseWriter, r *http.Request) 
 	if acctID := r.FormValue("account_id"); acctID != "" {
 		a.AccountID = &acctID
 	}
+	a.ExcludeFromNetWorth = r.FormValue("exclude_from_net_worth") == "on"
 	if _, err := h.virtualAccountSvc.Create(r.Context(), a); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -3040,6 +3050,24 @@ func (h *PageHandler) VirtualAccountAllocate(w http.ResponseWriter, r *http.Requ
 	}
 
 	htmxRedirect(w, r, "/virtual-accounts/"+vaID)
+}
+
+// VirtualAccountToggleExclude toggles the exclude_from_net_worth flag.
+// POST /virtual-accounts/{id}/toggle-exclude
+func (h *PageHandler) VirtualAccountToggleExclude(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	account, err := h.virtualAccountSvc.GetByID(r.Context(), id)
+	if err != nil {
+		http.Error(w, "virtual account not found", http.StatusNotFound)
+		return
+	}
+	account.ExcludeFromNetWorth = !account.ExcludeFromNetWorth
+	if err := h.virtualAccountSvc.Update(r.Context(), account); err != nil {
+		authmw.Log(r.Context()).Error("failed to toggle exclude from net worth", "id", id, "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	htmxRedirect(w, r, "/virtual-accounts/"+id)
 }
 
 // =============================================================================

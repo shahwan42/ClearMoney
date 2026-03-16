@@ -277,6 +277,7 @@
             <a href="/virtual-accounts/{{.ID}}" class="flex-shrink-0 w-36 rounded-xl p-3 border" style="border-color: {{.Color}}20; background: {{.Color}}08">
                 {{if .Icon}}<span class="text-lg">{{.Icon}}</span>{{end}}
                 <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 truncate">{{.Name}}</p>
+                {{if .ExcludeFromNetWorth}}<span class="text-[9px] text-amber-600 dark:text-amber-400">held</span>{{end}}
                 <p class="text-sm font-bold mt-0.5" style="color: {{.Color}}">{{formatEGP .CurrentBalance}}</p>
                 {{if .TargetAmount}}
                 <div class="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-1.5 mt-1.5">

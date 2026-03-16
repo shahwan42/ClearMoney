@@ -44,7 +44,7 @@ func NewVirtualAccountRepo(db *sql.DB) *VirtualAccountRepo {
 func (r *VirtualAccountRepo) GetAll(ctx context.Context) ([]models.VirtualAccount, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
-		       is_archived, display_order, account_id, created_at, updated_at
+		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
 		FROM virtual_accounts
 		WHERE is_archived = false
 		ORDER BY display_order, created_at
@@ -60,7 +60,7 @@ func (r *VirtualAccountRepo) GetAll(ctx context.Context) ([]models.VirtualAccoun
 func (r *VirtualAccountRepo) GetAllIncludingArchived(ctx context.Context) ([]models.VirtualAccount, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
-		       is_archived, display_order, account_id, created_at, updated_at
+		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
 		FROM virtual_accounts
 		ORDER BY display_order, created_at
 	`)
@@ -76,23 +76,23 @@ func (r *VirtualAccountRepo) GetByID(ctx context.Context, id string) (models.Vir
 	var a models.VirtualAccount
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
-		       is_archived, display_order, account_id, created_at, updated_at
+		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
 		FROM virtual_accounts WHERE id = $1
 	`, id).Scan(&a.ID, &a.Name, &a.TargetAmount, &a.CurrentBalance, &a.Icon, &a.Color,
-		&a.IsArchived, &a.DisplayOrder, &a.AccountID, &a.CreatedAt, &a.UpdatedAt)
+		&a.IsArchived, &a.ExcludeFromNetWorth, &a.DisplayOrder, &a.AccountID, &a.CreatedAt, &a.UpdatedAt)
 	return a, err
 }
 
 // Create inserts a new virtual account and returns the created record.
 func (r *VirtualAccountRepo) Create(ctx context.Context, a models.VirtualAccount) (models.VirtualAccount, error) {
 	err := r.db.QueryRowContext(ctx, `
-		INSERT INTO virtual_accounts (name, target_amount, icon, color, display_order, account_id)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO virtual_accounts (name, target_amount, icon, color, display_order, account_id, exclude_from_net_worth)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, name, target_amount, current_balance, icon, color,
-		          is_archived, display_order, account_id, created_at, updated_at
-	`, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID).Scan(
+		          is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
+	`, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID, a.ExcludeFromNetWorth).Scan(
 		&a.ID, &a.Name, &a.TargetAmount, &a.CurrentBalance, &a.Icon, &a.Color,
-		&a.IsArchived, &a.DisplayOrder, &a.AccountID, &a.CreatedAt, &a.UpdatedAt)
+		&a.IsArchived, &a.ExcludeFromNetWorth, &a.DisplayOrder, &a.AccountID, &a.CreatedAt, &a.UpdatedAt)
 	return a, err
 }
 
@@ -101,9 +101,9 @@ func (r *VirtualAccountRepo) Update(ctx context.Context, a models.VirtualAccount
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE virtual_accounts
 		SET name = $2, target_amount = $3, icon = $4, color = $5,
-		    display_order = $6, account_id = $7, updated_at = NOW()
+		    display_order = $6, account_id = $7, exclude_from_net_worth = $8, updated_at = NOW()
 		WHERE id = $1
-	`, a.ID, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID)
+	`, a.ID, a.Name, a.TargetAmount, a.Icon, a.Color, a.DisplayOrder, a.AccountID, a.ExcludeFromNetWorth)
 	return err
 }
 
@@ -315,7 +315,7 @@ func scanVirtualAccounts(rows *sql.Rows) ([]models.VirtualAccount, error) {
 	for rows.Next() {
 		var a models.VirtualAccount
 		if err := rows.Scan(&a.ID, &a.Name, &a.TargetAmount, &a.CurrentBalance,
-			&a.Icon, &a.Color, &a.IsArchived, &a.DisplayOrder,
+			&a.Icon, &a.Color, &a.IsArchived, &a.ExcludeFromNetWorth, &a.DisplayOrder,
 			&a.AccountID, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -343,7 +343,7 @@ func (r *VirtualAccountRepo) CountAllocationsForAccount(ctx context.Context, acc
 func (r *VirtualAccountRepo) GetByAccountID(ctx context.Context, accountID string) ([]models.VirtualAccount, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, name, target_amount, current_balance, icon, color,
-		       is_archived, display_order, account_id, created_at, updated_at
+		       is_archived, exclude_from_net_worth, display_order, account_id, created_at, updated_at
 		FROM virtual_accounts
 		WHERE account_id = $1 AND is_archived = false
 		ORDER BY display_order, created_at
@@ -353,6 +353,30 @@ func (r *VirtualAccountRepo) GetByAccountID(ctx context.Context, accountID strin
 	}
 	defer rows.Close()
 	return scanVirtualAccounts(rows)
+}
+
+// GetExcludedBalanceByAccountID returns total excluded VA balance for a bank account.
+// Used to compute per-account "net balance" (actual balance - money held for others).
+func (r *VirtualAccountRepo) GetExcludedBalanceByAccountID(ctx context.Context, accountID string) (float64, error) {
+	var total float64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(current_balance), 0)
+		FROM virtual_accounts
+		WHERE account_id = $1 AND exclude_from_net_worth = true AND is_archived = false
+	`, accountID).Scan(&total)
+	return total, err
+}
+
+// GetTotalExcludedBalance returns the total balance across all excluded VAs.
+// Used to adjust net worth on the dashboard — subtracting money held for others.
+func (r *VirtualAccountRepo) GetTotalExcludedBalance(ctx context.Context) (float64, error) {
+	var total float64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(current_balance), 0)
+		FROM virtual_accounts
+		WHERE exclude_from_net_worth = true AND is_archived = false
+	`).Scan(&total)
+	return total, err
 }
 
 // Delete removes a virtual account entirely (only if no allocations exist).

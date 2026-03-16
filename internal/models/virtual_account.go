@@ -37,8 +37,9 @@ type VirtualAccount struct {
 	CurrentBalance float64   `json:"current_balance" db:"current_balance"` // cached sum of all allocations (denormalized for performance)
 	Icon           string    `json:"icon" db:"icon"`                       // emoji or icon identifier for UI display
 	Color          string    `json:"color" db:"color"`                     // hex color for progress bar and card styling
-	IsArchived     bool      `json:"is_archived" db:"is_archived"`         // soft-archive: hidden from active list but kept for history
-	DisplayOrder   int       `json:"display_order" db:"display_order"`     // UI ordering — lower numbers appear first
+	IsArchived          bool      `json:"is_archived" db:"is_archived"`                   // soft-archive: hidden from active list but kept for history
+	ExcludeFromNetWorth bool      `json:"exclude_from_net_worth" db:"exclude_from_net_worth"` // when true, balance is subtracted from net worth (money held for others)
+	DisplayOrder        int       `json:"display_order" db:"display_order"`                 // UI ordering — lower numbers appear first
 	AccountID      *string   `json:"account_id" db:"account_id"`           // linked bank account — nullable for legacy VAs
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`

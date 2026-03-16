@@ -237,10 +237,10 @@ func CreateVirtualAccount(t *testing.T, db *sql.DB, va models.VirtualAccount) mo
 	}
 
 	err := db.QueryRow(`
-		INSERT INTO virtual_accounts (name, target_amount, current_balance, icon, color, is_archived, display_order, account_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO virtual_accounts (name, target_amount, current_balance, icon, color, is_archived, display_order, account_id, exclude_from_net_worth)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at
-	`, va.Name, va.TargetAmount, va.CurrentBalance, va.Icon, va.Color, va.IsArchived, va.DisplayOrder, va.AccountID,
+	`, va.Name, va.TargetAmount, va.CurrentBalance, va.Icon, va.Color, va.IsArchived, va.DisplayOrder, va.AccountID, va.ExcludeFromNetWorth,
 	).Scan(&va.ID, &va.CreatedAt, &va.UpdatedAt)
 
 	if err != nil {

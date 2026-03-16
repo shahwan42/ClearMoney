@@ -117,6 +117,9 @@ type DashboardData struct {
 
 	// TASK-074: Credit card dashboard summary
 	CreditCards []CreditCardSummary
+
+	// Excluded virtual account balances (money held for others)
+	ExcludedVATotal float64
 }
 
 // SpendingVelocity shows the pace of spending relative to last month.
@@ -370,6 +373,17 @@ func (s *DashboardService) GetDashboard(ctx context.Context) (DashboardData, err
 				}
 			}
 			data.CreditCards = append(data.CreditCards, ccSummary)
+		}
+	}
+
+	// Subtract excluded virtual account balances (money held for others)
+	// This must happen before NetWorthEGP so the conversion uses the adjusted totals.
+	if s.virtualAccountSvc != nil {
+		if excluded, err := s.virtualAccountSvc.GetTotalExcludedBalance(ctx); err == nil && excluded > 0 {
+			data.ExcludedVATotal = excluded
+			data.NetWorth -= excluded
+			data.EGPTotal -= excluded  // VAs are EGP-denominated
+			data.CashTotal -= excluded // excluded VAs live in cash accounts
 		}
 	}
 

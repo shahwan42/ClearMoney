@@ -173,3 +173,15 @@ func (s *VirtualAccountService) GetTransactionAllocations(ctx context.Context, t
 func (s *VirtualAccountService) GetByAccountID(ctx context.Context, accountID string) ([]models.VirtualAccount, error) {
 	return s.accountRepo.GetByAccountID(ctx, accountID)
 }
+
+// GetExcludedBalanceByAccountID returns the total excluded VA balance for a bank account.
+// Used to compute "your money" = actual balance - money held for others.
+func (s *VirtualAccountService) GetExcludedBalanceByAccountID(ctx context.Context, accountID string) (float64, error) {
+	return s.accountRepo.GetExcludedBalanceByAccountID(ctx, accountID)
+}
+
+// GetTotalExcludedBalance returns the total balance across all excluded VAs.
+// Used to adjust net worth on the dashboard.
+func (s *VirtualAccountService) GetTotalExcludedBalance(ctx context.Context) (float64, error) {
+	return s.accountRepo.GetTotalExcludedBalance(ctx)
+}

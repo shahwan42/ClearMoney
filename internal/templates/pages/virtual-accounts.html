@@ -42,6 +42,10 @@
                 <input type="text" name="icon" placeholder="" maxlength="10"
                        class="w-full border rounded-lg px-3 py-2 text-sm">
             </div>
+            <label class="flex items-center gap-2 py-1">
+                <input type="checkbox" name="exclude_from_net_worth" class="rounded border-gray-300">
+                <span class="text-xs text-gray-500">Not my money (exclude from net worth)</span>
+            </label>
             <button type="submit"
                     class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
                 Create
@@ -65,6 +69,7 @@
                 <div class="flex items-center gap-2">
                     {{if .Icon}}<span class="text-lg">{{.Icon}}</span>{{end}}
                     <a href="/virtual-accounts/{{.ID}}" class="font-semibold text-slate-800 hover:text-teal-600">{{.Name}}</a>
+                    {{if .ExcludeFromNetWorth}}<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">held</span>{{end}}
                 </div>
                 <form method="POST" action="/virtual-accounts/{{.ID}}/archive">
                     <button type="submit" class="text-xs text-gray-400 hover:text-red-500">Archive</button>
