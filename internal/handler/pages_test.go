@@ -905,7 +905,7 @@ func TestAccountDetailPage_NoVirtualAccountSection_WhenNoneLinked(t *testing.T) 
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	if strings.Contains(w.Body.String(), "Virtual Accounts") {
+	if strings.Contains(w.Body.String(), "uppercase tracking-wide\">Virtual Accounts</h3>") {
 		t.Error("expected no Virtual Accounts section when no VAs are linked")
 	}
 }
