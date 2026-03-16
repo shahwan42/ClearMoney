@@ -106,7 +106,7 @@ deploy:
 	git push
 	@echo "Deploying to $(DEPLOY_HOST)..."
 	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && git pull && sudo docker compose -f docker-compose.prod.yml up -d --build"
-	@echo "Deploy complete. App running at http://49.13.140.20"
+	@echo "Deploy complete. App running at https://clearmoney.shahwan.me"
 
 # Stream production logs from the VPS.
 deploy-logs:

@@ -1,5 +1,5 @@
 # Production Docker Compose for ClearMoney.
-# Deploys the app + PostgreSQL, exposed on port 80.
+# Deploys Caddy (HTTPS) + App + PostgreSQL.
 #
 # Usage:
 #   docker compose -f docker-compose.prod.yml up -d --build
@@ -7,10 +7,23 @@
 #   docker compose -f docker-compose.prod.yml down
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
   app:
     build: .
-    ports:
-      - "80:8080"
+    expose:
+      - "8080"
     env_file: .env.prod
     depends_on:
       db:
@@ -31,3 +44,5 @@ services:
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

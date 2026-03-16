@@ -1,9 +1,27 @@
 # Deployment Guide — Ubuntu VPS with Docker Compose
 
+## Production Infrastructure
+
+| Component | Details |
+| --------- | ------- |
+| Host | Hetzner VPS (`hetzner-keeper` SSH alias) |
+| IP | `49.13.140.20` |
+| Domain | `clearmoney.shahwan.me` (DNS A record → VPS IP) |
+| URL | `https://clearmoney.shahwan.me` |
+| OS | Ubuntu 22.04+ |
+| Deploy dir | `~/ClearMoney` |
+| Deploy method | `make deploy` — git push → SSH pull → docker compose rebuild |
+| Reverse proxy | Caddy (containerized in docker-compose.prod.yml) |
+| TLS | Auto-provisioned Let's Encrypt via Caddy, certs in `caddy_data` volume |
+| App port | 8080 (internal only, not exposed to internet) |
+| Public ports | 80 (HTTP → HTTPS redirect), 443 (HTTPS) |
+| Database | PostgreSQL 16 (Alpine, containerized, port 5432 internal) |
+| Env file | `.env.prod` on the VPS (not in git) |
+
 ## Prerequisites
 
 - Ubuntu 22.04+ VPS with SSH access
-- Domain name (optional, for HTTPS)
+- Domain name pointing to VPS IP (for HTTPS)
 - At least 1GB RAM, 10GB disk
 
 ## 1. Install Docker
@@ -61,31 +79,28 @@ docker compose logs -f app
 
 The app is now running on port 8080. First visit will prompt PIN setup.
 
-## 4. HTTPS with Caddy (Recommended)
+## 4. HTTPS with Caddy (Containerized)
 
-Install Caddy as a reverse proxy for automatic HTTPS:
+HTTPS is handled by a Caddy container in `docker-compose.prod.yml`. Caddy automatically provisions and renews Let's Encrypt certificates.
 
-```bash
-sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update
-sudo apt install caddy
-```
-
-Create `/etc/caddy/Caddyfile`:
+The `Caddyfile` in the project root configures the domain and reverse proxy:
 
 ```
-money.yourdomain.com {
-    reverse_proxy localhost:8080
+clearmoney.shahwan.me {
+    reverse_proxy app:8080
 }
 ```
 
+**If you previously installed Caddy system-level**, stop and disable it to free ports 80/443:
+
 ```bash
-sudo systemctl restart caddy
+sudo systemctl stop caddy
+sudo systemctl disable caddy
 ```
 
-Caddy automatically provisions and renews Let's Encrypt certificates.
+Certificates are persisted in the `caddy_data` Docker volume, so they survive container restarts and rebuilds.
+
+**Ensure `APP_URL` in `.env.prod` uses `https://`** so magic link emails contain the correct URL.
 
 ## 5. Firewall
 
@@ -135,22 +150,28 @@ Migrations run automatically on startup — no manual steps needed.
 ## 8. Monitoring
 
 ```bash
-# Check status
-docker compose ps
+# Check status of all containers (app, db, caddy)
+docker compose -f docker-compose.prod.yml ps
 
 # View logs
-docker compose logs -f app
-docker compose logs -f db
+docker compose -f docker-compose.prod.yml logs -f app      # App logs
+docker compose -f docker-compose.prod.yml logs -f db       # Database logs
+docker compose -f docker-compose.prod.yml logs -f caddy    # Caddy/TLS logs
 
-# Health check
+# Health check (from the VPS itself)
 curl -s http://localhost:8080/healthz
+
+# Verify HTTPS externally
+curl -I https://clearmoney.shahwan.me
 ```
 
 ## 9. Troubleshooting
 
 | Issue | Solution |
-|-------|---------|
+| ----- | ------- |
 | App can't connect to DB | Check `DATABASE_URL` uses `db` as hostname (not `localhost`) |
-| Port 8080 already in use | Change `PORT` in `.env` and update `docker-compose.yml` port mapping |
-| Migrations fail | Check `docker compose logs app` for SQL errors |
+| Port 80/443 already in use | Stop system-level Caddy: `sudo systemctl stop caddy && sudo systemctl disable caddy` |
+| TLS cert not provisioning | Check `docker compose logs caddy` — ensure DNS A record points to VPS IP and ports 80/443 are open |
+| Migrations fail | Check `docker compose -f docker-compose.prod.yml logs app` for SQL errors |
 | Out of disk | Prune old Docker images: `docker system prune -a` |
+| Magic links have http:// | Update `APP_URL=https://clearmoney.shahwan.me` in `.env.prod` on VPS |
