@@ -156,28 +156,51 @@ ClearMoney uses a 3-layer structured logging architecture:
 
 **Log levels:** Info for events/pages, Debug for dev tracing (enabled with `LOG_LEVEL=debug`), Warn/Error for failures.
 
-### Adding a New Feature
+### Adding a New Feature (TDD: RED → GREEN → Refactor)
+
+Follow strict TDD — write failing tests FIRST, then implement just enough code to make them pass, then refactor.
+
+#### Phase 1: Schema & Models (foundation)
 
 1. **Migration**: `make migrate-create name=create_foo` → edit the `.up.sql` and `.down.sql`
 2. **Model**: Add struct to `internal/models/foo.go`
-3. **Repository**: Add `internal/repository/foo.go` with SQL queries
-4. **Service**: Add `internal/service/foo.go` with business logic
-5. **Logging**: Add `logutil.LogEvent(ctx, "foo.created", ...)` for mutations in service, `authmw.Log(r.Context()).Info("page viewed", "page", "foo")` for page handlers
-6. **Handler**: Add routes in `internal/handler/router.go`, handler methods in appropriate file
-7. **Template**: Add `internal/templates/pages/foo.html` and any partials
-8. **Unit tests**: Test service logic and helpers in isolation (e.g., `internal/service/foo_test.go`) — no DB required
-9. **Integration tests**: Test repository and handler layers against a real DB using `testutil.NewTestDB(t)` (e.g., `internal/repository/foo_test.go`, `internal/handler/foo_test.go`)
-10. **E2e tests**: Write Playwright browser tests that exercise the full user flow (e.g., `e2e/foo.spec.ts`) — navigates pages, fills forms, asserts visible results
-11. **Documentation**: Add or update feature doc in `docs/features/foo.md` — describe what it does, key files, architecture, and tips for newcomers. Update `docs/FEATURES.md` if adding a new feature.
+
+#### Phase 2: Repository (RED → GREEN)
+
+1. **Write repo integration tests FIRST**: Create `internal/repository/foo_test.go` — test CRUD operations against a real DB using `testutil.NewTestDB(t)`. Tests should fail (RED).
+2. **Implement repository**: Add `internal/repository/foo.go` with SQL queries — make the tests pass (GREEN).
+
+#### Phase 3: Service (RED → GREEN)
+
+1. **Write service unit tests FIRST**: Create `internal/service/foo_test.go` — test business logic in isolation (no DB). Tests should fail (RED).
+2. **Implement service**: Add `internal/service/foo.go` with business logic + `logutil.LogEvent(ctx, "foo.created", ...)` for mutations — make the tests pass (GREEN).
+
+#### Phase 4: Handler & Templates (RED → GREEN)
+
+1. **Write handler integration tests FIRST**: Add tests in `internal/handler/foo_test.go` — test HTTP endpoints against a real DB. Tests should fail (RED).
+2. **Implement handler**: Add routes in `internal/handler/router.go`, handler methods in appropriate file + `authmw.Log(r.Context()).Info("page viewed", "page", "foo")` for page handlers — make the tests pass (GREEN).
+3. **Template**: Add `internal/templates/pages/foo.html` and any partials.
+
+#### Phase 5: E2E & Docs
+
+1. **E2e tests**: Write Playwright browser tests that exercise the full user flow (e.g., `e2e/foo.spec.ts`) — navigates pages, fills forms, asserts visible results.
+2. **Documentation**: Add or update feature doc in `docs/features/foo.md` — describe what it does, key files, architecture, and tips for newcomers. Update `docs/FEATURES.md` if adding a new feature.
+
+#### TDD Rules
+
+- **Never skip RED**: Always run the test and confirm it fails before writing implementation code.
+- **Minimal GREEN**: Write only enough code to pass the failing test — no speculative features.
+- **Refactor after GREEN**: Clean up duplication, naming, and structure only after tests are passing.
+- **One layer at a time**: Complete the RED → GREEN → Refactor cycle for each layer before moving to the next.
 
 ### Feature Delivery Checklist
 
-After implementing a feature, always follow these steps before considering it done:
+Tests are written DURING implementation (TDD phases above). After all phases are complete, follow these steps:
 
-1. **Run unit tests** — run `make test` to confirm all unit tests pass (no DB required)
-2. **Run integration tests** — run `make test-integration` to confirm all integration tests pass (requires running DB)
-3. **Run e2e tests** — run `make test-e2e` to confirm all end-to-end tests pass (Playwright browser tests against a running app)
-4. **Run linter** — run `make lint` to confirm no lint errors (requires golangci-lint installed)
+1. **Run all unit tests** — `make test` to confirm all pass (no DB required)
+2. **Run all integration tests** — `make test-integration` to confirm all pass (requires running DB)
+3. **Run all e2e tests** — `make test-e2e` to confirm all pass (Playwright browser tests against a running app)
+4. **Run linter** — `make lint` to confirm no lint errors (requires golangci-lint installed)
 5. **Update documentation** — add or update the relevant feature doc in `docs/features/`. Update `docs/FEATURES.md` if the feature is new.
 6. **Update comments** — ensure package comments, struct docs, and method comments are accurate and include Laravel/Django analogies where helpful for the developer profile. Update any comments that reference line counts, file sizes, or other values that may have changed.
 7. **Verify logging** — check that service events and page views are logged at Info level when exercising the feature
