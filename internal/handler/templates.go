@@ -50,7 +50,7 @@ import (
 // In Laravel: return view('home', ['activeTab' => 'home', 'data' => $dashData])
 // In Django: return render(request, 'home.html', {'active_tab': 'home', 'data': dash_data})
 type PageData struct {
-	ActiveTab string // which bottom nav tab is active: "home", "reports", "people"
+	ActiveTab string // which bottom nav tab is active: "home", "transactions", "accounts", "more"
 	Data      any    // page-specific data (transactions, accounts, etc.)
 }
 

@@ -1210,7 +1210,7 @@ func (h *PageHandler) People(w http.ResponseWriter, r *http.Request) {
 	}
 
 	RenderPage(h.templates, w, "people", PageData{
-		ActiveTab: "people",
+		ActiveTab: "more",
 		Data:      PeoplePageData{Persons: cards, Accounts: accounts},
 	})
 }
@@ -1377,7 +1377,7 @@ func (h *PageHandler) PersonDetail(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 
 	RenderPage(h.templates, w, "person-detail", PageData{
-		ActiveTab: "people",
+		ActiveTab: "more",
 		Data:      PersonDetailData{Summary: summary, Accounts: accounts},
 	})
 }
@@ -1735,7 +1735,7 @@ func (h *PageHandler) Salary(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "salary")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "salary", PageData{
-		ActiveTab: "home",
+		ActiveTab: "more",
 		Data:      SalaryStepData{Accounts: accounts, Today: timeutil.Now()},
 	})
 }
@@ -1873,7 +1873,7 @@ func (h *PageHandler) FawryCashout(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "fawry-cashout")
 	accounts, _ := h.accountSvc.GetAll(r.Context())
 	RenderPage(h.templates, w, "fawry-cashout", PageData{
-		ActiveTab: "home",
+		ActiveTab: "more",
 		Data:      TransactionFormData{Accounts: accounts, Today: timeutil.Now()},
 	})
 }
@@ -2023,7 +2023,7 @@ func (h *PageHandler) Recurring(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	RenderPage(h.templates, w, "recurring", PageData{ActiveTab: "home", Data: data})
+	RenderPage(h.templates, w, "recurring", PageData{ActiveTab: "more", Data: data})
 }
 
 // RecurringAdd creates a new recurring rule.
@@ -2404,7 +2404,7 @@ func (h *PageHandler) BatchEntry(w http.ResponseWriter, r *http.Request) {
 	expCategories, _ := h.categorySvc.GetByType(r.Context(), models.CategoryTypeExpense)
 
 	data := BatchEntryData{Accounts: accounts, ExpenseCategories: expCategories, Today: timeutil.Now()}
-	RenderPage(h.templates, w, "batch-entry", PageData{ActiveTab: "transactions", Data: data})
+	RenderPage(h.templates, w, "batch-entry", PageData{ActiveTab: "more", Data: data})
 }
 
 // BatchCreate processes multiple transactions from the batch entry form.
@@ -2910,7 +2910,7 @@ type VirtualAccountEditFormData struct {
 func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
 	authmw.Log(r.Context()).Info("page viewed", "page", "virtual-accounts")
 	if h.virtualAccountSvc == nil {
-		RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "home"})
+		RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "more"})
 		return
 	}
 	accounts, _ := h.virtualAccountSvc.GetAll(r.Context())
@@ -2947,7 +2947,7 @@ func (h *PageHandler) VirtualAccounts(w http.ResponseWriter, r *http.Request) {
 		VAGroupTotals:   vaGroupTotals,
 		Warnings:        warnings,
 	}
-	RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "home", Data: data})
+	RenderPage(h.templates, w, "virtual-accounts", PageData{ActiveTab: "more", Data: data})
 }
 
 // VirtualAccountAdd creates a new virtual account from form data.
@@ -3014,7 +3014,7 @@ func (h *PageHandler) VirtualAccountDetail(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	RenderPage(h.templates, w, "virtual-account-detail", PageData{ActiveTab: "home", Data: data})
+	RenderPage(h.templates, w, "virtual-account-detail", PageData{ActiveTab: "more", Data: data})
 }
 
 // VirtualAccountArchive archives a virtual account (soft-delete).
