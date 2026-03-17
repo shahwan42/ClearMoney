@@ -184,6 +184,10 @@ func NewRouter(db *sql.DB, loc *time.Location, cfg config.Config) *chi.Mux {
 	// Login: strict (prevent brute-force PIN guessing)
 	// API:   moderate (protect JSON endpoints)
 	// Pages: generous (normal browsing + HTMX partials)
+	//
+	// Set DISABLE_RATE_LIMIT=true to skip rate limiting (e.g., during e2e tests).
+	disableRateLimit := os.Getenv("DISABLE_RATE_LIMIT") == "true"
+
 	loginLimiter := authmw.NewRateLimiter(authmw.RateLimitConfig{
 		Rate:            5.0 / 60.0,           // 5 requests per minute
 		Burst:           5,
@@ -212,7 +216,9 @@ func NewRouter(db *sql.DB, loc *time.Location, cfg config.Config) *chi.Mux {
 	// Auth routes (public — no auth middleware, but rate-limited).
 	auth := NewAuthHandler(tmpl, authSvc)
 	r.Group(func(r chi.Router) {
-		r.Use(authmw.RateLimit(loginLimiter))
+		if !disableRateLimit {
+			r.Use(authmw.RateLimit(loginLimiter))
+		}
 		r.Get("/login", auth.LoginPage)
 		r.Post("/login", auth.LoginSubmit)
 		r.Get("/register", auth.RegisterPage)
@@ -232,7 +238,9 @@ func NewRouter(db *sql.DB, loc *time.Location, cfg config.Config) *chi.Mux {
 		// API routes (JSON) — rate-limited at 60 req/min.
 		// Like Laravel: Route::middleware(['auth', 'throttle:60,1'])->prefix('api')->group(...)
 		r.Group(func(r chi.Router) {
-			r.Use(authmw.RateLimit(apiLimiter))
+			if !disableRateLimit {
+				r.Use(authmw.RateLimit(apiLimiter))
+			}
 			r.Route("/api/institutions", NewInstitutionHandler(institutionSvc).Routes)
 			r.Route("/api/accounts", NewAccountHandler(accountSvc).Routes)
 			r.Route("/api/categories", NewCategoryHandler(categorySvc).Routes)
@@ -243,7 +251,9 @@ func NewRouter(db *sql.DB, loc *time.Location, cfg config.Config) *chi.Mux {
 		// Page routes (HTML) — rate-limited at 120 req/min.
 		// Like Laravel: Route::middleware(['auth', 'throttle:120,1'])->group(...)
 		r.Group(func(r chi.Router) {
-			r.Use(authmw.RateLimit(generalLimiter))
+			if !disableRateLimit {
+				r.Use(authmw.RateLimit(generalLimiter))
+			}
 
 			pages := NewPageHandler(tmpl, institutionSvc, accountSvc, categorySvc, txSvc, dashboardSvc, personSvc, salarySvc, reportsSvc, recurringSvc, investmentSvc, installmentSvc, exportSvc, authSvc, exchangeRateRepo)
 			pages.SetTimezone(loc)

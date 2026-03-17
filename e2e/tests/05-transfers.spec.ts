@@ -39,9 +39,9 @@ test.describe('Transfers & Exchange (TASK-022, TASK-023, TASK-029)', () => {
 
   test('net worth unchanged after transfer', async ({ page }) => {
     await page.goto('/');
-    // Total: 50000 + 10000 EGP + 500 USD = 60500 (mixed, no rate yet)
-    // Transfer doesn't change net worth
-    await expect(page.locator('main')).toContainText('60,500');
+    // EGP total: 50000 + 10000 = 60000 (transfer moves within EGP, doesn't change total)
+    // Dashboard now shows EGP and USD separately
+    await expect(page.locator('main')).toContainText('60,000');
   });
 
   test('instapay toggle shows fee', async ({ page }) => {

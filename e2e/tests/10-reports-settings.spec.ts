@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetDatabase, ensureAuth, createInstitution, createAccount } from './helpers';
 
-test.describe('Reports, Settings, Fawry, Batch (TASK-039, TASK-038, TASK-043, TASK-047)', () => {
+test.describe('Reports, Settings, Fawry, Batch', () => {
   test.beforeAll(async ({ browser }) => {
     await resetDatabase();
     const ctx = await browser.newContext();
@@ -57,11 +57,11 @@ test.describe('Reports, Settings, Fawry, Batch (TASK-039, TASK-038, TASK-043, TA
   });
 
   // Settings
-  test('settings page loads with change PIN form', async ({ page }) => {
+  test('settings page loads with dark mode and export', async ({ page }) => {
     await page.goto('/settings');
     await expect(page.getByRole('heading', { name: /Settings/i })).toBeVisible();
-    await expect(page.locator('input[name="current_pin"]')).toBeVisible();
-    await expect(page.locator('input[name="new_pin"]')).toBeVisible();
+    await expect(page.locator('text=Dark Mode')).toBeVisible();
+    await expect(page.locator('button:has-text("Download CSV")')).toBeVisible();
   });
 
   // Exchange rate history
@@ -70,25 +70,9 @@ test.describe('Reports, Settings, Fawry, Batch (TASK-039, TASK-038, TASK-043, TA
     await expect(page.locator('main')).toContainText(/Exchange Rate/i);
   });
 
-  // Export
-  test('settings page has export form', async ({ page }) => {
+  // Logout button on settings page
+  test('settings page has logout button', async ({ page }) => {
     await page.goto('/settings');
-    await expect(page.locator('button:has-text("Download CSV")')).toBeVisible();
-  });
-
-  // PIN change — last test since it modifies auth state
-  test('change PIN and change back', async ({ page }) => {
-    await page.goto('/settings');
-    await page.fill('input[name="current_pin"]', '1234');
-    await page.fill('input[name="new_pin"]', '5678');
-    await page.click('button:has-text("Change PIN")');
-    await expect(page.locator('#pin-result')).toContainText(/changed|updated|success/i);
-
-    // Change back
-    await page.reload();
-    await page.fill('input[name="current_pin"]', '5678');
-    await page.fill('input[name="new_pin"]', '1234');
-    await page.click('button:has-text("Change PIN")');
-    await expect(page.locator('#pin-result')).toContainText(/changed|updated|success/i);
+    await expect(page.locator('form[action="/logout"] button')).toContainText('Log Out');
   });
 });

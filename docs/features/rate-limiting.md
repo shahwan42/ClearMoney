@@ -10,7 +10,7 @@ Each IP address gets a "token bucket" that refills at a steady rate. Every reque
 
 | Tier | Routes | Rate | Burst | Purpose |
 |------|--------|------|-------|---------|
-| Login | `/login`, `/setup`, `/logout` | 5/min | 5 | Prevent brute-force PIN guessing |
+| Login | `/login`, `/register`, `/auth/verify`, `/logout` | 5/min | 5 | Prevent brute-force login attempts |
 | API | `/api/*` (JSON endpoints) | 60/min | 10 | Moderate protection for API endpoints |
 | General | All other authenticated pages | 120/min | 20 | Generous limit for normal browsing + HTMX |
 
@@ -45,6 +45,10 @@ Each `RateLimiter` instance:
 - Maintains a `map[string]*tokenBucket` guarded by `sync.Mutex`
 - Runs a background cleanup goroutine (every 5 min, removes entries stale for 10+ min)
 - Stopped via `defer limiter.Stop()` in router.go
+
+## Disabling for Tests
+
+Set `DISABLE_RATE_LIMIT=true` to skip all rate limiting middleware. Used by Playwright e2e tests (configured in `e2e/playwright.config.ts` and `.github/workflows/ci.yml`) to prevent 429 errors when the full test suite runs ~300+ requests sequentially from a single IP.
 
 ## Laravel/Django Analogy
 

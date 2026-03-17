@@ -305,6 +305,7 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 | `MAX_DAILY_EMAILS` | `50` | Global daily email cap (Resend free tier buffer) |
 | `VAPID_PUBLIC_KEY` | (none) | Web Push VAPID public key |
 | `VAPID_PRIVATE_KEY` | (none) | Web Push VAPID private key |
+| `DISABLE_RATE_LIMIT` | (none) | Set to `true` to skip rate limiting (e2e tests) |
 
 ## Dependencies (go.mod)
 

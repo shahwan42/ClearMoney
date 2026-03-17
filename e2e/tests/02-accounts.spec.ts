@@ -53,7 +53,7 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await page.click('#account-sheet-content button[type="submit"]');
 
     // Bottom sheet should close after success
-    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
+    await expect(page.locator('#account-sheet-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
     // Account should appear in institution list via OOB swap
     await expect(page.locator('#institution-list')).toContainText('Checking');
   });
@@ -104,7 +104,7 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await page.click('#account-sheet-content button[type="submit"]');
 
     // Should succeed — sheet closes and account appears
-    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
+    await expect(page.locator('#account-sheet-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
     await expect(page.locator('#institution-list')).toContainText('Visa Gold');
   });
 
@@ -185,7 +185,7 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await page.click('#account-sheet-content button[type="submit"]');
 
     // Sheet should close (slide down)
-    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
+    await expect(page.locator('#account-sheet-sheet')).toHaveClass(/translate-y-full/, { timeout: 5000 });
     // Account should be in the list
     await expect(page.locator('#institution-list')).toContainText('Savings');
   });
@@ -203,7 +203,7 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await page.locator('#account-sheet-content button:has-text("Cancel")').click();
 
     // Sheet should be dismissed
-    await expect(page.locator('#account-sheet')).toHaveClass(/translate-y-full/);
+    await expect(page.locator('#account-sheet-sheet')).toHaveClass(/translate-y-full/);
   });
 
   test('delete institution via bottom sheet confirmation', async ({ page }) => {
@@ -261,7 +261,7 @@ test.describe('Institutions & Accounts (TASK-001 to TASK-008)', () => {
     await page.locator('#delete-sheet-content button:has-text("Cancel")').click();
 
     // Sheet should be hidden (translate-y-full)
-    await expect(page.locator('#delete-sheet')).toHaveClass(/translate-y-full/);
+    await expect(page.locator('#delete-sheet-sheet')).toHaveClass(/translate-y-full/);
 
     // Institution should still be in the list
     await expect(page.locator('#institution-list')).toContainText('KeepMe');

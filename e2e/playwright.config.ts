@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const dbUrl = process.env.DATABASE_URL || 'postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable';
+
 export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
@@ -18,7 +20,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'cd .. && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" go run ./cmd/server',
+    command: `cd .. && DATABASE_URL="${dbUrl}" DISABLE_RATE_LIMIT=true go run ./cmd/server`,
     url: 'http://localhost:8080/healthz',
     reuseExistingServer: true,
     timeout: 30_000,

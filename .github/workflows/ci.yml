@@ -50,5 +50,25 @@ jobs:
       - name: Build binary
         run: go build -o server ./cmd/server/
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Run e2e tests
+        env:
+          DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
+          DISABLE_RATE_LIMIT: "true"
+        run: |
+          ./server &
+          sleep 3
+          cd e2e && npx playwright test
+
       - name: Build Docker image
         run: docker build -t clearmoney:ci .

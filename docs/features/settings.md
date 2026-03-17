@@ -1,20 +1,8 @@
 # Settings
 
-User configuration page for PIN management, dark mode, CSV export, and push notification subscriptions.
+User configuration page for dark mode, CSV export, push notification subscriptions, and logout.
 
 ## Features
-
-### PIN Change
-
-**Flow:**
-1. User enters current PIN + new PIN + confirmation
-2. Handler verifies current PIN via bcrypt
-3. Validates new PIN length (4-6 digits)
-4. Updates bcrypt hash in `user_config` table
-
-**Handler:** `ChangePin()` at `POST /settings/pin` in `pages.go` (line ~2241)
-**Service:** `auth.ChangePin()` in `internal/service/auth.go` (line ~122)
-**Template:** `pages/settings.html` (lines ~50-69) — HTMX form with inline result target
 
 ### Dark Mode Toggle
 
@@ -33,7 +21,7 @@ User configuration page for PIN management, dark mode, CSV export, and push noti
 - Custom overrides in `static/css/app.css` (lines ~24-50): body, backgrounds, inputs
 - Chart overrides in `static/css/charts.css` (lines ~214-244): donut hole, text colors
 
-**Template:** `pages/settings.html` (lines ~71-82) — button calls `toggleTheme()` onclick
+**Template:** `pages/settings.html` — button calls `toggleTheme()` onclick
 
 ### CSV Export
 
@@ -43,9 +31,9 @@ User configuration page for PIN management, dark mode, CSV export, and push noti
 3. Handler sets `Content-Disposition: attachment` header
 4. Service streams transactions as CSV to response writer
 
-**Handler:** `ExportTransactions()` at `GET /export/transactions` in `pages.go` (line ~2270)
-**Service:** `internal/service/export.go` (line ~50) — uses Go's `encoding/csv` package
-**Template:** `pages/settings.html` (lines ~84-115)
+**Handler:** `ExportTransactions()` at `GET /export/transactions` in `pages.go`
+**Service:** `internal/service/export.go` — uses Go's `encoding/csv` package
+**Template:** `pages/settings.html`
 
 CSV columns: Date, Type, Amount, Currency, Account ID, Category ID, Note, Created At.
 
@@ -56,12 +44,12 @@ CSV columns: Date, Type, Amount, Currency, Account ID, Category ID, Note, Create
 - Converts VAPID public key to Uint8Array for Push Manager
 - Subscribes via Push API and sends subscription to server
 
-**Handler:** `Subscribe()` at `POST /api/push/subscribe` in `push.go` (line ~55)
-**Template:** `pages/settings.html` (lines ~117-128) — button calls `requestNotificationPermission()`
+**Handler:** `Subscribe()` at `POST /api/push/subscribe` in `push.go`
+**Template:** `pages/settings.html` — button calls `requestNotificationPermission()`
 
 ### Logout
 
-Standard POST form (not HTMX): `POST /logout` clears session cookie, redirects to `/login`.
+Standard POST form (not HTMX): `POST /logout` clears session cookie and DB session, redirects to `/login`.
 
 ## Handler
 
@@ -70,7 +58,6 @@ Standard POST form (not HTMX): `POST /logout` clears session cookie, redirects t
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/settings` | GET | Render settings page |
-| `/settings/pin` | POST | Change PIN |
 | `/export/transactions` | GET | CSV download |
 | `/logout` | POST | Clear session, redirect |
 
@@ -79,20 +66,19 @@ Standard POST form (not HTMX): `POST /logout` clears session cookie, redirects t
 **File:** `internal/templates/pages/settings.html`
 
 Sections:
-1. PIN change form (HTMX inline result)
-2. Dark mode toggle button
-3. CSV export form (native download)
-4. Push notification subscription button
-5. Logout button
+
+1. Dark mode toggle button
+2. CSV export form (native download)
+3. Push notification subscription button
+4. Logout button
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/handler/pages.go` | Settings, ChangePin, ExportTransactions handlers |
+| `internal/handler/pages.go` | Settings, ExportTransactions handlers |
 | `internal/handler/auth.go` | Logout handler |
 | `internal/handler/push.go` | Push subscription handler |
-| `internal/service/auth.go` | ChangePin logic |
 | `internal/service/export.go` | CSV export service |
 | `internal/templates/pages/settings.html` | Settings page |
 | `static/js/theme.js` | Dark mode toggle |
@@ -104,13 +90,12 @@ Sections:
 - **Dark mode is class-based** — toggling adds/removes `dark` class on `<html>`. Tailwind's `dark:` prefix handles all styling.
 - **Theme persists in localStorage** — not in the database. Works offline.
 - **CSV export uses native download** — `hx-boost="false"` prevents HTMX from intercepting the file download.
-- **PIN is bcrypt hashed** — same as Laravel's `Hash::make()`. Verification uses constant-time comparison.
+- **Auth is magic link based** — no PINs. See `docs/features/auth.md` for details.
 
 ## Logging
 
 **Service events:**
 
-- `auth.pin_changed` — user changed their PIN
 - `export.csv_downloaded` — CSV export completed (row_count)
 
 **Page views:** `settings`
