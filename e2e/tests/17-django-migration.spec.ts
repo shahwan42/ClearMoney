@@ -450,4 +450,50 @@ test.describe('Django Migration - Cross-App Integration', () => {
       expect(persons[0].name).toBe('E2E Ali');
     });
   });
+
+  // ──────────────────────────────────────────────────
+  // Group 8: Budgets (Phase 6)
+  // ──────────────────────────────────────────────────
+
+  test.describe('Budgets', () => {
+    test('Django /budgets renders empty state', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/budgets`);
+      await expect(page.getByRole('heading', { name: /Budgets/i })).toBeVisible();
+      await expect(page.getByText('No budgets set')).toBeVisible();
+    });
+
+    test('Django /budgets shows category dropdown', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/budgets`);
+      await expect(page.locator('select[name="category_id"]')).toBeVisible();
+      await expect(page.locator('input[name="monthly_limit"]')).toBeVisible();
+    });
+
+    test('create budget via Django /budgets', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/budgets`);
+      await page.selectOption('select[name="category_id"]', { index: 1 });
+      await page.fill('input[name="monthly_limit"]', '5000');
+      await page.click('button:has-text("Create Budget")');
+
+      await page.waitForURL(`${DJANGO_BASE_URL}/budgets`);
+      await expect(page.locator('main')).toContainText('5,000');
+      await expect(page.locator('main')).toContainText('remaining');
+    });
+
+    test('budget shows progress bar', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/budgets`);
+      await expect(page.locator('.bg-gray-100.rounded-full').first()).toBeVisible();
+    });
+
+    test('delete budget via Django /budgets', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/budgets`);
+      await page.locator('form[action*="/budgets/"] button:has-text("Delete")').first().click();
+      await page.waitForURL(`${DJANGO_BASE_URL}/budgets`);
+      await expect(page.getByText('No budgets set')).toBeVisible();
+    });
+
+    test('Go session cookie authenticates on Django /budgets', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/budgets`);
+      await expect(page.getByRole('heading', { name: /Budgets/i })).toBeVisible();
+    });
+  });
 });

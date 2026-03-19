@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "accounts",  # Migrated accounts & institutions
     "transactions",  # Migrated transactions, transfers, exchanges
     "people",  # Migrated people & loans
+    "budgets",  # Migrated budgets
 ]
 
 # --- Middleware ---

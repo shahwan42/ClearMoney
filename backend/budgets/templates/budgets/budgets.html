@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}ClearMoney - Budgets{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-800">Budgets</h2>
+        <a href="/settings" class="text-sm text-teal-600 hover:text-teal-700">Settings</a>
+    </div>
+
+    <!-- Create Budget Form -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">New Budget</h3>
+        <form method="POST" action="{% url 'budget-add' %}" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Category</label>
+                <select name="category_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Select category...</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Monthly Limit</label>
+                    <input type="number" name="monthly_limit" step="0.01" min="0.01" required
+                           placeholder="0.00" class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Currency</label>
+                    <select name="currency" class="w-full border rounded-lg px-3 py-2 text-sm">
+                        <option value="EGP">EGP</option>
+                        <option value="USD">USD</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit"
+                    class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
+                Create Budget
+            </button>
+        </form>
+    </section>
+
+    <!-- Active Budgets with Spending -->
+    {% if budgets %}
+    <section class="space-y-3">
+        {% for budget in budgets %}
+        <div class="bg-white rounded-2xl shadow-sm p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-slate-800">{% if budget.category_icon %}{{ budget.category_icon }} {% endif %}{{ budget.category_name }}</span>
+                <form method="POST" action="{% url 'budget-delete' budget.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-xs text-gray-400 hover:text-red-500">Delete</button>
+                </form>
+            </div>
+            <div class="flex justify-between text-sm mb-1.5">
+                <span class="text-slate-600">{{ budget.spent|format_currency:budget.currency }} spent</span>
+                <span class="text-slate-500">of {{ budget.monthly_limit|format_currency:budget.currency }}</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2.5">
+                <div class="h-2.5 rounded-full transition-all {% if budget.status == 'red' %}bg-red-500{% elif budget.status == 'amber' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
+                     style="width: {% if budget.percentage > 100 %}100{% else %}{{ budget.percentage|floatformat:"0" }}{% endif %}%"></div>
+            </div>
+            <p class="text-xs mt-1 {% if budget.status == 'red' %}text-red-500{% elif budget.status == 'amber' %}text-amber-500{% else %}text-gray-400{% endif %}">
+                {% if budget.remaining < 0 %}Over budget by {{ budget.remaining|abs_float|format_currency:budget.currency }}{% else %}{{ budget.remaining|format_currency:budget.currency }} remaining{% endif %}
+            </p>
+        </div>
+        {% endfor %}
+    </section>
+    {% else %}
+    <section class="bg-white rounded-2xl shadow-sm p-5 text-center">
+        <p class="text-gray-400 text-sm">No budgets set. Create one above!</p>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
