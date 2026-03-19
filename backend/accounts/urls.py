@@ -34,4 +34,9 @@ urlpatterns = [
     path("institutions/<uuid:id>/update", views.institution_update, name="institution-update"),
     path("institutions/<uuid:id>/delete-confirm", views.institution_delete_confirm, name="institution-delete-confirm"),
     path("institutions/<uuid:id>/delete", views.institution_delete, name="institution-delete"),
+    # --- JSON API routes ---
+    path("api/institutions", views.api_institution_list_create, name="api-institutions"),
+    path("api/institutions/<uuid:inst_id>", views.api_institution_detail, name="api-institution-detail"),
+    path("api/accounts", views.api_account_list_create, name="api-accounts"),
+    path("api/accounts/<uuid:account_id>", views.api_account_detail, name="api-account-detail"),
 ]

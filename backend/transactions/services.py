@@ -1265,6 +1265,52 @@ class TransactionService:
                 for r in cursor.fetchall()
             ]
 
+    # -------------------------------------------------------------------
+    # Bare list queries (for JSON API — no enrichment)
+    # -------------------------------------------------------------------
+
+    _BARE_TX_COLS = [
+        "id", "user_id", "type", "amount", "currency", "account_id",
+        "counter_account_id", "category_id", "date", "time", "note",
+        "tags", "exchange_rate", "counter_amount", "fee_amount",
+        "fee_account_id", "person_id", "linked_transaction_id",
+        "recurring_rule_id", "balance_delta", "created_at", "updated_at",
+    ]
+
+    def get_recent(self, limit: int = 15) -> list[dict[str, Any]]:
+        """Bare transaction list (not enriched), for JSON API.
+
+        Port of Go's TransactionHandler.List — returns transactions ordered
+        by date DESC, created_at DESC.
+        """
+        if limit <= 0:
+            limit = 15
+        cols = ", ".join(self._BARE_TX_COLS)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT {cols} FROM transactions "
+                "WHERE user_id = %s "
+                "ORDER BY date DESC, created_at DESC "
+                "LIMIT %s",
+                [self.user_id, limit],
+            )
+            return [self._scan_tx_row(row, self._BARE_TX_COLS) for row in cursor.fetchall()]
+
+    def get_by_account(self, account_id: str, limit: int = 15) -> list[dict[str, Any]]:
+        """Bare transactions for an account, for JSON API."""
+        if limit <= 0:
+            limit = 15
+        cols = ", ".join(self._BARE_TX_COLS)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT {cols} FROM transactions "
+                "WHERE user_id = %s AND account_id = %s "
+                "ORDER BY date DESC, created_at DESC "
+                "LIMIT %s",
+                [self.user_id, account_id, limit],
+            )
+            return [self._scan_tx_row(row, self._BARE_TX_COLS) for row in cursor.fetchall()]
+
     def get_fees_category_id(self) -> str | None:
         """Look up the 'Fees & Charges' category ID."""
         with connection.cursor() as cursor:

@@ -30,4 +30,5 @@ urlpatterns = [
     path("", include("installments.urls")),
     path("", include("exchange_rates.urls")),
     path("", include("push.urls")),
+    path("", include("categories.urls")),
 ]

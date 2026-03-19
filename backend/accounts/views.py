@@ -7,11 +7,12 @@ Port of Go's PageHandler methods for accounts (pages.go:455-578, 1421-1596,
 Like Laravel's AccountController — thin views that delegate to services.
 """
 
+import json
 import logging
 from typing import Any
 from uuid import UUID
 
-from django.http import HttpResponse, QueryDict
+from django.http import HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
@@ -570,3 +571,161 @@ def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     acc_svc = AccountService(request.user_id, request.tz)
     acc_svc.update_health_config(str(id), config)
     return htmx_redirect(request, f"/accounts/{id}")
+
+
+# ---------------------------------------------------------------------------
+# JSON API Views — Institutions (port of Go's InstitutionHandler)
+# ---------------------------------------------------------------------------
+
+
+@require_http_methods(["GET", "POST"])
+def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
+    """GET/POST /api/institutions — list all or create an institution (JSON)."""
+    inst_svc = InstitutionService(request.user_id, request.tz)
+
+    if request.method == "GET":
+        institutions = inst_svc.get_all()
+        # Add user_id to match Go's JSON output
+        for inst in institutions:
+            inst["user_id"] = request.user_id
+        return JsonResponse(institutions, safe=False)
+
+    # POST — create
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "invalid JSON body"}, status=400)
+
+    try:
+        inst = inst_svc.create(
+            name=body.get("name", ""),
+            inst_type=body.get("type", ""),
+        )
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    inst["user_id"] = request.user_id
+    return JsonResponse(inst, status=201)
+
+
+@require_http_methods(["GET", "PUT", "DELETE"])
+def api_institution_detail(
+    request: AuthenticatedRequest, inst_id: str
+) -> HttpResponse:
+    """GET/PUT/DELETE /api/institutions/{id} — single institution operations (JSON)."""
+    inst_svc = InstitutionService(request.user_id, request.tz)
+    iid = str(inst_id)
+
+    if request.method == "GET":
+        inst = inst_svc.get_by_id(iid)
+        if not inst:
+            return JsonResponse({"error": "institution not found"}, status=404)
+        inst["user_id"] = request.user_id
+        return JsonResponse(inst)
+
+    if request.method == "PUT":
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({"error": "invalid JSON body"}, status=400)
+
+        try:
+            inst = inst_svc.update(
+                iid,
+                name=body.get("name", ""),
+                inst_type=body.get("type", ""),
+            )
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        if not inst:
+            return JsonResponse({"error": "institution not found"}, status=404)
+        inst["user_id"] = request.user_id
+        return JsonResponse(inst)
+
+    # DELETE
+    deleted = inst_svc.delete(iid)
+    if not deleted:
+        return JsonResponse({"error": "institution not found"}, status=404)
+    return HttpResponse(status=204)
+
+
+# ---------------------------------------------------------------------------
+# JSON API Views — Accounts (port of Go's AccountHandler)
+# ---------------------------------------------------------------------------
+
+
+@require_http_methods(["GET", "POST"])
+def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
+    """GET/POST /api/accounts — list or create accounts (JSON).
+
+    GET supports ?institution_id= filter.
+    """
+    acc_svc = AccountService(request.user_id, request.tz)
+
+    if request.method == "GET":
+        institution_id = request.GET.get("institution_id", "")
+        if institution_id:
+            accounts = acc_svc.get_by_institution(institution_id)
+        else:
+            accounts = acc_svc.get_all()
+        # Add user_id and strip computed fields for Go parity
+        for acc in accounts:
+            acc["user_id"] = request.user_id
+            acc.pop("is_credit_type", None)
+            acc.pop("available_credit", None)
+        return JsonResponse(accounts, safe=False)
+
+    # POST — create
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "invalid JSON body"}, status=400)
+
+    try:
+        acc = acc_svc.create(body)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    acc["user_id"] = request.user_id
+    acc.pop("is_credit_type", None)
+    acc.pop("available_credit", None)
+    return JsonResponse(acc, status=201)
+
+
+@require_http_methods(["GET", "PUT", "DELETE"])
+def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpResponse:
+    """GET/PUT/DELETE /api/accounts/{id} — single account operations (JSON)."""
+    acc_svc = AccountService(request.user_id, request.tz)
+    aid = str(account_id)
+
+    if request.method == "GET":
+        acc = acc_svc.get_by_id(aid)
+        if not acc:
+            return JsonResponse({"error": "account not found"}, status=404)
+        acc["user_id"] = request.user_id
+        acc.pop("is_credit_type", None)
+        acc.pop("available_credit", None)
+        return JsonResponse(acc)
+
+    if request.method == "PUT":
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({"error": "invalid JSON body"}, status=400)
+
+        try:
+            acc = acc_svc.update(aid, body)
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        if not acc:
+            return JsonResponse({"error": "account not found"}, status=404)
+        acc["user_id"] = request.user_id
+        acc.pop("is_credit_type", None)
+        acc.pop("available_credit", None)
+        return JsonResponse(acc)
+
+    # DELETE
+    error = acc_svc.delete(aid)
+    if error:
+        return JsonResponse({"error": error}, status=400)
+    return HttpResponse(status=204)

@@ -43,4 +43,9 @@ urlpatterns = [
     path("sync/transactions", views.sync_transactions, name="sync-transactions"),
     # --- Category suggestion API ---
     path("api/transactions/suggest-category", views.suggest_category, name="suggest-category"),
+    # --- JSON API routes (static paths before UUID) ---
+    path("api/transactions/transfer", views.api_transaction_transfer, name="api-transaction-transfer"),
+    path("api/transactions/exchange", views.api_transaction_exchange, name="api-transaction-exchange"),
+    path("api/transactions", views.api_transaction_list_create, name="api-transactions"),
+    path("api/transactions/<uuid:tx_id>", views.api_transaction_detail, name="api-transaction-detail"),
 ]

@@ -596,3 +596,117 @@ def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
         "accounts": svc.get_accounts(),
         "today": date.today(),
     })
+
+
+# ---------------------------------------------------------------------------
+# JSON API Views (port of Go's TransactionHandler)
+# ---------------------------------------------------------------------------
+
+
+@require_http_methods(["GET", "POST"])
+def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
+    """GET/POST /api/transactions — list or create transactions (JSON).
+
+    GET supports ?account_id= and ?limit= (default 15).
+    POST returns {"transaction": {...}, "new_balance": X}.
+    """
+    svc = _svc(request)
+
+    if request.method == "GET":
+        account_id = request.GET.get("account_id", "")
+        limit = int(request.GET.get("limit", "15") or "15")
+        if account_id:
+            transactions = svc.get_by_account(account_id, limit)
+        else:
+            transactions = svc.get_recent(limit)
+        return JsonResponse(transactions, safe=False)
+
+    # POST — create
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "invalid JSON body"}, status=400)
+
+    try:
+        tx, new_balance = svc.create(body)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse({"transaction": tx, "new_balance": new_balance}, status=201)
+
+
+@require_http_methods(["POST"])
+def api_transaction_transfer(request: AuthenticatedRequest) -> HttpResponse:
+    """POST /api/transactions/transfer — create transfer (JSON).
+
+    Returns {"debit": {...}, "credit": {...}}.
+    """
+    svc = _svc(request)
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "invalid JSON body"}, status=400)
+
+    try:
+        debit, credit = svc.create_transfer(
+            source_id=body.get("source_account_id", ""),
+            dest_id=body.get("dest_account_id", ""),
+            amount=float(body.get("amount", 0)),
+            currency=body.get("currency"),
+            note=body.get("note"),
+            tx_date=body.get("date"),
+        )
+    except (ValueError, TypeError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse({"debit": debit, "credit": credit}, status=201)
+
+
+@require_http_methods(["POST"])
+def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
+    """POST /api/transactions/exchange — create currency exchange (JSON).
+
+    Returns {"debit": {...}, "credit": {...}}.
+    """
+    svc = _svc(request)
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "invalid JSON body"}, status=400)
+
+    try:
+        debit, credit = svc.create_exchange(
+            source_id=body.get("source_account_id", ""),
+            dest_id=body.get("dest_account_id", ""),
+            amount=body.get("amount"),
+            rate=body.get("rate"),
+            counter_amount=body.get("counter_amount"),
+            note=body.get("note"),
+            tx_date=body.get("date"),
+        )
+    except (ValueError, TypeError) as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse({"debit": debit, "credit": credit}, status=201)
+
+
+@require_http_methods(["GET", "DELETE"])
+def api_transaction_detail(
+    request: AuthenticatedRequest, tx_id: str
+) -> HttpResponse:
+    """GET/DELETE /api/transactions/{id} — single transaction operations (JSON)."""
+    svc = _svc(request)
+    tid = str(tx_id)
+
+    if request.method == "GET":
+        tx = svc.get_by_id(tid)
+        if not tx:
+            return JsonResponse({"error": "transaction not found"}, status=404)
+        return JsonResponse(tx)
+
+    # DELETE
+    try:
+        svc.delete(tid)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=404)
+    return HttpResponse(status=204)
