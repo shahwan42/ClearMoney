@@ -11,6 +11,6 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('settings', views.settings_page, name='settings'),
-    path('export/transactions', views.export_transactions, name='export-transactions'),
+    path("settings", views.settings_page, name="settings"),
+    path("export/transactions", views.export_transactions, name="export-transactions"),
 ]

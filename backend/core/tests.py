@@ -28,54 +28,54 @@ from core.templatetags.money import (
     percentage,
 )
 
-
 # ---------------------------------------------------------------------------
 # Template tag / filter tests — no DB, no markers
 # ---------------------------------------------------------------------------
 
+
 def test_format_number_zero():
-    assert _format_number(0) == '0.00'
+    assert _format_number(0) == "0.00"
 
 
 def test_format_number_positive():
-    assert _format_number(1234567.89) == '1,234,567.89'
+    assert _format_number(1234567.89) == "1,234,567.89"
 
 
 def test_format_number_negative():
-    assert _format_number(-42.5) == '-42.50'
+    assert _format_number(-42.5) == "-42.50"
 
 
 def test_format_number_small():
-    assert _format_number(0.99) == '0.99'
+    assert _format_number(0.99) == "0.99"
 
 
 def test_format_number_large():
-    assert _format_number(10000000) == '10,000,000.00'
+    assert _format_number(10000000) == "10,000,000.00"
 
 
 def test_format_egp():
-    assert format_egp(1234.5) == 'EGP 1,234.50'
+    assert format_egp(1234.5) == "EGP 1,234.50"
 
 
 def test_format_usd():
-    assert format_usd(99.99) == '$99.99'
+    assert format_usd(99.99) == "$99.99"
 
 
 def test_format_currency_egp():
-    assert format_currency(500, 'EGP') == 'EGP 500.00'
+    assert format_currency(500, "EGP") == "EGP 500.00"
 
 
 def test_format_currency_usd():
-    assert format_currency(500, 'USD') == '$500.00'
+    assert format_currency(500, "USD") == "$500.00"
 
 
 def test_format_currency_default_egp():
     """No currency specified defaults to EGP."""
-    assert format_currency(100) == 'EGP 100.00'
+    assert format_currency(100) == "EGP 100.00"
 
 
 def test_format_currency_case_insensitive():
-    assert format_currency(100, 'usd') == '$100.00'
+    assert format_currency(100, "usd") == "$100.00"
 
 
 def test_neg_positive():
@@ -95,7 +95,7 @@ def test_percentage_zero_total():
 
 
 def test_chart_color_first():
-    assert chart_color(0) == '#0d9488'
+    assert chart_color(0) == "#0d9488"
 
 
 def test_chart_color_wraps_around():
@@ -104,41 +104,42 @@ def test_chart_color_wraps_around():
 
 
 def test_format_date():
-    assert format_date(date(2026, 3, 18)) == 'Mar 18, 2026'
+    assert format_date(date(2026, 3, 18)) == "Mar 18, 2026"
 
 
 def test_format_date_iso():
-    assert format_date_iso(date(2026, 1, 5)) == '2026-01-05'
+    assert format_date_iso(date(2026, 1, 5)) == "2026-01-05"
 
 
 def test_conic_gradient_empty():
     result = conic_gradient([])
-    assert '#e2e8f0' in result
+    assert "#e2e8f0" in result
 
 
 def test_conic_gradient_single_segment():
-    segments = [{'color': '#0d9488', 'percentage': 100}]
+    segments = [{"color": "#0d9488", "percentage": 100}]
     result = conic_gradient(segments)
-    assert '#0d9488' in result
-    assert 'conic-gradient' in result
+    assert "#0d9488" in result
+    assert "conic-gradient" in result
 
 
 def test_conic_gradient_multiple_segments():
     segments = [
-        {'color': '#0d9488', 'percentage': 60},
-        {'color': '#dc2626', 'percentage': 40},
+        {"color": "#0d9488", "percentage": 60},
+        {"color": "#dc2626", "percentage": 40},
     ]
     result = conic_gradient(segments)
-    assert '#0d9488' in result
-    assert '#dc2626' in result
+    assert "#0d9488" in result
+    assert "#dc2626" in result
 
 
 # ---------------------------------------------------------------------------
 # Auth middleware tests — need real DB
 # ---------------------------------------------------------------------------
 
+
 def _dummy_response(request):
-    return HttpResponse('OK', status=200)
+    return HttpResponse("OK", status=200)
 
 
 def _make_middleware():
@@ -150,7 +151,7 @@ def test_middleware_public_path_no_auth_required():
     """Public paths (healthz, static) pass through without auth."""
     rf = RequestFactory()
     middleware = _make_middleware()
-    response = middleware(rf.get('/healthz'))
+    response = middleware(rf.get("/healthz"))
     assert response.status_code == 200
 
 
@@ -159,9 +160,9 @@ def test_middleware_no_cookie_redirects_to_login():
     """Protected path without session cookie redirects to /login."""
     rf = RequestFactory()
     middleware = _make_middleware()
-    response = middleware(rf.get('/settings'))
+    response = middleware(rf.get("/settings"))
     assert response.status_code == 302
-    assert response.url == '/login'
+    assert response.url == "/login"
 
 
 @pytest.mark.django_db
@@ -169,11 +170,11 @@ def test_middleware_invalid_token_redirects_to_login():
     """Invalid session token redirects to /login."""
     rf = RequestFactory()
     middleware = _make_middleware()
-    request = rf.get('/settings')
-    request.COOKIES[COOKIE_NAME] = 'invalid-token-12345'
+    request = rf.get("/settings")
+    request.COOKIES[COOKIE_NAME] = "invalid-token-12345"
     response = middleware(request)
     assert response.status_code == 302
-    assert response.url == '/login'
+    assert response.url == "/login"
 
 
 @pytest.mark.django_db
@@ -182,7 +183,7 @@ def test_middleware_valid_token_sets_user_info(auth_user):
     user_id, user_email, token = auth_user
     rf = RequestFactory()
     middleware = _make_middleware()
-    request = rf.get('/settings')
+    request = rf.get("/settings")
     request.COOKIES[COOKIE_NAME] = token
     response = middleware(request)
     assert response.status_code == 200
@@ -192,7 +193,7 @@ def test_middleware_valid_token_sets_user_info(auth_user):
 def test_middleware_expired_session_redirects(auth_user):
     """Expired session redirects to /login."""
     user_id, _, _ = auth_user
-    expired_token = str(__import__('uuid').uuid4())
+    expired_token = str(__import__("uuid").uuid4())
     SessionFactory(
         user_id=user_id,
         token=expired_token,
@@ -200,8 +201,8 @@ def test_middleware_expired_session_redirects(auth_user):
     )
     rf = RequestFactory()
     middleware = _make_middleware()
-    request = rf.get('/settings')
+    request = rf.get("/settings")
     request.COOKIES[COOKIE_NAME] = expired_token
     response = middleware(request)
     assert response.status_code == 302
-    assert response.url == '/login'
+    assert response.url == "/login"

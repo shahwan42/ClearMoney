@@ -23,14 +23,14 @@ logger = logging.getLogger(__name__)
 
 # Chart color palette — matches Go's chartPalette in charts.go and reports.go
 CHART_PALETTE = [
-    '#0d9488',  # teal-600
-    '#dc2626',  # red-600
-    '#2563eb',  # blue-600
-    '#d97706',  # amber-600
-    '#7c3aed',  # violet-600
-    '#059669',  # emerald-600
-    '#db2777',  # pink-600
-    '#4f46e5',  # indigo-600
+    "#0d9488",  # teal-600
+    "#dc2626",  # red-600
+    "#2563eb",  # blue-600
+    "#d97706",  # amber-600
+    "#7c3aed",  # violet-600
+    "#059669",  # emerald-600
+    "#db2777",  # pink-600
+    "#4f46e5",  # indigo-600
 ]
 
 
@@ -44,7 +44,7 @@ def reports_page(request):
     Combines the handler logic (param parsing) and service logic (SQL + chart data)
     from Go's ReportsService.GetMonthlyReport() in reports.go.
     """
-    logger.info('page viewed: reports, user=%s', request.user_email)
+    logger.info("page viewed: reports, user=%s", request.user_email)
 
     user_id = request.user_id
     now = timezone.localtime()
@@ -52,24 +52,24 @@ def reports_page(request):
     month = now.month
 
     # Parse optional year/month query params (same logic as Go handler)
-    year_str = request.GET.get('year', '')
-    month_str = request.GET.get('month', '')
+    year_str = request.GET.get("year", "")
+    month_str = request.GET.get("month", "")
     if year_str.isdigit():
         year = int(year_str)
     if month_str.isdigit() and 1 <= int(month_str) <= 12:
         month = int(month_str)
 
     # Optional filters
-    account_id = request.GET.get('account_id', '')
-    currency = request.GET.get('currency', '')
+    account_id = request.GET.get("account_id", "")
+    currency = request.GET.get("currency", "")
 
     # Build report data (equivalent of ReportsService.GetMonthlyReport)
     report = _get_monthly_report(user_id, year, month, account_id, currency)
 
-    return render(request, 'reports/reports.html', {'data': report})
+    return render(request, "reports/reports.html", {"data": report})
 
 
-def _get_monthly_report(user_id, year, month, account_id='', currency=''):
+def _get_monthly_report(user_id, year, month, account_id="", currency=""):
     """
     Build the full report data for a given month.
 
@@ -88,7 +88,11 @@ def _get_monthly_report(user_id, year, month, account_id='', currency=''):
     """
     # Spending by category for the selected month
     spending, total_spending = _get_spending_by_category(
-        user_id, year, month, account_id, currency,
+        user_id,
+        year,
+        month,
+        account_id,
+        currency,
     )
 
     # Build donut chart segments from spending data
@@ -116,27 +120,27 @@ def _get_monthly_report(user_id, year, month, account_id='', currency=''):
     bar_groups, bar_legend = _build_bar_chart(monthly_history)
 
     # Month name for display
-    month_name = date(year, month, 1).strftime('%B')
+    month_name = date(year, month, 1).strftime("%B")
 
     return {
-        'year': year,
-        'month': month,
-        'month_name': month_name,
-        'filter_currency': currency,
-        'filter_account_id': account_id,
-        'spending_by_category': spending,
-        'total_spending': total_spending,
-        'chart_segments': chart_segments,
-        'current_month': current,
-        'previous_month': previous,
-        'next_month': next_sum,
-        'monthly_history': monthly_history,
-        'bar_groups': bar_groups,
-        'bar_legend': bar_legend,
+        "year": year,
+        "month": month,
+        "month_name": month_name,
+        "filter_currency": currency,
+        "filter_account_id": account_id,
+        "spending_by_category": spending,
+        "total_spending": total_spending,
+        "chart_segments": chart_segments,
+        "current_month": current,
+        "previous_month": previous,
+        "next_month": next_sum,
+        "monthly_history": monthly_history,
+        "bar_groups": bar_groups,
+        "bar_legend": bar_legend,
     }
 
 
-def _get_spending_by_category(user_id, year, month, account_id='', currency=''):
+def _get_spending_by_category(user_id, year, month, account_id="", currency=""):
     """
     Get expense totals grouped by category for a month.
 
@@ -166,13 +170,13 @@ def _get_spending_by_category(user_id, year, month, account_id='', currency=''):
     params = [start_date, end_date, user_id]
 
     if account_id:
-        query += ' AND t.account_id = %s'
+        query += " AND t.account_id = %s"
         params.append(account_id)
     if currency:
-        query += ' AND t.currency = %s'
+        query += " AND t.currency = %s"
         params.append(currency)
 
-    query += ' GROUP BY t.category_id, c.name, c.icon ORDER BY SUM(t.amount) DESC'
+    query += " GROUP BY t.category_id, c.name, c.icon ORDER BY SUM(t.amount) DESC"
 
     with connection.cursor() as cursor:
         cursor.execute(query, params)
@@ -183,23 +187,25 @@ def _get_spending_by_category(user_id, year, month, account_id='', currency=''):
     for cat_id, name, icon, amount in rows:
         amount = float(amount)
         total += amount
-        spending.append({
-            'category_id': cat_id,
-            'name': name,
-            'icon': icon,
-            'amount': amount,
-            'percentage': 0.0,  # Calculated below
-        })
+        spending.append(
+            {
+                "category_id": cat_id,
+                "name": name,
+                "icon": icon,
+                "amount": amount,
+                "percentage": 0.0,  # Calculated below
+            }
+        )
 
     # Calculate percentages
     if total > 0:
         for item in spending:
-            item['percentage'] = (item['amount'] / total) * 100
+            item["percentage"] = (item["amount"] / total) * 100
 
     return spending, total
 
 
-def _get_month_summary(user_id, year, month, account_id='', currency=''):
+def _get_month_summary(user_id, year, month, account_id="", currency=""):
     """
     Get income and expense totals for a single month.
 
@@ -224,10 +230,10 @@ def _get_month_summary(user_id, year, month, account_id='', currency=''):
     params = [start_date, end_date, user_id]
 
     if account_id:
-        query += ' AND account_id = %s'
+        query += " AND account_id = %s"
         params.append(account_id)
     if currency:
-        query += ' AND currency = %s'
+        query += " AND currency = %s"
         params.append(currency)
 
     with connection.cursor() as cursor:
@@ -236,19 +242,19 @@ def _get_month_summary(user_id, year, month, account_id='', currency=''):
 
     income = float(row[0])
     expenses = float(row[1])
-    month_name = date(year, month, 1).strftime('%B')
+    month_name = date(year, month, 1).strftime("%B")
 
     return {
-        'year': year,
-        'month': month,
-        'month_name': month_name,
-        'income': income,
-        'expenses': expenses,
-        'net': income - expenses,
+        "year": year,
+        "month": month,
+        "month_name": month_name,
+        "income": income,
+        "expenses": expenses,
+        "net": income - expenses,
     }
 
 
-def _get_monthly_history(user_id, year, month, account_id='', currency=''):
+def _get_monthly_history(user_id, year, month, account_id="", currency=""):
     """
     Get income/expenses for the last 6 months (for the bar chart).
 
@@ -283,12 +289,14 @@ def _build_chart_segments(spending, total):
 
     segments = []
     for i, item in enumerate(spending):
-        segments.append({
-            'label': item['name'],
-            'amount': item['amount'],
-            'percentage': item['percentage'],
-            'color': CHART_PALETTE[i % len(CHART_PALETTE)],
-        })
+        segments.append(
+            {
+                "label": item["name"],
+                "amount": item["amount"],
+                "percentage": item["percentage"],
+                "color": CHART_PALETTE[i % len(CHART_PALETTE)],
+            }
+        )
     return segments
 
 
@@ -308,25 +316,37 @@ def _build_bar_chart(history):
     # Find max value for height normalization
     max_val = 0.0
     for m in history:
-        max_val = max(max_val, m['income'], m['expenses'])
+        max_val = max(max_val, m["income"], m["expenses"])
 
     groups = []
     for m in history:
-        income_h = (m['income'] / max_val * 100) if max_val > 0 else 0
-        expense_h = (m['expenses'] / max_val * 100) if max_val > 0 else 0
+        income_h = (m["income"] / max_val * 100) if max_val > 0 else 0
+        expense_h = (m["expenses"] / max_val * 100) if max_val > 0 else 0
         # Short month name (first 3 chars) — matches Go's m.Month.String()[:3]
-        label = date(m['year'], m['month'], 1).strftime('%b')
-        groups.append({
-            'label': label,
-            'bars': [
-                {'value': m['income'], 'height_pct': income_h, 'color': '#059669', 'label': 'Income'},
-                {'value': m['expenses'], 'height_pct': expense_h, 'color': '#dc2626', 'label': 'Expenses'},
-            ],
-        })
+        label = date(m["year"], m["month"], 1).strftime("%b")
+        groups.append(
+            {
+                "label": label,
+                "bars": [
+                    {
+                        "value": m["income"],
+                        "height_pct": income_h,
+                        "color": "#059669",
+                        "label": "Income",
+                    },
+                    {
+                        "value": m["expenses"],
+                        "height_pct": expense_h,
+                        "color": "#dc2626",
+                        "label": "Expenses",
+                    },
+                ],
+            }
+        )
 
     legend = [
-        {'label': 'Income', 'color': '#059669'},
-        {'label': 'Expenses', 'color': '#dc2626'},
+        {"label": "Income", "color": "#059669"},
+        {"label": "Expenses", "color": "#dc2626"},
     ]
 
     return groups, legend

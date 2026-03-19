@@ -117,13 +117,17 @@ deploy-logs:
 # Like `python manage.py runserver` but with the correct DATABASE_URL.
 
 django-run:
-	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py runserver 0.0.0.0:8000
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run manage.py runserver 0.0.0.0:8000
 
 django-shell:
-	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py shell
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run manage.py shell
 
 django-test:
-	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/pytest -v
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run pytest -v
 
 django-inspectdb:
-	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py inspectdb
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run manage.py inspectdb
+
+django-lint:
+	cd backend && uv run ruff check .
+	cd backend && uv run ruff format --check .

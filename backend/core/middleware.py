@@ -18,10 +18,10 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-COOKIE_NAME = 'clearmoney_session'
+COOKIE_NAME = "clearmoney_session"
 
 # Paths that don't require authentication
-PUBLIC_PATHS = ['/healthz', '/static/', '/login', '/register', '/auth/verify']
+PUBLIC_PATHS = ["/healthz", "/static/", "/login", "/register", "/auth/verify"]
 
 
 class GoSessionAuthMiddleware:
@@ -42,10 +42,10 @@ class GoSessionAuthMiddleware:
             return self.get_response(request)
 
         # Read session cookie
-        token = request.COOKIES.get(COOKIE_NAME, '')
+        token = request.COOKIES.get(COOKIE_NAME, "")
         if not token:
-            logger.warning('auth: no session cookie, path=%s', path)
-            return HttpResponseRedirect('/login')
+            logger.warning("auth: no session cookie, path=%s", path)
+            return HttpResponseRedirect("/login")
 
         # Validate session against database
         with connection.cursor() as cursor:
@@ -61,8 +61,8 @@ class GoSessionAuthMiddleware:
             row = cursor.fetchone()
 
         if not row:
-            logger.warning('auth: invalid session, path=%s', path)
-            response = HttpResponseRedirect('/login')
+            logger.warning("auth: invalid session, path=%s", path)
+            response = HttpResponseRedirect("/login")
             response.delete_cookie(COOKIE_NAME)
             return response
 

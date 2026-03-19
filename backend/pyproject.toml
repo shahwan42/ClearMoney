@@ -1,4 +1,38 @@
+[project]
+name = "clearmoney-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "Django==6.0.3",
+    "psycopg[binary]==3.2.6",
+    "gunicorn==23.0.0",
+    "django-htmx==1.27.0",
+    "dj-database-url==3.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.4",
+    "pytest-django==4.9.0",
+    "pytest-mock==3.14.0",
+    "pytest-xdist==3.6.1",
+    "pytest-cov==6.0.0",
+    "factory-boy==3.3.1",
+    "ruff",
+]
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "clearmoney.settings"
 python_files = ["tests.py", "test_*.py", "*_test.py"]
 addopts = "--reuse-db -p no:warnings"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.ruff.lint.isort]
+known-first-party = ["clearmoney", "core", "settings_app", "reports"]

@@ -1,10 +1,13 @@
 FROM python:3.12-slim
 
+# Install uv from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install deps first (cache layer), then copy source
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 # Copy application code
 COPY . .
@@ -14,4 +17,6 @@ COPY . .
 
 EXPOSE 8000
 
+# Use the venv created by uv directly (no uv run overhead in production)
+ENV PATH="/app/.venv/bin:$PATH"
 CMD ["gunicorn", "clearmoney.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--access-logfile", "-"]

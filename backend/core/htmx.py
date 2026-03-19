@@ -36,7 +36,7 @@ def htmx_redirect(request, url):
     return HttpResponseRedirect(url)
 
 
-def render_htmx_result(result_type, message, detail=''):
+def render_htmx_result(result_type, message, detail=""):
     """
     Render an inline result partial (success/error/info toast).
 
@@ -53,17 +53,17 @@ def render_htmx_result(result_type, message, detail=''):
     """
     # Color schemes matching Go's htmx-result partial
     colors = {
-        'success': ('bg-green-50 border-green-200', 'text-green-800'),
-        'error': ('bg-red-50 border-red-200', 'text-red-800'),
-        'info': ('bg-blue-50 border-blue-200', 'text-blue-800'),
+        "success": ("bg-green-50 border-green-200", "text-green-800"),
+        "error": ("bg-red-50 border-red-200", "text-red-800"),
+        "info": ("bg-blue-50 border-blue-200", "text-blue-800"),
     }
-    bg, text = colors.get(result_type, colors['info'])
+    bg, text = colors.get(result_type, colors["info"])
 
-    detail_html = f'<p class="text-xs {text} mt-1">{detail}</p>' if detail else ''
+    detail_html = f'<p class="text-xs {text} mt-1">{detail}</p>' if detail else ""
     html = (
         f'<div class="rounded-lg border p-3 {bg}">'
         f'<p class="text-sm font-medium {text}">{message}</p>'
-        f'{detail_html}'
-        f'</div>'
+        f"{detail_html}"
+        f"</div>"
     )
     return HttpResponse(html)

@@ -15,15 +15,15 @@ import factory
 import pytest
 from django.utils import timezone
 
-from core.models import Session, User
 from core.middleware import COOKIE_NAME
-
+from core.models import Session, User
 
 # ---------------------------------------------------------------------------
 # Database setup — skip test DB creation
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def django_db_setup():
     """Use the real database — Go owns the schema, Django never creates it.
 
@@ -39,6 +39,7 @@ def django_db_setup():
 # Factories — like Laravel's UserFactory::create()
 # ---------------------------------------------------------------------------
 
+
 class UserFactory(factory.django.DjangoModelFactory):
     """Factory for the users table (Go schema, managed=False in Django)."""
 
@@ -46,9 +47,7 @@ class UserFactory(factory.django.DjangoModelFactory):
         model = User
 
     id = factory.LazyFunction(uuid.uuid4)
-    email = factory.LazyFunction(
-        lambda: f'pytest-{uuid.uuid4().hex[:8]}@example.com'
-    )
+    email = factory.LazyFunction(lambda: f"pytest-{uuid.uuid4().hex[:8]}@example.com")
 
 
 class SessionFactory(factory.django.DjangoModelFactory):
@@ -60,14 +59,13 @@ class SessionFactory(factory.django.DjangoModelFactory):
     id = factory.LazyFunction(uuid.uuid4)
     user = factory.SubFactory(UserFactory)
     token = factory.LazyFunction(lambda: str(uuid.uuid4()))
-    expires_at = factory.LazyFunction(
-        lambda: timezone.now() + timedelta(days=30)
-    )
+    expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(days=30))
 
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def auth_user(db):
@@ -92,4 +90,4 @@ def auth_cookie(auth_user):
         response = client.get('/settings', **auth_cookie)
     """
     _, _, token = auth_user
-    return {'HTTP_COOKIE': f'{COOKIE_NAME}={token}'}
+    return {"HTTP_COOKIE": f"{COOKIE_NAME}={token}"}

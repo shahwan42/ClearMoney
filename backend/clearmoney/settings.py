@@ -27,24 +27,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # --- Security ---
 
 SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-dev-only-change-in-production',
+    "DJANGO_SECRET_KEY",
+    "django-insecure-dev-only-change-in-production",
 )
-DEBUG = os.environ.get('ENV', 'development') != 'production'
+DEBUG = os.environ.get("ENV", "development") != "production"
 ALLOWED_HOSTS = os.environ.get(
-    'DJANGO_ALLOWED_HOSTS', 'localhost,0.0.0.0,127.0.0.1'
-).split(',')
+    "DJANGO_ALLOWED_HOSTS", "localhost,0.0.0.0,127.0.0.1"
+).split(",")
 
 # --- Apps ---
 # Minimal set — no admin/auth/sessions (Go owns those).
 # django-htmx provides HtmxMiddleware and HTMX response classes.
 
 INSTALLED_APPS = [
-    'django.contrib.staticfiles',
-    'django_htmx',          # HTMX integration: request.htmx, HttpResponseClientRedirect
-    'core',                  # Shared: models, auth middleware, template tags
-    'settings_app',          # Migrated settings feature
-    'reports',               # Migrated reports feature
+    "django.contrib.staticfiles",
+    "django_htmx",  # HTMX integration: request.htmx, HttpResponseClientRedirect
+    "core",  # Shared: models, auth middleware, template tags
+    "settings_app",  # Migrated settings feature
+    "reports",  # Migrated reports feature
 ]
 
 # --- Middleware ---
@@ -52,13 +52,13 @@ INSTALLED_APPS = [
 # django-htmx's HtmxMiddleware adds request.htmx attribute.
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django_htmx.middleware.HtmxMiddleware',    # Adds request.htmx (bool + helpers)
-    'core.middleware.GoSessionAuthMiddleware',   # Reads Go's session cookie
+    "django.middleware.security.SecurityMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
+    "core.middleware.GoSessionAuthMiddleware",  # Reads Go's session cookie
 ]
 
-ROOT_URLCONF = 'clearmoney.urls'
+ROOT_URLCONF = "clearmoney.urls"
 
 # --- Templates ---
 # DIRS includes backend/templates/ for shared base.html and components.
@@ -66,20 +66,20 @@ ROOT_URLCONF = 'clearmoney.urls'
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'core.context_processors.active_tab',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "core.context_processors.active_tab",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'clearmoney.wsgi.application'
+WSGI_APPLICATION = "clearmoney.wsgi.application"
 
 # --- Database ---
 # Uses dj-database-url to parse DATABASE_URL (same env var the Go app uses).
@@ -87,13 +87,13 @@ WSGI_APPLICATION = 'clearmoney.wsgi.application'
 # CONN_MAX_AGE=600 reuses connections for 10 minutes (like Go's sql.DB pool).
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default='postgres://clearmoney:clearmoney@localhost:5433/clearmoney',
+    "default": dj_database_url.config(
+        default="postgres://clearmoney:clearmoney@localhost:5433/clearmoney",
         conn_max_age=600,
         # TEST NAME matches the main DB because Go owns the schema.
         # Django tests run against the real DB with --keepdb flag.
         # Without this, Django creates an empty test_clearmoney with no tables.
-        test_options={'NAME': os.environ.get('TEST_DB_NAME', 'clearmoney')},
+        test_options={"NAME": os.environ.get("TEST_DB_NAME", "clearmoney")},
     ),
 }
 
@@ -101,35 +101,35 @@ DATABASES = {
 # Setting migration modules to None prevents makemigrations/migrate from touching
 # these apps' tables.
 MIGRATION_MODULES = {
-    'core': None,
-    'settings_app': None,
-    'reports': None,
+    "core": None,
+    "settings_app": None,
+    "reports": None,
 }
 
 # --- Timezone ---
 # Match Go app's APP_TIMEZONE for consistent date handling across both backends.
 
-TIME_ZONE = os.environ.get('APP_TIMEZONE', 'Africa/Cairo')
+TIME_ZONE = os.environ.get("APP_TIMEZONE", "Africa/Cairo")
 USE_I18N = True
 USE_TZ = True
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
 # --- Static files ---
 # Static files are served by the Go app's http.FileServer, not Django.
 # Django templates reference /static/... as absolute URLs.
 
-STATIC_URL = '/static/'
+STATIC_URL = "/static/"
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --- CSRF ---
 # Exempt for now since Go handles CSRF for shared forms.
 # Django-served pages use standard forms that POST to Go (e.g., logout).
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8080',
-    'http://localhost:8000',
-    'https://clearmoney.shahwan.me',
+    "http://localhost:8080",
+    "http://localhost:8000",
+    "https://clearmoney.shahwan.me",
 ]
 
 # --- Logging ---
@@ -137,22 +137,22 @@ CSRF_TRUSTED_ORIGINS = [
 # LOG_LEVEL env var controls verbosity (default: INFO).
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'structured': {
-            'format': '{asctime} {levelname} {name} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "structured": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'structured',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "structured",
         },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': os.environ.get('LOG_LEVEL', 'INFO').upper(),
+    "root": {
+        "handlers": ["console"],
+        "level": os.environ.get("LOG_LEVEL", "INFO").upper(),
     },
 }

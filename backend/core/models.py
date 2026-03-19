@@ -23,7 +23,7 @@ class User(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'users'
+        db_table = "users"
 
     def __str__(self):
         return self.email
@@ -33,14 +33,14 @@ class Session(models.Model):
     """Maps to the 'sessions' table created by Go migration 000027."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column='user_id')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     token = models.CharField(max_length=255)
     expires_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         managed = False
-        db_table = 'sessions'
+        db_table = "sessions"
 
 
 class Category(models.Model):
@@ -54,7 +54,7 @@ class Category(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'categories'
+        db_table = "categories"
 
     def __str__(self):
         return self.name
@@ -73,7 +73,7 @@ class Account(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'accounts'
+        db_table = "accounts"
 
     def __str__(self):
         return self.name
@@ -95,4 +95,4 @@ class Transaction(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'transactions'
+        db_table = "transactions"
