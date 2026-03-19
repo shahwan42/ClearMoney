@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "exchange_rates",  # Migrated exchange rate history
     "push",  # Migrated push notification API
     "categories",  # Category JSON API (port of Go's CategoryHandler)
+    "jobs",  # Background jobs: management commands (port of Go's internal/jobs/)
 ]
 
 # --- Middleware ---
@@ -130,6 +131,7 @@ MIGRATION_MODULES = {
     "investments": None,
     "installments": None,
     "categories": None,
+    "jobs": None,
 }
 
 # --- Timezone ---

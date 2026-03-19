@@ -39,6 +39,31 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Django background jobs (cron) — runs startup jobs then periodic tasks hourly.
+  # Like Laravel's scheduler (`php artisan schedule:run`) or Celery beat.
+  django-cron:
+    build:
+      context: ./backend
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+      django:
+        condition: service_started
+    restart: unless-stopped
+    command: >
+      sh -c "
+        python manage.py run_startup_jobs &&
+        while true; do
+          sleep 3600;
+          python manage.py refresh_views;
+          python manage.py take_snapshots;
+          python manage.py cleanup_sessions;
+        done
+      "
+
   # PostgreSQL 16 database.
   # Like Laravel's mysql/postgres service in Sail, or Django's database container.
   db:

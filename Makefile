@@ -9,7 +9,7 @@
 # .PHONY tells Make these aren't real files — they're just command names.
 # Without this, if a file named "test" existed, `make test` would do nothing.
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-.PHONY: run build test test-integration test-e2e test-e2e-migration lint clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs django-run django-shell django-test django-inspectdb
+.PHONY: run build test test-integration test-e2e test-e2e-migration lint clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs django-run django-shell django-test django-inspectdb django-reconcile django-reconcile-fix django-snapshots django-startup-jobs
 
 # Start the development server. `go run` compiles and runs in one step.
 # Like: `php artisan serve` or `python manage.py runserver`
@@ -136,3 +136,18 @@ django-inspectdb:
 django-lint:
 	cd backend && uv run ruff check .
 	cd backend && uv run ruff format --check .
+
+# --- Django background jobs ---
+# These commands mirror the Go CLI tools (reconcile, seed) but run via Django management commands.
+
+django-reconcile:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run manage.py reconcile_balances
+
+django-reconcile-fix:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run manage.py reconcile_balances --fix
+
+django-snapshots:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run manage.py take_snapshots
+
+django-startup-jobs:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run manage.py run_startup_jobs
