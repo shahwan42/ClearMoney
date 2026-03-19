@@ -1133,31 +1133,9 @@ def _parse_jsonb(value: Any) -> dict[str, Any] | None:
 def _compute_due_date(statement_day: int, due_day: int, today: date) -> date:
     """Compute credit card due date from billing cycle metadata.
 
-    Port of Go's GetBillingCycleInfo() — simplified to just return the due date.
+    Delegates to core.billing.compute_due_date — kept as a thin wrapper
+    to avoid touching all call sites.
     """
-    year = today.year
-    month = today.month
+    from core.billing import compute_due_date
 
-    if today.day <= statement_day:
-        # Before statement date — period ends this month
-        period_end_month = month
-        period_end_year = year
-    else:
-        # After statement date — period ends next month
-        period_end_month = month + 1
-        period_end_year = year
-        if period_end_month > 12:
-            period_end_month = 1
-            period_end_year += 1
-
-    if due_day > statement_day:
-        # Due date same month as period end
-        return date(period_end_year, period_end_month, due_day)
-    else:
-        # Due date next month after period end
-        due_month = period_end_month + 1
-        due_year = period_end_year
-        if due_month > 12:
-            due_month = 1
-            due_year += 1
-        return date(due_year, due_month, due_day)
+    return compute_due_date(statement_day, due_day, today)

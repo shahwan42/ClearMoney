@@ -18,6 +18,12 @@ clearmoney.shahwan.me {
 	handle /reports {
 		reverse_proxy django:8000
 	}
+	handle /accounts* {
+		reverse_proxy django:8000
+	}
+	handle /institutions/* {
+		reverse_proxy django:8000
+	}
 
 	# Everything else → Go (port 8080)
 	handle {

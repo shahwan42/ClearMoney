@@ -232,7 +232,65 @@ test.describe('Django Migration - Cross-App Integration', () => {
   });
 
   // ──────────────────────────────────────────────────
-  // Group 4: Cross-App Navigation
+  // Group 4: Accounts & Institutions (Phase 3)
+  // ──────────────────────────────────────────────────
+
+  test.describe('Accounts & Institutions', () => {
+    test('Go session authenticates on Django /accounts', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts`);
+      await expect(page.locator('text=Accounts')).toBeVisible();
+    });
+
+    test('Go-created institutions appear in Django accounts list', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts`);
+      await expect(page.locator('text=Test Bank')).toBeVisible();
+    });
+
+    test('Go-created accounts appear under their institutions', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts`);
+      await expect(page.locator('text=Current')).toBeVisible();
+    });
+
+    test('Account detail page shows balance and transactions', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts/${accountId}`);
+      await expect(page.locator('text=Current Balance')).toBeVisible();
+      await expect(page.locator('text=Transaction History')).toBeVisible();
+    });
+
+    test('Account detail shows institution name', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts/${accountId}`);
+      await expect(page.locator('text=Test Bank')).toBeVisible();
+    });
+
+    test('Dormant toggle button is visible on account detail', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts/${accountId}`);
+      await expect(page.locator('text=Dormant Account')).toBeVisible();
+    });
+
+    test('Health rules form is visible on account detail', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts/${accountId}`);
+      await expect(page.locator('text=Health Rules')).toBeVisible();
+      await expect(page.locator('input[name="min_balance"]')).toBeVisible();
+    });
+
+    test('Delete Account button is visible on account detail', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/accounts/${accountId}`);
+      await expect(page.locator('text=Delete Account')).toBeVisible();
+    });
+
+    test('Non-credit account returns 400 for statement page', async ({ page }) => {
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/accounts/${accountId}/statement`);
+      expect(resp.status()).toBe(400);
+    });
+
+    test('Nonexistent account returns 404', async ({ page }) => {
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/accounts/00000000-0000-0000-0000-000000000000`);
+      expect(resp.status()).toBe(404);
+    });
+  });
+
+  // ──────────────────────────────────────────────────
+  // Group 5: Cross-App Navigation
   // ──────────────────────────────────────────────────
 
   test.describe('Cross-App Navigation', () => {

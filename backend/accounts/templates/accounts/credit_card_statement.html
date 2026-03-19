@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load money %}
+{% block title %}Statement - {{ data.statement.account.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-6 py-4">
+
+    <!-- Back link -->
+    <a href="/accounts/{{ data.statement.account.id }}" class="inline-flex items-center text-sm text-teal-600 hover:text-teal-700">
+        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back to {{ data.statement.account.name }}
+    </a>
+
+    <!-- Statement Header -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h1 class="text-lg font-bold text-slate-900 mb-1">Credit Card Statement</h1>
+        <p class="text-sm text-gray-500">
+            {{ data.statement.billing_cycle.period_start|format_date_short }} – {{ data.statement.billing_cycle.period_end|format_date }}
+        </p>
+
+        <!-- Balance Summary -->
+        <div class="mt-4 grid grid-cols-2 gap-3">
+            <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs text-gray-500">Opening Balance</p>
+                <p class="text-sm font-bold text-slate-800">{{ data.statement.opening_balance|format_egp }}</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3">
+                <p class="text-xs text-gray-500">Closing Balance</p>
+                <p class="text-sm font-bold {% if data.statement.closing_balance < 0 %}text-red-600{% else %}text-slate-800{% endif %}">{{ data.statement.closing_balance|format_egp }}</p>
+            </div>
+            <div class="bg-red-50 rounded-lg p-3">
+                <p class="text-xs text-red-500">Total Spending</p>
+                <p class="text-sm font-bold text-red-600">{{ data.statement.total_spending|format_egp }}</p>
+            </div>
+            <div class="bg-emerald-50 rounded-lg p-3">
+                <p class="text-xs text-emerald-500">Total Payments</p>
+                <p class="text-sm font-bold text-emerald-600">{{ data.statement.total_payments|format_egp }}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Utilization Donut -->
+    {% if data.utilization > 0 %}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Credit Utilization</h2>
+        <div class="flex items-center gap-4">
+            <div class="chart-donut-wrap">
+                <div class="chart-donut" style="background: {% conic_gradient data.util_segments %}">
+                    <div class="chart-donut-hole">
+                        <span class="chart-donut-value">{{ data.utilization|floatformat:0 }}%</span>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <p class="text-2xl font-bold {% if data.utilization > 80 %}text-red-600{% elif data.utilization > 50 %}text-amber-600{% else %}text-emerald-600{% endif %}">
+                    {{ data.utilization|floatformat:0 }}%
+                </p>
+                <p class="text-xs text-gray-500">of credit limit used</p>
+                {% if data.statement.account.credit_limit %}
+                <p class="text-xs text-gray-400 mt-1">
+                    Limit: {{ data.statement.account.credit_limit|deref_float|format_egp }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Interest-Free Period -->
+    {% if data.statement.interest_free_days > 0 %}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Interest-Free Period</h2>
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-slate-700">{{ data.statement.interest_free_days }} days from statement date</p>
+                {% if data.statement.interest_free_remain > 0 %}
+                <p class="text-lg font-bold {% if data.statement.interest_free_urgent %}text-red-600{% else %}text-emerald-600{% endif %} mt-1">
+                    {{ data.statement.interest_free_remain }} days remaining
+                </p>
+                {% else %}
+                <p class="text-lg font-bold text-red-600 mt-1">Expired</p>
+                {% endif %}
+            </div>
+            {% if data.statement.interest_free_remain > 0 %}
+            <div class="w-12 h-12 rounded-full flex items-center justify-center {% if data.statement.interest_free_urgent %}bg-red-100 text-red-600{% else %}bg-emerald-100 text-emerald-600{% endif %}">
+                <span class="text-lg font-bold">{{ data.statement.interest_free_remain }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Payment Guidance -->
+    {% if data.statement.closing_balance < 0 %}
+    <section class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <p class="text-sm font-medium text-blue-800">
+            Pay {{ data.statement.closing_balance|neg|format_egp }} by {{ data.statement.billing_cycle.due_date|format_date_short }} to avoid interest charges.
+        </p>
+        {% if data.statement.billing_cycle.days_until_due > 0 %}
+        <p class="text-xs text-blue-600 mt-1">{{ data.statement.billing_cycle.days_until_due }} days until due date</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Statement Transactions -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Transactions</h2>
+        {% if data.statement.transactions %}
+        <div class="space-y-2">
+            {% for tx in data.statement.transactions %}
+            <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div>
+                    <p class="text-sm text-slate-700">
+                        {% if tx.note %}{{ tx.note|deref }}{% else %}{{ tx.type }}{% endif %}
+                    </p>
+                    <p class="text-xs text-gray-400">{{ tx.date|format_date_short }}</p>
+                </div>
+                <span class="text-sm font-semibold {% if tx.balance_delta < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">
+                    {% if tx.balance_delta > 0 %}+{% endif %}{{ tx.balance_delta|format_egp }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 text-center py-4">No transactions in this period.</p>
+        {% endif %}
+    </section>
+
+    <!-- Payment History -->
+    {% if data.statement.payment_history %}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Payment History</h2>
+        <div class="space-y-2">
+            {% for payment in data.statement.payment_history %}
+            <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div>
+                    <p class="text-sm text-slate-700">
+                        {% if payment.note %}{{ payment.note|deref }}{% else %}Payment{% endif %}
+                    </p>
+                    <p class="text-xs text-gray-400">{{ payment.date|format_date_short }}</p>
+                </div>
+                <span class="text-sm font-semibold text-emerald-600">+{{ payment.amount|format_egp }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+</div>
+{% endblock %}

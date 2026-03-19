@@ -14,6 +14,8 @@ def active_tab(request: HttpRequest) -> dict[str, str]:
         "/settings": "more",
         "/export": "more",
         "/reports": "reports",
+        "/accounts": "accounts",
+        "/institutions": "accounts",
     }
     # Root path is the dashboard (home tab)
     if request.path == "/":

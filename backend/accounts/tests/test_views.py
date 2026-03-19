@@ -1,0 +1,372 @@
+"""
+Accounts view tests — HTTP-level tests for all /accounts/* and /institutions/* routes.
+
+Follows the dashboard test pattern: fixture creates data via raw SQL
+(needed for PostgreSQL enum columns), tests hit endpoints via Django test client.
+"""
+
+import uuid
+from datetime import date
+
+import pytest
+from django.db import connection
+from django.test import Client
+
+from conftest import SessionFactory, UserFactory
+from core.middleware import COOKIE_NAME
+from core.models import Session, User
+
+
+@pytest.fixture
+def accounts_data(db):
+    """User + session + institution + 2 accounts (savings + CC) + transaction.
+
+    Creates minimal data for accounts views. Yields dict with IDs.
+    """
+    user = UserFactory()
+    session = SessionFactory(user=user)
+    user_id = str(user.id)
+    inst_id = str(uuid.uuid4())
+    savings_id = str(uuid.uuid4())
+    cc_id = str(uuid.uuid4())
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
+            [inst_id, user_id, "Test Bank"],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance)"
+            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+            [savings_id, user_id, inst_id, "Main Savings", 15000, 15000],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance, credit_limit, metadata)"
+            " VALUES (%s, %s, %s, %s, 'credit_card'::account_type, 'EGP'::currency_type, %s, %s, %s, %s::jsonb)",
+            [cc_id, user_id, inst_id, "Test CC", -5000, 0, 50000, '{"statement_day": 15, "due_day": 5}'],
+        )
+        # One transaction for the savings account
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
+            " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, 'Test tx', -500)",
+            [str(uuid.uuid4()), user_id, savings_id, date(2026, 3, 15)],
+        )
+
+    yield {
+        "user_id": user_id,
+        "session_token": session.token,
+        "institution_id": inst_id,
+        "savings_id": savings_id,
+        "cc_id": cc_id,
+    }
+
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
+    Session.objects.filter(user=user).delete()
+    User.objects.filter(id=user.id).delete()
+
+
+@pytest.fixture
+def empty_user(db):
+    """User + session with no data (for empty state tests)."""
+    user = UserFactory()
+    session = SessionFactory(user=user)
+
+    yield {"user_id": str(user.id), "session_token": session.token}
+
+    Session.objects.filter(user=user).delete()
+    User.objects.filter(id=user.id).delete()
+
+
+def _auth_client(client: Client, token: str) -> Client:
+    """Set session cookie on client."""
+    client.cookies[COOKIE_NAME] = token
+    return client
+
+
+# ---------------------------------------------------------------------------
+# Accounts list page
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAccountsList:
+    def test_200(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get("/accounts")
+        assert response.status_code == 200
+        assert b"Accounts" in response.content
+
+    def test_shows_institution_and_accounts(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get("/accounts")
+        assert b"Test Bank" in response.content
+        assert b"Main Savings" in response.content
+        assert b"Test CC" in response.content
+
+    def test_empty_state(self, client, empty_user):
+        c = _auth_client(client, empty_user["session_token"])
+        response = c.get("/accounts")
+        assert response.status_code == 200
+        assert b"No institutions yet" in response.content
+
+    def test_redirects_without_auth(self, client):
+        response = client.get("/accounts")
+        assert response.status_code == 302
+        assert "/login" in response.url
+
+
+# ---------------------------------------------------------------------------
+# Account detail page
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAccountDetail:
+    def test_200(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}")
+        assert response.status_code == 200
+        assert b"Main Savings" in response.content
+
+    def test_shows_balance(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}")
+        assert b"15,000" in response.content
+
+    def test_shows_transactions(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}")
+        assert b"Test tx" in response.content
+
+    def test_404_nonexistent(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{uuid.uuid4()}")
+        assert response.status_code == 404
+
+    def test_cc_shows_utilization(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['cc_id']}")
+        assert response.status_code == 200
+        assert b"Credit Utilization" in response.content
+
+
+# ---------------------------------------------------------------------------
+# HTMX partials
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAccountFormPartial:
+    def test_200(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/form?institution_id={accounts_data['institution_id']}")
+        assert response.status_code == 200
+        assert b"Add Account" in response.content
+
+    def test_missing_institution_id(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get("/accounts/form")
+        assert response.status_code == 400
+
+
+@pytest.mark.django_db
+class TestInstitutionFormPartial:
+    def test_200(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get("/accounts/institution-form")
+        assert response.status_code == 200
+        assert b"Add Institution" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Institution CRUD
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInstitutionAdd:
+    def test_creates_institution(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post("/institutions/add", {"name": "New Bank", "type": "bank"})
+        assert response.status_code == 200
+        assert b"Institution added!" in response.content
+        # Verify OOB swap contains the new institution
+        assert b"New Bank" in response.content
+
+    def test_rejects_empty_name(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post("/institutions/add", {"name": "", "type": "bank"})
+        assert response.status_code == 422
+
+
+@pytest.mark.django_db
+class TestInstitutionUpdate:
+    def test_updates(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.put(
+            f"/institutions/{accounts_data['institution_id']}/update",
+            "name=Renamed+Bank&type=bank",
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert response.status_code == 200
+        # Response contains the close script + OOB card swap
+        assert b"closeEditSheet" in response.content
+
+
+@pytest.mark.django_db
+class TestInstitutionDelete:
+    def test_cascades(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.delete(f"/institutions/{accounts_data['institution_id']}/delete")
+        assert response.status_code == 200
+        assert b"Institution deleted!" in response.content
+
+        # Verify accounts were cascade-deleted
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) FROM accounts WHERE institution_id = %s",
+                [accounts_data["institution_id"]],
+            )
+            assert cursor.fetchone()[0] == 0
+
+
+@pytest.mark.django_db
+class TestInstitutionDeleteConfirm:
+    def test_200(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/institutions/{accounts_data['institution_id']}/delete-confirm")
+        assert response.status_code == 200
+        assert b"Delete Institution" in response.content
+        assert b"Test Bank" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Account CRUD
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAccountAdd:
+    def test_creates_account(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post("/accounts/add", {
+            "institution_id": accounts_data["institution_id"],
+            "name": "New Savings",
+            "type": "savings",
+            "currency": "EGP",
+            "initial_balance": "5000",
+        })
+        assert response.status_code == 200
+        # Verify OOB swap contains the new account
+        assert b"New Savings" in response.content
+
+    def test_cc_requires_credit_limit(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post("/accounts/add", {
+            "institution_id": accounts_data["institution_id"],
+            "name": "My CC",
+            "type": "credit_card",
+            "currency": "EGP",
+        })
+        assert response.status_code == 422
+        assert b"credit_limit is required" in response.content
+
+
+@pytest.mark.django_db
+class TestAccountUpdate:
+    def test_updates(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post(
+            f"/accounts/{accounts_data['savings_id']}/edit",
+            {"name": "Renamed Savings", "type": "savings", "currency": "EGP"},
+        )
+        # Without HX-Request header, htmx_redirect returns 302
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db
+class TestAccountDelete:
+    def test_success(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.delete(f"/accounts/{accounts_data['savings_id']}/delete")
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db
+class TestToggleDormant:
+    def test_toggles(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post(f"/accounts/{accounts_data['savings_id']}/dormant")
+        assert response.status_code == 302
+
+        # Verify the flag was toggled
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT is_dormant FROM accounts WHERE id = %s",
+                [accounts_data["savings_id"]],
+            )
+            assert cursor.fetchone()[0] is True
+
+
+@pytest.mark.django_db
+class TestHealthUpdate:
+    def test_saves_config(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post(
+            f"/accounts/{accounts_data['savings_id']}/health",
+            {"min_balance": "5000", "min_monthly_deposit": "1000"},
+        )
+        assert response.status_code == 302
+
+        # Verify the config was saved
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT health_config FROM accounts WHERE id = %s",
+                [accounts_data["savings_id"]],
+            )
+            config = cursor.fetchone()[0]
+            assert "5000" in str(config)
+
+
+@pytest.mark.django_db
+class TestReorder:
+    def test_reorder_accounts(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post("/accounts/reorder", {
+            "id[]": [accounts_data["cc_id"], accounts_data["savings_id"]],
+        })
+        assert response.status_code == 302
+
+    def test_reorder_institutions(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.post("/institutions/reorder", {
+            "id[]": [accounts_data["institution_id"]],
+        })
+        assert response.status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# Credit card statement
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestCreditCardStatement:
+    def test_200(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['cc_id']}/statement")
+        assert response.status_code == 200
+        assert b"Credit Card Statement" in response.content
+
+    def test_non_credit_returns_400(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}/statement")
+        assert response.status_code == 400
+
+    def test_404_nonexistent(self, client, accounts_data):
+        c = _auth_client(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{uuid.uuid4()}/statement")
+        assert response.status_code == 404

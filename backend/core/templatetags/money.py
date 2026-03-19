@@ -15,7 +15,6 @@ from datetime import date, datetime
 from typing import Any
 
 from django import template
-from django.utils.safestring import mark_safe
 
 register = template.Library()
 

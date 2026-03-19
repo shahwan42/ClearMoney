@@ -1,0 +1,18 @@
+{% comment %}
+Reusable bottom sheet component — overlay + sheet container with drag handle.
+Port of Go's partials/bottom-sheet.html.
+Used with the BottomSheet JS module (static/js/bottom-sheet.js).
+
+Usage:
+  {% include "components/bottom_sheet.html" with name="edit-sheet" %}
+  {% include "components/bottom_sheet.html" with name="create-sheet" z_overlay="z-[80]" z_sheet="z-[90]" max_height="max-h-[50vh]" %}
+{% endcomment %}
+<div id="{{ name }}-overlay" class="fixed inset-0 {{ z_overlay|default:'z-[60]' }} bg-black/40 hidden" onclick="BottomSheet.close('{{ name }}')"></div>
+<div id="{{ name }}-sheet"
+     class="fixed bottom-0 left-0 right-0 {{ z_sheet|default:'z-[70]' }} bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out {{ max_height|default:'max-h-[85vh]' }} overflow-y-auto"
+     data-bottom-sheet="{{ name }}"{% if persist %} data-bottom-sheet-persist{% endif %}>
+    <div id="{{ name }}-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
+        <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+    </div>
+    <div id="{{ name }}-content" class="px-4 pb-6"></div>
+</div>

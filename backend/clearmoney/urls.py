@@ -19,4 +19,5 @@ urlpatterns = [
     path("", include("dashboard.urls")),
     path("", include("settings_app.urls")),
     path("", include("reports.urls")),
+    path("", include("accounts.urls")),
 ]
