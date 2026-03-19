@@ -9,7 +9,9 @@ Provides:
 """
 
 import uuid
+from collections.abc import Generator
 from datetime import timedelta
+from typing import Any
 
 import factory
 import pytest
@@ -24,7 +26,7 @@ from core.models import Session, User
 
 
 @pytest.fixture(scope="session")
-def django_db_setup():
+def django_db_setup() -> None:
     """Use the real database — Go owns the schema, Django never creates it.
 
     Overrides pytest-django's default behaviour of creating/destroying a
@@ -68,7 +70,7 @@ class SessionFactory(factory.django.DjangoModelFactory):
 
 
 @pytest.fixture
-def auth_user(db):
+def auth_user(db: Any) -> Generator[tuple[str, str, str], None, None]:
     """Create a test user and valid session. Yields (user_id, email, token).
 
     Mirrors Go's testutil.SetupAuth(t, db) pattern. Cleans up after the test.
@@ -83,7 +85,7 @@ def auth_user(db):
 
 
 @pytest.fixture
-def auth_cookie(auth_user):
+def auth_cookie(auth_user: tuple[str, str, str]) -> dict[str, str]:
     """Return the HTTP_COOKIE kwarg dict for Django test client calls.
 
     Usage:

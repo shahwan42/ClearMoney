@@ -25,7 +25,7 @@ class User(models.Model):
         managed = False
         db_table = "users"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.email
 
 
@@ -56,7 +56,7 @@ class Category(models.Model):
         managed = False
         db_table = "categories"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -75,7 +75,7 @@ class Account(models.Model):
         managed = False
         db_table = "accounts"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 

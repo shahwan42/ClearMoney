@@ -12,11 +12,11 @@ This module adds ClearMoney-specific helpers that match the Go app's patterns
 Like Go's htmxRedirect(w, r, url) in internal/handler/pages.go.
 """
 
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django_htmx.http import HttpResponseClientRedirect
 
 
-def htmx_redirect(request, url):
+def htmx_redirect(request: HttpRequest, url: str) -> HttpResponse:
     """
     Redirect that works for both HTMX and standard requests.
 
@@ -31,12 +31,12 @@ def htmx_redirect(request, url):
     Returns:
         HttpResponse with appropriate redirect mechanism
     """
-    if request.htmx:
+    if request.htmx:  # type: ignore[attr-defined]
         return HttpResponseClientRedirect(url)
     return HttpResponseRedirect(url)
 
 
-def render_htmx_result(result_type, message, detail=""):
+def render_htmx_result(result_type: str, message: str, detail: str = "") -> HttpResponse:
     """
     Render an inline result partial (success/error/info toast).
 

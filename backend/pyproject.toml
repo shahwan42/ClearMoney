@@ -19,6 +19,8 @@ dev = [
     "pytest-cov==6.0.0",
     "factory-boy==3.3.1",
     "ruff",
+    "mypy>=1.14",
+    "django-stubs[compatible-mypy]>=5.1",
 ]
 
 [tool.pytest.ini_options]
@@ -36,3 +38,22 @@ ignore = ["E501"]  # line length handled by formatter
 
 [tool.ruff.lint.isort]
 known-first-party = ["clearmoney", "core", "settings_app", "reports"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+# Require annotations on all functions
+disallow_untyped_defs = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+# Packages without stubs (factory-boy, psycopg cursors, etc.)
+ignore_missing_imports = true
+
+# Relax rules for test files — pytest fixtures use dynamic types
+[[tool.mypy.overrides]]
+module = ["conftest", "*.tests", "*.tests.*"]
+disallow_untyped_defs = false
+
+[tool.django-stubs]
+django_settings_module = "clearmoney.settings"

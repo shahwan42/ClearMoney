@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        files: ^backend/
+        args: [--config-file=backend/pyproject.toml]
+        additional_dependencies:
+          - django==6.0.3
+          - django-stubs[compatible-mypy]>=5.1
+          - django-htmx==1.27.0
+          - dj-database-url==3.1.0

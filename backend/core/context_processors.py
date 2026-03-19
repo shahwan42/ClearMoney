@@ -5,8 +5,10 @@ Like Laravel's view()->share() or Django's standard context processors.
 These run on every template render and inject common data.
 """
 
+from django.http import HttpRequest
 
-def active_tab(request):
+
+def active_tab(request: HttpRequest) -> dict[str, str]:
     """Determine which bottom nav tab is active based on the URL path."""
     tab_map = {
         "/settings": "more",

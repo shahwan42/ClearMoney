@@ -11,10 +11,14 @@ instead of Django's django_session table.
 """
 
 import logging
+from collections.abc import Callable
+from typing import cast
 
 from django.db import connection
-from django.http import HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.utils import timezone
+
+from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +35,10 @@ class GoSessionAuthMiddleware:
     Redirects to /login for unauthenticated requests to protected paths.
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         path = request.path
 
         # Skip auth for public paths
@@ -66,8 +70,9 @@ class GoSessionAuthMiddleware:
             response.delete_cookie(COOKIE_NAME)
             return response
 
-        # Store user info on request for downstream views
-        request.user_id = str(row[0])
-        request.user_email = row[1]
+        # Cast to AuthenticatedRequest — we've just verified user_id + email from DB
+        auth_request = cast(AuthenticatedRequest, request)
+        auth_request.user_id = str(row[0])
+        auth_request.user_email = row[1]
 
-        return self.get_response(request)
+        return self.get_response(auth_request)

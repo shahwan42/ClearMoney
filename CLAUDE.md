@@ -183,6 +183,13 @@ The backend is being incrementally migrated from Go to Django. Both apps share t
 - **Fixtures**: Use `factory_boy` factories defined in `tests/factories.py` per app — like Laravel's `UserFactory::create()`
 - **Config**: `backend/pyproject.toml` sets `DJANGO_SETTINGS_MODULE` and `--reuse-db` — prefer `pyproject.toml` over `pytest.ini` unless a tool doesn't support it
 
+## General Rules
+
+- **After completing a todo list**, always run the relevant test suites before declaring the task done:
+  - Go changes: `make test` (unit) and `make test-integration` (requires DB)
+  - Django changes: `make django-test` and `uv run mypy .` from `backend/`
+  - Both: run all of the above
+
 ## Coding Conventions
 
 ### Django Style
@@ -190,6 +197,7 @@ The backend is being incrementally migrated from Go to Django. Both apps share t
 - **Prefer `pyproject.toml`** for all Python tool configuration (pytest, coverage, mypy, ruff, etc.) over separate config files (`pytest.ini`, `setup.cfg`, `.coveragerc`) — use a dedicated file only when a tool explicitly requires it.
 - **Always set `db_table`** in every model's `Meta` class. Django's default table name (`appname_modelname`) will clash with Go's existing schema names. Always be explicit: `db_table = 'transactions'` not `settings_app_transaction`.
 - **Write clean, Pythonic code** — use list/dict comprehensions, f-strings, context managers (`with`), and idiomatic patterns. Avoid Java-style loops where a comprehension is cleaner. Follow PEP 8.
+- **Always add type annotations** to all Python code. Every function must have parameter types and a return type. Use `AuthenticatedRequest` (from `core.types`) instead of `HttpRequest` in views that access `request.user_id` / `request.user_email`. Use `list[Any]` for dynamic SQL param lists. Use `# type: ignore[attr-defined]` sparingly for third-party attribute additions (e.g. `request.htmx`). Run `uv run mypy .` from `backend/` to verify — zero errors required.
 - **Use pytest** (via `pytest-django`) as the testing framework, not `manage.py test`. Plugins in use: `pytest-mock` (mocker fixture), `pytest-xdist` (-n auto parallel), `pytest-cov` (coverage reports), `factory_boy` (model factories — like Laravel's `UserFactory::create()`).
 - **Document on every level**: module-level docstring explaining the file's role and Laravel/Django analogy → class-level docstring for non-obvious classes → inline comments only where the logic isn't self-evident. Keep docs/features/ up-to-date when adding views or changing behaviour.
 

@@ -14,10 +14,14 @@ Like Laravel's DB::raw() or Django's connection.cursor() for reporting.
 
 import logging
 from datetime import date
+from typing import Any
 
 from django.db import connection
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
+
+from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +38,7 @@ CHART_PALETTE = [
 ]
 
 
-def reports_page(request):
+def reports_page(request: AuthenticatedRequest) -> HttpResponse:
     """
     Render the monthly reports page with spending breakdown and income vs expenses.
 
@@ -69,7 +73,9 @@ def reports_page(request):
     return render(request, "reports/reports.html", {"data": report})
 
 
-def _get_monthly_report(user_id, year, month, account_id="", currency=""):
+def _get_monthly_report(
+    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
+) -> dict[str, Any]:
     """
     Build the full report data for a given month.
 
@@ -140,7 +146,9 @@ def _get_monthly_report(user_id, year, month, account_id="", currency=""):
     }
 
 
-def _get_spending_by_category(user_id, year, month, account_id="", currency=""):
+def _get_spending_by_category(
+    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
+) -> tuple[list[dict[str, Any]], float]:
     """
     Get expense totals grouped by category for a month.
 
@@ -167,7 +175,7 @@ def _get_spending_by_category(user_id, year, month, account_id="", currency=""):
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.type = 'expense' AND t.date >= %s AND t.date < %s AND t.user_id = %s
     """
-    params = [start_date, end_date, user_id]
+    params: list[Any] = [start_date, end_date, user_id]
 
     if account_id:
         query += " AND t.account_id = %s"
@@ -205,7 +213,9 @@ def _get_spending_by_category(user_id, year, month, account_id="", currency=""):
     return spending, total
 
 
-def _get_month_summary(user_id, year, month, account_id="", currency=""):
+def _get_month_summary(
+    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
+) -> dict[str, Any]:
     """
     Get income and expense totals for a single month.
 
@@ -227,7 +237,7 @@ def _get_month_summary(user_id, year, month, account_id="", currency=""):
         FROM transactions
         WHERE date >= %s AND date < %s AND user_id = %s
     """
-    params = [start_date, end_date, user_id]
+    params: list[Any] = [start_date, end_date, user_id]
 
     if account_id:
         query += " AND account_id = %s"
@@ -254,7 +264,9 @@ def _get_month_summary(user_id, year, month, account_id="", currency=""):
     }
 
 
-def _get_monthly_history(user_id, year, month, account_id="", currency=""):
+def _get_monthly_history(
+    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
+) -> list[dict[str, Any]]:
     """
     Get income/expenses for the last 6 months (for the bar chart).
 
@@ -274,7 +286,9 @@ def _get_monthly_history(user_id, year, month, account_id="", currency=""):
     return history
 
 
-def _build_chart_segments(spending, total):
+def _build_chart_segments(
+    spending: list[dict[str, Any]], total: float
+) -> list[dict[str, Any]]:
     """
     Convert category spending into donut chart segments.
 
@@ -300,7 +314,9 @@ def _build_chart_segments(spending, total):
     return segments
 
 
-def _build_bar_chart(history):
+def _build_bar_chart(
+    history: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Convert monthly history into bar chart groups with normalized heights.
 
