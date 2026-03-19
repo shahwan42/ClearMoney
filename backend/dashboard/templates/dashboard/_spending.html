@@ -1,0 +1,80 @@
+{% load money %}
+{% if data.spending_by_currency %}
+<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">This Month vs Last</h2>
+        {% if data.spending_by_currency|length > 1 %}
+        <select id="spending-currency-select"
+            onchange="switchSpendingTab(this.value)"
+            class="text-sm font-medium border border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 text-teal-700 dark:text-teal-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            {% for cs in data.spending_by_currency %}
+            <option value="{{ cs.currency }}" {% if forloop.first %}selected{% endif %}>{{ cs.currency }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+    </div>
+    {% for cs in data.spending_by_currency %}
+    <div id="spending-panel-{{ cs.currency }}" class="{% if not forloop.first %}hidden{% endif %}">
+        <div class="space-y-2 mb-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">This month</span>
+                    <span class="text-xl font-bold text-slate-900 dark:text-slate-100 ml-2">{{ cs.this_month|format_currency:cs.currency }}</span>
+                </div>
+                {% if cs.change != 0 %}
+                {% include "components/chart_trend.html" with change=cs.change label="" is_good=cs.change_is_good %}
+                {% endif %}
+            </div>
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">Last month</span>
+                    <span class="text-sm font-medium text-gray-500 dark:text-slate-400 ml-2">{{ cs.last_month|format_currency:cs.currency }}</span>
+                </div>
+            </div>
+        </div>
+        {% if cs.top_categories %}
+        <div class="pt-3 border-t border-gray-100 dark:border-slate-700 space-y-2">
+            {% for cat in cs.top_categories %}
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-slate-600 dark:text-slate-300">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-medium text-slate-800 dark:text-slate-200">{{ cat.amount|format_currency:cs.currency }}</span>
+                    {% if cat.change != 0 %}
+                    {% include "components/chart_trend.html" with change=cat.change label="" is_good=cat.change_is_good %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    {# Spending Pace (velocity bar) #}
+    {% if data.spending_velocity.days_total > 0 %}
+    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
+        <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Spending Pace</span>
+            <div class="flex items-center gap-3">
+                <span class="text-xs text-slate-600 dark:text-slate-300">{{ data.spending_velocity.percentage|floatformat:"0" }}% of last month</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500">{{ data.spending_velocity.days_left }}d left</span>
+            </div>
+        </div>
+        <div class="relative w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2">
+            <div class="h-2 rounded-full transition-all {% if data.spending_velocity.status == 'green' %}bg-emerald-500{% elif data.spending_velocity.status == 'amber' %}bg-amber-500{% else %}bg-red-500{% endif %}"
+                 style="width: {% if data.spending_velocity.percentage > 100 %}100{% else %}{{ data.spending_velocity.percentage|floatformat:"0" }}{% endif %}%"></div>
+            <div class="absolute top-0 h-2 border-r-2 border-slate-400 dark:border-slate-300" style="left: {{ data.spending_velocity.day_progress|floatformat:"0" }}%"></div>
+        </div>
+    </div>
+    {% endif %}
+</section>
+<script>
+function switchSpendingTab(currency) {
+    document.querySelectorAll('[id^="spending-panel-"]').forEach(function(p) {
+        p.classList.add('hidden');
+    });
+    var panel = document.getElementById('spending-panel-' + currency);
+    if (panel) panel.classList.remove('hidden');
+}
+</script>
+{% endif %}

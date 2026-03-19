@@ -185,10 +185,11 @@ The backend is being incrementally migrated from Go to Django. Both apps share t
 
 ## General Rules
 
-- **After completing a todo list**, always run the relevant test suites before declaring the task done:
+- **After completing a todo list**, always run the relevant test suites and do a code review before declaring the task done:
   - Go changes: `make test` (unit) and `make test-integration` (requires DB)
   - Django changes: `make django-test` and `uv run mypy .` from `backend/`
   - Both: run all of the above
+  - **Code review**: review all changed files for bugs, edge cases, and test gaps — fix issues before declaring done
 
 ## Coding Conventions
 
@@ -199,7 +200,7 @@ The backend is being incrementally migrated from Go to Django. Both apps share t
 - **Write clean, Pythonic code** — use list/dict comprehensions, f-strings, context managers (`with`), and idiomatic patterns. Avoid Java-style loops where a comprehension is cleaner. Follow PEP 8.
 - **Always add type annotations** to all Python code. Every function must have parameter types and a return type. Use `AuthenticatedRequest` (from `core.types`) instead of `HttpRequest` in views that access `request.user_id` / `request.user_email`. Use `list[Any]` for dynamic SQL param lists. Use `# type: ignore[attr-defined]` sparingly for third-party attribute additions (e.g. `request.htmx`). Run `uv run mypy .` from `backend/` to verify — zero errors required.
 - **Use pytest** (via `pytest-django`) as the testing framework, not `manage.py test`. Plugins in use: `pytest-mock` (mocker fixture), `pytest-xdist` (-n auto parallel), `pytest-cov` (coverage reports), `factory_boy` (model factories — like Laravel's `UserFactory::create()`).
-- **Document on every level**: module-level docstring explaining the file's role and Laravel/Django analogy → class-level docstring for non-obvious classes → inline comments only where the logic isn't self-evident. Keep docs/features/ up-to-date when adding views or changing behaviour.
+- **Document on every level**: module-level docstring explaining the file's role and Laravel/Django analogy → class-level docstring for non-obvious classes → inline comments only where the logic isn't self-evident. Keep docs/features/ up-to-date when adding views or changing behaviour. **Use diagrams** wherever they clarify complex relationships — e.g., request flow through middleware/views/services, data aggregation pipelines, state machines, or template include hierarchies. A small diagram beats a long paragraph. **Format rule**: use plain-text ASCII diagrams inside code (docstrings, comments) and Mermaid diagrams inside markdown files (docs/, feature docs, CLAUDE.md).
 
 ### Go Style
 
@@ -272,7 +273,7 @@ Follow strict TDD — write failing tests FIRST, then implement just enough code
 #### Phase 5: E2E & Docs
 
 1. **E2e tests**: Write Playwright browser tests that exercise the full user flow (e.g., `e2e/foo.spec.ts`) — navigates pages, fills forms, asserts visible results.
-2. **Documentation**: Add or update feature doc in `docs/features/foo.md` — describe what it does, key files, architecture, and tips for newcomers. Update `docs/FEATURES.md` if adding a new feature.
+2. **Documentation**: Add or update feature doc in `docs/features/foo.md` — describe what it does, key files, architecture, and tips for newcomers. Include Mermaid diagrams for request flows, data pipelines, and component relationships. Update `docs/FEATURES.md` if adding a new feature.
 
 #### TDD Rules
 
@@ -289,15 +290,22 @@ Tests are written DURING implementation (TDD phases above). After all phases are
 2. **Run all integration tests** — `make test-integration` to confirm all pass (requires running DB)
 3. **Run all e2e tests** — `make test-e2e` to confirm all pass (Playwright browser tests against a running app)
 4. **Run linter** — `make lint` to confirm no lint errors (requires golangci-lint installed)
-5. **Update documentation** — add or update the relevant feature doc in `docs/features/`. Update `docs/FEATURES.md` if the feature is new.
-6. **Update comments** — ensure package comments, struct docs, and method comments are accurate and include Laravel/Django analogies where helpful for the developer profile. Update any comments that reference line counts, file sizes, or other values that may have changed.
-7. **Verify logging** — check that service events and page views are logged at Info level when exercising the feature
-8. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
-9. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
-10. **Wait for approval** — do not proceed until the user confirms the feature works as expected
-11. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+5. **Plan-implementation review** — re-read the plan (if one exists) and verify that every planned item was implemented. Check for: missed requirements, deviations from the plan that weren't intentional, and planned test cases that weren't written. If deviations were made, note why.
+6. **Code review** — review all changed files as if seeing them for the first time. Check for: logic bugs, missed edge cases, SQL injection risks, Go/Django parity issues (if migrating), missing error handling, incorrect template syntax, dead code, unused imports, and insufficient test coverage. Fix all issues found before proceeding.
+7. **Update documentation** — add or update the relevant feature doc in `docs/features/`. Include Mermaid diagrams for architecture and data flows. Update `docs/FEATURES.md` if the feature is new.
+8. **Update comments** — ensure package comments, struct docs, and method comments are accurate and include Laravel/Django analogies where helpful for the developer profile. Update any comments that reference line counts, file sizes, or other values that may have changed.
+9. **Verify logging** — check that service events and page views are logged at Info level when exercising the feature
+10. **Restart the app** — kill any existing server (`lsof -ti:8080 | xargs kill`), then run `make run` so the user can try the feature live at `http://0.0.0.0:8080`. Templates are embedded at compile time, so a restart is required even for template-only changes.
+11. **Show manual test steps** — list the exact UI steps the user should follow to try the feature
+12. **Wait for approval** — do not proceed until the user confirms the feature works as expected
+13. **Ask to commit** — once approved, ask the user if they'd like to commit the change
+14. **Implementation summary with diagrams** — after all steps above, present a summary of what was built. Use Mermaid diagrams to make the architecture and data flow easy to review at a glance. Include at minimum:
+    - **File tree** — list of created/modified files grouped by purpose
+    - **Architecture diagram** — Mermaid `graph` or `flowchart` showing how new components connect (e.g., `View → Service → DB`, request routing, template includes)
+    - **Data flow diagram** — for features with complex data pipelines (e.g., dashboard aggregation), show the flow from DB queries through service methods to template rendering
+    - Keep diagrams focused and small — one per concern, not one giant diagram. Use tables for flat lists (test counts, file counts, config changes).
 
-All three test levels, the linter, and documentation must pass/be updated before restarting the app for manual testing.
+All three test levels, the linter, code review, and documentation must pass/be updated before restarting the app for manual testing.
 
 ### Wiring a New Service into PageHandler
 

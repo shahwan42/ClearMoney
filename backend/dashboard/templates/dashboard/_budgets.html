@@ -1,0 +1,23 @@
+{% load money %}
+{% if data.budgets %}
+<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Budgets</h2>
+        <a href="/budgets" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
+    </div>
+    <div class="space-y-3">
+        {% for b in data.budgets %}
+        <div>
+            <div class="flex justify-between text-sm mb-1">
+                <span class="text-slate-700 dark:text-slate-300">{% if b.category_icon %}{{ b.category_icon }} {% endif %}{{ b.category_name }}</span>
+                <span class="text-xs text-gray-400 dark:text-slate-500">{{ b.spent|format_egp }} / {{ b.monthly_limit|format_egp }}</span>
+            </div>
+            <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2">
+                <div class="h-2 rounded-full transition-all {% if b.status == 'red' %}bg-red-500{% elif b.status == 'amber' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
+                     style="width: {% if b.percentage > 100 %}100{% else %}{{ b.percentage|floatformat:"0" }}{% endif %}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}

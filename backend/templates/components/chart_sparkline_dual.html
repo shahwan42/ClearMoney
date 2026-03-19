@@ -1,0 +1,22 @@
+{% comment %}
+Dual sparkline — two lines in separate vertical bands on the same SVG.
+Port of Go's chart-sparkline-dual partial.
+Usage: {% include "components/chart_sparkline_dual.html" with values1=egp_list color1="#0d9488" values2=usd_list color2="#3b82f6" width=100 height=36 %}
+{% endcomment %}
+{% load money %}
+{% if values1 %}
+<svg class="chart-sparkline" width="{{ width|default:120 }}" height="{{ height|default:40 }}" viewBox="0 0 100 40" preserveAspectRatio="none">
+    <!-- Primary line (top half) -->
+    <g transform="{% if values2 %}scale(1,0.45){% endif %}">
+        <polygon points="0,40 {% sparkline_points values1 %} 100,40" fill="{{ color1|default:'#0d9488' }}" opacity="0.08" />
+        <polyline points="{% sparkline_points values1 %}" stroke="{{ color1|default:'#0d9488' }}" />
+    </g>
+    {% if values2 %}
+    <!-- Secondary line (bottom half) -->
+    <g transform="translate(0,22) scale(1,0.45)">
+        <polygon points="0,40 {% sparkline_points values2 %} 100,40" fill="{{ color2|default:'#3b82f6' }}" opacity="0.08" />
+        <polyline points="{% sparkline_points values2 %}" stroke="{{ color2|default:'#3b82f6' }}" />
+    </g>
+    {% endif %}
+</svg>
+{% endif %}

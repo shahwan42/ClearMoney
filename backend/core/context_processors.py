@@ -15,6 +15,9 @@ def active_tab(request: HttpRequest) -> dict[str, str]:
         "/export": "more",
         "/reports": "reports",
     }
+    # Root path is the dashboard (home tab)
+    if request.path == "/":
+        return {"active_tab": "home"}
     for prefix, tab in tab_map.items():
         if request.path.startswith(prefix):
             return {"active_tab": tab}

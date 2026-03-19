@@ -1,0 +1,7 @@
+{% load money %}
+{% if data.investment_total > 0 %}
+<a href="/investments" class="block bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3">
+    <p class="text-xs text-indigo-600 dark:text-indigo-400 font-medium uppercase tracking-wide">Investments</p>
+    <p class="text-lg font-bold text-slate-800 dark:text-slate-200 mt-0.5">{{ data.investment_total|format_egp }}</p>
+</a>
+{% endif %}

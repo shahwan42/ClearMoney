@@ -8,6 +8,7 @@ Go still handles all other routes — Caddy decides which app gets each request.
 from django.urls import include, path
 
 urlpatterns = [
+    path("", include("dashboard.urls")),
     path("", include("settings_app.urls")),
     path("", include("reports.urls")),
 ]

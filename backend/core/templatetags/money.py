@@ -252,3 +252,15 @@ def make_dict(**kwargs: Any) -> dict[str, Any]:
            {% include "chart_sparkline.html" with data=chart_data %}
     """
     return kwargs
+
+
+@register.filter
+def get_item(dictionary: object, key: object) -> Any:
+    """Look up a dict key in a template. Like Go's `index .Map .Key`.
+
+    Usage: {{ my_dict|get_item:key_var }}
+    Returns None if key is missing or dictionary is not a dict.
+    """
+    if isinstance(dictionary, dict):
+        return dictionary.get(str(key))
+    return None

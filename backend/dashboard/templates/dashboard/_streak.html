@@ -1,0 +1,6 @@
+{% if data.streak.consecutive_days > 0 %}
+<div class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-1.5 flex items-center justify-between">
+    <p class="text-xs text-amber-600 dark:text-amber-400 font-medium"><span class="uppercase tracking-wide">Streak</span> <span class="font-bold text-slate-800 dark:text-slate-200">{{ data.streak.consecutive_days }} day{{ data.streak.consecutive_days|pluralize }}</span>{% if not data.streak.active_today %} <span class="text-orange-500 dark:text-orange-400">&middot; log today to keep it!</span>{% endif %}</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400">This week &middot; <span class="font-semibold text-slate-700 dark:text-slate-300">{{ data.streak.weekly_count }} entries</span></p>
+</div>
+{% endif %}

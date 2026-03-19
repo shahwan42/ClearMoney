@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "core",  # Shared: models, auth middleware, template tags
     "settings_app",  # Migrated settings feature
     "reports",  # Migrated reports feature
+    "dashboard",  # Migrated dashboard (home page)
 ]
 
 # --- Middleware ---
@@ -106,6 +107,7 @@ MIGRATION_MODULES = {
     "core": None,
     "settings_app": None,
     "reports": None,
+    "dashboard": None,
 }
 
 # --- Timezone ---

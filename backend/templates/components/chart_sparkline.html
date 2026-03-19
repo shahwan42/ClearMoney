@@ -1,0 +1,12 @@
+{% comment %}
+Sparkline — inline SVG polyline chart (mini line graph without axes).
+Port of Go's chart-sparkline partial.
+Usage: {% include "components/chart_sparkline.html" with values=list color="#0d9488" width=120 height=40 %}
+{% endcomment %}
+{% load money %}
+{% if values %}
+<svg class="chart-sparkline" width="{{ width|default:120 }}" height="{{ height|default:40 }}" viewBox="0 0 100 40" preserveAspectRatio="none">
+    <polygon class="sparkline-fill" points="0,40 {% sparkline_points values %} 100,40" fill="{{ color|default:'#0d9488' }}" />
+    <polyline points="{% sparkline_points values %}" stroke="{{ color|default:'#0d9488' }}" />
+</svg>
+{% endif %}

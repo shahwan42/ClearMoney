@@ -1,0 +1,9 @@
+{% comment %}
+Trend Indicator — arrow with percentage change.
+Port of Go's chart-trend partial.
+Usage: {% include "components/chart_trend.html" with change=5.2 label="30d" is_good=True %}
+{% endcomment %}
+{% load money %}
+<span class="chart-trend {% if change == 0 %}chart-trend-neutral{% elif is_good %}chart-trend-good{% else %}chart-trend-bad{% endif %}">
+    {% if change > 0 %}<span class="chart-trend-arrow">&blacktriangle;</span> {{ change|abs_float|floatformat:"1" }}%{% elif change < 0 %}<span class="chart-trend-arrow">&blacktriangledown;</span> {{ change|abs_float|floatformat:"1" }}%{% else %}&mdash; 0.0%{% endif %}{% if label %} <span class="text-xs font-normal opacity-60 ml-1">{{ label }}</span>{% endif %}
+</span>

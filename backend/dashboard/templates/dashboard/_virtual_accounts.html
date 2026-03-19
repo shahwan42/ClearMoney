@@ -1,0 +1,24 @@
+{% load money %}
+{% if data.virtual_accounts %}
+<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
+    <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Virtual Accounts</h2>
+        <a href="/virtual-accounts" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
+    </div>
+    <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+        {% for va in data.virtual_accounts %}
+        <a href="/virtual-accounts/{{ va.id }}" class="flex-shrink-0 w-36 rounded-xl p-3 border" style="border-color: {{ va.color }}20; background: {{ va.color }}08">
+            {% if va.icon %}<span class="text-lg">{{ va.icon }}</span>{% endif %}
+            <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 truncate">{{ va.name }}</p>
+            {% if va.exclude_from_net_worth %}<span class="text-[9px] text-amber-600 dark:text-amber-400">held</span>{% endif %}
+            <p class="text-sm font-bold mt-0.5" style="color: {{ va.color }}">{{ va.current_balance|format_egp }}</p>
+            {% if va.target_amount %}
+            <div class="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-1.5 mt-1.5">
+                <div class="h-1.5 rounded-full" style="width: {% if va.progress_pct > 100 %}100{% else %}{{ va.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ va.color }}"></div>
+            </div>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}

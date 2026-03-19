@@ -1,0 +1,35 @@
+{% load money %}
+{% if transactions %}
+<div class="space-y-2">
+    {% for tx in transactions %}
+    <div class="flex items-center justify-between py-1.5">
+        <div>
+            <p class="text-sm text-slate-700">
+                {% if tx.note %}{{ tx.note }}{% else %}{{ tx.type|format_type }}{% endif %}
+            </p>
+            <p class="text-xs text-gray-400">{{ tx.date|format_date_short }} &middot; {{ tx.account_name }}</p>
+        </div>
+        <div class="text-right">
+            {% if tx.type == "expense" %}
+            <span class="text-sm font-semibold text-red-600">-{{ tx.amount|format_currency:tx.currency }}</span>
+            {% elif tx.type == "income" %}
+            <span class="text-sm font-semibold text-teal-600">+{{ tx.amount|format_currency:tx.currency }}</span>
+            {% else %}
+            <span class="text-sm font-semibold {% if tx.balance_delta < 0 %}text-red-600{% else %}text-blue-600{% endif %}">
+                {% if tx.balance_delta < 0 %}-{% else %}+{% endif %}{{ tx.amount|format_currency:tx.currency }}
+            </span>
+            {% endif %}
+            <div class="text-xs text-gray-400">Balance {{ tx.running_balance|format_currency:tx.currency }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-4">
+    <svg class="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+    </svg>
+    <p class="text-sm text-gray-400">No transactions yet.</p>
+    <p class="text-xs text-gray-400 mt-1">Tap + to record your first transaction.</p>
+</div>
+{% endif %}
