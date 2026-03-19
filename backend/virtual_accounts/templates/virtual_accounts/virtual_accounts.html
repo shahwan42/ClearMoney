@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}ClearMoney - Virtual Accounts{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-800">Virtual Accounts</h2>
+        <a href="/" class="text-sm text-teal-600 hover:text-teal-700">Dashboard</a>
+    </div>
+
+    <!-- Create New Virtual Account Form -->
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">New Virtual Account</h3>
+        <form method="POST" action="{% url 'va-add' %}" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Name</label>
+                <input type="text" name="name" required placeholder="e.g. Emergency Fund"
+                       class="w-full border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Target Amount (optional)</label>
+                    <input type="number" name="target_amount" step="0.01" min="0" placeholder="0.00"
+                           class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Color</label>
+                    <input type="color" name="color" value="#0d9488"
+                           class="w-full h-10 border rounded-lg cursor-pointer">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Linked Account</label>
+                <select name="account_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Select account...</option>
+                    {% for ba in bank_accounts %}
+                    <option value="{{ ba.id }}">{{ ba.name }} ({{ ba.currency }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Icon (emoji)</label>
+                <input type="text" name="icon" placeholder="" maxlength="10"
+                       class="w-full border rounded-lg px-3 py-2 text-sm">
+            </div>
+            <label class="flex items-center gap-2 py-1">
+                <input type="checkbox" name="exclude_from_net_worth" class="rounded border-gray-300">
+                <span class="text-xs text-gray-500">Not my money (exclude from net worth)</span>
+            </label>
+            <button type="submit"
+                    class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
+                Create
+            </button>
+        </form>
+    </section>
+
+    <!-- Over-allocation warnings -->
+    {% for warning in warnings %}
+    <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+        <p class="text-sm font-medium text-amber-700 dark:text-amber-400">{{ warning }}</p>
+    </section>
+    {% endfor %}
+
+    <!-- Active Virtual Accounts -->
+    {% if accounts %}
+    <section class="space-y-3">
+        {% for va in accounts %}
+        <div class="bg-white rounded-2xl shadow-sm p-4">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    {% if va.icon %}<span class="text-lg">{{ va.icon }}</span>{% endif %}
+                    <a href="{% url 'va-detail' va.id %}" class="font-semibold text-slate-800 hover:text-teal-600">{{ va.name }}</a>
+                    {% if va.exclude_from_net_worth %}<span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">held</span>{% endif %}
+                </div>
+                <form method="POST" action="{% url 'va-archive' va.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="text-xs text-gray-400 hover:text-red-500">Archive</button>
+                </form>
+            </div>
+            <div class="flex items-end justify-between">
+                <div>
+                    <p class="text-xl font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_egp }}</p>
+                    {% if va.target_amount %}
+                    <p class="text-xs text-gray-400">of {{ va.target_amount|format_egp }} target</p>
+                    {% endif %}
+                    {% if va.exceeds_account_balance %}
+                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Exceeds account balance ({{ va.account_balance_display|format_egp }})</p>
+                    {% endif %}
+                </div>
+                {% if va.target_amount %}
+                <div class="w-24">
+                    <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div class="h-2 rounded-full" style="width: {% if va.progress_pct > 100 %}100{% else %}{{ va.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ va.color }}"></div>
+                    </div>
+                    <p class="text-xs text-gray-400 text-right mt-0.5">{{ va.progress_pct|floatformat:"0" }}%</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    {% else %}
+    <section class="bg-white rounded-2xl shadow-sm p-5 text-center">
+        <p class="text-gray-400 text-sm">No virtual accounts yet. Create one above!</p>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

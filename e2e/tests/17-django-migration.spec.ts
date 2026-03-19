@@ -496,4 +496,127 @@ test.describe('Django Migration - Cross-App Integration', () => {
       await expect(page.getByRole('heading', { name: /Budgets/i })).toBeVisible();
     });
   });
+
+  // ──────────────────────────────────────────────────
+  // Group 9: Virtual Accounts (Phase 7)
+  // ──────────────────────────────────────────────────
+
+  test.describe('Virtual Accounts', () => {
+    test('Django /virtual-accounts renders empty state', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await expect(page.locator('h2:has-text("Virtual Accounts")')).toBeVisible();
+      await expect(page.getByText('No virtual accounts yet')).toBeVisible();
+    });
+
+    test('Django /virtual-accounts shows bank account dropdown', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await expect(page.locator('select[name="account_id"]')).toBeVisible();
+      await expect(page.locator('input[name="name"]')).toBeVisible();
+    });
+
+    test('create virtual account via Django', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await page.fill('input[name="name"]', 'E2E Emergency Fund');
+      await page.fill('input[name="target_amount"]', '100000');
+      await page.selectOption('select[name="account_id"]', { label: 'Current (EGP)' });
+      await page.click('button:has-text("Create")');
+
+      await page.waitForURL(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await expect(page.locator('main')).toContainText('E2E Emergency Fund');
+    });
+
+    test('virtual account detail page shows info', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await page.click('a:has-text("E2E Emergency Fund")');
+
+      await expect(page.locator('h2')).toContainText('E2E Emergency Fund');
+      await expect(page.locator('h3:has-text("Allocate Funds")')).toBeVisible();
+      await expect(page.locator('h3:has-text("History")')).toBeVisible();
+    });
+
+    test('allocate funds to virtual account', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await page.click('a:has-text("E2E Emergency Fund")');
+
+      await page.selectOption('select[name="type"]', 'contribution');
+      await page.fill('input[name="amount"]', '5000');
+      await page.fill('input[name="note"]', 'E2E initial allocation');
+      await page.click('button:has-text("Allocate")');
+
+      // Should redirect back to detail and show updated balance + history
+      await expect(page.locator('main')).toContainText('5,000');
+      await expect(page.locator('main')).toContainText('E2E initial allocation');
+    });
+
+    test('edit form partial returns HTML', async ({ page }) => {
+      // Bottom sheet JS requires static files served by Go, so test the edit-form
+      // endpoint directly as an API call instead of through the bottom sheet UI.
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      const vaLink = page.locator('a:has-text("E2E Emergency Fund")');
+      const href = await vaLink.getAttribute('href');
+      expect(href).toBeTruthy();
+      const vaId = href!.split('/virtual-accounts/')[1];
+
+      // Verify the edit-form partial endpoint returns form HTML
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/virtual-accounts/${vaId}/edit-form`);
+      expect(resp.status()).toBe(200);
+      const html = await resp.text();
+      expect(html).toContain('Edit Virtual Account');
+      expect(html).toContain('name="name"');
+      expect(html).toContain('E2E Emergency Fund');
+    });
+
+    test('update virtual account via POST', async ({ page }) => {
+      // Test the edit endpoint directly since bottom sheet requires Go's static JS
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      const vaLink = page.locator('a:has-text("E2E Emergency Fund")');
+      const href = await vaLink.getAttribute('href');
+      expect(href).toBeTruthy();
+      const vaId = href!.split('/virtual-accounts/')[1];
+
+      // Navigate to detail page to get a CSRF token
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts/${vaId}`);
+      const csrfToken = await page.locator('input[name="csrfmiddlewaretoken"]').first().inputValue();
+
+      // POST the update
+      const resp = await page.request.post(`${DJANGO_BASE_URL}/virtual-accounts/${vaId}/edit`, {
+        form: {
+          csrfmiddlewaretoken: csrfToken,
+          name: 'E2E Rainy Day Fund',
+          color: '#0d9488',
+          account_id: '',
+        },
+      });
+      // HTMX redirect returns 200 with HX-Redirect header; standard redirect returns 302
+      expect([200, 302]).toContain(resp.status());
+
+      // Verify the update took effect
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts/${vaId}`);
+      await expect(page.locator('h2')).toContainText('E2E Rainy Day Fund');
+    });
+
+    test('archive virtual account', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await expect(page.locator('main')).toContainText('E2E Rainy Day Fund');
+
+      await page.locator('form[action*="/archive"] button').click();
+      await page.waitForURL(`${DJANGO_BASE_URL}/virtual-accounts`);
+
+      // Should show empty state again
+      await expect(page.getByText('No virtual accounts yet')).toBeVisible();
+    });
+
+    test('Go session cookie authenticates on Django /virtual-accounts', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/virtual-accounts`);
+      await expect(page.locator('h2:has-text("Virtual Accounts")')).toBeVisible();
+    });
+
+    test('legacy /virtual-funds redirects to /virtual-accounts', async ({ page }) => {
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/virtual-funds`, {
+        maxRedirects: 0,
+      });
+      expect(resp.status()).toBe(301);
+      expect(resp.headers()['location']).toContain('/virtual-accounts');
+    });
+  });
 });

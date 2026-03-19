@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "transactions",  # Migrated transactions, transfers, exchanges
     "people",  # Migrated people & loans
     "budgets",  # Migrated budgets
+    "virtual_accounts",  # Migrated virtual accounts (envelope budgeting)
 ]
 
 # --- Middleware ---

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}ClearMoney - {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <!-- Virtual Account Header -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+                {% if account.icon %}<span class="text-2xl">{{ account.icon }}</span>{% endif %}
+                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ account.name }}</h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="openEditVirtualAccount()" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium">Edit</button>
+                <a href="{% url 'virtual-accounts' %}" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300">All Virtual Accounts</a>
+            </div>
+        </div>
+        <p class="text-3xl font-bold mt-2" style="color: {{ account.color }}">
+            {{ account.current_balance|format_egp }}
+        </p>
+        {% if account.target_amount %}
+        <div class="mt-3">
+            <div class="flex justify-between text-xs text-gray-400 mb-1">
+                <span>Progress</span>
+                <span>{{ account.progress_pct|floatformat:"0" }}% of {{ account.target_amount|format_egp }}</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-3">
+                <div class="h-3 rounded-full transition-all" style="width: {% if account.progress_pct > 100 %}100{% else %}{{ account.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ account.color }}"></div>
+            </div>
+        </div>
+        {% endif %}
+        {% if account.exclude_from_net_worth %}
+        <div class="mt-3">
+            <span class="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 px-3 py-1 rounded-full">
+                Not my money &middot; Excluded from net worth
+            </span>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Over-allocation warnings -->
+    {% if over_allocated %}
+    <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+        <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
+            This virtual account's balance ({{ account.current_balance|format_egp }}) exceeds the linked account balance ({{ linked_account.current_balance|format_egp }}).
+        </p>
+    </section>
+    {% elif account_over_allocated %}
+    <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+        <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
+            Total virtual account allocations ({{ total_va_balance|format_egp }}) exceed the linked account balance ({{ linked_account.current_balance|format_egp }}).
+        </p>
+    </section>
+    {% endif %}
+
+    <!-- Allocate Funds (direct allocation — no transaction created) -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Allocate Funds</h3>
+        <form method="POST" action="{% url 'va-allocate' account.id %}" class="space-y-3">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Type</label>
+                    <select name="type" class="w-full border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm">
+                        <option value="contribution">Contribution</option>
+                        <option value="withdrawal">Withdrawal</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">Amount</label>
+                    <input type="number" name="amount" step="0.01" min="0.01" required
+                           class="w-full border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 mb-1">Note (optional)</label>
+                <input type="text" name="note" placeholder="Optional note"
+                       class="w-full border dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 rounded-lg px-3 py-2 text-sm">
+            </div>
+            <button type="submit"
+                    class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 transition">
+                Allocate
+            </button>
+        </form>
+    </section>
+
+    <!-- Allocation History -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">History</h3>
+        {% if allocations or transactions %}
+        <div class="space-y-2">
+            {% for alloc in allocations %}
+            {% if not alloc.transaction_id %}
+            <div class="flex items-center justify-between py-2 border-b border-gray-50 dark:border-slate-700 last:border-0">
+                <div>
+                    <p class="text-sm text-slate-700 dark:text-slate-200">{% if alloc.note %}{{ alloc.note }}{% else %}Direct allocation{% endif %}</p>
+                    {% if alloc.allocated_at %}<p class="text-xs text-gray-400">{{ alloc.allocated_at|format_date_short }}</p>{% endif %}
+                </div>
+                <span class="font-medium text-sm {% if alloc.amount > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {% if alloc.amount > 0 %}+{% endif %}{{ alloc.amount|format_egp }}
+                </span>
+            </div>
+            {% endif %}
+            {% endfor %}
+            {% for tx in transactions %}
+            <div class="flex items-center justify-between py-2 border-b border-gray-50 dark:border-slate-700 last:border-0">
+                <div>
+                    <p class="text-sm text-slate-700 dark:text-slate-200">{% if tx.note %}{{ tx.note }}{% else %}{{ tx.type }}{% endif %}</p>
+                    <p class="text-xs text-gray-400">{{ tx.date|format_date_short }}</p>
+                </div>
+                <span class="font-medium text-sm {% if tx.type == 'income' %}text-green-600{% else %}text-red-600{% endif %}">
+                    {% if tx.type == 'income' %}+{% else %}-{% endif %}{{ tx.amount|format_egp }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 text-center py-4">No allocations yet.</p>
+        {% endif %}
+    </section>
+</div>
+
+<!-- Edit virtual account bottom sheet -->
+{% include "components/bottom_sheet.html" with name="edit-virtual-account" %}
+
+<script>
+function openEditVirtualAccount() {
+    BottomSheet.open('edit-virtual-account', {url: '{% url "va-edit-form" account.id %}'});
+}
+function closeEditVirtualAccount() { BottomSheet.close('edit-virtual-account'); }
+</script>
+{% endblock %}
