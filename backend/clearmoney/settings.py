@@ -41,6 +41,7 @@ ALLOWED_HOSTS = os.environ.get(
 
 INSTALLED_APPS = [
     "django.contrib.staticfiles",
+    "django.contrib.postgres",  # PostgreSQL-specific fields (ArrayField, JSONField, etc.)
     "django_htmx",  # HTMX integration: request.htmx, HttpResponseClientRedirect
     "core",  # Shared: models, auth middleware, template tags
     "settings_app",  # Migrated settings feature
@@ -56,6 +57,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
     "core.middleware.GoSessionAuthMiddleware",  # Reads Go's session cookie
+    "core.middleware.TimezoneMiddleware",  # Sets request.tz from APP_TIMEZONE env var
 ]
 
 ROOT_URLCONF = "clearmoney.urls"
@@ -131,6 +133,19 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "https://clearmoney.shahwan.me",
 ]
+
+# --- Rate Limiting ---
+# django-ratelimit decorators use this cache. "default" is Django's local-memory
+# cache — sufficient for single-server deployments. Like Go's token bucket middleware.
+# Disabled when DISABLE_RATE_LIMIT=true (e.g., e2e test runs).
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+RATELIMIT_USE_CACHE = "default"
+RATELIMIT_ENABLE = os.environ.get("DISABLE_RATE_LIMIT", "false").lower() != "true"
 
 # --- Logging ---
 # Structured logging matching Go's slog pattern: level, name, message.

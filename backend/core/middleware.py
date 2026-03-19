@@ -11,6 +11,8 @@ instead of Django's django_session table.
 """
 
 import logging
+import os
+import zoneinfo
 from collections.abc import Callable
 from typing import cast
 
@@ -23,6 +25,26 @@ from core.types import AuthenticatedRequest
 logger = logging.getLogger(__name__)
 
 COOKIE_NAME = "clearmoney_session"
+
+
+class TimezoneMiddleware:
+    """Attaches the app's configured timezone to every request as request.tz.
+
+    Replaces Go's SetTimezone setter pattern — views can call
+    request.tz to get the *time.Location equivalent for date rendering.
+
+    Like Django's django.middleware.locale.LocaleMiddleware but for timezone,
+    or Go's timeutil.Now() vs time.Now() distinction for business-logic dates.
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+        tz_name = os.getenv("APP_TIMEZONE", "Africa/Cairo")
+        self.tz = zoneinfo.ZoneInfo(tz_name)
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        request.tz = self.tz  # type: ignore[attr-defined]
+        return self.get_response(request)
 
 # Paths that don't require authentication
 PUBLIC_PATHS = ["/healthz", "/static/", "/login", "/register", "/auth/verify"]

@@ -8,6 +8,7 @@ dependencies = [
     "gunicorn==23.0.0",
     "django-htmx==1.27.0",
     "dj-database-url==3.1.0",
+    "django-ratelimit==4.1.0",  # Rate limiting decorators — like Go's token bucket middleware
 ]
 
 [dependency-groups]

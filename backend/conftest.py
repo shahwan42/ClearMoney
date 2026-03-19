@@ -1,24 +1,28 @@
 """
-Root conftest.py — shared pytest fixtures and factory_boy factories.
+Root conftest.py — shared pytest fixtures for all Django test files.
 
 Provides:
 - django_db_setup override: skips test DB creation (Go owns the schema, Django never runs migrations)
-- UserFactory / SessionFactory: factory_boy factories for the two most-reused models
-- auth_user fixture: creates a test user + valid session, yields (user_id, email, token), cleans up after
+- UserFactory / SessionFactory: re-exported from tests/factories.py for backward compat
+- auth_user fixture: creates a test user + valid session, yields (user_id, email, token), cleans up
 - auth_cookie fixture: returns the HTTP_COOKIE kwarg dict for Django test client calls
+- auth_client fixture: returns an authenticated Django test client (cookie pre-set)
 """
 
-import uuid
 from collections.abc import Generator
-from datetime import timedelta
 from typing import Any
 
-import factory
 import pytest
-from django.utils import timezone
+from django.test import Client
 
 from core.middleware import COOKIE_NAME
 from core.models import Session, User
+
+# Re-export factories so existing tests that import from conftest still work.
+# New tests should import directly from tests.factories.
+from tests.factories import SessionFactory, UserFactory
+
+__all__ = ["UserFactory", "SessionFactory"]
 
 # ---------------------------------------------------------------------------
 # Database setup — skip test DB creation
@@ -38,34 +42,7 @@ def django_db_setup() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Factories — like Laravel's UserFactory::create()
-# ---------------------------------------------------------------------------
-
-
-class UserFactory(factory.django.DjangoModelFactory):
-    """Factory for the users table (Go schema, managed=False in Django)."""
-
-    class Meta:
-        model = User
-
-    id = factory.LazyFunction(uuid.uuid4)
-    email = factory.LazyFunction(lambda: f"pytest-{uuid.uuid4().hex[:8]}@example.com")
-
-
-class SessionFactory(factory.django.DjangoModelFactory):
-    """Factory for the sessions table — creates a valid 30-day session."""
-
-    class Meta:
-        model = Session
-
-    id = factory.LazyFunction(uuid.uuid4)
-    user = factory.SubFactory(UserFactory)
-    token = factory.LazyFunction(lambda: str(uuid.uuid4()))
-    expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(days=30))
-
-
-# ---------------------------------------------------------------------------
-# Shared fixtures
+# Shared auth fixtures — like Go's testutil.SetupAuth(t, db)
 # ---------------------------------------------------------------------------
 
 
@@ -88,8 +65,25 @@ def auth_user(db: Any) -> Generator[tuple[str, str, str], None, None]:
 def auth_cookie(auth_user: tuple[str, str, str]) -> dict[str, str]:
     """Return the HTTP_COOKIE kwarg dict for Django test client calls.
 
+    Lower-level than auth_client — use when you need to control client setup.
     Usage:
         response = client.get('/settings', **auth_cookie)
     """
     _, _, token = auth_user
     return {"HTTP_COOKIE": f"{COOKIE_NAME}={token}"}
+
+
+@pytest.fixture
+def auth_client(client: Client, auth_user: tuple[str, str, str]) -> Client:
+    """Return an authenticated Django test client with session cookie pre-set.
+
+    More ergonomic than auth_cookie — the cookie is already applied.
+    Like Go's testutil.SetupAuth returning a client with the cookie header.
+
+    Usage:
+        response = auth_client.get('/settings')
+        response = auth_client.post('/some/path', data={'key': 'value'})
+    """
+    _, _, token = auth_user
+    client.cookies[COOKIE_NAME] = token
+    return client

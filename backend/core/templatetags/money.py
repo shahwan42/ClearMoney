@@ -15,6 +15,7 @@ from datetime import date, datetime
 from typing import Any
 
 from django import template
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
@@ -145,3 +146,109 @@ def conic_gradient(segments: list[dict[str, Any]]) -> str:
 def bar_style(height_pct: float, color: str) -> str:
     """Generate CSS for a bar chart bar. Like Go's barStyle."""
     return f"height:{height_pct:.1f}%;background-color:{color}"
+
+
+# ---------------------------------------------------------------------------
+# Filters ported from Go's TemplateFuncs() — needed for feature migrations
+# ---------------------------------------------------------------------------
+
+
+@register.filter
+def deref(value: object) -> str:
+    """Unwrap a nullable string — returns '' if None. Like Go's deref(*string)."""
+    if value is None:
+        return ""
+    return str(value)
+
+
+@register.filter
+def deref_float(value: object) -> float:
+    """Unwrap a nullable float — returns 0.0 if None. Like Go's derefFloat(*float64)."""
+    if value is None:
+        return 0.0
+    return float(value)  # type: ignore[arg-type]
+
+
+@register.filter
+def add_float(a: object, b: object) -> float:
+    """Add two floats in a template. Like Go's addFloat.
+    Usage: {{ amount|add_float:fee }}
+    """
+    return float(a) + float(b)  # type: ignore[arg-type]
+
+
+@register.filter
+def format_account_type(value: object) -> str:
+    """Human-readable account type label. Like Go's formatAccountType.
+    e.g., 'credit_card' → 'Credit Card', 'credit_limit' → 'Credit Line'
+    """
+    labels = {
+        "savings": "Savings",
+        "current": "Current",
+        "prepaid": "Prepaid",
+        "credit_card": "Credit Card",
+        "credit_limit": "Credit Line",
+        "cash": "Cash",
+    }
+    key = str(value)
+    return labels.get(key, key)
+
+
+@register.filter
+def format_type(value: object) -> str:
+    """Human-readable transaction type label. Like Go's formatType.
+    e.g., 'loan_out' → 'Loan Given', 'loan_repayment' → 'Loan Repayment'
+    """
+    labels = {
+        "expense": "Expense",
+        "income": "Income",
+        "transfer": "Transfer",
+        "exchange": "Exchange",
+        "loan_out": "Loan Given",
+        "loan_in": "Loan Received",
+        "loan_repayment": "Loan Repayment",
+    }
+    key = str(value)
+    return labels.get(key, key)
+
+
+# ---------------------------------------------------------------------------
+# Simple tags
+# ---------------------------------------------------------------------------
+
+
+@register.simple_tag
+def sparkline_points(values: list[float]) -> str:
+    """Generate SVG polyline points from a list of values.
+
+    Normalises values into a '0 0 100 40' viewBox. Like Go's SparklinePoints().
+    Usage: <polyline points="{% sparkline_points values %}" />
+    """
+    n = len(values)
+    if n == 0:
+        return ""
+    if n == 1:
+        return "0,20 100,20"
+
+    min_v = min(values)
+    max_v = max(values)
+    span = max_v - min_v or 1  # avoid division by zero when all values are equal
+
+    pts = []
+    for i, v in enumerate(values):
+        x = i / (n - 1) * 100
+        y = 38 - ((v - min_v) / span * 36)  # 38=bottom, 36=usable height; SVG y is inverted
+        pts.append(f"{x:.1f},{y:.1f}")
+    return " ".join(pts)
+
+
+@register.simple_tag(name="dict")
+def make_dict(**kwargs: Any) -> dict[str, Any]:
+    """Create a dict from keyword arguments for passing multiple values to included templates.
+
+    Like Go's dict template function — useful when {% include %} with needs a data object.
+    The tag is named 'dict' in templates; function renamed to avoid shadowing Python's dict built-in.
+    Usage: {% dict values=values color="#0d9488" as chart_data %}
+           {% include "chart_sparkline.html" with data=chart_data %}
+    """
+    return kwargs
