@@ -1,0 +1,19 @@
+{% load money %}
+<!-- Per-currency debt payoff progress bar.
+     Receives a currency_debt dict with: currency, total_lent, total_borrowed,
+     total_repaid, progress_pct. -->
+<div>
+    <div class="flex justify-between text-sm mb-1">
+        <span class="text-slate-600">{{ currency_debt.progress_pct|floatformat:0 }}% repaid</span>
+        <span class="text-xs text-gray-400">{{ currency_debt.total_repaid|format_currency:currency_debt.currency }} of {{ currency_debt.total_lent|add_float:currency_debt.total_borrowed|format_currency:currency_debt.currency }}</span>
+    </div>
+    <div class="w-full bg-gray-100 rounded-full h-3">
+        {% if currency_debt.progress_pct >= 100 %}
+        <div class="h-3 rounded-full transition-all bg-emerald-500" style="width: 100%"></div>
+        {% elif currency_debt.progress_pct >= 50 %}
+        <div class="h-3 rounded-full transition-all bg-teal-500" style="width: {{ currency_debt.progress_pct|floatformat:0 }}%"></div>
+        {% else %}
+        <div class="h-3 rounded-full transition-all bg-amber-500" style="width: {{ currency_debt.progress_pct|floatformat:0 }}%"></div>
+        {% endif %}
+    </div>
+</div>

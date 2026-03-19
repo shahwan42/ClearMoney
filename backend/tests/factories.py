@@ -30,6 +30,7 @@ from core.models import (
     InstallmentPlan,
     Institution,
     Investment,
+    Person,
     RecurringRule,
     Session,
     Transaction,
@@ -237,3 +238,20 @@ class RecurringRuleFactory(factory.django.DjangoModelFactory):
     next_due_date = factory.LazyFunction(lambda: timezone.now().date())
     is_active = True
     auto_confirm = False
+
+
+class PersonFactory(factory.django.DjangoModelFactory):
+    """Factory for the persons table.
+
+    user_id must be passed in: PersonFactory(user_id=user.id)
+    """
+
+    class Meta:
+        model = Person
+
+    id = factory.LazyFunction(uuid.uuid4)
+    user_id = factory.LazyFunction(uuid.uuid4)  # override with real user_id in tests
+    name = factory.Sequence(lambda n: f"Person {n}")
+    net_balance = 0
+    net_balance_egp = 0
+    net_balance_usd = 0

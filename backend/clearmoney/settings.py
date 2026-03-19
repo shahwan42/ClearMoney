@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "dashboard",  # Migrated dashboard (home page)
     "accounts",  # Migrated accounts & institutions
     "transactions",  # Migrated transactions, transfers, exchanges
+    "people",  # Migrated people & loans
 ]
 
 # --- Middleware ---

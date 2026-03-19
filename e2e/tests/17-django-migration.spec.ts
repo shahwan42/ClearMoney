@@ -372,4 +372,82 @@ test.describe('Django Migration - Cross-App Integration', () => {
       await expect(page.getByText('Transport for e2e test')).toBeVisible();
     });
   });
+
+  // ──────────────────────────────────────────────────
+  // Group 7: People & Loans (Phase 5)
+  // ──────────────────────────────────────────────────
+
+  test.describe('People & Loans', () => {
+    test('Django /people renders empty state', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/people`);
+      await expect(page.getByRole('heading', { name: /People/i })).toBeVisible();
+      await expect(page.getByText('No people yet')).toBeVisible();
+    });
+
+    test('add person via Django /people', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/people`);
+      await page.fill('input[name="name"]', 'E2E Ali');
+      await page.click('button:has-text("Add")');
+      await expect(page.locator('#people-list')).toContainText('E2E Ali');
+    });
+
+    test('record loan via Django /people', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/people`);
+
+      // Open loan form for the first person card
+      await page.click('button:has-text("Record Loan")');
+
+      // Fill loan form (the form should now be visible)
+      const loanForm = page.locator('[id^="loan-form-"]').first();
+      await expect(loanForm).toBeVisible();
+      await loanForm.locator('input[name="amount"]').fill('1000');
+      await loanForm.locator('select[name="account_id"]').selectOption({ index: 1 });
+      await loanForm.locator('button[type="submit"]').click();
+
+      // Balance should appear on the person card
+      await expect(page.locator('#people-list')).toContainText('1,000');
+    });
+
+    test('record repayment via Django /people', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/people`);
+
+      // Open repay form (visible because balance != 0)
+      await page.click('button:has-text("Repayment")');
+
+      const repayForm = page.locator('[id^="repay-form-"]').first();
+      await expect(repayForm).toBeVisible();
+      await repayForm.locator('input[name="amount"]').fill('500');
+      await repayForm.locator('select[name="account_id"]').selectOption({ index: 1 });
+      await repayForm.locator('button[type="submit"]').click();
+
+      // Balance should be reduced
+      await expect(page.locator('#people-list')).toContainText('500');
+    });
+
+    test('person detail page shows debt summary', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/people`);
+
+      // Click person name link to go to detail
+      await page.click('a:has-text("E2E Ali")');
+      await expect(page.getByRole('heading', { name: 'E2E Ali' })).toBeVisible();
+
+      // Should show transaction history
+      await expect(page.getByText('Transaction History')).toBeVisible();
+      await expect(page.getByText('Lent')).toBeVisible();
+      await expect(page.getByText('Repayment')).toBeVisible();
+    });
+
+    test('Go session cookie authenticates on Django /people', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/people`);
+      await expect(page.getByRole('heading', { name: /People/i })).toBeVisible();
+    });
+
+    test('JSON API /api/persons returns people', async ({ page }) => {
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/api/persons`);
+      expect(resp.status()).toBe(200);
+      const persons = await resp.json();
+      expect(persons.length).toBeGreaterThan(0);
+      expect(persons[0].name).toBe('E2E Ali');
+    });
+  });
 });
