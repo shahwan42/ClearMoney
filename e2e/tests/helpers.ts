@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import { randomBytes } from 'crypto';
 
 export const TEST_EMAIL = 'test@clearmoney.local';
+export const DJANGO_BASE_URL = 'http://localhost:8000';
 
 /**
  * Get the database URL from environment or use the local dev default.
@@ -186,6 +187,63 @@ export function createAuthToken(email: string, purpose = 'login'): string {
   const token = randomBytes(32).toString('base64url');
   runSQL(
     `INSERT INTO auth_tokens (email, token, purpose, expires_at) VALUES (LOWER('${email}'), '${token}', '${purpose}', NOW() + INTERVAL '15 minutes')`,
+  );
+  return token;
+}
+
+/**
+ * Create a transaction via the Go JSON API.
+ * Returns the transaction ID.
+ */
+export async function createTransaction(
+  page: Page,
+  opts: {
+    account_id: string;
+    category_id: string;
+    amount: number;
+    type: 'expense' | 'income';
+    currency?: string;
+    note?: string;
+    date?: string;
+  },
+): Promise<string> {
+  // Go's time.Time expects RFC3339 format in JSON, not YYYY-MM-DD
+  const dateStr = opts.date || new Date().toISOString().split('T')[0];
+  const dateRFC3339 = `${dateStr}T00:00:00Z`;
+
+  const data: Record<string, unknown> = {
+    account_id: opts.account_id,
+    category_id: opts.category_id,
+    amount: opts.amount,
+    type: opts.type,
+    currency: opts.currency || 'EGP',
+    date: dateRFC3339,
+  };
+  if (opts.note) data.note = opts.note;
+
+  const resp = await page.request.post('/api/transactions', { data });
+  const body = await resp.json();
+  return body.transaction.id;
+}
+
+/**
+ * Get the first category ID of a given type (expense or income) via SQL.
+ * Requires categories to be seeded (resetDatabase does this).
+ */
+export function getCategoryId(type: 'expense' | 'income', userId: string): string {
+  return runSQL(
+    `SELECT id FROM categories WHERE user_id = '${userId}' AND type = '${type}' LIMIT 1`,
+  );
+}
+
+/**
+ * Create an expired session cookie value in the DB.
+ * Used to test that Django rejects expired sessions.
+ */
+export function createExpiredSession(userId: string): string {
+  const token = randomBytes(32).toString('base64url');
+  runSQL(
+    `INSERT INTO sessions (user_id, token, expires_at) VALUES ('${userId}', '${token}', NOW() - INTERVAL '1 day')`,
   );
   return token;
 }

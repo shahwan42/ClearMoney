@@ -9,7 +9,7 @@
 # .PHONY tells Make these aren't real files — they're just command names.
 # Without this, if a file named "test" existed, `make test` would do nothing.
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-.PHONY: run build test test-integration test-e2e lint clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs django-run django-shell django-test django-inspectdb
+.PHONY: run build test test-integration test-e2e test-e2e-migration lint clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs django-run django-shell django-test django-inspectdb
 
 # Start the development server. `go run` compiles and runs in one step.
 # Like: `php artisan serve` or `python manage.py runserver`
@@ -46,6 +46,11 @@ lint:
 # The Playwright config auto-starts the Go server if not already running.
 test-e2e:
 	cd e2e && npx playwright test
+
+# Run only Django migration e2e tests (cross-app session, data consistency, UI parity).
+# Requires both Go (:8080) and Django (:8000) servers — Playwright starts them automatically.
+test-e2e-migration:
+	cd e2e && npx playwright test tests/17-django-migration.spec.ts
 
 # Remove compiled binaries.
 clean:

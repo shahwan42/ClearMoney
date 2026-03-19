@@ -129,6 +129,8 @@ The backend is being incrementally migrated from Go to Django. Both apps share t
 
 **Django testing:** Tests run against the real database with `--keepdb` flag (Django reuses the existing schema instead of creating a test DB). Uses `TransactionTestCase` for DB tests.
 
+**E2E testing for migrated routes:** Every route migrated from Go to Django MUST have Playwright e2e tests in `e2e/tests/17-django-migration.spec.ts` that verify: (1) cross-app session sharing works (Go session cookie → Django auth), (2) data created via Go appears correctly in Django views, (3) Django UI renders all expected elements, and (4) navigation between Go and Django pages preserves the session. Run `cd e2e && npx playwright test tests/17-django-migration.spec.ts` after each migration. Do NOT consider a route migration complete until these tests pass.
+
 ### Key Design Patterns
 
 | Pattern | Details |
