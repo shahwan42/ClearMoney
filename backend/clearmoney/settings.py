@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "salary",  # Migrated salary distribution wizard
     "investments",  # Migrated investment portfolio tracking
     "installments",  # Migrated installment plan tracking
+    "exchange_rates",  # Migrated exchange rate history
 ]
 
 # --- Middleware ---

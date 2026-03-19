@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}ClearMoney - Exchange Rate History{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <h2 class="text-lg font-bold text-slate-800 dark:text-white">Exchange Rate History</h2>
+
+    {% if rates %}
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <div class="divide-y divide-gray-100 dark:divide-slate-700">
+            {% for rate in rates %}
+            <div class="flex items-center justify-between py-3">
+                <div>
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-200">1 USD = {{ rate.rate|floatformat:2 }} EGP</p>
+                    <p class="text-xs text-gray-400 dark:text-slate-500">
+                        {{ rate.date|format_date }}
+                        {% if rate.source %} &middot; {{ rate.source }}{% endif %}
+                    </p>
+                </div>
+                {% if rate.note %}
+                <p class="text-xs text-gray-400 dark:text-slate-500 max-w-[120px] text-right">{{ rate.note }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% else %}
+    <p class="text-sm text-gray-400 dark:text-slate-500 text-center bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        No exchange rates recorded yet. Rates are logged when you create an exchange transaction or salary distribution.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
