@@ -1,7 +1,9 @@
 # ClearMoney — AI Assistant Instructions
 
-> Personal finance tracker built with Go, HTMX, Tailwind CSS, and PostgreSQL.
+> Personal finance tracker built with Go + Django, HTMX, Tailwind CSS, and PostgreSQL.
 > Multi-user PWA with magic link auth for tracking accounts, transactions, budgets, and investments across Egyptian banks.
+>
+> **Active migration**: Backend is being incrementally migrated from Go to Django (Python) using the Strangler Fig pattern. Settings and Reports features are now served by Django. See the "Django Migration" section below.
 
 ## ⚠️ Production App — No Breaking Changes
 
@@ -26,10 +28,12 @@ When in doubt, ask before making a change that could affect production.
 ## Quick Start
 
 ```bash
-docker compose up -d          # Start PostgreSQL (port 5433)
-make run                      # Start dev server on :8080
-make test                     # Unit tests
-make test-integration         # Integration tests (needs running DB)
+docker compose up -d          # Start PostgreSQL (port 5433) + Go app + Django app
+make run                      # Start Go dev server on :8080
+make django-run               # Start Django dev server on :8000
+make test                     # Go unit tests
+make test-integration         # Go integration tests (needs running DB)
+make django-test              # Django tests (needs running DB, uses --keepdb)
 make lint                     # Run golangci-lint
 make seed                     # Populate sample data
 make reconcile                # Check balance consistency
@@ -39,10 +43,10 @@ make reconcile                # Check balance consistency
 
 ```text
 cmd/
-  server/main.go          # Entry point — config → DB → migrations → router → HTTP server
+  server/main.go          # Go entry point — config → DB → migrations → router → HTTP server
   reconcile/main.go       # CLI tool for balance verification
   seed/main.go            # Seed data command
-internal/
+internal/                 # Go backend (serves all routes not yet migrated to Django)
   config/                 # Environment-based config (like Laravel's config/)
   database/               # Connection, migrations (golang-migrate, embedded SQL)
   handler/                # HTTP handlers + routes (like Laravel Controllers + routes/web.php)
@@ -54,19 +58,76 @@ internal/
   templates/              # Embedded HTML templates (Go html/template)
   testutil/               # Test DB helpers + fixture factories
   timeutil/               # Timezone utilities: Now(), Today(), MonthStart/End, ParseDateInTZ
-static/                   # CSS, JS, service worker, manifest
+backend/                  # Django backend (Strangler Fig — serves migrated routes)
+  clearmoney/             # Django project settings, URLs, WSGI
+  core/                   # Shared: models (managed=False), auth middleware, template tags
+  settings_app/           # Migrated: /settings, /export/transactions
+  reports/                # Migrated: /reports
+  templates/              # Django base template + components (header, bottom-nav)
+static/                   # CSS, JS, service worker, manifest (shared by both backends)
 ```
 
 ### Layered Architecture
+
+**Go backend** (all routes not yet migrated):
 
 ```text
 HTTP Request → Middleware → Handler → Service → Repository → PostgreSQL
 ```
 
-- **Handlers** parse HTTP, call services, render templates or JSON
-- **Services** contain business logic, call repositories
-- **Repositories** execute SQL queries, return models
-- **Models** are plain structs with `json` and `db` tags — no ORM
+**Django backend** (migrated routes: /settings, /reports, /export):
+
+```text
+HTTP Request → GoSessionAuthMiddleware → View → raw SQL / ORM → PostgreSQL
+```
+
+**Production routing** (Strangler Fig via Caddy):
+
+```text
+Internet → Caddy (HTTPS)
+    ├─ /settings, /reports, /export/* → Django (port 8000)
+    └─ everything else               → Go (port 8080)
+```
+
+- **Go Handlers** parse HTTP, call services, render Go templates
+- **Django Views** parse HTTP, query DB, render Django templates
+- **Services** (Go) contain business logic, call repositories
+- **Repositories** (Go) execute SQL queries, return models
+- **Models** — Go: plain structs with `json`/`db` tags. Django: `managed=False` models reading Go's schema
+
+### Django Migration (Strangler Fig)
+
+The backend is being incrementally migrated from Go to Django. Both apps share the same PostgreSQL database and session cookie.
+
+**What's migrated:**
+- `/settings` — dark mode, CSV export, push notifications, quick links, logout
+- `/export/transactions` — CSV transaction download
+- `/reports` — monthly spending reports with donut and bar charts
+
+**Key Django packages:**
+- `django-htmx` — `request.htmx`, `HttpResponseClientRedirect` (replaces Go's htmxRedirect)
+- `dj-database-url` — parses `DATABASE_URL` env var (same one Go uses)
+
+**How auth works across both apps:**
+- Go creates `clearmoney_session` cookie with a random token stored in the `sessions` table
+- Django's `GoSessionAuthMiddleware` reads that same cookie and validates against the same table
+- Both apps see `user_id` from the shared session — no JWT, no shared secret needed
+
+**Schema ownership:** Go owns all DB migrations via golang-migrate. Django models use `managed=False` and `MIGRATION_MODULES = {app: None}`. Django never creates, alters, or drops tables.
+
+**Rollback:** Go routes are NOT removed. Caddy decides which app handles each request. To roll back, revert the Caddyfile to route everything to Go.
+
+**Django project layout (`backend/`):**
+
+| Directory | Purpose |
+| --------- | ------- |
+| `clearmoney/` | Django settings, URLs, WSGI config |
+| `core/` | Shared models (`managed=False`), `GoSessionAuthMiddleware`, template tags (`money.py`), HTMX helpers |
+| `settings_app/` | Settings page view + CSV export view |
+| `reports/` | Reports page view with SQL aggregation + chart data |
+| `templates/` | Shared base.html, header, bottom-nav (identical HTML to Go versions) |
+
+**Django testing:** Tests run against the real database with `--keepdb` flag (Django reuses the existing schema instead of creating a test DB). Uses `TransactionTestCase` for DB tests.
 
 ### Key Design Patterns
 
@@ -104,6 +165,8 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 
 ## Testing
 
+### Go Tests
+
 - **TDD workflow**: RED test → GREEN implementation → refactor
 - **Integration tests**: Real PostgreSQL (not mocks), run with `-p 1` for serial execution
 - **Test DB**: `TEST_DATABASE_URL=postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable`
@@ -111,7 +174,23 @@ HTTP Request → Middleware → Handler → Service → Repository → PostgreSQ
 - **Auth helper**: `testutil.SetupAuth(t, db)` returns a session cookie for authenticated requests
 - **Clean tables**: `testutil.CleanTable(t, db, "transactions")`
 
+### Django Tests
+
+- **Framework**: pytest via `pytest-django` (not `manage.py test`)
+- **Plugins**: `pytest-mock` (mocker fixture), `pytest-xdist` (parallel runs with `-n auto`), `pytest-cov` (coverage), `factory_boy` (model factories like Laravel model factories)
+- **Run**: `cd backend && pytest` or `make django-test`
+- **Real DB**: Tests run against the real PostgreSQL schema (`--reuse-db` from pytest-django replaces `--keepdb`)
+- **Fixtures**: Use `factory_boy` factories defined in `tests/factories.py` per app — like Laravel's `UserFactory::create()`
+- **Config**: `backend/pytest.ini` (or `pyproject.toml`) sets `DJANGO_SETTINGS_MODULE` and `--reuse-db`
+
 ## Coding Conventions
+
+### Django Style
+
+- **Always set `db_table`** in every model's `Meta` class. Django's default table name (`appname_modelname`) will clash with Go's existing schema names. Always be explicit: `db_table = 'transactions'` not `settings_app_transaction`.
+- **Write clean, Pythonic code** — use list/dict comprehensions, f-strings, context managers (`with`), and idiomatic patterns. Avoid Java-style loops where a comprehension is cleaner. Follow PEP 8.
+- **Use pytest** (via `pytest-django`) as the testing framework, not `manage.py test`. Plugins in use: `pytest-mock` (mocker fixture), `pytest-xdist` (-n auto parallel), `pytest-cov` (coverage reports), `factory_boy` (model factories — like Laravel's `UserFactory::create()`).
+- **Document on every level**: module-level docstring explaining the file's role and Laravel/Django analogy → class-level docstring for non-obvious classes → inline comments only where the logic isn't self-evident. Keep docs/features/ up-to-date when adding views or changing behaviour.
 
 ### Go Style
 
@@ -307,7 +386,9 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 | `VAPID_PRIVATE_KEY` | (none) | Web Push VAPID private key |
 | `DISABLE_RATE_LIMIT` | (none) | Set to `true` to skip rate limiting (e2e tests) |
 
-## Dependencies (go.mod)
+## Dependencies
+
+### Go (go.mod)
 
 - `github.com/go-chi/chi/v5` — HTTP router
 - `github.com/golang-migrate/migrate/v4` — Database migrations
@@ -315,3 +396,11 @@ func (h *PageHandler) FooCreate(w http.ResponseWriter, r *http.Request) {
 - `github.com/resend/resend-go/v2` — Resend email API (magic link delivery)
 - `golang.org/x/crypto` — bcrypt (legacy, kept for compatibility)
 - `log/slog` — Structured logging (stdlib, no external dep)
+
+### Django (backend/requirements.txt)
+
+- `Django==6.0.3` — Web framework
+- `psycopg[binary]==3.2.6` — PostgreSQL driver (psycopg3)
+- `gunicorn==23.0.0` — Production WSGI server
+- `django-htmx==1.27.0` — HTMX integration (request.htmx, HttpResponseClientRedirect)
+- `dj-database-url==3.1.0` — DATABASE_URL parsing

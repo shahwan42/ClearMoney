@@ -1,6 +1,6 @@
 # ClearMoney
 
-Personal finance tracker for managing multi-bank, multi-currency finances in Egypt. Single-user PWA built with Go, HTMX, Tailwind CSS, and PostgreSQL.
+Personal finance tracker for managing multi-bank, multi-currency finances in Egypt. Multi-user PWA built with Go + Django, HTMX, Tailwind CSS, and PostgreSQL. Backend is being incrementally migrated from Go to Django using the Strangler Fig pattern.
 
 ## What It Does
 
@@ -26,20 +26,23 @@ docker compose up -d --build
 open http://localhost:8080
 ```
 
-On first visit, you'll be prompted to create a PIN. That's it.
+On first visit, enter your email and click the magic link to log in.
 
-### Development (without Docker for the app)
+### Development (without Docker for the apps)
 
 ```bash
 docker compose up -d db          # Start PostgreSQL only
-make run                         # Start dev server on :8080
+make run                         # Start Go dev server on :8080
+make django-run                  # Start Django dev server on :8000
 ```
 
 ### Useful Commands
 
 ```bash
-make test                        # Unit tests
-make test-integration            # Integration tests (needs running DB)
+make test                        # Go unit tests
+make test-integration            # Go integration tests (needs running DB)
+make django-test                 # Django tests (needs running DB)
+make test-e2e                    # Playwright browser tests
 make seed                        # Populate sample data
 make reconcile                   # Check balance consistency
 make logs                        # Stream Docker logs
@@ -49,36 +52,40 @@ make logs                        # Stream Docker logs
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Go 1.25 |
-| Router | chi v5 |
-| Database | PostgreSQL 16 (pgx v5 driver) |
-| Migrations | golang-migrate (embedded SQL) |
-| Templates | Go html/template |
+| Go Backend | Go 1.25, chi v5 router, html/template |
+| Django Backend | Django 6.0, django-htmx, gunicorn |
+| Database | PostgreSQL 16 (pgx v5 / psycopg3) |
+| Migrations | golang-migrate (Go owns schema) |
 | Frontend | HTMX + Tailwind CSS (CDN) |
-| Auth | PIN-based, bcrypt + HMAC sessions |
+| Auth | Magic link via Resend, DB sessions |
 | Charts | CSS-only (conic-gradient, flexbox, inline SVG) |
-| Logging | log/slog (structured) |
+| Reverse Proxy | Caddy (routes migrated paths to Django) |
+| Logging | log/slog (Go), Python logging (Django) |
 
 ## Project Structure
 
 ```
-cmd/
-  server/          # HTTP server entry point
-  seed/            # Sample data seeder
-  reconcile/       # Balance verification CLI
-internal/
-  config/          # Environment-based configuration
-  database/        # Connection pool, migrations (20 migration files)
-  handler/         # HTTP handlers + routes
-  jobs/            # Background tasks (reconcile, snapshots, views)
-  middleware/      # Auth + request logging
-  models/          # Domain structs (no ORM)
-  repository/      # SQL queries
-  service/         # Business logic
-  templates/       # Embedded HTML (layouts, pages, partials)
-  testutil/        # Test DB helpers + fixture factories
-static/            # CSS, JS, service worker, PWA manifest
-docs/              # Architecture guide, Go cheatsheet
+cmd/                 # Go entry points
+  server/            # HTTP server
+  seed/              # Sample data seeder
+  reconcile/         # Balance verification CLI
+internal/            # Go backend (serves all non-migrated routes)
+  handler/           # HTTP handlers + routes
+  service/           # Business logic
+  repository/        # SQL queries
+  models/            # Domain structs (no ORM)
+  templates/         # Embedded HTML (layouts, pages, partials)
+  middleware/        # Auth + request logging
+  database/          # Connection pool, migrations (30 migration files)
+  ...
+backend/             # Django backend (Strangler Fig migration)
+  clearmoney/        # Django project settings
+  core/              # Shared models (managed=False), auth middleware, template tags
+  settings_app/      # Migrated: /settings, /export/transactions
+  reports/           # Migrated: /reports
+  templates/         # Base layout + components
+static/              # CSS, JS, service worker (shared by both backends)
+docs/                # Architecture guide, feature docs
 ```
 
 ## Environment Variables
@@ -96,14 +103,17 @@ See `.env.example` for a working local configuration.
 
 ## Architecture
 
+**Strangler Fig migration** — Go and Django run side by side, sharing the same PostgreSQL database and session cookie. Caddy routes migrated paths (`/settings`, `/reports`, `/export`) to Django; everything else goes to Go.
+
 ```
-HTTP Request → Middleware (auth + logging) → Handler → Service → Repository → PostgreSQL
+Go:     HTTP Request → Middleware → Handler → Service → Repository → PostgreSQL
+Django: HTTP Request → GoSessionAuthMiddleware → View → raw SQL → PostgreSQL
 ```
 
-- **Handlers** parse HTTP requests, call services, render templates or JSON
-- **Services** contain business logic, orchestrate repositories
-- **Repositories** execute raw SQL, return model structs
-- **Models** are plain structs with `json`/`db` tags — no ORM
+- **Go** serves the majority of routes (dashboard, accounts, transactions, etc.)
+- **Django** serves migrated features (settings, reports, CSV export)
+- **Schema** owned by Go via golang-migrate — Django uses `managed=False` models
+- **Auth** — Go creates session cookies, Django reads them from the same `sessions` table
 
 All monetary values use `NUMERIC(15,2)` in the database. Balance updates are atomic (INSERT transaction + UPDATE balance in a single DB transaction). Each transaction stores a `balance_delta` for reconciliation.
 

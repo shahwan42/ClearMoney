@@ -24,6 +24,21 @@ services:
         condition: service_healthy  # Wait for PostgreSQL to be ready before starting the app
     restart: unless-stopped     # Auto-restart on crash (but not if manually stopped)
 
+  # Django application (Strangler Fig migration — serves /settings, /reports, /export).
+  # Like running `python manage.py runserver` in a container, but with gunicorn for production.
+  django:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"             # Map host:container ports (access at http://localhost:8000)
+    env_file: .env              # Same env vars as Go app (DATABASE_URL, etc.)
+    environment:
+      - DATABASE_URL=postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   # PostgreSQL 16 database.
   # Like Laravel's mysql/postgres service in Sail, or Django's database container.
   db:

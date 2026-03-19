@@ -1,0 +1,39 @@
+{# Spending by category partial — list of categories with progress bars.
+
+   Migrated from Go's internal/templates/partials/spending-by-category.html.
+   Each category shows name, amount, and a colored progress bar.
+
+   Uses template context from reports/reports.html (data.spending_by_category, etc.)
+#}
+{% load money %}
+
+<div class="space-y-2" id="spending-by-category">
+    {% if data.spending_by_category %}
+    {% with cur=data.filter_currency|default:"EGP" %}
+    {% for cat in data.spending_by_category %}
+    <div>
+        <div class="flex justify-between text-sm mb-1">
+            <div class="flex items-center gap-2">
+                {% if data.chart_segments %}
+                <span class="chart-legend-dot" style="background-color: {{ forloop.counter0|chart_color }}"></span>
+                {% endif %}
+                <span class="text-slate-700">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</span>
+            </div>
+            <span class="font-medium text-slate-800">{{ cat.amount|format_currency:cur }}</span>
+        </div>
+        {# Progress bar — width set by percentage, color from chart palette #}
+        <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="h-2 rounded-full" style="width: {{ cat.percentage|floatformat:1 }}%; background-color: {{ forloop.counter0|chart_color }}"></div>
+        </div>
+    </div>
+    {% endfor %}
+    {# Total row #}
+    <div class="flex justify-between text-sm font-bold pt-2 border-t border-gray-200">
+        <span class="text-slate-800">Total</span>
+        <span class="text-slate-900">{{ data.total_spending|format_currency:cur }}</span>
+    </div>
+    {% endwith %}
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-4">No expenses this month.</p>
+    {% endif %}
+</div>

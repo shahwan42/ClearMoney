@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<!-- Dark mode: theme.js adds "dark" class to <html> before paint -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>{% block title %}ClearMoney{% endblock %}</title>
+    <link rel="icon" href="data:,">
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: 'class' }
+    </script>
+
+    <!-- Apply dark mode before first paint to prevent flash -->
+    <script src="/static/js/theme.js"></script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script>
+      htmx.config.responseHandling = [
+        {code:"204", swap: false},
+        {code:"[23]..", swap: true},
+        {code:"[45]..", swap: true, error: true}
+      ];
+    </script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="stylesheet" href="/static/css/charts.css">
+
+    <!-- App scripts -->
+    <script src="/static/js/bottom-sheet.js" defer></script>
+    <script src="/static/js/offline.js" defer></script>
+    <script src="/static/js/push.js" defer></script>
+    <script src="/static/js/gestures.js" defer></script>
+    <script src="/static/js/kebab-menu.js" defer></script>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" href="/static/icons/icon-192.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
+</head>
+<body class="h-full flex flex-col dark:bg-slate-900 dark:text-slate-200" hx-boost="true">
+
+    {% include "components/header.html" %}
+
+    <!-- Notification banner -->
+    <div id="notification-banner" class="fixed top-14 left-0 right-0 z-40 px-4"></div>
+
+    <main class="flex-1 overflow-y-auto pt-14 pb-20 px-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% include "components/bottom-nav.html" %}
+
+    <!-- Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/js/sw.js')
+        .catch(function(err) { console.warn('SW registration failed:', err); });
+    }
+    </script>
+</body>
+</html>

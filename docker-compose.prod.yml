@@ -18,6 +18,7 @@ services:
       - caddy_config:/config
     depends_on:
       - app
+      - django
     restart: unless-stopped
 
   app:
@@ -25,6 +26,21 @@ services:
     expose:
       - "8080"
     env_file: .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Django application (Strangler Fig migration — serves migrated routes via Caddy)
+  django:
+    build:
+      context: ./backend
+    expose:
+      - "8000"
+    env_file: .env.prod
+    environment:
+      - DJANGO_ALLOWED_HOSTS=clearmoney.shahwan.me
+      - DATABASE_URL=postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable
     depends_on:
       db:
         condition: service_healthy

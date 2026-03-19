@@ -1,0 +1,69 @@
+{# Reports page — monthly spending breakdown with donut and bar charts.
+
+   Migrated from Go's internal/templates/pages/reports.html.
+   Uses chart partials for donut (conic-gradient) and bar (flexbox) charts.
+
+   Template variables (from reports/views.py):
+   - data.year, data.month, data.month_name — selected month
+   - data.spending_by_category — list of {name, icon, amount, percentage}
+   - data.total_spending — sum of expenses
+   - data.chart_segments — list of {label, amount, percentage, color} for donut
+   - data.current_month, data.previous_month, data.next_month — month summaries
+   - data.bar_groups — list of {label, bars: [{value, height_pct, color}]} for bar chart
+   - data.bar_legend — [{label, color}] for bar chart legend
+   - data.filter_currency, data.filter_account_id — active filters
+#}
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}ClearMoney - Reports{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <h2 class="text-lg font-bold text-slate-800">Reports</h2>
+
+    {% if data %}
+    {# Month Selector — prev/next navigation links #}
+    <div class="flex items-center justify-center gap-4">
+        <a href="/reports?year={{ data.previous_month.year }}&month={{ data.previous_month.month }}"
+           class="text-teal-600 hover:text-teal-700 text-sm font-medium">&larr; Prev</a>
+        <span class="text-base font-bold text-slate-800">{{ data.month_name }} {{ data.year }}</span>
+        <a href="/reports?year={{ data.next_month.year }}&month={{ data.next_month.month }}"
+           class="text-teal-600 hover:text-teal-700 text-sm font-medium">Next &rarr;</a>
+    </div>
+
+    {# Currency filter dropdown #}
+    <div class="flex gap-2">
+        <select onchange="location.href='/reports?year={{ data.year }}&month={{ data.month }}&currency='+this.value"
+                class="flex-1 border rounded-lg px-3 py-1.5 text-sm">
+            <option value="">All currencies</option>
+            <option value="EGP" {% if data.filter_currency == "EGP" %}selected{% endif %}>EGP</option>
+            <option value="USD" {% if data.filter_currency == "USD" %}selected{% endif %}>USD</option>
+        </select>
+        <a href="/exchange-rates" class="text-sm text-indigo-600 hover:text-indigo-700 self-center">Rate History</a>
+    </div>
+
+    {# Spending by Category with Donut Chart #}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Spending by Category</h3>
+        {% if data.chart_segments %}
+        <div class="mb-4">
+            {% include "reports/partials/chart-donut.html" %}
+        </div>
+        {% endif %}
+        {% include "reports/partials/spending-by-category.html" %}
+    </section>
+
+    {# Income vs Expenses with Bar Chart #}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Income vs Expenses</h3>
+        {% include "reports/partials/income-vs-expense.html" %}
+    </section>
+
+    {% else %}
+    <section class="bg-white rounded-2xl shadow-sm p-5 text-center">
+        <p class="text-gray-400 text-sm">No data available.</p>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

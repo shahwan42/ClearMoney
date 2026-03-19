@@ -9,7 +9,7 @@
 # .PHONY tells Make these aren't real files — they're just command names.
 # Without this, if a file named "test" existed, `make test` would do nothing.
 # See: https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-.PHONY: run build test test-integration test-e2e lint clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs
+.PHONY: run build test test-integration test-e2e lint clean up down logs migrate-create seed reconcile reconcile-fix deploy deploy-logs django-run django-shell django-test django-inspectdb
 
 # Start the development server. `go run` compiles and runs in one step.
 # Like: `php artisan serve` or `python manage.py runserver`
@@ -111,3 +111,19 @@ deploy:
 # Stream production logs from the VPS.
 deploy-logs:
 	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && sudo docker compose -f docker-compose.prod.yml logs -f"
+
+# --- Django commands (Strangler Fig migration) ---
+# These run the Django app that serves migrated routes (/settings, /reports, /export).
+# Like `python manage.py runserver` but with the correct DATABASE_URL.
+
+django-run:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py runserver 0.0.0.0:8000
+
+django-shell:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py shell
+
+django-test:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py test --verbosity=2 --keepdb
+
+django-inspectdb:
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py inspectdb

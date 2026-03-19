@@ -2,6 +2,8 @@
 
 > Written for developers coming from **Laravel (PHP)** or **Django (Python)**.
 > Every concept is mapped to its equivalent in those frameworks.
+>
+> **Migration in progress**: The backend is being incrementally migrated from Go to Django using the Strangler Fig pattern. Settings and Reports features are now served by Django (`backend/`). Both apps share the same PostgreSQL database and session cookie. Caddy routes specific paths to Django while Go handles everything else.
 
 ---
 
@@ -23,7 +25,7 @@ ClearMoney is a **server-rendered** personal finance app built with:
 | Background Jobs| `jobs/*.go`                 | Laravel Queues / Commands   | Celery tasks / management cmds |
 | Tests          | Go `testing` package        | PHPUnit                     | pytest / unittest            |
 
-### Request Flow (how a request travels through the code)
+### Request Flow — Go backend (routes not yet migrated)
 
 ```
 Browser Request
@@ -52,6 +54,37 @@ PostgreSQL                   -- Database
      |
      v
 templates/pages/home.html    -- HTML rendering (like Blade or Django templates)
+     |
+     v
+Browser Response
+```
+
+### Request Flow — Django backend (migrated routes: /settings, /reports, /export)
+
+```
+Browser Request
+     |
+     v
+Caddy                        -- Reverse proxy: routes /settings, /reports, /export/* to Django
+     |
+     v
+backend/clearmoney/urls.py   -- Root URL routing (like urls.py or routes/web.php)
+     |
+     v
+core/middleware.py           -- GoSessionAuthMiddleware: reads Go's clearmoney_session cookie
+     |
+     v
+settings_app/views.py        -- View function (like a Django view or Laravel Controller)
+reports/views.py             -- or reports view
+     |
+     v
+connection.cursor()          -- Raw SQL queries (like DB::raw() in Laravel or cursor() in Django)
+     |
+     v
+PostgreSQL                   -- Same database as Go — schema owned by Go migrations
+     |
+     v
+templates/reports/reports.html -- Django template rendering (like Blade or Django templates)
      |
      v
 Browser Response
@@ -180,6 +213,34 @@ clear-money_claude-only/
 |       +-- testdb.go             #   Test DB connection + cleanup
 |       +-- fixtures.go           #   Factory functions (like Laravel model factories)
 |
++-- backend/                      # Django backend (Strangler Fig — migrated routes)
+|   +-- clearmoney/               #   Django project package (like a Laravel "app bootstrap")
+|   |   +-- settings.py           #     Django settings (DATABASE_URL, middleware, apps)
+|   |   +-- urls.py               #     Root URL config — includes app-level urls.py files
+|   |   +-- wsgi.py               #     WSGI entry point for gunicorn (like public/index.php)
+|   +-- core/                     #   Shared app: models, auth middleware, template tags
+|   |   +-- middleware.py         #     GoSessionAuthMiddleware (reads Go's session cookie)
+|   |   +-- models.py             #     managed=False models (User, Session, Transaction, etc.)
+|   |   +-- context_processors.py#     Injects active_tab into all templates
+|   |   +-- htmx.py               #     htmx_redirect(), render_htmx_result() helpers
+|   |   +-- templatetags/
+|   |       +-- money.py          #     Custom filters: format_egp, format_date, neg, etc.
+|   +-- settings_app/             #   Migrated: /settings, /export/transactions
+|   |   +-- views.py              #     settings_page(), export_transactions() views
+|   |   +-- urls.py               #     URL patterns for this app
+|   |   +-- templates/settings_app/
+|   |       +-- settings.html     #     Django settings page template
+|   +-- reports/                  #   Migrated: /reports
+|   |   +-- views.py              #     reports_page() view + SQL aggregation + chart data
+|   |   +-- urls.py               #     URL patterns for this app
+|   |   +-- templates/reports/    #     Django reports templates (page + partials)
+|   +-- templates/                #   Shared base templates (used by all apps)
+|   |   +-- base.html             #     Base layout with HTMX, Tailwind, nav (like base.blade.php)
+|   |   +-- components/           #     header.html, bottom-nav.html
+|   +-- requirements.txt          #   Python dependencies (like composer.json)
+|   +-- manage.py                 #   Django management CLI (like artisan)
+|   +-- Dockerfile                #   Django container (Python 3.12 + gunicorn)
+|
 +-- static/                       # Static assets served at /static/
 |   +-- css/app.css               #   Custom CSS
 |   +-- js/                       #   JavaScript files
@@ -190,8 +251,9 @@ clear-money_claude-only/
 |   +-- tests/*.spec.ts           #   Browser-based tests
 |
 +-- Makefile                      # Build/run shortcuts (like composer scripts)
-+-- Dockerfile                    # Container build
-+-- docker-compose.yml            # Local dev environment
++-- Caddyfile                     # Reverse proxy config — Strangler Fig routing rules
++-- Dockerfile                    # Go container build
++-- docker-compose.yml            # Local dev environment (Go + Django + PostgreSQL)
 +-- go.mod                        # Go dependencies (like composer.json)
 +-- go.sum                        # Lock file (like composer.lock)
 ```

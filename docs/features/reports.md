@@ -1,4 +1,6 @@
-# Reports
+# Reports (Django)
+
+> **Migrated to Django** — this feature is now served by the Django backend (`backend/reports/`). The Go handler and service still exist for rollback safety but are not used in production (Caddy routes `/reports` to Django).
 
 Reports provide financial analytics with monthly spending breakdown by category (donut chart) and 6-month income vs expenses trend (bar chart). All charts are CSS-only.
 
@@ -123,26 +125,51 @@ Heights are normalized to 0-100 relative to the maximum value across all months.
 
 ## Key Files
 
+### Django (active — serves production traffic via Caddy)
+
+| File | Purpose |
+|------|---------|
+| `backend/reports/views.py` | Reports page view + SQL aggregation + chart data |
+| `backend/reports/urls.py` | URL routing for /reports |
+| `backend/reports/templates/reports/reports.html` | Django reports page template |
+| `backend/reports/templates/reports/partials/` | Donut chart, bar chart, spending-by-category, income-vs-expense |
+| `backend/reports/tests.py` | Integration tests (page rendering, SQL aggregation, chart builders) |
+| `backend/core/templatetags/money.py` | Template filters + chart tags (conic_gradient, bar_style, chart_color) |
+
+### Go (retained for rollback — not used in production)
+
 | File | Purpose |
 |------|---------|
 | `internal/service/reports.go` | ReportsService, data aggregation, chart building |
 | `internal/handler/pages.go` | Reports() handler |
 | `internal/handler/charts.go` | conicGradient, barStyle, chartColor template functions |
-| `internal/templates/pages/reports.html` | Reports page |
+| `internal/templates/pages/reports.html` | Go reports page template |
 | `internal/templates/partials/chart-donut.html` | Donut chart |
 | `internal/templates/partials/chart-bar.html` | Bar chart |
 | `internal/templates/partials/spending-by-category.html` | Category list |
 | `internal/templates/partials/income-vs-expense.html` | Income vs expenses |
+
+### Shared
+
+| File | Purpose |
+|------|---------|
 | `static/css/charts.css` | Chart CSS (donut, bar, dark mode) |
 
 ## For Newcomers
 
-- Reports use **direct SQL** (not repository pattern) because aggregate queries are complex and don't map to standard CRUD.
-- All charts are **CSS-only** — no Chart.js or external libraries. Donut = conic-gradient, bars = flexbox heights, sparklines = inline SVG.
-- Chart template functions return `template.CSS` (safe, unescaped CSS strings).
-- Month navigation uses query params (`?year=2024&month=3`), not routes.
+- **This feature is served by Django** — the Go handler exists for rollback but Caddy routes `/reports` to Django in production.
+- Reports use **direct SQL** (not repository/ORM) because aggregate queries are complex and don't map to standard CRUD. Both Go and Django versions use raw SQL.
+- All charts are **CSS-only** — no Chart.js or external libraries. Donut = conic-gradient, bars = flexbox heights.
+- Django template tags (`conic_gradient`, `bar_style`, `chart_color`) are equivalents of Go's template functions.
+- Month navigation uses query params (`?year=2026&month=3`), not routes.
 - The 8-color palette cycles — if there are more than 8 categories, colors repeat.
 
 ## Logging
+
+**Django logging:**
+
+- `page viewed: reports` — reports page rendered (INFO)
+
+**Go logging (retained for rollback):**
 
 **Page views:** `reports`

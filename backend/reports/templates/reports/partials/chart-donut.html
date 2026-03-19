@@ -1,0 +1,20 @@
+{# Donut chart partial — CSS conic-gradient circle with center hole.
+
+   Migrated from Go's internal/templates/partials/chart-donut.html.
+   Renders a donut chart using pure CSS (no JavaScript charting library).
+   The conic-gradient creates colored arc segments in a circle.
+
+   Uses data.chart_segments and data.total_spending from parent template.
+#}
+{% load money %}
+
+<div class="chart-donut-wrap">
+    <div class="chart-donut" style="background: {% conic_gradient data.chart_segments %}">
+        <div class="chart-donut-hole">
+            {% with cur=data.filter_currency|default:"EGP" %}
+            <span class="chart-donut-value">{{ data.total_spending|format_currency:cur }}</span>
+            {% endwith %}
+            <span class="chart-donut-sublabel">total</span>
+        </div>
+    </div>
+</div>

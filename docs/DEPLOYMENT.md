@@ -13,7 +13,8 @@
 | Deploy method | `make deploy` — git push → SSH pull → docker compose rebuild |
 | Reverse proxy | Caddy (containerized in docker-compose.prod.yml) |
 | TLS | Auto-provisioned Let's Encrypt via Caddy, certs in `caddy_data` volume |
-| App port | 8080 (internal only, not exposed to internet) |
+| Go app port | 8080 (internal only, not exposed to internet) |
+| Django app port | 8000 (internal only, Caddy routes migrated paths here) |
 | Public ports | 80 (HTTP → HTTPS redirect), 443 (HTTPS) |
 | Database | PostgreSQL 16 (Alpine, containerized, port 5432 internal) |
 | Env file | `.env.prod` on the VPS (not in git) |
@@ -83,13 +84,29 @@ The app is now running on port 8080. First visit will prompt PIN setup.
 
 HTTPS is handled by a Caddy container in `docker-compose.prod.yml`. Caddy automatically provisions and renews Let's Encrypt certificates.
 
-The `Caddyfile` in the project root configures the domain and reverse proxy:
+The `Caddyfile` in the project root configures path-based routing for the Strangler Fig migration. Migrated routes go to Django, everything else goes to Go:
 
 ```
 clearmoney.shahwan.me {
-    reverse_proxy app:8080
+    # Migrated routes → Django (port 8000)
+    handle /settings {
+        reverse_proxy django:8000
+    }
+    handle /export/* {
+        reverse_proxy django:8000
+    }
+    handle /reports {
+        reverse_proxy django:8000
+    }
+
+    # Everything else → Go (port 8080)
+    handle {
+        reverse_proxy app:8080
+    }
 }
 ```
+
+**Rollback**: To revert a migrated route to Go, remove its `handle` block from the Caddyfile and restart Caddy. Go still serves all routes — the routing change is instant.
 
 **If you previously installed Caddy system-level**, stop and disable it to free ports 80/443:
 
@@ -150,11 +167,12 @@ Migrations run automatically on startup — no manual steps needed.
 ## 8. Monitoring
 
 ```bash
-# Check status of all containers (app, db, caddy)
+# Check status of all containers (app, django, db, caddy)
 docker compose -f docker-compose.prod.yml ps
 
 # View logs
-docker compose -f docker-compose.prod.yml logs -f app      # App logs
+docker compose -f docker-compose.prod.yml logs -f app      # Go app logs
+docker compose -f docker-compose.prod.yml logs -f django   # Django app logs
 docker compose -f docker-compose.prod.yml logs -f db       # Database logs
 docker compose -f docker-compose.prod.yml logs -f caddy    # Caddy/TLS logs
 

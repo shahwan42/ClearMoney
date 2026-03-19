@@ -1,5 +1,7 @@
 # ClearMoney — Feature Documentation
 
+> **Migration status**: The backend is being incrementally migrated from Go to Django (Strangler Fig pattern). Features marked with **(Django)** are served by the Django backend. All other features are served by Go.
+
 ## Dashboard
 
 The home page aggregates data from 10+ sources into a single view:
@@ -72,11 +74,12 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 - **Payment guidance** — minimum payment, full balance, and statement balance options
 - **Fawry cash-out** — credit card to cash conversion with fee tracking
 
-## Reports
+## Reports (Django)
 
 - **Monthly spending by category** — donut chart breakdown with drill-down
 - **6-month income vs expenses** — bar chart comparison
 - **Filters** — by account, category, date range
+- **Backend**: Django (`backend/reports/`) — raw SQL aggregation + chart data computation
 
 ## Budgets
 
@@ -136,11 +139,12 @@ Historical USD/EGP exchange rate log. Used for:
 - Currency exchange transactions
 - Multi-currency net worth calculations
 
-## Settings
+## Settings (Django)
 
 - Dark mode toggle (class-based)
 - CSV export of transactions
 - Push notification subscription (VAPID-based)
+- **Backend**: Django (`backend/settings_app/`) — settings page + CSV export endpoint
 
 ## Auth
 

@@ -1,3 +1,26 @@
+# ClearMoney reverse proxy configuration.
+#
+# Strangler Fig pattern: specific migrated routes go to Django,
+# everything else stays on Go. Both apps share the same domain
+# and session cookie, so users see a seamless experience.
+#
+# To roll back: remove the Django handle blocks and restart Caddy.
+# Go still serves all routes, so rollback is instant.
+
 clearmoney.shahwan.me {
-	reverse_proxy app:8080
+	# Migrated routes → Django (port 8000)
+	handle /settings {
+		reverse_proxy django:8000
+	}
+	handle /export/* {
+		reverse_proxy django:8000
+	}
+	handle /reports {
+		reverse_proxy django:8000
+	}
+
+	# Everything else → Go (port 8080)
+	handle {
+		reverse_proxy app:8080
+	}
 }

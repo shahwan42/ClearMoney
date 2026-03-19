@@ -1,0 +1,36 @@
+{# Bar chart partial — CSS flexbox bars with inline height styles.
+
+   Migrated from Go's internal/templates/partials/chart-bar.html.
+   Renders a bar chart using pure CSS (flexbox + computed heights).
+   Each group has multiple bars (e.g., income + expenses per month).
+
+   Uses data.bar_groups and data.bar_legend from parent template.
+#}
+{% load money %}
+
+<div class="chart-bar-container">
+    <div class="chart-bar-area">
+        {% for group in data.bar_groups %}
+        <div class="chart-bar-group">
+            {% for bar in group.bars %}
+            <div class="chart-bar" style="{% bar_style bar.height_pct bar.color %}" title="{{ bar.label }}"></div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    <div class="chart-bar-labels">
+        {% for group in data.bar_groups %}
+        <span class="chart-bar-label">{{ group.label }}</span>
+        {% endfor %}
+    </div>
+    {% if data.bar_legend %}
+    <div class="chart-legend">
+        {% for item in data.bar_legend %}
+        <div class="chart-legend-item">
+            <span class="chart-legend-dot" style="background-color: {{ item.color }}"></span>
+            <span>{{ item.label }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

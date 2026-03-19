@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{# Settings page — dark mode, CSV export, push notifications, quick links, logout.
+   Migrated from Go's internal/templates/pages/settings.html.
+   All interactivity is client-side JS (theme.js, push.js) — no server data needed.
+#}
+
+{% block title %}ClearMoney - Settings{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <h2 class="text-lg font-bold text-slate-800">Settings</h2>
+
+    {# Dark Mode — client-side only, toggleTheme() in theme.js #}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Dark Mode</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Toggle between light and dark theme</p>
+            </div>
+            <button onclick="toggleTheme()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold">
+                Toggle
+            </button>
+        </div>
+    </section>
+
+    {# Export — standard GET form (not HTMX) for file download.
+       hx-boost="false" ensures native HTML5 validation and browser download handling. #}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Export Transactions</h3>
+        <form action="/export/transactions" method="GET" hx-boost="false" class="space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">From</label>
+                    <input type="date" name="from" required id="export-from" class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">To</label>
+                    <input type="date" name="to" required id="export-to" class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-semibold">
+                Download CSV
+            </button>
+        </form>
+        <script>
+        (function() {
+            // Pre-populate with first day of month → today
+            var today = new Date().toISOString().split('T')[0];
+            var firstOfMonth = today.substring(0, 8) + '01';
+            var from = document.getElementById('export-from');
+            var to = document.getElementById('export-to');
+            if (from && !from.value) from.value = firstOfMonth;
+            if (to && !to.value) to.value = today;
+        })();
+        </script>
+    </section>
+
+    {# Push Notifications — client-side only, requestNotificationPermission() in push.js #}
+    <section class="bg-white rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Push Notifications</h3>
+                <p class="text-xs text-gray-400 mt-0.5">Get reminders for due dates and recurring transactions</p>
+            </div>
+            <button onclick="requestNotificationPermission()" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold">
+                Enable
+            </button>
+        </div>
+    </section>
+
+    {# Quick Links — static navigation to other features (served by Go) #}
+    <section class="bg-white rounded-2xl shadow-sm p-5 space-y-2">
+        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Quick Links</h3>
+        <a href="/budgets" class="block text-sm text-teal-600 hover:text-teal-700">Budgets</a>
+        <a href="/investments" class="block text-sm text-teal-600 hover:text-teal-700">Investments</a>
+        <a href="/installments" class="block text-sm text-teal-600 hover:text-teal-700">Installment Plans</a>
+        <a href="/recurring" class="block text-sm text-teal-600 hover:text-teal-700">Recurring Rules</a>
+        <a href="/virtual-accounts" class="block text-sm text-teal-600 hover:text-teal-700">Virtual Accounts</a>
+        <a href="/batch-entry" class="block text-sm text-teal-600 hover:text-teal-700">Batch Entry</a>
+        <a href="/salary" class="block text-sm text-teal-600 hover:text-teal-700">Salary Distribution</a>
+        <a href="/fawry-cashout" class="block text-sm text-teal-600 hover:text-teal-700">Fawry Cash-Out</a>
+    </section>
+
+    {# Logout — standard POST (not HTMX) so http.Redirect triggers a full page nav.
+       This form POSTs to Go's /logout handler which invalidates the session. #}
+    <form method="POST" action="/logout" class="mt-4">
+        <button type="submit" class="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-lg text-sm font-semibold">
+            Log Out
+        </button>
+    </form>
+</div>
+{% endblock %}
