@@ -25,4 +25,5 @@ urlpatterns = [
     path("", include("budgets.urls")),
     path("", include("virtual_accounts.urls")),
     path("", include("recurring.urls")),
+    path("", include("salary.urls")),
 ]

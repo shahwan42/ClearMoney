@@ -63,6 +63,9 @@ clearmoney.shahwan.me {
 	handle /recurring* {
 		reverse_proxy django:8000
 	}
+	handle /salary* {
+		reverse_proxy django:8000
+	}
 
 	# Everything else → Go (port 8080)
 	handle {

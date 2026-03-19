@@ -25,6 +25,8 @@ import {
 
 let userId: string;
 let accountId: string;
+let usdAccountId: string;
+let savingsAccountId: string;
 let expenseCategoryId: string;
 
 test.describe('Django Migration - Cross-App Integration', () => {
@@ -42,6 +44,21 @@ test.describe('Django Migration - Cross-App Integration', () => {
       type: 'current',
       currency: 'EGP',
       initial_balance: 50000,
+    });
+
+    usdAccountId = await createAccount(page, {
+      name: 'USD Salary',
+      institution_id: instId,
+      type: 'current',
+      currency: 'USD',
+      initial_balance: 0,
+    });
+    savingsAccountId = await createAccount(page, {
+      name: 'Savings',
+      institution_id: instId,
+      type: 'savings',
+      currency: 'EGP',
+      initial_balance: 0,
     });
 
     expenseCategoryId = getCategoryId('expense', userId);
@@ -743,6 +760,83 @@ test.describe('Django Migration - Cross-App Integration', () => {
     test('unauthenticated request to /recurring redirects to login', async ({ page }) => {
       await page.context().clearCookies();
       await page.goto(`${DJANGO_BASE_URL}/recurring`);
+      expect(page.url()).toContain('/login');
+    });
+  });
+
+  // ──────────────────────────────────────────────────
+  // Group 11: Salary Wizard (Phase 9)
+  // ──────────────────────────────────────────────────
+
+  test.describe('Salary Wizard', () => {
+    test('Go session cookie authenticates on Django /salary', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/salary`);
+      await expect(page.locator('h2:has-text("Salary Distribution")')).toBeVisible();
+    });
+
+    test('salary page loads with step 1 form fields', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/salary`);
+      await expect(page.locator('#salary-wizard')).toBeVisible();
+      await expect(page.locator('input[name="salary_usd"]')).toBeVisible();
+      await expect(page.locator('select[name="usd_account_id"]')).toBeVisible();
+      await expect(page.locator('select[name="egp_account_id"]')).toBeVisible();
+      await expect(page.locator('input[name="date"]')).toBeVisible();
+    });
+
+    test('step 2 shows exchange rate after step 1 submit', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/salary`);
+      await page.fill('input[name="salary_usd"]', '3000');
+      await page.selectOption('select[name="usd_account_id"]', { label: 'USD Salary' });
+      await page.selectOption('select[name="egp_account_id"]', { label: 'Current' });
+      await page.click('button:has-text("Next")');
+
+      await expect(page.locator('input[name="exchange_rate"]')).toBeVisible();
+      await expect(page.locator('#salary-wizard')).toContainText('$3000');
+    });
+
+    test('step 3 shows allocations with EGP remainder', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/salary`);
+      await page.fill('input[name="salary_usd"]', '1000');
+      await page.selectOption('select[name="usd_account_id"]', { label: 'USD Salary' });
+      await page.selectOption('select[name="egp_account_id"]', { label: 'Current' });
+      await page.click('button:has-text("Next")');
+
+      await page.fill('input[name="exchange_rate"]', '50');
+      await page.click('button:has-text("Next")');
+
+      await expect(page.locator('#salary-remainder')).toBeVisible();
+      await expect(page.locator('#salary-wizard')).toContainText('50000');
+      // Savings account should appear as allocation target
+      await expect(page.locator('#salary-wizard')).toContainText('Savings');
+    });
+
+    test('full wizard creates transactions and shows success', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/salary`);
+      await page.fill('input[name="salary_usd"]', '1000');
+      await page.selectOption('select[name="usd_account_id"]', { label: 'USD Salary' });
+      await page.selectOption('select[name="egp_account_id"]', { label: 'Current' });
+      await page.click('button:has-text("Next")');
+
+      await page.fill('input[name="exchange_rate"]', '50');
+      await page.click('button:has-text("Next")');
+
+      // Allocate 10000 to savings
+      const savingsInput = page.locator(`input[name="alloc_${savingsAccountId}"]`);
+      if (await savingsInput.isVisible()) {
+        await savingsInput.fill('10000');
+      }
+
+      await page.click('button:has-text("Confirm")');
+
+      // Success page should appear
+      await expect(page.locator('#salary-wizard')).toContainText('Salary Distributed');
+      await expect(page.locator('#salary-wizard')).toContainText('$1000');
+      await expect(page.locator('#salary-wizard')).toContainText('50000');
+    });
+
+    test('unauthenticated /salary redirects to login', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto(`${DJANGO_BASE_URL}/salary`);
       expect(page.url()).toContain('/login');
     });
   });
