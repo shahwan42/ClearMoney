@@ -1,0 +1,21 @@
+{% load money %}
+{% if data.transactions %}
+<div class="space-y-2">
+    {% for tx in data.transactions %}
+    {% include "transactions/_transaction_row.html" with tx=tx %}
+    {% endfor %}
+</div>
+{% if data.has_more %}
+<div class="text-center mt-4">
+    <button hx-get="/transactions/list?offset={{ data.next_offset }}&account_id={{ data.account_id|default:'' }}&type={{ data.type|default:'' }}&category_id={{ data.category_id|default:'' }}&date_from={{ data.date_from|default:'' }}&date_to={{ data.date_to|default:'' }}&search={{ data.search|default:'' }}"
+            hx-target="#transaction-list" hx-swap="innerHTML"
+            class="text-sm text-teal-600 font-medium py-2">
+        Load more...
+    </button>
+</div>
+{% endif %}
+{% else %}
+<div class="text-center py-12 text-gray-400">
+    <p class="text-sm">No transactions found</p>
+</div>
+{% endif %}

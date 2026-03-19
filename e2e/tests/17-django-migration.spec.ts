@@ -326,4 +326,50 @@ test.describe('Django Migration - Cross-App Integration', () => {
       await expect(page.locator('main')).toBeVisible();
     });
   });
+
+  // ──────────────────────────────────────────────────
+  // Group 6: Transactions (Phase 4)
+  // ──────────────────────────────────────────────────
+
+  test.describe('Transactions', () => {
+    test('Django /transactions renders list page', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/transactions`);
+      await expect(page.getByRole('heading', { name: /Transactions/i })).toBeVisible();
+      // Filter form should be present
+      await expect(page.locator('#tx-filters')).toBeVisible();
+    });
+
+    test('Django /transactions/new renders form', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/transactions/new`);
+      await expect(page.getByRole('heading', { name: /New Transaction/i })).toBeVisible();
+      await expect(page.locator('input[name="amount"]')).toBeVisible();
+    });
+
+    test('Django /transfers/new renders transfer form', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/transfers/new`);
+      await expect(page.getByText('Transfer Between Accounts')).toBeVisible();
+      await expect(page.locator('select[name="source_account_id"]')).toBeVisible();
+    });
+
+    test('Django /exchange/new renders exchange form', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/exchange/new`);
+      await expect(page.getByText('Currency Exchange')).toBeVisible();
+    });
+
+    test('Django /batch-entry renders batch form', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/batch-entry`);
+      await expect(page.getByRole('heading', { name: /Batch Entry/i })).toBeVisible();
+    });
+
+    test('Django /fawry-cashout renders fawry form', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/fawry-cashout`);
+      await expect(page.getByText('Fawry Cash-Out')).toBeVisible();
+    });
+
+    test('Django transaction list shows test transactions', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/transactions`);
+      await expect(page.getByText('Groceries for e2e test')).toBeVisible();
+      await expect(page.getByText('Transport for e2e test')).toBeVisible();
+    });
+  });
 });

@@ -20,4 +20,5 @@ urlpatterns = [
     path("", include("settings_app.urls")),
     path("", include("reports.urls")),
     path("", include("accounts.urls")),
+    path("", include("transactions.urls")),
 ]

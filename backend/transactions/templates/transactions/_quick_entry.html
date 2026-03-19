@@ -1,0 +1,157 @@
+{% load money %}
+<h3 class="text-lg font-bold text-slate-800 mb-4">Quick Entry</h3>
+
+<div id="quick-entry-result"></div>
+
+<form
+    hx-post="/transactions/quick"
+    hx-target="#quick-entry-result"
+    hx-swap="innerHTML"
+    class="space-y-4"
+    id="quick-entry-form"
+>
+    <div class="flex gap-2">
+        <label class="flex-1">
+            <input type="radio" name="type" value="expense" checked class="peer hidden">
+            <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-200 rounded-xl py-3 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
+                Expense
+            </div>
+        </label>
+        <label class="flex-1">
+            <input type="radio" name="type" value="income" class="peer hidden">
+            <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-200 rounded-xl py-3 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
+                Income
+            </div>
+        </label>
+    </div>
+
+    <div>
+        <input type="number" name="amount" step="0.01" min="0.01" required autofocus
+            placeholder="0.00"
+            class="w-full text-3xl font-bold text-center border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            inputmode="decimal">
+    </div>
+
+    <div>
+        <select name="account_id" required
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            id="qe-account-select">
+            <option value="">Select account...</option>
+            {% for acc in accounts %}
+            <option value="{{ acc.id }}" {% if acc.id == last_account_id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <input type="hidden" name="currency" value="EGP" id="qe-currency-input">
+
+    <div>
+        <select name="category_id"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            id="qe-category-select">
+            <option value="">No category</option>
+            <optgroup label="Expense" class="qe-category-expense">
+            {% for cat in expense_categories %}
+            <option value="{{ cat.id }}" {% if cat.id == auto_category_id %}selected{% endif %}>{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+            {% endfor %}
+            </optgroup>
+            <optgroup label="Income" class="qe-category-income" style="display:none">
+            {% for cat in income_categories %}
+            <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+            {% endfor %}
+            </optgroup>
+        </select>
+    </div>
+
+    <input type="hidden" name="date" id="qe-date-input">
+
+    <div>
+        <input type="text" name="note" placeholder="Note (optional)"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    {% if virtual_accounts %}
+    <div>
+        <select name="virtual_account_id" id="qe-va-select"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">Virtual Account (optional)</option>
+            {% for va in virtual_accounts %}
+            <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}">{{ va.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
+    <button type="submit"
+        class="w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all active:animate-bounce">
+        Save
+    </button>
+</form>
+
+<script>
+(function() {
+    document.getElementById('qe-date-input').value = new Date().toISOString().split('T')[0];
+
+    var acctSelect = document.getElementById('qe-account-select');
+    if (acctSelect && acctSelect.value) {
+        var sel = acctSelect.options[acctSelect.selectedIndex];
+        if (sel && sel.text.includes('USD')) {
+            document.getElementById('qe-currency-input').value = 'USD';
+        }
+    }
+
+    document.querySelectorAll('#quick-entry-form input[name="type"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            var isExpense = this.value === 'expense';
+            document.querySelector('optgroup.qe-category-expense').style.display = isExpense ? '' : 'none';
+            document.querySelector('optgroup.qe-category-income').style.display = isExpense ? 'none' : '';
+            document.getElementById('qe-category-select').value = '';
+        });
+    });
+
+    if (acctSelect) {
+        acctSelect.addEventListener('change', function() {
+            var sel = this.options[this.selectedIndex];
+            document.getElementById('qe-currency-input').value = (sel && sel.text.includes('USD')) ? 'USD' : 'EGP';
+            filterQeVirtualAccounts();
+        });
+    }
+
+    function filterQeVirtualAccounts() {
+        var vaSelect = document.getElementById('qe-va-select');
+        if (!acctSelect || !vaSelect) return;
+        var selectedAcct = acctSelect.value;
+        vaSelect.querySelectorAll('option').forEach(function(opt) {
+            if (!opt.value) return;
+            var vaAcctId = opt.getAttribute('data-account-id');
+            var hide = vaAcctId && vaAcctId !== selectedAcct;
+            opt.hidden = hide;
+            opt.disabled = hide;
+        });
+        if (vaSelect.selectedOptions[0] && vaSelect.selectedOptions[0].hidden) {
+            vaSelect.value = '';
+        }
+    }
+    filterQeVirtualAccounts();
+
+    var noteInput = document.querySelector('#quick-entry-form input[name="note"]');
+    var suggestTimer = null;
+    if (noteInput) {
+        noteInput.addEventListener('input', function() {
+            clearTimeout(suggestTimer);
+            var val = this.value.trim();
+            if (val.length < 3) return;
+            suggestTimer = setTimeout(function() {
+                fetch('/api/transactions/suggest-category?note=' + encodeURIComponent(val))
+                    .then(function(r) { return r.ok ? r.text() : ''; })
+                    .then(function(catId) {
+                        if (catId) {
+                            var sel = document.getElementById('qe-category-select');
+                            if (sel && !sel.value) { sel.value = catId; }
+                        }
+                    }).catch(function() {});
+            }, 300);
+        });
+    }
+})();
+</script>

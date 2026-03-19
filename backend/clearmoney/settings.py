@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "reports",  # Migrated reports feature
     "dashboard",  # Migrated dashboard (home page)
     "accounts",  # Migrated accounts & institutions
+    "transactions",  # Migrated transactions, transfers, exchanges
 ]
 
 # --- Middleware ---
@@ -110,6 +111,7 @@ MIGRATION_MODULES = {
     "reports": None,
     "dashboard": None,
     "accounts": None,
+    "transactions": None,
 }
 
 # --- Timezone ---

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}ClearMoney - Transactions{% endblock %}
+
+{% block content %}
+<div class="space-y-4 py-4">
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-bold text-slate-800">Transactions</h1>
+        <a href="/transactions/new"
+           class="bg-teal-600 text-white text-sm px-4 py-2 min-h-[44px] rounded-xl font-medium hover:bg-teal-700 flex items-center"
+           hx-boost="true" hx-preload="mouseover">
+            + New
+        </a>
+    </div>
+
+    <!-- Filter bar -->
+    <form id="tx-filters" hx-get="/transactions/list" hx-target="#transaction-list" hx-trigger="change, keyup changed delay:300ms from:#search-input"
+          class="bg-white rounded-xl shadow-sm p-3 space-y-2">
+        <input id="search-input" type="text" name="search" placeholder="Search notes..."
+               class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5">
+
+        <div class="grid grid-cols-2 gap-2">
+            <select name="account_id" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                <option value="">All Accounts</option>
+                {% for acc in data.accounts %}
+                <option value="{{ acc.id }}">{{ acc.name }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="type" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                <option value="">All Types</option>
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+            </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+            <input type="date" name="date_from" placeholder="From"
+                   class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            <input type="date" name="date_to" placeholder="To"
+                   class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+        </div>
+
+        <select name="category_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            <option value="">All Categories</option>
+            <optgroup label="Expense">
+                {% for cat in data.categories %}{% if cat.type == "expense" %}
+                <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+                {% endif %}{% endfor %}
+            </optgroup>
+            <optgroup label="Income">
+                {% for cat in data.categories %}{% if cat.type == "income" %}
+                <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+                {% endif %}{% endfor %}
+            </optgroup>
+        </select>
+    </form>
+
+    <div id="transaction-list">
+        {% include "transactions/_transaction_list.html" %}
+    </div>
+</div>
+{% endblock %}
