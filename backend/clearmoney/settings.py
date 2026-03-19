@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "people",  # Migrated people & loans
     "budgets",  # Migrated budgets
     "virtual_accounts",  # Migrated virtual accounts (envelope budgeting)
+    "recurring",  # Migrated recurring rules
 ]
 
 # --- Middleware ---
@@ -115,6 +116,10 @@ MIGRATION_MODULES = {
     "dashboard": None,
     "accounts": None,
     "transactions": None,
+    "people": None,
+    "budgets": None,
+    "virtual_accounts": None,
+    "recurring": None,
 }
 
 # --- Timezone ---

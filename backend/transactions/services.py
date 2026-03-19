@@ -226,6 +226,7 @@ class TransactionService:
 
         category_id = _to_str(data.get("category_id"))
         note = _to_str(data.get("note"))
+        recurring_rule_id = _to_str(data.get("recurring_rule_id"))
         tags = data.get("tags", [])
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",") if t.strip()]
@@ -235,9 +236,10 @@ class TransactionService:
                 cursor.execute(
                     """INSERT INTO transactions
                        (id, user_id, type, amount, currency, account_id,
-                        category_id, date, note, tags, balance_delta)
+                        category_id, date, note, tags, balance_delta,
+                        recurring_rule_id)
                        VALUES (%s, %s, %s::transaction_type, %s, %s::currency_type,
-                               %s, %s, %s, %s, %s, %s)
+                               %s, %s, %s, %s, %s, %s, %s)
                        RETURNING id, user_id, type, amount, currency, account_id,
                                  counter_account_id, category_id, date, time, note,
                                  tags, exchange_rate, counter_amount, fee_amount,
@@ -246,7 +248,7 @@ class TransactionService:
                     [
                         tx_id, self.user_id, tx_type, amount, currency,
                         account_id, category_id, tx_date, note,
-                        tags, delta,
+                        tags, delta, recurring_rule_id,
                     ],
                 )
                 row = cursor.fetchone()

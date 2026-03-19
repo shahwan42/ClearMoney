@@ -619,4 +619,131 @@ test.describe('Django Migration - Cross-App Integration', () => {
       expect(resp.headers()['location']).toContain('/virtual-accounts');
     });
   });
+
+  // ──────────────────────────────────────────────────
+  // Group 10: Recurring Rules (Phase 8)
+  // ──────────────────────────────────────────────────
+
+  test.describe('Recurring Rules', () => {
+    test('Go session cookie authenticates on Django /recurring', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+      await expect(page.locator('h2:has-text("Recurring Transactions")')).toBeVisible();
+    });
+
+    test('Django /recurring renders empty state', async ({ page }) => {
+      // Clean up any rules from previous tests
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+      await expect(page.getByText('Recurring Transactions')).toBeVisible();
+    });
+
+    test('Django /recurring shows create form with account dropdown', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+      await expect(page.locator('input[name="amount"]')).toBeVisible();
+      await expect(page.locator('select[name="account_id"]')).toBeVisible();
+      await expect(page.locator('select[name="frequency"]')).toBeVisible();
+      await expect(page.locator('input[name="next_due_date"]')).toBeVisible();
+      await expect(page.locator('input[name="auto_confirm"]')).toBeVisible();
+    });
+
+    test('create recurring rule with future date', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+
+      await page.fill('input[name="amount"]', '750');
+      await page.selectOption('select[name="account_id"]', { label: 'Current (EGP)' });
+      await page.fill('input[name="note"]', 'E2E Future Rule');
+      await page.selectOption('select[name="frequency"]', 'monthly');
+
+      // Future date — won't appear as pending
+      const future = new Date();
+      future.setDate(future.getDate() + 30);
+      await page.fill('input[name="next_due_date"]', future.toISOString().split('T')[0]);
+
+      await page.click('button:has-text("Create Rule")');
+
+      // Rule should appear in the active rules list via HTMX swap
+      await expect(page.locator('#recurring-list')).toContainText('E2E Future Rule');
+      await expect(page.locator('#recurring-list')).toContainText('750.00 EGP');
+      await expect(page.locator('#recurring-list')).toContainText('monthly');
+    });
+
+    test('create pending rule and confirm it', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+
+      await page.fill('input[name="amount"]', '200');
+      await page.selectOption('select[name="account_id"]', { label: 'Current (EGP)' });
+      await page.fill('input[name="note"]', 'E2E Confirm Me');
+      await page.selectOption('select[name="frequency"]', 'monthly');
+
+      // Past date — will appear as pending
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await page.fill('input[name="next_due_date"]', yesterday.toISOString().split('T')[0]);
+
+      await page.click('button:has-text("Create Rule")');
+      await expect(page.locator('#recurring-list')).toContainText('E2E Confirm Me');
+
+      // Reload to see the pending section
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+      await expect(page.getByText('Pending Confirmation')).toBeVisible();
+      await expect(page.locator('button:has-text("Confirm")')).toBeVisible();
+      await expect(page.locator('button:has-text("Skip")')).toBeVisible();
+
+      // Confirm — creates a transaction and advances the date
+      const pendingCard = page.locator('.bg-amber-50').first();
+      await pendingCard.locator('button:has-text("Confirm")').click();
+
+      // Active list should still show the rule (date advanced)
+      await expect(page.locator('#recurring-list')).toContainText('E2E Confirm Me');
+    });
+
+    test('create pending rule and skip it', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+
+      await page.fill('input[name="amount"]', '100');
+      await page.selectOption('select[name="account_id"]', { label: 'Current (EGP)' });
+      await page.fill('input[name="note"]', 'E2E Skip Me');
+      await page.selectOption('select[name="frequency"]', 'weekly');
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await page.fill('input[name="next_due_date"]', yesterday.toISOString().split('T')[0]);
+
+      await page.click('button:has-text("Create Rule")');
+      await expect(page.locator('#recurring-list')).toContainText('E2E Skip Me');
+
+      // Reload to see pending
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+
+      // Skip the pending rule
+      await page.locator('button:has-text("Skip")').first().click();
+
+      // Rule should still be in active list (date advanced, no transaction created)
+      await expect(page.locator('#recurring-list')).toContainText('E2E Skip Me');
+    });
+
+    test('delete recurring rule', async ({ page }) => {
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+
+      // There should be rules from previous tests
+      await expect(page.locator('#recurring-list')).toContainText('E2E Future Rule');
+
+      // Handle the JS confirm dialog
+      page.on('dialog', dialog => dialog.accept());
+
+      // Count rules before delete
+      const rulesBefore = await page.locator('#recurring-list .flex.items-center.justify-between').count();
+
+      // Click first Del button
+      await page.locator('#recurring-list button:has-text("Del")').first().click();
+
+      // Wait for HTMX swap
+      await expect(page.locator('#recurring-list .flex.items-center.justify-between')).toHaveCount(rulesBefore - 1);
+    });
+
+    test('unauthenticated request to /recurring redirects to login', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto(`${DJANGO_BASE_URL}/recurring`);
+      expect(page.url()).toContain('/login');
+    });
+  });
 });

@@ -1,0 +1,100 @@
+{# Recurring rule creation form — port of Go's partials/recurring-form.html.
+   Submits via HTMX to /recurring/add and swaps the rule list partial. #}
+
+<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 space-y-3">
+    <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">New Recurring Rule</h3>
+
+    <form hx-post="/recurring/add" hx-target="#recurring-list" hx-swap="innerHTML" class="space-y-3">
+        {% csrf_token %}
+
+        {# Transaction type radio #}
+        <div class="flex gap-2">
+            <label class="flex-1">
+                <input type="radio" name="type" value="expense" class="sr-only peer" checked>
+                <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                            peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-300 dark:peer-checked:border-red-700 peer-checked:text-red-700 dark:peer-checked:text-red-400">
+                    Expense
+                </div>
+            </label>
+            <label class="flex-1">
+                <input type="radio" name="type" value="income" class="sr-only peer">
+                <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                            peer-checked:bg-green-50 dark:peer-checked:bg-green-900/20 peer-checked:border-green-300 dark:peer-checked:border-green-700 peer-checked:text-green-700 dark:peer-checked:text-green-400">
+                    Income
+                </div>
+            </label>
+        </div>
+
+        {# Amount #}
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Amount</label>
+            <input type="number" name="amount" step="0.01" min="0.01" required
+                   placeholder="0.00" inputmode="decimal"
+                   class="w-full text-lg font-bold text-center border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-gray-700 dark:text-white">
+        </div>
+
+        {# Account #}
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Account</label>
+            <select name="account_id" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+                {% for acc in accounts %}
+                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# Category with optgroup #}
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Category</label>
+            <select name="category_id" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+                <option value="">None</option>
+                <optgroup label="Expense">
+                    {% for cat in categories %}{% if cat.type == "expense" %}
+                    <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+                    {% endif %}{% endfor %}
+                </optgroup>
+                <optgroup label="Income">
+                    {% for cat in categories %}{% if cat.type == "income" %}
+                    <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+                    {% endif %}{% endfor %}
+                </optgroup>
+            </select>
+        </div>
+
+        {# Note #}
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Note</label>
+            <input type="text" name="note" placeholder="e.g., Monthly insurance"
+                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+        </div>
+
+        {# Frequency + Next Due Date #}
+        <div class="grid grid-cols-2 gap-2">
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Frequency</label>
+                <select name="frequency" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+                    <option value="monthly">Monthly</option>
+                    <option value="weekly">Weekly</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Next Due</label>
+                <input type="date" name="next_due_date" value="{{ today|date:'Y-m-d' }}" required
+                       class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+            </div>
+        </div>
+
+        {# Auto-confirm checkbox #}
+        <div>
+            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <input type="checkbox" name="auto_confirm" value="true" class="rounded">
+                Auto-create (no confirmation needed)
+            </label>
+        </div>
+
+        <button type="submit"
+                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+            Create Rule
+        </button>
+    </form>
+</div>
