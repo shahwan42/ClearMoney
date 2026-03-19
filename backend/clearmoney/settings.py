@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "virtual_accounts",  # Migrated virtual accounts (envelope budgeting)
     "recurring",  # Migrated recurring rules
     "salary",  # Migrated salary distribution wizard
+    "investments",  # Migrated investment portfolio tracking
 ]
 
 # --- Middleware ---
@@ -122,6 +123,7 @@ MIGRATION_MODULES = {
     "virtual_accounts": None,
     "recurring": None,
     "salary": None,
+    "investments": None,
 }
 
 # --- Timezone ---

@@ -840,4 +840,37 @@ test.describe('Django Migration - Cross-App Integration', () => {
       expect(page.url()).toContain('/login');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Investments (Phase 10)
+  // -------------------------------------------------------------------------
+
+  test.describe('Investments', () => {
+    test('renders empty state on Django', async ({ page }) => {
+      await ensureAuth(page);
+      await page.goto(`${DJANGO_BASE_URL}/investments`);
+      await expect(page.locator('h2')).toContainText('Investment Portfolio');
+      await expect(page.locator('text=No investments yet.')).toBeVisible();
+    });
+
+    test('shows add investment form', async ({ page }) => {
+      await ensureAuth(page);
+      await page.goto(`${DJANGO_BASE_URL}/investments`);
+      await expect(page.locator('input[name="fund_name"]')).toBeVisible();
+      await expect(page.locator('input[name="units"]')).toBeVisible();
+      await expect(page.locator('input[name="unit_price"]')).toBeVisible();
+    });
+
+    test('shows total portfolio value', async ({ page }) => {
+      await ensureAuth(page);
+      await page.goto(`${DJANGO_BASE_URL}/investments`);
+      await expect(page.locator('text=Total Portfolio Value')).toBeVisible();
+    });
+
+    test('unauthenticated /investments redirects to login', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto(`${DJANGO_BASE_URL}/investments`);
+      expect(page.url()).toContain('/login');
+    });
+  });
 });
