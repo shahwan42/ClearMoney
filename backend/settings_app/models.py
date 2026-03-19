@@ -1,1 +1,1 @@
-# Create your models here.
+"""Models — intentionally empty. Settings app queries Go's schema directly."""

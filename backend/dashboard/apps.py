@@ -1,3 +1,11 @@
+"""
+Dashboard app — home page aggregating data from 10+ sources.
+
+Port of Go's PageHandler.Home() and DashboardService. The most complex app
+in the Django backend — assembles net worth, accounts, spending, CC summaries,
+budgets, streak, people, investments, and sparklines into a single page.
+"""
+
 from django.apps import AppConfig
 
 

@@ -1,1 +1,1 @@
-# Register your models here.
+"""Admin configuration — intentionally empty. Reports app has no models."""

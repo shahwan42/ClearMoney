@@ -5,11 +5,11 @@ Routes migrated features to their Django apps.
 Go still handles all other routes — Caddy decides which app gets each request.
 """
 
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.urls import include, path
 
 
-def healthz(request):  # type: ignore[no-untyped-def]
+def healthz(request: HttpRequest) -> HttpResponse:
     """Simple health check for Playwright webServer readiness probe."""
     return HttpResponse("ok")
 
