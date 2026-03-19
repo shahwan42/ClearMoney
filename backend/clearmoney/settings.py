@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "push",  # Migrated push notification API
     "categories",  # Category JSON API (port of Go's CategoryHandler)
     "jobs",  # Background jobs: management commands (port of Go's internal/jobs/)
+    "auth_app",  # Magic link authentication (port of Go's auth handler)
 ]
 
 # --- Middleware ---
@@ -132,6 +133,7 @@ MIGRATION_MODULES = {
     "installments": None,
     "categories": None,
     "jobs": None,
+    "auth_app": None,
 }
 
 # --- Timezone ---

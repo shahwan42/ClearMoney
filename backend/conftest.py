@@ -20,9 +20,9 @@ from core.models import Session, User
 
 # Re-export factories so existing tests that import from conftest still work.
 # New tests should import directly from tests.factories.
-from tests.factories import SessionFactory, UserFactory
+from tests.factories import AuthTokenFactory, SessionFactory, UserFactory
 
-__all__ = ["UserFactory", "SessionFactory"]
+__all__ = ["UserFactory", "SessionFactory", "AuthTokenFactory"]
 
 # ---------------------------------------------------------------------------
 # Database setup — skip test DB creation

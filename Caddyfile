@@ -84,6 +84,30 @@ clearmoney.shahwan.me {
 	handle /api/categories* {
 		reverse_proxy django:8000
 	}
+	handle /installments* {
+		reverse_proxy django:8000
+	}
+	handle /login {
+		reverse_proxy django:8000
+	}
+	handle /register {
+		reverse_proxy django:8000
+	}
+	handle /auth/* {
+		reverse_proxy django:8000
+	}
+	handle /logout {
+		reverse_proxy django:8000
+	}
+	handle / {
+		reverse_proxy django:8000
+	}
+	handle /partials/recent-transactions {
+		reverse_proxy django:8000
+	}
+	handle /partials/people-summary {
+		reverse_proxy django:8000
+	}
 
 	# Everything else → Go (port 8080)
 	handle {

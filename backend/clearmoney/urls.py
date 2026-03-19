@@ -31,4 +31,5 @@ urlpatterns = [
     path("", include("exchange_rates.urls")),
     path("", include("push.urls")),
     path("", include("categories.urls")),
+    path("", include("auth_app.urls")),
 ]

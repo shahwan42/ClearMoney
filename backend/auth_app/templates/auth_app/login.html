@@ -1,0 +1,43 @@
+{% extends "auth_app/bare.html" %}
+
+{% block title %}ClearMoney - Sign In{% endblock %}
+
+{% block content %}
+<div class="max-w-sm mx-auto py-20 px-4">
+    <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold text-slate-800 dark:text-white">ClearMoney</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign in with your email</p>
+    </div>
+
+    {% if error %}
+    <div class="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm text-center mb-4">
+        <p>{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/login" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
+        <!-- Honeypot: hidden field that bots fill. Real users never see this. -->
+        <div style="position: absolute; left: -9999px;" aria-hidden="true">
+            <input type="text" name="website" tabindex="-1" autocomplete="off">
+        </div>
+        <!-- Timing: page render timestamp for bot detection -->
+        <input type="hidden" name="_rt" value="{{ render_time }}">
+
+        <div>
+            <label for="email" class="block text-xs text-gray-500 dark:text-gray-400 mb-2">Email address</label>
+            <input type="email" name="email" id="email" required autofocus
+                placeholder="you@example.com"
+                class="w-full text-base border border-gray-300 dark:border-slate-600 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white dark:bg-slate-700 dark:text-white">
+        </div>
+
+        <button type="submit"
+            class="w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+            Send magic link
+        </button>
+    </form>
+
+    <p class="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+        Don't have an account? <a href="/register" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">Create one</a>
+    </p>
+</div>
+{% endblock %}

@@ -25,6 +25,7 @@ from django.utils import timezone
 
 from core.models import (
     Account,
+    AuthToken,
     Budget,
     Category,
     InstallmentPlan,
@@ -60,6 +61,20 @@ class SessionFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory(UserFactory)
     token = factory.LazyFunction(lambda: str(uuid.uuid4()))
     expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(days=30))
+
+
+class AuthTokenFactory(factory.django.DjangoModelFactory):
+    """Factory for the auth_tokens table — creates a valid magic link token."""
+
+    class Meta:
+        model = AuthToken
+
+    id = factory.LazyFunction(uuid.uuid4)
+    email = factory.LazyFunction(lambda: f"pytest-{uuid.uuid4().hex[:8]}@example.com")
+    token = factory.LazyFunction(lambda: str(uuid.uuid4()))
+    purpose = "login"
+    expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(minutes=15))
+    used = False
 
 
 class InstitutionFactory(factory.django.DjangoModelFactory):

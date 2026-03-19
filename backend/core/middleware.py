@@ -47,7 +47,7 @@ class TimezoneMiddleware:
         return self.get_response(request)
 
 # Paths that don't require authentication
-PUBLIC_PATHS = ["/healthz", "/static/", "/login", "/register", "/auth/verify"]
+PUBLIC_PATHS = ["/healthz", "/static/", "/login", "/register", "/auth/verify", "/logout"]
 
 
 class GoSessionAuthMiddleware:
