@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "recurring",  # Migrated recurring rules
     "salary",  # Migrated salary distribution wizard
     "investments",  # Migrated investment portfolio tracking
+    "installments",  # Migrated installment plan tracking
 ]
 
 # --- Middleware ---
@@ -124,6 +125,7 @@ MIGRATION_MODULES = {
     "recurring": None,
     "salary": None,
     "investments": None,
+    "installments": None,
 }
 
 # --- Timezone ---

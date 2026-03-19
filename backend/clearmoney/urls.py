@@ -27,4 +27,5 @@ urlpatterns = [
     path("", include("recurring.urls")),
     path("", include("salary.urls")),
     path("", include("investments.urls")),
+    path("", include("installments.urls")),
 ]

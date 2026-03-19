@@ -873,4 +873,40 @@ test.describe('Django Migration - Cross-App Integration', () => {
       expect(page.url()).toContain('/login');
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Installments (Phase 11)
+  // -------------------------------------------------------------------------
+
+  test.describe('Installments', () => {
+    test('renders empty state on Django', async ({ page }) => {
+      await ensureAuth(page);
+      await page.goto(`${DJANGO_BASE_URL}/installments`);
+      await expect(page.locator('h2')).toContainText('Installment Plans');
+      await expect(page.locator('text=No installment plans yet.')).toBeVisible();
+    });
+
+    test('shows new plan form', async ({ page }) => {
+      await ensureAuth(page);
+      await page.goto(`${DJANGO_BASE_URL}/installments`);
+      await expect(page.locator('input[name="description"]')).toBeVisible();
+      await expect(page.locator('input[name="total_amount"]')).toBeVisible();
+      await expect(page.locator('input[name="num_installments"]')).toBeVisible();
+      await expect(page.locator('select[name="account_id"]')).toBeVisible();
+      await expect(page.locator('input[name="start_date"]')).toBeVisible();
+    });
+
+    test('shows account dropdown with options', async ({ page }) => {
+      await ensureAuth(page);
+      await page.goto(`${DJANGO_BASE_URL}/installments`);
+      const options = page.locator('select[name="account_id"] option');
+      await expect(options).not.toHaveCount(0);
+    });
+
+    test('unauthenticated /installments redirects to login', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto(`${DJANGO_BASE_URL}/installments`);
+      expect(page.url()).toContain('/login');
+    });
+  });
 });
