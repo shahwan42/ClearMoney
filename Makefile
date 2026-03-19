@@ -123,7 +123,7 @@ django-shell:
 	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py shell
 
 django-test:
-	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py test --verbosity=2 --keepdb
+	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/pytest -v
 
 django-inspectdb:
 	cd backend && DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" venv/bin/python manage.py inspectdb

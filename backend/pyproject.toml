@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "clearmoney.settings"
+python_files = ["tests.py", "test_*.py", "*_test.py"]
+addopts = "--reuse-db -p no:warnings"

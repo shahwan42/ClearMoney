@@ -1,19 +1,22 @@
 """
 Reports app tests — reports page rendering and data aggregation.
 
-Tests create real users, sessions, accounts, and transactions in the database,
-matching Go's integration test pattern with testutil fixtures.
+DB tests use @pytest.mark.django_db with fixtures that create users, sessions,
+accounts, and transactions via a mix of factory_boy (User/Session) and raw SQL
+(Institution/Account/Category/Transaction — needed due to PostgreSQL enum columns
+and missing Django models for Institution).
 
-Uses TransactionTestCase for DB tests and plain TestCase for chart builder tests.
+Chart builder tests are plain functions (no DB).
 """
 
 import uuid
 from datetime import date, timedelta
 
+import pytest
 from django.db import connection
-from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
+from conftest import SessionFactory, UserFactory
 from core.middleware import COOKIE_NAME
 from reports.views import (
     _build_bar_chart,
@@ -23,266 +26,296 @@ from reports.views import (
 )
 
 
-class ReportsPageTest(TransactionTestCase):
-    """Tests for GET /reports — reports page rendering."""
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
-    def setUp(self):
-        """Create user, session, account, category, and test transactions."""
-        self.user_id = str(uuid.uuid4())
-        self.user_email = f'reports-{uuid.uuid4().hex[:8]}@example.com'
-        self.session_token = str(uuid.uuid4())
-        self.account_id = str(uuid.uuid4())
-        self.category_id = str(uuid.uuid4())
-        self.inst_id = str(uuid.uuid4())
-        self._tx_ids = []
+@pytest.fixture
+def reports_data(db):
+    """User + session + institution + account + category + 4 transactions.
 
-        with connection.cursor() as cursor:
-            # Create user + session
-            cursor.execute(
-                "INSERT INTO users (id, email) VALUES (%s, %s)",
-                [self.user_id, self.user_email],
-            )
-            cursor.execute(
-                "INSERT INTO sessions (id, user_id, token, expires_at) VALUES (%s, %s, %s, %s)",
-                [str(uuid.uuid4()), self.user_id, self.session_token, timezone.now() + timedelta(days=30)],
-            )
-            # Create institution + account
-            cursor.execute(
-                "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-                [self.inst_id, self.user_id, 'Test Bank'],
-            )
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance) VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
-                [self.account_id, self.user_id, self.inst_id, 'Test Acct', 10000],
-            )
-            # Create category
-            cursor.execute(
-                "INSERT INTO categories (id, user_id, name, type, icon) VALUES (%s, %s, %s, %s, %s)",
-                [self.category_id, self.user_id, 'Food', 'expense', '🛒'],
-            )
-            # Create 3 expense transactions for March 2026
-            for i in range(3):
-                tx_id = str(uuid.uuid4())
-                self._tx_ids.append(tx_id)
-                cursor.execute(
-                    """INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, note)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    [tx_id, self.user_id, self.account_id, self.category_id,
-                     'expense', 100 + i * 50, 'EGP', date(2026, 3, 10 + i), f'Test expense {i}'],
-                )
-            # Add income transaction
+    Creates March 2026 data: 3 expense transactions + 1 income transaction.
+    Yields a dict with user_id, session_token, account_id, category_id.
+    Cleans up on teardown.
+    """
+    user = UserFactory()
+    session = SessionFactory(user=user)
+    inst_id = str(uuid.uuid4())
+    account_id = str(uuid.uuid4())
+    category_id = str(uuid.uuid4())
+    tx_ids = []
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
+            [inst_id, str(user.id), 'Test Bank'],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
+            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
+            [account_id, str(user.id), inst_id, 'Test Acct', 10000],
+        )
+        cursor.execute(
+            "INSERT INTO categories (id, user_id, name, type, icon) VALUES (%s, %s, %s, %s, %s)",
+            [category_id, str(user.id), 'Food', 'expense', '🛒'],
+        )
+        for i in range(3):
             tx_id = str(uuid.uuid4())
-            self._tx_ids.append(tx_id)
+            tx_ids.append(tx_id)
             cursor.execute(
-                """INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                [tx_id, self.user_id, self.account_id,
-                 'income', 5000, 'EGP', date(2026, 3, 1), 'Test income'],
+                "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, note)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                [tx_id, str(user.id), account_id, category_id,
+                 'expense', 100 + i * 50, 'EGP', date(2026, 3, 10 + i), f'Test expense {i}'],
+            )
+        income_id = str(uuid.uuid4())
+        tx_ids.append(income_id)
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            [income_id, str(user.id), account_id, 'income', 5000, 'EGP', date(2026, 3, 1), 'Test income'],
+        )
+
+    yield {
+        'user_id': str(user.id),
+        'session_token': session.token,
+        'account_id': account_id,
+        'category_id': category_id,
+    }
+
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM categories WHERE user_id = %s", [str(user.id)])
+    from core.models import Session, User
+    Session.objects.filter(user=user).delete()
+    User.objects.filter(id=user.id).delete()
+
+
+@pytest.fixture
+def spending_data(db):
+    """User + account + category + 3 expense transactions for March 2026.
+
+    Used by SpendingByCategory and MonthSummary tests.
+    Yields dict with user_id and account_id.
+    """
+    user = UserFactory()
+    inst_id = str(uuid.uuid4())
+    account_id = str(uuid.uuid4())
+    category_id = str(uuid.uuid4())
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
+            [inst_id, str(user.id), 'Test Bank'],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
+            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
+            [account_id, str(user.id), inst_id, 'Test', 0],
+        )
+        cursor.execute(
+            "INSERT INTO categories (id, user_id, name, type, icon) VALUES (%s, %s, %s, %s, %s)",
+            [category_id, str(user.id), 'Food', 'expense', '🛒'],
+        )
+        for i in range(3):
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                [str(uuid.uuid4()), str(user.id), account_id, category_id,
+                 'expense', 100 + i * 50, 'EGP', date(2026, 3, 10 + i)],
             )
 
-    def tearDown(self):
-        """Clean up all test data."""
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM sessions WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM categories WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM users WHERE id = %s", [self.user_id])
+    yield {'user_id': str(user.id), 'account_id': account_id, 'category_id': category_id}
 
-    def test_reports_returns_200(self):
-        """Authenticated request to /reports should return 200."""
-        response = self.client.get('/reports', **{
-            'HTTP_COOKIE': f'{COOKIE_NAME}={self.session_token}',
-        })
-        self.assertEqual(response.status_code, 200)
-
-    def test_reports_contains_chart_html(self):
-        """Reports page should contain chart-related HTML."""
-        response = self.client.get('/reports?year=2026&month=3', **{
-            'HTTP_COOKIE': f'{COOKIE_NAME}={self.session_token}',
-        })
-        content = response.content.decode()
-        self.assertIn('Spending by Category', content)
-        self.assertIn('Income vs Expenses', content)
-
-    def test_reports_with_currency_filter(self):
-        """Reports page should work with currency filter."""
-        response = self.client.get('/reports?year=2026&month=3&currency=EGP', **{
-            'HTTP_COOKIE': f'{COOKIE_NAME}={self.session_token}',
-        })
-        self.assertEqual(response.status_code, 200)
-
-    def test_reports_month_navigation(self):
-        """Reports page should contain prev/next month links."""
-        response = self.client.get('/reports?year=2026&month=3', **{
-            'HTTP_COOKIE': f'{COOKIE_NAME}={self.session_token}',
-        })
-        content = response.content.decode()
-        self.assertIn('Prev', content)
-        self.assertIn('Next', content)
-
-    def test_reports_empty_month(self):
-        """Reports for a month with no data should return 200."""
-        response = self.client.get('/reports?year=2020&month=1', **{
-            'HTTP_COOKIE': f'{COOKIE_NAME}={self.session_token}',
-        })
-        self.assertEqual(response.status_code, 200)
-
-    def test_reports_redirects_without_auth(self):
-        """Unauthenticated request should redirect to /login."""
-        response = self.client.get('/reports')
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, '/login')
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM categories WHERE user_id = %s", [str(user.id)])
+    from core.models import User
+    User.objects.filter(id=user.id).delete()
 
 
-class SpendingByCategoryTest(TransactionTestCase):
-    """Tests for _get_spending_by_category — SQL aggregation logic."""
+@pytest.fixture
+def summary_data(db):
+    """User + account + 1 income + 3 expenses for March 2026.
 
-    def setUp(self):
-        """Create user, account, category, and expense transactions."""
-        self.user_id = str(uuid.uuid4())
-        self.account_id = str(uuid.uuid4())
-        self.category_id = str(uuid.uuid4())
-        self.inst_id = str(uuid.uuid4())
+    Used by MonthSummary tests.
+    Yields dict with user_id.
+    """
+    user = UserFactory()
+    inst_id = str(uuid.uuid4())
+    account_id = str(uuid.uuid4())
 
-        with connection.cursor() as cursor:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
+            [inst_id, str(user.id), 'Test Bank'],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
+            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
+            [account_id, str(user.id), inst_id, 'Test', 0],
+        )
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date)"
+            " VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            [str(uuid.uuid4()), str(user.id), account_id, 'income', 5000, 'EGP', date(2026, 3, 1)],
+        )
+        for i in range(3):
             cursor.execute(
-                "INSERT INTO users (id, email) VALUES (%s, %s)",
-                [self.user_id, f'spend-{uuid.uuid4().hex[:8]}@example.com'],
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date)"
+                " VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                [str(uuid.uuid4()), str(user.id), account_id, 'expense', 100 + i * 50, 'EGP', date(2026, 3, 10 + i)],
             )
-            cursor.execute(
-                "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-                [self.inst_id, self.user_id, 'Test Bank'],
-            )
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance) VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
-                [self.account_id, self.user_id, self.inst_id, 'Test', 0],
-            )
-            cursor.execute(
-                "INSERT INTO categories (id, user_id, name, type, icon) VALUES (%s, %s, %s, %s, %s)",
-                [self.category_id, self.user_id, 'Food', 'expense', '🛒'],
-            )
-            for i in range(3):
-                cursor.execute(
-                    """INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                    [str(uuid.uuid4()), self.user_id, self.account_id, self.category_id,
-                     'expense', 100 + i * 50, 'EGP', date(2026, 3, 10 + i)],
-                )
 
-    def tearDown(self):
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM categories WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM users WHERE id = %s", [self.user_id])
+    yield {'user_id': str(user.id)}
 
-    def test_returns_spending_data(self):
-        """Should return spending with correct total for March 2026."""
-        spending, total = _get_spending_by_category(self.user_id, 2026, 3)
-        self.assertGreater(total, 0)
-        self.assertGreater(len(spending), 0)
-        self.assertAlmostEqual(total, 450.0, places=2)
-
-    def test_percentages_sum_to_100(self):
-        """Category percentages should sum to approximately 100."""
-        spending, total = _get_spending_by_category(self.user_id, 2026, 3)
-        if spending:
-            pct_sum = sum(s['percentage'] for s in spending)
-            self.assertAlmostEqual(pct_sum, 100.0, places=1)
-
-    def test_empty_month_returns_no_data(self):
-        """A month with no expenses should return empty list."""
-        spending, total = _get_spending_by_category(self.user_id, 2020, 1)
-        self.assertEqual(spending, [])
-        self.assertEqual(total, 0.0)
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(user.id)])
+        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [str(user.id)])
+    from core.models import User
+    User.objects.filter(id=user.id).delete()
 
 
-class MonthSummaryTest(TransactionTestCase):
-    """Tests for _get_month_summary — income/expense totals."""
+# ---------------------------------------------------------------------------
+# GET /reports — page rendering
+# ---------------------------------------------------------------------------
 
-    def setUp(self):
-        """Create user, account, and transactions (income + expense)."""
-        self.user_id = str(uuid.uuid4())
-        self.account_id = str(uuid.uuid4())
-        self.inst_id = str(uuid.uuid4())
-
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO users (id, email) VALUES (%s, %s)",
-                [self.user_id, f'summary-{uuid.uuid4().hex[:8]}@example.com'],
-            )
-            cursor.execute(
-                "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-                [self.inst_id, self.user_id, 'Test Bank'],
-            )
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance) VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
-                [self.account_id, self.user_id, self.inst_id, 'Test', 0],
-            )
-            # Income
-            cursor.execute(
-                """INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                [str(uuid.uuid4()), self.user_id, self.account_id, 'income', 5000, 'EGP', date(2026, 3, 1)],
-            )
-            # Expenses
-            for i in range(3):
-                cursor.execute(
-                    """INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-                    [str(uuid.uuid4()), self.user_id, self.account_id, 'expense', 100 + i * 50, 'EGP', date(2026, 3, 10 + i)],
-                )
-
-    def tearDown(self):
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [self.user_id])
-            cursor.execute("DELETE FROM users WHERE id = %s", [self.user_id])
-
-    def test_returns_correct_totals(self):
-        """Should return correct income and expense totals."""
-        summary = _get_month_summary(self.user_id, 2026, 3)
-        self.assertEqual(summary['income'], 5000.0)
-        self.assertAlmostEqual(summary['expenses'], 450.0, places=2)
-        self.assertAlmostEqual(summary['net'], 4550.0, places=2)
+@pytest.mark.django_db
+def test_reports_returns_200(client, reports_data):
+    """Authenticated request to /reports returns 200."""
+    cookie = {'HTTP_COOKIE': f"{COOKIE_NAME}={reports_data['session_token']}"}
+    response = client.get('/reports', **cookie)
+    assert response.status_code == 200
 
 
-class ChartBuildersTest(TestCase):
-    """Tests for chart data building functions — no database needed."""
+@pytest.mark.django_db
+def test_reports_contains_chart_html(client, reports_data):
+    """Reports page contains chart-related HTML."""
+    cookie = {'HTTP_COOKIE': f"{COOKIE_NAME}={reports_data['session_token']}"}
+    response = client.get('/reports?year=2026&month=3', **cookie)
+    content = response.content.decode()
+    assert 'Spending by Category' in content
+    assert 'Income vs Expenses' in content
 
-    def test_build_chart_segments_empty(self):
-        """Empty spending should return empty segments."""
-        self.assertEqual(_build_chart_segments([], 0), [])
 
-    def test_build_chart_segments_assigns_colors(self):
-        """Each segment should get a color from the palette."""
-        spending = [
-            {'name': 'Food', 'amount': 60, 'percentage': 60},
-            {'name': 'Transport', 'amount': 40, 'percentage': 40},
-        ]
-        segments = _build_chart_segments(spending, 100)
-        self.assertEqual(len(segments), 2)
-        self.assertEqual(segments[0]['color'], '#0d9488')
-        self.assertEqual(segments[1]['color'], '#dc2626')
+@pytest.mark.django_db
+def test_reports_with_currency_filter(client, reports_data):
+    """Reports page works with currency filter."""
+    cookie = {'HTTP_COOKIE': f"{COOKIE_NAME}={reports_data['session_token']}"}
+    response = client.get('/reports?year=2026&month=3&currency=EGP', **cookie)
+    assert response.status_code == 200
 
-    def test_build_bar_chart_empty(self):
-        """Empty history should return empty groups and legend."""
-        groups, legend = _build_bar_chart([])
-        self.assertEqual(groups, [])
-        self.assertEqual(legend, [])
 
-    def test_build_bar_chart_normalizes_heights(self):
-        """The tallest bar should be 100%."""
-        history = [
-            {'year': 2026, 'month': 1, 'month_name': 'January', 'income': 1000, 'expenses': 500, 'net': 500},
-            {'year': 2026, 'month': 2, 'month_name': 'February', 'income': 2000, 'expenses': 800, 'net': 1200},
-        ]
-        groups, legend = _build_bar_chart(history)
-        self.assertEqual(len(groups), 2)
-        feb_income_height = groups[1]['bars'][0]['height_pct']
-        self.assertAlmostEqual(feb_income_height, 100.0, places=1)
-        self.assertEqual(len(legend), 2)
+@pytest.mark.django_db
+def test_reports_month_navigation(client, reports_data):
+    """Reports page contains prev/next month links."""
+    cookie = {'HTTP_COOKIE': f"{COOKIE_NAME}={reports_data['session_token']}"}
+    response = client.get('/reports?year=2026&month=3', **cookie)
+    content = response.content.decode()
+    assert 'Prev' in content
+    assert 'Next' in content
+
+
+@pytest.mark.django_db
+def test_reports_empty_month(client, reports_data):
+    """Reports for a month with no data returns 200."""
+    cookie = {'HTTP_COOKIE': f"{COOKIE_NAME}={reports_data['session_token']}"}
+    response = client.get('/reports?year=2020&month=1', **cookie)
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_reports_redirects_without_auth(client):
+    """Unauthenticated request redirects to /login."""
+    response = client.get('/reports')
+    assert response.status_code == 302
+    assert response.url == '/login'
+
+
+# ---------------------------------------------------------------------------
+# _get_spending_by_category — SQL aggregation
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_spending_returns_data(spending_data):
+    """Should return spending with correct total for March 2026."""
+    spending, total = _get_spending_by_category(spending_data['user_id'], 2026, 3)
+    assert total > 0
+    assert len(spending) > 0
+    assert abs(total - 450.0) < 0.01
+
+
+@pytest.mark.django_db
+def test_spending_percentages_sum_to_100(spending_data):
+    """Category percentages sum to approximately 100."""
+    spending, total = _get_spending_by_category(spending_data['user_id'], 2026, 3)
+    if spending:
+        pct_sum = sum(s['percentage'] for s in spending)
+        assert abs(pct_sum - 100.0) < 0.1
+
+
+@pytest.mark.django_db
+def test_spending_empty_month_returns_no_data(spending_data):
+    """A month with no expenses returns an empty list."""
+    spending, total = _get_spending_by_category(spending_data['user_id'], 2020, 1)
+    assert spending == []
+    assert total == 0.0
+
+
+# ---------------------------------------------------------------------------
+# _get_month_summary — income/expense totals
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_summary_returns_correct_totals(summary_data):
+    """Should return correct income and expense totals."""
+    summary = _get_month_summary(summary_data['user_id'], 2026, 3)
+    assert summary['income'] == 5000.0
+    assert abs(summary['expenses'] - 450.0) < 0.01
+    assert abs(summary['net'] - 4550.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# Chart builder functions — no DB
+# ---------------------------------------------------------------------------
+
+def test_build_chart_segments_empty():
+    """Empty spending returns empty segments."""
+    assert _build_chart_segments([], 0) == []
+
+
+def test_build_chart_segments_assigns_colors():
+    """Each segment gets a color from the palette."""
+    spending = [
+        {'name': 'Food', 'amount': 60, 'percentage': 60},
+        {'name': 'Transport', 'amount': 40, 'percentage': 40},
+    ]
+    segments = _build_chart_segments(spending, 100)
+    assert len(segments) == 2
+    assert segments[0]['color'] == '#0d9488'
+    assert segments[1]['color'] == '#dc2626'
+
+
+def test_build_bar_chart_empty():
+    """Empty history returns empty groups and legend."""
+    groups, legend = _build_bar_chart([])
+    assert groups == []
+    assert legend == []
+
+
+def test_build_bar_chart_normalizes_heights():
+    """The tallest bar is 100%."""
+    history = [
+        {'year': 2026, 'month': 1, 'month_name': 'January', 'income': 1000, 'expenses': 500, 'net': 500},
+        {'year': 2026, 'month': 2, 'month_name': 'February', 'income': 2000, 'expenses': 800, 'net': 1200},
+    ]
+    groups, legend = _build_bar_chart(history)
+    assert len(groups) == 2
+    feb_income_height = groups[1]['bars'][0]['height_pct']
+    assert abs(feb_income_height - 100.0) < 0.1
+    assert len(legend) == 2

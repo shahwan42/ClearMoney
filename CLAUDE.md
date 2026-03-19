@@ -181,12 +181,13 @@ The backend is being incrementally migrated from Go to Django. Both apps share t
 - **Run**: `cd backend && pytest` or `make django-test`
 - **Real DB**: Tests run against the real PostgreSQL schema (`--reuse-db` from pytest-django replaces `--keepdb`)
 - **Fixtures**: Use `factory_boy` factories defined in `tests/factories.py` per app — like Laravel's `UserFactory::create()`
-- **Config**: `backend/pytest.ini` (or `pyproject.toml`) sets `DJANGO_SETTINGS_MODULE` and `--reuse-db`
+- **Config**: `backend/pyproject.toml` sets `DJANGO_SETTINGS_MODULE` and `--reuse-db` — prefer `pyproject.toml` over `pytest.ini` unless a tool doesn't support it
 
 ## Coding Conventions
 
 ### Django Style
 
+- **Prefer `pyproject.toml`** for all Python tool configuration (pytest, coverage, mypy, ruff, etc.) over separate config files (`pytest.ini`, `setup.cfg`, `.coveragerc`) — use a dedicated file only when a tool explicitly requires it.
 - **Always set `db_table`** in every model's `Meta` class. Django's default table name (`appname_modelname`) will clash with Go's existing schema names. Always be explicit: `db_table = 'transactions'` not `settings_app_transaction`.
 - **Write clean, Pythonic code** — use list/dict comprehensions, f-strings, context managers (`with`), and idiomatic patterns. Avoid Java-style loops where a comprehension is cleaner. Follow PEP 8.
 - **Use pytest** (via `pytest-django`) as the testing framework, not `manage.py test`. Plugins in use: `pytest-mock` (mocker fixture), `pytest-xdist` (-n auto parallel), `pytest-cov` (coverage reports), `factory_boy` (model factories — like Laravel's `UserFactory::create()`).
