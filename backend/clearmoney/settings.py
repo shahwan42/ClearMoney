@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "investments",  # Migrated investment portfolio tracking
     "installments",  # Migrated installment plan tracking
     "exchange_rates",  # Migrated exchange rate history
+    "push",  # Migrated push notification API
 ]
 
 # --- Middleware ---

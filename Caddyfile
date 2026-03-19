@@ -72,6 +72,9 @@ clearmoney.shahwan.me {
 	handle /exchange-rates {
 		reverse_proxy django:8000
 	}
+	handle /api/push/* {
+		reverse_proxy django:8000
+	}
 
 	# Everything else → Go (port 8080)
 	handle {

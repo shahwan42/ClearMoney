@@ -954,4 +954,48 @@ test.describe('Django Migration - Cross-App Integration', () => {
       expect(page.url()).toContain('/login');
     });
   });
+
+  // ──────────────────────────────────────────────────
+  // Group 14: Push Notifications API (Phase 14)
+  // ──────────────────────────────────────────────────
+
+  test.describe('Push Notifications API', () => {
+    test('GET /api/push/vapid-key returns JSON with publicKey', async ({ page }) => {
+      await ensureAuth(page);
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/api/push/vapid-key`);
+      expect(resp.status()).toBe(200);
+      const data = await resp.json();
+      expect(data).toHaveProperty('publicKey');
+      expect(typeof data.publicKey).toBe('string');
+    });
+
+    test('GET /api/push/check returns JSON array', async ({ page }) => {
+      await ensureAuth(page);
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/api/push/check`);
+      expect(resp.status()).toBe(200);
+      const data = await resp.json();
+      expect(Array.isArray(data)).toBe(true);
+    });
+
+    test('POST /api/push/subscribe returns ok', async ({ page }) => {
+      await ensureAuth(page);
+      const resp = await page.request.post(`${DJANGO_BASE_URL}/api/push/subscribe`, {
+        data: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: { p256dh: 'test-key', auth: 'test-auth' },
+        },
+      });
+      expect(resp.status()).toBe(200);
+      const data = await resp.json();
+      expect(data.status).toBe('ok');
+    });
+
+    test('unauthenticated /api/push/check redirects to login', async ({ page }) => {
+      await page.context().clearCookies();
+      const resp = await page.request.get(`${DJANGO_BASE_URL}/api/push/check`, {
+        maxRedirects: 0,
+      });
+      expect(resp.status()).toBe(302);
+    });
+  });
 });
