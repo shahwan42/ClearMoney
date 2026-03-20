@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 
 VALID_CATEGORY_TYPES = {"expense", "income"}
 
-# Columns returned by category SELECT queries
-_COLS = "id, user_id, name, type, icon, is_system, is_archived, display_order, created_at, updated_at"
+# Inlined column list — avoids f-string interpolation in queries
+_SELECT_COLS = (
+    "id, user_id, name, type, icon, is_system, is_archived,"
+    " display_order, created_at, updated_at"
+)
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -53,7 +56,7 @@ class CategoryService:
         """All non-archived categories, ordered by type, display_order, name."""
         with connection.cursor() as cursor:
             cursor.execute(
-                f"SELECT {_COLS} FROM categories "
+                f"SELECT {_SELECT_COLS} FROM categories "
                 "WHERE is_archived = false AND user_id = %s "
                 "ORDER BY type, display_order, name",
                 [self.user_id],
@@ -64,7 +67,7 @@ class CategoryService:
         """Non-archived categories filtered by type ('expense' or 'income')."""
         with connection.cursor() as cursor:
             cursor.execute(
-                f"SELECT {_COLS} FROM categories "
+                f"SELECT {_SELECT_COLS} FROM categories "
                 "WHERE type = %s AND is_archived = false AND user_id = %s "
                 "ORDER BY display_order, name",
                 [cat_type, self.user_id],
@@ -75,7 +78,7 @@ class CategoryService:
         """Single category by ID. Returns None if not found."""
         with connection.cursor() as cursor:
             cursor.execute(
-                f"SELECT {_COLS} FROM categories WHERE id = %s AND user_id = %s",
+                f"SELECT {_SELECT_COLS} FROM categories WHERE id = %s AND user_id = %s",
                 [cat_id, self.user_id],
             )
             row = cursor.fetchone()
