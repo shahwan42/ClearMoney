@@ -28,28 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
-          args: --timeout=5m
-
-      - name: Run unit tests
-        run: go test ./internal/config/ ./internal/models/ -v
-
-      - name: Run integration tests
-        env:
-          TEST_DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
-        run: go test -p 1 -v ./...
-
-      - name: Build binary
-        run: go build -o server ./cmd/server/
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -64,7 +42,19 @@ jobs:
 
       - name: Run mypy
         working-directory: backend
+        env:
+          DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
         run: uv run mypy .
+
+      - name: Run ruff
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Apply database migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
+        run: uv run python manage.py migrate
 
       - name: Run Django tests
         working-directory: backend
@@ -87,10 +77,8 @@ jobs:
         env:
           DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
           DISABLE_RATE_LIMIT: "true"
-        run: |
-          ./server &
-          sleep 3
-          cd e2e && npx playwright test
+        working-directory: e2e
+        run: npx playwright test
 
       - name: Build Docker image
-        run: docker build -t clearmoney:ci .
+        run: docker build -t clearmoney:ci -f backend/Dockerfile .
