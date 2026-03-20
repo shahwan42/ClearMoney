@@ -106,3 +106,22 @@ class GoSessionAuthMiddleware:
         auth_request.user_email = row[1]
 
         return self.get_response(auth_request)
+
+
+class ExceptionLoggingMiddleware:
+    """Log unhandled exceptions with request context before Django returns 500."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        return self.get_response(request)
+
+    def process_exception(self, request: HttpRequest, exception: Exception) -> None:
+        """Called by Django when a view raises an unhandled exception."""
+        logger.exception(
+            "unhandled_exception path=%s method=%s user=%s",
+            request.path,
+            request.method,
+            getattr(request, "user_id", "anonymous"),
+        )

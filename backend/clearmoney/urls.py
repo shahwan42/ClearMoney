@@ -2,11 +2,15 @@
 ClearMoney URL configuration.
 
 Routes migrated features to their Django apps.
-Go still handles all other routes — Caddy decides which app gets each request.
 """
 
 from django.http import HttpRequest, HttpResponse
 from django.urls import include, path
+
+# Custom error handlers — match app design instead of Django's defaults
+handler404 = "core.views.custom_404"
+handler500 = "core.views.custom_500"
+handler429 = "core.views.ratelimited_error"
 
 
 def healthz(request: HttpRequest) -> HttpResponse:
