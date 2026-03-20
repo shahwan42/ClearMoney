@@ -22,12 +22,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- Security ---
 
+ENV = os.environ.get("ENV", "development")
+
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-dev-only-change-in-production",
 )
-ENV = os.environ.get("ENV", "development")
-DEBUG = ENV != "production"
+if (
+    ENV == "production"
+    and SECRET_KEY == "django-insecure-dev-only-change-in-production"
+):
+    raise ValueError(
+        "DJANGO_SECRET_KEY must be set in production — never use the default"
+    )
+
+DEBUG = os.environ.get("DEBUG", "").lower() == "true" if ENV == "production" else True
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS", "localhost,0.0.0.0,127.0.0.1"
