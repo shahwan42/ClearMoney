@@ -80,9 +80,7 @@ class TestExchangeRatesPage:
         """When no rates exist, shows empty state message."""
         # Save existing rates, clear table, test, then restore
         with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id, date, rate, source, note FROM exchange_rate_log"
-            )
+            cursor.execute("SELECT id, date, rate, source, note FROM exchange_rate_log")
             saved_rows = cursor.fetchall()
             cursor.execute("DELETE FROM exchange_rate_log")
 

@@ -39,10 +39,7 @@ def _parse_float(value: Any) -> float | None:
 
 def _error_html(message: str) -> str:
     """Return styled error HTML for HTMX swap."""
-    return (
-        f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
-        f"{message}</div>"
-    )
+    return f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{message}</div>'
 
 
 def _get_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
@@ -57,7 +54,12 @@ def _get_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
             [request.user_id],
         )
         return [
-            {"id": str(row[0]), "name": row[1], "currency": row[2], "current_balance": float(row[3])}
+            {
+                "id": str(row[0]),
+                "name": row[1],
+                "currency": row[2],
+                "current_balance": float(row[3]),
+            }
             for row in cursor.fetchall()
         ]
 
@@ -113,10 +115,14 @@ def people_page(request: AuthenticatedRequest) -> HttpResponse:
 
     cards = [{"person": p, "accounts": accounts} for p in persons]
 
-    return render(request, "people/people.html", {
-        "active_tab": "more",
-        "data": {"persons": cards, "accounts": accounts},
-    })
+    return render(
+        request,
+        "people/people.html",
+        {
+            "active_tab": "more",
+            "data": {"persons": cards, "accounts": accounts},
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -152,10 +158,14 @@ def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse
 
     accounts = _get_accounts(request)
 
-    return render(request, "people/person_detail.html", {
-        "active_tab": "more",
-        "data": {"summary": summary, "accounts": accounts},
-    })
+    return render(
+        request,
+        "people/person_detail.html",
+        {
+            "active_tab": "more",
+            "data": {"summary": summary, "accounts": accounts},
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -171,7 +181,9 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     note = request.POST.get("note", "").strip() or None
 
     if not amount or amount <= 0:
-        return HttpResponse(_error_html("Amount is required"), status=400, content_type="text/html")
+        return HttpResponse(
+            _error_html("Amount is required"), status=400, content_type="text/html"
+        )
 
     try:
         svc.record_loan(
@@ -199,7 +211,9 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     note = request.POST.get("note", "").strip() or None
 
     if not amount or amount <= 0:
-        return HttpResponse(_error_html("Amount is required"), status=400, content_type="text/html")
+        return HttpResponse(
+            _error_html("Amount is required"), status=400, content_type="text/html"
+        )
 
     try:
         svc.record_repayment(

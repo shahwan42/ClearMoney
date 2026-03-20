@@ -189,9 +189,7 @@ class VirtualAccountService:
             )
             return [_row_to_va(row) for row in cursor.fetchall()]
 
-    def get_allocations(
-        self, va_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    def get_allocations(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return allocation records for a virtual account (direct + tx-linked).
 
         Port of Go's VirtualAccountRepo.GetAllocationsForAccount().
@@ -215,9 +213,7 @@ class VirtualAccountService:
             cursor.execute(sql, params)
             return [_row_to_allocation(row) for row in cursor.fetchall()]
 
-    def get_transactions(
-        self, va_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    def get_transactions(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return transactions allocated to a virtual account.
 
         Port of Go's VirtualAccountRepo.GetTransactionsForAccount().
@@ -292,9 +288,7 @@ class VirtualAccountService:
         if row is None:
             raise ValueError("Failed to create virtual account")
 
-        logger.info(
-            "virtual_account.created name=%s user=%s", name, self.user_id
-        )
+        logger.info("virtual_account.created name=%s user=%s", name, self.user_id)
         return _row_to_va(row)
 
     def update(
@@ -342,9 +336,7 @@ class VirtualAccountService:
             updated: bool = cursor.rowcount > 0
 
         if updated:
-            logger.info(
-                "virtual_account.updated id=%s user=%s", va_id, self.user_id
-            )
+            logger.info("virtual_account.updated id=%s user=%s", va_id, self.user_id)
         return updated
 
     def archive(self, va_id: str) -> bool:
@@ -365,9 +357,7 @@ class VirtualAccountService:
             archived: bool = cursor.rowcount > 0
 
         if archived:
-            logger.info(
-                "virtual_account.archived id=%s user=%s", va_id, self.user_id
-            )
+            logger.info("virtual_account.archived id=%s user=%s", va_id, self.user_id)
         return archived
 
     def toggle_exclude(self, va_id: str) -> bool:
@@ -413,9 +403,7 @@ class VirtualAccountService:
             raise ValueError("Allocation amount cannot be zero")
 
         alloc_date = (
-            allocated_at.date()
-            if isinstance(allocated_at, datetime)
-            else allocated_at
+            allocated_at.date() if isinstance(allocated_at, datetime) else allocated_at
         )
         note_val = note if note else None
 

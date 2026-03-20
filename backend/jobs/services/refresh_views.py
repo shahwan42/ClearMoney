@@ -39,9 +39,7 @@ class RefreshViewsService:
         with connection.cursor() as cursor:
             for view in VIEWS:
                 try:
-                    cursor.execute(
-                        f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"
-                    )
+                    cursor.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view}")
                     logger.info("refresh_views.refreshed view=%s mode=concurrent", view)
                 except Exception:
                     logger.warning(

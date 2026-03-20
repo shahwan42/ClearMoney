@@ -47,9 +47,7 @@ def _svc(user_id: str) -> InvestmentService:
 class TestCreate:
     def test_creates_investment(self, inv_data: dict) -> None:
         svc = _svc(inv_data["user_id"])
-        new_id = svc.create(
-            {"fund_name": "AZG", "units": 100, "unit_price": 10.5}
-        )
+        new_id = svc.create({"fund_name": "AZG", "units": 100, "unit_price": 10.5})
         assert new_id
 
         investments = svc.get_all()

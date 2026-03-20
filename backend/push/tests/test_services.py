@@ -303,7 +303,9 @@ class TestEdgeCases:
             ),
         ]
         mock_dashboard.return_value.get_dashboard.return_value = data
-        mock_recurring.return_value.get_due_pending.side_effect = RuntimeError("db down")
+        mock_recurring.return_value.get_due_pending.side_effect = RuntimeError(
+            "db down"
+        )
 
         svc = NotificationService("user-1", TZ)
         notifications = svc.get_pending_notifications()

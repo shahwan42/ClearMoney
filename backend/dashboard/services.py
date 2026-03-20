@@ -369,7 +369,14 @@ class DashboardService:
             )
             institutions = cursor.fetchall()
 
-            for inst_id, inst_name, inst_type, color, icon, display_order in institutions:
+            for (
+                inst_id,
+                inst_name,
+                inst_type,
+                color,
+                icon,
+                display_order,
+            ) in institutions:
                 cursor.execute(
                     """
                     SELECT id, name, type, currency, current_balance, credit_limit,
@@ -505,9 +512,7 @@ class DashboardService:
                 due_day = meta.get("due_day", 0)
                 if statement_day and due_day:
                     cc.has_billing_cycle = True
-                    due_date = _compute_due_date(
-                        statement_day, due_day, today
-                    )
+                    due_date = _compute_due_date(statement_day, due_day, today)
                     cc.due_date = due_date
                     cc.days_until_due = (due_date - today).days
                     cc.is_due_soon = 0 <= cc.days_until_due <= 7
@@ -856,7 +861,13 @@ class DashboardService:
                             AND amount >= %s AND date >= %s AND date < %s
                         )
                         """,
-                        [acc["id"], self.user_id, float(min_deposit), month_start, month_end],
+                        [
+                            acc["id"],
+                            self.user_id,
+                            float(min_deposit),
+                            month_start,
+                            month_end,
+                        ],
                     )
                     row = cursor.fetchone()
                     has_deposit = row[0] if row else False
@@ -948,13 +959,17 @@ class DashboardService:
         if this_month_start.month == 1:
             last_month_start = date(this_month_start.year - 1, 12, 1)
         else:
-            last_month_start = date(this_month_start.year, this_month_start.month - 1, 1)
+            last_month_start = date(
+                this_month_start.year, this_month_start.month - 1, 1
+            )
 
         # Next month start (end of current month range)
         if this_month_start.month == 12:
             next_month_start = date(this_month_start.year + 1, 1, 1)
         else:
-            next_month_start = date(this_month_start.year, this_month_start.month + 1, 1)
+            next_month_start = date(
+                this_month_start.year, this_month_start.month + 1, 1
+            )
 
         # Spending per currency this month
         this_month_by_currency = self._query_spending_by_currency(
@@ -967,7 +982,9 @@ class DashboardService:
         )
 
         # Collect all currencies, EGP first
-        currencies = set(this_month_by_currency.keys()) | set(last_month_by_currency.keys())
+        currencies = set(this_month_by_currency.keys()) | set(
+            last_month_by_currency.keys()
+        )
         ordered = []
         if "EGP" in currencies:
             ordered.append("EGP")
@@ -1003,7 +1020,11 @@ class DashboardService:
         total_this = 0.0
         total_last = 0.0
         for cs in data.spending_by_currency:
-            rate = data.exchange_rate if cs.currency == "USD" and data.exchange_rate > 0 else 1.0
+            rate = (
+                data.exchange_rate
+                if cs.currency == "USD" and data.exchange_rate > 0
+                else 1.0
+            )
             total_this += cs.this_month * rate
             total_last += cs.last_month * rate
 
@@ -1025,9 +1046,7 @@ class DashboardService:
             status=status,
         )
 
-    def _query_spending_by_currency(
-        self, start: date, end: date
-    ) -> dict[str, float]:
+    def _query_spending_by_currency(self, start: date, end: date) -> dict[str, float]:
         """Query total expense spending grouped by currency for a date range."""
         with connection.cursor() as cursor:
             cursor.execute(
@@ -1084,8 +1103,14 @@ class DashboardService:
                 LEFT JOIN last_month lm ON tm.cat_name = lm.cat_name
                 """,
                 [
-                    currency, this_month_start, next_month_start, self.user_id,
-                    currency, last_month_start, this_month_start, self.user_id,
+                    currency,
+                    this_month_start,
+                    next_month_start,
+                    self.user_id,
+                    currency,
+                    last_month_start,
+                    this_month_start,
+                    self.user_id,
                 ],
             )
             rows = cursor.fetchall()

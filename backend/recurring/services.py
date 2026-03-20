@@ -186,9 +186,7 @@ class RecurringService:
             row = cursor.fetchone()
 
         assert row is not None
-        logger.info(
-            "recurring.created frequency=%s user=%s", frequency, self.user_id
-        )
+        logger.info("recurring.created frequency=%s user=%s", frequency, self.user_id)
         return {
             "id": str(row[0]),
             "template_transaction": tmpl,

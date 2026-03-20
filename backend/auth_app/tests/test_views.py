@@ -33,10 +33,13 @@ class TestLoginPage:
 
     def test_post_valid_email_shows_check_email(self, client: Client) -> None:
         user = UserFactory(email="login-test@example.com")
-        response = client.post("/login", {
-            "email": "login-test@example.com",
-            "_rt": str(int(time.time()) - 5),  # 5 seconds ago
-        })
+        response = client.post(
+            "/login",
+            {
+                "email": "login-test@example.com",
+                "_rt": str(int(time.time()) - 5),  # 5 seconds ago
+            },
+        )
         assert response.status_code == 200
         content = response.content.decode()
         assert "Check your email" in content
@@ -47,10 +50,13 @@ class TestLoginPage:
 
     def test_post_unknown_email_still_shows_check_email(self, client: Client) -> None:
         """Email enumeration prevention: unknown emails get same response."""
-        response = client.post("/login", {
-            "email": "nonexistent@example.com",
-            "_rt": str(int(time.time()) - 5),
-        })
+        response = client.post(
+            "/login",
+            {
+                "email": "nonexistent@example.com",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
         assert response.status_code == 200
         content = response.content.decode()
         assert "Check your email" in content
@@ -58,20 +64,26 @@ class TestLoginPage:
         assert "previously sent link" in content
 
     def test_post_empty_email_shows_error(self, client: Client) -> None:
-        response = client.post("/login", {
-            "email": "",
-            "_rt": str(int(time.time()) - 5),
-        })
+        response = client.post(
+            "/login",
+            {
+                "email": "",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
         assert response.status_code == 200
         content = response.content.decode()
         assert "Email is required" in content
 
     def test_honeypot_silently_rejects(self, client: Client) -> None:
-        response = client.post("/login", {
-            "email": "bot@example.com",
-            "website": "http://spam.com",
-            "_rt": str(int(time.time()) - 5),
-        })
+        response = client.post(
+            "/login",
+            {
+                "email": "bot@example.com",
+                "website": "http://spam.com",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
         assert response.status_code == 200
         content = response.content.decode()
         assert "Check your email" in content
@@ -94,10 +106,13 @@ class TestRegisterPage:
         assert 'name="email"' in content
 
     def test_post_new_email_shows_check_email(self, client: Client) -> None:
-        response = client.post("/register", {
-            "email": "newreg@example.com",
-            "_rt": str(int(time.time()) - 5),
-        })
+        response = client.post(
+            "/register",
+            {
+                "email": "newreg@example.com",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
         assert response.status_code == 200
         content = response.content.decode()
         assert "Check your email" in content
@@ -106,10 +121,13 @@ class TestRegisterPage:
 
     def test_post_existing_email_shows_error(self, client: Client) -> None:
         user = UserFactory(email="already@example.com")
-        response = client.post("/register", {
-            "email": "already@example.com",
-            "_rt": str(int(time.time()) - 5),
-        })
+        response = client.post(
+            "/register",
+            {
+                "email": "already@example.com",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
         assert response.status_code == 200
         content = response.content.decode()
         assert "already exists" in content
@@ -117,19 +135,25 @@ class TestRegisterPage:
         User.objects.filter(id=user.id).delete()
 
     def test_post_empty_email_shows_error(self, client: Client) -> None:
-        response = client.post("/register", {
-            "email": "",
-            "_rt": str(int(time.time()) - 5),
-        })
+        response = client.post(
+            "/register",
+            {
+                "email": "",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
         assert response.status_code == 200
         assert b"Email is required" in response.content
 
     def test_honeypot_silently_rejects(self, client: Client) -> None:
-        response = client.post("/register", {
-            "email": "bot@example.com",
-            "website": "http://spam.com",
-            "_rt": str(int(time.time()) - 5),
-        })
+        response = client.post(
+            "/register",
+            {
+                "email": "bot@example.com",
+                "website": "http://spam.com",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
         assert response.status_code == 200
         assert b"Check your email" in response.content
         assert not AuthToken.objects.filter(email="bot@example.com").exists()
@@ -162,7 +186,9 @@ class TestVerifyMagicLink:
         AuthToken.objects.filter(id=token.id).delete()
         User.objects.filter(id=user.id).delete()
 
-    def test_valid_registration_token_creates_user_and_categories(self, client: Client) -> None:
+    def test_valid_registration_token_creates_user_and_categories(
+        self, client: Client
+    ) -> None:
         token = AuthTokenFactory(email="new-verify@example.com", purpose="registration")
 
         response = client.get(f"/auth/verify?token={token.token}")
@@ -199,7 +225,10 @@ class TestVerifyMagicLink:
         token = AuthTokenFactory(email="used@example.com", purpose="login", used=True)
         response = client.get(f"/auth/verify?token={token.token}")
         assert response.status_code == 200
-        assert b"Link expired" in response.content or b"already been used" in response.content
+        assert (
+            b"Link expired" in response.content
+            or b"already been used" in response.content
+        )
         # Cleanup
         AuthToken.objects.filter(id=token.id).delete()
 

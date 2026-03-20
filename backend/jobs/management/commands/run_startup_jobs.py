@@ -35,10 +35,6 @@ class Command(BaseCommand):
             try:
                 call_command(job_name, stdout=self.stdout, **kwargs)
             except Exception as e:
-                self.stderr.write(
-                    self.style.ERROR(f"  {job_name} failed: {e}")
-                )
+                self.stderr.write(self.style.ERROR(f"  {job_name} failed: {e}"))
 
-        self.stdout.write(
-            self.style.SUCCESS("All startup jobs complete")
-        )
+        self.stdout.write(self.style.SUCCESS("All startup jobs complete"))

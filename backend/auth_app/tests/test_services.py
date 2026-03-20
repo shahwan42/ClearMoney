@@ -18,7 +18,9 @@ from tests.factories import AuthTokenFactory, UserFactory
 @pytest.fixture
 def email_service() -> EmailService:
     """Dev-mode email service (no API key)."""
-    return EmailService(api_key="", from_addr="test@test.com", app_url="http://localhost:8080")
+    return EmailService(
+        api_key="", from_addr="test@test.com", app_url="http://localhost:8080"
+    )
 
 
 @pytest.fixture
@@ -38,14 +40,22 @@ class TestEmailService:
         assert svc.dev_mode is True
 
     def test_link_url_format(self) -> None:
-        svc = EmailService(api_key="", from_addr="x@x.com", app_url="http://localhost:8080")
-        assert svc.link_url("abc123") == "http://localhost:8080/auth/verify?token=abc123"
+        svc = EmailService(
+            api_key="", from_addr="x@x.com", app_url="http://localhost:8080"
+        )
+        assert (
+            svc.link_url("abc123") == "http://localhost:8080/auth/verify?token=abc123"
+        )
 
     def test_link_url_strips_trailing_slash(self) -> None:
-        svc = EmailService(api_key="", from_addr="x@x.com", app_url="http://localhost:8080/")
+        svc = EmailService(
+            api_key="", from_addr="x@x.com", app_url="http://localhost:8080/"
+        )
         assert svc.link_url("abc") == "http://localhost:8080/auth/verify?token=abc"
 
-    def test_send_magic_link_dev_mode_does_not_raise(self, email_service: EmailService) -> None:
+    def test_send_magic_link_dev_mode_does_not_raise(
+        self, email_service: EmailService
+    ) -> None:
         # Should log, not send, and not raise
         email_service.send_magic_link("user@example.com", "token123")
 
@@ -62,7 +72,9 @@ class TestRequestLoginLink:
         result, err = auth_svc.request_login_link("existing@example.com")
         assert result == SendResult.SENT
         assert err is None
-        assert AuthToken.objects.filter(email="existing@example.com", purpose="login").exists()
+        assert AuthToken.objects.filter(
+            email="existing@example.com", purpose="login"
+        ).exists()
         # Cleanup
         AuthToken.objects.filter(email="existing@example.com").delete()
         User.objects.filter(id=user.id).delete()
@@ -109,7 +121,9 @@ class TestRequestRegistrationLink:
         result, err = auth_svc.request_registration_link("newuser@example.com")
         assert result == SendResult.SENT
         assert err is None
-        assert AuthToken.objects.filter(email="newuser@example.com", purpose="registration").exists()
+        assert AuthToken.objects.filter(
+            email="newuser@example.com", purpose="registration"
+        ).exists()
         # Cleanup
         AuthToken.objects.filter(email="newuser@example.com").delete()
 
@@ -149,7 +163,9 @@ class TestVerifyMagicLink:
         AuthToken.objects.filter(id=token.id).delete()
         User.objects.filter(id=user.id).delete()
 
-    def test_registration_creates_user_and_seeds_categories(self, auth_svc: AuthService) -> None:
+    def test_registration_creates_user_and_seeds_categories(
+        self, auth_svc: AuthService
+    ) -> None:
         token = AuthTokenFactory(email="brand-new@example.com", purpose="registration")
 
         result, err = auth_svc.verify_magic_link(token.token)
@@ -218,6 +234,7 @@ class TestLogout:
     def test_deletes_session(self, auth_svc: AuthService) -> None:
         user = UserFactory()
         from tests.factories import SessionFactory
+
         session = SessionFactory(user=user)
         assert Session.objects.filter(token=session.token).exists()
 

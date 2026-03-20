@@ -27,8 +27,13 @@ logger = logging.getLogger(__name__)
 
 # Valid transaction types — must match PostgreSQL enum
 VALID_TX_TYPES = {
-    "expense", "income", "transfer", "exchange",
-    "loan_out", "loan_in", "loan_repayment",
+    "expense",
+    "income",
+    "transfer",
+    "exchange",
+    "loan_out",
+    "loan_in",
+    "loan_repayment",
 }
 
 CREDIT_ACCOUNT_TYPES = {"credit_card", "credit_limit"}
@@ -156,9 +161,7 @@ class TransactionService:
             "credit_limit": float(row[5]) if row[5] is not None else None,
         }
 
-    def _validate_basic(
-        self, amount: float, account_id: str, tx_type: str
-    ) -> None:
+    def _validate_basic(self, amount: float, account_id: str, tx_type: str) -> None:
         """Validate basic transaction fields. Port of Go's validateBasic."""
         if amount <= 0:
             raise ValueError("Amount must be positive")
@@ -174,13 +177,28 @@ class TransactionService:
             val = row[i]
             if col == "tags":
                 val = _parse_tags(val)
-            elif col in ("id", "user_id", "account_id", "counter_account_id",
-                         "category_id", "fee_account_id", "person_id",
-                         "linked_transaction_id", "recurring_rule_id"):
+            elif col in (
+                "id",
+                "user_id",
+                "account_id",
+                "counter_account_id",
+                "category_id",
+                "fee_account_id",
+                "person_id",
+                "linked_transaction_id",
+                "recurring_rule_id",
+            ):
                 val = str(val) if val is not None else None
-            elif col in ("amount", "balance_delta", "exchange_rate",
-                         "counter_amount", "fee_amount", "running_balance",
-                         "current_balance", "credit_limit"):
+            elif col in (
+                "amount",
+                "balance_delta",
+                "exchange_rate",
+                "counter_amount",
+                "fee_amount",
+                "running_balance",
+                "current_balance",
+                "credit_limit",
+            ):
                 val = float(val) if val is not None else None
             elif isinstance(val, Decimal):
                 val = float(val)
@@ -246,9 +264,18 @@ class TransactionService:
                                  fee_account_id, person_id, linked_transaction_id,
                                  recurring_rule_id, balance_delta, created_at, updated_at""",
                     [
-                        tx_id, self.user_id, tx_type, amount, currency,
-                        account_id, category_id, tx_date, note,
-                        tags, delta, recurring_rule_id,
+                        tx_id,
+                        self.user_id,
+                        tx_type,
+                        amount,
+                        currency,
+                        account_id,
+                        category_id,
+                        tx_date,
+                        note,
+                        tags,
+                        delta,
+                        recurring_rule_id,
                     ],
                 )
                 row = cursor.fetchone()
@@ -262,11 +289,28 @@ class TransactionService:
                 )
 
         cols = [
-            "id", "user_id", "type", "amount", "currency", "account_id",
-            "counter_account_id", "category_id", "date", "time", "note",
-            "tags", "exchange_rate", "counter_amount", "fee_amount",
-            "fee_account_id", "person_id", "linked_transaction_id",
-            "recurring_rule_id", "balance_delta", "created_at", "updated_at",
+            "id",
+            "user_id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "counter_account_id",
+            "category_id",
+            "date",
+            "time",
+            "note",
+            "tags",
+            "exchange_rate",
+            "counter_amount",
+            "fee_amount",
+            "fee_account_id",
+            "person_id",
+            "linked_transaction_id",
+            "recurring_rule_id",
+            "balance_delta",
+            "created_at",
+            "updated_at",
         ]
         assert row is not None
         created = self._scan_tx_row(row, cols)
@@ -275,7 +319,10 @@ class TransactionService:
 
         logger.info(
             "transaction.created type=%s currency=%s account_id=%s user=%s",
-            tx_type, currency, account_id, self.user_id,
+            tx_type,
+            currency,
+            account_id,
+            self.user_id,
         )
         return created, new_balance
 
@@ -295,11 +342,28 @@ class TransactionService:
         if not row:
             return None
         cols = [
-            "id", "user_id", "type", "amount", "currency", "account_id",
-            "counter_account_id", "category_id", "date", "time", "note",
-            "tags", "exchange_rate", "counter_amount", "fee_amount",
-            "fee_account_id", "person_id", "linked_transaction_id",
-            "recurring_rule_id", "balance_delta", "created_at", "updated_at",
+            "id",
+            "user_id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "counter_account_id",
+            "category_id",
+            "date",
+            "time",
+            "note",
+            "tags",
+            "exchange_rate",
+            "counter_amount",
+            "fee_amount",
+            "fee_account_id",
+            "person_id",
+            "linked_transaction_id",
+            "recurring_rule_id",
+            "balance_delta",
+            "created_at",
+            "updated_at",
         ]
         return self._scan_tx_row(row, cols)
 
@@ -334,12 +398,31 @@ class TransactionService:
         if not row:
             return None
         cols = [
-            "id", "type", "amount", "currency", "account_id",
-            "counter_account_id", "category_id", "date", "time", "note",
-            "tags", "exchange_rate", "counter_amount", "fee_amount",
-            "fee_account_id", "person_id", "linked_transaction_id",
-            "recurring_rule_id", "balance_delta", "created_at", "updated_at",
-            "account_name", "category_name", "category_icon", "running_balance",
+            "id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "counter_account_id",
+            "category_id",
+            "date",
+            "time",
+            "note",
+            "tags",
+            "exchange_rate",
+            "counter_amount",
+            "fee_amount",
+            "fee_account_id",
+            "person_id",
+            "linked_transaction_id",
+            "recurring_rule_id",
+            "balance_delta",
+            "created_at",
+            "updated_at",
+            "account_name",
+            "category_name",
+            "category_icon",
+            "running_balance",
         ]
         return self._scan_tx_row(row, cols)
 
@@ -432,12 +515,31 @@ class TransactionService:
             rows = cursor.fetchall()
 
         cols = [
-            "id", "type", "amount", "currency", "account_id",
-            "counter_account_id", "category_id", "date", "time", "note",
-            "tags", "exchange_rate", "counter_amount", "fee_amount",
-            "fee_account_id", "person_id", "linked_transaction_id",
-            "recurring_rule_id", "balance_delta", "created_at", "updated_at",
-            "account_name", "category_name", "category_icon", "running_balance",
+            "id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "counter_account_id",
+            "category_id",
+            "date",
+            "time",
+            "note",
+            "tags",
+            "exchange_rate",
+            "counter_amount",
+            "fee_amount",
+            "fee_account_id",
+            "person_id",
+            "linked_transaction_id",
+            "recurring_rule_id",
+            "balance_delta",
+            "created_at",
+            "updated_at",
+            "account_name",
+            "category_name",
+            "category_icon",
+            "running_balance",
         ]
 
         has_more = len(rows) > limit
@@ -458,9 +560,12 @@ class TransactionService:
         self, account_id: str, limit: int = 50
     ) -> list[dict[str, Any]]:
         """Fetch transactions for a specific account, enriched."""
-        txs, _ = self.get_filtered_enriched({
-            "account_id": account_id, "limit": limit,
-        })
+        txs, _ = self.get_filtered_enriched(
+            {
+                "account_id": account_id,
+                "limit": limit,
+            }
+        )
         return txs
 
     def update(self, tx_id: str, data: dict[str, Any]) -> tuple[dict[str, Any], float]:
@@ -510,9 +615,15 @@ class TransactionService:
                                  fee_account_id, person_id, linked_transaction_id,
                                  recurring_rule_id, balance_delta, created_at, updated_at""",
                     [
-                        tx_type, amount, currency, category_id,
-                        note, tx_date, new_delta,
-                        tx_id, self.user_id,
+                        tx_type,
+                        amount,
+                        currency,
+                        category_id,
+                        note,
+                        tx_date,
+                        new_delta,
+                        tx_id,
+                        self.user_id,
                     ],
                 )
                 row = cursor.fetchone()
@@ -528,11 +639,28 @@ class TransactionService:
                     )
 
         cols = [
-            "id", "user_id", "type", "amount", "currency", "account_id",
-            "counter_account_id", "category_id", "date", "time", "note",
-            "tags", "exchange_rate", "counter_amount", "fee_amount",
-            "fee_account_id", "person_id", "linked_transaction_id",
-            "recurring_rule_id", "balance_delta", "created_at", "updated_at",
+            "id",
+            "user_id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "counter_account_id",
+            "category_id",
+            "date",
+            "time",
+            "note",
+            "tags",
+            "exchange_rate",
+            "counter_amount",
+            "fee_amount",
+            "fee_account_id",
+            "person_id",
+            "linked_transaction_id",
+            "recurring_rule_id",
+            "balance_delta",
+            "created_at",
+            "updated_at",
         ]
         assert row is not None
         updated = self._scan_tx_row(row, cols)
@@ -578,7 +706,10 @@ class TransactionService:
                     )
                     linked = cursor.fetchone()
                     if linked:
-                        linked_amount, linked_account_id = float(linked[0]), str(linked[1])
+                        linked_amount, linked_account_id = (
+                            float(linked[0]),
+                            str(linked[1]),
+                        )
                         cursor.execute(
                             "DELETE FROM transactions WHERE id = %s AND user_id = %s",
                             [linked_id, self.user_id],
@@ -591,7 +722,9 @@ class TransactionService:
                         )
                 else:
                     # Simple expense/income: reverse balance delta
-                    reverse_delta = -self._balance_delta(tx["type"], float(tx["amount"]))
+                    reverse_delta = -self._balance_delta(
+                        tx["type"], float(tx["amount"])
+                    )
                     cursor.execute(
                         """UPDATE accounts
                            SET current_balance = current_balance + %s, updated_at = NOW()
@@ -629,7 +762,9 @@ class TransactionService:
         src_acc = self._get_account(source_id)
         dest_acc = self._get_account(dest_id)
         if src_acc["currency"] != dest_acc["currency"]:
-            raise ValueError("Transfer requires same currency; use exchange for cross-currency")
+            raise ValueError(
+                "Transfer requires same currency; use exchange for cross-currency"
+            )
 
         actual_currency = src_acc["currency"]
         if tx_date is None:
@@ -649,8 +784,17 @@ class TransactionService:
                         counter_account_id, note, date, balance_delta)
                        VALUES (%s, %s, 'transfer'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [debit_id, self.user_id, amount, actual_currency,
-                     source_id, dest_id, note, tx_date, -amount],
+                    [
+                        debit_id,
+                        self.user_id,
+                        amount,
+                        actual_currency,
+                        source_id,
+                        dest_id,
+                        note,
+                        tx_date,
+                        -amount,
+                    ],
                 )
                 # Credit leg (destination)
                 cursor.execute(
@@ -659,8 +803,17 @@ class TransactionService:
                         counter_account_id, note, date, balance_delta)
                        VALUES (%s, %s, 'transfer'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [credit_id, self.user_id, amount, actual_currency,
-                     dest_id, source_id, note, tx_date, amount],
+                    [
+                        credit_id,
+                        self.user_id,
+                        amount,
+                        actual_currency,
+                        dest_id,
+                        source_id,
+                        note,
+                        tx_date,
+                        amount,
+                    ],
                 )
                 # Link bidirectionally
                 cursor.execute(
@@ -687,7 +840,10 @@ class TransactionService:
 
         logger.info(
             "transaction.transfer_created currency=%s source=%s dest=%s user=%s",
-            actual_currency, source_id, dest_id, self.user_id,
+            actual_currency,
+            source_id,
+            dest_id,
+            self.user_id,
         )
         debit_tx = self.get_by_id(debit_id)
         credit_tx = self.get_by_id(credit_id)
@@ -746,8 +902,18 @@ class TransactionService:
                         counter_account_id, note, fee_amount, date, balance_delta)
                        VALUES (%s, %s, 'transfer'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s, %s)""",
-                    [debit_id, self.user_id, amount, actual_currency,
-                     source_id, dest_id, instapay_note, fee, tx_date, -amount],
+                    [
+                        debit_id,
+                        self.user_id,
+                        amount,
+                        actual_currency,
+                        source_id,
+                        dest_id,
+                        instapay_note,
+                        fee,
+                        tx_date,
+                        -amount,
+                    ],
                 )
                 # Credit leg
                 cursor.execute(
@@ -756,8 +922,17 @@ class TransactionService:
                         counter_account_id, note, date, balance_delta)
                        VALUES (%s, %s, 'transfer'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [credit_id, self.user_id, amount, actual_currency,
-                     dest_id, source_id, instapay_note, tx_date, amount],
+                    [
+                        credit_id,
+                        self.user_id,
+                        amount,
+                        actual_currency,
+                        dest_id,
+                        source_id,
+                        instapay_note,
+                        tx_date,
+                        amount,
+                    ],
                 )
                 # Link
                 cursor.execute(
@@ -777,8 +952,17 @@ class TransactionService:
                         category_id, note, date, balance_delta)
                        VALUES (%s, %s, 'expense'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [fee_tx_id, self.user_id, fee, actual_currency,
-                     source_id, fees_category_id, "InstaPay fee", tx_date, -fee],
+                    [
+                        fee_tx_id,
+                        self.user_id,
+                        fee,
+                        actual_currency,
+                        source_id,
+                        fees_category_id,
+                        "InstaPay fee",
+                        tx_date,
+                        -fee,
+                    ],
                 )
                 # Update balances: source loses amount + fee
                 cursor.execute(
@@ -794,7 +978,8 @@ class TransactionService:
 
         logger.info(
             "transaction.instapay_created currency=%s user=%s",
-            actual_currency, self.user_id,
+            actual_currency,
+            self.user_id,
         )
         debit_tx = self.get_by_id(debit_id)
         credit_tx = self.get_by_id(credit_id)
@@ -828,7 +1013,9 @@ class TransactionService:
         src_acc = self._get_account(source_id)
         dest_acc = self._get_account(dest_id)
         if src_acc["currency"] == dest_acc["currency"]:
-            raise ValueError("Exchange requires different currencies; use transfer for same currency")
+            raise ValueError(
+                "Exchange requires different currencies; use transfer for same currency"
+            )
 
         # Rate convention: user enters "EGP per 1 USD"
         # When source=EGP: invert before resolution, invert back after
@@ -863,9 +1050,19 @@ class TransactionService:
                         note, date, balance_delta)
                        VALUES (%s, %s, 'exchange'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s, %s, %s)""",
-                    [debit_id, self.user_id, resolved_amount, src_acc["currency"],
-                     source_id, dest_id, round(display_rate, 6),
-                     round(resolved_counter, 2), note, tx_date, -resolved_amount],
+                    [
+                        debit_id,
+                        self.user_id,
+                        resolved_amount,
+                        src_acc["currency"],
+                        source_id,
+                        dest_id,
+                        round(display_rate, 6),
+                        round(resolved_counter, 2),
+                        note,
+                        tx_date,
+                        -resolved_amount,
+                    ],
                 )
                 # Credit leg (dest currency in)
                 cursor.execute(
@@ -875,9 +1072,19 @@ class TransactionService:
                         note, date, balance_delta)
                        VALUES (%s, %s, 'exchange'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s, %s, %s)""",
-                    [credit_id, self.user_id, resolved_counter, dest_acc["currency"],
-                     dest_id, source_id, round(display_rate, 6),
-                     round(resolved_amount, 2), note, tx_date, resolved_counter],
+                    [
+                        credit_id,
+                        self.user_id,
+                        resolved_counter,
+                        dest_acc["currency"],
+                        dest_id,
+                        source_id,
+                        round(display_rate, 6),
+                        round(resolved_amount, 2),
+                        note,
+                        tx_date,
+                        resolved_counter,
+                    ],
                 )
                 # Link
                 cursor.execute(
@@ -909,15 +1116,22 @@ class TransactionService:
                 cursor.execute(
                     """INSERT INTO exchange_rate_log (id, date, rate, source, note, created_at)
                        VALUES (%s, %s, %s, %s, %s, NOW())""",
-                    [str(uuid.uuid4()), tx_date, round(display_rate, 6),
-                     source_label, note],
+                    [
+                        str(uuid.uuid4()),
+                        tx_date,
+                        round(display_rate, 6),
+                        source_label,
+                        note,
+                    ],
                 )
         except Exception:
             logger.warning("Failed to log exchange rate (non-critical)", exc_info=True)
 
         logger.info(
             "transaction.exchange_created source=%s dest=%s user=%s",
-            src_acc["currency"], dest_acc["currency"], self.user_id,
+            src_acc["currency"],
+            dest_acc["currency"],
+            self.user_id,
         )
         debit_tx = self.get_by_id(debit_id)
         credit_tx = self.get_by_id(credit_id)
@@ -981,9 +1195,19 @@ class TransactionService:
                         balance_delta)
                        VALUES (%s, %s, 'expense'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s, %s, %s)""",
-                    [charge_id, self.user_id, total_charge, actual_currency,
-                     credit_card_id, prepaid_id, fees_category_id, fee,
-                     charge_note, tx_date, -total_charge],
+                    [
+                        charge_id,
+                        self.user_id,
+                        total_charge,
+                        actual_currency,
+                        credit_card_id,
+                        prepaid_id,
+                        fees_category_id,
+                        fee,
+                        charge_note,
+                        tx_date,
+                        -total_charge,
+                    ],
                 )
                 # Prepaid credit (income: net amount)
                 cursor.execute(
@@ -992,8 +1216,17 @@ class TransactionService:
                         counter_account_id, note, date, balance_delta)
                        VALUES (%s, %s, 'income'::transaction_type, %s,
                                %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [credit_id, self.user_id, amount, actual_currency,
-                     prepaid_id, credit_card_id, credit_note, tx_date, amount],
+                    [
+                        credit_id,
+                        self.user_id,
+                        amount,
+                        actual_currency,
+                        prepaid_id,
+                        credit_card_id,
+                        credit_note,
+                        tx_date,
+                        amount,
+                    ],
                 )
                 # Link
                 cursor.execute(
@@ -1020,7 +1253,8 @@ class TransactionService:
 
         logger.info(
             "transaction.fawry_cashout_created currency=%s user=%s",
-            actual_currency, self.user_id,
+            actual_currency,
+            self.user_id,
         )
         charge_tx = self.get_by_id(charge_id)
         credit_tx = self.get_by_id(credit_id)
@@ -1223,9 +1457,16 @@ class TransactionService:
             )
             cols = ["id", "name", "currency", "current_balance", "type"]
             return [
-                {col: (str(row[i]) if col == "id" else
-                       float(row[i]) if col == "current_balance" else row[i])
-                 for i, col in enumerate(cols)}
+                {
+                    col: (
+                        str(row[i])
+                        if col == "id"
+                        else float(row[i])
+                        if col == "current_balance"
+                        else row[i]
+                    )
+                    for i, col in enumerate(cols)
+                }
                 for row in cursor.fetchall()
             ]
 
@@ -1257,7 +1498,8 @@ class TransactionService:
             )
             return [
                 {
-                    "id": str(r[0]), "name": r[1],
+                    "id": str(r[0]),
+                    "name": r[1],
                     "account_id": str(r[2]) if r[2] else None,
                     "target_amount": float(r[3]) if r[3] else 0,
                     "current_balance": float(r[4]) if r[4] else 0,
@@ -1270,11 +1512,28 @@ class TransactionService:
     # -------------------------------------------------------------------
 
     _BARE_TX_COLS = [
-        "id", "user_id", "type", "amount", "currency", "account_id",
-        "counter_account_id", "category_id", "date", "time", "note",
-        "tags", "exchange_rate", "counter_amount", "fee_amount",
-        "fee_account_id", "person_id", "linked_transaction_id",
-        "recurring_rule_id", "balance_delta", "created_at", "updated_at",
+        "id",
+        "user_id",
+        "type",
+        "amount",
+        "currency",
+        "account_id",
+        "counter_account_id",
+        "category_id",
+        "date",
+        "time",
+        "note",
+        "tags",
+        "exchange_rate",
+        "counter_amount",
+        "fee_amount",
+        "fee_account_id",
+        "person_id",
+        "linked_transaction_id",
+        "recurring_rule_id",
+        "balance_delta",
+        "created_at",
+        "updated_at",
     ]
 
     def get_recent(self, limit: int = 15) -> list[dict[str, Any]]:
@@ -1294,7 +1553,9 @@ class TransactionService:
                 "LIMIT %s",
                 [self.user_id, limit],
             )
-            return [self._scan_tx_row(row, self._BARE_TX_COLS) for row in cursor.fetchall()]
+            return [
+                self._scan_tx_row(row, self._BARE_TX_COLS) for row in cursor.fetchall()
+            ]
 
     def get_by_account(self, account_id: str, limit: int = 15) -> list[dict[str, Any]]:
         """Bare transactions for an account, for JSON API."""
@@ -1309,7 +1570,9 @@ class TransactionService:
                 "LIMIT %s",
                 [self.user_id, account_id, limit],
             )
-            return [self._scan_tx_row(row, self._BARE_TX_COLS) for row in cursor.fetchall()]
+            return [
+                self._scan_tx_row(row, self._BARE_TX_COLS) for row in cursor.fetchall()
+            ]
 
     def get_fees_category_id(self) -> str | None:
         """Look up the 'Fees & Charges' category ID."""

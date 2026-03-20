@@ -107,7 +107,9 @@ class TestGetCreditCardUtilization:
 
 class TestInterestFreeRemaining:
     def test_remaining_days(self):
-        remaining, urgent = interest_free_remaining(date(2026, 3, 15), date(2026, 3, 20))
+        remaining, urgent = interest_free_remaining(
+            date(2026, 3, 15), date(2026, 3, 20)
+        )
         assert remaining == 50  # 55 - 5
         assert urgent is False
 

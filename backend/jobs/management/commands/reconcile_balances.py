@@ -47,7 +47,5 @@ class Command(BaseCommand):
 
         action = "Fixed" if auto_fix else "Found"
         self.stdout.write(
-            self.style.WARNING(
-                f"{action} {len(discrepancies)} discrepancy(ies)"
-            )
+            self.style.WARNING(f"{action} {len(discrepancies)} discrepancy(ies)")
         )

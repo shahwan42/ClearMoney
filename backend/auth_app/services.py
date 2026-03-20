@@ -57,8 +57,7 @@ def rate_limit_message(result: SendResult) -> str:
             "Please try again tomorrow."
         ),
         SendResult.GLOBAL_CAP: (
-            "Our email system is temporarily at capacity. "
-            "Please try again later."
+            "Our email system is temporarily at capacity. Please try again later."
         ),
     }
     return messages.get(result, "Please try again later.")
@@ -76,9 +75,7 @@ class EmailService:
     Like Laravel's Mail::to()->send() with a configurable driver (smtp, log).
     """
 
-    def __init__(
-        self, api_key: str, from_addr: str, app_url: str
-    ) -> None:
+    def __init__(self, api_key: str, from_addr: str, app_url: str) -> None:
         self.from_addr = from_addr
         self.app_url = app_url.rstrip("/")
         self.dev_mode = not api_key
@@ -187,9 +184,7 @@ class AuthService:
 
         return self._send_magic_link(email, "login")
 
-    def request_registration_link(
-        self, email: str
-    ) -> tuple[SendResult, str | None]:
+    def request_registration_link(self, email: str) -> tuple[SendResult, str | None]:
         """Send a magic link for a new user registration.
 
         Returns an error message if the email is already registered.
@@ -229,8 +224,7 @@ class AuthService:
                 )
             else:
                 logger.info(
-                    "reusing existing token (no email sent) "
-                    "email=%s purpose=%s",
+                    "reusing existing token (no email sent) email=%s purpose=%s",
                     email,
                     purpose,
                 )
@@ -243,9 +237,7 @@ class AuthService:
             created_at__gte=cooldown_cutoff,
         ).count()
         if recent_count > 0:
-            logger.warning(
-                "email cooldown active (no email sent) email=%s", email
-            )
+            logger.warning("email cooldown active (no email sent) email=%s", email)
             return SendResult.COOLDOWN, None
 
         # Per-email daily limit: 3 per day
@@ -256,8 +248,7 @@ class AuthService:
         ).count()
         if daily_count >= MAX_DAILY_PER_EMAIL:
             logger.warning(
-                "daily per-email limit reached (no email sent) "
-                "email=%s count=%d",
+                "daily per-email limit reached (no email sent) email=%s count=%d",
                 email,
                 daily_count,
             )
@@ -289,9 +280,7 @@ class AuthService:
         # Send email
         self.email_svc.send_magic_link(email, token)
 
-        logger.info(
-            "auth.magic_link_sent email=%s purpose=%s", email, purpose
-        )
+        logger.info("auth.magic_link_sent email=%s purpose=%s", email, purpose)
         return SendResult.SENT, None
 
     def verify_magic_link(

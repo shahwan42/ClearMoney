@@ -168,14 +168,16 @@ class TestAccountAPI:
         # Create
         resp = c.post(
             "/api/accounts",
-            data=json.dumps({
-                "institution_id": api_data["inst_id"],
-                "name": "New Account",
-                "type": "savings",
-                "currency": "EGP",
-                "current_balance": 5000,
-                "initial_balance": 5000,
-            }),
+            data=json.dumps(
+                {
+                    "institution_id": api_data["inst_id"],
+                    "name": "New Account",
+                    "type": "savings",
+                    "currency": "EGP",
+                    "current_balance": 5000,
+                    "initial_balance": 5000,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201

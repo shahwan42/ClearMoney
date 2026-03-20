@@ -95,8 +95,7 @@ def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
     for va in accounts:
         if va["account_id"]:
             va_group_totals[va["account_id"]] = (
-                va_group_totals.get(va["account_id"], 0.0)
-                + va["current_balance"]
+                va_group_totals.get(va["account_id"], 0.0) + va["current_balance"]
             )
 
     # Generate warning messages for over-allocated account groups
@@ -171,17 +170,13 @@ def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
 
 
 @require_http_methods(["GET"])
-def virtual_account_detail(
-    request: AuthenticatedRequest, va_id: UUID
-) -> HttpResponse:
+def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """GET /virtual-accounts/{id} — detail page with allocations and history.
 
     Port of Go's PageHandler.VirtualAccountDetail (pages.go:3023).
     Computes over-allocation warnings if VA is linked to a bank account.
     """
-    logger.info(
-        "page viewed: virtual-account-detail, user=%s", request.user_email
-    )
+    logger.info("page viewed: virtual-account-detail, user=%s", request.user_email)
     svc = _svc(request)
     va = svc.get_by_id(str(va_id))
     if not va:
@@ -236,9 +231,7 @@ def virtual_account_detail(
 
 
 @require_http_methods(["POST"])
-def virtual_account_archive(
-    request: AuthenticatedRequest, va_id: UUID
-) -> HttpResponse:
+def virtual_account_archive(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """POST /virtual-accounts/{id}/archive — archive (soft-delete) a VA.
 
     Port of Go's PageHandler.VirtualAccountArchive (pages.go:3066).
@@ -352,9 +345,7 @@ def virtual_account_edit_form(
 
 
 @require_http_methods(["POST"])
-def virtual_account_update(
-    request: AuthenticatedRequest, va_id: UUID
-) -> HttpResponse:
+def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """POST /virtual-accounts/{id}/edit — update VA from edit bottom sheet.
 
     Port of Go's PageHandler.VirtualAccountUpdate (pages.go:3153).

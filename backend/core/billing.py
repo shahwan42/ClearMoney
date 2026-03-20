@@ -75,7 +75,9 @@ def compute_due_date(statement_day: int, due_day: int, today: date) -> date:
         return date(due_year, due_month, due_day)
 
 
-def get_billing_cycle_info(statement_day: int, due_day: int, today: date) -> BillingCycleInfo:
+def get_billing_cycle_info(
+    statement_day: int, due_day: int, today: date
+) -> BillingCycleInfo:
     """Full billing cycle info: period start/end, due date, urgency.
 
     Port of Go's GetBillingCycleInfo(). Uses the same date arithmetic —
@@ -153,7 +155,9 @@ def get_credit_card_utilization(balance: float, credit_limit: float | None) -> f
     return used / credit_limit * 100
 
 
-def interest_free_remaining(period_end: date, today: date, total_days: int = 55) -> tuple[int, bool]:
+def interest_free_remaining(
+    period_end: date, today: date, total_days: int = 55
+) -> tuple[int, bool]:
     """Compute interest-free period remaining days and urgency.
 
     Returns (days_remaining, is_urgent). Port of Go's interest-free logic in GetStatementData.

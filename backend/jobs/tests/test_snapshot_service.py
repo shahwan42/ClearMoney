@@ -37,24 +37,12 @@ class TestSnapshotService:
     def teardown_method(self) -> None:
         uid = str(self.uid)
         with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM account_snapshots WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM daily_snapshots WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM transactions WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM virtual_accounts WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM accounts WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM institutions WHERE user_id = %s", [uid]
-            )
+            cursor.execute("DELETE FROM account_snapshots WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM daily_snapshots WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM virtual_accounts WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [uid])
         ExchangeRateLog.objects.filter(source="test-snapshot").delete()
         self.user.delete()
 

@@ -93,7 +93,10 @@ def tx_data(db):
 
     # Cleanup
     with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM virtual_account_allocations WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = %s)", [user_id])
+        cursor.execute(
+            "DELETE FROM virtual_account_allocations WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = %s)",
+            [user_id],
+        )
         cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
         cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
         cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
@@ -109,7 +112,9 @@ def _svc(user_id: str) -> TransactionService:
 def _get_balance(account_id: str) -> float:
     """Fetch current_balance directly from DB."""
     with connection.cursor() as cursor:
-        cursor.execute("SELECT current_balance FROM accounts WHERE id = %s", [account_id])
+        cursor.execute(
+            "SELECT current_balance FROM accounts WHERE id = %s", [account_id]
+        )
         row = cursor.fetchone()
     return float(row[0]) if row else 0
 
@@ -163,12 +168,15 @@ class TestInstapayFee:
 class TestCreate:
     def test_expense_updates_balance(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        tx, new_bal = svc.create({
-            "type": "expense", "amount": 500,
-            "account_id": tx_data["egp_id"],
-            "category_id": tx_data["cat_expense_id"],
-            "date": date(2026, 3, 15),
-        })
+        tx, new_bal = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+                "category_id": tx_data["cat_expense_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
         assert tx["type"] == "expense"
         assert tx["amount"] == 500
         assert tx["currency"] == "EGP"
@@ -178,47 +186,62 @@ class TestCreate:
 
     def test_income_updates_balance(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        tx, new_bal = svc.create({
-            "type": "income", "amount": 2000,
-            "account_id": tx_data["egp_id"],
-            "category_id": tx_data["cat_income_id"],
-        })
+        tx, new_bal = svc.create(
+            {
+                "type": "income",
+                "amount": 2000,
+                "account_id": tx_data["egp_id"],
+                "category_id": tx_data["cat_income_id"],
+            }
+        )
         assert tx["balance_delta"] == 2000
         assert new_bal == 12000
         assert _get_balance(tx_data["egp_id"]) == 12000
 
     def test_overrides_currency_from_account(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        tx, _ = svc.create({
-            "type": "expense", "amount": 100,
-            "account_id": tx_data["usd_id"],
-            "currency": "EGP",  # wrong — should be overridden to USD
-        })
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["usd_id"],
+                "currency": "EGP",  # wrong — should be overridden to USD
+            }
+        )
         assert tx["currency"] == "USD"
 
     def test_credit_card_limit_check(self, tx_data):
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="credit limit"):
-            svc.create({
-                "type": "expense", "amount": 6000,
-                "account_id": tx_data["cc_id"],
-            })
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 6000,
+                    "account_id": tx_data["cc_id"],
+                }
+            )
 
     def test_validation_zero_amount(self, tx_data):
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="positive"):
-            svc.create({
-                "type": "expense", "amount": 0,
-                "account_id": tx_data["egp_id"],
-            })
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 0,
+                    "account_id": tx_data["egp_id"],
+                }
+            )
 
     def test_validation_invalid_type(self, tx_data):
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="Invalid"):
-            svc.create({
-                "type": "invalid", "amount": 100,
-                "account_id": tx_data["egp_id"],
-            })
+            svc.create(
+                {
+                    "type": "invalid",
+                    "amount": 100,
+                    "account_id": tx_data["egp_id"],
+                }
+            )
 
 
 @pytest.mark.django_db
@@ -226,14 +249,21 @@ class TestUpdate:
     def test_recalculates_balance_delta(self, tx_data):
         svc = _svc(tx_data["user_id"])
         # Create expense of 500 → balance 9500
-        tx, _ = svc.create({
-            "type": "expense", "amount": 500,
-            "account_id": tx_data["egp_id"],
-        })
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+            }
+        )
         # Update to 300 → adjustment = (-300) - (-500) = +200 → balance 9700
-        updated, new_bal = svc.update(tx["id"], {
-            "type": "expense", "amount": 300,
-        })
+        updated, new_bal = svc.update(
+            tx["id"],
+            {
+                "type": "expense",
+                "amount": 300,
+            },
+        )
         assert updated["amount"] == 300
         assert updated["balance_delta"] == -300
         assert _get_balance(tx_data["egp_id"]) == 9700
@@ -241,14 +271,21 @@ class TestUpdate:
     def test_change_type_recalculates(self, tx_data):
         svc = _svc(tx_data["user_id"])
         # Create expense 500 → balance 9500
-        tx, _ = svc.create({
-            "type": "expense", "amount": 500,
-            "account_id": tx_data["egp_id"],
-        })
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+            }
+        )
         # Change to income 500 → adjustment = 500 - (-500) = +1000 → balance 10500
-        updated, _ = svc.update(tx["id"], {
-            "type": "income", "amount": 500,
-        })
+        updated, _ = svc.update(
+            tx["id"],
+            {
+                "type": "income",
+                "amount": 500,
+            },
+        )
         assert updated["balance_delta"] == 500
         assert _get_balance(tx_data["egp_id"]) == 10500
 
@@ -257,10 +294,13 @@ class TestUpdate:
 class TestDelete:
     def test_simple_reverses_balance(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        tx, _ = svc.create({
-            "type": "expense", "amount": 500,
-            "account_id": tx_data["egp_id"],
-        })
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+            }
+        )
         assert _get_balance(tx_data["egp_id"]) == 9500
         svc.delete(tx["id"])
         assert _get_balance(tx_data["egp_id"]) == 10000
@@ -275,10 +315,22 @@ class TestDelete:
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
                 " %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
-                [dest_id, tx_data["user_id"], tx_data["user_id"], "Dest Account", 5000, 5000],
+                [
+                    dest_id,
+                    tx_data["user_id"],
+                    tx_data["user_id"],
+                    "Dest Account",
+                    5000,
+                    5000,
+                ],
             )
         debit, credit = svc.create_transfer(
-            tx_data["egp_id"], dest_id, 1000, None, None, date(2026, 3, 15),
+            tx_data["egp_id"],
+            dest_id,
+            1000,
+            None,
+            None,
+            date(2026, 3, 15),
         )
         assert _get_balance(tx_data["egp_id"]) == 9000
         assert _get_balance(dest_id) == 6000
@@ -297,46 +349,63 @@ class TestDelete:
 class TestGetFiltered:
     def test_search_by_note(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        svc.create({
-            "type": "expense", "amount": 100,
-            "account_id": tx_data["egp_id"],
-            "note": "Coffee at Starbucks",
-        })
-        svc.create({
-            "type": "expense", "amount": 200,
-            "account_id": tx_data["egp_id"],
-            "note": "Grocery shopping",
-        })
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "note": "Coffee at Starbucks",
+            }
+        )
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 200,
+                "account_id": tx_data["egp_id"],
+                "note": "Grocery shopping",
+            }
+        )
         results, _ = svc.get_filtered_enriched({"search": "coffee"})
         assert len(results) == 1
         assert results[0]["note"] == "Coffee at Starbucks"
 
     def test_filter_by_date_range(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        svc.create({
-            "type": "expense", "amount": 100,
-            "account_id": tx_data["egp_id"],
-            "date": "2026-03-01",
-        })
-        svc.create({
-            "type": "expense", "amount": 200,
-            "account_id": tx_data["egp_id"],
-            "date": "2026-03-20",
-        })
-        results, _ = svc.get_filtered_enriched({
-            "date_from": "2026-03-15",
-            "date_to": "2026-03-31",
-        })
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "date": "2026-03-01",
+            }
+        )
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 200,
+                "account_id": tx_data["egp_id"],
+                "date": "2026-03-20",
+            }
+        )
+        results, _ = svc.get_filtered_enriched(
+            {
+                "date_from": "2026-03-15",
+                "date_to": "2026-03-31",
+            }
+        )
         assert len(results) == 1
         assert results[0]["amount"] == 200
 
     def test_pagination(self, tx_data):
         svc = _svc(tx_data["user_id"])
         for i in range(5):
-            svc.create({
-                "type": "expense", "amount": 100 + i,
-                "account_id": tx_data["egp_id"],
-            })
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 100 + i,
+                    "account_id": tx_data["egp_id"],
+                }
+            )
         results, has_more = svc.get_filtered_enriched({"limit": 3})
         assert len(results) == 3
         assert has_more is True
@@ -347,14 +416,20 @@ class TestGetFiltered:
 
     def test_filter_by_account(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        svc.create({
-            "type": "expense", "amount": 100,
-            "account_id": tx_data["egp_id"],
-        })
-        svc.create({
-            "type": "expense", "amount": 50,
-            "account_id": tx_data["usd_id"],
-        })
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 50,
+                "account_id": tx_data["usd_id"],
+            }
+        )
         results, _ = svc.get_filtered_enriched({"account_id": tx_data["usd_id"]})
         assert len(results) == 1
         assert results[0]["currency"] == "USD"
@@ -380,7 +455,12 @@ class TestTransfer:
                 [dest_id, tx_data["user_id"], tx_data["user_id"], "Dest", 5000, 5000],
             )
         debit, credit = svc.create_transfer(
-            tx_data["egp_id"], dest_id, 2000, None, "Test transfer", date(2026, 3, 15),
+            tx_data["egp_id"],
+            dest_id,
+            2000,
+            None,
+            "Test transfer",
+            date(2026, 3, 15),
         )
         assert _get_balance(tx_data["egp_id"]) == 8000
         assert _get_balance(dest_id) == 7000
@@ -392,16 +472,24 @@ class TestTransfer:
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="same account"):
             svc.create_transfer(
-                tx_data["egp_id"], tx_data["egp_id"],
-                1000, None, None, None,
+                tx_data["egp_id"],
+                tx_data["egp_id"],
+                1000,
+                None,
+                None,
+                None,
             )
 
     def test_different_currency_rejected(self, tx_data):
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="same currency"):
             svc.create_transfer(
-                tx_data["egp_id"], tx_data["usd_id"],
-                1000, None, None, None,
+                tx_data["egp_id"],
+                tx_data["usd_id"],
+                1000,
+                None,
+                None,
+                None,
             )
 
 
@@ -419,7 +507,12 @@ class TestInstapayTransfer:
                 [dest_id, tx_data["user_id"], tx_data["user_id"], "Dest", 5000, 5000],
             )
         _, _, fee = svc.create_instapay_transfer(
-            tx_data["egp_id"], dest_id, 1000, None, "Test", date(2026, 3, 15),
+            tx_data["egp_id"],
+            dest_id,
+            1000,
+            None,
+            "Test",
+            date(2026, 3, 15),
             fees_category_id=tx_data["fees_cat_id"],
         )
         assert fee == 1.0
@@ -439,9 +532,13 @@ class TestExchange:
     def test_usd_to_egp(self, tx_data):
         svc = _svc(tx_data["user_id"])
         debit, credit = svc.create_exchange(
-            tx_data["usd_id"], tx_data["egp_id"],
-            amount=100, rate=50.0, counter_amount=None,
-            note="USD to EGP", tx_date=date(2026, 3, 15),
+            tx_data["usd_id"],
+            tx_data["egp_id"],
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note="USD to EGP",
+            tx_date=date(2026, 3, 15),
         )
         # USD: 500 - 100 = 400
         assert _get_balance(tx_data["usd_id"]) == 400
@@ -453,9 +550,13 @@ class TestExchange:
     def test_egp_to_usd_inverts_rate(self, tx_data):
         svc = _svc(tx_data["user_id"])
         debit, credit = svc.create_exchange(
-            tx_data["egp_id"], tx_data["usd_id"],
-            amount=5000, rate=50.0, counter_amount=None,
-            note="EGP to USD", tx_date=date(2026, 3, 15),
+            tx_data["egp_id"],
+            tx_data["usd_id"],
+            amount=5000,
+            rate=50.0,
+            counter_amount=None,
+            note="EGP to USD",
+            tx_date=date(2026, 3, 15),
         )
         # EGP: 10000 - 5000 = 5000
         assert _get_balance(tx_data["egp_id"]) == 5000
@@ -478,15 +579,25 @@ class TestExchange:
             )
         with pytest.raises(ValueError, match="different currencies"):
             svc.create_exchange(
-                tx_data["egp_id"], egp2_id,
-                100, 1.0, None, None, None,
+                tx_data["egp_id"],
+                egp2_id,
+                100,
+                1.0,
+                None,
+                None,
+                None,
             )
 
     def test_logs_rate(self, tx_data):
         svc = _svc(tx_data["user_id"])
         svc.create_exchange(
-            tx_data["usd_id"], tx_data["egp_id"],
-            100, 50.0, None, None, date(2026, 3, 15),
+            tx_data["usd_id"],
+            tx_data["egp_id"],
+            100,
+            50.0,
+            None,
+            None,
+            date(2026, 3, 15),
         )
         with connection.cursor() as cursor:
             cursor.execute(
@@ -517,7 +628,13 @@ class TestFawryCashout:
                 [prepaid_id, tx_data["user_id"], tx_data["user_id"], "Prepaid", 0, 0],
             )
         charge, credit = svc.create_fawry_cashout(
-            tx_data["cc_id"], prepaid_id, 1000, 25, None, None, date(2026, 3, 15),
+            tx_data["cc_id"],
+            prepaid_id,
+            1000,
+            25,
+            None,
+            None,
+            date(2026, 3, 15),
             fees_category_id=tx_data["fees_cat_id"],
         )
         # CC: 0 - 1025 = -1025
@@ -529,8 +646,13 @@ class TestFawryCashout:
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="negative"):
             svc.create_fawry_cashout(
-                tx_data["cc_id"], tx_data["egp_id"],
-                1000, -10, None, None, None,
+                tx_data["cc_id"],
+                tx_data["egp_id"],
+                1000,
+                -10,
+                None,
+                None,
+                None,
             )
 
 
@@ -546,7 +668,11 @@ class TestBatchCreate:
         items = [
             {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]},
             {"type": "expense", "amount": 200, "account_id": tx_data["egp_id"]},
-            {"type": "expense", "amount": 0, "account_id": tx_data["egp_id"]},  # invalid
+            {
+                "type": "expense",
+                "amount": 0,
+                "account_id": tx_data["egp_id"],
+            },  # invalid
         ]
         created, failed = svc.batch_create(items)
         assert created == 2
@@ -562,31 +688,40 @@ class TestBatchCreate:
 class TestSmartDefaults:
     def test_last_account(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        svc.create({
-            "type": "expense", "amount": 100,
-            "account_id": tx_data["egp_id"],
-        })
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+            }
+        )
         defaults = svc.get_smart_defaults("expense")
         assert defaults["last_account_id"] == tx_data["egp_id"]
 
     def test_auto_category(self, tx_data):
         svc = _svc(tx_data["user_id"])
         for _ in range(3):
-            svc.create({
-                "type": "expense", "amount": 100,
-                "account_id": tx_data["egp_id"],
-                "category_id": tx_data["cat_expense_id"],
-            })
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 100,
+                    "account_id": tx_data["egp_id"],
+                    "category_id": tx_data["cat_expense_id"],
+                }
+            )
         defaults = svc.get_smart_defaults("expense")
         assert defaults["auto_category_id"] == tx_data["cat_expense_id"]
 
     def test_recent_categories(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        svc.create({
-            "type": "expense", "amount": 100,
-            "account_id": tx_data["egp_id"],
-            "category_id": tx_data["cat_expense_id"],
-        })
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "category_id": tx_data["cat_expense_id"],
+            }
+        )
         defaults = svc.get_smart_defaults("expense")
         assert tx_data["cat_expense_id"] in defaults["recent_category_ids"]
 
@@ -601,12 +736,15 @@ class TestSuggestCategory:
     def test_suggests_most_common(self, tx_data):
         svc = _svc(tx_data["user_id"])
         for _ in range(3):
-            svc.create({
-                "type": "expense", "amount": 100,
-                "account_id": tx_data["egp_id"],
-                "category_id": tx_data["cat_expense_id"],
-                "note": "Coffee at Starbucks",
-            })
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 100,
+                    "account_id": tx_data["egp_id"],
+                    "category_id": tx_data["cat_expense_id"],
+                    "note": "Coffee at Starbucks",
+                }
+            )
         result = svc.suggest_category("starbucks")
         assert result == tx_data["cat_expense_id"]
 

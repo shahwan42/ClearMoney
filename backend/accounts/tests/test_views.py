@@ -43,7 +43,16 @@ def accounts_data(db):
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance, credit_limit, metadata)"
             " VALUES (%s, %s, %s, %s, 'credit_card'::account_type, 'EGP'::currency_type, %s, %s, %s, %s::jsonb)",
-            [cc_id, user_id, inst_id, "Test CC", -5000, 0, 50000, '{"statement_day": 15, "due_day": 5}'],
+            [
+                cc_id,
+                user_id,
+                inst_id,
+                "Test CC",
+                -5000,
+                0,
+                50000,
+                '{"statement_day": 15, "due_day": 5}',
+            ],
         )
         # One transaction for the savings account
         cursor.execute(
@@ -162,7 +171,9 @@ class TestAccountDetail:
 class TestAccountFormPartial:
     def test_200(self, client, accounts_data):
         c = _auth_client(client, accounts_data["session_token"])
-        response = c.get(f"/accounts/form?institution_id={accounts_data['institution_id']}")
+        response = c.get(
+            f"/accounts/form?institution_id={accounts_data['institution_id']}"
+        )
         assert response.status_code == 200
         assert b"Add Account" in response.content
 
@@ -237,7 +248,9 @@ class TestInstitutionDelete:
 class TestInstitutionDeleteConfirm:
     def test_200(self, client, accounts_data):
         c = _auth_client(client, accounts_data["session_token"])
-        response = c.get(f"/institutions/{accounts_data['institution_id']}/delete-confirm")
+        response = c.get(
+            f"/institutions/{accounts_data['institution_id']}/delete-confirm"
+        )
         assert response.status_code == 200
         assert b"Delete Institution" in response.content
         assert b"Test Bank" in response.content
@@ -252,25 +265,31 @@ class TestInstitutionDeleteConfirm:
 class TestAccountAdd:
     def test_creates_account(self, client, accounts_data):
         c = _auth_client(client, accounts_data["session_token"])
-        response = c.post("/accounts/add", {
-            "institution_id": accounts_data["institution_id"],
-            "name": "New Savings",
-            "type": "savings",
-            "currency": "EGP",
-            "initial_balance": "5000",
-        })
+        response = c.post(
+            "/accounts/add",
+            {
+                "institution_id": accounts_data["institution_id"],
+                "name": "New Savings",
+                "type": "savings",
+                "currency": "EGP",
+                "initial_balance": "5000",
+            },
+        )
         assert response.status_code == 200
         # Verify OOB swap contains the new account
         assert b"New Savings" in response.content
 
     def test_cc_requires_credit_limit(self, client, accounts_data):
         c = _auth_client(client, accounts_data["session_token"])
-        response = c.post("/accounts/add", {
-            "institution_id": accounts_data["institution_id"],
-            "name": "My CC",
-            "type": "credit_card",
-            "currency": "EGP",
-        })
+        response = c.post(
+            "/accounts/add",
+            {
+                "institution_id": accounts_data["institution_id"],
+                "name": "My CC",
+                "type": "credit_card",
+                "currency": "EGP",
+            },
+        )
         assert response.status_code == 422
         assert b"credit_limit is required" in response.content
 
@@ -335,16 +354,22 @@ class TestHealthUpdate:
 class TestReorder:
     def test_reorder_accounts(self, client, accounts_data):
         c = _auth_client(client, accounts_data["session_token"])
-        response = c.post("/accounts/reorder", {
-            "id[]": [accounts_data["cc_id"], accounts_data["savings_id"]],
-        })
+        response = c.post(
+            "/accounts/reorder",
+            {
+                "id[]": [accounts_data["cc_id"], accounts_data["savings_id"]],
+            },
+        )
         assert response.status_code == 302
 
     def test_reorder_institutions(self, client, accounts_data):
         c = _auth_client(client, accounts_data["session_token"])
-        response = c.post("/institutions/reorder", {
-            "id[]": [accounts_data["institution_id"]],
-        })
+        response = c.post(
+            "/institutions/reorder",
+            {
+                "id[]": [accounts_data["institution_id"]],
+            },
+        )
         assert response.status_code == 302
 
 

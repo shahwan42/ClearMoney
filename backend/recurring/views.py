@@ -203,8 +203,7 @@ def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
         )
     except ValueError as e:
         return HttpResponse(
-            f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
-            f"{e}</div>",
+            f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{e}</div>',
             status=400,
         )
 
@@ -217,9 +216,7 @@ def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
 
 
 @require_http_methods(["POST"])
-def recurring_confirm(
-    request: AuthenticatedRequest, rule_id: UUID
-) -> HttpResponse:
+def recurring_confirm(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
     """POST /recurring/{id}/confirm — confirm pending rule, create transaction.
 
     Port of Go's PageHandler.RecurringConfirm (pages.go:2130).
@@ -233,9 +230,7 @@ def recurring_confirm(
 
 
 @require_http_methods(["POST"])
-def recurring_skip(
-    request: AuthenticatedRequest, rule_id: UUID
-) -> HttpResponse:
+def recurring_skip(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
     """POST /recurring/{id}/skip — skip pending rule, advance due date.
 
     Port of Go's PageHandler.RecurringSkip (pages.go:2142).
@@ -249,9 +244,7 @@ def recurring_skip(
 
 
 @require_http_methods(["DELETE"])
-def recurring_delete(
-    request: AuthenticatedRequest, rule_id: UUID
-) -> HttpResponse:
+def recurring_delete(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
     """DELETE /recurring/{id} — delete recurring rule.
 
     Port of Go's PageHandler.RecurringDelete (pages.go:2154).

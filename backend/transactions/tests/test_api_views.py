@@ -86,13 +86,15 @@ class TestTransactionAPI:
         c = _auth_client(client, tx_api_data["session_token"])
         resp = c.post(
             "/api/transactions",
-            data=json.dumps({
-                "type": "expense",
-                "amount": 250,
-                "account_id": tx_api_data["egp_id"],
-                "category_id": tx_api_data["cat_id"],
-                "date": "2026-03-19",
-            }),
+            data=json.dumps(
+                {
+                    "type": "expense",
+                    "amount": 250,
+                    "account_id": tx_api_data["egp_id"],
+                    "category_id": tx_api_data["cat_id"],
+                    "date": "2026-03-19",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201
@@ -109,13 +111,15 @@ class TestTransactionAPI:
         # Create first
         resp = c.post(
             "/api/transactions",
-            data=json.dumps({
-                "type": "expense",
-                "amount": 100,
-                "account_id": tx_api_data["egp_id"],
-                "category_id": tx_api_data["cat_id"],
-                "date": "2026-03-19",
-            }),
+            data=json.dumps(
+                {
+                    "type": "expense",
+                    "amount": 100,
+                    "account_id": tx_api_data["egp_id"],
+                    "category_id": tx_api_data["cat_id"],
+                    "date": "2026-03-19",
+                }
+            ),
             content_type="application/json",
         )
         tx_id = json.loads(resp.content)["transaction"]["id"]
@@ -129,13 +133,15 @@ class TestTransactionAPI:
         # Create
         resp = c.post(
             "/api/transactions",
-            data=json.dumps({
-                "type": "expense",
-                "amount": 50,
-                "account_id": tx_api_data["egp_id"],
-                "category_id": tx_api_data["cat_id"],
-                "date": "2026-03-19",
-            }),
+            data=json.dumps(
+                {
+                    "type": "expense",
+                    "amount": 50,
+                    "account_id": tx_api_data["egp_id"],
+                    "category_id": tx_api_data["cat_id"],
+                    "date": "2026-03-19",
+                }
+            ),
             content_type="application/json",
         )
         tx_id = json.loads(resp.content)["transaction"]["id"]
@@ -153,13 +159,15 @@ class TestTransactionAPI:
         # Create a transaction on EGP account
         c.post(
             "/api/transactions",
-            data=json.dumps({
-                "type": "expense",
-                "amount": 75,
-                "account_id": tx_api_data["egp_id"],
-                "category_id": tx_api_data["cat_id"],
-                "date": "2026-03-19",
-            }),
+            data=json.dumps(
+                {
+                    "type": "expense",
+                    "amount": 75,
+                    "account_id": tx_api_data["egp_id"],
+                    "category_id": tx_api_data["cat_id"],
+                    "date": "2026-03-19",
+                }
+            ),
             content_type="application/json",
         )
 
@@ -180,13 +188,15 @@ class TestTransactionAPI:
         for i in range(3):
             c.post(
                 "/api/transactions",
-                data=json.dumps({
-                    "type": "expense",
-                    "amount": 10 + i,
-                    "account_id": tx_api_data["egp_id"],
-                    "category_id": tx_api_data["cat_id"],
-                    "date": "2026-03-19",
-                }),
+                data=json.dumps(
+                    {
+                        "type": "expense",
+                        "amount": 10 + i,
+                        "account_id": tx_api_data["egp_id"],
+                        "category_id": tx_api_data["cat_id"],
+                        "date": "2026-03-19",
+                    }
+                ),
                 content_type="application/json",
             )
 
@@ -205,18 +215,26 @@ class TestTransactionAPI:
                 "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
-                [egp2_id, tx_api_data["user_id"], tx_api_data["inst_id"],
-                 "EGP Savings 2", 5000, 5000],
+                [
+                    egp2_id,
+                    tx_api_data["user_id"],
+                    tx_api_data["inst_id"],
+                    "EGP Savings 2",
+                    5000,
+                    5000,
+                ],
             )
 
         resp = c.post(
             "/api/transactions/transfer",
-            data=json.dumps({
-                "source_account_id": tx_api_data["egp_id"],
-                "dest_account_id": egp2_id,
-                "amount": 1000,
-                "date": "2026-03-19",
-            }),
+            data=json.dumps(
+                {
+                    "source_account_id": tx_api_data["egp_id"],
+                    "dest_account_id": egp2_id,
+                    "amount": 1000,
+                    "date": "2026-03-19",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201
@@ -230,13 +248,15 @@ class TestTransactionAPI:
         c = _auth_client(client, tx_api_data["session_token"])
         resp = c.post(
             "/api/transactions/exchange",
-            data=json.dumps({
-                "source_account_id": tx_api_data["usd_id"],
-                "dest_account_id": tx_api_data["egp_id"],
-                "amount": 100,
-                "rate": 50.5,
-                "date": "2026-03-19",
-            }),
+            data=json.dumps(
+                {
+                    "source_account_id": tx_api_data["usd_id"],
+                    "dest_account_id": tx_api_data["egp_id"],
+                    "amount": 100,
+                    "rate": 50.5,
+                    "date": "2026-03-19",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201

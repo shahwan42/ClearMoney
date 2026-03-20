@@ -85,18 +85,22 @@ class TestGetAll:
 
     def test_ordered_by_due_date(self, rec_data):
         svc = _svc(rec_data["user_id"])
-        svc.create({
-            "template_transaction": _make_template(rec_data),
-            "frequency": "monthly",
-            "next_due_date": date(2026, 4, 15),
-            "auto_confirm": False,
-        })
-        svc.create({
-            "template_transaction": _make_template(rec_data),
-            "frequency": "weekly",
-            "next_due_date": date(2026, 3, 1),
-            "auto_confirm": False,
-        })
+        svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "monthly",
+                "next_due_date": date(2026, 4, 15),
+                "auto_confirm": False,
+            }
+        )
+        svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "weekly",
+                "next_due_date": date(2026, 3, 1),
+                "auto_confirm": False,
+            }
+        )
 
         rules = svc.get_all()
         assert len(rules) == 2
@@ -112,12 +116,14 @@ class TestGetAll:
 class TestCreate:
     def test_valid(self, rec_data):
         svc = _svc(rec_data["user_id"])
-        result = svc.create({
-            "template_transaction": _make_template(rec_data),
-            "frequency": "monthly",
-            "next_due_date": date(2026, 4, 1),
-            "auto_confirm": True,
-        })
+        result = svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "monthly",
+                "next_due_date": date(2026, 4, 1),
+                "auto_confirm": True,
+            }
+        )
         assert result["id"]
         assert result["frequency"] == "monthly"
         assert result["auto_confirm"] is True
@@ -126,26 +132,32 @@ class TestCreate:
     def test_missing_template(self, rec_data):
         svc = _svc(rec_data["user_id"])
         with pytest.raises(ValueError, match="template_transaction"):
-            svc.create({
-                "frequency": "monthly",
-                "next_due_date": date(2026, 4, 1),
-            })
+            svc.create(
+                {
+                    "frequency": "monthly",
+                    "next_due_date": date(2026, 4, 1),
+                }
+            )
 
     def test_missing_frequency(self, rec_data):
         svc = _svc(rec_data["user_id"])
         with pytest.raises(ValueError, match="frequency"):
-            svc.create({
-                "template_transaction": _make_template(rec_data),
-                "next_due_date": date(2026, 4, 1),
-            })
+            svc.create(
+                {
+                    "template_transaction": _make_template(rec_data),
+                    "next_due_date": date(2026, 4, 1),
+                }
+            )
 
     def test_missing_due_date(self, rec_data):
         svc = _svc(rec_data["user_id"])
         with pytest.raises(ValueError, match="next_due_date"):
-            svc.create({
-                "template_transaction": _make_template(rec_data),
-                "frequency": "monthly",
-            })
+            svc.create(
+                {
+                    "template_transaction": _make_template(rec_data),
+                    "frequency": "monthly",
+                }
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -161,19 +173,23 @@ class TestGetDuePending:
         yesterday = date.today() - timedelta(days=1)
 
         # auto_confirm=true rule — should NOT appear in pending
-        svc.create({
-            "template_transaction": _make_template(rec_data, note="Auto"),
-            "frequency": "monthly",
-            "next_due_date": yesterday,
-            "auto_confirm": True,
-        })
+        svc.create(
+            {
+                "template_transaction": _make_template(rec_data, note="Auto"),
+                "frequency": "monthly",
+                "next_due_date": yesterday,
+                "auto_confirm": True,
+            }
+        )
         # auto_confirm=false rule — should appear in pending
-        svc.create({
-            "template_transaction": _make_template(rec_data, note="Manual"),
-            "frequency": "monthly",
-            "next_due_date": yesterday,
-            "auto_confirm": False,
-        })
+        svc.create(
+            {
+                "template_transaction": _make_template(rec_data, note="Manual"),
+                "frequency": "monthly",
+                "next_due_date": yesterday,
+                "auto_confirm": False,
+            }
+        )
 
         pending = svc.get_due_pending()
         assert len(pending) == 1
@@ -184,12 +200,14 @@ class TestGetDuePending:
         svc = _svc(rec_data["user_id"])
         future = date.today() + timedelta(days=30)
 
-        svc.create({
-            "template_transaction": _make_template(rec_data),
-            "frequency": "monthly",
-            "next_due_date": future,
-            "auto_confirm": False,
-        })
+        svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "monthly",
+                "next_due_date": future,
+                "auto_confirm": False,
+            }
+        )
 
         pending = svc.get_due_pending()
         assert len(pending) == 0
@@ -206,12 +224,14 @@ class TestConfirm:
         svc = _svc(rec_data["user_id"])
         yesterday = date.today() - timedelta(days=1)
 
-        rule = svc.create({
-            "template_transaction": _make_template(rec_data),
-            "frequency": "monthly",
-            "next_due_date": yesterday,
-            "auto_confirm": False,
-        })
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "monthly",
+                "next_due_date": yesterday,
+                "auto_confirm": False,
+            }
+        )
 
         svc.confirm(rule["id"])
 
@@ -233,12 +253,14 @@ class TestConfirm:
         """Confirm should deduct from account balance (expense)."""
         svc = _svc(rec_data["user_id"])
 
-        rule = svc.create({
-            "template_transaction": _make_template(rec_data, amount=500.0),
-            "frequency": "monthly",
-            "next_due_date": date.today(),
-            "auto_confirm": False,
-        })
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data, amount=500.0),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
 
         svc.confirm(rule["id"])
 
@@ -262,12 +284,14 @@ class TestSkip:
         svc = _svc(rec_data["user_id"])
         yesterday = date.today() - timedelta(days=1)
 
-        rule = svc.create({
-            "template_transaction": _make_template(rec_data),
-            "frequency": "weekly",
-            "next_due_date": yesterday,
-            "auto_confirm": False,
-        })
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "weekly",
+                "next_due_date": yesterday,
+                "auto_confirm": False,
+            }
+        )
 
         svc.skip(rule["id"])
 
@@ -294,11 +318,13 @@ class TestSkip:
 class TestDelete:
     def test_removes_rule(self, rec_data):
         svc = _svc(rec_data["user_id"])
-        rule = svc.create({
-            "template_transaction": _make_template(rec_data),
-            "frequency": "monthly",
-            "next_due_date": date.today(),
-        })
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+            }
+        )
 
         svc.delete(rule["id"])
         assert svc.get_by_id(rule["id"]) is None
@@ -341,19 +367,23 @@ class TestProcessDueRules:
         yesterday = date.today() - timedelta(days=1)
 
         # Manual rule — should NOT be processed
-        svc.create({
-            "template_transaction": _make_template(rec_data, note="Manual"),
-            "frequency": "monthly",
-            "next_due_date": yesterday,
-            "auto_confirm": False,
-        })
+        svc.create(
+            {
+                "template_transaction": _make_template(rec_data, note="Manual"),
+                "frequency": "monthly",
+                "next_due_date": yesterday,
+                "auto_confirm": False,
+            }
+        )
         # Auto rule — should be processed
-        auto_rule = svc.create({
-            "template_transaction": _make_template(rec_data, note="Auto"),
-            "frequency": "monthly",
-            "next_due_date": yesterday,
-            "auto_confirm": True,
-        })
+        auto_rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data, note="Auto"),
+                "frequency": "monthly",
+                "next_due_date": yesterday,
+                "auto_confirm": True,
+            }
+        )
 
         count = svc.process_due_rules()
         assert count == 1
@@ -374,11 +404,13 @@ class TestExecuteRule:
     def test_missing_account_raises(self, rec_data):
         """Rule with empty account_id should raise ValueError."""
         svc = _svc(rec_data["user_id"])
-        rule = svc.create({
-            "template_transaction": _make_template(rec_data, account_id=""),
-            "frequency": "monthly",
-            "next_due_date": date.today(),
-        })
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data, account_id=""),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+            }
+        )
         with pytest.raises(ValueError, match="no account_id"):
             svc.confirm(rule["id"])
 
@@ -392,22 +424,28 @@ class TestExecuteRule:
 class TestRuleToView:
     def test_extracts_note_and_amount(self, rec_data):
         svc = _svc(rec_data["user_id"])
-        rule = svc.create({
-            "template_transaction": _make_template(rec_data, note="Netflix", amount=199.99),
-            "frequency": "monthly",
-            "next_due_date": date.today(),
-        })
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(
+                    rec_data, note="Netflix", amount=199.99
+                ),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+            }
+        )
         view = svc.rule_to_view(rule)
         assert view["note"] == "Netflix"
         assert view["amount_display"] == "199.99 EGP"
 
     def test_fallback_to_type_when_no_note(self, rec_data):
         svc = _svc(rec_data["user_id"])
-        rule = svc.create({
-            "template_transaction": _make_template(rec_data, note=None),
-            "frequency": "monthly",
-            "next_due_date": date.today(),
-        })
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data, note=None),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+            }
+        )
         # Remove note key to simulate missing note
         rule["template_transaction"].pop("note", None)
         view = svc.rule_to_view(rule)

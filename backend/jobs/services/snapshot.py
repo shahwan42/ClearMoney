@@ -52,17 +52,13 @@ class SnapshotService:
             try:
                 self.take_snapshot(user_id)
             except Exception:
-                logger.exception(
-                    "snapshot.take_failed user_id=%s", user_id
-                )
+                logger.exception("snapshot.take_failed user_id=%s", user_id)
 
             try:
                 backfilled = self.backfill_snapshots(user_id, days)
                 total_backfilled += backfilled
             except Exception:
-                logger.exception(
-                    "snapshot.backfill_failed user_id=%s", user_id
-                )
+                logger.exception("snapshot.backfill_failed user_id=%s", user_id)
 
         return total_backfilled
 
@@ -162,8 +158,13 @@ class SnapshotService:
 
         # UPSERT daily snapshot
         self._upsert_daily(
-            user_id, snapshot_date, net_worth_egp, net_worth_raw,
-            exchange_rate, spending, income,
+            user_id,
+            snapshot_date,
+            net_worth_egp,
+            net_worth_raw,
+            exchange_rate,
+            spending,
+            income,
         )
 
         # UPSERT per-account snapshots
@@ -202,10 +203,7 @@ class SnapshotService:
                    ORDER BY i.display_order, a.display_order""",
                 [user_id],
             )
-            return [
-                (str(row[0]), row[1], float(row[2]))
-                for row in cursor.fetchall()
-            ]
+            return [(str(row[0]), row[1], float(row[2])) for row in cursor.fetchall()]
 
     def _get_balance_delta_after_date(
         self, user_id: str, account_id: str, snapshot_date: date
@@ -325,8 +323,13 @@ class SnapshotService:
                        daily_spending = EXCLUDED.daily_spending,
                        daily_income = EXCLUDED.daily_income""",
                 [
-                    user_id, snapshot_date, net_worth_egp, net_worth_raw,
-                    exchange_rate, daily_spending, daily_income,
+                    user_id,
+                    snapshot_date,
+                    net_worth_egp,
+                    net_worth_raw,
+                    exchange_rate,
+                    daily_spending,
+                    daily_income,
                 ],
             )
 

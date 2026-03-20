@@ -177,8 +177,7 @@ def salary_confirm(request: AuthenticatedRequest) -> HttpResponse:
         result = svc.distribute(dist)
     except ValueError as e:
         return HttpResponse(
-            f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
-            f"{e}</div>",
+            f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{e}</div>',
             status=400,
         )
 

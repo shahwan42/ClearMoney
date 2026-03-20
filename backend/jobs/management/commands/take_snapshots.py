@@ -40,7 +40,5 @@ class Command(BaseCommand):
 
         backfilled = svc.take_all_user_snapshots(days=days)
         self.stdout.write(
-            self.style.SUCCESS(
-                f"Snapshots complete: {backfilled} day(s) backfilled"
-            )
+            self.style.SUCCESS(f"Snapshots complete: {backfilled} day(s) backfilled")
         )

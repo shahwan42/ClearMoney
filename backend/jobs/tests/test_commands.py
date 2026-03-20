@@ -33,24 +33,12 @@ class TestCommands:
     def teardown_method(self) -> None:
         uid = str(self.uid)
         with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM account_snapshots WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM daily_snapshots WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM transactions WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM recurring_rules WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM accounts WHERE user_id = %s", [uid]
-            )
-            cursor.execute(
-                "DELETE FROM institutions WHERE user_id = %s", [uid]
-            )
+            cursor.execute("DELETE FROM account_snapshots WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM daily_snapshots WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM recurring_rules WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [uid])
+            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [uid])
         self.user.delete()
 
     def test_cleanup_sessions_command(self) -> None:
@@ -67,7 +55,10 @@ class TestCommands:
             current_balance=1000,
         )
         call_command("reconcile_balances", stdout=self.out)
-        assert "balances match" in self.out.getvalue().lower() or "discrepancy" in self.out.getvalue().lower()
+        assert (
+            "balances match" in self.out.getvalue().lower()
+            or "discrepancy" in self.out.getvalue().lower()
+        )
 
     def test_reconcile_fix_flag(self) -> None:
         """--fix flag is accepted and works."""

@@ -113,15 +113,21 @@ class TestVirtualAccountsPage:
         # Get the VA ID from the page
         page = c.get("/virtual-accounts")
         content = page.content.decode()
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"', content)
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+            content,
+        )
         assert match is not None
         va_id = match.group(1)
 
         # Allocate more than account balance
-        c.post(f"/virtual-accounts/{va_id}/allocate", {
-            "type": "contribution",
-            "amount": "60000",
-        })
+        c.post(
+            f"/virtual-accounts/{va_id}/allocate",
+            {
+                "type": "contribution",
+                "amount": "60000",
+            },
+        )
 
         response = c.get("/virtual-accounts")
         assert response.status_code == 200
@@ -181,7 +187,10 @@ class TestVirtualAccountDetail:
             },
         )
         page = client.get("/virtual-accounts")
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"', page.content.decode())
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+            page.content.decode(),
+        )
         assert match is not None
         return match.group(1)
 
@@ -216,7 +225,10 @@ class TestVirtualAccountArchive:
             {"name": "To Archive", "account_id": va_view_data["account_id"]},
         )
         page = c.get("/virtual-accounts")
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/archive', page.content.decode())
+        match = re.search(
+            r"/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/archive",
+            page.content.decode(),
+        )
         assert match is not None
         va_id = match.group(1)
 
@@ -241,7 +253,10 @@ class TestVirtualAccountAllocate:
             {"name": "Fund", "account_id": va_view_data["account_id"]},
         )
         page = client.get("/virtual-accounts")
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"', page.content.decode())
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+            page.content.decode(),
+        )
         assert match is not None
         return match.group(1)
 
@@ -302,7 +317,10 @@ class TestVirtualAccountToggleExclude:
             {"name": "Toggle Test", "account_id": va_view_data["account_id"]},
         )
         page = c.get("/virtual-accounts")
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"', page.content.decode())
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+            page.content.decode(),
+        )
         assert match is not None
         va_id = match.group(1)
 
@@ -329,7 +347,10 @@ class TestVirtualAccountEditForm:
             {"name": "Edit Me", "account_id": va_view_data["account_id"]},
         )
         page = c.get("/virtual-accounts")
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"', page.content.decode())
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+            page.content.decode(),
+        )
         assert match is not None
         va_id = match.group(1)
 
@@ -359,7 +380,10 @@ class TestVirtualAccountUpdate:
             {"name": "Old Name", "account_id": va_view_data["account_id"]},
         )
         page = c.get("/virtual-accounts")
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"', page.content.decode())
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+            page.content.decode(),
+        )
         assert match is not None
         va_id = match.group(1)
 
@@ -384,7 +408,10 @@ class TestVirtualAccountUpdate:
             {"name": "Test", "account_id": va_view_data["account_id"]},
         )
         page = c.get("/virtual-accounts")
-        match = re.search(r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"', page.content.decode())
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"',
+            page.content.decode(),
+        )
         assert match is not None
         va_id = match.group(1)
 

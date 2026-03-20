@@ -139,10 +139,14 @@ class TestGetAll:
         svc = _svc(inst_data["user_id"])
         # Create two plans with different remaining counts
         id1 = svc.create(
-            _plan_data(inst_data["account_id"], description="Plan A", num_installments=3)
+            _plan_data(
+                inst_data["account_id"], description="Plan A", num_installments=3
+            )
         )
         svc.create(
-            _plan_data(inst_data["account_id"], description="Plan B", num_installments=12)
+            _plan_data(
+                inst_data["account_id"], description="Plan B", num_installments=12
+            )
         )
         # Record a payment on Plan A to reduce its remaining
         svc.record_payment(id1)

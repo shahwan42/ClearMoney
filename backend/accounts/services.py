@@ -26,7 +26,14 @@ from core.billing import (
 logger = logging.getLogger(__name__)
 
 # Valid enum values — must match PostgreSQL enum types
-VALID_ACCOUNT_TYPES = {"savings", "current", "prepaid", "cash", "credit_card", "credit_limit"}
+VALID_ACCOUNT_TYPES = {
+    "savings",
+    "current",
+    "prepaid",
+    "cash",
+    "credit_card",
+    "credit_limit",
+}
 CREDIT_ACCOUNT_TYPES = {"credit_card", "credit_limit"}
 VALID_INSTITUTION_TYPES = {"bank", "fintech", "wallet"}
 VALID_CURRENCIES = {"EGP", "USD"}
@@ -307,14 +314,25 @@ class AccountService:
                 RETURNING id, created_at, updated_at
                 """,
                 [
-                    self.user_id, institution_id, name, acc_type, currency,
-                    initial_balance, initial_balance, credit_limit,
+                    self.user_id,
+                    institution_id,
+                    name,
+                    acc_type,
+                    currency,
+                    initial_balance,
+                    initial_balance,
+                    credit_limit,
                 ],
             )
             row = cursor.fetchone()
             assert row is not None
 
-        logger.info("account.created type=%s currency=%s user=%s", acc_type, currency, self.user_id)
+        logger.info(
+            "account.created type=%s currency=%s user=%s",
+            acc_type,
+            currency,
+            self.user_id,
+        )
         return {
             "id": str(row[0]),
             "institution_id": institution_id,
@@ -398,7 +416,9 @@ class AccountService:
             )
             toggled: bool = cursor.rowcount > 0
             if toggled:
-                logger.info("account.dormant_toggled id=%s user=%s", account_id, self.user_id)
+                logger.info(
+                    "account.dormant_toggled id=%s user=%s", account_id, self.user_id
+                )
             return toggled
 
     def reorder(self, ids: list[str]) -> None:
@@ -436,14 +456,18 @@ class AccountService:
             )
             return [float(row[0]) for row in cursor.fetchall()]
 
-    def get_utilization_history(self, account_id: str, credit_limit: float, days: int = 30) -> list[float]:
+    def get_utilization_history(
+        self, account_id: str, credit_limit: float, days: int = 30
+    ) -> list[float]:
         """30-day utilization trend from balance history. Returns list of 0-100 values."""
         history = self.get_balance_history(account_id, days)
         if not history or credit_limit <= 0:
             return []
         return [min(100.0, max(0.0, (-bal / credit_limit) * 100)) for bal in history]
 
-    def get_recent_transactions(self, account_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    def get_recent_transactions(
+        self, account_id: str, limit: int = 50
+    ) -> list[dict[str, Any]]:
         """Recent transactions with running balance for account detail page.
 
         Port of Go's GetFilteredEnriched with AccountID filter.
@@ -519,19 +543,21 @@ class AccountService:
                 target = float(row[2]) if row[2] else 0.0
                 current = float(row[3]) if row[3] else 0.0
                 progress = (current / target * 100) if target > 0 else 0.0
-                result.append({
-                    "id": str(row[0]),
-                    "name": row[1],
-                    "target_amount": target,
-                    "current_balance": current,
-                    "icon": row[4],
-                    "color": row[5],
-                    "is_archived": row[6],
-                    "exclude_from_net_worth": row[7],
-                    "display_order": row[8],
-                    "account_id": str(row[9]),
-                    "progress_pct": min(100.0, progress),
-                })
+                result.append(
+                    {
+                        "id": str(row[0]),
+                        "name": row[1],
+                        "target_amount": target,
+                        "current_balance": current,
+                        "icon": row[4],
+                        "color": row[5],
+                        "is_archived": row[6],
+                        "exclude_from_net_worth": row[7],
+                        "display_order": row[8],
+                        "account_id": str(row[9]),
+                        "progress_pct": min(100.0, progress),
+                    }
+                )
             return result
 
     def get_excluded_va_balance(self, account_id: str) -> float:

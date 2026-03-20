@@ -73,7 +73,9 @@ def _svc(user_id: str) -> PersonService:
 def _get_balance(account_id: str) -> float:
     """Fetch current_balance directly from DB."""
     with connection.cursor() as cursor:
-        cursor.execute("SELECT current_balance FROM accounts WHERE id = %s", [account_id])
+        cursor.execute(
+            "SELECT current_balance FROM accounts WHERE id = %s", [account_id]
+        )
         row = cursor.fetchone()
     return float(row[0]) if row else 0
 
@@ -87,7 +89,11 @@ def _get_person_balance(person_id: str) -> dict[str, float]:
         )
         row = cursor.fetchone()
     assert row is not None
-    return {"net_balance": float(row[0]), "net_balance_egp": float(row[1]), "net_balance_usd": float(row[2])}
+    return {
+        "net_balance": float(row[0]),
+        "net_balance_egp": float(row[1]),
+        "net_balance_usd": float(row[2]),
+    }
 
 
 # ---------------------------------------------------------------------------

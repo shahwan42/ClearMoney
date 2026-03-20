@@ -36,7 +36,9 @@ def htmx_redirect(request: HttpRequest, url: str) -> HttpResponse:
     return HttpResponseRedirect(url)
 
 
-def render_htmx_result(result_type: str, message: str, detail: str = "") -> HttpResponse:
+def render_htmx_result(
+    result_type: str, message: str, detail: str = ""
+) -> HttpResponse:
     """
     Render an inline result partial (success/error/info toast).
 

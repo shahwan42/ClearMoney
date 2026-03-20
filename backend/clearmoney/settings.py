@@ -127,7 +127,9 @@ LANGUAGE_CODE = "en-us"
 
 STATIC_URL = "/static/"
 _docker_static = BASE_DIR / "static_src"
-STATICFILES_DIRS = [_docker_static if _docker_static.exists() else BASE_DIR.parent / "static"]
+STATICFILES_DIRS = [
+    _docker_static if _docker_static.exists() else BASE_DIR.parent / "static"
+]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STORAGES = {

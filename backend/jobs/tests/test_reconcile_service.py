@@ -31,9 +31,7 @@ class TestReconcileService:
             cursor.execute(
                 "DELETE FROM transactions WHERE user_id = %s", [str(self.uid)]
             )
-            cursor.execute(
-                "DELETE FROM accounts WHERE user_id = %s", [str(self.uid)]
-            )
+            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(self.uid)])
             cursor.execute(
                 "DELETE FROM institutions WHERE user_id = %s", [str(self.uid)]
             )

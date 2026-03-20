@@ -18,8 +18,16 @@ urlpatterns = [
     path("people/<uuid:person_id>/repay", views.people_repay, name="people-repay"),
     # JSON API routes
     path("api/persons", views.api_person_list_create, name="api-persons"),
-    path("api/persons/<uuid:person_id>", views.api_person_detail, name="api-person-detail"),
-    path("api/persons/<uuid:person_id>/loan", views.api_person_loan, name="api-person-loan"),
+    path(
+        "api/persons/<uuid:person_id>",
+        views.api_person_detail,
+        name="api-person-detail",
+    ),
+    path(
+        "api/persons/<uuid:person_id>/loan",
+        views.api_person_loan,
+        name="api-person-loan",
+    ),
     path(
         "api/persons/<uuid:person_id>/repayment",
         views.api_person_repayment,

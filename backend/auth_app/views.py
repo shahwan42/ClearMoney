@@ -39,9 +39,13 @@ def login_view(request: HttpRequest) -> HttpResponse:
         return _login_submit(request)
 
     logger.info("page viewed page=login")
-    return render(request, "auth_app/login.html", {
-        "render_time": int(time.time()),
-    })
+    return render(
+        request,
+        "auth_app/login.html",
+        {
+            "render_time": int(time.time()),
+        },
+    )
 
 
 def _login_submit(request: HttpRequest) -> HttpResponse:
@@ -68,10 +72,14 @@ def _login_submit(request: HttpRequest) -> HttpResponse:
 
     email = request.POST.get("email", "").strip()
     if not email:
-        return render(request, "auth_app/login.html", {
-            "error": "Email is required",
-            "render_time": int(time.time()),
-        })
+        return render(
+            request,
+            "auth_app/login.html",
+            {
+                "error": "Email is required",
+                "render_time": int(time.time()),
+            },
+        )
 
     result, err = auth_service.request_login_link(email)
     if err:
@@ -98,9 +106,13 @@ def register_view(request: HttpRequest) -> HttpResponse:
         return _register_submit(request)
 
     logger.info("page viewed page=register")
-    return render(request, "auth_app/register.html", {
-        "render_time": int(time.time()),
-    })
+    return render(
+        request,
+        "auth_app/register.html",
+        {
+            "render_time": int(time.time()),
+        },
+    )
 
 
 def _register_submit(request: HttpRequest) -> HttpResponse:
@@ -123,26 +135,38 @@ def _register_submit(request: HttpRequest) -> HttpResponse:
 
     email = request.POST.get("email", "").strip()
     if not email:
-        return render(request, "auth_app/register.html", {
-            "error": "Email is required",
-            "render_time": int(time.time()),
-        })
+        return render(
+            request,
+            "auth_app/register.html",
+            {
+                "error": "Email is required",
+                "render_time": int(time.time()),
+            },
+        )
 
     result, err = auth_service.request_registration_link(email)
     if err:
         # Show error for registration (safe to reveal "already registered")
-        return render(request, "auth_app/register.html", {
-            "error": err,
-            "render_time": int(time.time()),
-        })
+        return render(
+            request,
+            "auth_app/register.html",
+            {
+                "error": err,
+                "render_time": int(time.time()),
+            },
+        )
 
     # Registration reveals email existence, so specific rate-limit messages are safe
     if result != SendResult.SENT:
         msg = rate_limit_message(result)
-        return render(request, "auth_app/register.html", {
-            "error": msg,
-            "render_time": int(time.time()),
-        })
+        return render(
+            request,
+            "auth_app/register.html",
+            {
+                "error": msg,
+                "render_time": int(time.time()),
+            },
+        )
 
     return render(request, "auth_app/check_email.html", {"email": email})
 

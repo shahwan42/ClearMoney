@@ -53,7 +53,10 @@ def tx_view_data(db):
     }
 
     with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM virtual_account_allocations WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = %s)", [user_id])
+        cursor.execute(
+            "DELETE FROM virtual_account_allocations WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = %s)",
+            [user_id],
+        )
         cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
         cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
         cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
@@ -114,7 +117,12 @@ class TestTransactionNew:
             cursor.execute(
                 "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
                 " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, 'Test note', -500)",
-                [tx_id, tx_view_data["user_id"], tx_view_data["egp_id"], date(2026, 3, 15)],
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
             )
         response = c.get(f"/transactions/new?dup={tx_id}")
         assert response.status_code == 200
@@ -130,23 +138,31 @@ class TestTransactionNew:
 class TestTransactionCRUD:
     def test_create_success(self, client, tx_view_data):
         c = _auth_client(client, tx_view_data["session_token"])
-        response = c.post("/transactions", {
-            "type": "expense",
-            "amount": "500",
-            "account_id": tx_view_data["egp_id"],
-            "category_id": tx_view_data["cat_id"],
-            "date": "2026-03-15",
-        }, HTTP_HX_REQUEST="true")
+        response = c.post(
+            "/transactions",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": tx_view_data["egp_id"],
+                "category_id": tx_view_data["cat_id"],
+                "date": "2026-03-15",
+            },
+            HTTP_HX_REQUEST="true",
+        )
         assert response.status_code == 200
         assert b"Transaction saved!" in response.content
 
     def test_create_validation_error(self, client, tx_view_data):
         c = _auth_client(client, tx_view_data["session_token"])
-        response = c.post("/transactions", {
-            "type": "expense",
-            "amount": "0",
-            "account_id": tx_view_data["egp_id"],
-        }, HTTP_HX_REQUEST="true")
+        response = c.post(
+            "/transactions",
+            {
+                "type": "expense",
+                "amount": "0",
+                "account_id": tx_view_data["egp_id"],
+            },
+            HTTP_HX_REQUEST="true",
+        )
         assert response.status_code == 400
 
     def test_edit_form(self, client, tx_view_data):
@@ -156,7 +172,12 @@ class TestTransactionCRUD:
             cursor.execute(
                 "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
                 " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
-                [tx_id, tx_view_data["user_id"], tx_view_data["egp_id"], date(2026, 3, 15)],
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
             )
         response = c.get(f"/transactions/edit/{tx_id}", HTTP_HX_REQUEST="true")
         assert response.status_code == 200
@@ -169,7 +190,12 @@ class TestTransactionCRUD:
             cursor.execute(
                 "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
                 " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
-                [tx_id, tx_view_data["user_id"], tx_view_data["egp_id"], date(2026, 3, 15)],
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
             )
             cursor.execute(
                 "UPDATE accounts SET current_balance = current_balance - 200 WHERE id = %s",
@@ -186,7 +212,12 @@ class TestTransactionCRUD:
             cursor.execute(
                 "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
                 " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
-                [tx_id, tx_view_data["user_id"], tx_view_data["egp_id"], date(2026, 3, 15)],
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
             )
         response = c.get(f"/transactions/row/{tx_id}", HTTP_HX_REQUEST="true")
         assert response.status_code == 200
@@ -216,14 +247,25 @@ class TestTransferViews:
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
                 " %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
-                [dest_id, tx_view_data["user_id"], tx_view_data["user_id"], "Dest", 5000, 5000],
+                [
+                    dest_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["user_id"],
+                    "Dest",
+                    5000,
+                    5000,
+                ],
             )
-        response = c.post("/transactions/transfer", {
-            "source_account_id": tx_view_data["egp_id"],
-            "dest_account_id": dest_id,
-            "amount": "1000",
-            "date": "2026-03-15",
-        }, HTTP_HX_REQUEST="true")
+        response = c.post(
+            "/transactions/transfer",
+            {
+                "source_account_id": tx_view_data["egp_id"],
+                "dest_account_id": dest_id,
+                "amount": "1000",
+                "date": "2026-03-15",
+            },
+            HTTP_HX_REQUEST="true",
+        )
         assert response.status_code == 200
         assert b"Transfer completed!" in response.content
 

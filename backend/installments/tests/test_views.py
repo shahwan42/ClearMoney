@@ -88,9 +88,7 @@ class TestInstallmentsPage:
         response = c.get("/installments")
         assert b"No installment plans yet." in response.content
 
-    def test_shows_plan(
-        self, client: Client, inst_view_data: dict[str, Any]
-    ) -> None:
+    def test_shows_plan(self, client: Client, inst_view_data: dict[str, Any]) -> None:
         _create_plan(
             client, inst_view_data["session_token"], inst_view_data["account_id"]
         )
@@ -243,9 +241,7 @@ class TestInstallmentPay:
 
 @pytest.mark.django_db
 class TestInstallmentDelete:
-    def test_deletes_plan(
-        self, client: Client, inst_view_data: dict[str, Any]
-    ) -> None:
+    def test_deletes_plan(self, client: Client, inst_view_data: dict[str, Any]) -> None:
         _create_plan(
             client, inst_view_data["session_token"], inst_view_data["account_id"]
         )

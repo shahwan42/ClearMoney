@@ -90,21 +90,25 @@ def transactions_list(request: AuthenticatedRequest) -> HttpResponse:
     categories = svc.get_categories()
 
     logger.info("page viewed: transactions, user=%s", request.user_email)
-    return render(request, "transactions/transactions.html", {
-        "data": {
-            "transactions": transactions,
-            "accounts": accounts,
-            "categories": categories,
-            "has_more": has_more,
-            "next_offset": offset + 50,
-            "account_id": filters["account_id"],
-            "category_id": filters["category_id"],
-            "type": filters["type"],
-            "date_from": filters["date_from"],
-            "date_to": filters["date_to"],
-            "search": filters["search"],
+    return render(
+        request,
+        "transactions/transactions.html",
+        {
+            "data": {
+                "transactions": transactions,
+                "accounts": accounts,
+                "categories": categories,
+                "has_more": has_more,
+                "next_offset": offset + 50,
+                "account_id": filters["account_id"],
+                "category_id": filters["category_id"],
+                "type": filters["type"],
+                "date_from": filters["date_from"],
+                "date_to": filters["date_to"],
+                "search": filters["search"],
+            },
         },
-    })
+    )
 
 
 @require_http_methods(["GET"])
@@ -125,19 +129,23 @@ def transactions_list_partial(request: AuthenticatedRequest) -> HttpResponse:
     transactions, has_more = svc.get_filtered_enriched(filters)
 
     logger.info("partial loaded: transaction-list, user=%s", request.user_email)
-    return render(request, "transactions/_transaction_list.html", {
-        "data": {
-            "transactions": transactions,
-            "has_more": has_more,
-            "next_offset": offset + 50,
-            "account_id": filters["account_id"],
-            "category_id": filters["category_id"],
-            "type": filters["type"],
-            "date_from": filters["date_from"],
-            "date_to": filters["date_to"],
-            "search": filters["search"],
+    return render(
+        request,
+        "transactions/_transaction_list.html",
+        {
+            "data": {
+                "transactions": transactions,
+                "has_more": has_more,
+                "next_offset": offset + 50,
+                "account_id": filters["account_id"],
+                "category_id": filters["category_id"],
+                "type": filters["type"],
+                "date_from": filters["date_from"],
+                "date_to": filters["date_to"],
+                "search": filters["search"],
+            },
         },
-    })
+    )
 
 
 @require_http_methods(["GET"])
@@ -155,14 +163,18 @@ def transaction_new(request: AuthenticatedRequest) -> HttpResponse:
         prefill = svc.get_by_id(dup_id)
 
     logger.info("page viewed: transaction-new, user=%s", request.user_email)
-    return render(request, "transactions/transaction_new.html", {
-        "accounts": accounts,
-        "expense_categories": expense_cats,
-        "income_categories": income_cats,
-        "virtual_accounts": virtual_accounts,
-        "today": date.today(),
-        "prefill": prefill,
-    })
+    return render(
+        request,
+        "transactions/transaction_new.html",
+        {
+            "accounts": accounts,
+            "expense_categories": expense_cats,
+            "income_categories": income_cats,
+            "virtual_accounts": virtual_accounts,
+            "today": date.today(),
+            "prefill": prefill,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -196,11 +208,15 @@ def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
             except ValueError as e:
                 logger.warning("VA allocation failed: %s", e)
 
-        return render(request, "transactions/_transaction_success.html", {
-            "tx": tx,
-            "new_balance": new_balance,
-            "currency": tx["currency"],
-        })
+        return render(
+            request,
+            "transactions/_transaction_success.html",
+            {
+                "tx": tx,
+                "new_balance": new_balance,
+                "currency": tx["currency"],
+            },
+        )
     except ValueError as e:
         return _error_html(str(e))
 
@@ -218,13 +234,17 @@ def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResp
     selected_va_id = svc.get_allocation_for_tx(str(tx_id))
 
     logger.info("partial loaded: transaction-edit-form, user=%s", request.user_email)
-    return render(request, "transactions/_transaction_edit_form.html", {
-        "tx": tx,
-        "categories": categories,
-        "selected_category_id": tx.get("category_id", ""),
-        "virtual_accounts": virtual_accounts,
-        "selected_va_id": selected_va_id or "",
-    })
+    return render(
+        request,
+        "transactions/_transaction_edit_form.html",
+        {
+            "tx": tx,
+            "categories": categories,
+            "selected_category_id": tx.get("category_id", ""),
+            "virtual_accounts": virtual_accounts,
+            "selected_va_id": selected_va_id or "",
+        },
+    )
 
 
 @require_http_methods(["PUT", "DELETE"])
@@ -301,10 +321,14 @@ def transfer_new(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transfers/new — transfer form page."""
     svc = _svc(request)
     logger.info("page viewed: transfer, user=%s", request.user_email)
-    return render(request, "transactions/transfer.html", {
-        "accounts": svc.get_accounts(),
-        "today": date.today(),
-    })
+    return render(
+        request,
+        "transactions/transfer.html",
+        {
+            "accounts": svc.get_accounts(),
+            "today": date.today(),
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -364,10 +388,14 @@ def exchange_new(request: AuthenticatedRequest) -> HttpResponse:
     """GET /exchange/new — exchange form page."""
     svc = _svc(request)
     logger.info("page viewed: exchange, user=%s", request.user_email)
-    return render(request, "transactions/exchange.html", {
-        "accounts": svc.get_accounts(),
-        "today": date.today(),
-    })
+    return render(
+        request,
+        "transactions/exchange.html",
+        {
+            "accounts": svc.get_accounts(),
+            "today": date.today(),
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -402,10 +430,14 @@ def fawry_cashout(request: AuthenticatedRequest) -> HttpResponse:
     """GET /fawry-cashout — Fawry cash-out form page."""
     svc = _svc(request)
     logger.info("page viewed: fawry-cashout, user=%s", request.user_email)
-    return render(request, "transactions/fawry_cashout.html", {
-        "accounts": svc.get_accounts(),
-        "today": date.today(),
-    })
+    return render(
+        request,
+        "transactions/fawry_cashout.html",
+        {
+            "accounts": svc.get_accounts(),
+            "today": date.today(),
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -446,11 +478,15 @@ def batch_entry(request: AuthenticatedRequest) -> HttpResponse:
     """GET /batch-entry — batch entry form page."""
     svc = _svc(request)
     logger.info("page viewed: batch-entry, user=%s", request.user_email)
-    return render(request, "transactions/batch_entry.html", {
-        "accounts": svc.get_accounts(),
-        "expense_categories": svc.get_categories("expense"),
-        "today": date.today(),
-    })
+    return render(
+        request,
+        "transactions/batch_entry.html",
+        {
+            "accounts": svc.get_accounts(),
+            "expense_categories": svc.get_categories("expense"),
+            "today": date.today(),
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -466,14 +502,16 @@ def batch_create(request: AuthenticatedRequest) -> HttpResponse:
 
     items = []
     for i in range(len(types)):
-        items.append({
-            "type": types[i] if i < len(types) else "expense",
-            "amount": amounts[i] if i < len(amounts) else "0",
-            "account_id": account_ids[i] if i < len(account_ids) else "",
-            "category_id": category_ids[i] if i < len(category_ids) else "",
-            "date": dates[i] if i < len(dates) else "",
-            "note": notes[i] if i < len(notes) else "",
-        })
+        items.append(
+            {
+                "type": types[i] if i < len(types) else "expense",
+                "amount": amounts[i] if i < len(amounts) else "0",
+                "account_id": account_ids[i] if i < len(account_ids) else "",
+                "category_id": category_ids[i] if i < len(category_ids) else "",
+                "date": dates[i] if i < len(dates) else "",
+                "note": notes[i] if i < len(notes) else "",
+            }
+        )
 
     created, failed = svc.batch_create(items)
     return render_htmx_result(
@@ -536,14 +574,18 @@ def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
     virtual_accounts = svc.get_virtual_accounts()
 
     logger.info("partial loaded: quick-entry, user=%s", request.user_email)
-    return render(request, "transactions/_quick_entry.html", {
-        "accounts": accounts,
-        "expense_categories": expense_cats,
-        "income_categories": income_cats,
-        "virtual_accounts": virtual_accounts,
-        "last_account_id": defaults["last_account_id"],
-        "auto_category_id": defaults["auto_category_id"],
-    })
+    return render(
+        request,
+        "transactions/_quick_entry.html",
+        {
+            "accounts": accounts,
+            "expense_categories": expense_cats,
+            "income_categories": income_cats,
+            "virtual_accounts": virtual_accounts,
+            "last_account_id": defaults["last_account_id"],
+            "auto_category_id": defaults["auto_category_id"],
+        },
+    )
 
 
 @require_http_methods(["POST"])
@@ -581,10 +623,14 @@ def quick_transfer_form(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transactions/quick-transfer — quick transfer partial."""
     svc = _svc(request)
     logger.info("partial loaded: quick-transfer, user=%s", request.user_email)
-    return render(request, "transactions/_quick_transfer.html", {
-        "accounts": svc.get_accounts(),
-        "today": date.today(),
-    })
+    return render(
+        request,
+        "transactions/_quick_transfer.html",
+        {
+            "accounts": svc.get_accounts(),
+            "today": date.today(),
+        },
+    )
 
 
 @require_http_methods(["GET"])
@@ -592,10 +638,14 @@ def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
     """GET /exchange/quick-form — quick exchange partial."""
     svc = _svc(request)
     logger.info("partial loaded: quick-exchange, user=%s", request.user_email)
-    return render(request, "transactions/_quick_exchange.html", {
-        "accounts": svc.get_accounts(),
-        "today": date.today(),
-    })
+    return render(
+        request,
+        "transactions/_quick_exchange.html",
+        {
+            "accounts": svc.get_accounts(),
+            "today": date.today(),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -691,9 +741,7 @@ def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
 
 
 @require_http_methods(["GET", "DELETE"])
-def api_transaction_detail(
-    request: AuthenticatedRequest, tx_id: str
-) -> HttpResponse:
+def api_transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
     """GET/DELETE /api/transactions/{id} — single transaction operations (JSON)."""
     svc = _svc(request)
     tid = str(tx_id)

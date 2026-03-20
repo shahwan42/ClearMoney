@@ -186,9 +186,7 @@ class TestSalaryStep3:
 
 @pytest.mark.django_db
 class TestSalaryConfirm:
-    def test_success(
-        self, client: Client, salary_view_data: dict[str, Any]
-    ) -> None:
+    def test_success(self, client: Client, salary_view_data: dict[str, Any]) -> None:
         c = _auth_client(client, salary_view_data["session_token"])
         response = c.post(
             "/salary/confirm",

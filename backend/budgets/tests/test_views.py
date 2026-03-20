@@ -191,7 +191,7 @@ class TestBudgetDelete:
         # Find the delete form action URL which contains the UUID
         import re
 
-        match = re.search(r'/budgets/([0-9a-f-]+)/delete', content)
+        match = re.search(r"/budgets/([0-9a-f-]+)/delete", content)
         assert match is not None, "Delete form not found on page"
         budget_id = match.group(1)
 
@@ -226,7 +226,7 @@ class TestBudgetDelete:
         content = page.content.decode()
         import re
 
-        match = re.search(r'/budgets/([0-9a-f-]+)/delete', content)
+        match = re.search(r"/budgets/([0-9a-f-]+)/delete", content)
         assert match is not None
         budget_id = match.group(1)
 

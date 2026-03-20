@@ -50,7 +50,9 @@ def _build_institution_groups(request: AuthenticatedRequest) -> list[dict[str, A
 def _render_institution_list_oob(request: AuthenticatedRequest) -> str:
     """Render the institution list as an OOB swap div. Appended to HTMX responses."""
     groups = _build_institution_groups(request)
-    inner_html = render_to_string("accounts/_institution_list.html", {"data": groups}, request)
+    inner_html = render_to_string(
+        "accounts/_institution_list.html", {"data": groups}, request
+    )
     return f'<div id="institution-list" class="space-y-3" hx-swap-oob="innerHTML">{inner_html}</div>'
 
 
@@ -105,7 +107,11 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 
     # Institution name
     inst_svc = InstitutionService(request.user_id, request.tz)
-    inst = inst_svc.get_by_id(account["institution_id"]) if account["institution_id"] else None
+    inst = (
+        inst_svc.get_by_id(account["institution_id"])
+        if account["institution_id"]
+        else None
+    )
     institution_name = inst["name"] if inst else ""
 
     # Billing cycle (credit cards only)
@@ -183,12 +189,16 @@ def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpRespon
     statement = get_statement_data(account, request.user_id, request.tz, period_str)
 
     if not statement:
-        return render(request, "accounts/credit_card_statement_error.html", {
-            "data": {
-                "account": account,
-                "message": "Please configure a billing cycle for this credit card (statement day and due day) in the account metadata.",
-            }
-        })
+        return render(
+            request,
+            "accounts/credit_card_statement_error.html",
+            {
+                "data": {
+                    "account": account,
+                    "message": "Please configure a billing cycle for this credit card (statement day and due day) in the account metadata.",
+                }
+            },
+        )
 
     # Utilization for donut chart
     utilization = get_credit_card_utilization(
@@ -236,10 +246,14 @@ def account_form(request: AuthenticatedRequest) -> HttpResponse:
     institution_name = inst["name"] if inst else ""
 
     logger.info("partial loaded: account-form, user=%s", request.user_email)
-    return render(request, "accounts/_account_form.html", {
-        "institution_id": institution_id,
-        "institution_name": institution_name,
-    })
+    return render(
+        request,
+        "accounts/_account_form.html",
+        {
+            "institution_id": institution_id,
+            "institution_name": institution_name,
+        },
+    )
 
 
 @require_http_methods(["GET"])
@@ -290,7 +304,9 @@ def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpRespon
         return HttpResponse("Institution not found", status=404)
 
     logger.info("partial loaded: institution-edit-form, user=%s", request.user_email)
-    return render(request, "accounts/_institution_edit_form.html", {"institution": inst})
+    return render(
+        request, "accounts/_institution_edit_form.html", {"institution": inst}
+    )
 
 
 @require_http_methods(["GET"])
@@ -307,12 +323,18 @@ def institution_delete_confirm(request: AuthenticatedRequest, id: UUID) -> HttpR
     acc_svc = AccountService(request.user_id, request.tz)
     accounts = acc_svc.get_by_institution(str(id))
 
-    logger.info("partial loaded: institution-delete-confirm, user=%s", request.user_email)
-    return render(request, "accounts/_institution_delete_confirm.html", {
-        "institution_id": str(id),
-        "institution_name": inst["name"],
-        "account_count": len(accounts),
-    })
+    logger.info(
+        "partial loaded: institution-delete-confirm, user=%s", request.user_email
+    )
+    return render(
+        request,
+        "accounts/_institution_delete_confirm.html",
+        {
+            "institution_id": str(id),
+            "institution_name": inst["name"],
+            "account_count": len(accounts),
+        },
+    )
 
 
 @require_http_methods(["GET"])
@@ -344,13 +366,15 @@ def institution_add(request: AuthenticatedRequest) -> HttpResponse:
         inst_svc.create(name, inst_type)
     except ValueError as e:
         return render(
-            request, "accounts/_institution_form.html",
-            {"error": str(e)}, status=422,
+            request,
+            "accounts/_institution_form.html",
+            {"error": str(e)},
+            status=422,
         )
 
     # Success: toast + close script + OOB list refresh
     html = _toast_html("Institution added!")
-    html += '<script>setTimeout(function(){ closeCreateSheet(); }, 1000);</script>'
+    html += "<script>setTimeout(function(){ closeCreateSheet(); }, 1000);</script>"
     html += _render_institution_list_oob(request)
     return HttpResponse(html)
 
@@ -372,8 +396,12 @@ def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
         updated = inst_svc.update(str(id), name, inst_type)
     except ValueError as e:
         return render(
-            request, "accounts/_institution_edit_form.html",
-            {"institution": {"id": str(id), "name": name, "type": inst_type}, "error": str(e)},
+            request,
+            "accounts/_institution_edit_form.html",
+            {
+                "institution": {"id": str(id), "name": name, "type": inst_type},
+                "error": str(e),
+            },
             status=422,
         )
 
@@ -385,7 +413,7 @@ def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     accounts = acc_svc.get_by_institution(str(id))
 
     # Close sheet + OOB swap for this specific card
-    html = '<script>closeEditSheet();</script>'
+    html = "<script>closeEditSheet();</script>"
     card_html = render_to_string(
         "accounts/_institution_card.html",
         {"institution": updated, "accounts": accounts},
@@ -408,7 +436,7 @@ def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
         return render_htmx_result("error", "Failed to delete institution", "")
 
     html = _toast_html("Institution deleted!")
-    html += '<script>setTimeout(function(){ closeDeleteSheet(); }, 1000);</script>'
+    html += "<script>setTimeout(function(){ closeDeleteSheet(); }, 1000);</script>"
     html += _render_institution_list_oob(request)
     return HttpResponse(html)
 
@@ -457,13 +485,18 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
         acc_svc.create(data)
     except ValueError as e:
         return render(
-            request, "accounts/_account_form.html",
-            {"institution_id": institution_id, "institution_name": institution_name, "error": str(e)},
+            request,
+            "accounts/_account_form.html",
+            {
+                "institution_id": institution_id,
+                "institution_name": institution_name,
+                "error": str(e),
+            },
             status=422,
         )
 
     # Success: close sheet + OOB list refresh
-    html = '<script>closeAccountSheet();</script>'
+    html = "<script>closeAccountSheet();</script>"
     html += _render_institution_list_oob(request)
     return HttpResponse(html)
 
@@ -609,9 +642,7 @@ def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
 
 
 @require_http_methods(["GET", "PUT", "DELETE"])
-def api_institution_detail(
-    request: AuthenticatedRequest, inst_id: str
-) -> HttpResponse:
+def api_institution_detail(request: AuthenticatedRequest, inst_id: str) -> HttpResponse:
     """GET/PUT/DELETE /api/institutions/{id} — single institution operations (JSON)."""
     inst_svc = InstitutionService(request.user_id, request.tz)
     iid = str(inst_id)

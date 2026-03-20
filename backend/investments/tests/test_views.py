@@ -147,9 +147,7 @@ class TestInvestmentAdd:
 
 @pytest.mark.django_db
 class TestInvestmentUpdate:
-    def test_updates_price(
-        self, client: Client, inv_view_data: dict[str, Any]
-    ) -> None:
+    def test_updates_price(self, client: Client, inv_view_data: dict[str, Any]) -> None:
         _create_investment(client, inv_view_data["session_token"])
 
         # Get the investment ID

@@ -130,11 +130,14 @@ class TestPeopleLoan:
         persons = json.loads(persons_resp.content)
         person_id = persons[0]["id"]
 
-        response = c.post(f"/people/{person_id}/loan", {
-            "amount": "1000",
-            "account_id": people_view_data["egp_id"],
-            "loan_type": "loan_out",
-        })
+        response = c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "1000",
+                "account_id": people_view_data["egp_id"],
+                "loan_type": "loan_out",
+            },
+        )
         assert response.status_code == 200
         assert b"1,000" in response.content
 
@@ -144,11 +147,14 @@ class TestPeopleLoan:
         persons = json.loads(c.get("/api/persons").content)
         person_id = persons[0]["id"]
 
-        response = c.post(f"/people/{person_id}/loan", {
-            "amount": "2000",
-            "account_id": people_view_data["egp_id"],
-            "loan_type": "loan_in",
-        })
+        response = c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "2000",
+                "account_id": people_view_data["egp_id"],
+                "loan_type": "loan_in",
+            },
+        )
         assert response.status_code == 200
         assert b"2,000" in response.content
 
@@ -158,11 +164,14 @@ class TestPeopleLoan:
         persons = json.loads(c.get("/api/persons").content)
         person_id = persons[0]["id"]
 
-        response = c.post(f"/people/{person_id}/loan", {
-            "amount": "",
-            "account_id": people_view_data["egp_id"],
-            "loan_type": "loan_out",
-        })
+        response = c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "",
+                "account_id": people_view_data["egp_id"],
+                "loan_type": "loan_out",
+            },
+        )
         assert response.status_code == 400
 
 
@@ -180,16 +189,22 @@ class TestPeopleRepay:
         person_id = persons[0]["id"]
 
         # Lend 1000 first
-        c.post(f"/people/{person_id}/loan", {
-            "amount": "1000",
-            "account_id": people_view_data["egp_id"],
-            "loan_type": "loan_out",
-        })
+        c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "1000",
+                "account_id": people_view_data["egp_id"],
+                "loan_type": "loan_out",
+            },
+        )
         # Repay 500
-        response = c.post(f"/people/{person_id}/repay", {
-            "amount": "500",
-            "account_id": people_view_data["egp_id"],
-        })
+        response = c.post(
+            f"/people/{person_id}/repay",
+            {
+                "amount": "500",
+                "account_id": people_view_data["egp_id"],
+            },
+        )
         assert response.status_code == 200
         assert b"500" in response.content
 
@@ -208,11 +223,14 @@ class TestPersonDetail:
         person_id = persons[0]["id"]
 
         # Record a loan so there's data to show
-        c.post(f"/people/{person_id}/loan", {
-            "amount": "5000",
-            "account_id": people_view_data["egp_id"],
-            "loan_type": "loan_out",
-        })
+        c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "5000",
+                "account_id": people_view_data["egp_id"],
+                "loan_type": "loan_out",
+            },
+        )
 
         response = c.get(f"/people/{person_id}")
         assert response.status_code == 200
@@ -290,11 +308,13 @@ class TestPersonAPI:
         # Record loan
         resp = c.post(
             f"/api/persons/{pid}/loan",
-            data=json.dumps({
-                "account_id": people_view_data["egp_id"],
-                "amount": 1500,
-                "type": "loan_out",
-            }),
+            data=json.dumps(
+                {
+                    "account_id": people_view_data["egp_id"],
+                    "amount": 1500,
+                    "type": "loan_out",
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201
@@ -314,21 +334,25 @@ class TestPersonAPI:
         pid = json.loads(resp.content)["id"]
         c.post(
             f"/api/persons/{pid}/loan",
-            data=json.dumps({
-                "account_id": people_view_data["egp_id"],
-                "amount": 2000,
-                "type": "loan_out",
-            }),
+            data=json.dumps(
+                {
+                    "account_id": people_view_data["egp_id"],
+                    "amount": 2000,
+                    "type": "loan_out",
+                }
+            ),
             content_type="application/json",
         )
 
         # Record repayment
         resp = c.post(
             f"/api/persons/{pid}/repayment",
-            data=json.dumps({
-                "account_id": people_view_data["egp_id"],
-                "amount": 800,
-            }),
+            data=json.dumps(
+                {
+                    "account_id": people_view_data["egp_id"],
+                    "amount": 800,
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 201

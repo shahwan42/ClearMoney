@@ -57,7 +57,9 @@ def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
 
 
 @require_http_methods(["PUT", "DELETE"])
-def api_category_detail(request: AuthenticatedRequest, category_id: str) -> HttpResponse:
+def api_category_detail(
+    request: AuthenticatedRequest, category_id: str
+) -> HttpResponse:
     """PUT/DELETE /api/categories/{id} — update or archive a category (JSON).
 
     PUT updates name and icon. DELETE soft-deletes (archives).

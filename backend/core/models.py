@@ -47,7 +47,9 @@ class AuthToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     email = models.CharField(max_length=255)
     token = models.CharField(max_length=255, unique=True)
-    purpose = models.CharField(max_length=20, default="login")  # 'login' or 'registration'
+    purpose = models.CharField(
+        max_length=20, default="login"
+    )  # 'login' or 'registration'
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -100,19 +102,28 @@ class Account(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     institution = models.ForeignKey(
-        Institution, on_delete=models.CASCADE, db_column="institution_id", related_name="accounts"
+        Institution,
+        on_delete=models.CASCADE,
+        db_column="institution_id",
+        related_name="accounts",
     )
     name = models.CharField(max_length=100)
-    type = models.CharField(max_length=20)  # 'savings', 'current', 'prepaid', 'credit_card', 'credit_limit', 'cash'
+    type = models.CharField(
+        max_length=20
+    )  # 'savings', 'current', 'prepaid', 'credit_card', 'credit_limit', 'cash'
     currency = models.CharField(max_length=3)  # 'EGP' or 'USD'
     current_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     initial_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    credit_limit = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    credit_limit = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
     is_dormant = models.BooleanField(default=False)
     role_tags = ArrayField(models.CharField(max_length=100), default=list, blank=True)
     display_order = models.IntegerField(default=0)
-    metadata = models.JSONField(null=True, blank=True)       # JSONB: billing cycle, etc.
-    health_config = models.JSONField(null=True, blank=True)  # JSONB: min_balance, min_monthly_deposit
+    metadata = models.JSONField(null=True, blank=True)  # JSONB: billing cycle, etc.
+    health_config = models.JSONField(
+        null=True, blank=True
+    )  # JSONB: min_balance, min_monthly_deposit
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -158,7 +169,9 @@ class Person(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=100)
     note = models.TextField(null=True, blank=True)
-    net_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)      # legacy
+    net_balance = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0
+    )  # legacy
     net_balance_egp = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     net_balance_usd = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -200,42 +213,77 @@ class Transaction(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    type = models.CharField(max_length=30)  # expense/income/transfer/exchange/loan_out/loan_in/loan_repayment
+    type = models.CharField(
+        max_length=30
+    )  # expense/income/transfer/exchange/loan_out/loan_in/loan_repayment
     amount = models.DecimalField(max_digits=15, decimal_places=2)  # always positive
     currency = models.CharField(max_length=3)
     account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, db_column="account_id", related_name="transactions"
+        Account,
+        on_delete=models.CASCADE,
+        db_column="account_id",
+        related_name="transactions",
     )
     counter_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        db_column="counter_account_id", related_name="+"
+        Account,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="counter_account_id",
+        related_name="+",
     )
     category = models.ForeignKey(
-        Category, on_delete=models.SET_NULL, null=True, blank=True,
-        db_column="category_id", related_name="+"
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="category_id",
+        related_name="+",
     )
     date = models.DateField()
     time = models.TimeField(null=True, blank=True)
     note = models.TextField(null=True, blank=True)
     tags = ArrayField(models.CharField(max_length=100), default=list, blank=True)
-    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
-    counter_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    fee_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    exchange_rate = models.DecimalField(
+        max_digits=10, decimal_places=4, null=True, blank=True
+    )
+    counter_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
+    fee_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
     fee_account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        db_column="fee_account_id", related_name="+"
+        Account,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="fee_account_id",
+        related_name="+",
     )
     person = models.ForeignKey(
-        Person, on_delete=models.SET_NULL, null=True, blank=True,
-        db_column="person_id", related_name="+"
+        Person,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="person_id",
+        related_name="+",
     )
     linked_transaction = models.ForeignKey(
-        "self", on_delete=models.SET_NULL, null=True, blank=True,
-        db_column="linked_transaction_id", related_name="+"
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="linked_transaction_id",
+        related_name="+",
     )
     recurring_rule = models.ForeignKey(
-        RecurringRule, on_delete=models.SET_NULL, null=True, blank=True,
-        db_column="recurring_rule_id", related_name="+"
+        RecurringRule,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="recurring_rule_id",
+        related_name="+",
     )
     balance_delta = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -251,7 +299,9 @@ class VirtualAccount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=100)
-    target_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    target_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
     current_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     icon = models.CharField(max_length=20, default="")
     color = models.CharField(max_length=20, default="")
@@ -259,8 +309,12 @@ class VirtualAccount(models.Model):
     exclude_from_net_worth = models.BooleanField(default=False)
     display_order = models.IntegerField(default=0)
     account = models.ForeignKey(
-        Account, on_delete=models.SET_NULL, null=True, blank=True,
-        db_column="account_id", related_name="+"
+        Account,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="account_id",
+        related_name="+",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -286,14 +340,22 @@ class VirtualAccountAllocation(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     transaction = models.ForeignKey(
-        Transaction, on_delete=models.CASCADE, null=True, blank=True,
-        db_column="transaction_id", related_name="+"
+        Transaction,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        db_column="transaction_id",
+        related_name="+",
     )
     virtual_account = models.ForeignKey(
-        VirtualAccount, on_delete=models.CASCADE,
-        db_column="virtual_account_id", related_name="allocations"
+        VirtualAccount,
+        on_delete=models.CASCADE,
+        db_column="virtual_account_id",
+        related_name="allocations",
     )
-    amount = models.DecimalField(max_digits=15, decimal_places=2)  # positive=contribution, negative=withdrawal
+    amount = models.DecimalField(
+        max_digits=15, decimal_places=2
+    )  # positive=contribution, negative=withdrawal
     note = models.TextField(null=True, blank=True)
     allocated_at = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

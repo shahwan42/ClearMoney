@@ -26,14 +26,29 @@ logger = logging.getLogger(__name__)
 
 # Columns returned by person SELECT queries
 _PERSON_COLS = [
-    "id", "user_id", "name", "note", "net_balance",
-    "net_balance_egp", "net_balance_usd", "created_at", "updated_at",
+    "id",
+    "user_id",
+    "name",
+    "note",
+    "net_balance",
+    "net_balance_egp",
+    "net_balance_usd",
+    "created_at",
+    "updated_at",
 ]
 
 # Columns returned by transaction SELECT queries (loan-related)
 _TX_COLS = [
-    "id", "type", "amount", "currency", "account_id",
-    "person_id", "note", "date", "balance_delta", "created_at",
+    "id",
+    "type",
+    "amount",
+    "currency",
+    "account_id",
+    "person_id",
+    "note",
+    "date",
+    "balance_delta",
+    "created_at",
 ]
 
 
@@ -127,7 +142,9 @@ class PersonService:
         logger.info("person.created user=%s", self.user_id)
         return _row_to_person(row)
 
-    def update(self, person_id: str, name: str, note: str | None = None) -> dict[str, Any] | None:
+    def update(
+        self, person_id: str, name: str, note: str | None = None
+    ) -> dict[str, Any] | None:
         """Update a person's name and optional note."""
         name = name.strip()
         if not name:
@@ -239,8 +256,16 @@ class PersonService:
                        RETURNING id, type, amount, currency, account_id,
                                  person_id, note, date, balance_delta, created_at""",
                     [
-                        tx_id, self.user_id, loan_type, amount, currency,
-                        account_id, person_id, note, tx_date, account_delta,
+                        tx_id,
+                        self.user_id,
+                        loan_type,
+                        amount,
+                        currency,
+                        account_id,
+                        person_id,
+                        note,
+                        tx_date,
+                        account_delta,
                     ],
                 )
                 row = cursor.fetchone()
@@ -266,7 +291,9 @@ class PersonService:
         assert row is not None
         logger.info(
             "person.loan_recorded type=%s currency=%s user=%s",
-            loan_type, currency, self.user_id,
+            loan_type,
+            currency,
+            self.user_id,
         )
         return _row_to_tx(row)
 
@@ -301,7 +328,11 @@ class PersonService:
             raise ValueError(f"Person not found: {person_id}")
 
         balance_col = self._balance_col_for_currency(currency)
-        relevant_balance = person["net_balance_egp"] if currency != "USD" else person["net_balance_usd"]
+        relevant_balance = (
+            person["net_balance_egp"]
+            if currency != "USD"
+            else person["net_balance_usd"]
+        )
 
         if relevant_balance > 0:
             # They owe me → they're paying back → money enters my account
@@ -330,8 +361,15 @@ class PersonService:
                        RETURNING id, type, amount, currency, account_id,
                                  person_id, note, date, balance_delta, created_at""",
                     [
-                        tx_id, self.user_id, amount, currency,
-                        account_id, person_id, note, tx_date, account_delta,
+                        tx_id,
+                        self.user_id,
+                        amount,
+                        currency,
+                        account_id,
+                        person_id,
+                        note,
+                        tx_date,
+                        account_delta,
                     ],
                 )
                 row = cursor.fetchone()
@@ -357,7 +395,8 @@ class PersonService:
         assert row is not None
         logger.info(
             "person.repayment_recorded currency=%s user=%s",
-            currency, self.user_id,
+            currency,
+            self.user_id,
         )
         return _row_to_tx(row)
 
@@ -365,7 +404,9 @@ class PersonService:
     # Read operations
     # -----------------------------------------------------------------------
 
-    def get_person_transactions(self, person_id: str, limit: int = 200) -> list[dict[str, Any]]:
+    def get_person_transactions(
+        self, person_id: str, limit: int = 200
+    ) -> list[dict[str, Any]]:
         """Fetch loan/repayment transactions for a person."""
         with connection.cursor() as cursor:
             cursor.execute(
@@ -404,7 +445,11 @@ class PersonService:
         for tx in txns:
             cur = tx["currency"]
             if cur not in currency_map:
-                currency_map[cur] = {"total_lent": 0.0, "total_borrowed": 0.0, "total_repaid": 0.0}
+                currency_map[cur] = {
+                    "total_lent": 0.0,
+                    "total_borrowed": 0.0,
+                    "total_repaid": 0.0,
+                }
             cd = currency_map[cur]
 
             if tx["type"] == "loan_out":
@@ -427,21 +472,33 @@ class PersonService:
             if cur not in currency_map:
                 continue
             cd = currency_map[cur]
-            net = person["net_balance_egp"] if cur == "EGP" else person["net_balance_usd"]
+            net = (
+                person["net_balance_egp"] if cur == "EGP" else person["net_balance_usd"]
+            )
             total_debt = cd["total_lent"] + cd["total_borrowed"]
-            progress = min((cd["total_repaid"] / total_debt) * 100, 100.0) if total_debt > 0 else 0.0
-            by_currency.append({
-                "currency": cur,
-                "total_lent": cd["total_lent"],
-                "total_borrowed": cd["total_borrowed"],
-                "total_repaid": cd["total_repaid"],
-                "net_balance": net,
-                "progress_pct": progress,
-            })
+            progress = (
+                min((cd["total_repaid"] / total_debt) * 100, 100.0)
+                if total_debt > 0
+                else 0.0
+            )
+            by_currency.append(
+                {
+                    "currency": cur,
+                    "total_lent": cd["total_lent"],
+                    "total_borrowed": cd["total_borrowed"],
+                    "total_repaid": cd["total_repaid"],
+                    "net_balance": net,
+                    "progress_pct": progress,
+                }
+            )
 
         # Aggregate progress
         total_debt_all = total_lent + total_borrowed
-        progress_pct = min((total_repaid / total_debt_all) * 100, 100.0) if total_debt_all > 0 else 0.0
+        progress_pct = (
+            min((total_repaid / total_debt_all) * 100, 100.0)
+            if total_debt_all > 0
+            else 0.0
+        )
 
         # Projected payoff
         projected_payoff = None

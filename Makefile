@@ -3,7 +3,7 @@
 # Usage: make <target>
 #
 # Like: composer scripts, manage.py commands, or package.json scripts.
-.PHONY: run test test-e2e lint clean up down logs reconcile reconcile-fix deploy deploy-logs shell inspectdb snapshots startup-jobs makemigrations migrate
+.PHONY: run test test-e2e lint clean up down logs reconcile reconcile-fix deploy deploy-logs shell inspectdb snapshots startup-jobs makemigrations migrate setup-hooks
 
 DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable
 
@@ -72,6 +72,12 @@ makemigrations:
 # Apply pending Django migrations.
 migrate:
 	cd backend && DATABASE_URL="$(DB_URL)" uv run manage.py migrate
+
+# Install git hooks (run once after clone).
+setup-hooks:
+	cp scripts/pre-commit .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
+	@echo "Git hooks installed."
 
 # Deploy to production VPS via SSH.
 DEPLOY_HOST ?= hetzner-keeper

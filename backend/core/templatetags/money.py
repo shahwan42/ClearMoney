@@ -236,7 +236,9 @@ def sparkline_points(values: list[float]) -> str:
     pts = []
     for i, v in enumerate(values):
         x = i / (n - 1) * 100
-        y = 38 - ((v - min_v) / span * 36)  # 38=bottom, 36=usable height; SVG y is inverted
+        y = 38 - (
+            (v - min_v) / span * 36
+        )  # 38=bottom, 36=usable height; SVG y is inverted
         pts.append(f"{x:.1f},{y:.1f}")
     return " ".join(pts)
 

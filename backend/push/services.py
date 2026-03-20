@@ -53,52 +53,62 @@ class NotificationService:
             # 1. Credit cards due within 3 days
             for card in data.get("due_soon_cards", []):
                 if card.days_until_due <= 3:
-                    notifications.append({
-                        "title": "Credit Card Due Soon",
-                        "body": (
-                            f"{card.account_name} is due in {card.days_until_due} day(s)"
-                            f" — balance: EGP {-card.balance:.2f}"
-                        ),
-                        "url": "/accounts",
-                        "tag": f"cc-due-{card.account_name}-{card.due_date.isoformat()}",
-                    })
+                    notifications.append(
+                        {
+                            "title": "Credit Card Due Soon",
+                            "body": (
+                                f"{card.account_name} is due in {card.days_until_due} day(s)"
+                                f" — balance: EGP {-card.balance:.2f}"
+                            ),
+                            "url": "/accounts",
+                            "tag": f"cc-due-{card.account_name}-{card.due_date.isoformat()}",
+                        }
+                    )
 
             # 2. Account health warnings
             for warning in data.get("health_warnings", []):
-                notifications.append({
-                    "title": "Account Health Warning",
-                    "body": warning.message,
-                    "url": f"/accounts/{warning.account_id}",
-                    "tag": f"health-{warning.rule}-{warning.account_id}",
-                })
+                notifications.append(
+                    {
+                        "title": "Account Health Warning",
+                        "body": warning.message,
+                        "url": f"/accounts/{warning.account_id}",
+                        "tag": f"health-{warning.rule}-{warning.account_id}",
+                    }
+                )
 
             # 3. Budget threshold alerts (80% warning, 100% exceeded)
             for budget in data.get("budgets", []):
                 pct = budget["percentage"]
-                display_name = f"{budget['category_icon']} {budget['category_name']}".strip()
+                display_name = (
+                    f"{budget['category_icon']} {budget['category_name']}".strip()
+                )
 
                 if pct >= 100:
-                    notifications.append({
-                        "title": "Budget Exceeded",
-                        "body": (
-                            f"{display_name}: spent EGP {budget['spent']:.0f}"
-                            f" of EGP {budget['monthly_limit']:.0f}"
-                            f" limit ({pct:.0f}%)"
-                        ),
-                        "url": "/budgets",
-                        "tag": f"budget-exceeded-{budget['category_id']}",
-                    })
+                    notifications.append(
+                        {
+                            "title": "Budget Exceeded",
+                            "body": (
+                                f"{display_name}: spent EGP {budget['spent']:.0f}"
+                                f" of EGP {budget['monthly_limit']:.0f}"
+                                f" limit ({pct:.0f}%)"
+                            ),
+                            "url": "/budgets",
+                            "tag": f"budget-exceeded-{budget['category_id']}",
+                        }
+                    )
                 elif pct >= 80:
                     remaining = budget["monthly_limit"] - budget["spent"]
-                    notifications.append({
-                        "title": "Budget Warning",
-                        "body": (
-                            f"{display_name}: {pct:.0f}% of budget used"
-                            f" (EGP {remaining:.0f} remaining)"
-                        ),
-                        "url": "/budgets",
-                        "tag": f"budget-warning-{budget['category_id']}",
-                    })
+                    notifications.append(
+                        {
+                            "title": "Budget Warning",
+                            "body": (
+                                f"{display_name}: {pct:.0f}% of budget used"
+                                f" (EGP {remaining:.0f} remaining)"
+                            ),
+                            "url": "/budgets",
+                            "tag": f"budget-warning-{budget['category_id']}",
+                        }
+                    )
 
         except Exception:
             logger.exception("push: failed to load dashboard notifications")
@@ -110,15 +120,17 @@ class NotificationService:
 
             for rule in pending:
                 due_date = rule["next_due_date"]
-                notifications.append({
-                    "title": "Recurring Transaction Due",
-                    "body": (
-                        f"A recurring {rule['frequency']} transaction"
-                        f" needs confirmation (due {due_date.strftime('%b %-d')})"
-                    ),
-                    "url": "/recurring",
-                    "tag": f"recurring-{rule['id']}-{due_date.isoformat()}",
-                })
+                notifications.append(
+                    {
+                        "title": "Recurring Transaction Due",
+                        "body": (
+                            f"A recurring {rule['frequency']} transaction"
+                            f" needs confirmation (due {due_date.strftime('%b %-d')})"
+                        ),
+                        "url": "/recurring",
+                        "tag": f"recurring-{rule['id']}-{due_date.isoformat()}",
+                    }
+                )
 
         except Exception:
             logger.exception("push: failed to load recurring notifications")

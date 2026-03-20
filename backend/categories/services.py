@@ -83,7 +83,9 @@ class CategoryService:
                 return None
             return _row_to_dict(row)
 
-    def create(self, name: str, cat_type: str, icon: str | None = None) -> dict[str, Any]:
+    def create(
+        self, name: str, cat_type: str, icon: str | None = None
+    ) -> dict[str, Any]:
         """Create a new custom category.
 
         Validates name (non-empty) and type (expense/income).

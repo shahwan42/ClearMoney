@@ -137,7 +137,7 @@ class TransactionFactory(factory.django.DjangoModelFactory):
         model = Transaction
 
     id = factory.LazyFunction(uuid.uuid4)
-    user_id = factory.LazyFunction(uuid.uuid4)   # override with real user_id
+    user_id = factory.LazyFunction(uuid.uuid4)  # override with real user_id
     account_id = factory.LazyFunction(uuid.uuid4)  # override with real account_id
     type = "expense"
     amount = 100
