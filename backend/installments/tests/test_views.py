@@ -11,8 +11,7 @@ import pytest
 from django.db import connection
 from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 from tests.factories import AccountFactory, InstitutionFactory
 
@@ -49,15 +48,9 @@ def inst_view_data(db: object) -> Any:  # noqa: ARG001
     User.objects.filter(id=user_id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    """Return an authenticated test client."""
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 def _create_plan(client: Client, token: str, account_id: str) -> None:
     """Helper to create a test installment plan via the add endpoint."""
-    c = _auth_client(client, token)
+    c = set_auth_cookie(client, token)
     c.post(
         "/installments/add",
         {
@@ -78,13 +71,13 @@ def _create_plan(client: Client, token: str, account_id: str) -> None:
 @pytest.mark.django_db
 class TestInstallmentsPage:
     def test_200(self, client: Client, inst_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.get("/installments")
         assert response.status_code == 200
         assert b"Installment Plans" in response.content
 
     def test_empty_state(self, client: Client, inst_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.get("/installments")
         assert b"No installment plans yet." in response.content
 
@@ -92,7 +85,7 @@ class TestInstallmentsPage:
         _create_plan(
             client, inst_view_data["session_token"], inst_view_data["account_id"]
         )
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.get("/installments")
         assert b"iPhone 16 Pro" in response.content
         assert b"5,000" in response.content  # monthly amount
@@ -100,7 +93,7 @@ class TestInstallmentsPage:
     def test_shows_account_dropdown(
         self, client: Client, inst_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.get("/installments")
         assert b"Test Credit Card" in response.content
 
@@ -120,7 +113,7 @@ class TestInstallmentAdd:
     def test_creates_and_redirects(
         self, client: Client, inst_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.post(
             "/installments/add",
             {
@@ -135,14 +128,14 @@ class TestInstallmentAdd:
         assert response.status_code in (200, 302)
 
         # Verify plan was created
-        c2 = _auth_client(client, inst_view_data["session_token"])
+        c2 = set_auth_cookie(client, inst_view_data["session_token"])
         page = c2.get("/installments")
         assert b"MacBook Pro" in page.content
 
     def test_missing_description_returns_400(
         self, client: Client, inst_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.post(
             "/installments/add",
             {
@@ -157,7 +150,7 @@ class TestInstallmentAdd:
     def test_zero_total_returns_400(
         self, client: Client, inst_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.post(
             "/installments/add",
             {
@@ -192,12 +185,12 @@ class TestInstallmentPay:
             )
             plan_id = cursor.fetchone()[0]
 
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.post(f"/installments/{plan_id}/pay")
         assert response.status_code in (200, 302)
 
         # Verify remaining decremented
-        c2 = _auth_client(client, inst_view_data["session_token"])
+        c2 = set_auth_cookie(client, inst_view_data["session_token"])
         page = c2.get("/installments")
         assert b"1/12 paid" in page.content
 
@@ -205,7 +198,7 @@ class TestInstallmentPay:
         self, client: Client, inst_view_data: dict[str, Any]
     ) -> None:
         # Create a 1-installment plan
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         c.post(
             "/installments/add",
             {
@@ -225,11 +218,11 @@ class TestInstallmentPay:
             plan_id = cursor.fetchone()[0]
 
         # Pay once (completes the plan)
-        c2 = _auth_client(client, inst_view_data["session_token"])
+        c2 = set_auth_cookie(client, inst_view_data["session_token"])
         c2.post(f"/installments/{plan_id}/pay")
 
         # Second pay should fail
-        c3 = _auth_client(client, inst_view_data["session_token"])
+        c3 = set_auth_cookie(client, inst_view_data["session_token"])
         response = c3.post(f"/installments/{plan_id}/pay")
         assert response.status_code == 400
 
@@ -253,11 +246,11 @@ class TestInstallmentDelete:
             )
             plan_id = cursor.fetchone()[0]
 
-        c = _auth_client(client, inst_view_data["session_token"])
+        c = set_auth_cookie(client, inst_view_data["session_token"])
         response = c.delete(f"/installments/{plan_id}")
         assert response.status_code in (200, 302)
 
         # Verify plan was deleted
-        c2 = _auth_client(client, inst_view_data["session_token"])
+        c2 = set_auth_cookie(client, inst_view_data["session_token"])
         page = c2.get("/installments")
         assert b"No installment plans yet." in page.content

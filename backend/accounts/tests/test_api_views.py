@@ -10,10 +10,8 @@ import uuid
 
 import pytest
 from django.db import connection
-from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 
 
@@ -54,11 +52,6 @@ def api_data(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 # ---------------------------------------------------------------------------
 # Institution API
 # ---------------------------------------------------------------------------
@@ -67,7 +60,7 @@ def _auth_client(client: Client, token: str) -> Client:
 @pytest.mark.django_db
 class TestInstitutionAPI:
     def test_list_with_existing(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
         resp = c.get("/api/institutions")
         assert resp.status_code == 200
         institutions = json.loads(resp.content)
@@ -76,7 +69,7 @@ class TestInstitutionAPI:
         assert "user_id" in institutions[0]
 
     def test_crud_lifecycle(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
 
         # Create
         resp = c.post(
@@ -114,7 +107,7 @@ class TestInstitutionAPI:
         assert resp.status_code == 404
 
     def test_create_invalid_json(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
         resp = c.post(
             "/api/institutions",
             data="not json",
@@ -123,7 +116,7 @@ class TestInstitutionAPI:
         assert resp.status_code == 400
 
     def test_create_missing_name(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
         resp = c.post(
             "/api/institutions",
             data=json.dumps({"name": "", "type": "bank"}),
@@ -144,7 +137,7 @@ class TestInstitutionAPI:
 @pytest.mark.django_db
 class TestAccountAPI:
     def test_list_with_existing(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
         resp = c.get("/api/accounts")
         assert resp.status_code == 200
         accounts = json.loads(resp.content)
@@ -156,14 +149,14 @@ class TestAccountAPI:
         assert "available_credit" not in accounts[0]
 
     def test_list_filter_by_institution(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
         resp = c.get(f"/api/accounts?institution_id={api_data['inst_id']}")
         assert resp.status_code == 200
         accounts = json.loads(resp.content)
         assert len(accounts) >= 1
 
     def test_crud_lifecycle(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
 
         # Create
         resp = c.post(
@@ -209,7 +202,7 @@ class TestAccountAPI:
         assert resp.status_code == 404
 
     def test_get_not_found(self, client, api_data):
-        c = _auth_client(client, api_data["session_token"])
+        c = set_auth_cookie(client, api_data["session_token"])
         fake_id = str(uuid.uuid4())
         resp = c.get(f"/api/accounts/{fake_id}")
         assert resp.status_code == 404

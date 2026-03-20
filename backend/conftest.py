@@ -86,3 +86,14 @@ def auth_client(client: Client, auth_user: tuple[str, str, str]) -> Client:
     _, _, token = auth_user
     client.cookies[COOKIE_NAME] = token
     return client
+
+
+def set_auth_cookie(c: Client, token: str) -> Client:
+    """Set session cookie on a Django test client. Import in test files.
+
+    Usage:
+        from conftest import set_auth_cookie
+        c = set_auth_cookie(client, data["session_token"])
+    """
+    c.cookies[COOKIE_NAME] = token
+    return c

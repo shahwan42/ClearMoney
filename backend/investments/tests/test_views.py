@@ -11,8 +11,7 @@ import pytest
 from django.db import connection
 from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 
 
@@ -35,15 +34,9 @@ def inv_view_data(db: object):  # noqa: ARG001
     User.objects.filter(id=user_id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    """Return an authenticated test client."""
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 def _create_investment(client: Client, token: str) -> None:
     """Helper to create a test investment via the add endpoint."""
-    c = _auth_client(client, token)
+    c = set_auth_cookie(client, token)
     c.post(
         "/investments/add",
         {
@@ -64,13 +57,13 @@ def _create_investment(client: Client, token: str) -> None:
 @pytest.mark.django_db
 class TestInvestmentsPage:
     def test_200(self, client: Client, inv_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.get("/investments")
         assert response.status_code == 200
         assert b"Investment Portfolio" in response.content
 
     def test_empty_state(self, client: Client, inv_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.get("/investments")
         assert b"No investments yet." in response.content
 
@@ -78,7 +71,7 @@ class TestInvestmentsPage:
         self, client: Client, inv_view_data: dict[str, Any]
     ) -> None:
         _create_investment(client, inv_view_data["session_token"])
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.get("/investments")
         assert b"TestFund" in response.content
         assert b"Thndr" in response.content
@@ -99,7 +92,7 @@ class TestInvestmentAdd:
     def test_creates_and_redirects(
         self, client: Client, inv_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.post(
             "/investments/add",
             {
@@ -115,14 +108,14 @@ class TestInvestmentAdd:
         assert response.status_code in (200, 302)
 
         # Verify investment was created
-        c2 = _auth_client(client, inv_view_data["session_token"])
+        c2 = set_auth_cookie(client, inv_view_data["session_token"])
         page = c2.get("/investments")
         assert b"AZG" in page.content
 
     def test_missing_fund_name_returns_400(
         self, client: Client, inv_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.post(
             "/investments/add",
             {"platform": "Thndr", "fund_name": "", "units": "10", "unit_price": "10"},
@@ -132,7 +125,7 @@ class TestInvestmentAdd:
     def test_zero_units_returns_400(
         self, client: Client, inv_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.post(
             "/investments/add",
             {"fund_name": "AZG", "units": "0", "unit_price": "10"},
@@ -151,7 +144,7 @@ class TestInvestmentUpdate:
         _create_investment(client, inv_view_data["session_token"])
 
         # Get the investment ID
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id FROM investments WHERE user_id = %s LIMIT 1",
@@ -166,7 +159,7 @@ class TestInvestmentUpdate:
         assert response.status_code in (200, 302)
 
         # Verify price was updated
-        c2 = _auth_client(client, inv_view_data["session_token"])
+        c2 = set_auth_cookie(client, inv_view_data["session_token"])
         page = c2.get("/investments")
         assert b"15.0000" in page.content
 
@@ -175,7 +168,7 @@ class TestInvestmentUpdate:
     ) -> None:
         _create_investment(client, inv_view_data["session_token"])
 
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id FROM investments WHERE user_id = %s LIMIT 1",
@@ -202,7 +195,7 @@ class TestInvestmentDelete:
     ) -> None:
         _create_investment(client, inv_view_data["session_token"])
 
-        c = _auth_client(client, inv_view_data["session_token"])
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id FROM investments WHERE user_id = %s LIMIT 1",
@@ -214,6 +207,6 @@ class TestInvestmentDelete:
         assert response.status_code in (200, 302)
 
         # Verify investment was deleted
-        c2 = _auth_client(client, inv_view_data["session_token"])
+        c2 = set_auth_cookie(client, inv_view_data["session_token"])
         page = c2.get("/investments")
         assert b"No investments yet." in page.content

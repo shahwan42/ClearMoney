@@ -8,10 +8,8 @@ import json
 
 import pytest
 from django.db import connection
-from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 
 
@@ -46,15 +44,10 @@ def cat_api_data(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 @pytest.mark.django_db
 class TestCategoryAPI:
     def test_list_seeded(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         resp = c.get("/api/categories")
         assert resp.status_code == 200
         cats = json.loads(resp.content)
@@ -64,14 +57,14 @@ class TestCategoryAPI:
         assert "Salary" in names
 
     def test_filter_by_type(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         resp = c.get("/api/categories?type=expense")
         assert resp.status_code == 200
         cats = json.loads(resp.content)
         assert all(cat["type"] == "expense" for cat in cats)
 
     def test_create_custom(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         resp = c.post(
             "/api/categories",
             data=json.dumps({"name": "Custom", "type": "expense", "icon": "🎬"}),
@@ -85,7 +78,7 @@ class TestCategoryAPI:
         assert cat["is_system"] is False
 
     def test_create_invalid_type(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         resp = c.post(
             "/api/categories",
             data=json.dumps({"name": "Bad", "type": "invalid"}),
@@ -94,7 +87,7 @@ class TestCategoryAPI:
         assert resp.status_code == 400
 
     def test_create_empty_name(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         resp = c.post(
             "/api/categories",
             data=json.dumps({"name": "", "type": "expense"}),
@@ -103,7 +96,7 @@ class TestCategoryAPI:
         assert resp.status_code == 400
 
     def test_update_custom(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         # Create first
         resp = c.post(
             "/api/categories",
@@ -122,7 +115,7 @@ class TestCategoryAPI:
         assert json.loads(resp.content)["name"] == "Updated"
 
     def test_cannot_modify_system(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         cats = json.loads(c.get("/api/categories").content)
         system_cat = next(cat for cat in cats if cat["is_system"])
 
@@ -134,7 +127,7 @@ class TestCategoryAPI:
         assert resp.status_code == 400
 
     def test_archive_custom(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         # Create
         resp = c.post(
             "/api/categories",
@@ -152,7 +145,7 @@ class TestCategoryAPI:
         assert all(cat["id"] != cat_id for cat in cats)
 
     def test_cannot_archive_system(self, client, cat_api_data):
-        c = _auth_client(client, cat_api_data["session_token"])
+        c = set_auth_cookie(client, cat_api_data["session_token"])
         cats = json.loads(c.get("/api/categories").content)
         system_cat = next(cat for cat in cats if cat["is_system"])
 

@@ -10,10 +10,8 @@ import uuid
 
 import pytest
 from django.db import connection
-from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 
 
@@ -62,11 +60,6 @@ def people_view_data(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 # ---------------------------------------------------------------------------
 # People list page
 # ---------------------------------------------------------------------------
@@ -75,14 +68,14 @@ def _auth_client(client: Client, token: str) -> Client:
 @pytest.mark.django_db
 class TestPeoplePage:
     def test_200_empty_state(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         response = c.get("/people")
         assert response.status_code == 200
         assert b"People" in response.content
         assert b"No people yet" in response.content
 
     def test_200_with_people(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         # Create a person first
         c.post("/people/add", {"name": "Ahmed"})
         response = c.get("/people")
@@ -103,13 +96,13 @@ class TestPeoplePage:
 @pytest.mark.django_db
 class TestPeopleAdd:
     def test_creates_person_returns_html(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         response = c.post("/people/add", {"name": "Omar"})
         assert response.status_code == 200
         assert b"Omar" in response.content
 
     def test_empty_name_400(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         response = c.post("/people/add", {"name": ""})
         assert response.status_code == 400
 
@@ -122,7 +115,7 @@ class TestPeopleAdd:
 @pytest.mark.django_db
 class TestPeopleLoan:
     def test_loan_out_returns_updated_list(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         # Create person
         c.post("/people/add", {"name": "Ali"})
         # Get person ID via API
@@ -142,7 +135,7 @@ class TestPeopleLoan:
         assert b"1,000" in response.content
 
     def test_loan_in_returns_updated_list(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         c.post("/people/add", {"name": "Sara"})
         persons = json.loads(c.get("/api/persons").content)
         person_id = persons[0]["id"]
@@ -159,7 +152,7 @@ class TestPeopleLoan:
         assert b"2,000" in response.content
 
     def test_invalid_amount_returns_error_html(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         c.post("/people/add", {"name": "Test"})
         persons = json.loads(c.get("/api/persons").content)
         person_id = persons[0]["id"]
@@ -183,7 +176,7 @@ class TestPeopleLoan:
 @pytest.mark.django_db
 class TestPeopleRepay:
     def test_repayment_returns_updated_list(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         c.post("/people/add", {"name": "Repayer"})
         persons = json.loads(c.get("/api/persons").content)
         person_id = persons[0]["id"]
@@ -217,7 +210,7 @@ class TestPeopleRepay:
 @pytest.mark.django_db
 class TestPersonDetail:
     def test_200_with_debt_summary(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         c.post("/people/add", {"name": "DetailTest"})
         persons = json.loads(c.get("/api/persons").content)
         person_id = persons[0]["id"]
@@ -239,7 +232,7 @@ class TestPersonDetail:
         assert b"5,000" in response.content
 
     def test_404_nonexistent(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         fake_id = str(uuid.uuid4())
         response = c.get(f"/people/{fake_id}")
         assert response.status_code == 404
@@ -253,13 +246,13 @@ class TestPersonDetail:
 @pytest.mark.django_db
 class TestPersonAPI:
     def test_list_empty(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
         response = c.get("/api/persons")
         assert response.status_code == 200
         assert json.loads(response.content) == []
 
     def test_crud_lifecycle(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
 
         # Create
         resp = c.post(
@@ -295,7 +288,7 @@ class TestPersonAPI:
         assert resp.status_code == 404
 
     def test_loan_api(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
 
         # Create person
         resp = c.post(
@@ -323,7 +316,7 @@ class TestPersonAPI:
         assert tx["amount"] == 1500
 
     def test_repayment_api(self, client, people_view_data):
-        c = _auth_client(client, people_view_data["session_token"])
+        c = set_auth_cookie(client, people_view_data["session_token"])
 
         # Create person + loan
         resp = c.post(

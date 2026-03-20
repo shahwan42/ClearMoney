@@ -11,8 +11,7 @@ import pytest
 from django.db import connection
 from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 from tests.factories import AccountFactory, InstitutionFactory
 
@@ -71,12 +70,6 @@ def salary_view_data(db: object):  # noqa: ARG001
     User.objects.filter(id=user_id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    """Return an authenticated test client."""
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 # ---------------------------------------------------------------------------
 # GET /salary — page load
 # ---------------------------------------------------------------------------
@@ -85,7 +78,7 @@ def _auth_client(client: Client, token: str) -> Client:
 @pytest.mark.django_db
 class TestSalaryPage:
     def test_200(self, client: Client, salary_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.get("/salary")
         assert response.status_code == 200
         assert b"Salary Distribution" in response.content
@@ -93,21 +86,21 @@ class TestSalaryPage:
     def test_shows_usd_account(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.get("/salary")
         assert b"USD Salary" in response.content
 
     def test_shows_egp_account(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.get("/salary")
         assert b"Main EGP" in response.content
 
     def test_shows_salary_input(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.get("/salary")
         assert b'name="salary_usd"' in response.content
 
@@ -127,7 +120,7 @@ class TestSalaryStep2:
     def test_returns_exchange_rate_form(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.post(
             "/salary/step2",
             {
@@ -144,7 +137,7 @@ class TestSalaryStep2:
     def test_invalid_salary_returns_400(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.post(
             "/salary/step2",
             {"salary_usd": "0", "usd_account_id": "", "egp_account_id": ""},
@@ -162,7 +155,7 @@ class TestSalaryStep3:
     def test_returns_allocation_form(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.post(
             "/salary/step3",
             {
@@ -187,7 +180,7 @@ class TestSalaryStep3:
 @pytest.mark.django_db
 class TestSalaryConfirm:
     def test_success(self, client: Client, salary_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.post(
             "/salary/confirm",
             {
@@ -205,7 +198,7 @@ class TestSalaryConfirm:
     def test_with_allocation(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         alloc_key = f"alloc_{salary_view_data['savings_account_id']}"
         response = c.post(
             "/salary/confirm",
@@ -225,7 +218,7 @@ class TestSalaryConfirm:
     def test_validation_error_returns_400(
         self, client: Client, salary_view_data: dict[str, Any]
     ) -> None:
-        c = _auth_client(client, salary_view_data["session_token"])
+        c = set_auth_cookie(client, salary_view_data["session_token"])
         response = c.post(
             "/salary/confirm",
             {

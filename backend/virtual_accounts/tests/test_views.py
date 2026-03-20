@@ -12,8 +12,7 @@ import pytest
 from django.db import connection
 from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 from tests.factories import AccountFactory, InstitutionFactory
 
@@ -55,11 +54,6 @@ def va_view_data(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 # ---------------------------------------------------------------------------
 # List page
 # ---------------------------------------------------------------------------
@@ -68,14 +62,14 @@ def _auth_client(client: Client, token: str) -> Client:
 @pytest.mark.django_db
 class TestVirtualAccountsPage:
     def test_200_empty_state(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         response = c.get("/virtual-accounts")
         assert response.status_code == 200
         assert b"Virtual Accounts" in response.content
         assert b"No virtual accounts yet" in response.content
 
     def test_200_with_vas(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         c.post(
             "/virtual-accounts/add",
             {
@@ -90,7 +84,7 @@ class TestVirtualAccountsPage:
         assert b"Emergency Fund" in response.content
 
     def test_shows_bank_account_dropdown(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         response = c.get("/virtual-accounts")
         assert response.status_code == 200
         assert b"Checking (EGP)" in response.content
@@ -101,7 +95,7 @@ class TestVirtualAccountsPage:
         assert "/login" in response.url
 
     def test_shows_over_allocation_warning(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         # Create a VA with balance exceeding account balance
         c.post(
             "/virtual-accounts/add",
@@ -142,7 +136,7 @@ class TestVirtualAccountsPage:
 @pytest.mark.django_db
 class TestVirtualAccountAdd:
     def test_creates_and_redirects(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         response = c.post(
             "/virtual-accounts/add",
             {
@@ -161,7 +155,7 @@ class TestVirtualAccountAdd:
         assert b"Vacation Fund" in page.content
 
     def test_missing_name_returns_400(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         response = c.post(
             "/virtual-accounts/add",
             {"name": "", "account_id": va_view_data["account_id"]},
@@ -195,7 +189,7 @@ class TestVirtualAccountDetail:
         return match.group(1)
 
     def test_200_with_info(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         va_id = self._create_va(c, va_view_data)
 
         response = c.get(f"/virtual-accounts/{va_id}")
@@ -205,7 +199,7 @@ class TestVirtualAccountDetail:
         assert b"History" in response.content
 
     def test_404_nonexistent(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         fake_id = str(uuid.uuid4())
         response = c.get(f"/virtual-accounts/{fake_id}")
         assert response.status_code == 404
@@ -219,7 +213,7 @@ class TestVirtualAccountDetail:
 @pytest.mark.django_db
 class TestVirtualAccountArchive:
     def test_archives_and_redirects(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         c.post(
             "/virtual-accounts/add",
             {"name": "To Archive", "account_id": va_view_data["account_id"]},
@@ -261,7 +255,7 @@ class TestVirtualAccountAllocate:
         return match.group(1)
 
     def test_contribution_works(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         va_id = self._create_va(c, va_view_data)
 
         response = c.post(
@@ -275,7 +269,7 @@ class TestVirtualAccountAllocate:
         assert b"Salary" in page.content
 
     def test_withdrawal_works(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         va_id = self._create_va(c, va_view_data)
 
         # First add some money
@@ -293,7 +287,7 @@ class TestVirtualAccountAllocate:
         assert b"3,000" in page.content
 
     def test_invalid_amount_returns_400(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         va_id = self._create_va(c, va_view_data)
 
         response = c.post(
@@ -311,7 +305,7 @@ class TestVirtualAccountAllocate:
 @pytest.mark.django_db
 class TestVirtualAccountToggleExclude:
     def test_toggles_and_redirects(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         c.post(
             "/virtual-accounts/add",
             {"name": "Toggle Test", "account_id": va_view_data["account_id"]},
@@ -341,7 +335,7 @@ class TestVirtualAccountToggleExclude:
 @pytest.mark.django_db
 class TestVirtualAccountEditForm:
     def test_returns_partial_html(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         c.post(
             "/virtual-accounts/add",
             {"name": "Edit Me", "account_id": va_view_data["account_id"]},
@@ -360,7 +354,7 @@ class TestVirtualAccountEditForm:
         assert b'name="name"' in response.content
 
     def test_404_nonexistent(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         fake_id = str(uuid.uuid4())
         response = c.get(f"/virtual-accounts/{fake_id}/edit-form")
         assert response.status_code == 404
@@ -374,7 +368,7 @@ class TestVirtualAccountEditForm:
 @pytest.mark.django_db
 class TestVirtualAccountUpdate:
     def test_updates_and_redirects(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         c.post(
             "/virtual-accounts/add",
             {"name": "Old Name", "account_id": va_view_data["account_id"]},
@@ -402,7 +396,7 @@ class TestVirtualAccountUpdate:
         assert b"New Name" in page.content
 
     def test_validation_error_returns_422(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         c.post(
             "/virtual-accounts/add",
             {"name": "Test", "account_id": va_view_data["account_id"]},
@@ -431,13 +425,13 @@ class TestVirtualAccountUpdate:
 @pytest.mark.django_db
 class TestLegacyRedirects:
     def test_virtual_funds_redirects(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         response = c.get("/virtual-funds")
         assert response.status_code == 301
         assert "/virtual-accounts" in response.url  # type: ignore[attr-defined]
 
     def test_virtual_fund_detail_redirects(self, client, va_view_data):
-        c = _auth_client(client, va_view_data["session_token"])
+        c = set_auth_cookie(client, va_view_data["session_token"])
         fake_id = str(uuid.uuid4())
         response = c.get(f"/virtual-funds/{fake_id}")
         assert response.status_code == 301

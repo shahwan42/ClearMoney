@@ -11,7 +11,7 @@ import pytest
 from django.db import connection
 from django.test import Client
 
-from conftest import SessionFactory, UserFactory
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.middleware import COOKIE_NAME
 from core.models import Session, User
 from tests.factories import CategoryFactory
@@ -41,11 +41,6 @@ def budget_view_data(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 # ---------------------------------------------------------------------------
 # Budgets page
 # ---------------------------------------------------------------------------
@@ -54,14 +49,14 @@ def _auth_client(client: Client, token: str) -> Client:
 @pytest.mark.django_db
 class TestBudgetsPage:
     def test_200_empty_state(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         response = c.get("/budgets")
         assert response.status_code == 200
         assert b"Budgets" in response.content
         assert b"No budgets set" in response.content
 
     def test_200_with_budgets(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         # Create a budget
         c.post(
             "/budgets/add",
@@ -77,7 +72,7 @@ class TestBudgetsPage:
         assert b"5,000" in response.content
 
     def test_shows_category_dropdown(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         response = c.get("/budgets")
         assert response.status_code == 200
         assert b"Groceries" in response.content
@@ -97,7 +92,7 @@ class TestBudgetsPage:
 @pytest.mark.django_db
 class TestBudgetAdd:
     def test_creates_budget_and_redirects(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         response = c.post(
             "/budgets/add",
             {
@@ -115,7 +110,7 @@ class TestBudgetAdd:
         assert b"3,000" in page.content
 
     def test_missing_category_returns_400(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         response = c.post(
             "/budgets/add",
             {"category_id": "", "monthly_limit": "1000", "currency": "EGP"},
@@ -123,7 +118,7 @@ class TestBudgetAdd:
         assert response.status_code == 400
 
     def test_invalid_limit_returns_400(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         response = c.post(
             "/budgets/add",
             {
@@ -135,7 +130,7 @@ class TestBudgetAdd:
         assert response.status_code == 400
 
     def test_zero_limit_returns_400(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         response = c.post(
             "/budgets/add",
             {
@@ -147,7 +142,7 @@ class TestBudgetAdd:
         assert response.status_code == 400
 
     def test_duplicate_returns_400(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         c.post(
             "/budgets/add",
             {
@@ -175,7 +170,7 @@ class TestBudgetAdd:
 @pytest.mark.django_db
 class TestBudgetDelete:
     def test_deletes_and_redirects(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         # Create first
         c.post(
             "/budgets/add",
@@ -205,13 +200,13 @@ class TestBudgetDelete:
         assert b"No budgets set" in page.content
 
     def test_delete_nonexistent_redirects(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         fake_id = str(uuid.uuid4())
         response = c.post(f"/budgets/{fake_id}/delete")
         assert response.status_code == 302
 
     def test_cannot_delete_other_users_budget(self, client, budget_view_data):
-        c = _auth_client(client, budget_view_data["session_token"])
+        c = set_auth_cookie(client, budget_view_data["session_token"])
         # Create a budget
         c.post(
             "/budgets/add",

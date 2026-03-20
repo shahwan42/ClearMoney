@@ -12,8 +12,7 @@ import pytest
 from django.db import connection
 from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 
 
@@ -51,12 +50,6 @@ def er_view_data(db: object) -> Any:  # noqa: ARG001
     User.objects.filter(id=user_id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    """Return an authenticated test client."""
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 # ---------------------------------------------------------------------------
 # GET /exchange-rates — page load
 # ---------------------------------------------------------------------------
@@ -65,13 +58,13 @@ def _auth_client(client: Client, token: str) -> Client:
 @pytest.mark.django_db
 class TestExchangeRatesPage:
     def test_200(self, client: Client, er_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, er_view_data["session_token"])
+        c = set_auth_cookie(client, er_view_data["session_token"])
         response = c.get("/exchange-rates")
         assert response.status_code == 200
         assert b"Exchange Rate History" in response.content
 
     def test_shows_rate(self, client: Client, er_view_data: dict[str, Any]) -> None:
-        c = _auth_client(client, er_view_data["session_token"])
+        c = set_auth_cookie(client, er_view_data["session_token"])
         response = c.get("/exchange-rates")
         assert b"50.75" in response.content
         assert b"CBE" in response.content
@@ -87,7 +80,7 @@ class TestExchangeRatesPage:
         er_view_data["rate_ids"].clear()
 
         try:
-            c = _auth_client(client, er_view_data["session_token"])
+            c = set_auth_cookie(client, er_view_data["session_token"])
             response = c.get("/exchange-rates")
             assert b"No exchange rates recorded yet" in response.content
         finally:

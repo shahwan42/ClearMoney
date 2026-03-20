@@ -12,8 +12,7 @@ import pytest
 from django.db import connection
 from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
 
@@ -54,11 +53,6 @@ def rec_view_data(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 def _create_rule(client: Client, data: dict) -> None:
     """Helper: POST /recurring/add to create a rule."""
     client.post("/recurring/add", data)
@@ -72,14 +66,14 @@ def _create_rule(client: Client, data: dict) -> None:
 @pytest.mark.django_db
 class TestRecurringPage:
     def test_200_empty_state(self, client, rec_view_data):
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         response = c.get("/recurring")
         assert response.status_code == 200
         assert b"Recurring Transactions" in response.content
         assert b"No recurring rules yet" in response.content
 
     def test_200_with_rules(self, client, rec_view_data):
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         _create_rule(
             c,
             {
@@ -98,7 +92,7 @@ class TestRecurringPage:
 
     def test_shows_pending_rules(self, client, rec_view_data):
         """Due rules with auto_confirm=false appear in pending section."""
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         _create_rule(
             c,
@@ -130,7 +124,7 @@ class TestRecurringPage:
 @pytest.mark.django_db
 class TestRecurringAdd:
     def test_creates_rule(self, client, rec_view_data):
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         response = c.post(
             "/recurring/add",
             {
@@ -149,7 +143,7 @@ class TestRecurringAdd:
         assert b"Insurance" in response.content
 
     def test_missing_amount_400(self, client, rec_view_data):
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         response = c.post(
             "/recurring/add",
             {
@@ -164,7 +158,7 @@ class TestRecurringAdd:
 
     def test_currency_from_account(self, client, rec_view_data):
         """Currency should come from account, not form."""
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         _create_rule(
             c,
             {
@@ -196,7 +190,7 @@ class TestRecurringAdd:
 @pytest.mark.django_db
 class TestRecurringConfirm:
     def test_creates_transaction(self, client, rec_view_data):
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         yesterday = (date.today() - timedelta(days=1)).isoformat()
         _create_rule(
             c,
@@ -238,7 +232,7 @@ class TestRecurringConfirm:
 @pytest.mark.django_db
 class TestRecurringSkip:
     def test_advances_date(self, client, rec_view_data):
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         yesterday = date.today() - timedelta(days=1)
         _create_rule(
             c,
@@ -288,7 +282,7 @@ class TestRecurringSkip:
 @pytest.mark.django_db
 class TestRecurringDelete:
     def test_removes_rule(self, client, rec_view_data):
-        c = _auth_client(client, rec_view_data["session_token"])
+        c = set_auth_cookie(client, rec_view_data["session_token"])
         _create_rule(
             c,
             {

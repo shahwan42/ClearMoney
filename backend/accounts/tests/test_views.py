@@ -10,10 +10,8 @@ from datetime import date
 
 import pytest
 from django.db import connection
-from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 
 
@@ -89,12 +87,6 @@ def empty_user(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    """Set session cookie on client."""
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 # ---------------------------------------------------------------------------
 # Accounts list page
 # ---------------------------------------------------------------------------
@@ -103,20 +95,20 @@ def _auth_client(client: Client, token: str) -> Client:
 @pytest.mark.django_db
 class TestAccountsList:
     def test_200(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get("/accounts")
         assert response.status_code == 200
         assert b"Accounts" in response.content
 
     def test_shows_institution_and_accounts(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get("/accounts")
         assert b"Test Bank" in response.content
         assert b"Main Savings" in response.content
         assert b"Test CC" in response.content
 
     def test_empty_state(self, client, empty_user):
-        c = _auth_client(client, empty_user["session_token"])
+        c = set_auth_cookie(client, empty_user["session_token"])
         response = c.get("/accounts")
         assert response.status_code == 200
         assert b"No institutions yet" in response.content
@@ -135,28 +127,28 @@ class TestAccountsList:
 @pytest.mark.django_db
 class TestAccountDetail:
     def test_200(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['savings_id']}")
         assert response.status_code == 200
         assert b"Main Savings" in response.content
 
     def test_shows_balance(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['savings_id']}")
         assert b"15,000" in response.content
 
     def test_shows_transactions(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['savings_id']}")
         assert b"Test tx" in response.content
 
     def test_404_nonexistent(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{uuid.uuid4()}")
         assert response.status_code == 404
 
     def test_cc_shows_utilization(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['cc_id']}")
         assert response.status_code == 200
         assert b"Credit Utilization" in response.content
@@ -170,7 +162,7 @@ class TestAccountDetail:
 @pytest.mark.django_db
 class TestAccountFormPartial:
     def test_200(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(
             f"/accounts/form?institution_id={accounts_data['institution_id']}"
         )
@@ -178,7 +170,7 @@ class TestAccountFormPartial:
         assert b"Add Account" in response.content
 
     def test_missing_institution_id(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get("/accounts/form")
         assert response.status_code == 400
 
@@ -186,7 +178,7 @@ class TestAccountFormPartial:
 @pytest.mark.django_db
 class TestInstitutionFormPartial:
     def test_200(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get("/accounts/institution-form")
         assert response.status_code == 200
         assert b"Add Institution" in response.content
@@ -200,7 +192,7 @@ class TestInstitutionFormPartial:
 @pytest.mark.django_db
 class TestInstitutionAdd:
     def test_creates_institution(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post("/institutions/add", {"name": "New Bank", "type": "bank"})
         assert response.status_code == 200
         assert b"Institution added!" in response.content
@@ -208,7 +200,7 @@ class TestInstitutionAdd:
         assert b"New Bank" in response.content
 
     def test_rejects_empty_name(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post("/institutions/add", {"name": "", "type": "bank"})
         assert response.status_code == 422
 
@@ -216,7 +208,7 @@ class TestInstitutionAdd:
 @pytest.mark.django_db
 class TestInstitutionUpdate:
     def test_updates(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.put(
             f"/institutions/{accounts_data['institution_id']}/update",
             "name=Renamed+Bank&type=bank",
@@ -230,7 +222,7 @@ class TestInstitutionUpdate:
 @pytest.mark.django_db
 class TestInstitutionDelete:
     def test_cascades(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.delete(f"/institutions/{accounts_data['institution_id']}/delete")
         assert response.status_code == 200
         assert b"Institution deleted!" in response.content
@@ -247,7 +239,7 @@ class TestInstitutionDelete:
 @pytest.mark.django_db
 class TestInstitutionDeleteConfirm:
     def test_200(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(
             f"/institutions/{accounts_data['institution_id']}/delete-confirm"
         )
@@ -264,7 +256,7 @@ class TestInstitutionDeleteConfirm:
 @pytest.mark.django_db
 class TestAccountAdd:
     def test_creates_account(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post(
             "/accounts/add",
             {
@@ -280,7 +272,7 @@ class TestAccountAdd:
         assert b"New Savings" in response.content
 
     def test_cc_requires_credit_limit(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post(
             "/accounts/add",
             {
@@ -297,7 +289,7 @@ class TestAccountAdd:
 @pytest.mark.django_db
 class TestAccountUpdate:
     def test_updates(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post(
             f"/accounts/{accounts_data['savings_id']}/edit",
             {"name": "Renamed Savings", "type": "savings", "currency": "EGP"},
@@ -309,7 +301,7 @@ class TestAccountUpdate:
 @pytest.mark.django_db
 class TestAccountDelete:
     def test_success(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.delete(f"/accounts/{accounts_data['savings_id']}/delete")
         assert response.status_code == 302
 
@@ -317,7 +309,7 @@ class TestAccountDelete:
 @pytest.mark.django_db
 class TestToggleDormant:
     def test_toggles(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post(f"/accounts/{accounts_data['savings_id']}/dormant")
         assert response.status_code == 302
 
@@ -333,7 +325,7 @@ class TestToggleDormant:
 @pytest.mark.django_db
 class TestHealthUpdate:
     def test_saves_config(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post(
             f"/accounts/{accounts_data['savings_id']}/health",
             {"min_balance": "5000", "min_monthly_deposit": "1000"},
@@ -353,7 +345,7 @@ class TestHealthUpdate:
 @pytest.mark.django_db
 class TestReorder:
     def test_reorder_accounts(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post(
             "/accounts/reorder",
             {
@@ -363,7 +355,7 @@ class TestReorder:
         assert response.status_code == 302
 
     def test_reorder_institutions(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post(
             "/institutions/reorder",
             {
@@ -381,17 +373,17 @@ class TestReorder:
 @pytest.mark.django_db
 class TestCreditCardStatement:
     def test_200(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['cc_id']}/statement")
         assert response.status_code == 200
         assert b"Credit Card Statement" in response.content
 
     def test_non_credit_returns_400(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['savings_id']}/statement")
         assert response.status_code == 400
 
     def test_404_nonexistent(self, client, accounts_data):
-        c = _auth_client(client, accounts_data["session_token"])
+        c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{uuid.uuid4()}/statement")
         assert response.status_code == 404

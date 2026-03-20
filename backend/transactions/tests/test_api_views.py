@@ -9,10 +9,8 @@ import uuid
 
 import pytest
 from django.db import connection
-from django.test import Client
 
-from conftest import SessionFactory, UserFactory
-from core.middleware import COOKIE_NAME
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
 
 
@@ -69,21 +67,16 @@ def tx_api_data(db):
     User.objects.filter(id=user.id).delete()
 
 
-def _auth_client(client: Client, token: str) -> Client:
-    client.cookies[COOKIE_NAME] = token
-    return client
-
-
 @pytest.mark.django_db
 class TestTransactionAPI:
     def test_list_empty(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         resp = c.get("/api/transactions")
         assert resp.status_code == 200
         assert json.loads(resp.content) == []
 
     def test_create_returns_tx_and_balance(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         resp = c.post(
             "/api/transactions",
             data=json.dumps(
@@ -107,7 +100,7 @@ class TestTransactionAPI:
         assert body["new_balance"] == 9750  # 10000 - 250
 
     def test_get_by_id(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         # Create first
         resp = c.post(
             "/api/transactions",
@@ -129,7 +122,7 @@ class TestTransactionAPI:
         assert json.loads(resp.content)["id"] == tx_id
 
     def test_delete(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         # Create
         resp = c.post(
             "/api/transactions",
@@ -155,7 +148,7 @@ class TestTransactionAPI:
         assert resp.status_code == 404
 
     def test_list_with_account_filter(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         # Create a transaction on EGP account
         c.post(
             "/api/transactions",
@@ -183,7 +176,7 @@ class TestTransactionAPI:
         assert json.loads(resp.content) == []
 
     def test_list_with_limit(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         # Create 3 transactions
         for i in range(3):
             c.post(
@@ -206,7 +199,7 @@ class TestTransactionAPI:
         assert len(txs) == 2
 
     def test_transfer(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
 
         # Create a second EGP account for same-currency transfer
         egp2_id = str(uuid.uuid4())
@@ -245,7 +238,7 @@ class TestTransactionAPI:
         assert body["credit"]["balance_delta"] == 1000
 
     def test_exchange(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         resp = c.post(
             "/api/transactions/exchange",
             data=json.dumps(
@@ -265,7 +258,7 @@ class TestTransactionAPI:
         assert "credit" in body
 
     def test_create_invalid_json(self, client, tx_api_data):
-        c = _auth_client(client, tx_api_data["session_token"])
+        c = set_auth_cookie(client, tx_api_data["session_token"])
         resp = c.post(
             "/api/transactions",
             data="not json",
