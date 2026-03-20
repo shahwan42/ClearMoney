@@ -23,6 +23,7 @@ from django.views.decorators.http import require_http_methods
 
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_zero
 from salary.services import SalaryAllocation, SalaryDistribution, SalaryService
 
 logger = logging.getLogger(__name__)
@@ -47,14 +48,6 @@ def _get_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
             {"id": str(row[0]), "name": row[1], "currency": row[2]}
             for row in cursor.fetchall()
         ]
-
-
-def _parse_float(value: str) -> float:
-    """Parse a form value to float, returning 0.0 on failure."""
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return 0.0
 
 
 @general_rate
@@ -86,7 +79,7 @@ def salary_step2(request: AuthenticatedRequest) -> HttpResponse:
 
     Port of Go's PageHandler.SalaryStep2 (pages.go:1778).
     """
-    salary_usd = _parse_float(request.POST.get("salary_usd", ""))
+    salary_usd = parse_float_or_zero(request.POST.get("salary_usd", ""))
     if salary_usd <= 0:
         return HttpResponse(
             '<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
@@ -113,8 +106,8 @@ def salary_step3(request: AuthenticatedRequest) -> HttpResponse:
 
     Port of Go's PageHandler.SalaryStep3 (pages.go:1803).
     """
-    salary_usd = _parse_float(request.POST.get("salary_usd", ""))
-    exchange_rate = _parse_float(request.POST.get("exchange_rate", ""))
+    salary_usd = parse_float_or_zero(request.POST.get("salary_usd", ""))
+    exchange_rate = parse_float_or_zero(request.POST.get("exchange_rate", ""))
     salary_egp = salary_usd * exchange_rate
 
     # Filter to EGP accounts only for allocation targets
@@ -146,8 +139,8 @@ def salary_confirm(request: AuthenticatedRequest) -> HttpResponse:
     Port of Go's PageHandler.SalaryConfirm (pages.go:1844).
     Collects allocations from form fields named alloc_<account_id>.
     """
-    salary_usd = _parse_float(request.POST.get("salary_usd", ""))
-    exchange_rate = _parse_float(request.POST.get("exchange_rate", ""))
+    salary_usd = parse_float_or_zero(request.POST.get("salary_usd", ""))
+    exchange_rate = parse_float_or_zero(request.POST.get("exchange_rate", ""))
 
     # Parse date
     tx_date = None
@@ -164,7 +157,7 @@ def salary_confirm(request: AuthenticatedRequest) -> HttpResponse:
         if not key.startswith("alloc_"):
             continue
         account_id = key.removeprefix("alloc_")
-        amount = _parse_float(request.POST.get(key, ""))
+        amount = parse_float_or_zero(request.POST.get(key, ""))
         if amount > 0:
             allocations.append(SalaryAllocation(account_id=account_id, amount=amount))
 

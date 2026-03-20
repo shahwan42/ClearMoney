@@ -19,6 +19,7 @@ from accounts.services import AccountService
 from core.htmx import htmx_redirect
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_zero
 from installments.services import InstallmentService
 
 logger = logging.getLogger(__name__)
@@ -27,14 +28,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> InstallmentService:
     """Create an InstallmentService for the authenticated user."""
     return InstallmentService(request.user_id, request.tz)
-
-
-def _parse_float(value: str) -> float:
-    """Parse a form value to float, returning 0.0 on failure."""
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return 0.0
 
 
 def _parse_int(value: str) -> int:
@@ -83,7 +76,9 @@ def installment_add(request: AuthenticatedRequest) -> HttpResponse:
         svc.create(
             {
                 "description": request.POST.get("description", ""),
-                "total_amount": _parse_float(request.POST.get("total_amount", "")),
+                "total_amount": parse_float_or_zero(
+                    request.POST.get("total_amount", "")
+                ),
                 "num_installments": _parse_int(
                     request.POST.get("num_installments", "")
                 ),

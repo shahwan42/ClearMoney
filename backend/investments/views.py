@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 from core.htmx import htmx_redirect
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_zero
 from investments.services import InvestmentService
 
 logger = logging.getLogger(__name__)
@@ -25,14 +26,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> InvestmentService:
     """Create an InvestmentService for the authenticated user."""
     return InvestmentService(request.user_id, request.tz)
-
-
-def _parse_float(value: str) -> float:
-    """Parse a form value to float, returning 0.0 on failure."""
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return 0.0
 
 
 @general_rate
@@ -71,8 +64,8 @@ def investment_add(request: AuthenticatedRequest) -> HttpResponse:
             {
                 "platform": request.POST.get("platform", ""),
                 "fund_name": request.POST.get("fund_name", ""),
-                "units": _parse_float(request.POST.get("units", "")),
-                "unit_price": _parse_float(request.POST.get("unit_price", "")),
+                "units": parse_float_or_zero(request.POST.get("units", "")),
+                "unit_price": parse_float_or_zero(request.POST.get("unit_price", "")),
                 "currency": request.POST.get("currency", ""),
             }
         )
@@ -90,7 +83,7 @@ def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     Port of Go's PageHandler.InvestmentUpdateValuation (pages.go:2340).
     """
     svc = _svc(request)
-    unit_price = _parse_float(request.POST.get("unit_price", ""))
+    unit_price = parse_float_or_zero(request.POST.get("unit_price", ""))
 
     try:
         svc.update_valuation(str(id), unit_price)

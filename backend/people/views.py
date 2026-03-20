@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_none
 from people.services import PersonService
 
 logger = logging.getLogger(__name__)
@@ -26,16 +27,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> PersonService:
     """Create a PersonService for the authenticated user."""
     return PersonService(request.user_id, request.tz)
-
-
-def _parse_float(value: Any) -> float | None:
-    """Parse a value to float, returning None if empty or invalid."""
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
 
 
 def _error_html(message: str) -> str:
@@ -180,7 +171,7 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     Port of Go's PageHandler.PeopleLoan (pages.go:1263–1295).
     """
     svc = _svc(request)
-    amount = _parse_float(request.POST.get("amount"))
+    amount = parse_float_or_none(request.POST.get("amount"))
     account_id = request.POST.get("account_id", "")
     loan_type = request.POST.get("loan_type", "loan_out")
     note = request.POST.get("note", "").strip() or None
@@ -212,7 +203,7 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     Port of Go's PageHandler.PeopleRepay (pages.go:1299–1329).
     """
     svc = _svc(request)
-    amount = _parse_float(request.POST.get("amount"))
+    amount = parse_float_or_none(request.POST.get("amount"))
     account_id = request.POST.get("account_id", "")
     note = request.POST.get("note", "").strip() or None
 

@@ -46,16 +46,6 @@ CREDIT_ACCOUNT_TYPES = {"credit_card", "credit_limit"}
 # ---------------------------------------------------------------------------
 
 
-def _parse_float(value: Any) -> float | None:
-    """Parse a value to float, returning None if empty or invalid."""
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
-
-
 def _to_str(value: Any) -> str | None:
     """Convert to non-empty string, or None."""
     if value is None:

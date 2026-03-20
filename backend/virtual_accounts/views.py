@@ -21,6 +21,7 @@ from django.views.decorators.http import require_http_methods
 from core.htmx import htmx_redirect
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_none
 from virtual_accounts.services import VirtualAccountService
 
 logger = logging.getLogger(__name__)
@@ -56,15 +57,10 @@ def _get_bank_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
         ]
 
 
-def _parse_float(value: str) -> float | None:
-    """Parse a form value as float, returning None on failure."""
-    if not value:
-        return None
-    try:
-        f = float(value)
-        return f if f > 0 else None
-    except (ValueError, TypeError):
-        return None
+def _parse_positive_float(value: str) -> float | None:
+    """Parse a form value as positive float, returning None if zero/negative/invalid."""
+    f = parse_float_or_none(value)
+    return f if f is not None and f > 0 else None
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +142,7 @@ def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
     """
     svc = _svc(request)
     name = request.POST.get("name", "")
-    target_amount = _parse_float(request.POST.get("target_amount", ""))
+    target_amount = _parse_positive_float(request.POST.get("target_amount", ""))
     icon = request.POST.get("icon", "")
     color = request.POST.get("color", "")
     account_id = request.POST.get("account_id", "") or None
@@ -362,7 +358,7 @@ def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
     """
     svc = _svc(request)
     name = request.POST.get("name", "")
-    target_amount = _parse_float(request.POST.get("target_amount", ""))
+    target_amount = _parse_positive_float(request.POST.get("target_amount", ""))
     icon = request.POST.get("icon", "")
     color = request.POST.get("color", "")
     account_id = request.POST.get("account_id", "") or None

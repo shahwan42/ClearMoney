@@ -25,6 +25,7 @@ from core.billing import (
 from core.htmx import htmx_redirect, render_htmx_result
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_none
 
 from .services import AccountService, InstitutionService, get_statement_data
 
@@ -64,16 +65,6 @@ def _toast_html(message: str) -> str:
         f'<p class="text-teal-800 font-semibold text-sm">{message}</p>'
         "</div>"
     )
-
-
-def _parse_float(value: str) -> float | None:
-    """Parse a form value to float, returning None if empty or invalid."""
-    if not value or not value.strip():
-        return None
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -492,8 +483,9 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
         "name": request.POST.get("name", ""),
         "type": request.POST.get("type", "current"),
         "currency": request.POST.get("currency", "EGP"),
-        "initial_balance": _parse_float(request.POST.get("initial_balance", "")) or 0.0,
-        "credit_limit": _parse_float(request.POST.get("credit_limit", "")),
+        "initial_balance": parse_float_or_none(request.POST.get("initial_balance", ""))
+        or 0.0,
+        "credit_limit": parse_float_or_none(request.POST.get("credit_limit", "")),
     }
 
     acc_svc = AccountService(request.user_id, request.tz)
@@ -528,7 +520,7 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
         "name": request.POST.get("name", ""),
         "type": request.POST.get("type", "current"),
         "currency": request.POST.get("currency", "EGP"),
-        "credit_limit": _parse_float(request.POST.get("credit_limit", "")),
+        "credit_limit": parse_float_or_none(request.POST.get("credit_limit", "")),
     }
 
     acc_svc = AccountService(request.user_id, request.tz)
@@ -610,13 +602,13 @@ def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """
     config: dict[str, float | None] = {}
 
-    min_balance = _parse_float(request.POST.get("min_balance", ""))
+    min_balance = parse_float_or_none(request.POST.get("min_balance", ""))
     if min_balance is not None and min_balance > 0:
         config["min_balance"] = min_balance
     else:
         config["min_balance"] = None
 
-    min_deposit = _parse_float(request.POST.get("min_monthly_deposit", ""))
+    min_deposit = parse_float_or_none(request.POST.get("min_monthly_deposit", ""))
     if min_deposit is not None and min_deposit > 0:
         config["min_monthly_deposit"] = min_deposit
     else:

@@ -19,6 +19,7 @@ from django.views.decorators.http import require_http_methods
 from core.htmx import render_htmx_result
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_none
 
 from .services import TransactionService
 
@@ -33,16 +34,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> TransactionService:
     """Create a TransactionService for the authenticated user."""
     return TransactionService(request.user_id, request.tz)
-
-
-def _parse_float(value: str) -> float | None:
-    """Parse form value to float, None if empty."""
-    if not value or not value.strip():
-        return None
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
 
 
 def _error_html(message: str) -> HttpResponse:
@@ -346,7 +337,7 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/transfer — create transfer (HTMX)."""
     svc = _svc(request)
     try:
-        amount = _parse_float(request.POST.get("amount", ""))
+        amount = parse_float_or_none(request.POST.get("amount", ""))
         if not amount:
             return _error_html("Amount is required")
         svc.create_transfer(
@@ -368,7 +359,7 @@ def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/instapay-transfer — InstaPay with fee (HTMX)."""
     svc = _svc(request)
     try:
-        amount = _parse_float(request.POST.get("amount", ""))
+        amount = parse_float_or_none(request.POST.get("amount", ""))
         if not amount:
             return _error_html("Amount is required")
         fees_cat_id = svc.get_fees_category_id()
@@ -419,9 +410,9 @@ def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
         svc.create_exchange(
             source_id=request.POST.get("source_account_id", ""),
             dest_id=request.POST.get("dest_account_id", ""),
-            amount=_parse_float(request.POST.get("amount", "")),
-            rate=_parse_float(request.POST.get("rate", "")),
-            counter_amount=_parse_float(request.POST.get("counter_amount", "")),
+            amount=parse_float_or_none(request.POST.get("amount", "")),
+            rate=parse_float_or_none(request.POST.get("rate", "")),
+            counter_amount=parse_float_or_none(request.POST.get("counter_amount", "")),
             note=request.POST.get("note") or None,
             tx_date=request.POST.get("date") or None,
         )
@@ -460,8 +451,8 @@ def fawry_cashout_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/fawry-cashout — process Fawry cash-out (HTMX)."""
     svc = _svc(request)
     try:
-        amount = _parse_float(request.POST.get("amount", ""))
-        fee = _parse_float(request.POST.get("fee", "")) or 0.0
+        amount = parse_float_or_none(request.POST.get("amount", ""))
+        fee = parse_float_or_none(request.POST.get("fee", "")) or 0.0
         if not amount:
             return render_htmx_result("error", "Amount is required")
         fees_cat_id = svc.get_fees_category_id()
