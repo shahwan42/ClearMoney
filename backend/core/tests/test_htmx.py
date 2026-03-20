@@ -2,7 +2,14 @@
 
 from django.test import RequestFactory
 
-from core.htmx import htmx_redirect, render_htmx_result
+from core.htmx import (
+    error_html,
+    error_response,
+    htmx_redirect,
+    render_htmx_result,
+    success_html,
+    success_response,
+)
 
 
 class TestHtmxRedirect:
@@ -65,3 +72,46 @@ class TestRenderHtmxResult:
         content = response.content.decode()
         assert "Something happened" in content
         assert "blue" in content
+
+
+class TestErrorHtml:
+    """error_html returns styled error HTML string."""
+
+    def test_contains_message(self) -> None:
+        html = error_html("Something went wrong")
+        assert "Something went wrong" in html
+        assert "bg-red-50" in html
+
+    def test_returns_string(self) -> None:
+        assert isinstance(error_html("test"), str)
+
+
+class TestSuccessHtml:
+    """success_html returns styled success HTML string."""
+
+    def test_contains_message(self) -> None:
+        html = success_html("Transfer completed!")
+        assert "Transfer completed!" in html
+        assert "bg-teal-50" in html
+        assert "animate-toast" in html
+
+    def test_returns_string(self) -> None:
+        assert isinstance(success_html("test"), str)
+
+
+class TestErrorResponse:
+    """error_response returns HttpResponse with status 400."""
+
+    def test_status_400(self) -> None:
+        response = error_response("Invalid amount")
+        assert response.status_code == 400
+        assert "Invalid amount" in response.content.decode()
+
+
+class TestSuccessResponse:
+    """success_response returns HttpResponse with status 200."""
+
+    def test_status_200(self) -> None:
+        response = success_response("Done!")
+        assert response.status_code == 200
+        assert "Done!" in response.content.decode()

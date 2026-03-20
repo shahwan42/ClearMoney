@@ -16,7 +16,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from core.htmx import render_htmx_result
+from core.htmx import error_response, render_htmx_result, success_response
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
@@ -34,24 +34,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> TransactionService:
     """Create a TransactionService for the authenticated user."""
     return TransactionService(request.user_id, request.tz)
-
-
-def _error_html(message: str) -> HttpResponse:
-    """Return an error HTML fragment for HTMX targets."""
-    html = (
-        f'<div class="bg-red-50 border border-red-200 rounded-xl p-3 text-center">'
-        f'<p class="text-red-800 text-sm font-medium">{message}</p></div>'
-    )
-    return HttpResponse(html, status=400)
-
-
-def _success_html(message: str) -> HttpResponse:
-    """Return a success HTML fragment for HTMX targets."""
-    html = (
-        f'<div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-center animate-toast">'
-        f'<p class="text-teal-800 font-semibold text-sm">{message}</p></div>'
-    )
-    return HttpResponse(html)
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +196,7 @@ def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
             },
         )
     except ValueError as e:
-        return _error_html(str(e))
+        return error_response(str(e))
 
 
 @general_rate
@@ -285,7 +267,7 @@ def transaction_update(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
         enriched = svc.get_by_id_enriched(str(tx_id))
         return render(request, "transactions/_transaction_row.html", {"tx": enriched})
     except ValueError as e:
-        return _error_html(str(e))
+        return error_response(str(e))
 
 
 def transaction_delete(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
@@ -296,7 +278,7 @@ def transaction_delete(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
         svc.delete(str(tx_id))
         return HttpResponse("")
     except ValueError as e:
-        return _error_html(str(e))
+        return error_response(str(e))
 
 
 @general_rate
@@ -339,7 +321,7 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
     try:
         amount = parse_float_or_none(request.POST.get("amount", ""))
         if not amount:
-            return _error_html("Amount is required")
+            return error_response("Amount is required")
         svc.create_transfer(
             source_id=request.POST.get("source_account_id", ""),
             dest_id=request.POST.get("dest_account_id", ""),
@@ -348,9 +330,9 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
             note=request.POST.get("note") or None,
             tx_date=request.POST.get("date") or None,
         )
-        return _success_html("Transfer completed!")
+        return success_response("Transfer completed!")
     except ValueError as e:
-        return _error_html(str(e))
+        return error_response(str(e))
 
 
 @general_rate
@@ -361,7 +343,7 @@ def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
     try:
         amount = parse_float_or_none(request.POST.get("amount", ""))
         if not amount:
-            return _error_html("Amount is required")
+            return error_response("Amount is required")
         fees_cat_id = svc.get_fees_category_id()
         _, _, fee = svc.create_instapay_transfer(
             source_id=request.POST.get("source_account_id", ""),
@@ -418,10 +400,10 @@ def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
         )
         from_sheet = request.POST.get("from_sheet") == "1"
         if from_sheet:
-            return _success_html("Exchange completed!")
-        return _success_html("Exchange completed!")
+            return success_response("Exchange completed!")
+        return success_response("Exchange completed!")
     except ValueError as e:
-        return _error_html(str(e))
+        return error_response(str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -625,9 +607,9 @@ def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
             except ValueError:
                 pass
 
-        return _success_html("Saved!")
+        return success_response("Saved!")
     except ValueError as e:
-        return _error_html(str(e))
+        return error_response(str(e))
 
 
 @general_rate

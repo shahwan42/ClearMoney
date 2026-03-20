@@ -69,3 +69,28 @@ def render_htmx_result(
         f"</div>"
     )
     return HttpResponse(html)
+
+
+def error_html(message: str) -> str:
+    """Return error HTML fragment string for HTMX swap targets."""
+    return f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{message}</div>'
+
+
+def success_html(message: str) -> str:
+    """Return success toast HTML fragment string for HTMX swap targets."""
+    return (
+        '<div class="bg-teal-50 border border-teal-200 rounded-xl p-3 '
+        'text-center animate-toast">'
+        f'<p class="text-teal-800 font-semibold text-sm">{message}</p>'
+        "</div>"
+    )
+
+
+def error_response(message: str) -> HttpResponse:
+    """Return error HTML fragment as HttpResponse with status 400."""
+    return HttpResponse(error_html(message), status=400)
+
+
+def success_response(message: str) -> HttpResponse:
+    """Return success toast HTML fragment as HttpResponse."""
+    return HttpResponse(success_html(message))

@@ -15,6 +15,7 @@ from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 
+from core.htmx import error_response
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
@@ -26,11 +27,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> PersonService:
     """Create a PersonService for the authenticated user."""
     return PersonService(request.user_id, request.tz)
-
-
-def _error_html(message: str) -> str:
-    """Return styled error HTML for HTMX swap."""
-    return f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{message}</div>'
 
 
 def _get_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
@@ -176,9 +172,7 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     note = request.POST.get("note", "").strip() or None
 
     if not amount or amount <= 0:
-        return HttpResponse(
-            _error_html("Amount is required"), status=400, content_type="text/html"
-        )
+        return error_response("Amount is required")
 
     try:
         svc.record_loan(
@@ -189,7 +183,7 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
             note=note,
         )
     except ValueError as e:
-        return HttpResponse(_error_html(str(e)), status=400, content_type="text/html")
+        return error_response(str(e))
 
     return _render_people_list(request)
 
@@ -207,9 +201,7 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     note = request.POST.get("note", "").strip() or None
 
     if not amount or amount <= 0:
-        return HttpResponse(
-            _error_html("Amount is required"), status=400, content_type="text/html"
-        )
+        return error_response("Amount is required")
 
     try:
         svc.record_repayment(
@@ -219,7 +211,7 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
             note=note,
         )
     except ValueError as e:
-        return HttpResponse(_error_html(str(e)), status=400, content_type="text/html")
+        return error_response(str(e))
 
     return _render_people_list(request)
 

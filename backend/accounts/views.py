@@ -21,7 +21,7 @@ from core.billing import (
     get_credit_card_utilization,
     parse_billing_cycle,
 )
-from core.htmx import htmx_redirect, render_htmx_result
+from core.htmx import htmx_redirect, render_htmx_result, success_html
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
@@ -55,15 +55,6 @@ def _render_institution_list_oob(request: AuthenticatedRequest) -> str:
         "accounts/_institution_list.html", {"data": groups}, request
     )
     return f'<div id="institution-list" class="space-y-3" hx-swap-oob="innerHTML">{inner_html}</div>'
-
-
-def _toast_html(message: str) -> str:
-    """Inline success toast HTML matching Go's pattern."""
-    return (
-        '<div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-center animate-toast">'
-        f'<p class="text-teal-800 font-semibold text-sm">{message}</p>'
-        "</div>"
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +366,7 @@ def institution_add(request: AuthenticatedRequest) -> HttpResponse:
         )
 
     # Success: toast + close script + OOB list refresh
-    html = _toast_html("Institution added!")
+    html = success_html("Institution added!")
     html += "<script>setTimeout(function(){ closeCreateSheet(); }, 1000);</script>"
     html += _render_institution_list_oob(request)
     return HttpResponse(html)
@@ -439,7 +430,7 @@ def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     if not deleted:
         return render_htmx_result("error", "Failed to delete institution", "")
 
-    html = _toast_html("Institution deleted!")
+    html = success_html("Institution deleted!")
     html += "<script>setTimeout(function(){ closeDeleteSheet(); }, 1000);</script>"
     html += _render_institution_list_oob(request)
     return HttpResponse(html)
