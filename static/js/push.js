@@ -59,12 +59,21 @@ async function checkNotifications() {
     const container = document.getElementById('notification-banner');
     if (container && notifications.length > 0) {
       const n = notifications[0]; // show the most important one
-      container.innerHTML = `
-        <a href="${n.url}" class="block bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
-          <p class="text-sm font-medium text-amber-800">${n.title}</p>
-          <p class="text-xs text-amber-600">${n.body}</p>
-        </a>
-      `;
+      const link = document.createElement('a');
+      link.href = n.url;
+      link.className = 'block bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3';
+
+      const title = document.createElement('p');
+      title.className = 'text-sm font-medium text-amber-800';
+      title.textContent = n.title;
+
+      const body = document.createElement('p');
+      body.className = 'text-xs text-amber-600';
+      body.textContent = n.body;
+
+      link.appendChild(title);
+      link.appendChild(body);
+      container.replaceChildren(link);
     }
 
     // Also show browser notification if permission granted
