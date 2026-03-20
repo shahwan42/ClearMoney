@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "django-ai-boost": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "backend/",
+        "django-ai-boost",
+        "--settings",
+        "clearmoney.settings"
+      ],
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "clearmoney.settings",
+        "DATABASE_URL": "postgres://clearmoney:clearmoney@localhost:5433/clearmoney"
+      }
+    }
+  }
+}

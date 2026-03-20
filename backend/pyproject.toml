@@ -24,6 +24,7 @@ dev = [
     "ruff",
     "mypy>=1.14",
     "django-stubs[compatible-mypy]>=5.1",
+    "django-ai-boost>=0.8.0",
 ]
 
 [tool.pytest.ini_options]
