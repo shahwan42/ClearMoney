@@ -14,13 +14,12 @@ which HTMX swaps into #salary-wizard. No page refresh needed.
 
 import logging
 from datetime import datetime
-from typing import Any
 
-from django.db import connection
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
+from accounts.services import AccountService
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_zero
@@ -34,22 +33,6 @@ def _svc(request: AuthenticatedRequest) -> SalaryService:
     return SalaryService(request.user_id, request.tz)
 
 
-def _get_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
-    """Fetch active, non-dormant accounts for the form dropdowns."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT id, name, currency
-               FROM accounts
-               WHERE user_id = %s AND is_dormant = false
-               ORDER BY display_order, name""",
-            [request.user_id],
-        )
-        return [
-            {"id": str(row[0]), "name": row[1], "currency": row[2]}
-            for row in cursor.fetchall()
-        ]
-
-
 @general_rate
 @require_http_methods(["GET"])
 def salary_page(request: AuthenticatedRequest) -> HttpResponse:
@@ -58,7 +41,7 @@ def salary_page(request: AuthenticatedRequest) -> HttpResponse:
     Port of Go's PageHandler.Salary (pages.go:1766).
     """
     logger.info("page viewed: salary, user=%s", request.user_email)
-    accounts = _get_accounts(request)
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
     today = datetime.now(request.tz).date()
 
     return render(
@@ -111,7 +94,7 @@ def salary_step3(request: AuthenticatedRequest) -> HttpResponse:
     salary_egp = salary_usd * exchange_rate
 
     # Filter to EGP accounts only for allocation targets
-    accounts = _get_accounts(request)
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
     egp_accounts = [a for a in accounts if a["currency"] == "EGP"]
 
     egp_account_id = request.POST.get("egp_account_id", "")

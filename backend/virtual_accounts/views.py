@@ -18,6 +18,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
+from accounts.services import AccountService
 from core.htmx import htmx_redirect
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
@@ -30,31 +31,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> VirtualAccountService:
     """Create a VirtualAccountService for the authenticated user."""
     return VirtualAccountService(request.user_id)
-
-
-def _get_bank_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
-    """Fetch all active bank accounts for the user (for form dropdowns).
-
-    Same pattern as people/views.py:_get_accounts().
-    """
-    from django.db import connection
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT id, name, currency, current_balance
-               FROM accounts WHERE user_id = %s AND is_dormant = false
-               ORDER BY display_order, name""",
-            [request.user_id],
-        )
-        return [
-            {
-                "id": str(row[0]),
-                "name": row[1],
-                "currency": row[2],
-                "current_balance": float(row[3]),
-            }
-            for row in cursor.fetchall()
-        ]
 
 
 def _parse_positive_float(value: str) -> float | None:
@@ -79,7 +55,9 @@ def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
     logger.info("page viewed: virtual-accounts, user=%s", request.user_email)
     svc = _svc(request)
     accounts = svc.get_all()
-    bank_accounts = _get_bank_accounts(request)
+    bank_accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
+        include_balance=True
+    )
 
     # Build lookup maps for over-allocation warnings
     account_balances: dict[str, float] = {}
@@ -192,7 +170,9 @@ def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
     total_va_balance = 0.0
 
     if va["account_id"]:
-        bank_accounts = _get_bank_accounts(request)
+        bank_accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
+            include_balance=True
+        )
         for ba in bank_accounts:
             if ba["id"] == va["account_id"]:
                 linked_account = ba
@@ -335,7 +315,9 @@ def virtual_account_edit_form(
     if not va:
         return HttpResponse("Virtual account not found", status=404)
 
-    bank_accounts = _get_bank_accounts(request)
+    bank_accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
+        include_balance=True
+    )
     return render(
         request,
         "virtual_accounts/_edit_form.html",

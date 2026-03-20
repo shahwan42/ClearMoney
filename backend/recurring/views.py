@@ -20,6 +20,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
+from accounts.services import AccountService
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from recurring.services import RecurringService
@@ -30,25 +31,6 @@ logger = logging.getLogger(__name__)
 def _svc(request: AuthenticatedRequest) -> RecurringService:
     """Create a RecurringService for the authenticated user."""
     return RecurringService(request.user_id, request.tz)
-
-
-def _get_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
-    """Fetch active bank accounts for the form dropdown.
-
-    Same pattern as virtual_accounts/views.py:_get_bank_accounts().
-    """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT id, name, currency
-               FROM accounts
-               WHERE user_id = %s AND is_dormant = false
-               ORDER BY display_order, name""",
-            [request.user_id],
-        )
-        return [
-            {"id": str(row[0]), "name": row[1], "currency": row[2]}
-            for row in cursor.fetchall()
-        ]
 
 
 def _get_categories(request: AuthenticatedRequest) -> list[dict[str, Any]]:
@@ -119,7 +101,7 @@ def recurring_page(request: AuthenticatedRequest) -> HttpResponse:
     rule_views = [svc.rule_to_view(r) for r in rules]
     pending_views = [svc.rule_to_view(r) for r in pending]
 
-    accounts = _get_accounts(request)
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
     categories = _get_categories(request)
 
     return render(

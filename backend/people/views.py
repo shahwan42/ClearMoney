@@ -8,13 +8,13 @@ Like Laravel's PersonController — handles both HTML (HTMX) and JSON endpoints.
 """
 
 import logging
-from typing import Any
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 
+from accounts.services import AccountService
 from core.htmx import error_response
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
@@ -29,28 +29,6 @@ def _svc(request: AuthenticatedRequest) -> PersonService:
     return PersonService(request.user_id, request.tz)
 
 
-def _get_accounts(request: AuthenticatedRequest) -> list[dict[str, Any]]:
-    """Fetch all accounts for the user (for form dropdowns)."""
-    from django.db import connection
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT id, name, currency, current_balance
-               FROM accounts WHERE user_id = %s AND is_dormant = false
-               ORDER BY display_order, name""",
-            [request.user_id],
-        )
-        return [
-            {
-                "id": str(row[0]),
-                "name": row[1],
-                "currency": row[2],
-                "current_balance": float(row[3]),
-            }
-            for row in cursor.fetchall()
-        ]
-
-
 # ---------------------------------------------------------------------------
 # Helper — render people list partial (shared by add/loan/repay)
 # ---------------------------------------------------------------------------
@@ -63,7 +41,9 @@ def _render_people_list(request: AuthenticatedRequest) -> HttpResponse:
     """
     svc = _svc(request)
     persons = svc.get_all()
-    accounts = _get_accounts(request)
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
+        include_balance=True
+    )
 
     if not persons:
         return HttpResponse(
@@ -99,7 +79,9 @@ def people_page(request: AuthenticatedRequest) -> HttpResponse:
     logger.info("page viewed: people, user=%s", request.user_email)
     svc = _svc(request)
     persons = svc.get_all()
-    accounts = _get_accounts(request)
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
+        include_balance=True
+    )
 
     cards = [{"person": p, "accounts": accounts} for p in persons]
 
@@ -146,7 +128,9 @@ def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse
     if not summary:
         return HttpResponse("person not found", status=404)
 
-    accounts = _get_accounts(request)
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
+        include_balance=True
+    )
 
     return render(
         request,

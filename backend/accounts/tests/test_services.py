@@ -1,13 +1,18 @@
 """
-Tests for core/billing.py — billing cycle date math and utilization.
+Tests for accounts services — billing cycle math + AccountService.
 
-Pure function tests — no database required.
+Billing tests are pure (no DB). AccountService tests need PostgreSQL.
 """
 
+import uuid
 from datetime import date
+from zoneinfo import ZoneInfo
 
 import pytest
+from django.db import connection
 
+from accounts.services import AccountService
+from conftest import SessionFactory, UserFactory
 from core.billing import (
     compute_due_date,
     get_billing_cycle_info,
@@ -123,3 +128,75 @@ class TestInterestFreeRemaining:
         remaining, urgent = interest_free_remaining(date(2026, 3, 15), date(2026, 5, 4))
         assert remaining == 5
         assert urgent is True
+
+
+# ---------------------------------------------------------------------------
+# AccountService.get_for_dropdown — needs real DB
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def dropdown_data(db):
+    """User with institution + 2 active accounts + 1 dormant account."""
+    user = UserFactory()
+    SessionFactory(user=user)
+    user_id = str(user.id)
+    inst_id = str(uuid.uuid4())
+    active_id = str(uuid.uuid4())
+    dormant_id = str(uuid.uuid4())
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
+            [inst_id, user_id, "Bank"],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance)"
+            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, 5000, 5000)",
+            [active_id, user_id, inst_id, "Active Savings"],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance, is_dormant)"
+            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, 0, 0, true)",
+            [dormant_id, user_id, inst_id, "Dormant"],
+        )
+
+    yield {"user_id": user_id, "active_id": active_id, "dormant_id": dormant_id}
+
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
+    from core.models import Session, User
+
+    Session.objects.filter(user_id=user_id).delete()
+    User.objects.filter(id=user_id).delete()
+
+
+class TestGetForDropdown:
+    """AccountService.get_for_dropdown returns lightweight account dicts."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_excludes_dormant(self, dropdown_data: dict) -> None:
+        svc = AccountService(dropdown_data["user_id"], self.tz)
+        accounts = svc.get_for_dropdown()
+        ids = [a["id"] for a in accounts]
+        assert dropdown_data["active_id"] in ids
+        assert dropdown_data["dormant_id"] not in ids
+
+    def test_without_balance(self, dropdown_data: dict) -> None:
+        svc = AccountService(dropdown_data["user_id"], self.tz)
+        accounts = svc.get_for_dropdown()
+        assert len(accounts) >= 1
+        acc = accounts[0]
+        assert "id" in acc
+        assert "name" in acc
+        assert "currency" in acc
+        assert "current_balance" not in acc
+
+    def test_with_balance(self, dropdown_data: dict) -> None:
+        svc = AccountService(dropdown_data["user_id"], self.tz)
+        accounts = svc.get_for_dropdown(include_balance=True)
+        acc = accounts[0]
+        assert "current_balance" in acc
+        assert isinstance(acc["current_balance"], float)

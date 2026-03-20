@@ -247,6 +247,37 @@ class AccountService:
             )
             return [self._row_to_dict(row) for row in cursor.fetchall()]
 
+    def get_for_dropdown(
+        self, *, include_balance: bool = False
+    ) -> list[dict[str, Any]]:
+        """Active (non-dormant) accounts for form dropdowns.
+
+        Returns lightweight dicts with id, name, currency (and optionally
+        current_balance). Much cheaper than get_all() for dropdown selects.
+        """
+        if include_balance:
+            sql = """SELECT id, name, currency, current_balance
+                     FROM accounts WHERE user_id = %s AND is_dormant = false
+                     ORDER BY display_order, name"""
+        else:
+            sql = """SELECT id, name, currency
+                     FROM accounts WHERE user_id = %s AND is_dormant = false
+                     ORDER BY display_order, name"""
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [self.user_id])
+            rows = cursor.fetchall()
+        if include_balance:
+            return [
+                {
+                    "id": str(r[0]),
+                    "name": r[1],
+                    "currency": r[2],
+                    "current_balance": float(r[3]),
+                }
+                for r in rows
+            ]
+        return [{"id": str(r[0]), "name": r[1], "currency": r[2]} for r in rows]
+
     def get_by_id(self, account_id: str) -> dict[str, Any] | None:
         """Single account by ID. Returns None if not found."""
         with connection.cursor() as cursor:
