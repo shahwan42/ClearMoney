@@ -72,6 +72,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
     "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from shared sessions table
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",  # X-Frame-Options: DENY
     "core.middleware.ExceptionLoggingMiddleware",  # Log unhandled 500s with request context
     "core.middleware.TimezoneMiddleware",  # Sets request.tz from APP_TIMEZONE env var
 ]
@@ -143,6 +144,23 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --- Security Headers ---
+# Production hardening — Caddy handles TLS termination, Django adds defense-in-depth headers.
+
+SECURE_CONTENT_TYPE_NOSNIFF = True  # X-Content-Type-Options: nosniff
+X_FRAME_OPTIONS = "DENY"  # Clickjacking protection
+
+if ENV == "production":
+    SECURE_HSTS_SECONDS = 31_536_000  # 1 year HSTS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = (
+        "HTTP_X_FORWARDED_PROTO",
+        "https",
+    )  # Trust Caddy's header
+    SESSION_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = False  # Caddy handles TLS, Django doesn't need to redirect
 
 # --- CSRF ---
 # Exempt for now since Go handles CSRF for shared forms.
