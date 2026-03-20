@@ -7,13 +7,12 @@
 
 **This application is live in production with real user data.** Every change MUST be backward-compatible unless the user explicitly states otherwise. This means:
 
-- **Database migrations**: Must be additive only — NO dropping columns, renaming tables, or altering column types that break existing data. Use multi-step migrations (add new → migrate data → drop old) if schema changes are needed.
+- **Database migrations**: Additive only — NO dropping columns, renaming tables, or altering column types that break existing data. Use multi-step migrations (add new → migrate data → drop old) if schema changes are needed.
 - **API/Route changes**: Do NOT remove or rename existing endpoints. Add new ones instead.
-- **Template changes**: Ensure existing functionality is preserved. Test that all current flows still work.
 - **Config/Environment**: Do NOT remove or rename existing env vars. Add new ones with sensible defaults.
 - **Dependencies**: Do NOT remove or upgrade dependencies with breaking changes without explicit approval.
-- **Data integrity**: Never run destructive operations (DELETE, TRUNCATE, DROP) against production data. All data transformations must be reversible.
-- **Default behavior**: If a change could alter existing behavior, it must default to the current behavior unless the user opts in.
+- **Data integrity**: Never run destructive operations (DELETE, TRUNCATE, DROP) against production data.
+- **Default behavior**: Changes that alter existing behavior must default to the current behavior unless the user opts in.
 
 When in doubt, ask before making a change that could affect production.
 
@@ -21,6 +20,7 @@ When in doubt, ask before making a change that could affect production.
 
 - **Name**: Ahmed
 - **Background**: PHP Laravel, Python Django, HTMX, PostgreSQL
+- **Toolchain**: `uv` for Python package management, `make` for task shortcuts
 - **Preferences**: Use Laravel/Django analogies when explaining concepts. Keep comments descriptive but not verbose. Follow DRY principles.
 
 ## Quick Start
@@ -28,8 +28,8 @@ When in doubt, ask before making a change that could affect production.
 ```bash
 docker compose up -d          # Start PostgreSQL (port 5433) + Django app + cron
 make run                      # Start Django dev server on :8000
-make test                     # Django tests (needs running DB)
-make lint                     # Run ruff + mypy
+make test                     # Django tests (needs running DB) — uses uv run pytest
+make lint                     # Run ruff + mypy — uses uv run
 make test-e2e                 # Playwright browser tests
 make reconcile                # Check balance consistency
 make makemigrations           # Generate Django migrations
@@ -69,7 +69,7 @@ e2e/                      # Playwright end-to-end tests
 ```text
 HTTP Request → Caddy (HTTPS) → Django (gunicorn)
   → WhiteNoiseMiddleware (static files)
-  → GoSessionAuthMiddleware (session cookie → user_id)
+  → GoSessionAuthMiddleware (session cookie → user_id)  # legacy name from Go migration
   → View → raw SQL / ORM → PostgreSQL
   → Template → HTML Response
 ```
@@ -94,80 +94,53 @@ HTTP Request → Caddy (HTTPS) → Django (gunicorn)
 
 ## Testing
 
-- **Framework**: pytest via `pytest-django` (not `manage.py test`)
-- **Plugins**: `pytest-mock` (mocker fixture), `pytest-xdist` (parallel runs with `-n auto`), `pytest-cov` (coverage), `factory_boy` (model factories like Laravel model factories)
-- **Run**: `make test` or `cd backend && uv run pytest`
+- **Framework**: pytest via `pytest-django` (not `manage.py test`) — run with `uv run pytest`
+- **Plugins**: `pytest-mock` (mocker fixture), `pytest-xdist` (parallel with `-n auto`), `pytest-cov` (coverage), `factory_boy` (model factories like Laravel model factories)
 - **Real DB**: Tests run against the real PostgreSQL schema (`--reuse-db` from pytest-django)
-- **Fixtures**: Use `factory_boy` factories defined in `tests/factories.py` — like Laravel's `UserFactory::create()`
+- **Fixtures**: `factory_boy` factories in `tests/factories.py`; `conftest.py` provides `auth_user`, `auth_cookie`, `auth_client`
 - **Config**: `backend/pyproject.toml` sets `DJANGO_SETTINGS_MODULE` and `--reuse-db`
 - **E2E**: Playwright browser tests in `e2e/` — `make test-e2e`
 
-## General Rules
-
-- **After completing a todo list**, always run the relevant test suites and do a code review before declaring the task done:
-  - `make test` (Django tests, requires DB)
-  - `make lint` (ruff + mypy)
-  - **Code review**: review all changed files for bugs, edge cases, and test gaps — fix issues before declaring done
-
 ## Coding Conventions
+
+**After completing a task**, always run tests and do a code review before declaring done:
+
+- `make test` (Django unit tests)
+- `make lint` (ruff + mypy — zero errors required)
+- Code review: check all changed files for bugs, edge cases, test gaps
 
 ### Django Style
 
-- **Prefer `pyproject.toml`** for all Python tool configuration (pytest, coverage, mypy, ruff, etc.) over separate config files.
+- **Prefer `pyproject.toml`** for all Python tool configuration (pytest, coverage, mypy, ruff, etc.).
 - **Always set `db_table`** in every model's `Meta` class. All models live in `core/models.py`.
-- **Write clean, Pythonic code** — use list/dict comprehensions, f-strings, context managers (`with`), and idiomatic patterns. Follow PEP 8.
-- **Always add type annotations** to all Python code. Every function must have parameter types and a return type. Use `AuthenticatedRequest` (from `core.types`) instead of `HttpRequest` in views that access `request.user_id` / `request.user_email`. Run `uv run mypy .` from `backend/` to verify — zero errors required.
-- **Use pytest** (via `pytest-django`) as the testing framework. Plugins: `pytest-mock`, `pytest-xdist`, `pytest-cov`, `factory_boy`.
-- **Document on every level**: module-level docstring → class-level docstring for non-obvious classes → inline comments only where the logic isn't self-evident.
+- **Write clean, Pythonic code** — list/dict comprehensions, f-strings, context managers, PEP 8.
+- **Always add type annotations** — every function needs parameter types and return type. Use `AuthenticatedRequest` (from `core.types`) instead of `HttpRequest` in views — it adds `user_id: str`, `user_email: str`, and `tz: zoneinfo.ZoneInfo`. Run `uv run mypy .` from `backend/` to verify — zero errors required.
+- **Document on every level**: module-level docstring → class-level for non-obvious classes → inline comments only where logic isn't self-evident.
 
 ### Commit Message Convention
 
-Use conventional commits: `type: concise description`
+Use conventional commits: `type: concise description` (under ~72 chars)
 
-- `feat:` new feature — `fix:` bug fix — `refactor:` code restructure — `docs:` documentation
-- `chore:` tooling/config — `test:` test additions — keep message under ~72 chars
+- `feat:` new feature — `fix:` bug fix — `refactor:` code restructure — `docs:` documentation — `chore:` tooling/config — `test:` test additions
 
 ### Adding a New Feature (TDD: RED → GREEN → Refactor)
 
-Follow strict TDD — write failing tests FIRST, then implement just enough code to make them pass, then refactor.
+Follow strict TDD — write failing tests FIRST, then implement just enough to pass, then refactor. **Never skip RED**: always run the test and confirm it fails before writing implementation.
 
-#### Phase 1: Schema & Models
-
-1. **Migration**: Add/modify models in `core/models.py`, run `make makemigrations`, review generated migration
-2. **Apply**: `make migrate`
-
-#### Phase 2: Service (RED → GREEN)
-
-1. **Write service tests FIRST**: Create `<app>/tests/test_services.py` — tests should fail (RED)
-2. **Implement service**: Add `<app>/services.py` — make the tests pass (GREEN)
-
-#### Phase 3: View & Templates (RED → GREEN)
-
-1. **Write view tests FIRST**: Create `<app>/tests/test_views.py` — tests should fail (RED)
-2. **Implement view**: Add view in `<app>/views.py`, URL in `<app>/urls.py`, templates in `<app>/templates/`
-
-#### Phase 4: E2E & Docs
-
-1. **E2E tests**: Write Playwright browser tests in `e2e/tests/`
-2. **Documentation**: Add or update feature doc in `docs/features/`
-
-#### TDD Rules
-
-- **Never skip RED**: Always run the test and confirm it fails before writing implementation code.
-- **Minimal GREEN**: Write only enough code to pass the failing test.
-- **Refactor after GREEN**: Clean up only after tests are passing.
+1. **Schema & Models**: Add/modify models in `core/models.py` → `make makemigrations` → review migration → `make migrate`
+2. **Service (RED → GREEN)**: Write failing tests in `<app>/tests/test_services.py` first, then implement `<app>/services.py`
+3. **View & Templates (RED → GREEN)**: Write failing tests in `<app>/tests/test_views.py` first, then implement view, URL, and templates
+4. **E2E & Docs**: Write Playwright tests in `e2e/tests/`; add/update docs in `docs/features/`
 
 ### Feature Delivery Checklist
 
 1. **Run tests** — `make test`
-2. **Run e2e tests** — `make test-e2e`
-3. **Run linter** — `make lint`
-4. **Code review** — review all changed files for bugs, edge cases, test gaps
-5. **Update documentation** — docs/features/ if applicable
-6. **Restart the app** — `make run` so the user can try the feature at `http://0.0.0.0:8000`
-7. **Show manual test steps** — list the exact UI steps
-8. **Wait for approval** — do not proceed until confirmed
-9. **Ask to commit** — once approved
+2. **Run e2e + lint** — `make test-e2e && make lint`
+3. **Code review** — check all changed files for bugs, edge cases, test gaps
+4. **Update documentation** — `docs/features/` if applicable
+5. **Restart the app** — `make run` so the user can try it at `http://0.0.0.0:8000`
+6. **Show manual test steps** — list the exact UI steps
+7. **Ask to commit** — once approved
 
 ### Common Pitfalls
 
@@ -178,50 +151,17 @@ Follow strict TDD — write failing tests FIRST, then implement just enough code
 
 ### ARIA Accessibility Standards
 
-All new and modified templates/JS MUST follow these accessibility rules:
+All new and modified templates/JS MUST follow these rules:
 
-#### Interactive Components
-
-- **Bottom sheets/modals**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to title, focus trap on open, restore focus on close
-- **Dropdown menus**: `aria-haspopup="menu"` and `aria-expanded` on trigger, `role="menu"` on container, `role="menuitem"` on items, arrow key navigation
-- **Toggle buttons** (e.g., dark mode): `aria-pressed="true|false"` or `role="switch"` with `aria-checked`
-- **Tabs/navigation**: `aria-current="page"` on active item
-
-#### HTMX Dynamic Content
-
-- Wrap HTMX swap targets with `aria-live="polite"` for non-urgent updates (form results, list changes)
-- Use `aria-live="assertive"` for errors and alerts
-- Add `aria-busy="true"` during loading, remove when complete
-- Manage focus after content swaps (e.g., focus first element in new content)
-
-#### Forms
-
-- Every `<input>`/`<select>` must have an associated `<label for="">` or `aria-label`
-- Error messages: `role="alert"` and linked via `aria-describedby` on the input
-- Invalid fields: `aria-invalid="true"` when validation fails
-- Radio groups: wrap in `<fieldset>` with `<legend>`
-
-#### Buttons & Links
-
-- Icon-only buttons MUST have `aria-label` (not just `title`)
-- Links that open in new tabs: indicate with `aria-label` or visible text
-
-#### Charts & Data Visualization
-
-- SVG charts: add `<title>` and `<desc>` elements, `role="img"`, `aria-label`
-- CSS-only charts (donut, bar): provide `aria-label` with data summary or a visually-hidden data table
-
-#### Touch Gestures
-
-- Swipe-to-delete, pull-to-refresh: always provide a keyboard/button alternative
-- Never make touch the only way to trigger an action
-
-#### Page Structure
-
-- `<html lang="en">`
-- Skip-to-content link as first focusable element
-- Use semantic landmarks: `<main>`, `<nav aria-label="...">`, `<header>`, `<footer>`
-- Notification/toast container: `aria-live="polite"` and `aria-atomic="true"`
+- **Dialogs/modals**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` → title, focus trap on open, restore focus on close
+- **Dropdowns**: `aria-haspopup="menu"` + `aria-expanded` on trigger; `role="menu"` on container; `role="menuitem"` on items; arrow key navigation
+- **Toggles**: `aria-pressed` or `role="switch"` + `aria-checked`; active nav items: `aria-current="page"`
+- **HTMX targets**: `aria-live="polite"` for updates, `"assertive"` for errors; `aria-busy="true"` during loading
+- **Forms**: every input needs `<label for="">` or `aria-label`; errors use `role="alert"` + `aria-describedby`; invalid fields: `aria-invalid="true"`; radio groups: `<fieldset>` + `<legend>`
+- **Icon-only buttons**: must have `aria-label`
+- **CSS charts**: `aria-label` with data summary or visually-hidden data table; SVG charts: `<title>`, `<desc>`, `role="img"`
+- **Touch gestures** (swipe-to-delete, pull-to-refresh): always provide a keyboard/button alternative
+- **Page structure**: `<html lang="en">`, skip-to-content link, semantic landmarks (`<main>`, `<nav aria-label="...">`, etc.), toast container: `aria-live="polite"` + `aria-atomic="true"`
 
 ### Startup Sequence (Background Jobs)
 
@@ -245,12 +185,14 @@ All new and modified templates/JS MUST follow these accessibility rules:
 | `DJANGO_SECRET_KEY` | (insecure default) | Django secret key (must set in production) |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,0.0.0.0,127.0.0.1` | Comma-separated allowed hosts |
 
-## Dependencies (backend/pyproject.toml)
+## Dependencies
 
-- `Django==6.0.3` — Web framework
-- `psycopg[binary]==3.2.6` — PostgreSQL driver (psycopg3)
-- `gunicorn==23.0.0` — Production WSGI server
-- `django-htmx==1.27.0` — HTMX integration (request.htmx, HttpResponseClientRedirect)
-- `dj-database-url==3.1.0` — DATABASE_URL parsing
-- `django-ratelimit==4.1.0` — Rate limiting decorators
-- `whitenoise==6.12.0` — Static file serving in production
+See `backend/pyproject.toml` for pinned versions.
+
+- `Django` — Web framework
+- `psycopg[binary]` — PostgreSQL driver (psycopg3)
+- `gunicorn` — Production WSGI server
+- `django-htmx` — HTMX integration (`request.htmx`, `HttpResponseClientRedirect`)
+- `dj-database-url` — `DATABASE_URL` parsing
+- `django-ratelimit` — Rate limiting decorators
+- `whitenoise` — Static file serving in production
