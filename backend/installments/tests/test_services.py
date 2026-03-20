@@ -1,9 +1,9 @@
 """
 Installment service tests — CRUD + payment recording for installment plans.
 
-Port of Go's internal/service/installment_test.go. Tests run against the real
-database with --reuse-db (Go owns schema). Verifies create, auto-computed
-monthly amount, record payment (with transaction creation), and delete.
+Tests run against the real database with --reuse-db.
+Verifies create, auto-computed monthly amount, record payment (with transaction
+creation), and delete.
 """
 
 from typing import Any

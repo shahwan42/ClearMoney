@@ -1,7 +1,7 @@
 """
 Settings app — user settings page and CSV transaction export.
 
-Port of Go's PageHandler.Settings() and ExportTransactions(). Serves:
+Serves:
 - GET /settings — dark mode, export, push notifications, quick links, logout
 - GET /export/transactions — CSV file download with date range filter
 

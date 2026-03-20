@@ -1,7 +1,6 @@
 """
 Accounts & Institutions URL configuration.
 
-Port of Go's account/institution routes from router.go (lines 281-300).
 Handles all /accounts/* and /institutions/* HTML + HTMX routes.
 """
 

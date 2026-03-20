@@ -34,7 +34,6 @@ class TransferMixin:
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Create a same-currency transfer between two accounts.
 
-        Port of Go's TransactionService.CreateTransfer.
         6-step atomic: debit + credit + link + update source + update dest + commit.
         """
         if amount <= 0:
@@ -146,7 +145,6 @@ class TransferMixin:
     ) -> tuple[dict[str, Any], dict[str, Any], float]:
         """Create an InstaPay transfer with automatic fee.
 
-        Port of Go's TransactionService.CreateInstapayTransfer.
         Source loses amount + fee, dest gains amount.
         Returns (debit_tx, credit_tx, fee_amount).
         """
@@ -286,7 +284,6 @@ class TransferMixin:
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Create a cross-currency exchange between two accounts.
 
-        Port of Go's TransactionService.CreateExchange.
         Rate always stored as "EGP per 1 USD". When source=EGP, inverts
         before resolution and inverts back for storage/logging.
         """
@@ -439,7 +436,6 @@ class TransferMixin:
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Create a Fawry credit card cash-out.
 
-        Port of Go's TransactionService.CreateFawryCashout.
         CC charged amount+fee (expense), prepaid gets amount (income).
         """
         if amount <= 0:

@@ -14,22 +14,11 @@ A single person can have debts in both EGP and USD simultaneously — e.g., they
 
 ## Model
 
-**File:** `internal/models/person.go`
+**File:** `backend/core/models.py`
 
-```go
-type Person struct {
-    ID            string
-    Name          string
-    Note          *string   // nullable
-    NetBalance    float64   // legacy sum of both currencies (kept for backward compat)
-    NetBalanceEGP float64   // EGP-denominated debt balance
-    NetBalanceUSD float64   // USD-denominated debt balance
-    CreatedAt     time.Time
-    UpdatedAt     time.Time
-}
-```
+The `Person` model has `net_balance_egp` and `net_balance_usd` as `NUMERIC(15,2)` columns, plus a legacy `net_balance` (sum of both for backward compat).
 
-`NetBalanceEGP` and `NetBalanceUSD` are denormalized caches — updated atomically alongside transactions. The legacy `NetBalance` is kept in sync as the sum of both.
+`net_balance_egp` and `net_balance_usd` are denormalized caches — updated atomically alongside transactions. The legacy `net_balance` is kept in sync as the sum of both.
 
 ## Transaction Types for People
 
@@ -39,24 +28,9 @@ type Person struct {
 | `loan_in` | You borrow money | Account balance increases | Per-currency balance decreases |
 | `loan_repayment` | Someone repays | Auto-detected from per-currency balance | Moves toward zero |
 
-## Repository
-
-**File:** `internal/repository/person.go`
-
-| Method | Purpose |
-|--------|---------|
-| `Create(ctx, person)` | Insert person |
-| `GetByID(ctx, id)` | Single person |
-| `GetAll(ctx)` | All persons ordered by name |
-| `Update(ctx, person)` | Modify name and note |
-| `Delete(ctx, id)` | Remove person |
-| `UpdateNetBalanceTx(ctx, dbTx, id, delta, currency)` | **Atomic** per-currency balance update within DB transaction |
-
-`UpdateNetBalanceTx` updates the correct per-currency column (`net_balance_egp` or `net_balance_usd`) AND the legacy `net_balance` column, using SQL arithmetic: `col = col + $delta`.
-
 ## Service
 
-**File:** `internal/service/person.go`
+**File:** `backend/people/services.py`
 
 ### RecordLoan
 
@@ -80,37 +54,17 @@ Computes a comprehensive debt summary:
 - Calculates per-currency repayment progress percentage
 - **Projected payoff date:** uses linear model (average repayment rate x remaining) with at least 2 repayments required
 
-### CurrencyDebt Struct
+### CurrencyDebt
 
-```go
-type CurrencyDebt struct {
-    Currency      models.Currency
-    TotalLent     float64
-    TotalBorrowed float64
-    TotalRepaid   float64
-    NetBalance    float64
-    ProgressPct   float64 // 0-100
-}
-```
+Per-currency breakdown returned by `get_debt_summary`: currency, total_lent, total_borrowed, total_repaid, net_balance, progress_pct (0–100).
 
-### DebtSummary Struct
+### DebtSummary
 
-```go
-type DebtSummary struct {
-    Person          models.Person
-    Transactions    []models.Transaction
-    ByCurrency      []CurrencyDebt   // per-currency breakdown (EGP first, then USD)
-    TotalLent       float64          // aggregate across currencies
-    TotalBorrowed   float64
-    TotalRepaid     float64
-    ProgressPct     float64          // 0-100 aggregate
-    ProjectedPayoff time.Time
-}
-```
+Comprehensive summary returned by `get_debt_summary`: person, transactions list, by_currency (list of CurrencyDebt, EGP first then USD), aggregate totals (total_lent, total_borrowed, total_repaid, progress_pct), and projected_payoff date.
 
-## Handler
+## Views
 
-**File:** `internal/handler/pages.go`
+**File:** `backend/people/views.py`
 
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
@@ -123,7 +77,7 @@ type DebtSummary struct {
 
 ### HTMX Pattern
 
-`PeopleAdd`, `PeopleLoan`, and `PeopleRepay` all call `renderPeopleList()` which re-renders the person cards and returns them as an HTMX partial. This updates the list inline without a full page reload.
+`people_add`, `people_loan`, and `people_repay` all re-render the person cards and return them as an HTMX partial. This updates the list inline without a full page reload.
 
 ## Templates
 
@@ -204,15 +158,13 @@ Dashboard shows per-currency people summary:
 
 | File | Purpose |
 |------|---------|
-| `internal/database/migrations/000024_add_person_currency_balances.up.sql` | Migration adding per-currency columns |
-| `internal/models/person.go` | Person struct with per-currency balances |
-| `internal/repository/person.go` | CRUD, currency-aware atomic balance update |
-| `internal/service/person.go` | RecordLoan, RecordRepayment, GetDebtSummary with CurrencyDebt |
-| `internal/handler/pages.go` | People handlers |
-| `internal/templates/pages/people.html` | People list page |
-| `internal/templates/pages/person-detail.html` | Person detail page with per-currency stats |
-| `internal/templates/partials/person-card.html` | Person card partial with per-currency balances |
-| `internal/templates/partials/people-summary.html` | Dashboard widget with per-currency breakdown |
+| `backend/core/models.py` | Person model with per-currency balance columns |
+| `backend/people/services.py` | CRUD, atomic balance update, RecordLoan, RecordRepayment, GetDebtSummary |
+| `backend/people/views.py` | People views |
+| `backend/templates/pages/people.html` | People list page |
+| `backend/templates/pages/person-detail.html` | Person detail page with per-currency stats |
+| `backend/templates/partials/person-card.html` | Person card partial with per-currency balances |
+| `backend/templates/partials/people-summary.html` | Dashboard widget with per-currency breakdown |
 
 ## For Newcomers
 

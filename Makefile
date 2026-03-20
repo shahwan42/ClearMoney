@@ -81,7 +81,7 @@ makemigrations:
 migrate:
 	cd backend && DATABASE_URL="$(DB_URL)" uv run manage.py migrate
 
-# Fake initial migrations (for DBs with pre-existing tables from Go).
+# Fake initial migrations (mark existing tables as migrated without running SQL).
 fake-initial:
 	cd backend && DATABASE_URL="$(DB_URL)" uv run manage.py migrate --fake-initial
 

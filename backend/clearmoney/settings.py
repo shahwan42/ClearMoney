@@ -43,7 +43,7 @@ ALLOWED_HOSTS = os.environ.get(
 ).split(",")
 
 # --- Apps ---
-# Minimal set — no admin/auth/sessions (Go owns those).
+# Minimal set — no admin/auth/sessions (custom magic link auth).
 # django-htmx provides HtmxMiddleware and HTMX response classes.
 
 INSTALLED_APPS = [
@@ -51,23 +51,23 @@ INSTALLED_APPS = [
     "django.contrib.postgres",  # PostgreSQL-specific fields (ArrayField, JSONField, etc.)
     "django_htmx",  # HTMX integration: request.htmx, HttpResponseClientRedirect
     "core",  # Shared: models, auth middleware, template tags
-    "settings_app",  # Migrated settings feature
-    "reports",  # Migrated reports feature
-    "dashboard",  # Migrated dashboard (home page)
-    "accounts",  # Migrated accounts & institutions
-    "transactions",  # Migrated transactions, transfers, exchanges
-    "people",  # Migrated people & loans
-    "budgets",  # Migrated budgets
-    "virtual_accounts",  # Migrated virtual accounts (envelope budgeting)
-    "recurring",  # Migrated recurring rules
-    "salary",  # Migrated salary distribution wizard
-    "investments",  # Migrated investment portfolio tracking
-    "installments",  # Migrated installment plan tracking
-    "exchange_rates",  # Migrated exchange rate history
-    "push",  # Migrated push notification API
-    "categories",  # Category JSON API (port of Go's CategoryHandler)
-    "jobs",  # Background jobs: management commands (port of Go's internal/jobs/)
-    "auth_app",  # Magic link authentication (port of Go's auth handler)
+    "settings_app",  # Settings page + CSV export
+    "reports",  # Monthly spending + income vs expense reports
+    "dashboard",  # Home page + HTMX partial loaders
+    "accounts",  # Accounts + institutions CRUD
+    "transactions",  # Transactions, transfers, exchanges, batch entry
+    "people",  # People + loan tracking
+    "budgets",  # Budget management
+    "virtual_accounts",  # Envelope budgeting
+    "recurring",  # Recurring rules + sync
+    "salary",  # Salary distribution wizard
+    "investments",  # Investment portfolio tracking
+    "installments",  # Installment/EMI plans
+    "exchange_rates",  # Exchange rate history
+    "push",  # Push notification API
+    "categories",  # Category JSON API
+    "jobs",  # Background jobs (management commands)
+    "auth_app",  # Magic link authentication
 ]
 
 # --- Middleware ---
@@ -77,11 +77,11 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "core.correlation.CorrelationIdMiddleware",  # Request correlation IDs for log tracing
-    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files in production (like Go's http.FileServer)
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files in production
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",  # CSRF protection — HTMX sends token via hx-headers
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
-    "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from shared sessions table
+    "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from the sessions table
     "django.middleware.clickjacking.XFrameOptionsMiddleware",  # X-Frame-Options: DENY
     "core.middleware.ExceptionLoggingMiddleware",  # Log unhandled 500s with request context
     "core.middleware.TimezoneMiddleware",  # Sets request.tz from APP_TIMEZONE env var
@@ -111,17 +111,16 @@ TEMPLATES = [
 WSGI_APPLICATION = "clearmoney.wsgi.application"
 
 # --- Database ---
-# Uses dj-database-url to parse DATABASE_URL (same env var the Go app uses).
+# Uses dj-database-url to parse DATABASE_URL.
 # Default points to local dev PostgreSQL on port 5433 (Colima, not 5432).
-# CONN_MAX_AGE=600 reuses connections for 10 minutes (like Go's sql.DB pool).
+# CONN_MAX_AGE=600 reuses connections for 10 minutes.
 
 DATABASES = {
     "default": dj_database_url.config(
         default="postgres://clearmoney:clearmoney@localhost:5433/clearmoney",
         conn_max_age=600,
-        # TEST NAME matches the main DB because Go owns the schema.
-        # Django tests run against the real DB with --keepdb flag.
-        # Without this, Django creates an empty test_clearmoney with no tables.
+        # TEST NAME matches the main DB — Django tests run against the real schema
+        # with --reuse-db. Without this, Django creates an empty test_clearmoney.
         test_options={"NAME": os.environ.get("TEST_DB_NAME", "clearmoney")},
     ),
 }
@@ -129,7 +128,6 @@ DATABASES = {
 # Django owns database migrations natively. All models live in core/models.py.
 
 # --- Timezone ---
-# Match Go app's APP_TIMEZONE for consistent date handling across both backends.
 
 TIME_ZONE = os.environ.get("APP_TIMEZONE", "Africa/Cairo")
 USE_I18N = True
@@ -177,14 +175,13 @@ if ENV == "production":
 # Regular forms include {% csrf_token %}. Login/register use @csrf_exempt (honeypot anti-bot instead).
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8080",
     "http://localhost:8000",
     "https://clearmoney.shahwan.me",
 ]
 
 # --- Rate Limiting ---
 # django-ratelimit decorators use this cache. "default" is Django's local-memory
-# cache — sufficient for single-server deployments. Like Go's token bucket middleware.
+# cache — sufficient for single-server deployments.
 # Disabled when DISABLE_RATE_LIMIT=true (e.g., e2e test runs).
 
 CACHES = {

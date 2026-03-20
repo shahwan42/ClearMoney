@@ -20,9 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class TransactionServiceBase:
-    """Port of Go's TransactionService + TransactionRepo.
-
-    Like Laravel's TransactionService — validates input, executes atomic SQL,
+    """Like Laravel's TransactionService — validates input, executes atomic SQL,
     logs mutations. Takes user_id and tz in __init__ (same as AccountService).
     """
 
@@ -35,7 +33,7 @@ class TransactionServiceBase:
     # -------------------------------------------------------------------
 
     def _balance_delta(self, tx_type: str, amount: float) -> float:
-        """Calculate signed balance impact. Port of Go's balanceDelta."""
+        """Calculate signed balance impact for a transaction type."""
         if tx_type == "expense":
             return -amount
         if tx_type == "income":
@@ -63,7 +61,7 @@ class TransactionServiceBase:
         }
 
     def _validate_basic(self, amount: float, account_id: str, tx_type: str) -> None:
-        """Validate basic transaction fields. Port of Go's validateBasic."""
+        """Validate basic transaction fields."""
         if amount <= 0:
             raise ValueError("Amount must be positive")
         if not account_id:
@@ -113,7 +111,6 @@ class TransactionServiceBase:
     def create(self, data: dict[str, Any]) -> tuple[dict[str, Any], float]:
         """Create a transaction and atomically update the account balance.
 
-        Port of Go's TransactionService.Create.
         CRITICAL: Currency is overridden from the account record.
         Returns (created_tx_dict, new_balance).
         """
@@ -332,8 +329,8 @@ class TransactionServiceBase:
     ) -> tuple[list[dict[str, Any]], bool]:
         """Fetch filtered transactions with account_name & running_balance.
 
-        Port of Go's GetFilteredEnriched. Running balance is computed on the
-        INNER query over ALL transactions, then filters applied on the OUTER query.
+        Running balance is computed on the INNER query over ALL transactions,
+        then filters applied on the OUTER query.
         Returns (transactions, has_more).
         """
         query = """
@@ -472,7 +469,6 @@ class TransactionServiceBase:
     def update(self, tx_id: str, data: dict[str, Any]) -> tuple[dict[str, Any], float]:
         """Update a transaction and recalculate balance delta.
 
-        Port of Go's TransactionService.Update.
         Balance adjustment = newDelta - oldDelta.
         """
         old = self.get_by_id(tx_id)
@@ -573,7 +569,6 @@ class TransactionServiceBase:
     def delete(self, tx_id: str) -> None:
         """Delete a transaction and reverse its balance impact.
 
-        Port of Go's TransactionService.Delete.
         For linked transactions (transfers/exchanges), deletes both legs.
         """
         tx = self.get_by_id(tx_id)

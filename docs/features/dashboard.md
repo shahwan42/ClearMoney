@@ -19,12 +19,12 @@ The dashboard is the home page of ClearMoney, aggregating data from 10+ sources 
 
 ## How Net Worth Is Calculated
 
-**File:** `internal/service/dashboard.go` — `GetDashboard()` (line ~289)
+**File:** `backend/dashboard/services/__init__.py`
 
 Net worth is the sum of `current_balance` across **all** accounts, regardless of type:
 
 ```
-NetWorth = SUM(account.CurrentBalance) for ALL accounts
+NetWorth = SUM(account.current_balance) for ALL accounts
 ```
 
 This includes credit cards, which have negative balances (representing debt), so they reduce net worth.
@@ -43,97 +43,78 @@ NetWorth:          62,000   (mixed currencies — raw sum)
 
 The dashboard also tracks per-currency breakdowns:
 
-- **EGPTotal** — sum of balances for all EGP accounts
-- **USDTotal** — sum of balances for all USD accounts
+- **egp_total** — sum of balances for all EGP accounts
+- **usd_total** — sum of balances for all USD accounts
 
-### Converted Net Worth (NetWorthEGP)
+### Converted Net Worth (net_worth_egp)
 
 For a single-number comparison, all balances are converted to EGP using the latest exchange rate:
 
 ```
-NetWorthEGP = EGPTotal + (USDTotal × ExchangeRate)
+net_worth_egp = egp_total + (usd_total × exchange_rate)
 ```
 
-If no exchange rate is available, `NetWorthEGP` is 0 (not calculated).
-
-**Example:**
-```
-EGPTotal:      80,000
-USDTotal:       2,000
-ExchangeRate:   50.0 (EGP per 1 USD)
-─────────────────────
-NetWorthEGP:  180,000
-```
+If no exchange rate is available, `net_worth_egp` is 0 (not calculated).
 
 ### Historical Net Worth (Sparkline)
 
-Daily snapshots (via `SnapshotService`) record `NetWorthEGP` and `NetWorthRaw`. The dashboard displays a 30-day sparkline using the last 30 snapshots.
+Daily snapshots record `net_worth_egp` and `net_worth_raw`. The dashboard displays a 30-day sparkline using the last 30 snapshots.
 
 ## How Liquid Cash Is Calculated
 
-**File:** `internal/service/dashboard.go` — `GetDashboard()` (line ~289)
-
-Liquid cash (`CashTotal`) is the sum of balances for all **non-credit** accounts:
+`cash_total` is the sum of balances for all **non-credit** accounts:
 
 ```
-CashTotal = SUM(account.CurrentBalance) for accounts WHERE NOT IsCreditType()
+cash_total = SUM(current_balance) for accounts WHERE type NOT IN ('credit_card', 'credit_limit')
 ```
 
 ### Which Account Types Are Included
 
-| Account Type | In CashTotal? | In CreditUsed? |
-|-------------|---------------|-----------------|
-| `savings`   | Yes           | No              |
-| `current`   | Yes           | No              |
-| `prepaid`   | Yes           | No              |
-| `cash`      | Yes           | No              |
-| `credit_card` | No         | Yes             |
-| `credit_limit` | No        | Yes             |
-
-The split is determined by `Account.IsCreditType()` in `internal/models/account.go`:
-
-```go
-func (a Account) IsCreditType() bool {
-    return a.Type == AccountTypeCreditCard || a.Type == AccountTypeCreditLimit
-}
-```
+| Account Type | In cash_total? | In credit_used? |
+|-------------|----------------|-----------------|
+| `savings`   | Yes            | No              |
+| `current`   | Yes            | No              |
+| `prepaid`   | Yes            | No              |
+| `cash`      | Yes            | No              |
+| `credit_card` | No           | Yes             |
+| `credit_limit` | No          | Yes             |
 
 ### Related Credit Metrics
 
 Credit accounts feed two separate metrics:
 
-- **CreditUsed** — sum of credit account balances (negative values representing outstanding debt)
-- **CreditAvail** — sum of available credit: `CreditLimit + CurrentBalance` per credit account
+- **credit_used** — sum of credit account balances (negative values representing outstanding debt)
+- **credit_avail** — sum of available credit: `credit_limit + current_balance` per credit account
 
 **Example:**
 ```
-Savings:        50,000 EGP  → CashTotal
-Current:        30,000 EGP  → CashTotal
-Cash:            5,000 EGP  → CashTotal
-CC (limit 100k): -20,000    → CreditUsed = -20,000, CreditAvail = 80,000
+Savings:        50,000 EGP  → cash_total
+Current:        30,000 EGP  → cash_total
+Cash:            5,000 EGP  → cash_total
+CC (limit 100k): -20,000    → credit_used = -20,000, credit_avail = 80,000
 ──────────────────────────
-CashTotal:      85,000
-CreditUsed:    -20,000
-CreditAvail:    80,000
-NetWorth:       65,000 (CashTotal + CreditUsed)
+cash_total:      85,000
+credit_used:    -20,000
+credit_avail:    80,000
+net_worth:       65,000 (cash_total + credit_used)
 ```
 
 ## How Spending Pace Is Calculated
 
-**File:** `internal/service/dashboard.go` — `computeSpendingComparison()` (line ~587)
+**File:** `backend/dashboard/services/__init__.py` — `_compute_spending_comparison()`
 
 Spending Pace answers: "How much of last month's spending have I already used up this month?"
 
 ### Formula
 
 ```
-Percentage = (TotalSpendingThisMonth / TotalSpendingLastMonth) × 100
+percentage = (total_spending_this_month / total_spending_last_month) × 100
 ```
 
 Spending is summed across **all currencies**, with USD converted to EGP using the latest exchange rate:
 
 ```
-TotalSpending = EGP expenses + (USD expenses × ExchangeRate)
+total_spending = EGP expenses + (USD expenses × exchange_rate)
 ```
 
 If no exchange rate is available, USD amounts are added at face value (better than ignoring them).
@@ -160,67 +141,31 @@ Day progress = 15 / 31 × 100 = 48%
 
 ### Status Colors
 
-The progress bar color indicates whether you're spending faster or slower than the calendar pace:
-
 | Status | Condition | Meaning |
 |--------|-----------|---------|
-| **Green** | `Percentage ≤ DayProgress` | On pace or under — spending sustainably |
-| **Amber** | `Percentage ≤ DayProgress + 10` | Slightly ahead — watch your spending |
-| **Red** | `Percentage > DayProgress + 10` | Overspending pace — will exceed last month |
-
-The template renders a progress bar with the spending percentage as the fill, and a vertical line marker showing the calendar day progress for visual comparison.
+| **Green** | `percentage ≤ day_progress` | On pace or under — spending sustainably |
+| **Amber** | `percentage ≤ day_progress + 10` | Slightly ahead — watch your spending |
+| **Red** | `percentage > day_progress + 10` | Overspending pace — will exceed last month |
 
 ### Edge Cases
 
-- **No expenses last month**: Percentage stays at 0% (can't divide by zero). The section still renders but shows "0% of last month spent".
-- **No expenses at all**: The "This Month vs Last" section doesn't render (empty `SpendingByCurrency`), but the Spending Pace section still renders since it's gated on `DaysTotal > 0`.
+- **No expenses last month**: Percentage stays at 0% (can't divide by zero). Section still renders showing "0% of last month spent".
+- **No expenses at all**: The "This Month vs Last" section doesn't render, but Spending Pace still renders since it's gated on `days_total > 0`.
 - **No exchange rate**: USD amounts are added without conversion (1:1 fallback).
-
-### SpendingVelocity Struct
-
-```go
-type SpendingVelocity struct {
-    Percentage   float64 // current month total / last month total × 100
-    DaysElapsed  int     // e.g., 15
-    DaysTotal    int     // e.g., 31
-    DaysLeft     int     // e.g., 16
-    DayProgress  float64 // e.g., 48.4%
-    Status       string  // "green", "amber", or "red"
-}
-```
 
 ## Architecture
 
 ### Data Flow
 
 ```
-Repositories (10+) → DashboardService.GetDashboard() → PageHandler.Home() → home.html template
+10+ queries → get_dashboard_data(user_id) → dashboard_page() view → home.html template
 ```
 
-### DashboardService
+### Service
 
-**File:** `internal/service/dashboard.go`
+**File:** `backend/dashboard/services/__init__.py` — `get_dashboard_data(user_id)`
 
-The `DashboardService` struct (line ~156) is the core aggregator. It has:
-
-- **3 required dependencies** (constructor-injected):
-  - `institutionRepo` — loads institutions and their accounts
-  - `accountRepo` — loads account balances
-  - `txRepo` — loads recent transactions
-
-- **8 optional dependencies** (setter-injected, nil-safe):
-  - `exchangeRateRepo` — USD/EGP conversion
-  - `personRepo` — people ledger (loans/debts)
-  - `investmentRepo` — portfolio total
-  - `streakSvc` — habit streak calculation
-  - `snapshotSvc` — historical net worth + per-account sparklines
-  - `virtualAccountSvc` — envelope virtual account balances
-  - `budgetSvc` — budget progress with spending
-  - `healthSvc` — account health constraint violations
-
-### Key Method: `GetDashboard(ctx) → DashboardData`
-
-Located at line ~224. This method:
+The function aggregates data from all sources:
 
 1. Loads all institutions and their accounts
 2. Computes net worth, cash/credit breakdown, USD conversion
@@ -231,80 +176,55 @@ Located at line ~224. This method:
 7. Loads recent transactions
 8. Loads 30-day net worth history (via snapshots) for sparkline
 9. Loads per-account 30-day balance histories for mini sparklines
-10. Calls `computeSpendingComparison()` for month-over-month data
+10. Calls `_compute_spending_comparison()` for month-over-month data
 11. Loads credit card summaries with utilization and due dates
 12. Loads virtual account balances
 13. Loads budgets with spending progress
 14. Checks account health warnings
 
-All optional data sources use nil-safe checks — if a service isn't wired, that section is simply empty.
+All optional data sources degrade gracefully — if data is missing, that section is simply empty.
 
-### DashboardData View Model
+## Views
 
-**File:** `internal/service/dashboard.go` (line ~47)
-
-The `DashboardData` struct has ~47 fields organized into sections:
-
-- **Net worth:** `NetWorth`, `NetWorthEGP`, `EGPTotal`, `USDTotal`, `ExchangeRate`, `USDInEGP`
-- **Breakdown:** `CashTotal`, `CreditUsed`, `CreditAvail`, `DebtTotal`
-- **Institutions:** `Institutions []InstitutionGroup` (with nested accounts)
-- **People:** `PeopleOwedToMe`, `PeopleIOwe`
-- **Investments:** `InvestmentTotal`
-- **Credit cards:** `DueSoonCards`, `CreditCards []CreditCardSummary`
-- **Streak:** `Streak StreakInfo`
-- **Recent tx:** `RecentTransactions`
-- **Trends:** `NetWorthHistory`, `NetWorthChange`, `SpendingByCurrency []CurrencySpending` (per-currency this/last month + top categories), `ThisMonthSpending`, `LastMonthSpending`, `SpendingChange`, `TopCategories` (legacy EGP-only fields)
-- **Velocity:** `SpendingVelocity` (pace indicator)
-- **Account sparklines:** `AccountSparklines map[string][]float64`
-- **Virtual accounts:** `VirtualAccounts`
-- **Budgets:** `Budgets []BudgetWithSpending`
-- **Health:** `HealthWarnings`
-
-## Handler
-
-**File:** `internal/handler/pages.go`
+**File:** `backend/dashboard/views.py`
 
 ### Routes
 
 | Route | Handler | Purpose |
 |-------|---------|---------|
-| `GET /` | `Home()` | Full dashboard page |
-| `GET /partials/recent-transactions` | `RecentTransactions()` | HTMX partial refresh |
-| `GET /partials/people-summary` | `PeopleSummary()` | HTMX partial refresh |
-
-### Home Handler (line ~367)
-
-Calls `dashboardSvc.GetDashboard(ctx)`, renders the `"home"` template with DashboardData as `.Data`. Shows an empty state if no data exists.
+| `GET /` | `dashboard_page()` | Full dashboard page |
+| `GET /partials/recent-transactions` | `recent_transactions()` | HTMX partial refresh |
+| `GET /partials/people-summary` | `people_summary()` | HTMX partial refresh |
 
 ## Templates
 
 ### Main Page
 
-**File:** `internal/templates/pages/home.html`
+**File:** `backend/dashboard/templates/dashboard/home.html`
 
 Structure (ordered by priority — actionable items first, reference data last):
 
 1. **Alerts** — due date warnings + account health warnings (time-sensitive, shown first)
-2. **Net Worth + Summary Cards** — per-currency totals, sparkline, trend, then 2×2 breakdown (cash/credit/debt) inside the same card
-3. **Month-over-Month Spending + Velocity** — comparison with top categories and spending pace bar merged in one card
-4. **Budget Progress** — progress bars by category (follows spending context)
+2. **Net Worth + Summary Cards** — per-currency totals, sparkline, trend, then 2×2 breakdown (cash/credit/debt)
+3. **Month-over-Month Spending + Velocity** — comparison with top categories and spending pace bar
+4. **Budget Progress** — progress bars by category
 5. **Credit Cards** — mini utilization rings with due dates
-6. **Virtual Accounts** — horizontally scrolling virtual account cards
+6. **Virtual Accounts** — horizontally scrolling cards
 7. **Accounts by Institution** — collapsible sections with mini sparklines
 8. **People Summary** — owed to me / I owe (hidden when all balances are zero)
 9. **Investment Portfolio** — total with link (hidden when zero)
-10. **Habit Streak** — consecutive days badge (motivational, near bottom)
+10. **Habit Streak** — consecutive days badge
 11. **Recent Transactions** — latest entries
 
 ### Partials Used
 
-| Partial | File | Purpose |
-|---------|------|---------|
-| `chart-sparkline` | `partials/chart-sparkline.html` | Inline SVG polyline sparkline |
-| `chart-trend` | `partials/chart-trend.html` | Arrow (▲/▼) with % change |
-| `due-date-warning` | `partials/due-date-warning.html` | Red CC due date alert |
-| `people-summary` | `partials/people-summary.html` | Owed to me / I owe box (per-currency) |
-| `recent-transactions` | `partials/recent-transactions.html` | Transaction feed list |
+| Partial | Purpose |
+|---------|---------|
+| `chart-sparkline` | Inline SVG polyline sparkline |
+| `chart-trend` | Arrow (▲/▼) with % change |
+| `due-date-warning` | Red CC due date alert |
+| `people-summary` | Owed to me / I owe box (per-currency) |
+| `recent-transactions` | Transaction feed list |
 
 ## Charts on Dashboard
 
@@ -319,55 +239,19 @@ All charts are CSS-only (no JavaScript charting libraries):
 | Budget progress bars | CSS `<div>` with computed width | Budget limit vs spending |
 | Virtual account progress | CSS `<div>` with computed width | Virtual account balance vs target |
 
-## Wiring (router.go)
-
-**File:** `internal/handler/router.go` (lines ~129-206)
-
-```go
-// Constructor with required deps
-dashboardSvc := service.NewDashboardService(institutionRepo, accountRepo, txRepo)
-
-// Setter injection for optional deps
-dashboardSvc.SetExchangeRateRepo(exchangeRateRepo)
-dashboardSvc.SetPersonRepo(personRepo)
-dashboardSvc.SetInvestmentRepo(investmentRepo)
-dashboardSvc.SetStreakService(streakSvc)
-dashboardSvc.SetSnapshotService(snapshotSvc)
-dashboardSvc.SetVirtualAccountService(virtualAccountSvc)
-dashboardSvc.SetBudgetService(budgetSvc)
-dashboardSvc.SetAccountHealthService(healthSvc)
-dashboardSvc.SetDB(db)
-```
-
-## SQL Queries
-
-The dashboard relies on:
-- Standard repository queries (GetAll, GetRecent, etc.)
-- Direct SQL for spending comparison (`computeSpendingComparison`)
-- Materialized views: `mv_monthly_category_totals`, `mv_daily_tx_counts`
-- Snapshot queries for historical net worth and per-account balances
-
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/service/dashboard.go` | DashboardService + DashboardData struct |
-| `internal/handler/pages.go` | Home, RecentTransactions, PeopleSummary handlers |
-| `internal/handler/router.go` | Service wiring and route registration |
-| `internal/templates/pages/home.html` | Main dashboard template |
-| `internal/templates/partials/chart-sparkline.html` | Sparkline SVG partial |
-| `internal/templates/partials/chart-trend.html` | Trend arrow partial |
-| `internal/templates/partials/recent-transactions.html` | Transaction feed |
-| `internal/templates/partials/people-summary.html` | People ledger |
-| `internal/templates/partials/due-date-warning.html` | CC due date alerts |
+| `backend/dashboard/services/__init__.py` | `get_dashboard_data()` aggregator |
+| `backend/dashboard/views.py` | `dashboard_page()`, `recent_transactions()`, `people_summary()` |
+| `backend/dashboard/templates/dashboard/home.html` | Main dashboard template |
 
 ## For Newcomers
 
 - The dashboard is **read-only** — it aggregates data, doesn't modify it.
-- All optional services degrade gracefully (nil-safe). If you remove a service, that section just won't render.
-- The setter injection pattern avoids growing the already-15-param PageHandler constructor.
 - HTMX partials (`/partials/recent-transactions`, `/partials/people-summary`) exist for post-action refreshes (e.g., after creating a transaction via quick-entry).
-- Template functions like `formatEGP`, `formatUSD`, `sparklinePoints`, `chartColor` are defined in `charts.go` and `templates.go`.
+- Template filters like `format_egp`, `format_usd`, `sparkline_points`, `chart_color` are in `core/templatetags/money.py`.
 
 ## Logging
 

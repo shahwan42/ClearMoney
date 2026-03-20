@@ -23,8 +23,7 @@ class HelperMixin:
     def batch_create(self, items: list[dict[str, Any]]) -> tuple[int, int]:
         """Create multiple transactions. Returns (created_count, failed_count).
 
-        Port of Go's batch handler logic. Each item is processed independently;
-        failures don't roll back successes.
+        Each item is processed independently; failures don't roll back successes.
         """
         created = 0
         failed = 0
@@ -44,7 +43,6 @@ class HelperMixin:
     def get_smart_defaults(self, tx_type: str = "expense") -> dict[str, Any]:
         """Compute smart defaults for the entry form.
 
-        Port of Go's TransactionService.GetSmartDefaults.
         Non-critical — returns empty defaults on error.
         """
         defaults: dict[str, Any] = {
@@ -97,10 +95,7 @@ class HelperMixin:
     # -------------------------------------------------------------------
 
     def suggest_category(self, note_keyword: str) -> str | None:
-        """Suggest a category based on note keyword frequency.
-
-        Port of Go's TransactionService.SuggestCategory.
-        """
+        """Suggest a category based on note keyword frequency."""
         if not note_keyword or not note_keyword.strip():
             return None
         with connection.cursor() as cursor:
@@ -306,8 +301,7 @@ class HelperMixin:
     def get_recent(self, limit: int = 15) -> list[dict[str, Any]]:
         """Bare transaction list (not enriched), for JSON API.
 
-        Port of Go's TransactionHandler.List — returns transactions ordered
-        by date DESC, created_at DESC.
+        Returns transactions ordered by date DESC, created_at DESC.
         """
         if limit <= 0:
             limit = 15

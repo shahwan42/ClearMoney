@@ -1,8 +1,7 @@
 """
 NotificationService tests — verifies notification generation logic.
 
-Port of Go's internal/service/notifications_test.go plus additional
-coverage for each notification trigger type. Uses pytest-mock to patch
+Coverage for each notification trigger type. Uses pytest-mock to patch
 DashboardService and RecurringService (unit tests, no DB needed).
 """
 

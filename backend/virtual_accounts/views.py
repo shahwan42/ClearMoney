@@ -1,7 +1,6 @@
 """
 Virtual account views — page handlers for /virtual-accounts/*.
 
-Port of Go's PageHandler virtual account methods (pages.go:2953–3200).
 Like Laravel's VirtualAccountController — handles the list page, detail page,
 CRUD operations, direct allocations, and HTMX edit form.
 
@@ -49,7 +48,6 @@ def _parse_positive_float(value: str) -> float | None:
 def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /virtual-accounts — list virtual accounts with create form.
 
-    Port of Go's PageHandler.VirtualAccounts (pages.go:2953).
     Computes over-allocation warnings when VA balances exceed linked account balances.
     """
     logger.info("page viewed: virtual-accounts, user=%s", request.user_email)
@@ -114,10 +112,7 @@ def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /virtual-accounts/add — create a new virtual account.
-
-    Port of Go's PageHandler.VirtualAccountAdd (pages.go:2997).
-    """
+    """POST /virtual-accounts/add — create a new virtual account."""
     svc = _svc(request)
     name = request.POST.get("name", "")
     target_amount = _parse_positive_float(request.POST.get("target_amount", ""))
@@ -151,7 +146,6 @@ def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
 def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """GET /virtual-accounts/{id} — detail page with allocations and history.
 
-    Port of Go's PageHandler.VirtualAccountDetail (pages.go:3023).
     Computes over-allocation warnings if VA is linked to a bank account.
     """
     logger.info("page viewed: virtual-account-detail, user=%s", request.user_email)
@@ -213,10 +207,7 @@ def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
 @general_rate
 @require_http_methods(["POST"])
 def virtual_account_archive(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
-    """POST /virtual-accounts/{id}/archive — archive (soft-delete) a VA.
-
-    Port of Go's PageHandler.VirtualAccountArchive (pages.go:3066).
-    """
+    """POST /virtual-accounts/{id}/archive — archive (soft-delete) a VA."""
     svc = _svc(request)
     if not svc.archive(str(va_id)):
         logger.warning(
@@ -239,7 +230,6 @@ def virtual_account_allocate(
 ) -> HttpResponse:
     """POST /virtual-accounts/{id}/allocate — direct allocation.
 
-    Port of Go's PageHandler.VirtualAccountAllocate (pages.go:3079).
     Contribution = positive amount, withdrawal = negative.
     """
     svc = _svc(request)
@@ -281,10 +271,7 @@ def virtual_account_allocate(
 def virtual_account_toggle_exclude(
     request: AuthenticatedRequest, va_id: UUID
 ) -> HttpResponse:
-    """POST /virtual-accounts/{id}/toggle-exclude — toggle net worth exclusion.
-
-    Port of Go's PageHandler.VirtualAccountToggleExclude (pages.go:3109).
-    """
+    """POST /virtual-accounts/{id}/toggle-exclude — toggle net worth exclusion."""
     svc = _svc(request)
     if not svc.toggle_exclude(str(va_id)):
         return HttpResponse("Virtual account not found", status=404)
@@ -303,7 +290,6 @@ def virtual_account_edit_form(
 ) -> HttpResponse:
     """GET /virtual-accounts/{id}/edit-form — edit form partial for bottom sheet.
 
-    Port of Go's PageHandler.VirtualAccountEditForm (pages.go:3128).
     Returns an HTML fragment (not a full page) for HTMX to swap into the sheet.
     """
     logger.info(
@@ -335,7 +321,6 @@ def virtual_account_edit_form(
 def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """POST /virtual-accounts/{id}/edit — update VA from edit bottom sheet.
 
-    Port of Go's PageHandler.VirtualAccountUpdate (pages.go:3153).
     Returns error HTML for HTMX swap on validation failure, or redirects on success.
     """
     svc = _svc(request)

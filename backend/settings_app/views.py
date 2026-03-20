@@ -1,10 +1,5 @@
 """
-Settings views — Django equivalents of Go's Settings and ExportTransactions handlers.
-
-Migrated from:
-- internal/handler/pages.go:2598 (Settings)
-- internal/handler/pages.go:2609 (ExportTransactions)
-- internal/service/export.go (ExportTransactionsCSV)
+Settings views — page handlers for /settings and /export/transactions.
 
 Like Laravel's SettingsController or Django's function-based views.
 """
@@ -31,7 +26,6 @@ def settings_page(request: AuthenticatedRequest) -> HttpResponse:
     GET /settings — shows dark mode toggle, CSV export form, push
     notifications toggle, quick links, and logout button.
 
-    Equivalent of Go's PageHandler.Settings() in pages.go:2598.
     No server data needed — all interactivity is client-side JS.
     """
     logger.info("page viewed: settings, user=%s", request.user_email)
@@ -44,9 +38,6 @@ def export_transactions(request: AuthenticatedRequest) -> HttpResponse:
     Export transactions as a CSV file download.
 
     GET /export/transactions?from=2026-01-01&to=2026-03-31
-
-    Equivalent of Go's PageHandler.ExportTransactions() in pages.go:2609
-    and ExportService.ExportTransactionsCSV() in export.go.
 
     The Content-Disposition header triggers a browser file download.
     Like Laravel's Response::download() or Django's StreamingHttpResponse.
@@ -69,7 +60,6 @@ def export_transactions(request: AuthenticatedRequest) -> HttpResponse:
         return HttpResponse("Invalid 'from' or 'to' date", status=400)
 
     # Query transactions in date range for this user
-    # Raw SQL matches Go's repository.GetByDateRange() query
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -83,14 +73,13 @@ def export_transactions(request: AuthenticatedRequest) -> HttpResponse:
         )
         rows = cursor.fetchall()
 
-    # Build CSV response — same columns as Go's ExportTransactionsCSV
+    # Build CSV response
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = (
         f"attachment; filename=transactions_{from_str}_{to_str}.csv"
     )
 
     writer = csv.writer(response)
-    # Header row matching Go's export.go
     writer.writerow(
         [
             "Date",

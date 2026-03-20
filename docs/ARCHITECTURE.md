@@ -2,89 +2,55 @@
 
 > Written for developers coming from **Laravel (PHP)** or **Django (Python)**.
 > Every concept is mapped to its equivalent in those frameworks.
->
-> **Migration in progress**: The backend is being incrementally migrated from Go to Django using the Strangler Fig pattern. Settings and Reports features are now served by Django (`backend/`). Both apps share the same PostgreSQL database and session cookie. Caddy routes specific paths to Django while Go handles everything else.
 
 ---
 
 ## 1. The Big Picture
 
-ClearMoney is a **server-rendered** personal finance app built with:
+ClearMoney is a **server-rendered** personal finance app. Django handles all routes.
 
-| Concern        | Go Stack                    | Laravel Equivalent          | Django Equivalent            |
-|----------------|-----------------------------|-----------------------------|------------------------------|
-| HTTP Router    | chi v5                     | `routes/web.php`            | `urls.py`                    |
-| Controllers    | `handler/*.go`              | `app/Http/Controllers/`     | `views.py`                   |
-| Business Logic | `service/*.go`              | `app/Services/`             | `services.py` (custom)       |
-| Database Layer | `repository/*.go`           | Eloquent Models (queries)   | Django ORM QuerySets         |
-| Data Structs   | `models/*.go`               | Eloquent Models (schema)    | `models.py` (fields)         |
-| Templates      | Go `html/template`          | Blade templates             | Django Templates (Jinja2)    |
-| Migrations     | golang-migrate (raw SQL)    | `php artisan migrate`       | `python manage.py migrate`   |
-| Middleware     | `middleware/auth.go`        | `app/Http/Middleware/`      | Django middleware classes     |
-| Config         | Environment variables       | `.env` + `config/*.php`     | `settings.py`                |
-| Background Jobs| `jobs/*.go`                 | Laravel Queues / Commands   | Celery tasks / management cmds |
-| Tests          | Go `testing` package        | PHPUnit                     | pytest / unittest            |
+| Concern        | Django                      | Laravel Equivalent          |
+|----------------|-----------------------------|-----------------------------|
+| HTTP Router    | `urls.py`                   | `routes/web.php`            |
+| Controllers    | `views.py`                  | `app/Http/Controllers/`     |
+| Business Logic | `services.py`               | `app/Services/`             |
+| Database Layer | Django ORM + raw SQL        | Eloquent Models             |
+| Models         | `core/models.py`            | `app/Models/`               |
+| Templates      | Django Templates            | Blade templates             |
+| Migrations     | `python manage.py migrate`  | `php artisan migrate`       |
+| Middleware     | `core/middleware.py`        | `app/Http/Middleware/`      |
+| Config         | `clearmoney/settings.py`    | `.env` + `config/*.php`     |
+| Background Jobs| Management commands         | Laravel Queues / Commands   |
+| Tests          | pytest + pytest-django      | PHPUnit                     |
 
-### Request Flow — Go backend (routes not yet migrated)
-
-```
-Browser Request
-     |
-     v
-cmd/server/main.go          -- Entry point (like index.php or manage.py runserver)
-     |
-     v
-handler/router.go           -- URL routing (like routes/web.php or urls.py)
-     |
-     v
-middleware/auth.go           -- Auth check (like Laravel auth middleware)
-     |
-     v
-handler/pages.go             -- Page handler (like a Controller method)
-handler/account.go           -- or API handler (JSON responses)
-     |
-     v
-service/transaction.go       -- Business logic (like a Service class)
-     |
-     v
-repository/transaction.go    -- SQL queries (like Eloquent or Django ORM)
-     |
-     v
-PostgreSQL                   -- Database
-     |
-     v
-templates/pages/home.html    -- HTML rendering (like Blade or Django templates)
-     |
-     v
-Browser Response
-```
-
-### Request Flow — Django backend (migrated routes: /settings, /reports, /export)
+### Request Flow
 
 ```
 Browser Request
      |
      v
-Caddy                        -- Reverse proxy: routes /settings, /reports, /export/* to Django
+Caddy                        -- TLS termination + reverse proxy
      |
      v
-backend/clearmoney/urls.py   -- Root URL routing (like urls.py or routes/web.php)
+clearmoney/urls.py           -- Root URL routing (like routes/web.php)
      |
      v
-core/middleware.py           -- GoSessionAuthMiddleware: reads Go's clearmoney_session cookie
+core/middleware.py           -- GoSessionAuthMiddleware: session cookie → user_id
      |
      v
-settings_app/views.py        -- View function (like a Django view or Laravel Controller)
-reports/views.py             -- or reports view
+<app>/views.py               -- View function (like a Controller method)
      |
      v
-connection.cursor()          -- Raw SQL queries (like DB::raw() in Laravel or cursor() in Django)
+<app>/services.py            -- Business logic (like a Service class)
      |
      v
-PostgreSQL                   -- Same database as Go — schema owned by Go migrations
+connection.cursor()          -- Raw SQL / ORM queries (like Eloquent)
      |
      v
-templates/reports/reports.html -- Django template rendering (like Blade or Django templates)
+PostgreSQL
+     |
+     v
+<app>/templates/             -- Django template rendering (like Blade)
      |
      v
 Browser Response
@@ -95,515 +61,323 @@ Browser Response
 ## 2. Directory Structure
 
 ```
-clear-money_claude-only/
+clear-money/
 |
-+-- cmd/                          # Executable entry points
-|   +-- server/main.go            # The web server (like `php artisan serve`)
-|   +-- reconcile/main.go         # CLI for balance checking (like `php artisan command`)
-|   +-- seed/main.go              # CLI for seeding dev data (like `php artisan db:seed`)
-|
-+-- internal/                     # Private app code (Go convention: can't be imported by others)
++-- backend/                          # Django backend
 |   |
-|   +-- config/                   # Environment config (like config/*.php or settings.py)
-|   |   +-- config.go             #   Reads DATABASE_URL, PORT, ENV from environment
+|   +-- clearmoney/                   # Project package (like a Laravel bootstrap)
+|   |   +-- settings.py               #   Django settings (DATABASE_URL, middleware, apps)
+|   |   +-- urls.py                   #   Root URL config — includes app-level urls.py files
+|   |   +-- wsgi.py                   #   WSGI entry point for gunicorn (like public/index.php)
 |   |
-|   +-- database/                 # Database connection + migrations
-|   |   +-- database.go           #   Connection pool setup (like config/database.php)
-|   |   +-- migrate.go            #   Migration runner (like `artisan migrate` internals)
-|   |   +-- migrations/           #   Raw SQL migration files (like database/migrations/)
-|   |   |   +-- 000000_init.up.sql
-|   |   |   +-- 000001_create_institutions.up.sql
-|   |   |   +-- ...
-|   |   +-- seeds/                #   Sample data for development
-|   |       +-- seed.go           #     (like database/seeders/DatabaseSeeder.php)
-|   |
-|   +-- models/                   # Domain structs (like Eloquent Model definitions)
-|   |   +-- institution.go        #   Institution struct + InstitutionType enum
-|   |   +-- account.go            #   Account struct + AccountType/Currency enums
-|   |   +-- transaction.go        #   Transaction struct + TransactionType enum
-|   |   +-- category.go           #   Category struct
-|   |   +-- person.go             #   Person struct (for loans/debts)
-|   |   +-- recurring.go          #   RecurringRule struct
-|   |   +-- investment.go         #   Investment struct
-|   |   +-- installment.go        #   InstallmentPlan struct
-|   |   +-- exchange_rate.go      #   ExchangeRateLog struct
-|   |   +-- snapshot.go           #   DailySnapshot + AccountSnapshot structs
-|   |   +-- virtual_account.go   #   VirtualAccount struct
-|   |   +-- budget.go            #   Budget struct
-|   |   +-- chart.go             #   ChartSegment struct (shared between service + handler)
-|   |
-|   +-- repository/               # Database queries (like Eloquent query scopes)
-|   |   +-- institution.go        #   INSERT, SELECT, UPDATE, DELETE for institutions
-|   |   +-- account.go            #   Same for accounts
-|   |   +-- transaction.go        #   Same for transactions (most complex)
-|   |   +-- category.go           #   Same for categories
-|   |   +-- person.go             #   Same for persons
-|   |   +-- recurring.go          #   Same for recurring rules
-|   |   +-- investment.go         #   Same for investments
-|   |   +-- installment.go        #   Same for installment plans
-|   |   +-- exchange_rate.go      #   Same for exchange rate log
-|   |   +-- snapshot.go          #   Same for snapshots (daily + account)
-|   |   +-- virtual_account.go   #   Same for virtual accounts
-|   |   +-- budget.go            #   Same for budgets
-|   |
-|   +-- service/                  # Business logic layer (like app/Services/)
-|   |   +-- transaction.go        #   Core: create tx + update balance atomically
-|   |   +-- account.go            #   Account CRUD + billing cycle logic
-|   |   +-- institution.go        #   Institution CRUD
-|   |   +-- category.go           #   Category CRUD with system-category protection
-|   |   +-- dashboard.go          #   Aggregates data for the home page
-|   |   +-- person.go             #   Loan/repayment with double-entry accounting
-|   |   +-- auth.go               #   PIN hashing, session management
-|   |   +-- salary.go             #   Multi-step salary distribution wizard
-|   |   +-- reports.go            #   Monthly spending reports
-|   |   +-- recurring.go          #   Recurring rule processing
-|   |   +-- investment.go         #   Investment portfolio CRUD
-|   |   +-- installment.go        #   Installment plan CRUD
-|   |   +-- export.go             #   CSV export
-|   |   +-- streak.go             #   Daily logging streak
-|   |   +-- notifications.go      #   Push notification conditions
-|   |   +-- snapshot.go          #   Daily balance snapshot capture + backfill
-|   |   +-- virtual_account.go   #   Virtual account CRUD + allocation
-|   |   +-- budget.go            #   Budget CRUD + threshold checks
-|   |   +-- account_health.go    #   Min-balance and min-deposit health rules
-|   |
-|   +-- handler/                  # HTTP handlers (like Controllers)
-|   |   +-- router.go             #   All route definitions (like routes/web.php)
-|   |   +-- pages.go              #   HTML page handlers (the big one - 1900+ lines)
-|   |   +-- auth.go               #   Login/setup/logout pages
-|   |   +-- account.go            #   REST API for accounts (JSON)
-|   |   +-- institution.go        #   REST API for institutions (JSON)
-|   |   +-- category.go           #   REST API for categories (JSON)
-|   |   +-- transaction.go        #   REST API for transactions (JSON)
-|   |   +-- person.go             #   REST API for people (JSON)
-|   |   +-- push.go               #   Push notification endpoints
-|   |   +-- templates.go          #   Template engine setup + helper functions
-|   |   +-- response.go           #   JSON response helpers
-|   |   +-- charts.go             #   Chart template functions + data types (donut, bar, sparkline, trend)
-|   |   +-- health.go             #   GET /healthz endpoint + account health handlers
-|   |
-|   +-- middleware/               # HTTP middleware
-|   |   +-- auth.go               #   Session cookie validation (like auth:web middleware)
-|   |   +-- logging.go            #   Request logging with slog (request_id, method, path)
-|   |
-|   +-- jobs/                     # Background/CLI jobs
-|   |   +-- reconcile.go          #   Balance reconciliation checker
-|   |   +-- refresh_views.go      #   Refresh materialized views
-|   |   +-- snapshot.go           #   Daily balance snapshots + backfill
-|   |
-|   +-- templates/                # HTML templates (like resources/views/)
-|   |   +-- embed.go              #   Embeds templates into the binary
-|   |   +-- layouts/              #   Base layouts (like layouts/app.blade.php)
-|   |   |   +-- base.html         #     Full page with header + nav + HTMX/Tailwind
-|   |   |   +-- bare.html         #     Minimal layout for login/setup pages
-|   |   +-- components/           #   Reusable UI components
-|   |   |   +-- header.html       #     Top header bar
-|   |   |   +-- bottom-nav.html   #     Bottom nav with FAB + quick entry sheet
-|   |   +-- pages/                #   Full page templates (like resources/views/pages/)
-|   |   |   +-- home.html         #     Dashboard
-|   |   |   +-- accounts.html     #     Accounts management
-|   |   |   +-- transactions.html #     Transaction list with filters
-|   |   |   +-- ...
-|   |   +-- partials/             #   HTMX swappable fragments (like Blade components)
-|   |       +-- transaction-row.html
-|   |       +-- institution-card.html
-|   |       +-- ...
-|   |
-|   +-- testutil/                 # Test helpers
-|       +-- testdb.go             #   Test DB connection + cleanup
-|       +-- fixtures.go           #   Factory functions (like Laravel model factories)
-|
-+-- backend/                      # Django backend (Strangler Fig — migrated routes)
-|   +-- clearmoney/               #   Django project package (like a Laravel "app bootstrap")
-|   |   +-- settings.py           #     Django settings (DATABASE_URL, middleware, apps)
-|   |   +-- urls.py               #     Root URL config — includes app-level urls.py files
-|   |   +-- wsgi.py               #     WSGI entry point for gunicorn (like public/index.php)
-|   +-- core/                     #   Shared app: models, auth middleware, template tags
-|   |   +-- middleware.py         #     GoSessionAuthMiddleware (reads Go's session cookie)
-|   |   +-- models.py             #     managed=False models (User, Session, Transaction, etc.)
-|   |   +-- context_processors.py#     Injects active_tab into all templates
-|   |   +-- htmx.py               #     htmx_redirect(), render_htmx_result() helpers
+|   +-- core/                         # Shared app: models, auth, template tags
+|   |   +-- middleware.py             #   GoSessionAuthMiddleware (reads session cookie)
+|   |   +-- models.py                 #   All models — ForeignKey relationships, unique constraints
+|   |   +-- billing.py                #   Credit card billing cycle logic
+|   |   +-- context_processors.py    #   Injects active_tab into all templates
+|   |   +-- htmx.py                   #   htmx_redirect(), render_htmx_result() helpers
+|   |   +-- types.py                  #   AuthenticatedRequest type alias
 |   |   +-- templatetags/
-|   |       +-- money.py          #     Custom filters: format_egp, format_date, neg, etc.
-|   +-- settings_app/             #   Migrated: /settings, /export/transactions
-|   |   +-- views.py              #     settings_page(), export_transactions() views
-|   |   +-- urls.py               #     URL patterns for this app
-|   |   +-- templates/settings_app/
-|   |       +-- settings.html     #     Django settings page template
-|   +-- reports/                  #   Migrated: /reports
-|   |   +-- views.py              #     reports_page() view + SQL aggregation + chart data
-|   |   +-- urls.py               #     URL patterns for this app
-|   |   +-- templates/reports/    #     Django reports templates (page + partials)
-|   +-- templates/                #   Shared base templates (used by all apps)
-|   |   +-- base.html             #     Base layout with HTMX, Tailwind, nav (like base.blade.php)
-|   |   +-- components/           #     header.html, bottom-nav.html
-|   +-- requirements.txt          #   Python dependencies (like composer.json)
-|   +-- manage.py                 #   Django management CLI (like artisan)
-|   +-- Dockerfile                #   Django container (Python 3.12 + gunicorn)
+|   |       +-- money.py              #   Custom filters: format_egp, format_date, neg, etc.
+|   |
+|   +-- auth_app/                     # Magic link auth (login, register, logout)
+|   +-- dashboard/                    # Home page + HTMX partial loaders
+|   +-- accounts/                     # Accounts + institutions CRUD
+|   +-- transactions/                 # Transactions, transfers, exchanges, batch entry
+|   +-- people/                       # People + loan tracking
+|   +-- budgets/                      # Budget management
+|   +-- virtual_accounts/             # Envelope budgeting
+|   +-- recurring/                    # Recurring rules + sync
+|   +-- salary/                       # Salary wizard
+|   +-- investments/                  # Investment tracking
+|   +-- installments/                 # Installment/EMI plans
+|   +-- exchange_rates/               # Exchange rates reference
+|   +-- categories/                   # Category JSON API
+|   +-- push/                         # Push notification API
+|   +-- jobs/                         # Background jobs (management commands)
+|   +-- settings_app/                 # Settings page + CSV export
+|   +-- reports/                      # Reports (donut/bar charts)
+|   |
+|   +-- templates/                    # Shared base templates
+|   |   +-- base.html                 #   Base layout with HTMX, Tailwind, nav
+|   |   +-- components/               #   header.html, bottom-nav.html
+|   |
+|   +-- tests/
+|   |   +-- factories.py              #   factory_boy model factories (like Laravel's model factories)
+|   +-- conftest.py                   #   pytest fixtures: auth_user, auth_client
+|   +-- pyproject.toml                #   Python dependencies + tool config
+|   +-- manage.py                     #   Django management CLI (like artisan)
+|   +-- Dockerfile                    #   Django container (Python 3.12 + gunicorn)
 |
-+-- static/                       # Static assets served at /static/
-|   +-- css/app.css               #   Custom CSS
-|   +-- js/                       #   JavaScript files
-|   +-- icons/                    #   PWA icons
-|   +-- manifest.json             #   PWA manifest
++-- static/                           # Static assets served at /static/
+|   +-- css/app.css                   #   Custom CSS
+|   +-- js/                           #   JavaScript files
+|   +-- icons/                        #   PWA icons
+|   +-- manifest.json                 #   PWA manifest
 |
-+-- e2e/                          # End-to-end tests (Playwright)
-|   +-- tests/*.spec.ts           #   Browser-based tests
++-- e2e/                              # End-to-end tests (Playwright)
+|   +-- tests/*.spec.ts               #   Browser-based tests
 |
-+-- Makefile                      # Build/run shortcuts (like composer scripts)
-+-- Caddyfile                     # Reverse proxy config — Strangler Fig routing rules
-+-- Dockerfile                    # Go container build
-+-- docker-compose.yml            # Local dev environment (Go + Django + PostgreSQL)
-+-- go.mod                        # Go dependencies (like composer.json)
-+-- go.sum                        # Lock file (like composer.lock)
++-- docs/                             # Architecture guide, feature docs
++-- Makefile                          # Build/run shortcuts (like composer scripts)
++-- Caddyfile                         # Reverse proxy config
++-- docker-compose.yml                # Local dev environment (Django + PostgreSQL)
++-- docker-compose.prod.yml           # Production environment (Caddy + Django + PostgreSQL)
 ```
 
 ---
 
-## 3. Key Go Concepts for Laravel/Django Developers
+## 3. The Three Layers
 
-### 3.1 Packages = Namespaces
+### Layer 1: Models (Schema)
 
-In Go, each directory is a **package**. A file's first line declares its package:
-```go
-package models  // This file is part of the "models" package
+All models live in `backend/core/models.py`. Django manages schema via migrations.
+
+```python
+# core/models.py
+class Account(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    current_balance = models.DecimalField(max_digits=15, decimal_places=2)
+
+    class Meta:
+        db_table = "accounts"
 ```
 
-This is like PHP namespaces (`namespace App\Models;`) or Python modules (`from app.models import ...`).
+### Layer 2: Services (Business Logic)
 
-### 3.2 Structs = Classes (sort of)
+**Like**: Laravel Service classes
 
-Go has no classes. Instead, **structs** hold data and **methods** attach behavior:
-
-```go
-// Laravel: class Account extends Model { ... }
-// Django:  class Account(models.Model): ...
-// Go:
-type Account struct {
-    ID   string  `json:"id"`
-    Name string  `json:"name"`
-}
-
-// Method on Account (like a class method)
-func (a Account) IsCreditType() bool {
-    return a.Type == AccountTypeCreditCard
-}
-```
-
-### 3.3 Interfaces = Duck Typing
-
-Go uses **implicit** interfaces. If a struct has the right methods, it satisfies the interface automatically. No `implements` keyword needed.
-
-### 3.4 Struct Tags = Decorators / Casts
-
-The backtick strings after struct fields are **tags** — metadata for serializers:
-```go
-type Account struct {
-    Name string `json:"name" db:"name"`
-    //           ^-- JSON key    ^-- DB column name
-}
-```
-- `json:"name"` = Laravel's `$casts` or API Resource field mapping
-- `db:"name"` = column name mapping (like Django's `db_column`)
-- `json:",omitempty"` = don't include if zero/nil (like Django's `required=False`)
-
-### 3.5 Pointers (*string) = Nullable Fields
-
-```go
-Note *string  // Can be nil (= SQL NULL) or point to a string value
-Name string   // Always has a value (empty string at minimum)
-```
-- `*string` = Laravel's `->nullable()` / Django's `null=True`
-- `string` = Laravel's `->string('name')` (required, non-null)
-
-### 3.6 Error Handling = Exceptions (but explicit)
-
-Go has no try/catch. Every function that can fail returns an error:
-```go
-// Laravel: try { $account = Account::findOrFail($id); } catch (...) { ... }
-// Django:  account = Account.objects.get(id=id)  # raises DoesNotExist
-// Go:
-account, err := repo.GetByID(ctx, id)
-if err != nil {
-    return err  // propagate the error up
-}
-```
-
-### 3.7 Context (ctx) = Request Lifecycle
-
-`context.Context` travels through every function call. It carries:
-- Request cancellation (if user closes browser)
-- Timeouts
-- Request-scoped values
-
-Think of it like Laravel's `$request` or Django's `request` object, but for lifecycle management.
-
----
-
-## 4. The Three Layers
-
-### Layer 1: Repository (SQL Queries)
-
-**Like**: Eloquent query builder / Django ORM queryset methods
-
-```go
-// repository/account.go
-func (r *AccountRepo) GetByID(ctx context.Context, id string) (models.Account, error) {
-    row := r.db.QueryRowContext(ctx,
-        `SELECT id, name, ... FROM accounts WHERE id = $1`, id)
-    // Scan row into struct...
-}
-```
-
-Repositories:
-- Execute raw SQL (no ORM magic)
-- Return model structs
-- Know nothing about HTTP or business rules
-- Use `$1, $2, ...` placeholders (PostgreSQL parameterized queries — prevents SQL injection)
-
-### Layer 2: Service (Business Logic)
-
-**Like**: Laravel Service classes / Django service layer (or fat models)
-
-```go
-// service/transaction.go
-func (s *TransactionService) Create(ctx context.Context, tx models.Transaction) (...) {
-    // 1. Validate the transaction
-    // 2. Start a database transaction (atomic)
-    // 3. Insert the transaction record
-    // 4. Update the account balance
-    // 5. Commit or rollback
-}
+```python
+# transactions/services.py
+def create_transaction(user_id: int, data: dict) -> Transaction:
+    # 1. Validate
+    # 2. Open DB transaction (atomic)
+    # 3. INSERT transaction record
+    # 4. UPDATE account balance
+    # 5. Commit or rollback
 ```
 
 Services:
-- Contain all business rules (validation, calculations)
-- Orchestrate multiple repository calls
-- Handle database transactions (atomic operations)
+- Contain all business rules
+- Use `django.db.transaction.atomic()` for atomic operations
 - Know nothing about HTTP
 
-### Layer 3: Handler (HTTP)
+### Layer 3: Views (HTTP)
 
-**Like**: Laravel Controllers / Django views
+**Like**: Laravel Controllers
 
-```go
-// handler/pages.go
-func (h *PageHandler) TransactionCreate(w http.ResponseWriter, r *http.Request) {
-    // 1. Parse form data from request
-    // 2. Call service to create transaction
-    // 3. Render success template (or error)
-}
+```python
+# transactions/views.py
+def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
+    # 1. Parse form data
+    # 2. Call service
+    # 3. Return HTMX partial or redirect
 ```
 
-Handlers:
-- Parse HTTP requests (forms, JSON, URL params)
+Views:
+- Parse HTTP requests
 - Call services
-- Render responses (HTML templates or JSON)
-- Handle HTTP-specific concerns (status codes, redirects, cookies)
-
-**Two types of handlers in this codebase:**
-1. **API handlers** (`account.go`, `transaction.go`, etc.) — return JSON, like Laravel API Resources
-2. **Page handlers** (`pages.go`) — return HTML via templates, like Blade views
+- Render Django templates or return HTMX fragments
 
 ---
 
-## 5. Template System
+## 4. Template System
 
-### 5.1 How It Works
+### Layout Inheritance
 
-Go's `html/template` is similar to Blade or Django templates but simpler.
+Templates use Django's standard `{% extends %}` and `{% block %}`:
 
-**Layout inheritance** (like `@extends('layouts.app')` in Blade):
-- We use a "clone-per-page" pattern: parse shared files (layout + components + partials), then clone and add each page on top
-- Each page defines `{{define "title"}}` and `{{define "content"}}` blocks
-- The base layout has `{{template "content" .}}` to include the page content
-
-**Example page** (like a Blade view):
 ```html
-{{define "title"}}ClearMoney - Dashboard{{end}}
+<!-- transactions/templates/transactions/list.html -->
+{% extends "base.html" %}
 
-{{define "content"}}
+{% block title %}Transactions{% endblock %}
+
+{% block content %}
 <div>
-    <h1>Net Worth: {{formatEGP .Data.NetWorth}}</h1>
-    {{range .Data.Institutions}}
-        {{template "institution-card" .}}   <!-- Like @include('partials.institution-card') -->
-    {{end}}
+    {% for tx in transactions %}
+        {% include "transactions/_row.html" with tx=tx %}
+    {% endfor %}
 </div>
-{{end}}
+{% endblock %}
 ```
 
-### 5.2 Template Syntax Cheat Sheet
-
-| Go Template              | Blade (Laravel)                    | Django Template            |
-|---------------------------|------------------------------------|----------------------------|
-| `{{.FieldName}}`          | `{{ $variable }}`                 | `{{ variable }}`           |
-| `{{range .Items}}`        | `@foreach($items as $item)`       | `{% for item in items %}`  |
-| `{{end}}`                 | `@endforeach`                     | `{% endfor %}`             |
-| `{{if .Condition}}`       | `@if($condition)`                 | `{% if condition %}`       |
-| `{{template "name" .}}`   | `@include('name', $data)`         | `{% include 'name' %}`     |
-| `{{define "block"}}`      | `@section('block')`               | `{% block name %}`         |
-| `{{formatEGP .Amount}}`   | `{{ number_format($amount) }}`    | `{{ amount\|currency }}`   |
-
-### 5.3 HTMX (Dynamic UI without JavaScript)
-
-Instead of a JavaScript SPA, we use **HTMX** to make parts of the page update without full reloads.
+### HTMX (Dynamic UI without JavaScript)
 
 ```html
-<!-- When this form is submitted, POST to /institutions/add -->
-<!-- and swap the response HTML into #institution-list -->
-<form hx-post="/institutions/add"
-      hx-target="#institution-list"
-      hx-swap="innerHTML">
-    <input name="name" required>
+<!-- When this form is submitted, POST and swap the result into #tx-list -->
+<form hx-post="{% url 'transaction_create' %}"
+      hx-target="#tx-list"
+      hx-swap="afterbegin">
+    <input name="amount" required>
     <button type="submit">Add</button>
 </form>
 
-<div id="institution-list">
-    <!-- This gets replaced with fresh HTML from the server -->
+<div id="tx-list">
+    <!-- Gets updated with fresh HTML from the server -->
 </div>
 ```
 
 HTMX attributes:
-- `hx-post="/url"` = Submit form via AJAX POST (like `fetch()` or `$.ajax()`)
+- `hx-post="/url"` = Submit via AJAX POST
 - `hx-get="/url"` = Load content via AJAX GET
 - `hx-target="#id"` = Where to put the response HTML
-- `hx-swap="innerHTML"` = How to swap it (replace inner content)
-- `hx-trigger="change"` = When to fire (on form change, keyup, etc.)
-- `hx-confirm="Are you sure?"` = Show confirm dialog before sending
+- `hx-swap="innerHTML"` = How to swap it
+- `hx-trigger="change"` = When to fire
+- `hx-confirm="Are you sure?"` = Confirm dialog before sending
+
+### Template Filters (`core/templatetags/money.py`)
+
+| Filter                    | Example                        | Output           |
+|---------------------------|--------------------------------|------------------|
+| `format_egp`              | `{{ amount\|format_egp }}`     | `EGP 1,234.56`   |
+| `format_usd`              | `{{ amount\|format_usd }}`     | `$1,234.56`      |
+| `format_date`             | `{{ date\|format_date }}`      | `Mar 2, 2026`    |
+| `neg`                     | `{{ amount\|neg }}`            | negated value    |
+| `percentage`              | `{{ part\|percentage:total }}` | `42.5`           |
+| `chart_color`             | `{{ i\|chart_color }}`         | CSS color string |
+| `conic_gradient`          | `{{ segments\|conic_gradient }}`| CSS gradient    |
 
 ---
 
-## 6. Database
+## 5. Database
 
-### 6.1 Migrations
+### Migrations
 
-Migrations are **raw SQL files** (not an ORM schema builder). Each migration has:
-- `000001_create_institutions.up.sql` — applies the change (CREATE TABLE)
-- `000001_create_institutions.down.sql` — reverts it (DROP TABLE)
-
-This is like Laravel's `Schema::create()` but written as plain SQL.
-
-Migrations run automatically on app startup via `database/migrate.go`.
-
-### 6.2 Why Raw SQL Instead of an ORM?
-
-Go doesn't have a standard ORM like Eloquent or Django ORM. The ecosystem has options (GORM, sqlx) but this project uses **raw SQL** with `database/sql` because:
-- Full control over queries (important for financial accuracy)
-- No ORM "magic" to learn on top of Go
-- Explicit is better than implicit (Go philosophy)
-- Easy to debug — the SQL you write is the SQL that runs
-
-### 6.3 Connection Pool
-
-`database/database.go` sets up a connection pool (like Laravel's database config):
-```go
-db.SetMaxOpenConns(25)      // Max simultaneous connections
-db.SetMaxIdleConns(5)       // Keep 5 connections warm
-db.SetConnMaxLifetime(5min) // Recycle connections every 5 minutes
-```
-
----
-
-## 7. Authentication
-
-### 7.1 How It Works
-
-ClearMoney uses **PIN-based auth** (4-6 digit PIN, single user):
-
-1. **First visit** → Redirect to `/setup` → User creates a PIN
-2. **PIN stored** as bcrypt hash in `user_config` table
-3. **Login** → User enters PIN → Verified against bcrypt hash
-4. **Session** → Random 32-byte HMAC token stored in a cookie (30-day expiry)
-5. **Every request** → Middleware checks cookie → Valid? Continue. Invalid? Redirect to `/login`
-
-This is simpler than Laravel Sanctum or Django's session auth, but the pattern is the same:
-hashed credential in DB + session token in cookie + middleware guard.
-
-### 7.2 Middleware
-
-```go
-// Like Route::middleware('auth') in Laravel
-r.Group(func(r chi.Router) {
-    r.Use(authmw.Auth(authSvc))  // All routes in this group require auth
-    r.Get("/", pages.Home)
-    r.Get("/accounts", pages.Accounts)
-    // ...
-})
-```
-
----
-
-## 8. Testing Strategy
-
-### Unit/Integration Tests (Go)
+Django manages the schema. All models are in `core/models.py` (all with `managed=True`).
 
 ```bash
-make test              # Fast tests (no DB needed)
-make test-integration  # Slow tests (needs PostgreSQL)
+make makemigrations   # Generate migration files
+make migrate          # Apply pending migrations
 ```
 
-- **Unit tests** test services with real DB (not mocks) — pragmatic approach
-- **Test helpers** in `testutil/` create test data (like Laravel factories)
-- Tests use `TEST_DATABASE_URL` — if not set, integration tests are skipped
+### Raw SQL vs ORM
+
+The codebase uses both:
+- **ORM** for simple queries and model definitions
+- **Raw SQL** via `connection.cursor()` for complex aggregations (reports, dashboard stats)
+
+```python
+# Raw SQL example (reports/services.py)
+with connection.cursor() as cursor:
+    cursor.execute("""
+        SELECT category_id, SUM(amount)
+        FROM transactions
+        WHERE user_id = %s AND date >= %s
+        GROUP BY category_id
+    """, [user_id, start_date])
+    rows = cursor.fetchall()
+```
+
+All monetary values use `NUMERIC(15,2)`. Balance updates are atomic — every transaction INSERT and balance UPDATE happen in a single DB transaction.
+
+### Connection Pool
+
+Configured in `settings.py`:
+```python
+DATABASES = {
+    "default": dj_database_url.parse(
+        os.environ["DATABASE_URL"],
+        conn_max_age=600,  # Reuse connections for 10 minutes
+    )
+}
+```
+
+---
+
+## 6. Authentication
+
+### How It Works
+
+ClearMoney uses **magic link auth** (email → one-time link → session):
+
+1. User enters email → magic link sent via Resend API
+2. Clicking the link creates a session in the `sessions` DB table
+3. Session token stored in `clearmoney_session` cookie (30-day expiry)
+4. Every request → `GoSessionAuthMiddleware` reads cookie → valid? Sets `request.user_id`. Invalid? Redirect to `/login`
+
+### Middleware (`core/middleware.py`)
+
+```python
+class GoSessionAuthMiddleware:
+    def __call__(self, request):
+        token = request.COOKIES.get("clearmoney_session")
+        session = Session.objects.filter(token=token).first()
+        if session:
+            request.user_id = session.user_id
+            request.user_email = session.user.email
+        # Views check request.user_id — unauthenticated returns 401/redirect
+```
+
+### AuthenticatedRequest
+
+Views that need auth use `AuthenticatedRequest` (from `core.types`) instead of `HttpRequest`:
+
+```python
+# Always annotate views with AuthenticatedRequest so mypy catches missing auth
+def my_view(request: AuthenticatedRequest) -> HttpResponse:
+    user_id = request.user_id  # type-safe, guaranteed present
+```
+
+---
+
+## 7. Testing Strategy
+
+### Unit/Integration Tests (pytest)
+
+```bash
+make test              # All tests (real DB)
+make coverage          # Tests + HTML coverage report
+```
+
+- Tests run against the real PostgreSQL schema (`--reuse-db`)
+- Fixtures use `factory_boy` factories in `tests/factories.py` — like Laravel model factories
+- `conftest.py` provides `auth_user`, `auth_cookie`, `auth_client` fixtures
 
 ### E2E Tests (Playwright)
 
 ```bash
-cd e2e && npx playwright test
+make test-e2e
 ```
 
-- 79 browser-based tests covering all features
-- Auto-starts the Go server
+- Browser-based tests in `e2e/tests/*.spec.ts`
+- `helpers.ts` creates sessions directly in DB (no UI login flow needed)
+- `resetDatabase()` truncates tables and seeds categories
 - Serial execution (shared DB state)
-- Tests create their own data via forms and APIs
 
 ---
 
-## 9. Key Design Decisions
+## 8. Key Design Decisions
 
 | Decision                         | Rationale                                                   |
 |----------------------------------|-------------------------------------------------------------|
-| **No ORM**                       | Financial app needs precise SQL control                     |
-| **Server-rendered HTML + HTMX**  | Simpler than SPA, works offline with service worker          |
-| **Single binary**                | Templates embedded in binary via `embed.FS` — no file deps  |
-| **Atomic balance updates**       | Every transaction INSERT + balance UPDATE in one DB transaction |
-| **balance_delta column**         | Each transaction stores its impact — enables easy reconciliation |
-| **Clone-per-page templates**     | Go's template inheritance workaround (no native extends)    |
-| **float64 for money**            | Simplified; production apps should use decimal types         |
-| **PIN auth (not passwords)**     | Single-user mobile finance app — PIN is faster to type       |
+| **All models in core/models.py** | Single source of truth for schema; ForeignKey across apps   |
+| **Raw SQL for aggregations**     | Financial app needs precise query control                   |
+| **Server-rendered HTML + HTMX**  | Simpler than SPA, works well offline with service worker    |
+| **Atomic balance updates**       | Every tx INSERT + balance UPDATE in one DB transaction      |
+| **balance_delta column**         | Each transaction stores its impact — easy reconciliation    |
+| **CSS-only charts**              | No Chart.js dependency; conic-gradient donuts, flexbox bars |
+| **Magic link auth**              | No passwords to manage; email is the identity              |
+| **Per-user data isolation**      | Every query filters `WHERE user_id = %s`                   |
 
 ---
 
-## 10. Common Operations Cheat Sheet
+## 9. Common Operations
 
-### Adding a new page
+### Adding a new feature
 
-1. Create template: `internal/templates/pages/my-page.html`
-2. Add handler method in `handler/pages.go`
-3. Add route in `handler/router.go`
-4. (Optional) Add service method if business logic needed
-5. (Optional) Add repository method if DB queries needed
+Follow TDD: write failing tests first, then implement.
 
-### Adding a new API endpoint
-
-1. Create handler file: `handler/my-resource.go`
-2. Implement `Routes(r chi.Router)` method
-3. Register in `router.go`: `r.Route("/api/my-resource", handler.Routes)`
-
-### Adding a new database table
-
-1. Create migration: `make migrate-create name=create_my_table`
-2. Write SQL in the `.up.sql` and `.down.sql` files
-3. Create model: `models/my_model.go`
-4. Create repository: `repository/my_model.go`
-5. Create service: `service/my_model.go`
-6. Wire up in `router.go`
+1. **Model** — add to `core/models.py`, run `make makemigrations && make migrate`
+2. **Service** — create `<app>/services.py` with business logic
+3. **View** — add to `<app>/views.py`, register URL in `<app>/urls.py`
+4. **Template** — create in `<app>/templates/<app>/`
+5. **Tests** — `<app>/tests/test_services.py` and `test_views.py`
 
 ### Running the app locally
 
 ```bash
-docker compose up -d          # Start PostgreSQL
-make run                      # Start the Go server
-# or
-make build && ./server        # Build and run the binary
+docker compose up -d db   # Start PostgreSQL
+make run                  # Start Django dev server on :8000
 ```

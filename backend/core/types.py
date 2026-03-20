@@ -16,7 +16,7 @@ from django.http import HttpRequest
 class AuthenticatedRequest(HttpRequest):
     """HttpRequest with user_id, user_email, and tz set by Django middleware.
 
-    - user_id, user_email: set by GoSessionAuthMiddleware (validates Go's session cookie)
+    - user_id, user_email: set by GoSessionAuthMiddleware from the sessions table
     - tz: set by TimezoneMiddleware (from APP_TIMEZONE env var, default Africa/Cairo)
 
     Use this as the request parameter type in all view functions that are

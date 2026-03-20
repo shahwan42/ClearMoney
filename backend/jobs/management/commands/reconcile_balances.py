@@ -1,9 +1,7 @@
 """
 Management command: reconcile_balances — verify account balances.
 
-Port of Go's ReconcileBalances() (internal/jobs/reconcile.go) and the
-`cmd/reconcile/main.go` CLI tool. Compares cached current_balance against
-initial_balance + SUM(balance_delta) for every account.
+Compares cached current_balance against initial_balance + SUM(balance_delta) for every account.
 
 Usage:
     python manage.py reconcile_balances          # Report only

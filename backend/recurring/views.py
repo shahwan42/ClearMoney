@@ -1,7 +1,6 @@
 """
 Recurring rules views — page handlers for /recurring*.
 
-Port of Go's PageHandler recurring methods (pages.go:2036–2218).
 Like Laravel's RecurringRuleController — handles the list page, create form,
 confirm/skip pending rules, and delete. All HTMX mutations return the
 _rule_list.html partial which swaps into #recurring-list.
@@ -58,11 +57,7 @@ def _get_categories(request: AuthenticatedRequest) -> list[dict[str, Any]]:
 
 
 def _render_rule_list(request: AuthenticatedRequest) -> HttpResponse:
-    """Render the _rule_list.html partial for HTMX swap.
-
-    Replaces Go's renderRecurringList() which generated inline HTML.
-    Django uses a template instead — cleaner and easier to maintain.
-    """
+    """Render the _rule_list.html partial for HTMX swap."""
     svc = _svc(request)
     rules = svc.get_all()
     rule_views = [svc.rule_to_view(r) for r in rules]
@@ -88,10 +83,7 @@ def _lookup_account_currency(user_id: str, account_id: str) -> str:
 @general_rate
 @require_http_methods(["GET"])
 def recurring_page(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /recurring — recurring rules page with pending, form, and active list.
-
-    Port of Go's PageHandler.Recurring (pages.go:2036).
-    """
+    """GET /recurring — recurring rules page with pending, form, and active list."""
     logger.info("page viewed: recurring, user=%s", request.user_email)
     svc = _svc(request)
 
@@ -128,7 +120,6 @@ def recurring_page(request: AuthenticatedRequest) -> HttpResponse:
 def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /recurring/add — create new recurring rule.
 
-    Port of Go's PageHandler.RecurringAdd (pages.go:2071).
     Parses form, looks up account currency, builds template JSON,
     creates rule, returns updated rule list partial.
     """
@@ -203,10 +194,7 @@ def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def recurring_confirm(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
-    """POST /recurring/{id}/confirm — confirm pending rule, create transaction.
-
-    Port of Go's PageHandler.RecurringConfirm (pages.go:2130).
-    """
+    """POST /recurring/{id}/confirm — confirm pending rule, create transaction."""
     svc = _svc(request)
     try:
         svc.confirm(str(rule_id))
@@ -218,10 +206,7 @@ def recurring_confirm(request: AuthenticatedRequest, rule_id: UUID) -> HttpRespo
 @general_rate
 @require_http_methods(["POST"])
 def recurring_skip(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
-    """POST /recurring/{id}/skip — skip pending rule, advance due date.
-
-    Port of Go's PageHandler.RecurringSkip (pages.go:2142).
-    """
+    """POST /recurring/{id}/skip — skip pending rule, advance due date."""
     svc = _svc(request)
     try:
         svc.skip(str(rule_id))
@@ -233,10 +218,7 @@ def recurring_skip(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse
 @general_rate
 @require_http_methods(["DELETE"])
 def recurring_delete(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
-    """DELETE /recurring/{id} — delete recurring rule.
-
-    Port of Go's PageHandler.RecurringDelete (pages.go:2154).
-    """
+    """DELETE /recurring/{id} — delete recurring rule."""
     svc = _svc(request)
     svc.delete(str(rule_id))
     return _render_rule_list(request)

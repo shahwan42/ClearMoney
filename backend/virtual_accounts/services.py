@@ -1,16 +1,10 @@
 """
 Virtual account service — business logic for envelope budgeting.
 
-Port of Go's VirtualAccountService (internal/service/virtual_account.go) and
-VirtualAccountRepo (internal/repository/virtual_account.go). Combines both
-layers into a single service since Django views call the service directly.
-
-Like Laravel's VirtualAccountService with a polymorphic many-to-many
-relationship (virtual_account_allocations pivot table). The Allocate/Deallocate
-methods manage this pivot, similar to Laravel's attach/detach on BelongsToMany.
-
-Django analogy: a through model (VirtualAccountAllocation) on a ManyToManyField
-between Transaction and VirtualAccount, with extra amount data on the through table.
+Combines service and repository layers into a single class since Django
+views call the service directly. The virtual_account_allocations pivot table
+links transactions to virtual accounts, similar to Laravel's attach/detach on
+BelongsToMany.
 
 KEY INVARIANT: After every allocation/deallocation, the virtual account's cached
 current_balance is recalculated from SUM(allocations). This denormalization trades
@@ -67,7 +61,7 @@ _TX_COLS = [
 def _row_to_va(row: tuple[Any, ...]) -> dict[str, Any]:
     """Convert a virtual_accounts SQL row to a dict.
 
-    Includes computed progress_pct matching Go's VirtualAccount.ProgressPct().
+    Includes computed progress_pct: (current_balance / target_amount) * 100.
     """
     target = float(row[3]) if row[3] is not None else None
     balance = float(row[4])
@@ -121,7 +115,6 @@ def _row_to_transaction(row: tuple[Any, ...]) -> dict[str, Any]:
 class VirtualAccountService:
     """Handles virtual account CRUD, allocations, and balance management.
 
-    Like Go's VirtualAccountService + VirtualAccountRepo combined.
     All queries are scoped to the authenticated user via user_id.
     """
 
@@ -133,10 +126,7 @@ class VirtualAccountService:
     # -----------------------------------------------------------------------
 
     def get_all(self) -> list[dict[str, Any]]:
-        """Return all active (non-archived) virtual accounts.
-
-        Port of Go's VirtualAccountRepo.GetAll().
-        """
+        """Return all active (non-archived) virtual accounts."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -152,10 +142,7 @@ class VirtualAccountService:
             return [_row_to_va(row) for row in cursor.fetchall()]
 
     def get_by_id(self, va_id: str) -> dict[str, Any] | None:
-        """Return a single virtual account by ID, or None if not found.
-
-        Port of Go's VirtualAccountRepo.GetByID().
-        """
+        """Return a single virtual account by ID, or None if not found."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -171,10 +158,7 @@ class VirtualAccountService:
             return _row_to_va(row) if row else None
 
     def get_by_account_id(self, account_id: str) -> list[dict[str, Any]]:
-        """Return non-archived virtual accounts linked to a specific bank account.
-
-        Port of Go's VirtualAccountRepo.GetByAccountID().
-        """
+        """Return non-archived virtual accounts linked to a specific bank account."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -192,7 +176,6 @@ class VirtualAccountService:
     def get_allocations(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return allocation records for a virtual account (direct + tx-linked).
 
-        Port of Go's VirtualAccountRepo.GetAllocationsForAccount().
         Uses LEFT JOIN so both transaction-linked and direct allocations appear.
         """
         sql = """
@@ -216,7 +199,6 @@ class VirtualAccountService:
     def get_transactions(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return transactions allocated to a virtual account.
 
-        Port of Go's VirtualAccountRepo.GetTransactionsForAccount().
         Returns a subset of transaction fields needed for the history display.
         """
         sql = """
@@ -251,8 +233,7 @@ class VirtualAccountService:
     ) -> dict[str, Any]:
         """Create a new virtual account with validation.
 
-        Port of Go's VirtualAccountService.Create(). Validates name is required,
-        defaults color to teal (#0d9488).
+        Validates name is required, defaults color to teal (#0d9488).
 
         Raises:
             ValueError: If name is empty.
@@ -303,8 +284,6 @@ class VirtualAccountService:
     ) -> bool:
         """Update an existing virtual account.
 
-        Port of Go's VirtualAccountService.Update(). Validates name is required.
-
         Returns True if updated, False if not found.
 
         Raises:
@@ -342,7 +321,6 @@ class VirtualAccountService:
     def archive(self, va_id: str) -> bool:
         """Archive (soft-delete) a virtual account.
 
-        Port of Go's VirtualAccountService.Archive().
         Returns True if archived, False if not found.
         """
         with connection.cursor() as cursor:
@@ -363,7 +341,6 @@ class VirtualAccountService:
     def toggle_exclude(self, va_id: str) -> bool:
         """Toggle the exclude_from_net_worth flag.
 
-        Port of Go's VirtualAccountToggleExclude handler logic.
         Returns True if toggled, False if VA not found.
         """
         va = self.get_by_id(va_id)
@@ -391,9 +368,7 @@ class VirtualAccountService:
     ) -> None:
         """Allocate funds directly (no transaction) to a virtual account.
 
-        Port of Go's VirtualAccountService.DirectAllocate(). Creates an allocation
-        record and recalculates the cached balance atomically.
-
+        Creates an allocation record and recalculates the cached balance atomically.
         Amount should be positive for contributions, negative for withdrawals.
 
         Raises:
@@ -432,9 +407,8 @@ class VirtualAccountService:
     def _recalculate_balance(self, va_id: str) -> None:
         """Recompute a virtual account's balance from its allocations.
 
-        Port of Go's VirtualAccountRepo.RecalculateBalance().
         Called after adding/removing allocations to keep the cached balance in sync.
-        Uses a correlated subquery — same PostgreSQL pattern as Go.
+        Uses a correlated subquery against virtual_account_allocations.
         """
         with connection.cursor() as cursor:
             cursor.execute(

@@ -6,10 +6,8 @@ django-htmx provides:
 - HttpResponseClientRedirect — sends HX-Redirect header
 - HttpResponseClientRefresh — triggers full page reload
 
-This module adds ClearMoney-specific helpers that match the Go app's patterns
-(htmxRedirect, renderHTMXResult) using django-htmx under the hood.
-
-Like Go's htmxRedirect(w, r, url) in internal/handler/pages.go.
+This module adds ClearMoney-specific helpers for redirects and inline
+result fragments, using django-htmx under the hood.
 """
 
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -20,7 +18,6 @@ def htmx_redirect(request: HttpRequest, url: str) -> HttpResponse:
     """
     Redirect that works for both HTMX and standard requests.
 
-    Equivalent of Go's htmxRedirect(w, r, url).
     Uses django-htmx's HttpResponseClientRedirect for HTMX requests,
     standard HTTP 302 for regular requests.
 
@@ -42,7 +39,6 @@ def render_htmx_result(
     """
     Render an inline result partial (success/error/info toast).
 
-    Equivalent of Go's renderHTMXResult(w, type, msg, detail).
     Returns an HTML fragment that HTMX swaps into the target element.
 
     Args:
@@ -53,7 +49,7 @@ def render_htmx_result(
     Returns:
         HttpResponse containing the result HTML fragment
     """
-    # Color schemes matching Go's htmx-result partial
+    # Color schemes for each result type
     colors = {
         "success": ("bg-green-50 border-green-200", "text-green-800"),
         "error": ("bg-red-50 border-red-200", "text-red-800"),

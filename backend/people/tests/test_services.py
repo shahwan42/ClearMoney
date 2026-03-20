@@ -1,9 +1,8 @@
 """
 Person service tests — CRUD, loan/repayment, multi-currency, debt summary.
 
-Port of Go's internal/service/person_test.go (9 test cases → 16 Django tests).
 Uses raw SQL fixtures for PostgreSQL enum columns. Tests run against the real
-database with --reuse-db (Go owns schema).
+database with --reuse-db.
 """
 
 import uuid

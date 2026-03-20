@@ -1,7 +1,6 @@
 """
 Categories app — manages expense/income categories for transactions.
 
-Port of Go's CategoryService + CategoryRepo + CategoryHandler.
 Like Laravel's Category module — handles /api/categories/* JSON API.
 """
 

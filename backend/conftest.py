@@ -41,7 +41,7 @@ def django_db_setup() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Shared auth fixtures — like Go's testutil.SetupAuth(t, db)
+# Shared auth fixtures
 # ---------------------------------------------------------------------------
 
 
@@ -49,7 +49,7 @@ def django_db_setup() -> None:
 def auth_user(db: Any) -> Generator[tuple[str, str, str], None, None]:
     """Create a test user and valid session. Yields (user_id, email, token).
 
-    Mirrors Go's testutil.SetupAuth(t, db) pattern. Cleans up after the test.
+    Cleans up after the test.
     Use this fixture in any test that needs an authenticated user.
     """
     user = UserFactory()
@@ -77,7 +77,6 @@ def auth_client(client: Client, auth_user: tuple[str, str, str]) -> Client:
     """Return an authenticated Django test client with session cookie pre-set.
 
     More ergonomic than auth_cookie — the cookie is already applied.
-    Like Go's testutil.SetupAuth returning a client with the cookie header.
 
     Usage:
         response = auth_client.get('/settings')

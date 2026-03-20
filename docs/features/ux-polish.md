@@ -11,7 +11,7 @@ Three animation keyframes:
 - `toast-slide-up` — slide in from bottom (0.3s ease-out)
 - `success-bounce` — scale 0→1.1→1 (0.4s)
 
-**Template:** `internal/templates/partials/success-toast.html`
+**Template:** `backend/transactions/templates/transactions/_transaction_success.html`
 - Animated checkmark SVG with circle background
 - "Saved!" message + new balance display
 - "Done" button to dismiss
@@ -44,8 +44,8 @@ Three animation keyframes:
 5. Only auto-selects if category dropdown is empty (preserves user intent)
 6. Silent failure — no error shown if suggestion fails
 
-**Backend:** `pages.go` → `transaction.go` service → `transaction.go` repo
-**Frontend:** JavaScript in `partials/quick-entry.html` with debounced fetch
+**Backend:** `backend/transactions/views.py` → service → raw SQL
+**Frontend:** JavaScript in `backend/transactions/templates/transactions/_quick_entry.html` with debounced fetch
 
 ## Swipe-to-Delete Gestures
 
@@ -75,14 +75,14 @@ When lists are empty (no accounts, transactions, etc.), a friendly empty state i
 
 **Template example:** Each list template includes a conditional block:
 ```html
-{{if .Data}}
+{% if transactions %}
     <!-- render list -->
-{{else}}
+{% else %}
     <div class="text-center text-gray-400 py-12">
         <p>No transactions yet.</p>
         <a href="/transactions/new">Add your first transaction</a>
     </div>
-{{end}}
+{% endif %}
 ```
 
 ## Dark Mode
@@ -112,17 +112,11 @@ All date inputs default to today via server-side rendering:
 <input type="date" value="{{formatDateISO .Data.Today}}">
 ```
 
-View model structs carry a `Today time.Time` field populated by the handler.
+Views pass a `today` context variable populated server-side.
 
 ## HTMX Result Pattern
 
-**Template:** `internal/templates/partials/htmx-result.html`
-
-Consistent success/error/info partials for inline feedback:
-```go
-h.renderHTMXResult(w, "success", "Saved!", "Transaction created")
-h.renderHTMXResult(w, "error", "Failed", "Amount must be positive")
-```
+Consistent success/error/info partials for inline feedback. Views return small HTML fragments with a status class:
 
 Types: `success` (green), `error` (red), `info` (blue).
 
@@ -134,10 +128,7 @@ Types: `success` (green), `error` (red), `info` (blue).
 | `static/css/charts.css` | Chart dark mode overrides |
 | `static/js/gestures.js` | Swipe-to-delete, pull-to-refresh |
 | `static/js/theme.js` | Dark mode toggle |
-| `internal/templates/partials/success-toast.html` | Success animation |
-| `internal/templates/partials/skeleton-card.html` | Card skeleton |
-| `internal/templates/partials/skeleton-list.html` | List skeleton |
-| `internal/templates/partials/htmx-result.html` | Success/error/info partials |
+| `backend/transactions/templates/transactions/_transaction_success.html` | Success animation |
 
 ## For Newcomers
 

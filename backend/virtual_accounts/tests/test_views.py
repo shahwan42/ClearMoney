@@ -1,8 +1,7 @@
 """
 Virtual account view tests — HTTP-level tests for /virtual-accounts/* routes.
 
-Port of Go's handler/pages_test.go virtual account tests + expanded coverage.
-Tests run against the real database with --reuse-db (Go owns schema).
+Tests run against the real database with --reuse-db.
 """
 
 import re

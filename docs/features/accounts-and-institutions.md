@@ -9,20 +9,21 @@ Accounts and institutions form the foundational accounting system of ClearMoney.
 Banks and fintechs serve as grouping containers for accounts. Each has a name, optional color, icon, and display order.
 
 **Institution Types:**
+
 - `bank` — Traditional banks (HSBC, CIB, NBE, Banque Misr)
 - `fintech` — Digital-first institutions (Telda, ValU, Fawry)
 - `wallet` — Virtual institution for physical cash/wallet accounts
 
 ### Account Types
 
-| Type | Behavior |
-|------|----------|
-| `savings` | Savings account (higher interest, fewer transactions) |
-| `current` | Standard debit/current account |
-| `prepaid` | Prepaid card (e.g., Fawry) |
-| `cash` | Physical cash or wallet (always positive) |
-| `credit_card` | Credit card — balance goes **negative** when you spend |
-| `credit_limit` | Revolving credit line (e.g., TRU EPP) |
+| Type           | Behavior                                               |
+| -------------- | ------------------------------------------------------ |
+| `savings`      | Savings account (higher interest, fewer transactions)  |
+| `current`      | Standard debit/current account                         |
+| `prepaid`      | Prepaid card (e.g., Fawry)                             |
+| `cash`         | Physical cash or wallet (always positive)              |
+| `credit_card`  | Credit card — balance goes **negative** when you spend |
+| `credit_limit` | Revolving credit line (e.g., TRU EPP)                  |
 
 ### Balance Convention
 
@@ -33,131 +34,99 @@ Banks and fintechs serve as grouping containers for accounts. Each has a name, o
 
 ## Models
 
+**File:** `backend/core/models.py`
+
 ### Account
 
-**File:** `internal/models/account.go`
-
 Key fields:
-- `ID` (UUID), `InstitutionID` (FK), `Name`, `Type` (AccountType enum)
-- `Currency` (EGP or USD), `CurrentBalance`, `InitialBalance`
-- `CreditLimit` (*float64, nullable — only for credit types)
-- `IsDormant` (bool — hides from active lists but keeps in totals)
-- `RoleTags` ([]string — PostgreSQL text[] array)
-- `DisplayOrder` (int — for UI ordering)
-- `Metadata` (json.RawMessage — stores billing cycle info for credit cards)
-- `HealthConfig` (json.RawMessage — stores min_balance/min_deposit rules)
+
+- `id` (UUID), `institution_id` (FK), `name`, `type` (account_type enum)
+- `currency` (EGP or USD), `current_balance`, `initial_balance`
+- `credit_limit` (NUMERIC, nullable — only for credit types)
+- `is_dormant` (bool — hides from active lists but keeps in totals)
+- `role_tags` (PostgreSQL text[] array)
+- `display_order` (int — for UI ordering)
+- `metadata` (JSONB — stores billing cycle info for credit cards)
+- `health_config` (JSONB — stores min_balance/min_deposit rules)
 
 Key methods:
-- `IsCreditType() bool` — returns true for credit_card and credit_limit
-- `AvailableCredit() float64` — calculates credit_limit + balance
-- `GetHealthConfig() *AccountHealthConfig` — parses JSONB health config
+
+- `is_credit_type()` — returns True for credit_card and credit_limit
+- `available_credit` — calculates credit_limit + current_balance
+- `get_health_config()` — parses JSONB health config
 
 ### Institution
 
-**File:** `internal/models/institution.go`
-
-Key fields: `ID`, `Name`, `Type` (InstitutionType enum), `Color` (*string), `Icon` (*string), `DisplayOrder`
+Key fields: `id`, `name`, `type` (institution_type enum), `color` (nullable), `icon` (nullable), `display_order`
 
 ## Database Migrations
 
-| Migration | File | Purpose |
-|-----------|------|---------|
-| 000001 | `create_institutions.up.sql` | Creates `institutions` table + `institution_type` enum |
-| 000002 | `create_accounts.up.sql` | Creates `accounts` table + `account_type`/`currency_type` enums |
-| 000017 | `add_account_health.up.sql` | Adds `health_config JSONB` column |
-| 000018 | `remove_checking_account_type.up.sql` | Removes legacy 'checking' type, migrates to 'current' |
-
-All migrations are in `internal/database/migrations/`.
-
-## Repository Layer
-
-### AccountRepo
-
-**File:** `internal/repository/account.go`
-
-| Method | Purpose |
-|--------|---------|
-| `Create(ctx, acc)` | Insert account, sets current_balance = initial_balance |
-| `GetByID(ctx, id)` | Retrieve single account |
-| `GetAll(ctx)` | All accounts, ordered by display_order, name |
-| `GetByInstitution(ctx, instID)` | Accounts for a specific institution |
-| `Update(ctx, acc)` | Update fields (NOT balance) |
-| `UpdateBalance(ctx, id, delta)` | **Atomic** balance update: `current_balance = current_balance + $delta` |
-| `UpdateHealthConfig(ctx, id, config)` | Set health_config JSONB |
-| `Delete(ctx, id)` | Remove account |
-| `ToggleDormant(ctx, id)` | Flip `is_dormant = NOT is_dormant` |
-| `UpdateDisplayOrder(ctx, id, order)` | Set display_order for drag-and-drop |
-
-**Important:** `UpdateBalance` uses SQL arithmetic (`current_balance + $delta`), not read-modify-write. This avoids race conditions — PostgreSQL serializes the updates atomically.
-
-### InstitutionRepo
-
-**File:** `internal/repository/institution.go`
-
-Standard CRUD: `Create`, `GetByID`, `GetAll`, `Update`, `Delete`, `UpdateDisplayOrder`
+| Migration | Purpose |
+|-----------|---------|
+| 000001 | Creates `institutions` table + `institution_type` enum |
+| 000002 | Creates `accounts` table + `account_type`/`currency_type` enums |
+| 000017 | Adds `health_config JSONB` column |
+| 000018 | Removes legacy 'checking' type, migrates to 'current' |
 
 ## Service Layer
 
+**File:** `backend/accounts/services.py`
+
 ### AccountService
 
-**File:** `internal/service/account.go` (line ~257)
-
 Validation rules:
+
 - Account name required, non-empty after trim
-- InstitutionID required
+- institution_id required
 - Credit card/limit accounts must have credit_limit set
 - Cash accounts cannot have credit_limit
 
 Also handles cleanup of stale recurring rules when deleting an account.
 
-### InstitutionService
+Key operations: `create`, `update`, `delete`, `toggle_dormant`, `update_display_order`, `update_health_config`
 
-**File:** `internal/service/institution.go`
+**Balance updates use atomic SQL:** `UPDATE accounts SET current_balance = current_balance + %s WHERE id = %s` — never read-modify-write.
+
+### InstitutionService
 
 Validation: name required, type defaults to 'bank', validated against allowed enum values.
 
+Operations: `create`, `update`, `delete`, `update_display_order`
+
 ### AccountHealthService
 
-**File:** `internal/service/account_health.go`
-
 Checks all accounts against their health constraints:
-- **MinBalance rule:** Alert if current_balance < configured minimum
-- **MinMonthlyDeposit rule:** Alert if no deposit ≥ configured amount arrived this month
 
-Returns `[]AccountHealthWarning` with human-readable messages. Health checks are advisory — failures don't block anything.
+- **min_balance rule:** Alert if current_balance < configured minimum
+- **min_monthly_deposit rule:** Alert if no deposit >= configured amount arrived this month
 
-## Handler Layer
+Returns list of health warnings with human-readable messages. Health checks are advisory — failures don't block anything.
 
-### JSON API
+## Views
 
-**File:** `internal/handler/account.go` — REST API at `/api/accounts`
-**File:** `internal/handler/institution.go` — REST API at `/api/institutions`
-
-### HTML/HTMX Routes
-
-**File:** `internal/handler/pages.go`
+**File:** `backend/accounts/views.py`
 
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
-| `/accounts` | GET | `Accounts()` | Main list page |
-| `/accounts/form` | GET | `AccountForm()` | HTMX partial: account creation form |
-| `/accounts/list` | GET | `InstitutionList()` | HTMX partial: institution list |
-| `/accounts/{id}` | GET | `AccountDetail()` | Detail page with health, sparkline, utilization |
-| `/accounts/{id}/statement` | GET | `CreditCardStatement()` | CC statement view |
-| `/accounts/{id}/dormant` | POST | `ToggleDormant()` | Toggle dormant status |
-| `/accounts/{id}/health` | POST | `AccountHealthUpdate()` | Save health constraints |
-| `/accounts/{id}/edit-form` | GET | `AccountEditForm()` | HTMX partial: edit form in bottom sheet |
-| `/accounts/{id}/edit` | POST | `AccountUpdate()` | Update account fields |
-| `/accounts/{id}` | DELETE | `AccountDelete()` | Delete account (bottom sheet confirmation) |
-| `/accounts/add` | POST | `AccountAdd()` | Create account |
-| `/accounts/reorder` | POST | `ReorderAccounts()` | Drag-and-drop reorder |
-| `/accounts/institution-form` | GET | `InstitutionFormPartial()` | HTMX partial: institution form for create sheet |
-| `/institutions/add` | POST | `InstitutionAdd()` | Create institution (from bottom sheet) |
-| `/institutions/reorder` | POST | `ReorderInstitutions()` | Reorder institutions |
-| `/institutions/{id}/edit-form` | GET | `InstitutionEditForm()` | HTMX partial: edit form for bottom sheet |
-| `/institutions/{id}` | PUT | `InstitutionUpdate()` | Update institution (from bottom sheet) |
-| `/institutions/{id}/delete-confirm` | GET | `InstitutionDeleteConfirm()` | HTMX partial: delete confirmation for bottom sheet |
-| `/institutions/{id}` | DELETE | `InstitutionDelete()` | Delete institution (from bottom sheet) |
+| `/accounts` | GET | `accounts()` | Main list page |
+| `/accounts/form` | GET | `account_form()` | HTMX partial: account creation form |
+| `/accounts/list` | GET | `institution_list()` | HTMX partial: institution list |
+| `/accounts/{id}` | GET | `account_detail()` | Detail page with health, sparkline, utilization |
+| `/accounts/{id}/statement` | GET | `credit_card_statement()` | CC statement view |
+| `/accounts/{id}/dormant` | POST | `toggle_dormant()` | Toggle dormant status |
+| `/accounts/{id}/health` | POST | `account_health_update()` | Save health constraints |
+| `/accounts/{id}/edit-form` | GET | `account_edit_form()` | HTMX partial: edit form in bottom sheet |
+| `/accounts/{id}/edit` | POST | `account_update()` | Update account fields |
+| `/accounts/{id}/delete` | POST | `account_delete()` | Delete account (bottom sheet confirmation) |
+| `/accounts/add` | POST | `account_add()` | Create account |
+| `/accounts/reorder` | POST | `reorder_accounts()` | Drag-and-drop reorder |
+| `/accounts/institution-form` | GET | `institution_form_partial()` | HTMX partial: institution form for create sheet |
+| `/institutions/add` | POST | `institution_add()` | Create institution (from bottom sheet) |
+| `/institutions/reorder` | POST | `reorder_institutions()` | Reorder institutions |
+| `/institutions/{id}/edit-form` | GET | `institution_edit_form()` | HTMX partial: edit form for bottom sheet |
+| `/institutions/{id}/edit` | POST | `institution_update()` | Update institution (from bottom sheet) |
+| `/institutions/{id}/delete-confirm` | GET | `institution_delete_confirm()` | HTMX partial: delete confirmation |
+| `/institutions/{id}/delete` | POST | `institution_delete()` | Delete institution (from bottom sheet) |
 
 ## Templates
 
@@ -165,18 +134,19 @@ Returns `[]AccountHealthWarning` with human-readable messages. Health checks are
 
 | Template | Purpose |
 |----------|---------|
-| `pages/accounts.html` | Main accounts list page with institution cards |
-| `pages/account-detail.html` | Detail page: balance, sparkline, utilization, health, transactions |
+| `backend/accounts/templates/accounts/accounts.html` | Main accounts list page with institution cards |
+| `backend/accounts/templates/accounts/account_detail.html` | Detail page: balance, sparkline, utilization, health, transactions |
 
 ### Partials
 
 | Template | Purpose |
 |----------|---------|
-| `partials/institution-card.html` | Collapsible card with accounts (HTML5 `<details>/<summary>`) |
-| `partials/account-form.html` | Account creation form (rendered in bottom sheet) |
-| `partials/institution-form.html` | Institution creation form (loaded into create bottom sheet) |
-| `partials/institution-edit-form.html` | Institution edit form (loaded into edit bottom sheet) |
-| `partials/institution-delete-confirm.html` | Institution delete confirmation (loaded into delete bottom sheet) |
+| `backend/accounts/templates/accounts/_institution_card.html` | Collapsible card with accounts (HTML5 `<details>/<summary>`) |
+| `backend/accounts/templates/accounts/_account_form.html` | Account creation form (rendered in bottom sheet) |
+| `backend/accounts/templates/accounts/_institution_form.html` | Institution creation form (loaded into create bottom sheet) |
+| `backend/accounts/templates/accounts/_institution_edit_form.html` | Institution edit form (loaded into edit bottom sheet) |
+| `backend/accounts/templates/accounts/_institution_delete_confirm.html` | Institution delete confirmation |
+| `backend/accounts/templates/accounts/_account_edit_form.html` | Account edit form (loaded into edit bottom sheet) |
 
 ## Features Detail
 
@@ -195,8 +165,9 @@ Both accounts and institutions support drag-and-drop reordering via `display_ord
 ### Health Constraints
 
 Stored as JSONB in `health_config` column for extensibility. Two supported rules:
+
 - `min_balance` — alert if balance drops below threshold
-- `min_monthly_deposit` — alert if no deposit ≥ amount arrives during month
+- `min_monthly_deposit` — alert if no deposit >= amount arrives during month
 
 Configured per-account on the detail page.
 
@@ -217,7 +188,6 @@ Create a new account via a slide-up bottom sheet on the accounts page. Click "+ 
 - **Form fields:** name, type, currency, initial balance, credit limit (shown only for credit types)
 - **On success:** sheet closes automatically, institution list refreshes via OOB swap
 - **On error:** error message shown inside the sheet, form re-rendered for retry
-- **Bottom sheet UX:** Slide-up animation, swipe-to-dismiss drag handle, overlay tap-to-close, dark mode support
 
 ### Account Deletion
 
@@ -226,7 +196,6 @@ Delete an account via a confirmation bottom sheet on the detail page. The user m
 - **Cascading deletes:** Transactions and snapshots are automatically removed (ON DELETE CASCADE)
 - **Blocked by installment plans:** If the account has active installment plans, a friendly error is shown in the sheet (FK RESTRICT constraint)
 - **Recurring rule cleanup:** The service layer deletes any recurring rules referencing the account before removal
-- **Bottom sheet UX:** Slide-up animation, swipe-to-dismiss drag handle, dark mode support
 
 ### Linked Virtual Accounts
 
@@ -234,7 +203,7 @@ The account detail page shows any virtual accounts linked to the bank account vi
 
 ### Balance Sparklines
 
-30-day inline SVG sparklines per account. Data comes from `SnapshotService.GetAccountHistory()`. Rendered using the `chart-sparkline` partial with `sparklinePoints` template function.
+30-day inline SVG sparklines per account. Data comes from `SnapshotService.get_account_history()`. Rendered using the `chart-sparkline` partial with `sparkline_points` template filter.
 
 ### Utilization Donut
 
@@ -244,26 +213,18 @@ For credit accounts, shows used vs. available credit as an SVG circle with `stro
 
 | File | Purpose |
 |------|---------|
-| `internal/models/account.go` | Account struct, types, health config, credit methods |
-| `internal/models/institution.go` | Institution struct, types |
-| `internal/repository/account.go` | Account SQL queries, atomic balance update |
-| `internal/repository/institution.go` | Institution SQL queries |
-| `internal/service/account.go` | Account validation + credit card billing cycle logic |
-| `internal/service/institution.go` | Institution validation |
-| `internal/service/account_health.go` | Health constraint checking |
-| `internal/handler/account.go` | JSON API handlers |
-| `internal/handler/institution.go` | JSON API handlers |
-| `internal/handler/pages.go` | HTML/HTMX handlers |
-| `internal/templates/pages/accounts.html` | Account list page |
-| `internal/templates/pages/account-detail.html` | Account detail page |
-| `internal/database/migrations/000002_create_accounts.up.sql` | Schema |
+| `backend/core/models.py` | Account, Institution models; account types, health config, credit methods |
+| `backend/accounts/services.py` | Account + institution validation, atomic balance updates, health checking |
+| `backend/accounts/views.py` | HTML/HTMX views for accounts and institutions |
+| `backend/accounts/templates/accounts/accounts.html` | Account list page |
+| `backend/accounts/templates/accounts/account_detail.html` | Account detail page |
 
 ## For Newcomers
 
-- **Balance updates are atomic** — always use `UpdateBalance(id, delta)` in the repo, never read-modify-write in Go code.
+- **Balance updates are atomic** — always use `UPDATE accounts SET current_balance = current_balance + %s`, never read-modify-write.
 - **JSONB for flexibility** — metadata and health_config use JSONB so new fields can be added without migrations.
-- **Nullable pointers** — `*float64` for credit_limit means "not applicable" when nil. Always nil-check before dereferencing.
-- **Display in templates** — use the `neg` template function to flip CC balance signs for display (e.g., showing "120,000 used" instead of "-120,000").
+- **Credit limit nullable** — `credit_limit` is NULL when not applicable (non-credit account types). Always check for None before using.
+- **Display in templates** — use the `neg` template filter to flip CC balance signs for display (e.g., showing "120,000 used" instead of "-120,000").
 - **Institution cards** use HTML5 `<details>/<summary>` for collapse/expand with no JavaScript.
 
 ## Logging

@@ -1,7 +1,6 @@
 """
 Exchange rate service — read-only queries for exchange rate history.
 
-Port of Go's ExchangeRateRepo.GetAll (internal/repository/exchange_rate.go).
 Like Laravel's ExchangeRateService — wraps raw SQL queries.
 
 Key design: Exchange rates are global data (no user_id). The service only
@@ -29,7 +28,6 @@ class ExchangeRateService:
     def get_all(self) -> list[dict[str, Any]]:
         """Fetch recent exchange rates, newest first.
 
-        Port of Go's ExchangeRateRepo.GetAll (exchange_rate.go).
         Returns up to 100 rows ordered by created_at DESC.
         """
         with connection.cursor() as cursor:

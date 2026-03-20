@@ -1,7 +1,7 @@
 """
 Management command: take_snapshots — daily balance snapshot + backfill.
 
-Port of Go's jobs.TakeSnapshots() (internal/jobs/snapshot.go). For each user:
+For each user:
 1. Captures today's net worth and per-account balances
 2. Backfills missing days (default: 90 days)
 

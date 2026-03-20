@@ -1,9 +1,6 @@
 """
 People views — page handlers for /people/* and JSON API for /api/persons/*.
 
-Port of Go's PageHandler people methods (pages.go:1220–1408) and
-PersonHandler JSON API (person.go).
-
 Like Laravel's PersonController — handles both HTML (HTMX) and JSON endpoints.
 """
 
@@ -35,10 +32,7 @@ def _svc(request: AuthenticatedRequest) -> PersonService:
 
 
 def _render_people_list(request: AuthenticatedRequest) -> HttpResponse:
-    """Re-render the people list for HTMX innerHTML swap.
-
-    Port of Go's renderPeopleList helper (pages.go:1335–1355).
-    """
+    """Re-render the people list for HTMX innerHTML swap."""
     svc = _svc(request)
     persons = svc.get_all()
     accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
@@ -72,10 +66,7 @@ def _render_people_list(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def people_page(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /people — people list page with add form.
-
-    Port of Go's PageHandler.People (pages.go:1220–1235).
-    """
+    """GET /people — people list page with add form."""
     logger.info("page viewed: people, user=%s", request.user_email)
     svc = _svc(request)
     persons = svc.get_all()
@@ -98,10 +89,7 @@ def people_page(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def people_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /people/add — create person via HTMX form.
-
-    Port of Go's PageHandler.PeopleAdd (pages.go:1239–1259).
-    """
+    """POST /people/add — create person via HTMX form."""
     svc = _svc(request)
     name = request.POST.get("name", "").strip()
     if not name:
@@ -118,10 +106,7 @@ def people_add(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
-    """GET /people/{id} — person detail page with debt summary.
-
-    Port of Go's PageHandler.PersonDetail (pages.go:1391–1408).
-    """
+    """GET /people/{id} — person detail page with debt summary."""
     logger.info("page viewed: person-detail, user=%s", request.user_email)
     svc = _svc(request)
     summary = svc.get_debt_summary(str(person_id))
@@ -145,10 +130,7 @@ def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse
 @general_rate
 @require_http_methods(["POST"])
 def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
-    """POST /people/{id}/loan — record loan via HTMX form.
-
-    Port of Go's PageHandler.PeopleLoan (pages.go:1263–1295).
-    """
+    """POST /people/{id}/loan — record loan via HTMX form."""
     svc = _svc(request)
     amount = parse_float_or_none(request.POST.get("amount"))
     account_id = request.POST.get("account_id", "")
@@ -175,10 +157,7 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
-    """POST /people/{id}/repay — record repayment via HTMX form.
-
-    Port of Go's PageHandler.PeopleRepay (pages.go:1299–1329).
-    """
+    """POST /people/{id}/repay — record repayment via HTMX form."""
     svc = _svc(request)
     amount = parse_float_or_none(request.POST.get("amount"))
     account_id = request.POST.get("account_id", "")
@@ -201,7 +180,7 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
 
 
 # ---------------------------------------------------------------------------
-# JSON API Views (port of Go's PersonHandler in person.go)
+# JSON API Views
 # ---------------------------------------------------------------------------
 
 
@@ -267,10 +246,7 @@ def api_person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResp
 @api_rate
 @require_http_methods(["POST"])
 def api_person_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
-    """POST /api/persons/{id}/loan — record loan (JSON).
-
-    Port of Go's PersonHandler.RecordLoan (person.go:148–162).
-    """
+    """POST /api/persons/{id}/loan — record loan (JSON)."""
     svc = _svc(request)
     body = parse_json_body(request)
     if body is None:
@@ -293,10 +269,7 @@ def api_person_loan(request: AuthenticatedRequest, person_id: str) -> HttpRespon
 @api_rate
 @require_http_methods(["POST"])
 def api_person_repayment(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
-    """POST /api/persons/{id}/repayment — record repayment (JSON).
-
-    Port of Go's PersonHandler.RecordRepayment (person.go:173–187).
-    """
+    """POST /api/persons/{id}/repayment — record repayment (JSON)."""
     svc = _svc(request)
     body = parse_json_body(request)
     if body is None:

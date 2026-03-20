@@ -2,8 +2,8 @@
 Core app — shared models, auth middleware, template tags, and HTMX helpers.
 
 The foundation layer used by all other Django apps. Contains:
-- managed=False models mapping to Go's PostgreSQL schema
-- GoSessionAuthMiddleware for cross-app session sharing
+- Models mapping to the PostgreSQL schema
+- GoSessionAuthMiddleware for session-based authentication
 - Template filters (format_egp, format_currency, etc.)
 - AuthenticatedRequest type for type-safe view signatures
 """

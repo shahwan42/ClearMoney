@@ -68,7 +68,7 @@ Push notifications use the Web Push API with VAPID (Voluntary Application Server
 
 ### Notification Types
 
-**Service:** `internal/service/notifications.go` (line ~66)
+**Service:** `backend/push/services.py` — `check_notifications()`
 
 Checks for:
 - Credit card due dates (within 3 days)
@@ -111,8 +111,8 @@ Works on elements with `[data-pull-refresh]` attribute:
 | `static/js/push.js` | Push notification subscription + polling |
 | `static/js/offline.js` | IndexedDB offline queue |
 | `static/js/gestures.js` | Pull-to-refresh gesture |
-| `internal/handler/push.go` | VAPID key, subscribe, check endpoints |
-| `internal/service/notifications.go` | Notification checks (CC due, health, budgets) |
+| `backend/push/views.py` | VAPID key, subscribe, check endpoints |
+| `backend/push/services.py` | Notification checks (CC due, health, budgets) |
 
 ## Handler Routes
 
@@ -125,7 +125,7 @@ Works on elements with `[data-pull-refresh]` attribute:
 ## For Newcomers
 
 - **Standalone display** — the app runs without browser chrome on mobile (like a native app).
-- **Service worker caching** — templates are embedded at compile time in Go, so the SW caches the rendered HTML pages, not template files.
+- **Service worker caching** — the SW caches rendered HTML pages returned by Django, not template source files.
 - **Polling-based notifications** — since this is a single-user app, notifications are checked via polling (on page load), not real-time WebSocket push.
 - **VAPID keys** — must be set via environment variables. Without them, push notifications won't work but the app still functions.
 - **Offline queue** — transactions created offline are stored in IndexedDB. The sync mechanism relies on the service worker detecting connectivity.

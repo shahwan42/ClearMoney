@@ -12,99 +12,71 @@ An installment plan tracks:
 
 ## Model
 
-**File:** `internal/models/installment.go`
+**File:** `backend/core/models.py`
 
-```go
-type InstallmentPlan struct {
-    ID                    string
-    AccountID             string
-    Description           string
-    TotalAmount           float64
-    NumInstallments       int
-    MonthlyAmount         float64
-    StartDate             time.Time
-    RemainingInstallments int
-    CreatedAt             time.Time
-    UpdatedAt             time.Time
-}
-```
+`InstallmentPlan` columns: `id` (UUID), `user_id` (FK), `account_id` (FK), `description`, `total_amount` (NUMERIC), `num_installments`, `monthly_amount` (NUMERIC), `start_date`, `remaining_installments`, `created_at`, `updated_at`.
 
-Key methods:
-- `IsComplete() bool` — returns `RemainingInstallments <= 0` (uses ≤ for safety)
-- `PaidInstallments() int` — returns `NumInstallments - RemainingInstallments`
-
-## Repository
-
-**File:** `internal/repository/installment.go`
-
-| Method | Purpose |
-|--------|---------|
-| `Create(ctx, plan)` | Insert with RETURNING |
-| `GetAll(ctx)` | All plans, active first (ordered by remaining DESC, start_date DESC) |
-| `GetByID(ctx, id)` | Single plan |
-| `RecordPayment(ctx, id)` | **Atomic decrement:** `remaining_installments = remaining_installments - 1 WHERE remaining > 0` |
-| `Delete(ctx, id)` | Remove plan |
-
-`RecordPayment` uses a WHERE guard (`remaining_installments > 0`) to prevent over-decrementing.
+Key properties:
+- `is_complete` — returns `remaining_installments <= 0`
+- `paid_installments` — returns `num_installments - remaining_installments`
 
 ## Service
 
-**File:** `internal/service/installment.go`
+**File:** `backend/installments/services.py`
 
-### Create (line ~40)
+### Create
 
-Validates required fields, auto-computes `MonthlyAmount = TotalAmount / NumInstallments` if not set. Sets `RemainingInstallments = NumInstallments`.
+Validates required fields, auto-computes `monthly_amount = total_amount / num_installments` if not set. Sets `remaining_installments = num_installments`.
 
-### RecordPayment (line ~75)
+### RecordPayment
 
 Two-step operation:
 1. Creates an **expense transaction** via TransactionService:
-   - Amount = MonthlyAmount
-   - AccountID = plan's AccountID
+   - Amount = monthly_amount
+   - account_id = plan's account_id
    - Note = "Installment X/Y: Description"
-2. Calls `repo.RecordPayment()` to decrement remaining
+2. Decrements `remaining_installments`
 
 **Order matters:** if transaction creation fails, payment is not recorded.
 
 **Service-to-service dependency:** InstallmentService delegates to TransactionService for creating expense transactions (which handles balance updates).
 
-## Handler
+## Views
 
-**File:** `internal/handler/pages.go`
+**File:** `backend/installments/views.py`
 
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
-| `/installments` | GET | `Installments()` | Page with all plans |
-| `/installments/add` | POST | `InstallmentAdd()` | Create plan |
-| `/installments/{id}/pay` | POST | `InstallmentPay()` | Record payment |
-| `/installments/{id}` | DELETE | `InstallmentDelete()` | Delete plan |
+| `/installments` | GET | `installments()` | Page with all plans |
+| `/installments/add` | POST | `installment_add()` | Create plan |
+| `/installments/{id}/pay` | POST | `installment_pay()` | Record payment |
+| `/installments/{id}/delete` | POST | `installment_delete()` | Delete plan |
 
 ## Template
 
-**File:** `internal/templates/pages/installments.html`
+**File:** `backend/installments/templates/installments/installments.html`
 
 Sections:
 1. **Create plan form** — description, total_amount, num_installments, account, start_date
 2. **Plans list** — for each plan:
    - Description, progress (X/Y paid), monthly amount
    - Total amount, "Completed" badge or remaining count
-   - Progress bar (width = `percentage` template function)
+   - Progress bar
    - Record Payment button + Delete button (if not complete)
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/models/installment.go` | InstallmentPlan struct, IsComplete(), PaidInstallments() |
-| `internal/repository/installment.go` | CRUD, atomic payment decrement |
-| `internal/service/installment.go` | Validation, RecordPayment with transaction creation |
-| `internal/handler/pages.go` | Installment handlers |
-| `internal/templates/pages/installments.html` | Installments page |
+| `backend/core/models.py` | InstallmentPlan model, is_complete, paid_installments |
+| `backend/installments/services.py` | Validation, RecordPayment with transaction creation |
+| `backend/installments/views.py` | Views for installment pages |
+| `backend/installments/templates/installments/installments.html` | Installments page |
 
 ## For Newcomers
 
 - **Service-to-service dependency** — InstallmentService creates expense transactions via TransactionService. This ensures balance updates happen correctly.
-- **Auto-computed monthly amount** — `TotalAmount / NumInstallments`. This may not divide evenly (e.g., 1000/3 = 333.33), so the last payment may differ slightly.
+- **Auto-computed monthly amount** — `total_amount / num_installments`. May not divide evenly, so the last payment may differ slightly.
 - **Atomic decrement** — `remaining_installments - 1 WHERE remaining > 0` prevents negative remaining.
 - **No scheduling** — payments are manual (user clicks "Record Payment"). Unlike recurring rules, installments don't auto-execute.
 

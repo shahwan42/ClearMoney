@@ -1,7 +1,6 @@
 """
 Refresh materialized views service — keeps pre-aggregated data up to date.
 
-Port of Go's RefreshMaterializedViews() (internal/jobs/refresh_views.go).
 Materialized views are database-level cached queries. Unlike regular views,
 results are stored on disk for fast reads but must be manually refreshed.
 

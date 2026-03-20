@@ -1,7 +1,6 @@
 """
 People view tests — HTTP-level tests for /people/* routes and /api/persons/* JSON API.
 
-Port of Go's handler/pages_test.go people tests + expanded coverage.
 Uses raw SQL fixtures for PostgreSQL enum columns.
 """
 

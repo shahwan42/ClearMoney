@@ -1,7 +1,6 @@
 """
 Category API view tests — HTTP-level tests for /api/categories/* JSON API.
 
-Port of Go's handler/category_test.go.
 """
 
 import json

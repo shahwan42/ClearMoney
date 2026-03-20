@@ -8,11 +8,11 @@ Credit cards use the same `Account` model but with key differences:
 
 - **Type:** `credit_card` or `credit_limit`
 - **Balance is negative** — represents debt (e.g., -120,000 = 120K used)
-- **CreditLimit field** — required for credit types, nullable for others
-- **Metadata JSONB** — stores billing cycle info (statement_day, due_day)
+- **credit_limit field** — required for credit types, nullable for others
+- **metadata JSONB** — stores billing cycle info (statement_day, due_day)
 - **Available credit** = `credit_limit + current_balance` (since balance is negative)
 
-The `IsCreditType()` method identifies credit accounts. The `neg` template function flips the sign for display.
+The `is_credit_type()` check identifies credit accounts. The `neg` template filter flips the sign for display.
 
 ## Billing Cycle
 
@@ -29,43 +29,40 @@ Billing cycle info is stored in the `metadata` JSONB column:
 
 ### Types
 
-**File:** `internal/service/account.go`
+**File:** `backend/core/billing.py`
 
-- `BillingCycleMetadata` (line ~43) — parsed from JSONB: `StatementDay`, `DueDay`
-- `BillingCycleInfo` (line ~52) — computed for current period:
-  - `PeriodStart`, `PeriodEnd` — current billing period dates
-  - `DueDate` — when payment is due
-  - `DaysUntilDue` — countdown (negative if overdue)
-  - `IsDueSoon` — true if due within 7 days
+- `BillingCycleInfo` — computed for current period:
+  - `period_start`, `period_end` — current billing period dates
+  - `due_date` — when payment is due
+  - `days_until_due` — countdown (negative if overdue)
+  - `is_due_soon` — true if due within 7 days
 
 ### Functions
 
-- `ParseBillingCycle(acc)` — unmarshals metadata JSONB
-- `GetBillingCycleInfo(meta, now)` — computes current period dates based on today
+- `parse_billing_cycle(account)` — parses metadata JSONB
+- `get_billing_cycle_info(meta, now)` — computes current period dates based on today
 
 ## Statement View
 
 **Route:** `GET /accounts/{id}/statement`
 
-**Handler:** `CreditCardStatement()` in `pages.go`
+**View:** `credit_card_statement()` in `backend/accounts/views.py`
 
-### StatementData Struct
+### StatementData
 
-**File:** `internal/service/account.go` (line ~128)
-
-- `Account` — the credit card
-- `BillingCycle` — computed period info
-- `Transactions` — all transactions in the billing period
-- `OpeningBalance` — balance at period start (computed by subtracting all deltas from closing)
-- `ClosingBalance` — current balance
-- `TotalSpending` — sum of expenses
-- `TotalPayments` — sum of credits/payments
-- `InterestFreeDays`, `InterestFreeRemain`, `InterestFreeUrgent`
-- `PaymentHistory` — recent payments to card
+- `account` — the credit card
+- `billing_cycle` — computed period info
+- `transactions` — all transactions in the billing period
+- `opening_balance` — balance at period start (computed by reversing deltas)
+- `closing_balance` — current balance
+- `total_spending` — sum of expenses
+- `total_payments` — sum of credits/payments
+- `interest_free_days`, `interest_free_remain`, `interest_free_urgent`
+- `payment_history` — recent payments to card
 
 ### Statement Fetching
 
-`GetStatementData()` (line ~160):
+`get_statement_data()`:
 1. Parses billing cycle from account metadata
 2. Computes period dates (supports past periods via `?period=YYYY-MM` query param)
 3. Loads transactions in the billing period
@@ -77,10 +74,10 @@ Billing cycle info is stored in the `metadata` JSONB column:
 
 Standard interest-free period is 55 days from statement close date.
 
-```go
-interestFreeEnd := info.PeriodEnd.AddDate(0, 0, 55)
-remain := int(interestFreeEnd.Sub(now).Hours() / 24)
-urgent := remain > 0 && remain <= 7
+```python
+interest_free_end = period_end + timedelta(days=55)
+remain = (interest_free_end - today).days
+urgent = 0 < remain <= 7
 ```
 
 Displayed in the statement view with an urgency indicator when ≤ 7 days remain.
@@ -89,11 +86,11 @@ Displayed in the statement view with an urgency indicator when ≤ 7 days remain
 
 ### Calculation
 
-**File:** `internal/service/account.go` — `GetCreditCardUtilization()` (line ~245)
+**File:** `backend/accounts/services.py` — `get_credit_card_utilization()`
 
-```go
-used := -acc.CurrentBalance  // balance is negative, negate to get positive
-return used / *acc.CreditLimit * 100
+```python
+used = -account.current_balance  # balance is negative, negate to get positive
+return used / account.credit_limit * 100
 ```
 
 ### Donut Chart
@@ -101,7 +98,7 @@ return used / *acc.CreditLimit * 100
 Displayed on the account detail page as an SVG circle using `stroke-dasharray`:
 
 ```html
-<circle stroke-dasharray="{{.UtilizationPct}}, 100" />
+<circle stroke-dasharray="{{ utilization_pct }}, 100" />
 ```
 
 Color thresholds:
@@ -113,11 +110,11 @@ Color thresholds:
 
 Historical utilization computed from 30-day balance snapshots:
 
-```go
-for _, bal := range balanceHistory {
-    used := -bal
-    utilizationHistory = append(utilizationHistory, used / *acc.CreditLimit * 100)
-}
+```python
+utilization_history = [
+    -bal / account.credit_limit * 100
+    for bal in balance_history
+]
 ```
 
 Rendered as an SVG sparkline below the donut chart.
@@ -126,22 +123,22 @@ Rendered as an SVG sparkline below the donut chart.
 
 Shown in the statement view when balance < 0:
 
-- Shows full statement balance with `neg` function (displays positive amount)
+- Shows full statement balance with `neg` filter (displays positive amount)
 - Due date from billing cycle info
 - Days until due countdown
 - Currently guidance is for full balance payment (no minimum payment logic)
 
 ## Fawry Cash-Out
 
-**Service:** `internal/service/transaction.go` — `CreateFawryCashout()` (line ~504)
+**File:** `backend/transactions/services.py` — `create_fawry_cashout()`
 
 Converts credit card balance to prepaid cash:
 1. Creates expense on credit card for (amount + fee)
 2. Creates income on prepaid account for amount
-3. Both linked via `LinkedTransactionID`
+3. Both linked via `linked_transaction_id`
 4. All within single DB transaction
 
-**Handler:** `FawryCashout()` (GET) renders form, `FawryCashoutCreate()` (POST) processes it.
+**View:** `FawryCashout` (GET renders form, POST processes it) in `backend/transactions/views.py`.
 
 ## Dashboard Integration
 
@@ -156,22 +153,19 @@ The dashboard shows credit cards with:
 
 | Template | Purpose |
 |----------|---------|
-| `pages/account-detail.html` | Detail page with utilization donut, sparkline, billing info |
-| `pages/credit-card-statement.html` | Statement view with period, interest-free tracker, payments |
-| `partials/credit-card-info.html` | Billing cycle info box (statement day, period, due date) |
+| `accounts/templates/accounts/account-detail.html` | Detail page with utilization donut, sparkline, billing info |
+| `accounts/templates/accounts/credit-card-statement.html` | Statement view with period, interest-free tracker, payments |
+| `accounts/templates/accounts/partials/credit-card-info.html` | Billing cycle info box |
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/models/account.go` | Account model with IsCreditType(), AvailableCredit() |
-| `internal/service/account.go` | BillingCycle parsing, StatementData, utilization calc |
-| `internal/service/transaction.go` | Fawry cash-out logic |
-| `internal/handler/pages.go` | AccountDetail, CreditCardStatement, FawryCashout handlers |
-| `internal/handler/charts.go` | conicGradient template function for donut charts |
-| `internal/templates/pages/credit-card-statement.html` | Statement template |
-| `internal/templates/pages/account-detail.html` | Detail page with CC features |
-| `internal/templates/partials/credit-card-info.html` | Billing cycle partial |
+| `backend/core/models.py` | Account model with credit_limit, metadata fields |
+| `backend/core/billing.py` | BillingCycle parsing, period computation |
+| `backend/accounts/services.py` | StatementData, utilization calculation |
+| `backend/transactions/services.py` | Fawry cash-out logic |
+| `backend/accounts/views.py` | AccountDetail, CreditCardStatement views |
 
 ## For Newcomers
 

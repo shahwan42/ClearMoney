@@ -1,9 +1,6 @@
 """
 Installment service — CRUD + payment recording for installment plans.
 
-Port of Go's InstallmentService (internal/service/installment.go)
-and InstallmentRepo (internal/repository/installment.go).
-
 Like Laravel's InstallmentService — validates input, executes raw SQL,
 and coordinates with TransactionService for recording payments.
 
@@ -26,7 +23,6 @@ logger = logging.getLogger(__name__)
 class InstallmentService:
     """Handles installment plan CRUD and payment recording.
 
-    Like Laravel's InstallmentService wrapping Eloquent queries.
     All queries scoped to self.user_id for multi-user isolation.
     """
 
@@ -37,7 +33,6 @@ class InstallmentService:
     def get_all(self) -> list[dict[str, Any]]:
         """Fetch all installment plans ordered by active first, then newest.
 
-        Port of Go's InstallmentRepo.GetAll (installment.go).
         Returns dicts with computed is_complete and paid_installments fields.
         """
         with connection.cursor() as cursor:
@@ -75,7 +70,6 @@ class InstallmentService:
     def get_by_id(self, plan_id: str) -> dict[str, Any]:
         """Fetch a single installment plan by ID.
 
-        Port of Go's InstallmentRepo.GetByID (installment.go).
         Raises ValueError if not found.
         """
         with connection.cursor() as cursor:
@@ -112,7 +106,6 @@ class InstallmentService:
     def create(self, data: dict[str, Any]) -> str:
         """Create a new installment plan.
 
-        Port of Go's InstallmentService.Create (installment.go).
         Validates inputs, auto-computes monthly_amount, inserts, and logs.
 
         Raises ValueError for validation failures.
@@ -180,7 +173,6 @@ class InstallmentService:
     def record_payment(self, plan_id: str) -> None:
         """Record a payment on an installment plan.
 
-        Port of Go's InstallmentService.RecordPayment (installment.go).
         Two-step: creates expense transaction via TransactionService, then
         decrements remaining_installments atomically.
 
@@ -224,10 +216,7 @@ class InstallmentService:
         )
 
     def delete(self, plan_id: str) -> None:
-        """Delete an installment plan.
-
-        Port of Go's InstallmentService.Delete (installment.go).
-        """
+        """Delete an installment plan."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "DELETE FROM installment_plans WHERE id = %s AND user_id = %s",

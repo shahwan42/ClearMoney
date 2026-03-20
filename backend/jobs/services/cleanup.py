@@ -1,9 +1,7 @@
 """
 Cleanup service — deletes expired auth tokens and sessions.
 
-Port of Go's AuthTokenRepo.CleanupExpired() (internal/repository/auth_token.go)
-and SessionRepo.CleanupExpired() (internal/repository/session.go). Like Laravel's
-`php artisan auth:clear-resets` or Django's `clearsessions` command.
+Like Laravel's `php artisan auth:clear-resets` or Django's `clearsessions` command.
 
 Called on startup and hourly via the django-cron service.
 """
@@ -19,7 +17,7 @@ class CleanupService:
     """Removes expired auth tokens and sessions from the database.
 
     Both queries are simple DELETEs with a time comparison — no user_id
-    needed since expiration is global (like Go's implementation).
+    needed since expiration is global.
     """
 
     def cleanup(self) -> tuple[int, int]:

@@ -14,7 +14,7 @@ from core.timing import timed
 
 logger = logging.getLogger(__name__)
 
-# Chart color palette — matches Go's chartPalette in charts.go and reports.go
+# Chart color palette
 CHART_PALETTE = [
     "#0d9488",  # teal-600
     "#dc2626",  # red-600
@@ -33,7 +33,6 @@ def get_monthly_report(
 ) -> dict[str, Any]:
     """Build the full report data for a given month.
 
-    Equivalent of Go's ReportsService.GetMonthlyReport() in reports.go:124.
     Aggregates spending by category, month summaries, chart segments, and bar data.
     """
     spending, total_spending = get_spending_by_category(
@@ -84,10 +83,7 @@ def get_monthly_report(
 def get_spending_by_category(
     user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
 ) -> tuple[list[dict[str, Any]], float]:
-    """Get expense totals grouped by category for a month.
-
-    Equivalent of Go's ReportsService.getSpendingByCategory() in reports.go:276.
-    """
+    """Get expense totals grouped by category for a month."""
     start_date = date(year, month, 1)
     end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
@@ -140,10 +136,7 @@ def get_spending_by_category(
 def get_month_summary(
     user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
 ) -> dict[str, Any]:
-    """Get income and expense totals for a single month.
-
-    Equivalent of Go's ReportsService.getMonthSummary() in reports.go:328.
-    """
+    """Get income and expense totals for a single month."""
     start_date = date(year, month, 1)
     end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
@@ -184,10 +177,7 @@ def get_month_summary(
 def get_monthly_history(
     user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
 ) -> list[dict[str, Any]]:
-    """Get income/expenses for the last 6 months (for the bar chart).
-
-    Equivalent of Go's ReportsService.getMonthlyHistory() in reports.go:247.
-    """
+    """Get income/expenses for the last 6 months (for the bar chart)."""
     history = []
     for i in range(5, -1, -1):
         m = month - i
@@ -203,10 +193,7 @@ def get_monthly_history(
 def build_chart_segments(
     spending: list[dict[str, Any]], total: float
 ) -> list[dict[str, Any]]:
-    """Convert category spending into donut chart segments.
-
-    Equivalent of Go's ReportsService.buildChartSegments() in reports.go:189.
-    """
+    """Convert category spending into donut chart segments."""
     if total == 0 or not spending:
         return []
 
@@ -224,10 +211,7 @@ def build_chart_segments(
 def build_bar_chart(
     history: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Convert monthly history into bar chart groups with normalized heights.
-
-    Equivalent of Go's ReportsService.buildBarChart() in reports.go:206.
-    """
+    """Convert monthly history into bar chart groups with normalized heights."""
     if not history:
         return [], []
 

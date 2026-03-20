@@ -16,8 +16,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class CurrencySpending:
-    """Per-currency month-over-month spending comparison.
-    Go equivalent: service.CurrencySpending"""
+    """Per-currency month-over-month spending comparison."""
 
     currency: str
     this_month: float
@@ -28,8 +27,7 @@ class CurrencySpending:
 
 @dataclass
 class SpendingVelocity:
-    """Spending pace relative to last month.
-    Go equivalent: service.SpendingVelocity"""
+    """Spending pace relative to last month."""
 
     percentage: float  # current spend / last month total x 100
     days_elapsed: int
@@ -42,10 +40,7 @@ class SpendingVelocity:
 def compute_spending_comparison(
     user_id: str, data: DashboardData, tz: ZoneInfo
 ) -> None:
-    """Compute this month vs last month spending + top categories + velocity.
-
-    Port of Go's DashboardService.computeSpendingComparison().
-    """
+    """Compute this month vs last month spending + top categories + velocity."""
     now = datetime.now(tz)
     today = now.date()
     this_month_start = today.replace(day=1)
@@ -162,7 +157,7 @@ def _query_top_categories(
 ) -> list[dict[str, Any]]:
     """Query top 3 spending categories with month-over-month change.
 
-    Port of Go's queryTopCategoriesForCurrency() — uses CTE.
+    Uses a CTE to join this month and last month category totals.
     """
     with connection.cursor() as cursor:
         cursor.execute(

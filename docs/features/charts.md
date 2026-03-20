@@ -8,19 +8,20 @@ All charts in ClearMoney are built with CSS and inline SVG — no JavaScript cha
 
 **Technology:** CSS `conic-gradient()`
 
-**Template:** `internal/templates/partials/chart-donut.html`
+**Template:** `backend/reports/templates/reports/partials/chart-donut.html`
 
 ```html
-<div style="background: {{conicGradient .Segments}}">
+<div style="background: {{ segments|conic_gradient }}">
     <div class="chart-donut-hole">
-        <span>{{.CenterLabel}}</span>
+        <span>{{ center_label }}</span>
     </div>
 </div>
 ```
 
-**Template Function:** `conicGradient()` in `internal/handler/charts.go` (line ~136)
-- Input: Array of `ChartSegment` (Color + Percentage)
-- Output: `template.CSS` string like `"conic-gradient(#0d9488 0.0% 35.2%, #dc2626 35.2% 60.0%, #e2e8f0 60.0% 100.0%)"`
+**Template Filter:** `conic_gradient` in `backend/core/templatetags/money.py`
+
+- Input: list of `ChartSegment` (color + percentage)
+- Output: CSS string like `"conic-gradient(#0d9488 0.0% 35.2%, #dc2626 35.2% 60.0%, #e2e8f0 60.0% 100.0%)"`
 - Fills remaining space with light gray (#e2e8f0)
 
 **CSS:** `static/css/charts.css` (lines ~14-73)
@@ -35,17 +36,18 @@ All charts in ClearMoney are built with CSS and inline SVG — no JavaScript cha
 
 **Technology:** CSS flexbox with proportional heights
 
-**Template:** `internal/templates/partials/chart-bar.html`
+**Template:** `backend/reports/templates/reports/partials/chart-bar.html`
 
 ```html
-<div style="{{barStyle .HeightPct .Color}}"></div>
+<div style="{{ bar|bar_style }}"></div>
 ```
 
-**Template Function:** `barStyle()` in `charts.go` (line ~212)
-- Input: height percentage (0-100), color hex
-- Output: `template.CSS` like `"height:75.5%;background-color:#0d9488"`
+**Template Filter:** `bar_style` in `backend/core/templatetags/money.py`
 
-**Helper:** `ComputeBarHeights()` (line ~230) normalizes all bars relative to max value.
+- Input: height percentage (0-100) and color hex
+- Output: CSS string like `"height:75.5%;background-color:#0d9488"`
+
+Heights are normalized to 0-100 relative to the maximum value across all months.
 
 **CSS:** `static/css/charts.css` (lines ~75-125)
 - `.chart-bar-area` — flex container with 160px height, align-end
@@ -59,17 +61,18 @@ All charts in ClearMoney are built with CSS and inline SVG — no JavaScript cha
 
 **Technology:** Inline SVG `<polyline>` + `<polygon>`
 
-**Template:** `internal/templates/partials/chart-sparkline.html`
+**Template:** `backend/templates/components/chart-sparkline.html`
 
 ```html
-<svg viewBox="0 0 {{.Width}} {{.Height}}">
-    <polygon points="0,{{.Height}} {{sparklinePoints .Values}} {{.Width}},{{.Height}}" />
-    <polyline points="{{sparklinePoints .Values}}" />
+<svg viewBox="0 0 {{ width }} {{ height }}">
+    <polygon points="0,{{ height }} {{ values|sparkline_points }} {{ width }},{{ height }}" />
+    <polyline points="{{ values|sparkline_points }}" />
 </svg>
 ```
 
-**Template Function:** `sparklinePoints()` in `charts.go` (line ~169)
-- Input: Array of float64 values
+**Template Filter:** `sparkline_points` in `backend/core/templatetags/money.py`
+
+- Input: list of numeric values
 - Output: SVG coordinate string like `"0.0,30.0 33.3,12.0 66.7,22.8 100.0,2.0"`
 - Normalizes values to viewBox dimensions
 - Single value returns flat line; empty returns ""
@@ -85,8 +88,6 @@ All charts in ClearMoney are built with CSS and inline SVG — no JavaScript cha
 
 **Technology:** Text with arrow character
 
-**Template:** `internal/templates/partials/chart-trend.html`
-
 Shows `▲ +5.2%` (green) or `▼ -3.1%` (red) based on percentage change. Color determined by `IsGood` flag (context-dependent — spending increase is bad, balance increase is good).
 
 **Used in:** Dashboard (net worth change, spending change, category changes)
@@ -100,7 +101,7 @@ Two `<circle>` elements:
 2. Foreground colored circle (partial, based on utilization %)
 
 ```html
-<circle stroke-dasharray="{{.UtilizationPct}}, 100" />
+<circle stroke-dasharray="{{ utilization_pct }}, 100" />
 ```
 
 Color thresholds: green (<50%), amber (50-80%), red (>80%)
@@ -109,7 +110,7 @@ Color thresholds: green (<50%), amber (50-80%), red (>80%)
 
 ## Color Palette
 
-**File:** `internal/handler/charts.go` (lines ~103-124)
+**File:** `backend/core/templatetags/money.py` — `chart_color` filter
 
 8-color palette that cycles:
 1. `#0d9488` — teal
@@ -121,21 +122,17 @@ Color thresholds: green (<50%), amber (50-80%), red (>80%)
 7. `#db2777` — pink
 8. `#4f46e5` — indigo
 
-`ChartColor(index)` wraps via modulo: `palette[index % 8]`
+`chart_color(index)` wraps via modulo: `palette[index % 8]`
 
-## Template Functions
+## Template Filters
 
-All registered via `ChartFuncs()` in `charts.go` (line ~264):
+All defined in `backend/core/templatetags/money.py`:
 
-| Function | Signature | Purpose |
-|----------|-----------|---------|
-| `conicGradient` | `[]ChartSegment → template.CSS` | Donut background |
-| `sparklinePoints` | `[]float64 → string` | SVG polyline coordinates |
-| `chartColor` | `int → string` | Color from palette by index |
-| `barStyle` | `(float64, string) → template.CSS` | Bar height + color CSS |
-| `absFloat` | `float64 → float64` | Absolute value |
-
-These are merged into the global `TemplateFuncs()` in `templates.go`.
+| Filter | Signature | Purpose |
+| ------ | --------- | ------- |
+| `conic_gradient` | `list[ChartSegment] → str` | Donut background CSS |
+| `bar_style` | `(float, str) → str` | Bar height + color CSS |
+| `chart_color` | `int → str` | Color from palette by index |
 
 ## Dark Mode Support
 
@@ -149,18 +146,14 @@ All charts adapt to dark mode via Tailwind's `dark:` variants and custom CSS ove
 
 | File | Purpose |
 |------|---------|
-| `internal/handler/charts.go` | Template functions + color palette |
-| `internal/models/chart.go` | ChartSegment struct |
-| `internal/templates/partials/chart-donut.html` | Donut chart partial |
-| `internal/templates/partials/chart-bar.html` | Bar chart partial |
-| `internal/templates/partials/chart-sparkline.html` | Sparkline partial |
-| `internal/templates/partials/chart-trend.html` | Trend arrow partial |
+| `backend/core/templatetags/money.py` | Template filters: conic_gradient, bar_style, chart_color |
+| `backend/reports/templates/reports/partials/chart-donut.html` | Donut chart partial |
+| `backend/reports/templates/reports/partials/chart-bar.html` | Bar chart partial |
 | `static/css/charts.css` | All chart CSS + dark mode overrides |
 
 ## For Newcomers
 
-- **No JavaScript charting** — all charts are pure CSS/SVG. This means no dependencies, no bundle size, and instant rendering.
-- **`template.CSS` return type** — used for safe CSS injection in templates (Go's html/template normally escapes CSS).
+- **No JavaScript charting** — all charts are pure CSS/SVG. No dependencies, instant rendering.
+- **Template filters** — Django template filters in `money.py` handle chart rendering (conic_gradient, bar_style, chart_color).
 - **Normalized heights** — bar charts normalize to 0-100 scale. The tallest bar is always 100%.
-- **Sparkline viewBox** — SVG uses relative coordinates (0-100 x, 0-40 y). The `sparklinePoints` function normalizes any value range to fit.
-- **Dark mode** — chart colors are explicit (not Tailwind classes), so dark mode overrides only affect backgrounds and text, not the chart colors themselves.
+- **Dark mode** — chart colors are explicit (not Tailwind classes), so dark mode overrides only affect backgrounds and text, not chart colors.

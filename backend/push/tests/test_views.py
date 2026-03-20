@@ -1,7 +1,6 @@
 """
 Push notification view tests — HTTP-level tests for /api/push/* JSON endpoints.
 
-Port of Go's handler/push_test.go (implicit — Go didn't have dedicated push tests).
 Tests the 3 JSON API endpoints: vapid-key, subscribe, check.
 """
 

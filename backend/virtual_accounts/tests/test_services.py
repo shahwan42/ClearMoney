@@ -1,9 +1,7 @@
 """
 Virtual account service tests — CRUD, allocations, and balance recalculation.
 
-Port of Go's internal/repository/virtual_account_test.go +
-internal/service/virtual_account_test.go. Tests run against the real
-database with --reuse-db (Go owns schema).
+Tests run against the real database with --reuse-db.
 """
 
 import uuid

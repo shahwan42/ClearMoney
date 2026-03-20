@@ -1,17 +1,14 @@
 """
 Salary distribution service — multi-step wizard business logic.
 
-Port of Go's SalaryService (internal/service/salary.go). Creates multiple
-transactions atomically: 1 income + 2 exchange + N*2 allocation transfers.
-
-Key design: composes TransactionService methods (create, create_exchange,
-create_transfer) inside a single outer transaction.atomic() block. Django's
-nested atomic() calls create savepoints, so if any step fails the entire
-distribution rolls back.
+Creates multiple transactions atomically: 1 income + 2 exchange + N*2 allocation
+transfers. Composes TransactionService methods (create, create_exchange,
+create_transfer) inside a single transaction.atomic() block. Django's nested
+atomic() calls create savepoints, so if any step fails the entire distribution
+rolls back.
 
 Like Laravel's SalaryService::distribute() wrapping multiple Model operations
-inside DB::transaction(). Django analogy: a service function using
-transaction.atomic() to orchestrate multiple TransactionService calls.
+inside DB::transaction().
 """
 
 import logging
@@ -60,8 +57,8 @@ class SalaryResult:
 class SalaryService:
     """Handles salary distribution — combined validation + orchestration.
 
-    Like Laravel's SalaryService that wraps multiple transaction creations
-    in a single DB::transaction(). All queries scoped to self.user_id.
+    Wraps multiple transaction creations in a single atomic block.
+    All queries scoped to self.user_id.
     """
 
     def __init__(self, user_id: str, tz: ZoneInfo) -> None:
@@ -71,9 +68,7 @@ class SalaryService:
     def distribute(self, dist: SalaryDistribution) -> SalaryResult:
         """Distribute salary: income → exchange → allocation transfers.
 
-        Port of Go's SalaryService.DistributeSalary (salary.go:75).
         Creates all transactions atomically using TransactionService composition.
-
         Raises ValueError for validation failures.
         """
         # --- Validation ---

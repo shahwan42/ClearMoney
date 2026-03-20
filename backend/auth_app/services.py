@@ -1,7 +1,6 @@
 """
 Auth services — magic link authentication and email sending.
 
-Port of Go's internal/service/auth.go and internal/service/email.go.
 Handles token generation, rate limiting, session management, and
 category seeding for new users.
 
@@ -22,7 +21,7 @@ from core.models import AuthToken, Session, User
 
 logger = logging.getLogger(__name__)
 
-# --- Constants (matching Go exactly) ---
+# --- Constants ---
 
 SESSION_COOKIE_NAME = "clearmoney_session"
 SESSION_MAX_AGE = timedelta(days=30)
@@ -33,7 +32,7 @@ MAX_DAILY_PER_EMAIL = 3
 
 
 class SendResult(IntEnum):
-    """Outcome of a magic link request. Matches Go's SendResult enum."""
+    """Outcome of a magic link request."""
 
     SENT = 0
     REUSED = 1
@@ -153,7 +152,7 @@ class EmailService:
 class AuthService:
     """Handles magic-link authentication, sessions, and rate limiting.
 
-    Port of Go's AuthService. All DB access uses Django ORM via core.models.
+    All DB access uses Django ORM via core.models.
     """
 
     def __init__(
@@ -361,10 +360,7 @@ class AuthService:
             logger.warning("auth.logout session not found")
 
     def _seed_default_categories(self, user_id: str) -> None:
-        """Insert 25 default categories for a new user.
-
-        Matches Go's CategoryRepo.SeedDefaults exactly.
-        """
+        """Insert 25 default categories for a new user."""
         try:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -414,7 +410,7 @@ class AuthService:
 _email_service = EmailService(
     api_key=os.environ.get("RESEND_API_KEY", ""),
     from_addr=os.environ.get("EMAIL_FROM", "noreply@clearmoney.app"),
-    app_url=os.environ.get("APP_URL", "http://localhost:8080"),
+    app_url=os.environ.get("APP_URL", "http://localhost:8000"),
 )
 
 auth_service = AuthService(

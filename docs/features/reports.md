@@ -1,6 +1,4 @@
-# Reports (Django)
-
-> **Migrated to Django** — this feature is now served by the Django backend (`backend/reports/`). The Go handler and service still exist for rollback safety but are not used in production (Caddy routes `/reports` to Django).
+# Reports
 
 Reports provide financial analytics with monthly spending breakdown by category (donut chart) and 6-month income vs expenses trend (bar chart). All charts are CSS-only.
 
@@ -14,67 +12,56 @@ Reports provide financial analytics with monthly spending breakdown by category 
 
 ### Service
 
-**File:** `internal/service/reports.go` (~361 lines)
+**File:** `backend/reports/services.py`
 
-The `ReportsService` uses a direct `*sql.DB` connection (not a repository) because report queries are complex aggregates that don't fit the standard CRUD pattern.
+Complex report queries are direct raw SQL (not ORM) because they involve multi-table aggregates.
 
-**Key Methods:**
+**Key functions:**
 
-| Method | Purpose |
-|--------|---------|
-| `GetMonthlyReport(ctx, year, month, filter)` | Main entry point — aggregates all report data |
-| `getSpendingByCategory(ctx, year, month, filter)` | JOINs transactions + categories, groups by category |
-| `getMonthSummary(ctx, year, month)` | Computes income/expenses/net for a month |
-| `getMonthlyHistory(ctx, year, month)` | Fetches 6 months of summaries backward |
-| `buildChartSegments(spending)` | Converts category data to donut chart segments |
-| `buildBarChart(history)` | Builds bar chart with normalized heights (0-100) |
-
-### Data Structures
-
-**File:** `internal/service/reports.go` (lines ~35-105)
-
-| Struct | Purpose |
-|--------|---------|
-| `CategorySpending` | CategoryID, Name, Icon, Amount, Percentage |
-| `MonthSummary` | Year, Month, Income, Expenses, Net |
-| `ReportFilter` | Optional AccountID and Currency filters |
-| `ReportsData` | Complete report dataset |
-| `BarGroup` | Label + Bars array (one group per month) |
-| `BarValue` | Value, HeightPct (0-100), Color, Label |
-| `LegendItem` | Label + Color pairs for chart legends |
+| Function | Purpose |
+|----------|---------|
+| `get_monthly_report(user_id, year, month, filter)` | Main entry point — aggregates all report data |
+| `get_spending_by_category(cursor, user_id, year, month, filter)` | JOINs transactions + categories, groups by category |
+| `get_month_summary(cursor, user_id, year, month)` | Computes income/expenses/net for a month |
+| `get_monthly_history(cursor, user_id, year, month)` | Fetches 6 months of summaries backward |
+| `build_chart_segments(spending)` | Converts category data to donut chart segments |
+| `build_bar_chart(history)` | Builds bar chart with normalized heights (0-100) |
 
 ### SQL Patterns
 
-The service uses dynamic SQL building with parameterized queries:
+Dynamic parameterized queries with optional filters:
 
-```go
-// Dynamic WHERE clause based on filters
-query := `SELECT c.id, c.name, c.icon, SUM(t.amount) ...`
-if filter.AccountID != "" {
-    query += fmt.Sprintf(" AND t.account_id = $%d", paramCount)
-    args = append(args, filter.AccountID)
-}
+```python
+query = """
+    SELECT c.id, c.name, c.icon, SUM(t.amount)
+    FROM transactions t JOIN categories c ON t.category_id = c.id
+    WHERE t.user_id = %s AND t.type = 'expense'
+"""
+params = [user_id]
+if filter.account_id:
+    query += " AND t.account_id = %s"
+    params.append(filter.account_id)
 ```
 
 Aggregate functions: `SUM()`, `COALESCE()`, `GROUP BY`, with LEFT JOIN to handle uncategorized transactions.
 
-## Handler
+## View
 
-**File:** `internal/handler/pages.go` (lines ~1639-1672)
+**File:** `backend/reports/views.py`
 
 **Route:** `GET /reports`
 
-The `Reports()` handler:
+The `reports_page()` view:
 1. Parses `year` and `month` query params (defaults to current month)
 2. Parses optional `account_id` and `currency` filters
-3. Calls `reportsSvc.GetMonthlyReport()` with filter
-4. Renders "reports" template
+3. Calls `get_monthly_report()` with filter
+4. Renders `reports/reports.html` template
 
 ## Templates
 
 ### Main Page
 
-**File:** `internal/templates/pages/reports.html`
+**File:** `backend/reports/templates/reports/reports.html`
 
 - Month selector navigation (prev/next links)
 - Currency filter dropdown
@@ -86,24 +73,24 @@ The `Reports()` handler:
 
 | Partial | File | Purpose |
 |---------|------|---------|
-| `chart-donut` | `partials/chart-donut.html` | CSS conic-gradient donut with center label |
-| `spending-by-category` | `partials/spending-by-category.html` | Category list with colored legend dots |
-| `income-vs-expense` | `partials/income-vs-expense.html` | Bar chart + current/previous month summary |
-| `chart-bar` | `partials/chart-bar.html` | Flexbox-based bar chart with month labels |
+| `chart-donut` | `reports/partials/chart-donut.html` | CSS conic-gradient donut with center label |
+| `spending-by-category` | `reports/partials/spending-by-category.html` | Category list with colored legend dots |
+| `income-vs-expense` | `reports/partials/income-vs-expense.html` | Bar chart + current/previous month summary |
+| `chart-bar` | `reports/partials/chart-bar.html` | Flexbox-based bar chart with month labels |
 
 ### Donut Chart Implementation
 
-Uses CSS `conic-gradient()` generated by the `conicGradient()` template function:
+Uses CSS `conic-gradient()` generated by the `conic_gradient` template filter:
 
 ```html
-<div style="background: {{conicGradient .Segments}}">
+<div style="background: {{ segments|conic_gradient }}">
     <div class="chart-donut-hole">
-        <span>{{.CenterLabel}}</span>
+        <span>{{ center_label }}</span>
     </div>
 </div>
 ```
 
-The function outputs something like:
+The filter outputs something like:
 ```css
 conic-gradient(#0d9488 0.0% 35.2%, #dc2626 35.2% 60.0%, #e2e8f0 60.0% 100.0%)
 ```
@@ -113,7 +100,7 @@ conic-gradient(#0d9488 0.0% 35.2%, #dc2626 35.2% 60.0%, #e2e8f0 60.0% 100.0%)
 Uses CSS flexbox with inline height styles:
 
 ```html
-<div style="{{barStyle .HeightPct .Color}}"></div>
+<div style="{{ bar|bar_style }}"></div>
 <!-- Outputs: height:75.5%;background-color:#0d9488 -->
 ```
 
@@ -125,51 +112,26 @@ Heights are normalized to 0-100 relative to the maximum value across all months.
 
 ## Key Files
 
-### Django (active — serves production traffic via Caddy)
-
 | File | Purpose |
 |------|---------|
 | `backend/reports/views.py` | Reports page view + SQL aggregation + chart data |
 | `backend/reports/urls.py` | URL routing for /reports |
-| `backend/reports/templates/reports/reports.html` | Django reports page template |
+| `backend/reports/templates/reports/reports.html` | Reports page template |
 | `backend/reports/templates/reports/partials/` | Donut chart, bar chart, spending-by-category, income-vs-expense |
 | `backend/reports/tests.py` | Integration tests (page rendering, SQL aggregation, chart builders) |
 | `backend/core/templatetags/money.py` | Template filters + chart tags (conic_gradient, bar_style, chart_color) |
-
-### Go (retained for rollback — not used in production)
-
-| File | Purpose |
-|------|---------|
-| `internal/service/reports.go` | ReportsService, data aggregation, chart building |
-| `internal/handler/pages.go` | Reports() handler |
-| `internal/handler/charts.go` | conicGradient, barStyle, chartColor template functions |
-| `internal/templates/pages/reports.html` | Go reports page template |
-| `internal/templates/partials/chart-donut.html` | Donut chart |
-| `internal/templates/partials/chart-bar.html` | Bar chart |
-| `internal/templates/partials/spending-by-category.html` | Category list |
-| `internal/templates/partials/income-vs-expense.html` | Income vs expenses |
-
-### Shared
-
-| File | Purpose |
-|------|---------|
 | `static/css/charts.css` | Chart CSS (donut, bar, dark mode) |
 
 ## For Newcomers
 
-- **This feature is served by Django** — the Go handler exists for rollback but Caddy routes `/reports` to Django in production.
-- Reports use **direct SQL** (not repository/ORM) because aggregate queries are complex and don't map to standard CRUD. Both Go and Django versions use raw SQL.
+- Reports use **direct SQL** — aggregate queries don't map to standard ORM patterns.
 - All charts are **CSS-only** — no Chart.js or external libraries. Donut = conic-gradient, bars = flexbox heights.
-- Django template tags (`conic_gradient`, `bar_style`, `chart_color`) are equivalents of Go's template functions.
+- Template filters (`conic_gradient`, `bar_style`, `chart_color`) in `core/templatetags/money.py` handle chart rendering.
 - Month navigation uses query params (`?year=2026&month=3`), not routes.
 - The 8-color palette cycles — if there are more than 8 categories, colors repeat.
 
 ## Logging
 
-**Django logging:**
-
 - `page viewed: reports` — reports page rendered (INFO)
-
-**Go logging (retained for rollback):**
 
 **Page views:** `reports`

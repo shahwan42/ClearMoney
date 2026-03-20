@@ -2,8 +2,7 @@
 Settings app tests — settings page rendering and CSV export.
 
 Integration tests using @pytest.mark.django_db with the auth_user and
-auth_cookie fixtures from conftest.py. Mirrors Go's handler test pattern
-with testutil.SetupAuth().
+auth_cookie fixtures from conftest.py.
 """
 
 import pytest

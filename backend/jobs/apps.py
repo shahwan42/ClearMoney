@@ -1,7 +1,7 @@
 """
 Django app config for the jobs app — background tasks as management commands.
 
-Port of Go's internal/jobs/ package. Like Laravel's app/Console/Commands/ or
+Like Laravel's app/Console/Commands/ or
 Django's standard management commands. Each job is a standalone command that
 can be run via `manage.py <command>` or scheduled via Docker cron.
 """

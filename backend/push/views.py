@@ -1,7 +1,7 @@
 """
 Push notification API views — JSON-only endpoints for the service worker.
 
-Port of Go's internal/handler/push.go. Three endpoints:
+Three endpoints:
 1. GET  /api/push/vapid-key  — return VAPID public key for Push API subscription
 2. POST /api/push/subscribe  — accept browser push subscription (acknowledged only)
 3. GET  /api/push/check      — poll for pending notifications

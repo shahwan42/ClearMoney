@@ -1,6 +1,5 @@
 """Django app configuration for the transactions app.
 
-Port of Go's transaction handlers, service, and repository.
 Handles all /transactions/*, /transfers/*, /exchange/*, /batch-entry,
 /fawry-cashout, and /sync/transactions routes.
 """

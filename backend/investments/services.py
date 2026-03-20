@@ -1,7 +1,6 @@
 """
 Investment service — CRUD + validation for investment portfolio tracking.
 
-Port of Go's InvestmentService (internal/service/investment.go).
 Like Laravel's InvestmentService — contains validation, raw SQL queries,
 and structured logging for all investment mutations.
 
@@ -31,7 +30,6 @@ class InvestmentService:
     def get_all(self) -> list[dict[str, Any]]:
         """Fetch all investments ordered by platform, fund name.
 
-        Port of Go's InvestmentRepo.GetAll (investment.go).
         Returns dicts with a computed 'valuation' field.
         """
         with connection.cursor() as cursor:
@@ -66,7 +64,6 @@ class InvestmentService:
     def get_total_valuation(self) -> float:
         """Compute total portfolio value: SUM(units * last_unit_price).
 
-        Port of Go's InvestmentRepo.GetTotalValuation (investment.go).
         Returns 0.0 for empty portfolios (COALESCE handles NULL).
         """
         with connection.cursor() as cursor:
@@ -85,9 +82,7 @@ class InvestmentService:
     def create(self, data: dict[str, Any]) -> str:
         """Create a new investment holding.
 
-        Port of Go's InvestmentService.Create (investment.go).
         Validates inputs, applies defaults, inserts, and logs.
-
         Raises ValueError for validation failures.
         Returns the new investment ID.
         """
@@ -129,9 +124,7 @@ class InvestmentService:
     def update_valuation(self, investment_id: str, unit_price: float) -> None:
         """Update the unit price (NAV) for an investment.
 
-        Port of Go's InvestmentService.UpdateValuation (investment.go).
         Also refreshes last_updated and updated_at timestamps.
-
         Raises ValueError if price is not positive.
         """
         if unit_price <= 0:
@@ -156,10 +149,7 @@ class InvestmentService:
         )
 
     def delete(self, investment_id: str) -> None:
-        """Delete an investment holding.
-
-        Port of Go's InvestmentService.Delete (investment.go).
-        """
+        """Delete an investment holding."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "DELETE FROM investments WHERE id = %s AND user_id = %s",

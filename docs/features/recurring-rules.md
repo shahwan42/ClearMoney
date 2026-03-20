@@ -11,67 +11,44 @@ A recurring rule defines a transaction template that executes on a schedule. Two
 
 ## Model
 
-**File:** `internal/models/recurring.go`
+**File:** `backend/core/models.py`
 
 ### RecurringRule
 
-```go
-type RecurringRule struct {
-    ID                  string
-    TemplateTransaction json.RawMessage  // raw JSON, parsed on demand
-    Frequency           RecurringFrequency
-    DayOfMonth          *int             // nullable
-    NextDueDate         time.Time
-    IsActive            bool
-    AutoConfirm         bool
-    CreatedAt           time.Time
-    UpdatedAt           time.Time
-}
-```
+The `RecurringRule` model stores: `template_transaction` (JSONB — parsed on demand), `frequency` (monthly/weekly), `day_of_month` (nullable), `next_due_date`, `is_active`, `auto_confirm`.
 
 ### TransactionTemplate
 
-Deserialized form of `TemplateTransaction`:
+The JSONB `template_transaction` field contains: type, amount, currency, account_id, category_id (nullable), note (nullable).
 
-```go
-type TransactionTemplate struct {
-    Type       string
-    Amount     float64
-    Currency   string
-    AccountID  string
-    CategoryID *string  // nullable
-    Note       *string  // nullable
-}
-```
-
-**Key design:** `TemplateTransaction` is stored as `json.RawMessage` (raw JSON bytes) and only parsed with `json.Unmarshal` when the rule is executed. This avoids unnecessary deserialization.
+**Key design:** `template_transaction` is stored as JSONB and only deserialized when the rule is executed. This avoids unnecessary parsing.
 
 ### Frequency
 
-- `Monthly` — advances by 1 month (`AddDate(0, 1, 0)`)
-- `Weekly` — advances by 7 days (`AddDate(0, 0, 7)`)
-
-**Note:** Go's `AddDate(0, 1, 0)` on Jan 31 gives Mar 3 (not Feb 28). This differs from Laravel's Carbon behavior.
+- `monthly` — advances next_due_date by 1 month
+- `weekly` — advances next_due_date by 7 days
 
 ## Database
 
 Rules are stored with the template transaction as JSONB. The `next_due_date` column allows efficient "what's due?" queries.
 
-## Repository
+## Service
 
-**File:** `internal/repository/recurring.go`
+**File:** `backend/recurring/services.py`
 
-| Method | Purpose |
-|--------|---------|
-| `Create(ctx, rule)` | Insert with JSONB template_transaction |
-| `GetByID(ctx, id)` | Single rule |
-| `GetAll(ctx)` | All rules ordered by next_due_date ASC |
-| `GetDue(ctx)` | **Key query:** Active rules where `next_due_date <= CURRENT_DATE` |
-| `UpdateNextDueDate(ctx, id, date)` | Advance after execution |
-| `Delete(ctx, id)` | Remove rule |
-| `DeleteByAccountID(ctx, accountID)` | Cleanup stale rules when account deleted (uses JSONB `->>'account_id'`) |
+### Key functions
 
-### DeleteByAccountID
+| Function | Purpose |
+|----------|---------|
+| `create_rule(rule)` | Insert with JSONB template_transaction |
+| `get_rule(id)` | Single rule |
+| `get_all_rules()` | All rules ordered by next_due_date ASC |
+| `get_due_rules()` | **Key query:** Active rules where `next_due_date <= CURRENT_DATE` |
+| `update_next_due_date(id, date)` | Advance after execution |
+| `delete_rule(id)` | Remove rule |
+| `delete_by_account_id(account_id)` | Cleanup stale rules when account deleted (uses JSONB `->>'account_id'`) |
+
+### delete_by_account_id
 
 Uses PostgreSQL JSONB operator to find rules referencing a deleted account:
 
@@ -81,70 +58,59 @@ WHERE template_transaction->>'account_id' = $1
 
 This prevents stale references since the account_id is inside JSON, not a real FK.
 
-## Service
+### process_due_rules
 
-**File:** `internal/service/recurring.go`
-
-### ProcessDueRules (line ~85)
-
-Called on **app startup** (before HTTP server starts):
-1. Gets all due rules via `GetDue()`
-2. Skips `auto_confirm=false` (manual only)
-3. For each auto-confirm rule, calls `executeRule()`
+Called on **app startup** via the `process_recurring` management command:
+1. Gets all due rules via `get_due_rules()`
+2. Skips `auto_confirm=False` (manual only)
+3. For each auto-confirm rule, calls `execute_rule()`
 4. Returns count of transactions created
-5. Errors don't stop server — failed rules are skipped with warning log
+5. Errors don't stop startup — failed rules are skipped with a warning log
 
-### executeRule (line ~130)
+### execute_rule
 
 Core logic:
-1. `json.Unmarshal(rule.TemplateTransaction, &tmpl)` — parse JSONB
-2. Guard: check if accountID still exists (FK not enforced on JSONB)
-3. Build Transaction from template (sets Date = NextDueDate, RecurringRuleID = rule.ID)
-4. Call `txSvc.Create()` — delegates to TransactionService for balance updates
-5. Call `advanceDueDate()` to compute next due date
-6. Update rule's NextDueDate
+1. Deserialize `template_transaction` JSONB into a template dict
+2. Guard: check if account_id still exists (FK not enforced on JSONB)
+3. Build transaction from template (sets date = next_due_date, recurring_rule_id = rule.id)
+4. Delegates to transaction service for balance updates
+5. Advances `next_due_date` via `advance_due_date()`
 
-### ConfirmRule / SkipRule
+### confirm_rule / skip_rule
 
-- **Confirm:** Gets rule, calls `executeRule()` — creates transaction and advances
-- **Skip:** Advances due date without creating transaction
+- **Confirm:** Gets rule, calls `execute_rule()` — creates transaction and advances due date
+- **Skip:** Advances due date without creating a transaction
 
-### advanceDueDate (line ~167)
+### advance_due_date
 
-```go
-switch rule.Frequency {
-case "weekly":  return current.AddDate(0, 0, 7)
-case "monthly": return current.AddDate(0, 1, 0)
-default:        return current.AddDate(0, 1, 0)
-}
-```
+- `weekly`: adds 7 days to current due date
+- `monthly`: adds 1 month to current due date
 
-## Handler
+## Views
 
-**File:** `internal/handler/pages.go`
+**File:** `backend/recurring/views.py`
 
-| Route | Method | Handler | Purpose |
-|-------|--------|---------|---------|
-| `/recurring` | GET | `Recurring()` | Page with pending + active rules |
-| `/recurring/add` | POST | `RecurringAdd()` | Create rule |
-| `/recurring/{id}/confirm` | POST | `RecurringConfirm()` | Confirm pending rule |
-| `/recurring/{id}/skip` | POST | `RecurringSkip()` | Skip pending rule |
-| `/recurring/{id}` | DELETE | `RecurringDelete()` | Delete rule |
+| Route | Method | View | Purpose |
+|-------|--------|------|---------|
+| `/recurring` | GET | `recurring` | Page with pending + active rules |
+| `/recurring/add` | POST | `recurring_add` | Create rule |
+| `/recurring/{id}/confirm` | POST | `recurring_confirm` | Confirm pending rule |
+| `/recurring/{id}/skip` | POST | `recurring_skip` | Skip pending rule |
+| `/recurring/{id}` | DELETE | `recurring_delete` | Delete rule |
 
-### RecurringAdd Handler
+### recurring_add View
 
 1. Parses form (type, amount, account, category, note, frequency, next_due_date, auto_confirm)
-2. Builds `TransactionTemplate` struct
-3. `json.Marshal()` to get JSONB bytes
+2. Builds template dict
+3. Serializes to JSONB
 4. Looks up account to get currency
-5. Builds `RecurringRule` with template
-6. Creates via service
+5. Creates rule via service
 
 ## Templates
 
 ### Page
 
-**File:** `internal/templates/pages/recurring.html`
+**File:** `backend/templates/pages/recurring.html`
 
 Sections:
 1. **Pending confirmations** — amber cards with Confirm/Skip buttons
@@ -153,7 +119,7 @@ Sections:
 
 ### Partial
 
-**File:** `internal/templates/partials/recurring-form.html`
+**File:** `backend/templates/partials/recurring-form.html`
 
 Form with:
 - Type toggle (Expense/Income)
@@ -164,28 +130,20 @@ Form with:
 
 ## Startup Integration
 
-**File:** `cmd/server/main.go` (lines ~93-109)
+**File:** `backend/jobs/management/commands/process_recurring.py`
 
-```go
-// Before HTTP server starts:
-recurringSvc := service.NewRecurringService(recurringRepo, txSvc)
-count, err := recurringSvc.ProcessDueRules(context.Background())
-slog.Info("recurring: auto-created transactions", "count", count)
-```
-
-Runs once on every app startup. Errors don't prevent server from starting.
+Called by the `run_startup_jobs` management command on every app startup. Runs `process_due_rules()` and logs the count of auto-created transactions. Errors don't prevent startup.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/models/recurring.go` | RecurringRule, TransactionTemplate structs |
-| `internal/repository/recurring.go` | CRUD, GetDue, JSONB account cleanup |
-| `internal/service/recurring.go` | ProcessDueRules, executeRule, ConfirmRule, SkipRule |
-| `internal/handler/pages.go` | Recurring handlers |
-| `internal/templates/pages/recurring.html` | Recurring page |
-| `internal/templates/partials/recurring-form.html` | Create rule form |
-| `cmd/server/main.go` | Startup processing |
+| `backend/core/models.py` | RecurringRule model with JSONB template_transaction |
+| `backend/recurring/services.py` | CRUD, get_due_rules, process_due_rules, execute_rule, confirm_rule, skip_rule |
+| `backend/recurring/views.py` | Recurring views |
+| `backend/templates/pages/recurring.html` | Recurring page |
+| `backend/templates/partials/recurring-form.html` | Create rule form |
+| `backend/jobs/management/commands/process_recurring.py` | Startup processing |
 
 ## For Newcomers
 

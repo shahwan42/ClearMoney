@@ -1,12 +1,9 @@
 """
 Credit card billing cycle utilities — shared by dashboard and accounts apps.
 
-Port of Go's service/account.go billing functions: ParseBillingCycle,
-GetBillingCycleInfo, GetCreditCardUtilization. Extracted here to avoid
-duplication between dashboard/services.py and accounts/services.py.
-
-Like a Laravel trait or a shared helper in app/Support/ — pure functions
-with no database access, just date math.
+Extracted here to avoid duplication between dashboard/services.py and
+accounts/services.py. Pure functions with no database access, just date math.
+Like a Laravel trait or a shared helper in app/Support/.
 """
 
 from calendar import monthrange
@@ -17,10 +14,7 @@ from typing import Any
 
 @dataclass
 class BillingCycleInfo:
-    """Computed billing cycle info for a credit card.
-
-    Port of Go's service.BillingCycleInfo struct.
-    """
+    """Computed billing cycle info for a credit card."""
 
     statement_day: int
     due_day: int
@@ -34,7 +28,7 @@ class BillingCycleInfo:
 def parse_billing_cycle(metadata: dict[str, Any] | None) -> tuple[int, int] | None:
     """Extract (statement_day, due_day) from account metadata JSON.
 
-    Port of Go's ParseBillingCycle(). Returns None if no billing cycle configured.
+    Returns None if no billing cycle configured.
     """
     if not metadata:
         return None
@@ -48,8 +42,7 @@ def parse_billing_cycle(metadata: dict[str, Any] | None) -> tuple[int, int] | No
 def compute_due_date(statement_day: int, due_day: int, today: date) -> date:
     """Compute credit card due date from billing cycle metadata.
 
-    Port of Go's GetBillingCycleInfo() — simplified to just return the due date.
-    Used by dashboard for CC summary cards.
+    Simplified to just return the due date. Used by dashboard for CC summary cards.
     """
     year = today.year
     month = today.month
@@ -80,8 +73,7 @@ def get_billing_cycle_info(
 ) -> BillingCycleInfo:
     """Full billing cycle info: period start/end, due date, urgency.
 
-    Port of Go's GetBillingCycleInfo(). Uses the same date arithmetic —
-    Go's time.Date handles month overflow; Python needs explicit wrapping.
+    Uses calendar date arithmetic with explicit month overflow wrapping.
     """
     year = today.year
     month = today.month
@@ -145,7 +137,7 @@ def get_billing_cycle_info(
 def get_credit_card_utilization(balance: float, credit_limit: float | None) -> float:
     """Returns 0-100 percentage. Formula: (|balance| / limit) * 100.
 
-    Port of Go's GetCreditCardUtilization(). Balance is negative for CC (debt).
+    Balance is negative for CC (debt).
     """
     if credit_limit is None or credit_limit <= 0:
         return 0.0
@@ -160,7 +152,7 @@ def interest_free_remaining(
 ) -> tuple[int, bool]:
     """Compute interest-free period remaining days and urgency.
 
-    Returns (days_remaining, is_urgent). Port of Go's interest-free logic in GetStatementData.
+    Returns (days_remaining, is_urgent).
     """
     interest_free_end = period_end + timedelta(days=total_days)
     remaining = (interest_free_end - today).days

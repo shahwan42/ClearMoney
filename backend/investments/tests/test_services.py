@@ -1,8 +1,7 @@
 """
 Investment service tests — CRUD + validation for portfolio tracking.
 
-Port of Go's internal/service/investment_test.go. Tests run against the real
-database with --reuse-db (Go owns schema). Verifies create, update, delete,
+Tests run against the real database with --reuse-db. Verifies create, update, delete,
 total valuation, and input validation.
 """
 

@@ -1,9 +1,6 @@
 """
 Accounts & Institutions service layer — business logic and raw SQL queries.
 
-Port of Go's service/account.go, service/institution.go, service/account_health.go,
-and relevant repository queries from repository/account.go, repository/institution.go.
-
 Like Django's fat-model or service-layer pattern. Uses raw SQL via connection.cursor()
 because all models are managed=False and queries use window functions, enum casts,
 and JSONB operations that don't map cleanly to the ORM.
@@ -59,7 +56,7 @@ def _parse_jsonb(value: Any) -> dict[str, Any] | None:
 
 
 def _require_trimmed_name(value: str, field_name: str) -> str:
-    """Port of Go's requireTrimmedName — trims whitespace, error if empty."""
+    """Trim whitespace, raise ValueError if empty."""
     trimmed = value.strip() if value else ""
     if not trimmed:
         raise ValueError(f"{field_name} is required")
@@ -72,9 +69,7 @@ def _require_trimmed_name(value: str, field_name: str) -> str:
 
 
 class InstitutionService:
-    """Port of Go's InstitutionService + InstitutionRepo.
-
-    Like Laravel's InstitutionService — validates input, executes SQL,
+    """Like Laravel's InstitutionService — validates input, executes SQL,
     logs mutations.
     """
 
@@ -219,9 +214,7 @@ class InstitutionService:
 
 
 class AccountService:
-    """Port of Go's AccountService + AccountRepo + AccountHealthService.
-
-    Handles CRUD, dormant toggle, reorder, health config, balance history,
+    """Handles CRUD, dormant toggle, reorder, health config, balance history,
     transaction list, and virtual account queries for the account detail page.
     """
 
@@ -506,7 +499,6 @@ class AccountService:
     ) -> list[dict[str, Any]]:
         """Recent transactions with running balance for account detail page.
 
-        Port of Go's GetFilteredEnriched with AccountID filter.
         Uses window function for running balance calculation.
         """
         with connection.cursor() as cursor:
@@ -658,7 +650,7 @@ def get_statement_data(
 ) -> dict[str, Any] | None:
     """Full CC statement: transactions, balances, interest-free period, payment history.
 
-    Port of Go's GetStatementData(). Returns None if no billing cycle configured.
+    Returns None if no billing cycle configured.
     """
     metadata = account.get("metadata")
     cycle = parse_billing_cycle(metadata)

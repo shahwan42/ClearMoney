@@ -1,8 +1,7 @@
 """
 Budget service tests — CRUD and spending progress computation.
 
-Port of Go's internal/service/budget_test.go + internal/repository/budget_test.go.
-Tests run against the real database with --reuse-db (Go owns schema).
+Tests run against the real database with --reuse-db.
 """
 
 import uuid

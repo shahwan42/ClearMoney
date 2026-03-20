@@ -1,7 +1,6 @@
 """
 Category JSON API views — CRUD for expense/income categories.
 
-Port of Go's CategoryHandler (handler/category.go).
 Like Laravel's CategoryController — handles /api/categories/* JSON endpoints.
 
 No HTML views — categories are only accessed via JSON API (used by HTMX

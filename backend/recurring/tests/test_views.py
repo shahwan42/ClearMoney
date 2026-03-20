@@ -1,8 +1,7 @@
 """
 Recurring rules view tests — HTTP-level tests for /recurring* routes.
 
-Port of Go's handler recurring tests. Tests run against the real
-database with --reuse-db (Go owns schema).
+Tests run against the real database with --reuse-db.
 """
 
 import json

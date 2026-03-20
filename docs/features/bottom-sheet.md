@@ -7,19 +7,19 @@ Reusable slide-up sheet with swipe-to-dismiss, used across accounts, account det
 | File | Purpose |
 |------|---------|
 | `static/js/bottom-sheet.js` | Shared `BottomSheet` JS module (open/close/swipe) |
-| `internal/templates/partials/bottom-sheet.html` | Reusable Go template partial |
-| `internal/templates/layouts/base.html` | Loads `bottom-sheet.js` via `<script defer>` |
+| `backend/templates/components/bottom_sheet.html` | Reusable template component |
+| `backend/templates/base.html` | Loads `bottom-sheet.js` via `<script defer>` |
 
 ## Usage
 
 ### Template (HTML)
 
-Use the `bottom-sheet` partial with `dict` parameters:
+Include the `bottom_sheet` component with parameters:
 
 ```html
-{{template "bottom-sheet" (dict "Name" "my-sheet")}}
-{{template "bottom-sheet" (dict "Name" "my-sheet" "ZOverlay" "z-[80]" "ZSheet" "z-[90]" "MaxHeight" "max-h-[50vh]")}}
-{{template "bottom-sheet" (dict "Name" "my-sheet" "Persist" true)}}
+{% include "components/bottom_sheet.html" with name="my-sheet" %}
+{% include "components/bottom_sheet.html" with name="my-sheet" z_overlay="z-[80]" z_sheet="z-[90]" max_height="max-h-[50vh]" %}
+{% include "components/bottom_sheet.html" with name="my-sheet" persist=True %}
 ```
 
 | Param | Required | Default | Description |
@@ -48,16 +48,16 @@ BottomSheet.open('my-sheet', {onOpen: function(s) { /* s.content, s.sheet, etc. 
 BottomSheet.close('my-sheet');
 ```
 
-### Backward-Compatible Aliases
+### Named Wrapper Functions
 
-Define thin wrapper functions so Go handlers and template partials can call named functions:
+Define thin wrapper functions for named access from templates and HTMX responses:
 
 ```javascript
 function openMySheet() { BottomSheet.open('my-sheet', {url: '/my-form'}); }
 function closeMySheet() { BottomSheet.close('my-sheet'); }
 ```
 
-Go handlers can then return `<script>closeMySheet();</script>` to close the sheet after a successful form submission.
+Views can return `<script>closeMySheet();</script>` in HTMX responses to close the sheet after a successful form submission.
 
 ## Architecture
 

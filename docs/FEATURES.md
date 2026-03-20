@@ -1,7 +1,5 @@
 # ClearMoney — Feature Documentation
 
-> **Migration status**: The backend is being incrementally migrated from Go to Django (Strangler Fig pattern). Features marked with **(Django)** are served by the Django backend. All other features are served by Go.
-
 ## Dashboard
 
 The home page aggregates data from 10+ sources into a single view:
@@ -74,12 +72,12 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 - **Payment guidance** — minimum payment, full balance, and statement balance options
 - **Fawry cash-out** — credit card to cash conversion with fee tracking
 
-## Reports (Django)
+## Reports
 
 - **Monthly spending by category** — donut chart breakdown with drill-down
 - **6-month income vs expenses** — bar chart comparison
 - **Filters** — by account, category, date range
-- **Backend**: Django (`backend/reports/`) — raw SQL aggregation + chart data computation
+- **Backend**: `backend/reports/` — raw SQL aggregation + chart data computation
 
 ## Budgets
 
@@ -139,12 +137,12 @@ Historical USD/EGP exchange rate log. Used for:
 - Currency exchange transactions
 - Multi-currency net worth calculations
 
-## Settings (Django)
+## Settings
 
 - Dark mode toggle (class-based)
 - CSV export of transactions
 - Push notification subscription (VAPID-based)
-- **Backend**: Django (`backend/settings_app/`) — settings page + CSV export endpoint
+- **Backend**: `backend/settings_app/` — settings page + CSV export endpoint
 
 ## Auth
 
@@ -178,7 +176,7 @@ All charts support dark mode via Tailwind's `dark:` variants.
 
 ## Bottom Sheet Component
 
-Reusable slide-up sheet with swipe-to-dismiss. Shared across accounts (4 sheets), account detail (2 sheets), and quick entry (1 sheet). Defined once in `partials/bottom-sheet.html` + `static/js/bottom-sheet.js`, instantiated via `{{template "bottom-sheet" (dict "Name" "my-sheet")}}` with optional z-index and max-height params.
+Reusable slide-up sheet with swipe-to-dismiss. Shared across accounts (4 sheets), account detail (2 sheets), and quick entry (1 sheet). Defined in `backend/templates/components/bottom_sheet.html` + `static/js/bottom-sheet.js`, with optional z-index and max-height params.
 
 ## UX Polish
 
@@ -193,14 +191,13 @@ Reusable slide-up sheet with swipe-to-dismiss. Shared across accounts (4 sheets)
 
 ## Rate Limiting
 
-Per-IP rate limiting using an in-memory token bucket algorithm:
+Per-user rate limiting via `django-ratelimit`:
 
-- **Login routes** — 5 req/min (prevents brute-force PIN guessing)
+- **Login routes** — 5 req/min (prevents brute-force attempts)
 - **API routes** — 60 req/min (moderate protection for JSON endpoints)
 - **Page routes** — 120 req/min (generous for normal browsing + HTMX)
 - Static files and health check are exempt
 - Returns 429 with `Retry-After` header; HTMX requests get styled HTML error partial
-- Background cleanup goroutine prunes stale IP entries every 5 minutes
 
 ## Logging
 

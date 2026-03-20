@@ -1,9 +1,7 @@
 """
 Installment views — page handlers for /installments*.
 
-Port of Go's PageHandler installment methods (pages.go:2368–2440).
 Like Laravel's InstallmentController — handles list, add, pay, delete.
-
 All forms use HTMX (hx-post, hx-delete) with htmx_redirect after mutations.
 """
 
@@ -43,7 +41,6 @@ def _parse_int(value: str) -> int:
 def installments_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /installments — render the installment plans page.
 
-    Port of Go's PageHandler.Installments (pages.go:2381).
     Shows create form + list of all plans with progress tracking.
     """
     logger.info("page viewed: installments, user=%s", request.user_email)
@@ -67,10 +64,7 @@ def installments_page(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def installment_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /installments/add — create a new installment plan.
-
-    Port of Go's PageHandler.InstallmentAdd (pages.go:2393).
-    """
+    """POST /installments/add — create a new installment plan."""
     svc = _svc(request)
     try:
         svc.create(
@@ -97,7 +91,6 @@ def installment_add(request: AuthenticatedRequest) -> HttpResponse:
 def installment_pay(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """POST /installments/<id>/pay — record a payment on an installment plan.
 
-    Port of Go's PageHandler.InstallmentPay (pages.go:2418).
     Creates an expense transaction and decrements remaining installments.
     """
     svc = _svc(request)
@@ -112,10 +105,7 @@ def installment_pay(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["DELETE"])
 def installment_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """DELETE /installments/<id> — remove an installment plan.
-
-    Port of Go's PageHandler.InstallmentDelete (pages.go:2431).
-    """
+    """DELETE /installments/<id> — remove an installment plan."""
     svc = _svc(request)
     try:
         svc.delete(str(id))

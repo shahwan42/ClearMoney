@@ -2,7 +2,6 @@
 Tests for AuthService — magic link auth business logic.
 
 Tests rate limiting, token management, session creation, and category seeding.
-Like Go's internal/service/auth_test.go.
 """
 
 from datetime import timedelta

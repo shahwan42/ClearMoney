@@ -1,7 +1,6 @@
 """
 Transactions URL configuration.
 
-Port of Go's transaction routes from router.go (lines 301-345).
 Handles all /transactions/*, /transfers/*, /exchange/*, /batch-entry,
 /fawry-cashout, and /sync/transactions routes.
 

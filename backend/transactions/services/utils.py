@@ -41,10 +41,7 @@ def _parse_tags(value: Any) -> list[str]:
 
 
 def calculate_instapay_fee(amount: float) -> float:
-    """Compute InstaPay fee: 0.1% of amount, min 0.5, max 20 EGP.
-
-    Port of Go's CalculateInstapayFee — pure function, no side effects.
-    """
+    """Compute InstaPay fee: 0.1% of amount, min 0.5, max 20 EGP."""
     fee = amount * 0.001
     if fee < 0.5:
         fee = 0.5
@@ -61,8 +58,6 @@ def resolve_exchange_fields(
     """Compute the missing field from two provided values.
 
     Formula: amount * rate = counter_amount
-
-    Port of Go's resolveExchangeFields.
     Raises ValueError if fewer than 2 values are provided.
     """
     count = sum(1 for v in (amount, rate, counter_amount) if v is not None and v > 0)

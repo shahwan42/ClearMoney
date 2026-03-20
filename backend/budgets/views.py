@@ -1,12 +1,11 @@
 """
 Budget views — page handlers for /budgets/*.
 
-Port of Go's PageHandler budget methods (pages.go:3210–3263).
 Like Laravel's BudgetController — handles the budget management page,
 creation form, and deletion.
 
 All three routes use standard POST forms (not HTMX), with 302 redirects
-after mutations. This matches the Go implementation which uses 303 redirects.
+after mutations.
 """
 
 import logging
@@ -32,10 +31,7 @@ def _svc(request: AuthenticatedRequest) -> BudgetService:
 @general_rate
 @require_http_methods(["GET"])
 def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /budgets — budget management page with creation form and active budget list.
-
-    Port of Go's PageHandler.Budgets (pages.go:3218).
-    """
+    """GET /budgets — budget management page with creation form and active budget list."""
     logger.info("page viewed: budgets, user=%s", request.user_email)
     svc = _svc(request)
     budgets = svc.get_all_with_spending()
@@ -59,7 +55,6 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
 def budget_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /budgets/add — create a new budget from form data.
 
-    Port of Go's PageHandler.BudgetAdd (pages.go:3236).
     Validates input, creates budget, and redirects back to /budgets.
     """
     svc = _svc(request)
@@ -90,7 +85,6 @@ def budget_add(request: AuthenticatedRequest) -> HttpResponse:
 def budget_delete(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
     """POST /budgets/{id}/delete — delete a budget.
 
-    Port of Go's PageHandler.BudgetDelete (pages.go:3254).
     Deletes the budget and redirects back to /budgets.
     """
     svc = _svc(request)

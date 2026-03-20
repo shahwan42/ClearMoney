@@ -12,93 +12,58 @@ A budget ties a monthly spending limit to a specific expense category and curren
 
 ## Model
 
-**File:** `internal/models/budget.go`
+**File:** `backend/core/models.py` — `Budget`
 
-### Budget
+| Field | Type | Notes |
+|-------|------|-------|
+| `category` | FK → Category | Required |
+| `user` | FK → User | Per-user isolation |
+| `monthly_limit` | NUMERIC(15,2) | Must be > 0 |
+| `currency` | enum | `EGP` or `USD` |
+| `is_active` | bool | Defaults to True |
 
-```go
-type Budget struct {
-    ID           string
-    CategoryID   string
-    MonthlyLimit float64
-    Currency     string   // "EGP" or "USD"
-    IsActive     bool
-    CreatedAt    time.Time
-    UpdatedAt    time.Time
-}
-```
+Unique constraint: `(user_id, category_id, currency)` — prevents duplicate budgets for the same category+currency.
 
-### BudgetWithSpending
+## Service
 
-Embeds `Budget` and adds computed fields:
+**File:** `backend/budgets/services.py`
 
-```go
-type BudgetWithSpending struct {
-    Budget                     // Go struct embedding (inherits all Budget fields)
-    CategoryName  string       // from JOIN
-    CategoryIcon  string       // from JOIN
-    Spent         float64      // SUM of expenses this month
-    Remaining     float64      // MonthlyLimit - Spent
-    Percentage    float64      // Spent / MonthlyLimit * 100
-    Status        string       // "green", "amber", or "red"
-}
-```
+| Function | Purpose |
+|----------|---------|
+| `get_all_with_spending(user_id, year, month)` | Returns budgets with computed spent/remaining/percentage/status |
+| `get_all(user_id)` | Simple list of active budgets |
+| `create(user_id, data)` | Validates: category required, limit > 0, defaults currency to EGP |
+| `delete(user_id, budget_id)` | Hard delete |
 
-`CategoryDisplayName()` helper returns icon + name if icon exists.
+### Spending Query
 
-## Database
-
-**Migration:** `internal/database/migrations/000016_create_budgets.up.sql`
-
-- Table: `budgets` with UUID PK, FK to categories
-- Unique constraint: `(category_id, currency)` — prevents duplicate budgets for same category+currency
-- Columns: `id`, `category_id`, `monthly_limit` (NUMERIC 15,2), `currency`, `is_active`, timestamps
-
-## Repository
-
-**File:** `internal/repository/budget.go`
-
-| Method | Purpose |
-|--------|---------|
-| `GetAll()` | All active budgets |
-| `GetAllWithSpending(year, month)` | Complex JOIN: budgets → categories → transactions, computes spent/remaining/status |
-| `Create(ctx, budget)` | Insert with RETURNING |
-| `Delete(ctx, id)` | Hard delete |
-| `GetByID(ctx, id)` | Single budget |
-
-### GetAllWithSpending Query
-
-This is the key query — it JOINs budgets with categories and LEFT JOINs transactions filtered by:
+`get_all_with_spending` JOINs budgets with categories and LEFT JOINs transactions filtered by:
 - `type = 'expense'`
 - Date within the target month
 - Currency match
 
-Computes `Spent` via `COALESCE(SUM(t.amount), 0)`. The remaining fields (Remaining, Percentage, Status) are computed in Go after the query.
+Computes `spent` via `COALESCE(SUM(t.amount), 0)`. The remaining/percentage/status fields are computed in Python after the query:
 
-## Service
+```python
+spent = Decimal(row["spent"])
+remaining = budget.monthly_limit - spent
+percentage = float(spent / budget.monthly_limit * 100) if budget.monthly_limit else 0
+status = "red" if percentage >= 100 else "amber" if percentage >= 80 else "green"
+```
 
-**File:** `internal/service/budget.go`
+## Views
 
-| Method | Purpose |
-|--------|---------|
-| `GetAllWithSpending()` | Gets current year/month, calls repo |
-| `GetAll()` | Simple passthrough |
-| `Create(ctx, budget)` | Validates: category required, limit > 0, defaults currency to EGP |
-| `Delete(ctx, id)` | Passthrough |
+**File:** `backend/budgets/views.py`
 
-## Handler
-
-**File:** `internal/handler/pages.go`
-
-| Route | Method | Handler | Purpose |
-|-------|--------|---------|---------|
-| `/budgets` | GET | `Budgets()` | Page with form + active budgets |
-| `/budgets/add` | POST | `BudgetAdd()` | Create budget, redirect to /budgets |
-| `/budgets/{id}/delete` | POST | `BudgetDelete()` | Delete budget, redirect to /budgets |
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/budgets` | GET | Page with form + active budgets |
+| `/budgets/add` | POST | Create budget, redirect to /budgets |
+| `/budgets/{id}/delete` | POST | Delete budget, redirect to /budgets |
 
 ## Template
 
-**File:** `internal/templates/pages/budgets.html`
+**File:** `backend/budgets/templates/budgets/budgets.html`
 
 Sections:
 1. **Create form** — category dropdown (expense categories), monthly limit input, currency select
@@ -112,33 +77,23 @@ Sections:
 
 ## Dashboard Integration
 
-**File:** `internal/service/dashboard.go`
-
-- `DashboardData.Budgets` holds `[]models.BudgetWithSpending`
-- `SetBudgetService()` setter injects the service
-- Dashboard shows budgets as compact status badges with colored dots (green/amber/red)
-- Links to `/budgets` management page
-
-**File:** `internal/templates/pages/home.html` (lines ~225-249)
+`DashboardData.budgets` holds a list of budget dicts with spending data from `get_all_with_spending()`. Dashboard shows budgets as compact status badges with colored dots (green/amber/red) and links to `/budgets` management page.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/models/budget.go` | Budget, BudgetWithSpending structs |
-| `internal/repository/budget.go` | SQL queries, spending calculation |
-| `internal/service/budget.go` | Validation, business logic |
-| `internal/handler/pages.go` | Budgets, BudgetAdd, BudgetDelete handlers |
-| `internal/templates/pages/budgets.html` | Budgets page template |
-| `internal/database/migrations/000016_create_budgets.up.sql` | Schema |
+| `backend/core/models.py` | Budget model |
+| `backend/budgets/services.py` | Spending calculation + validation |
+| `backend/budgets/views.py` | Budgets, BudgetAdd, BudgetDelete views |
+| `backend/budgets/templates/budgets/budgets.html` | Budgets page template |
+| `backend/budgets/tests/` | Service and view tests |
 
 ## For Newcomers
 
 - **One budget per category+currency** — enforced by unique constraint.
-- **Status thresholds** (80%/100%) are computed in Go, not stored in the DB.
-- **Go struct embedding** — `BudgetWithSpending` embeds `Budget`, inheriting all fields without repetition.
+- **Status thresholds** (80%/100%) are computed in Python, not stored in the DB.
 - **Spending is recalculated each request** — no caching. Budget progress always reflects real-time spending.
-- **Dashboard integration** uses setter injection on both PageHandler and DashboardService.
 
 ## Logging
 

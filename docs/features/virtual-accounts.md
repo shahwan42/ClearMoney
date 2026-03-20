@@ -20,44 +20,19 @@ Virtual accounts don't move real money between accounts — they logically tag f
 
 ## Model
 
-**File:** `internal/models/virtual_account.go`
+**File:** `backend/core/models.py`
 
 ### VirtualAccount
 
-```go
-type VirtualAccount struct {
-    ID             string
-    Name           string
-    TargetAmount   *float64       // nullable pointer: nil = no target
-    CurrentBalance float64        // cached denormalized sum of allocations
-    Icon           string
-    Color          string
-    IsArchived          bool
-    ExcludeFromNetWorth bool       // when true, balance subtracted from net worth
-    DisplayOrder        int
-    AccountID           *string    // linked bank account (nullable for legacy VAs)
-    CreatedAt      time.Time
-    UpdatedAt      time.Time
-}
-```
+Columns: `name`, `target_amount` (nullable — null means no goal), `current_balance` (denormalized cache of SUM of allocations), `icon`, `color`, `is_archived`, `exclude_from_net_worth`, `display_order`, `account_id` (nullable FK to bank account for legacy VAs).
 
-`ProgressPct()` method returns percentage (0 if no target, can exceed 100).
+`progress_pct` property returns percentage (0 if no target, can exceed 100).
 
 ### VirtualAccountAllocation
 
-```go
-type VirtualAccountAllocation struct {
-    ID                string
-    TransactionID     *string    // nullable — NULL for direct allocations
-    VirtualAccountID  string     // FK to virtual_accounts
-    Amount            float64    // positive = contribution, negative = withdrawal
-    Note              *string    // optional note for direct allocations
-    AllocatedAt       *time.Time // date of direct allocation (NULL for tx-linked)
-    CreatedAt         time.Time
-}
-```
+Junction/pivot table linking allocations to virtual accounts. Columns: `transaction_id` (nullable — NULL for direct allocations), `virtual_account_id` (FK), `amount` (positive = contribution, negative = withdrawal), `note` (optional), `allocated_at` (date for direct allocations, NULL for tx-linked).
 
-This is a junction/pivot table linking allocations to virtual accounts. Direct allocations have `TransactionID = NULL`.
+Direct allocations have `transaction_id = NULL`.
 
 ## Database
 
@@ -73,9 +48,9 @@ Two tables:
 1. `virtual_accounts` — virtual account definitions with cached `current_balance` and optional `account_id`
 2. `virtual_account_allocations` — join table with partial unique index on `(transaction_id, virtual_account_id) WHERE transaction_id IS NOT NULL`
 
-## Repository
+## Service
 
-**File:** `internal/repository/virtual_account.go`
+**File:** `backend/virtual_accounts/services.py`
 
 ### Virtual Account Operations
 
@@ -107,7 +82,7 @@ Two tables:
 
 ## Service
 
-**File:** `internal/service/virtual_account.go`
+**File:** `backend/virtual_accounts/services.py`
 
 | Method | Purpose |
 |--------|---------|
@@ -120,9 +95,9 @@ Two tables:
 | `DirectAllocate(vaID, amount, note, date)` | Direct allocation (no transaction) + recalculate balance |
 | `Deallocate(txID, vaID)` | Remove allocation + recalculate balance |
 
-## Handler
+## Views
 
-**File:** `internal/handler/pages.go`
+**File:** `backend/virtual_accounts/views.py`
 
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
@@ -167,14 +142,14 @@ The net balance can go negative: if the bank account has 0 but an excluded VA st
 
 ### Virtual Accounts List
 
-**File:** `internal/templates/pages/virtual-accounts.html`
+**File:** `backend/virtual_accounts/templates/virtual_accounts/virtual-accounts.html`
 
 - Create form: name, target amount, color picker, icon, **linked account** dropdown
 - Active virtual accounts: icon, name, balance, progress bar, archive button
 
 ### Virtual Account Detail
 
-**File:** `internal/templates/pages/virtual-account-detail.html`
+**File:** `backend/virtual_accounts/templates/virtual_accounts/virtual-account-detail.html`
 
 - Header: icon, name, balance, progress bar, **Edit** button (opens bottom sheet)
 - Edit bottom sheet: name, target amount, color, icon, linked account, exclude from net worth
@@ -183,7 +158,7 @@ The net balance can go negative: if the bank account has 0 but an excluded VA st
 
 ### Virtual Account Edit Form
 
-**File:** `internal/templates/partials/virtual-account-edit-form.html`
+**File:** `backend/virtual_accounts/templates/virtual_accounts/partials/virtual-account-edit-form.html`
 
 - Loaded via HTMX into a bottom sheet from the detail page
 - Pre-populated with current values (name, target, color, icon, linked account, exclude flag)
@@ -197,14 +172,12 @@ VA dropdown in transaction-new.html and quick-entry.html includes `data-account-
 
 | File | Purpose |
 |------|---------|
-| `internal/models/virtual_account.go` | VirtualAccount, VirtualAccountAllocation structs |
-| `internal/repository/virtual_account.go` | CRUD, allocation UPSERT, direct allocate, balance recalculation |
-| `internal/service/virtual_account.go` | Validation, allocate/deallocate with cache sync |
-| `internal/handler/pages.go` | Handlers for VA pages and allocation |
-| `internal/templates/pages/virtual-accounts.html` | List page |
-| `internal/templates/pages/virtual-account-detail.html` | Detail page with edit bottom sheet |
-| `internal/templates/partials/virtual-account-edit-form.html` | Edit form partial (loaded into bottom sheet) |
-| `internal/database/migrations/000025_fix_virtual_account_allocations.up.sql` | Direct allocation + account linkage migration |
+| `backend/core/models.py` | VirtualAccount, VirtualAccountAllocation models |
+| `backend/virtual_accounts/services.py` | CRUD, allocation, direct allocate, balance recalculation |
+| `backend/virtual_accounts/views.py` | Views for VA pages and allocation |
+| `backend/virtual_accounts/templates/virtual_accounts/virtual-accounts.html` | List page |
+| `backend/virtual_accounts/templates/virtual_accounts/virtual-account-detail.html` | Detail page with edit bottom sheet |
+| `backend/virtual_accounts/templates/virtual_accounts/partials/virtual-account-edit-form.html` | Edit form partial |
 
 ## Logging
 

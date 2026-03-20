@@ -1,1 +1,1 @@
-"""Models — intentionally empty. Settings app queries Go's schema directly."""
+"""Models — intentionally empty. Settings app uses raw SQL queries."""

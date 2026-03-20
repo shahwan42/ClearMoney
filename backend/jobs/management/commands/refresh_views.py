@@ -1,7 +1,6 @@
 """
 Management command: refresh_views — refresh PostgreSQL materialized views.
 
-Port of Go's RefreshMaterializedViews() (internal/jobs/refresh_views.go).
 Refreshes mv_monthly_category_totals and mv_daily_tx_counts for fast
 dashboard and report queries.
 

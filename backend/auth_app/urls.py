@@ -1,9 +1,7 @@
 """
 Auth URL patterns — routes for /login, /register, /auth/verify, /logout.
 
-Each route uses a single view function that dispatches on request.method
-(Django doesn't support separate GET/POST routes on the same path like
-Go's chi.Get/chi.Post).
+Each route uses a single view function that dispatches on request.method.
 """
 
 from django.urls import path

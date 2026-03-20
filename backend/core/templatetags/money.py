@@ -1,5 +1,5 @@
 """
-Template filters — Django equivalents of Go's template functions in templates.go.
+Template filters for formatting monetary values, dates, and chart data.
 
 Like Laravel's custom Blade directives or Django's @register.filter.
 These are available in all templates after {% load money %}.
@@ -18,7 +18,7 @@ from django import template
 
 register = template.Library()
 
-# Chart color palette — matches Go's chartPalette in charts.go
+# Chart color palette
 CHART_PALETTE = [
     "#0d9488",  # teal-600
     "#dc2626",  # red-600
@@ -32,8 +32,7 @@ CHART_PALETTE = [
 
 
 def _format_number(n: float) -> str:
-    """Format a number with thousand separators and 2 decimal places.
-    Equivalent of Go's formatNumber() in templates.go."""
+    """Format a number with thousand separators and 2 decimal places."""
     if n == 0:
         n = 0  # Eliminate negative zero
     s = f"{n:,.2f}"
@@ -42,19 +41,19 @@ def _format_number(n: float) -> str:
 
 @register.filter
 def format_egp(amount: object) -> str:
-    """Format as Egyptian Pounds: 'EGP 1,234.56'. Like Go's formatEGP."""
+    """Format as Egyptian Pounds: 'EGP 1,234.56'."""
     return f"EGP {_format_number(float(amount))}"  # type: ignore[arg-type]
 
 
 @register.filter
 def format_usd(amount: object) -> str:
-    """Format as US Dollars: '$1,234.56'. Like Go's formatUSD."""
+    """Format as US Dollars: '$1,234.56'."""
     return f"${_format_number(float(amount))}"  # type: ignore[arg-type]
 
 
 @register.filter
 def format_currency(amount: object, currency: object = "EGP") -> str:
-    """Format with currency symbol. Like Go's formatCurrency."""
+    """Format with currency symbol."""
     amt = float(amount)  # type: ignore[arg-type]
     cur = str(currency).upper()
     if cur == "USD":
@@ -64,13 +63,13 @@ def format_currency(amount: object, currency: object = "EGP") -> str:
 
 @register.filter
 def format_num(amount: object) -> str:
-    """Format number with thousand separators, no currency. Like Go's formatNum."""
+    """Format number with thousand separators, no currency."""
     return _format_number(float(amount))  # type: ignore[arg-type]
 
 
 @register.filter
 def format_date(t: object) -> str:
-    """Format as 'Mar 2, 2026'. Like Go's formatDate."""
+    """Format as 'Mar 2, 2026'."""
     if isinstance(t, (date, datetime)):
         return t.strftime("%b %-d, %Y")
     return str(t)
@@ -78,7 +77,7 @@ def format_date(t: object) -> str:
 
 @register.filter
 def format_date_short(t: object) -> str:
-    """Format as 'Mar 2'. Like Go's formatDateShort."""
+    """Format as 'Mar 2'."""
     if isinstance(t, (date, datetime)):
         return t.strftime("%b %-d")
     return str(t)
@@ -86,7 +85,7 @@ def format_date_short(t: object) -> str:
 
 @register.filter
 def format_date_iso(t: object) -> str:
-    """Format as '2026-01-02' for HTML date inputs. Like Go's formatDateISO."""
+    """Format as '2026-01-02' for HTML date inputs."""
     if isinstance(t, (date, datetime)):
         return t.strftime("%Y-%m-%d")
     return str(t)
@@ -94,13 +93,13 @@ def format_date_iso(t: object) -> str:
 
 @register.filter
 def neg(value: object) -> float:
-    """Negate a number. Like Go's neg."""
+    """Negate a number."""
     return -float(value)  # type: ignore[arg-type]
 
 
 @register.filter
 def percentage(part: object, total: object) -> float:
-    """Compute (part / total) * 100. Like Go's percentage."""
+    """Compute (part / total) * 100."""
     if not total:
         return 0.0
     return float(part) / float(total) * 100  # type: ignore[arg-type]
@@ -108,19 +107,19 @@ def percentage(part: object, total: object) -> float:
 
 @register.filter
 def chart_color(index: object) -> str:
-    """Return a color from the 8-color chart palette. Like Go's chartColor."""
+    """Return a color from the 8-color chart palette."""
     return CHART_PALETTE[int(index) % len(CHART_PALETTE)]  # type: ignore[call-overload]
 
 
 @register.filter
 def abs_float(value: object) -> float:
-    """Return absolute value. Like Go's abs."""
+    """Return absolute value."""
     return abs(float(value))  # type: ignore[arg-type]
 
 
 @register.simple_tag
 def conic_gradient(segments: list[dict[str, Any]]) -> str:
-    """Generate CSS conic-gradient from chart segments. Like Go's conicGradient.
+    """Generate CSS conic-gradient from chart segments.
     segments: list of dicts with 'color' and 'percentage' keys."""
     if not segments:
         return "conic-gradient(#e2e8f0 0% 100%)"
@@ -143,18 +142,18 @@ def conic_gradient(segments: list[dict[str, Any]]) -> str:
 
 @register.simple_tag
 def bar_style(height_pct: float, color: str) -> str:
-    """Generate CSS for a bar chart bar. Like Go's barStyle."""
+    """Generate CSS for a bar chart bar."""
     return f"height:{height_pct:.1f}%;background-color:{color}"
 
 
 # ---------------------------------------------------------------------------
-# Filters ported from Go's TemplateFuncs() — needed for feature migrations
+# Additional template filters
 # ---------------------------------------------------------------------------
 
 
 @register.filter
 def deref(value: object) -> str:
-    """Unwrap a nullable string — returns '' if None. Like Go's deref(*string)."""
+    """Unwrap a nullable string — returns '' if None."""
     if value is None:
         return ""
     return str(value)
@@ -162,7 +161,7 @@ def deref(value: object) -> str:
 
 @register.filter
 def deref_float(value: object) -> float:
-    """Unwrap a nullable float — returns 0.0 if None. Like Go's derefFloat(*float64)."""
+    """Unwrap a nullable float — returns 0.0 if None."""
     if value is None:
         return 0.0
     return float(value)  # type: ignore[arg-type]
@@ -170,7 +169,7 @@ def deref_float(value: object) -> float:
 
 @register.filter
 def add_float(a: object, b: object) -> float:
-    """Add two floats in a template. Like Go's addFloat.
+    """Add two floats in a template.
     Usage: {{ amount|add_float:fee }}
     """
     return float(a) + float(b)  # type: ignore[arg-type]
@@ -178,7 +177,7 @@ def add_float(a: object, b: object) -> float:
 
 @register.filter
 def format_account_type(value: object) -> str:
-    """Human-readable account type label. Like Go's formatAccountType.
+    """Human-readable account type label.
     e.g., 'credit_card' → 'Credit Card', 'credit_limit' → 'Credit Line'
     """
     labels = {
@@ -195,7 +194,7 @@ def format_account_type(value: object) -> str:
 
 @register.filter
 def format_type(value: object) -> str:
-    """Human-readable transaction type label. Like Go's formatType.
+    """Human-readable transaction type label.
     e.g., 'loan_out' → 'Loan Given', 'loan_repayment' → 'Loan Repayment'
     """
     labels = {
@@ -220,7 +219,7 @@ def format_type(value: object) -> str:
 def sparkline_points(values: list[float]) -> str:
     """Generate SVG polyline points from a list of values.
 
-    Normalises values into a '0 0 100 40' viewBox. Like Go's SparklinePoints().
+    Normalises values into a '0 0 100 40' viewBox.
     Usage: <polyline points="{% sparkline_points values %}" />
     """
     n = len(values)
@@ -247,7 +246,6 @@ def sparkline_points(values: list[float]) -> str:
 def make_dict(**kwargs: Any) -> dict[str, Any]:
     """Create a dict from keyword arguments for passing multiple values to included templates.
 
-    Like Go's dict template function — useful when {% include %} with needs a data object.
     The tag is named 'dict' in templates; function renamed to avoid shadowing Python's dict built-in.
     Usage: {% dict values=values color="#0d9488" as chart_data %}
            {% include "chart_sparkline.html" with data=chart_data %}
@@ -257,7 +255,7 @@ def make_dict(**kwargs: Any) -> dict[str, Any]:
 
 @register.filter
 def get_item(dictionary: object, key: object) -> Any:
-    """Look up a dict key in a template. Like Go's `index .Map .Key`.
+    """Look up a dict key in a template.
 
     Usage: {{ my_dict|get_item:key_var }}
     Returns None if key is missing or dictionary is not a dict.

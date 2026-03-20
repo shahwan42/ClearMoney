@@ -8,30 +8,21 @@ ClearMoney supports two currencies: EGP (Egyptian Pound) and USD (US Dollar). Ex
 
 ## Model
 
-**File:** `internal/models/exchange_rate.go`
+**File:** `backend/core/models.py`
 
-```go
-type ExchangeRateLog struct {
-    ID        string
-    Date      time.Time
-    Rate      float64    // EGP per 1 USD (e.g., 50.5)
-    Source    *string    // optional source (e.g., "CBE")
-    Note      string
-    CreatedAt time.Time
-}
-```
+`ExchangeRateLog` columns: `id` (UUID), `date`, `rate` (NUMERIC — EGP per 1 USD, e.g., 50.5), `source` (nullable, e.g., "CBE"), `note`, `created_at`.
 
-**Key:** Rate is always "EGP per 1 USD" regardless of transaction direction. This is an **append-only immutable log** (no UpdatedAt field).
+**Key:** Rate is always "EGP per 1 USD" regardless of transaction direction. This is an **append-only immutable log** (no updated_at field).
 
-## Repository
+## Service
 
-**File:** `internal/repository/exchange_rate.go`
+**File:** `backend/exchange_rates/services.py`
 
 | Method | Purpose |
 |--------|---------|
-| `Create(ctx, log)` | Insert rate entry |
-| `GetLatest(ctx)` | Most recent exchange rate |
-| `GetByDateRange(ctx, from, to)` | Historical rates for a period |
+| `Create(log)` | Insert rate entry |
+| `GetLatest()` | Most recent exchange rate |
+| `GetByDateRange(from, to)` | Historical rates for a period |
 
 ## Usage
 
@@ -39,11 +30,11 @@ type ExchangeRateLog struct {
 
 When creating a currency exchange transaction, the service:
 1. Records the exchange rate on both transaction legs
-2. Logs the rate to `exchange_rate_log` via the repo (non-critical — doesn't fail if logging errors)
+2. Logs the rate to `exchange_rate_log` via the service (non-critical — doesn't fail if logging errors)
 
 ### In Dashboard
 
-The `DashboardService` uses the latest exchange rate to:
+The dashboard service uses the latest exchange rate to:
 - Convert USD account balances to EGP for net worth calculation
 - Display the current rate in the dashboard header
 
@@ -61,10 +52,10 @@ When the exchange direction is EGP → USD, the service internally inverts the r
 
 | File | Purpose |
 |------|---------|
-| `internal/models/exchange_rate.go` | ExchangeRateLog struct |
-| `internal/repository/exchange_rate.go` | CRUD, GetLatest |
-| `internal/service/transaction.go` | Rate logging during exchanges |
-| `internal/service/dashboard.go` | Rate used for USD→EGP conversion |
+| `backend/core/models.py` | ExchangeRateLog model |
+| `backend/exchange_rates/services.py` | CRUD, GetLatest |
+| `backend/transactions/services/` | Rate logging during exchanges |
+| `backend/dashboard/services/` | Rate used for USD→EGP conversion |
 
 ## For Newcomers
 

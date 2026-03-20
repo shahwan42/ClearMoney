@@ -1,7 +1,7 @@
 """
 Management command: run_startup_jobs — orchestrate all background jobs.
 
-Runs all 5 jobs in the same order as Go's main.go startup sequence:
+Runs all 5 jobs in the standard startup sequence:
 1. cleanup_sessions (remove expired tokens/sessions)
 2. process_recurring (auto-create due transactions)
 3. reconcile_balances (report-only, no auto-fix)

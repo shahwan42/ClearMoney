@@ -1,8 +1,7 @@
 """
 Management command: cleanup_sessions — delete expired auth tokens and sessions.
 
-Port of Go's AuthTokenRepo.CleanupExpired() + SessionRepo.CleanupExpired().
-Like Django's built-in `clearsessions` but for Go's auth tables.
+Like Django's built-in `clearsessions` but for the custom auth/session tables.
 
 Usage:
     python manage.py cleanup_sessions

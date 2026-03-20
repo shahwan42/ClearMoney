@@ -1,7 +1,7 @@
 """
 Tests for auth views — login, register, verify, logout page handlers.
 
-Integration tests hitting real DB. Like Go's handler/auth_test.go.
+Integration tests hitting real DB.
 """
 
 import time

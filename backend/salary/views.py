@@ -1,7 +1,6 @@
 """
 Salary wizard views — page handlers for /salary*.
 
-Port of Go's PageHandler salary methods (pages.go:1766–1903).
 Like Laravel's SalaryWizardController — handles the multi-step HTMX wizard:
   Step 1: Salary amount, USD/EGP account selection, date
   Step 2: Exchange rate input with live EGP calculation
@@ -36,10 +35,7 @@ def _svc(request: AuthenticatedRequest) -> SalaryService:
 @general_rate
 @require_http_methods(["GET"])
 def salary_page(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /salary — render the salary wizard page with step 1.
-
-    Port of Go's PageHandler.Salary (pages.go:1766).
-    """
+    """GET /salary — render the salary wizard page with step 1."""
     logger.info("page viewed: salary, user=%s", request.user_email)
     accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
     today = datetime.now(request.tz).date()
@@ -58,10 +54,7 @@ def salary_page(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def salary_step2(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /salary/step2 — process step 1, render exchange rate form.
-
-    Port of Go's PageHandler.SalaryStep2 (pages.go:1778).
-    """
+    """POST /salary/step2 — process step 1, render exchange rate form."""
     salary_usd = parse_float_or_zero(request.POST.get("salary_usd", ""))
     if salary_usd <= 0:
         return HttpResponse(
@@ -85,10 +78,7 @@ def salary_step2(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def salary_step3(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /salary/step3 — process step 2, render allocation form.
-
-    Port of Go's PageHandler.SalaryStep3 (pages.go:1803).
-    """
+    """POST /salary/step3 — process step 2, render allocation form."""
     salary_usd = parse_float_or_zero(request.POST.get("salary_usd", ""))
     exchange_rate = parse_float_or_zero(request.POST.get("exchange_rate", ""))
     salary_egp = salary_usd * exchange_rate
@@ -119,7 +109,6 @@ def salary_step3(request: AuthenticatedRequest) -> HttpResponse:
 def salary_confirm(request: AuthenticatedRequest) -> HttpResponse:
     """POST /salary/confirm — create all salary transactions atomically.
 
-    Port of Go's PageHandler.SalaryConfirm (pages.go:1844).
     Collects allocations from form fields named alloc_<account_id>.
     """
     salary_usd = parse_float_or_zero(request.POST.get("salary_usd", ""))

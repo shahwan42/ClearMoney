@@ -1,7 +1,6 @@
 """
 Dashboard service package — aggregates data from 10+ sources for the home page.
 
-Port of Go's DashboardService (internal/service/dashboard.go, 752 lines).
 This is the most complex service in ClearMoney. It pulls data from institutions,
 accounts, transactions, exchange rates, people, investments, snapshots, virtual accounts,
 budgets, health checks, and credit card billing cycles.
@@ -9,7 +8,7 @@ budgets, health checks, and credit card billing cycles.
 Like Django's TemplateView.get_context_data() that aggregates from many QuerySets
 and services into a single context dictionary. Uses raw SQL via connection.cursor()
 because the queries involve window functions, CTEs, and PostgreSQL enum casts that
-don't map cleanly to the ORM (and all models are managed=False).
+don't map cleanly to the ORM.
 """
 
 import logging
@@ -77,8 +76,7 @@ __all__ = [
 
 @dataclass
 class DashboardData:
-    """All dashboard data — passed to template as a single context dict.
-    Go equivalent: service.DashboardData"""
+    """All dashboard data — passed to template as a single context dict."""
 
     # Net worth
     net_worth: float = 0.0
@@ -140,10 +138,10 @@ class DashboardData:
 class DashboardService:
     """Aggregates all dashboard data from 10+ database sources.
 
-    Port of Go's DashboardService. Delegates to module-level functions in
-    sub-modules (accounts, credit_cards, spending, activity, widgets, sparklines).
-    Each sub-module handles one data domain and is independently testable.
-    The public get_dashboard() orchestrates them with best-effort error handling.
+    Delegates to module-level functions in sub-modules (accounts, credit_cards,
+    spending, activity, widgets, sparklines). Each sub-module handles one data
+    domain and is independently testable. The public get_dashboard() orchestrates
+    them with best-effort error handling.
 
     Like Laravel's DashboardController calling 10+ repositories,
     or Django's TemplateView.get_context_data() pulling from many QuerySets.

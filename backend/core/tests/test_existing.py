@@ -2,8 +2,7 @@
 Core tests — auth middleware and template tag filters.
 
 Filter tests use plain functions (no DB). Middleware tests use
-@pytest.mark.django_db and the auth_user fixture from conftest.py,
-mirroring Go's testutil.SetupAuth() pattern.
+@pytest.mark.django_db and the auth_user fixture from conftest.py.
 """
 
 from datetime import date, timedelta

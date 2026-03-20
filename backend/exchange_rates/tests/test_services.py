@@ -1,8 +1,7 @@
 """
 Exchange rate service tests — read-only queries for exchange rate history.
 
-Port of Go's ExchangeRateRepo tests. Tests run against the real database
-with --reuse-db (Go owns schema). Verifies get_all ordering, empty state,
+Tests run against the real database with --reuse-db. Verifies get_all ordering, empty state,
 and field completeness.
 
 Note: Exchange rates are global data (no user_id), but the page is still

@@ -1,16 +1,12 @@
 """
 NotificationService — generates push notification payloads by polling.
 
-Port of Go's internal/service/notifications.go. Checks multiple conditions
-(credit cards due, health warnings, budget thresholds, recurring rules)
-and returns notification dicts for the frontend to display.
+Checks multiple conditions (credit cards due, health warnings, budget thresholds,
+recurring rules) and returns notification dicts for the frontend to display.
 
 The service does NOT send push messages — the browser polls GET /api/push/check
-and displays them via the Push API / in-app banner.
-
-Like Laravel's Notification system but simpler: we only generate payloads,
-the browser handles delivery. Similar to django-push-notifications but
-polling-based instead of server-push.
+and displays them via the Push API / in-app banner. We generate payloads;
+the browser handles delivery.
 """
 
 import logging
@@ -30,7 +26,7 @@ class NotificationService:
     and RecurringService). Both dependencies are created internally.
 
     Each trigger source is wrapped in try/except — one failing source
-    doesn't block others (matches Go's nil-safe pattern).
+    doesn't block others.
     """
 
     def __init__(self, user_id: str, tz: ZoneInfo) -> None:

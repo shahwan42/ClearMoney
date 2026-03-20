@@ -1,8 +1,6 @@
 """
 Category service layer — business logic for expense/income categories.
 
-Port of Go's service/category.go + repository/category.go.
-
 Like Laravel's CategoryService — validates input, guards system categories,
 executes raw SQL. Categories are predefined labels for transactions
 (e.g., "Groceries", "Salary"). Some are "system" categories (seeded at setup,
@@ -27,7 +25,7 @@ _SELECT_COLS = (
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a category SQL row to a dict matching Go's JSON tags."""
+    """Convert a category SQL row to a dict."""
     return {
         "id": str(row[0]),
         "user_id": str(row[1]),
@@ -43,10 +41,7 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
 
 
 class CategoryService:
-    """Port of Go's CategoryService + CategoryRepo.
-
-    Like Laravel's CategoryService — validates input, guards system categories.
-    """
+    """Like Laravel's CategoryService — validates input, guards system categories."""
 
     def __init__(self, user_id: str, tz: ZoneInfo) -> None:
         self.user_id = user_id
@@ -126,10 +121,7 @@ class CategoryService:
     def update(
         self, cat_id: str, name: str, icon: str | None = None
     ) -> dict[str, Any] | None:
-        """Update a custom category. System categories cannot be modified.
-
-        Port of Go's CategoryService.Update — fetch-then-check pattern.
-        """
+        """Update a custom category. System categories cannot be modified."""
         existing = self.get_by_id(cat_id)
         if not existing:
             return None
@@ -155,9 +147,8 @@ class CategoryService:
             return _row_to_dict(row)
 
     def archive(self, cat_id: str) -> bool:
-        """Soft-delete a category. System categories cannot be archived.
+        """Soft-delete a category (sets is_archived=true). System categories cannot be archived.
 
-        Port of Go's CategoryService.Archive — sets is_archived=true.
         Like Laravel's SoftDeletes trait but with a boolean flag.
         """
         existing = self.get_by_id(cat_id)

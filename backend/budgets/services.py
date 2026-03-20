@@ -1,16 +1,12 @@
 """
 Budget service — business logic for monthly spending limits per category.
 
-Port of Go's BudgetService (internal/service/budget.go) and BudgetRepo
-(internal/repository/budget.go). Combines both layers into a single service
-since Django views call the service directly (no separate repository layer).
+Combines service and repository layers into a single class. Validates input,
+executes SQL, computes spending progress (green/amber/red), and logs mutations.
 
-Like Laravel's BudgetService — validates input, executes SQL, computes
-spending progress (green/amber/red), and logs mutation events.
-
-The spending query is the same one used by DashboardService._load_budgets_with_spending()
-(backend/dashboard/services.py:876). Both compute current-month spending by JOINing
-budgets with transactions filtered by type='expense' and matching currency.
+The spending query is the same one used by DashboardService._load_budgets_with_spending().
+Both compute current-month spending by JOINing budgets with transactions filtered
+by type='expense' and matching currency.
 """
 
 import logging
@@ -26,8 +22,7 @@ logger = logging.getLogger(__name__)
 class BudgetService:
     """Handles budget CRUD and spending progress computation.
 
-    Like Go's BudgetService + BudgetRepo combined. All queries are
-    scoped to the authenticated user via user_id.
+    All queries are scoped to the authenticated user via user_id.
     """
 
     def __init__(self, user_id: str, tz: ZoneInfo) -> None:
@@ -37,9 +32,8 @@ class BudgetService:
     def get_all_with_spending(self) -> list[dict[str, Any]]:
         """Return active budgets with current month's actual spending.
 
-        Port of Go's BudgetRepo.GetAllWithSpending(). JOINs budgets with
-        categories and transactions to compute spent amount, percentage,
-        and traffic-light status (green/amber/red).
+        JOINs budgets with categories and transactions to compute spent amount,
+        percentage, and traffic-light status (green/amber/red).
         """
         today = datetime.now(self.tz).date()
         month_start = today.replace(day=1)
@@ -108,8 +102,8 @@ class BudgetService:
     ) -> dict[str, Any]:
         """Create a new budget with validation.
 
-        Port of Go's BudgetService.Create(). Validates that category_id
-        is provided and monthly_limit is positive. Currency defaults to 'EGP'.
+        Validates that category_id is provided and monthly_limit is positive.
+        Currency defaults to 'EGP'.
 
         Raises:
             ValueError: If category_id is empty or monthly_limit <= 0.
@@ -156,9 +150,7 @@ class BudgetService:
     def delete(self, budget_id: str) -> bool:
         """Delete a budget by ID.
 
-        Port of Go's BudgetService.Delete(). Only deletes budgets
-        belonging to the authenticated user.
-
+        Only deletes budgets belonging to the authenticated user.
         Returns True if a row was deleted, False if not found.
         """
         with connection.cursor() as cursor:

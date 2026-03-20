@@ -1,7 +1,5 @@
 """
 Transaction API view tests — HTTP-level tests for /api/transactions/* JSON API.
-
-Port of Go's handler/transaction_test.go.
 """
 
 import json

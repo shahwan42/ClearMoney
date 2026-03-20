@@ -16,7 +16,7 @@ No passwords, no PINs. Magic links are single-use, expire in 15 minutes.
 
 **Route:** `GET /login` → `POST /login`
 
-**Handler:** `internal/handler/auth.go`
+**View:** `backend/auth_app/views.py`
 
 1. User enters email address
 2. Honeypot + timing check (anti-bot)
@@ -25,13 +25,13 @@ No passwords, no PINs. Magic links are single-use, expire in 15 minutes.
 5. If user doesn't exist: show same "Check your email" page (prevents email enumeration)
 6. No email sent for unknown addresses — zero quota cost
 
-**Template:** `internal/templates/pages/login.html` — bare page (no header/nav)
+**Template:** `backend/auth_app/templates/auth_app/login.html` — bare page (no header/nav)
 
 ## Registration Flow
 
 **Route:** `GET /register` → `POST /register`
 
-**Handler:** `internal/handler/auth.go`
+**View:** `backend/auth_app/views.py`
 
 1. User enters email address
 2. Honeypot + timing check (anti-bot)
@@ -39,13 +39,13 @@ No passwords, no PINs. Magic links are single-use, expire in 15 minutes.
 4. Generate registration token, send email via Resend
 5. Show "Check your email" page
 
-**Template:** `internal/templates/pages/register.html` — bare page
+**Template:** `backend/auth_app/templates/auth_app/register.html` — bare page
 
 ## Magic Link Verification
 
 **Route:** `GET /auth/verify?token=xxx`
 
-**Handler:** `internal/handler/auth.go`
+**View:** `backend/auth_app/views.py`
 
 1. Look up token in `auth_tokens` table
 2. Validate: exists, not expired (15 min TTL), not already used
@@ -54,26 +54,25 @@ No passwords, no PINs. Magic links are single-use, expire in 15 minutes.
 5. **Registration token:** create user → seed 25 default categories → create session
 6. Set session cookie, redirect to dashboard
 
-**Template:** `internal/templates/pages/link-expired.html` — shown if token is invalid/expired
+**Template:** `backend/auth_app/templates/auth_app/link_expired.html` — shown if token is invalid/expired
 
 ## New User Onboarding
 
 When a registration magic link is verified:
 
 1. User row created in `users` table
-2. `CategoryRepo.SeedDefaults(ctx, userID)` inserts 25 default categories (18 expense + 7 income)
+2. `AuthService._seed_default_categories(user_id)` inserts 25 default categories (18 expense + 7 income)
 3. Session created, user redirected to dashboard (empty state with seeded categories)
 
-**File:** `internal/repository/category.go` — `SeedDefaults` method
+**File:** `backend/auth_app/services.py` — `_seed_default_categories` method
 
 ## Session Management
 
 ### Database Sessions
 
-**File:** `internal/repository/session.go`
+Sessions stored in `sessions` table with `user_id`, `token`, `expires_at`.
 
-- Sessions stored in `sessions` table with `user_id`, `token`, `expires_at`
-- Token: 32-byte `crypto/rand`, base64url-encoded
+- Token: 32-byte `secrets.token_urlsafe(32)`
 - Expiry: 30 days from creation
 - Validated on every request by auth middleware
 
@@ -81,28 +80,21 @@ When a registration magic link is verified:
 
 - Name: `clearmoney_session`
 - MaxAge: 30 days
-- Flags: `HttpOnly` (prevents XSS), `SameSite=Lax` (CSRF protection), `Secure` when HTTPS
-- `SetSessionCookie()` / `ClearSessionCookie()` helpers in middleware
+- Flags: `HttpOnly`, `SameSite=Lax`, `Secure` when HTTPS
 
 ## Auth Middleware
 
-**File:** `internal/middleware/auth.go`
+**File:** `backend/core/middleware.py` — `GoSessionAuthMiddleware`
 
-The `Auth()` middleware:
 1. Checks if request path is public (no auth required)
-2. Reads session cookie
-3. Calls `authSvc.ValidateSession(token)` — looks up session in DB, checks expiry
-4. If valid: stores `(userID, email)` in request context via `WithUser()`
+2. Reads `clearmoney_session` cookie
+3. Looks up session in DB, checks expiry
+4. If valid: stores `user_id` and `user_email` on `request` object
 5. If invalid: redirects to `/login`
 
-### Context Helpers
+Views access auth via `request.user_id` and `request.user_email` (typed as `AuthenticatedRequest` from `core.types`).
 
-```go
-authmw.UserID(r.Context())    // extract user ID from context
-authmw.UserEmail(r.Context()) // extract user email from context
-```
-
-Every handler extracts `userID` and passes it through service → repository layers. All queries include `WHERE user_id = $N` for data isolation.
+Every view filters all queries by `user_id` for per-user data isolation.
 
 ### Public Paths (no auth required)
 
@@ -127,19 +119,18 @@ Resend free tier = 100 emails/day. Aggressive rate limiting preserves quota:
 
 ## Email Service
 
-**File:** `internal/service/email.go`
+**File:** `backend/auth_app/services.py` — `EmailService` class
 
-Wraps the Resend SDK. In dev mode (no `RESEND_API_KEY`), logs emails instead of sending them.
+Wraps the Resend SDK. In dev mode (no `RESEND_API_KEY`), logs emails to stdout instead of sending them.
 
 ## Data Isolation (IDOR Prevention)
 
 Every database query filters by `user_id`:
 
-```go
-// Even PK lookups filter by user_id
-func (r *AccountRepo) GetByID(ctx context.Context, userID, id string) (models.Account, error) {
-    // SELECT ... FROM accounts WHERE id = $1 AND user_id = $2
-}
+```python
+# Even PK lookups filter by user_id
+def get_by_id(user_id: str, account_id: str) -> Account:
+    # SELECT ... FROM accounts WHERE id = %s AND user_id = %s
 ```
 
 This prevents Insecure Direct Object Reference (IDOR) attacks — User A cannot access User B's data even if they know the UUID.
@@ -148,11 +139,11 @@ This prevents Insecure Direct Object Reference (IDOR) attacks — User A cannot 
 
 **Route:** `POST /logout`
 
-Deletes session from database, clears cookie, redirects to `/login`. Uses standard `http.Redirect` (not HTMX redirect).
+Deletes session from database, clears cookie, redirects to `/login`. Uses standard Django redirect (not HTMX redirect).
 
 ## Expired Token/Session Cleanup
 
-On app startup and periodically: `authSvc.CleanupExpired(ctx)` deletes expired tokens and sessions from the database.
+On app startup: `cleanup_sessions` management command deletes expired tokens and sessions.
 
 ## Database Tables
 
@@ -162,24 +153,18 @@ On app startup and periodically: `authSvc.CleanupExpired(ctx)` deletes expired t
 | `sessions` | Server-side sessions (user_id, token, expires_at) |
 | `auth_tokens` | Magic link tokens (email, token, purpose, expires_at, used) |
 
-**Migrations:** 000027 (users, sessions, auth_tokens), 000028 (user_id on all data tables), 000029 (materialized views with user_id), 000030 (category unique index fix for multi-user)
-
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `internal/handler/auth.go` | Login, Register, Verify, Logout handlers |
-| `internal/middleware/auth.go` | Auth middleware, session validation, context injection |
-| `internal/service/auth.go` | Magic link flow, rate limits, token management |
-| `internal/service/email.go` | Resend SDK wrapper |
-| `internal/repository/user.go` | User CRUD |
-| `internal/repository/session.go` | Session CRUD |
-| `internal/repository/auth_token.go` | Token CRUD + rate limit queries |
-| `internal/repository/category.go` | `SeedDefaults` for new user onboarding |
-| `internal/templates/pages/login.html` | Login page (email form) |
-| `internal/templates/pages/register.html` | Registration page |
-| `internal/templates/pages/check-email.html` | "Check your email" confirmation |
-| `internal/templates/pages/link-expired.html` | Expired/invalid link page |
+| `backend/auth_app/views.py` | Login, Register, Verify, Logout views |
+| `backend/auth_app/services.py` | AuthService + EmailService — magic link flow, rate limits, token management |
+| `backend/core/middleware.py` | `GoSessionAuthMiddleware` — session validation, user injection |
+| `backend/core/models.py` | User, Session, AuthToken models |
+| `backend/auth_app/templates/auth_app/login.html` | Login page (email form) |
+| `backend/auth_app/templates/auth_app/register.html` | Registration page |
+| `backend/auth_app/templates/auth_app/check_email.html` | "Check your email" confirmation |
+| `backend/auth_app/templates/auth_app/link_expired.html` | Expired/invalid link page |
 
 ## Environment Variables
 
@@ -187,18 +172,16 @@ On app startup and periodically: `authSvc.CleanupExpired(ctx)` deletes expired t
 |----------|---------|-------------|
 | `RESEND_API_KEY` | (none) | Resend API key (dev mode if unset) |
 | `EMAIL_FROM` | `noreply@clearmoney.app` | Verified sender address |
-| `APP_URL` | `http://localhost:8080` | Base URL for magic links |
+| `APP_URL` | `http://localhost:8000` | Base URL for magic links |
 | `MAX_DAILY_EMAILS` | `50` | Global daily email cap |
 
 ## Logging
 
 **Service events:**
 
-- `auth.login_link_sent` — magic link emailed for login
-- `auth.registration_link_sent` — magic link emailed for registration
-- `auth.login_completed` — login magic link verified
+- `auth.magic_link_sent` — magic link emailed (purpose: login or registration)
 - `auth.user_registered` — new user created via registration link
-- `auth.token_reused` — existing unexpired token found (no email sent)
+- `auth.login_success` — magic link verified, session created
 - `auth.logout` — user logged out
 
 **Page views:** `login`, `register`, `check-email`, `link-expired`
@@ -208,10 +191,10 @@ On app startup and periodically: `authSvc.CleanupExpired(ctx)` deletes expired t
 | Measure | Implementation |
 |---------|---------------|
 | No passwords | Magic links eliminate password attacks |
-| Token generation | 32-byte `crypto/rand`, base64url |
+| Token generation | 32-byte `secrets.token_urlsafe(32)` |
 | Token expiry | 15-minute TTL, single-use |
-| Session tokens | 32-byte `crypto/rand`, DB-stored, 30-day expiry |
+| Session tokens | 32-byte random, DB-stored, 30-day expiry |
 | Cookie flags | HttpOnly + SameSite=Lax (+ Secure on HTTPS) |
 | Email enumeration | Always "Check your email" regardless of account existence |
-| IDOR prevention | Every query: `AND user_id = $N` |
+| IDOR prevention | Every query: `AND user_id = %s` |
 | Email uniqueness | Case-insensitive: `UNIQUE INDEX ON LOWER(email)` |

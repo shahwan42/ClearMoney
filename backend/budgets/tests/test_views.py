@@ -1,8 +1,7 @@
 """
 Budget view tests — HTTP-level tests for /budgets/* routes.
 
-Port of Go's handler/bugfix_test.go budget tests (Bug006-007) + expanded coverage.
-Tests run against the real database with --reuse-db (Go owns schema).
+Tests run against the real database with --reuse-db.
 """
 
 import uuid

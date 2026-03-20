@@ -1,8 +1,7 @@
 """
 Recurring service tests — CRUD, confirm/skip, date advancement, auto-processing.
 
-Port of Go's internal/service/recurring_test.go. Tests run against the
-real database with --reuse-db (Go owns schema).
+Tests run against the real database with --reuse-db.
 """
 
 from datetime import date, timedelta
@@ -348,7 +347,7 @@ class TestAdvanceDueDate:
         assert svc._advance_due_date(rule) == date(2026, 4, 15)
 
     def test_monthly_overflow_clamps(self, rec_data):
-        """Jan 31 + 1 month = Feb 28 (dateutil clamps, unlike Go's Mar 3)."""
+        """Jan 31 + 1 month = Feb 28 (dateutil clamps month overflow)."""
         svc = _svc(rec_data["user_id"])
         rule = {"next_due_date": date(2026, 1, 31), "frequency": "monthly"}
         assert svc._advance_due_date(rule) == date(2026, 2, 28)

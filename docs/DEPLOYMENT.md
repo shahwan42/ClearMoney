@@ -13,8 +13,7 @@
 | Deploy method | `make deploy` — git push → SSH pull → docker compose rebuild |
 | Reverse proxy | Caddy (containerized in docker-compose.prod.yml) |
 | TLS | Auto-provisioned Let's Encrypt via Caddy, certs in `caddy_data` volume |
-| Go app port | 8080 (internal only, not exposed to internet) |
-| Django app port | 8000 (internal only, Caddy routes migrated paths here) |
+| Django app port | 8000 (internal only, not exposed to internet) |
 | Public ports | 80 (HTTP → HTTPS redirect), 443 (HTTPS) |
 | Database | PostgreSQL 16 (Alpine, containerized, port 5432 internal) |
 | Env file | `.env.prod` on the VPS (not in git) |
@@ -52,7 +51,6 @@ Edit `.env` with production values:
 
 ```bash
 # .env
-PORT=8080
 ENV=production
 LOG_LEVEL=info
 
@@ -61,6 +59,9 @@ DATABASE_URL=postgres://clearmoney:CHANGE_THIS_PASSWORD@db:5432/clearmoney?sslmo
 POSTGRES_USER=clearmoney
 POSTGRES_PASSWORD=CHANGE_THIS_PASSWORD
 POSTGRES_DB=clearmoney
+
+APP_URL=https://clearmoney.shahwan.me
+RESEND_API_KEY=re_...
 
 # Optional: Web Push (generate with `npx web-push generate-vapid-keys`)
 # VAPID_PUBLIC_KEY=
@@ -75,38 +76,22 @@ docker compose up -d --build
 
 # Verify
 docker compose ps
-docker compose logs -f app
+docker compose logs -f django
 ```
 
-The app is now running on port 8080. First visit will prompt PIN setup.
+The app is now running at `https://clearmoney.shahwan.me`. First visit will prompt for email (magic link auth).
 
 ## 4. HTTPS with Caddy (Containerized)
 
 HTTPS is handled by a Caddy container in `docker-compose.prod.yml`. Caddy automatically provisions and renews Let's Encrypt certificates.
 
-The `Caddyfile` in the project root configures path-based routing for the Strangler Fig migration. Migrated routes go to Django, everything else goes to Go:
+The `Caddyfile` routes all traffic to Django:
 
 ```
 clearmoney.shahwan.me {
-    # Migrated routes → Django (port 8000)
-    handle /settings {
-        reverse_proxy django:8000
-    }
-    handle /export/* {
-        reverse_proxy django:8000
-    }
-    handle /reports {
-        reverse_proxy django:8000
-    }
-
-    # Everything else → Go (port 8080)
-    handle {
-        reverse_proxy app:8080
-    }
+    reverse_proxy django:8000
 }
 ```
-
-**Rollback**: To revert a migrated route to Go, remove its `handle` block from the Caddyfile and restart Caddy. Go still serves all routes — the routing change is instant.
 
 **If you previously installed Caddy system-level**, stop and disable it to free ports 80/443:
 
@@ -128,7 +113,7 @@ sudo ufw allow 443/tcp   # HTTPS
 sudo ufw enable
 ```
 
-Do **not** expose port 8080 publicly if using Caddy — it should only be accessible via the reverse proxy.
+Do **not** expose port 8000 publicly — it should only be accessible via Caddy.
 
 ## 6. Backups
 
@@ -167,17 +152,16 @@ Migrations run automatically on startup — no manual steps needed.
 ## 8. Monitoring
 
 ```bash
-# Check status of all containers (app, django, db, caddy)
+# Check status of all containers
 docker compose -f docker-compose.prod.yml ps
 
 # View logs
-docker compose -f docker-compose.prod.yml logs -f app      # Go app logs
 docker compose -f docker-compose.prod.yml logs -f django   # Django app logs
 docker compose -f docker-compose.prod.yml logs -f db       # Database logs
 docker compose -f docker-compose.prod.yml logs -f caddy    # Caddy/TLS logs
 
 # Health check (from the VPS itself)
-curl -s http://localhost:8080/healthz
+curl -s http://localhost:8000/healthz
 
 # Verify HTTPS externally
 curl -I https://clearmoney.shahwan.me
@@ -190,6 +174,6 @@ curl -I https://clearmoney.shahwan.me
 | App can't connect to DB | Check `DATABASE_URL` uses `db` as hostname (not `localhost`) |
 | Port 80/443 already in use | Stop system-level Caddy: `sudo systemctl stop caddy && sudo systemctl disable caddy` |
 | TLS cert not provisioning | Check `docker compose logs caddy` — ensure DNS A record points to VPS IP and ports 80/443 are open |
-| Migrations fail | Check `docker compose -f docker-compose.prod.yml logs app` for SQL errors |
+| Migrations fail | Check `docker compose -f docker-compose.prod.yml logs django` for SQL errors |
 | Out of disk | Prune old Docker images: `docker system prune -a` |
 | Magic links have http:// | Update `APP_URL=https://clearmoney.shahwan.me` in `.env.prod` on VPS |

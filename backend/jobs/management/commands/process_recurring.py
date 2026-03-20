@@ -4,8 +4,7 @@ Management command: process_recurring — auto-create due recurring transactions
 Wraps the existing RecurringService.process_due_rules() for each user.
 No new service needed — reuses backend/recurring/services.py.
 
-Port of Go's startup sequence that iterates all users and calls
-RecurringService.ProcessDueRules(ctx, userID).
+Iterates all users and calls RecurringService.process_due_rules() for each.
 
 Usage:
     python manage.py process_recurring

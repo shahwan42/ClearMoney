@@ -1,10 +1,6 @@
 """
 Recurring rules service — business logic for scheduled transactions.
 
-Port of Go's RecurringService (internal/service/recurring.go) and
-RecurringRepo (internal/repository/recurring.go). Combines both layers
-into a single service since Django views call the service directly.
-
 Like Laravel's Scheduled Task system — defines rules that fire on a schedule
 and create transactions automatically (auto_confirm=true) or after user
 confirmation (auto_confirm=false). ProcessDueRules is called on startup,
@@ -15,8 +11,7 @@ KEY BEHAVIOR:
 - When a rule fires, it creates a real transaction via TransactionService.
 - After firing, next_due_date advances based on frequency (weekly/monthly).
 - Monthly advancement uses dateutil.relativedelta which clamps month overflow
-  (Jan 31 + 1 month = Feb 28), unlike Go's time.AddDate which rolls forward
-  (Jan 31 + 1 month = Mar 3). The Python behavior is better UX for recurring.
+  (e.g., Jan 31 + 1 month = Feb 28). This is better UX than rolling forward to Mar 3.
 """
 
 import json
@@ -87,10 +82,7 @@ class RecurringService:
     # ------------------------------------------------------------------
 
     def get_all(self) -> list[dict[str, Any]]:
-        """All recurring rules ordered by next_due_date ASC.
-
-        Port of Go's RecurringRepo.GetAll.
-        """
+        """All recurring rules ordered by next_due_date ASC."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT id, user_id, template_transaction, frequency,
@@ -104,10 +96,7 @@ class RecurringService:
             return [_row_to_rule(row) for row in cursor.fetchall()]
 
     def get_by_id(self, rule_id: str) -> dict[str, Any] | None:
-        """Single rule by ID, scoped to user.
-
-        Port of Go's RecurringRepo.GetByID.
-        """
+        """Single rule by ID, scoped to user."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT id, user_id, template_transaction, frequency,
@@ -123,18 +112,14 @@ class RecurringService:
     def get_due_pending(self) -> list[dict[str, Any]]:
         """Due rules needing user confirmation (auto_confirm=false).
 
-        Port of Go's RecurringService.GetDuePending — fetches all due rules
-        then filters to only those requiring manual confirmation.
+        Fetches all due rules then filters to those requiring manual confirmation.
         """
         today = date.today()
         rules = self._get_due(today)
         return [r for r in rules if not r["auto_confirm"]]
 
     def _get_due(self, today: date) -> list[dict[str, Any]]:
-        """All active rules where next_due_date <= today.
-
-        Port of Go's RecurringRepo.GetDue.
-        """
+        """All active rules where next_due_date <= today."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT id, user_id, template_transaction, frequency,
@@ -154,9 +139,7 @@ class RecurringService:
     def create(self, data: dict[str, Any]) -> dict[str, Any]:
         """Create a new recurring rule.
 
-        Port of Go's RecurringService.Create — validates required fields,
-        inserts JSONB template, returns created rule with generated ID.
-
+        Validates required fields, inserts JSONB template, returns created rule.
         Expects data keys: template_transaction (dict), frequency (str),
         next_due_date (date), auto_confirm (bool).
         """
@@ -199,10 +182,7 @@ class RecurringService:
         }
 
     def confirm(self, rule_id: str) -> None:
-        """Execute a pending rule — create transaction + advance due date.
-
-        Port of Go's RecurringService.ConfirmRule.
-        """
+        """Execute a pending rule — create transaction + advance due date."""
         rule = self.get_by_id(rule_id)
         if not rule:
             raise ValueError("Rule not found")
@@ -210,10 +190,7 @@ class RecurringService:
         logger.info("recurring.confirmed id=%s user=%s", rule_id, self.user_id)
 
     def skip(self, rule_id: str) -> None:
-        """Advance next_due_date without creating a transaction.
-
-        Port of Go's RecurringService.SkipRule.
-        """
+        """Advance next_due_date without creating a transaction."""
         rule = self.get_by_id(rule_id)
         if not rule:
             raise ValueError("Rule not found")
@@ -222,10 +199,7 @@ class RecurringService:
         logger.info("recurring.skipped id=%s user=%s", rule_id, self.user_id)
 
     def delete(self, rule_id: str) -> None:
-        """Delete a recurring rule.
-
-        Port of Go's RecurringService.Delete.
-        """
+        """Delete a recurring rule."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "DELETE FROM recurring_rules WHERE id = %s AND user_id = %s",
@@ -236,8 +210,7 @@ class RecurringService:
     def process_due_rules(self) -> int:
         """Auto-process all due rules with auto_confirm=true.
 
-        Port of Go's RecurringService.ProcessDueRules — called on startup.
-        Returns count of transactions created.
+        Called on startup. Returns count of transactions created.
         """
         today = date.today()
         rules = self._get_due(today)
@@ -268,8 +241,7 @@ class RecurringService:
     def _execute_rule(self, rule: dict[str, Any]) -> None:
         """Create a transaction from the rule template and advance the due date.
 
-        Port of Go's RecurringService.executeRule — the core logic shared by
-        confirm() and process_due_rules().
+        Core logic shared by confirm() and process_due_rules().
 
         1. Parse template_transaction (already a dict from JSONB)
         2. Guard: check account_id is not empty
@@ -310,7 +282,7 @@ class RecurringService:
 
         Weekly: +7 days (timedelta).
         Monthly: +1 month (dateutil.relativedelta — clamps month overflow,
-        e.g., Jan 31 + 1 month = Feb 28, not Mar 3 like Go's AddDate).
+        e.g., Jan 31 + 1 month = Feb 28).
         """
         current: date = rule["next_due_date"]
         freq: str = rule["frequency"]
@@ -321,10 +293,7 @@ class RecurringService:
         return result
 
     def _update_next_due_date(self, rule_id: str, next_date: date) -> None:
-        """Persist the advanced next_due_date.
-
-        Port of Go's RecurringRepo.UpdateNextDueDate.
-        """
+        """Persist the advanced next_due_date."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """UPDATE recurring_rules
@@ -340,8 +309,7 @@ class RecurringService:
     def rule_to_view(self, rule: dict[str, Any]) -> dict[str, Any]:
         """Enrich a rule dict with display fields for templates.
 
-        Port of Go's recurringRuleToView — extracts note and amount
-        from the JSONB template for display without re-querying.
+        Extracts note and amount from the JSONB template for display without re-querying.
         """
         tmpl = rule["template_transaction"]
         note = tmpl.get("note") or tmpl.get("type", "")

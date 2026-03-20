@@ -26,25 +26,20 @@ Each IP address gets a "token bucket" that refills at a steady rate. Every reque
 
 | File | Purpose |
 |------|---------|
-| `internal/middleware/ratelimit.go` | Token bucket implementation, middleware factory, IP extraction |
-| `internal/middleware/ratelimit_test.go` | Unit tests for core logic, middleware, HTMX responses, IP parsing |
-| `internal/handler/router.go` | Wires three limiter instances into route groups |
+| `backend/clearmoney/urls.py` | Top-level URL routing with rate-limited route groups |
+| `backend/*/views.py` | `@ratelimit` decorators applied per-view using `django-ratelimit` |
 
 ## Architecture
 
 ```
-Request → RequestID → Logger → StructuredLogger → Recoverer
-                                                      ↓
-              /healthz, /static/*  ← no rate limit ←──┤
-              /login, /setup       ← loginLimiter ─────┤
-              /api/*               ← auth + apiLimiter ┤
-              /* (pages)           ← auth + generalLimiter
+Request → GoSessionAuthMiddleware → View
+              ↓
+              /login, /register, /auth/verify  ← login rate limit (5/min)
+              /api/*                           ← api rate limit (60/min)
+              /* (pages)                       ← general rate limit (120/min)
 ```
 
-Each `RateLimiter` instance:
-- Maintains a `map[string]*tokenBucket` guarded by `sync.Mutex`
-- Runs a background cleanup goroutine (every 5 min, removes entries stale for 10+ min)
-- Stopped via `defer limiter.Stop()` in router.go
+Rate limiting is applied via `django-ratelimit` decorators on views, keyed by `user_id` for authenticated requests and IP for unauthenticated ones.
 
 ## Disabling for Tests
 

@@ -1,10 +1,5 @@
 """
 Dashboard URL configuration — home page and HTMX partials.
-
-Routes migrated from Go:
-- GET /  → home page (was PageHandler.Home)
-- GET /partials/recent-transactions → HTMX partial
-- GET /partials/people-summary → HTMX partial
 """
 
 from django.urls import path

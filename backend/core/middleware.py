@@ -1,12 +1,11 @@
 """
-GoSessionAuthMiddleware — reads Go's session cookie to authenticate requests.
+Session authentication middleware for ClearMoney.
 
-This is the Django equivalent of internal/middleware/auth.go.
-The Go app sets a 'clearmoney_session' cookie containing a random token.
-This middleware looks up that token in the 'sessions' table and sets
-request.user_id and request.user_email for downstream views.
+Reads the 'clearmoney_session' cookie containing a random token,
+looks it up in the 'sessions' table, and sets request.user_id and
+request.user_email for downstream views.
 
-Like Django's AuthenticationMiddleware, but reads Go's session table
+Like Django's AuthenticationMiddleware, but uses the custom sessions table
 instead of Django's django_session table.
 """
 
@@ -30,11 +29,8 @@ COOKIE_NAME = "clearmoney_session"
 class TimezoneMiddleware:
     """Attaches the app's configured timezone to every request as request.tz.
 
-    Replaces Go's SetTimezone setter pattern — views can call
-    request.tz to get the *time.Location equivalent for date rendering.
-
-    Like Django's django.middleware.locale.LocaleMiddleware but for timezone,
-    or Go's timeutil.Now() vs time.Now() distinction for business-logic dates.
+    Like Django's django.middleware.locale.LocaleMiddleware but for timezone.
+    Views use request.tz for business-logic date rendering.
     """
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:

@@ -2,7 +2,6 @@
 Institution + Account API view tests — HTTP-level tests for
 /api/institutions/* and /api/accounts/* JSON API endpoints.
 
-Port of Go's handler/institution_test.go and handler/account_test.go.
 """
 
 import json

@@ -1,8 +1,7 @@
 """
 Reconcile service — verifies account balances match transaction history.
 
-Port of Go's ReconcileBalances() (internal/jobs/reconcile.go). Like Laravel's
-`php artisan reconcile:balances` or a Django management command that audits
+Like Laravel's `php artisan reconcile:balances` or a Django management command that audits
 denormalized data. The core formula:
 
     expected_balance = initial_balance + SUM(balance_delta)
@@ -21,7 +20,7 @@ from django.db import connection
 
 logger = logging.getLogger(__name__)
 
-# Match Go's tolerance for floating-point comparison
+# Tolerance for floating-point comparison on NUMERIC(15,2) values
 TOLERANCE = 0.005
 
 
@@ -38,8 +37,7 @@ class Discrepancy(NamedTuple):
 class ReconcileService:
     """Compares cached current_balance vs initial_balance + SUM(balance_delta).
 
-    Port of Go's ReconcileBalances(ctx, db, autoFix). Queries all accounts
-    globally (no user_id filter — matches Go's behavior).
+    Queries all accounts globally (no user_id filter).
     """
 
     def reconcile(self, auto_fix: bool = False) -> list[Discrepancy]:

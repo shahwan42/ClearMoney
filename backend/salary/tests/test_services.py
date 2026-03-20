@@ -1,8 +1,8 @@
 """
 Salary service tests — distribute salary with income, exchange, and transfers.
 
-Port of Go's internal/service/salary_test.go. Tests run against the real database
-with --reuse-db (Go owns schema). Verifies atomicity, balance updates, and validation.
+Tests run against the real database with --reuse-db.
+Verifies atomicity, balance updates, and validation.
 """
 
 from datetime import date

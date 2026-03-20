@@ -1,8 +1,6 @@
 """
 Person service layer — business logic for people ledger (loans and debts).
 
-Port of Go's service/person.go + repository/person.go.
-
 Like Laravel's PersonService — validates input, executes atomic SQL,
 logs mutations. Uses raw SQL via connection.cursor() because models are
 managed=False and queries use enum casts.
@@ -86,7 +84,7 @@ def _row_to_tx(row: tuple[Any, ...]) -> dict[str, Any]:
 class PersonService:
     """Business logic for people ledger — CRUD, loans, repayments, debt summary.
 
-    Port of Go's PersonService. Each instance is scoped to a single user.
+    Each instance is scoped to a single user.
     Like Laravel's PersonService with user_id injection.
     """
 
@@ -214,8 +212,6 @@ class PersonService:
     ) -> dict[str, Any]:
         """Record a loan (lend or borrow) and atomically update balances.
 
-        Port of Go's PersonService.RecordLoan.
-
         loan_out: I lent money → account_delta = -amount, person_delta = +amount
         loan_in:  I borrowed   → account_delta = +amount, person_delta = -amount
         """
@@ -306,8 +302,6 @@ class PersonService:
         tx_date: date | None = None,
     ) -> dict[str, Any]:
         """Record a loan repayment and atomically update balances.
-
-        Port of Go's PersonService.RecordRepayment.
 
         Direction determined by current balance:
         - Positive (they owe me): money enters my account → account_delta = +amount
@@ -423,8 +417,6 @@ class PersonService:
 
     def get_debt_summary(self, person_id: str) -> dict[str, Any] | None:
         """Compute full debt/loan summary for a person.
-
-        Port of Go's PersonService.GetDebtSummary.
 
         Returns person info, per-currency breakdown, aggregate totals,
         progress percentages, and projected payoff date.

@@ -14,8 +14,7 @@ from .helpers import _parse_jsonb
 
 @dataclass
 class HealthWarning:
-    """Violated health constraint on an account.
-    Go equivalent: service.AccountHealthWarning"""
+    """Violated health constraint on an account."""
 
     account_name: str
     account_id: str
@@ -28,7 +27,6 @@ def load_health_warnings(
 ) -> list[HealthWarning]:
     """Check account health constraints.
 
-    Port of Go's AccountHealthService.CheckAll().
     Parses health_config JSONB and checks min_balance / min_monthly_deposit.
     """
     warnings: list[HealthWarning] = []
@@ -94,10 +92,7 @@ def load_health_warnings(
 
 
 def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any]]:
-    """Load budgets with current month's actual spending.
-
-    Port of Go's BudgetRepo.GetAllWithSpending().
-    """
+    """Load budgets with current month's actual spending."""
     today = datetime.now(tz).date()
     month_start = today.replace(day=1)
     if today.month == 12:

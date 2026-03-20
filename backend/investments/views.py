@@ -1,7 +1,6 @@
 """
 Investment views — page handlers for /investments*.
 
-Port of Go's PageHandler investment methods (pages.go:2296–2366).
 Like Laravel's InvestmentController — handles list, add, update price, delete.
 
 All forms use HTMX (hx-post, hx-delete) with htmx_redirect after mutations.
@@ -31,10 +30,7 @@ def _svc(request: AuthenticatedRequest) -> InvestmentService:
 @general_rate
 @require_http_methods(["GET"])
 def investments_page(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /investments — render the investment portfolio page.
-
-    Port of Go's PageHandler.Investments (pages.go:2296).
-    """
+    """GET /investments — render the investment portfolio page."""
     logger.info("page viewed: investments, user=%s", request.user_email)
     svc = _svc(request)
     investments = svc.get_all()
@@ -54,10 +50,7 @@ def investments_page(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def investment_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /investments/add — create a new investment holding.
-
-    Port of Go's PageHandler.InvestmentAdd (pages.go:2316).
-    """
+    """POST /investments/add — create a new investment holding."""
     svc = _svc(request)
     try:
         svc.create(
@@ -78,10 +71,7 @@ def investment_add(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /investments/<id>/update — update the unit price (NAV).
-
-    Port of Go's PageHandler.InvestmentUpdateValuation (pages.go:2340).
-    """
+    """POST /investments/<id>/update — update the unit price (NAV)."""
     svc = _svc(request)
     unit_price = parse_float_or_zero(request.POST.get("unit_price", ""))
 
@@ -96,10 +86,7 @@ def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["DELETE"])
 def investment_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """DELETE /investments/<id>/delete — remove an investment holding.
-
-    Port of Go's PageHandler.InvestmentDelete (pages.go:2356).
-    """
+    """DELETE /investments/<id>/delete — remove an investment holding."""
     svc = _svc(request)
     try:
         svc.delete(str(id))

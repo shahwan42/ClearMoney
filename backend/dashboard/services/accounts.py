@@ -10,14 +10,13 @@ from django.db import connection
 if TYPE_CHECKING:
     from . import DashboardData
 
-# Credit account types — matches Go's IsCreditType()
+# Credit account types
 CREDIT_TYPES = {"credit_card", "credit_limit"}
 
 
 @dataclass
 class InstitutionGroup:
-    """Institution with its accounts for the expandable list.
-    Go equivalent: service.InstitutionGroup"""
+    """Institution with its accounts for the expandable list."""
 
     institution_id: str
     name: str

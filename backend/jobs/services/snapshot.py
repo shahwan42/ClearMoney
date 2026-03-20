@@ -1,8 +1,7 @@
 """
 Snapshot service — captures daily balance snapshots for all users.
 
-Port of Go's SnapshotService (internal/service/snapshot.go) and SnapshotRepo
-(internal/repository/snapshot.go). Like Laravel's daily scheduled snapshot job
+Like Laravel's daily scheduled snapshot job
 or Django's management command that captures financial state.
 
 Snapshots power:
@@ -29,8 +28,8 @@ logger = logging.getLogger(__name__)
 class SnapshotService:
     """Manages daily balance snapshots — combined service + repository logic.
 
-    Port of Go's SnapshotService + SnapshotRepo. All SQL queries are inline
-    (raw SQL via django.db.connection), consistent with other Django services.
+    All SQL queries are inline (raw SQL via django.db.connection),
+    consistent with other Django services.
     """
 
     def __init__(self, tz: ZoneInfo) -> None:
@@ -39,7 +38,6 @@ class SnapshotService:
     def take_all_user_snapshots(self, days: int = 90) -> int:
         """Take today's snapshot + backfill for all users.
 
-        Port of Go's jobs.TakeSnapshots() (internal/jobs/snapshot.go).
         Iterates all users, takes today's snapshot, then backfills missing days.
 
         Returns:
@@ -65,8 +63,7 @@ class SnapshotService:
     def take_snapshot(self, user_id: str) -> None:
         """Capture today's financial state as a daily snapshot.
 
-        Port of Go's SnapshotService.TakeSnapshot(). Safe to call multiple
-        times (UPSERT semantics).
+        Safe to call multiple times (UPSERT semantics).
         """
         today = self._today()
         self._take_snapshot_for_date(user_id, today, use_current_balances=True)
@@ -74,8 +71,8 @@ class SnapshotService:
     def backfill_snapshots(self, user_id: str, days: int = 90) -> int:
         """Fill in missing daily snapshots for the last N days.
 
-        Port of Go's SnapshotService.BackfillSnapshots(). Historical balances
-        are computed by subtracting future transaction deltas from current balance.
+        Historical balances are computed by subtracting future transaction deltas
+        from current balance.
 
         Returns:
             Number of days backfilled (0 if all days already had snapshots).
@@ -110,7 +107,7 @@ class SnapshotService:
     ) -> None:
         """Capture financial state for a specific date.
 
-        Port of Go's SnapshotService.takeSnapshotForDate(). Steps:
+        Steps:
         1. Get all institutions → accounts for user
         2. Sum balances → net_worth_raw (historical if backfilling)
         3. Track USD total separately
@@ -179,11 +176,11 @@ class SnapshotService:
                 )
 
     # ------------------------------------------------------------------
-    # SQL queries — port of Go's SnapshotRepo
+    # SQL queries
     # ------------------------------------------------------------------
 
     def _get_all_user_ids(self) -> list[str]:
-        """Get all user IDs. Port of Go's UserRepo.GetAllIDs()."""
+        """Get all user IDs."""
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users")
             return [str(row[0]) for row in cursor.fetchall()]
@@ -210,7 +207,6 @@ class SnapshotService:
     ) -> float:
         """Sum of balance_delta for transactions after the given date.
 
-        Port of Go's SnapshotRepo.GetBalanceDeltaAfterDate().
         Used to compute historical balances for backfill.
         """
         with connection.cursor() as cursor:
@@ -224,10 +220,7 @@ class SnapshotService:
             return float(row[0]) if row else 0.0
 
     def _get_excluded_va_balance(self, user_id: str) -> float:
-        """Total balance of VAs excluded from net worth.
-
-        Port of Go's VirtualAccountRepo.GetTotalExcludedBalance().
-        """
+        """Total balance of VAs excluded from net worth."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT COALESCE(SUM(current_balance), 0)
@@ -241,10 +234,7 @@ class SnapshotService:
             return float(row[0]) if row else 0.0
 
     def _get_latest_exchange_rate(self) -> float:
-        """Latest USD/EGP exchange rate.
-
-        Port of Go's ExchangeRateRepo.GetLatest(). No user_id — global data.
-        """
+        """Latest USD/EGP exchange rate. No user_id — global data."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT rate FROM exchange_rate_log ORDER BY date DESC, created_at DESC LIMIT 1"
@@ -253,10 +243,7 @@ class SnapshotService:
             return float(row[0]) if row else 0.0
 
     def _get_daily_spending(self, user_id: str, snapshot_date: date) -> float:
-        """Sum of expense amounts for a given date.
-
-        Port of Go's SnapshotRepo.GetDailySpending().
-        """
+        """Sum of expense amounts for a given date."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT COALESCE(SUM(amount), 0)
@@ -268,10 +255,7 @@ class SnapshotService:
             return float(row[0]) if row else 0.0
 
     def _get_daily_income(self, user_id: str, snapshot_date: date) -> float:
-        """Sum of income amounts for a given date.
-
-        Port of Go's SnapshotRepo.GetDailyIncome().
-        """
+        """Sum of income amounts for a given date."""
         with connection.cursor() as cursor:
             cursor.execute(
                 """SELECT COALESCE(SUM(amount), 0)
@@ -283,10 +267,7 @@ class SnapshotService:
             return float(row[0]) if row else 0.0
 
     def _snapshot_exists(self, user_id: str, snapshot_date: date) -> bool:
-        """Check if a daily snapshot already exists.
-
-        Port of Go's SnapshotRepo.Exists().
-        """
+        """Check if a daily snapshot already exists."""
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT EXISTS(SELECT 1 FROM daily_snapshots WHERE date = %s AND user_id = %s)",
@@ -307,7 +288,6 @@ class SnapshotService:
     ) -> None:
         """UPSERT a daily snapshot row.
 
-        Port of Go's SnapshotRepo.UpsertDaily().
         ON CONFLICT (date, user_id) DO UPDATE ensures idempotency.
         """
         with connection.cursor() as cursor:
@@ -338,7 +318,6 @@ class SnapshotService:
     ) -> None:
         """UPSERT an account snapshot row.
 
-        Port of Go's SnapshotRepo.UpsertAccount().
         ON CONFLICT (date, account_id) DO UPDATE ensures idempotency.
         """
         with connection.cursor() as cursor:
@@ -351,10 +330,7 @@ class SnapshotService:
             )
 
     def _today(self) -> date:
-        """Today's date in the configured timezone.
-
-        Port of Go's timeutil.Today(loc) — returns a date, not datetime.
-        """
+        """Today's date in the configured timezone."""
         from datetime import datetime
 
         return datetime.now(self.tz).date()

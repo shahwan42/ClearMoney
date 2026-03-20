@@ -15,8 +15,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class PeopleCurrencySummary:
-    """Per-currency people ledger totals.
-    Go equivalent: service.PeopleCurrencySummary"""
+    """Per-currency people ledger totals."""
 
     currency: str
     owed_to_me: float = 0.0
@@ -25,8 +24,7 @@ class PeopleCurrencySummary:
 
 @dataclass
 class StreakInfo:
-    """Habit tracking — consecutive days with transactions.
-    Go equivalent: service.StreakInfo"""
+    """Habit tracking — consecutive days with transactions."""
 
     consecutive_days: int = 0
     weekly_count: int = 0
@@ -35,8 +33,7 @@ class StreakInfo:
 
 @dataclass
 class TransactionRow:
-    """Recent transaction display row with running balance.
-    Go equivalent: repository.TransactionDisplayRow"""
+    """Recent transaction display row with running balance."""
 
     id: str
     type: str
@@ -99,7 +96,7 @@ def load_people_summary(user_id: str, data: DashboardData) -> None:
 def load_streak(user_id: str, tz: ZoneInfo) -> StreakInfo:
     """Compute consecutive days with transactions + weekly count.
 
-    Port of Go's StreakService.GetStreak() — backward-walking algorithm.
+    Uses a backward-walking algorithm over the last 365 days.
     """
     info = StreakInfo()
     now = datetime.now(tz)
@@ -155,8 +152,8 @@ def load_streak(user_id: str, tz: ZoneInfo) -> StreakInfo:
 def load_recent_transactions(user_id: str, limit: int = 10) -> list[TransactionRow]:
     """Load recent transactions with running balance.
 
-    Port of Go's TransactionRepo.GetRecentEnriched() — uses window function.
-    This function is called by the partial view directly.
+    Uses a window function to compute running balance per account.
+    Called by the partial view directly.
     """
     with connection.cursor() as cursor:
         cursor.execute(
