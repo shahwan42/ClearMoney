@@ -1,18 +1,3 @@
-{# Reports page — monthly spending breakdown with donut and bar charts.
-
-   Migrated from Go's internal/templates/pages/reports.html.
-   Uses chart partials for donut (conic-gradient) and bar (flexbox) charts.
-
-   Template variables (from reports/views.py):
-   - data.year, data.month, data.month_name — selected month
-   - data.spending_by_category — list of {name, icon, amount, percentage}
-   - data.total_spending — sum of expenses
-   - data.chart_segments — list of {label, amount, percentage, color} for donut
-   - data.current_month, data.previous_month, data.next_month — month summaries
-   - data.bar_groups — list of {label, bars: [{value, height_pct, color}]} for bar chart
-   - data.bar_legend — [{label, color}] for bar chart legend
-   - data.filter_currency, data.filter_account_id — active filters
-#}
 {% extends "base.html" %}
 {% load money %}
 

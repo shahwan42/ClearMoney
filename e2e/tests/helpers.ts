@@ -3,7 +3,7 @@ import { execSync } from 'child_process';
 import { randomBytes } from 'crypto';
 
 export const TEST_EMAIL = 'test@clearmoney.local';
-export const DJANGO_BASE_URL = 'http://localhost:8000';
+export const GO_BASE_URL = 'http://localhost:8080';
 
 /**
  * Get the database URL from environment or use the local dev default.
@@ -16,7 +16,7 @@ function getDbUrl(): string {
  * Run a SQL command against the database via psql. Returns the first line of output trimmed.
  * Uses -t (tuples only) and -A (unaligned) to get raw values without headers.
  */
-function runSQL(sql: string): string {
+export function runSQL(sql: string): string {
   const dbUrl = getDbUrl();
   const output = execSync(`psql "${dbUrl}" -t -A -c "${sql.replace(/\n/g, ' ')}"`, {
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -207,9 +207,7 @@ export async function createTransaction(
     date?: string;
   },
 ): Promise<string> {
-  // Go's time.Time expects RFC3339 format in JSON, not YYYY-MM-DD
   const dateStr = opts.date || new Date().toISOString().split('T')[0];
-  const dateRFC3339 = `${dateStr}T00:00:00Z`;
 
   const data: Record<string, unknown> = {
     account_id: opts.account_id,
@@ -217,7 +215,7 @@ export async function createTransaction(
     amount: opts.amount,
     type: opts.type,
     currency: opts.currency || 'EGP',
-    date: dateRFC3339,
+    date: dateStr,
   };
   if (opts.note) data.note = opts.note;
 

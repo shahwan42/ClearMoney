@@ -145,10 +145,11 @@ USE_TZ = True
 LANGUAGE_CODE = "en-us"
 
 # --- Static files ---
-# Static files are served by the Go app's http.FileServer, not Django.
-# Django templates reference /static/... as absolute URLs.
+# Django serves static files directly (CSS, JS, manifest, service worker).
+# The shared static/ directory lives at the project root, one level above backend/.
 
 STATIC_URL = "/static/"
+STATICFILES_DIRS = [BASE_DIR.parent / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

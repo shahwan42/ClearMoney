@@ -8,7 +8,7 @@ export default defineConfig({
   retries: 0,
   workers: 1, // serial execution — shared DB state
   use: {
-    baseURL: 'http://localhost:8080',
+    baseURL: 'http://localhost:8000',
     viewport: { width: 430, height: 932 },
     locale: 'en-US',
     serviceWorkers: 'block',

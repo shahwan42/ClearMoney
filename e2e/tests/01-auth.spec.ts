@@ -46,7 +46,7 @@ test.describe('Auth: Magic Link Login & Registration', () => {
     const token = createAuthToken(TEST_EMAIL, 'login');
     await page.goto(`/auth/verify?token=${token}`);
     await expect(page).toHaveURL('/');
-    await expect(page.locator('text=Net Worth')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome to ClearMoney' })).toBeVisible();
   });
 
   test('magic link verify with invalid token shows link-expired', async ({ page }) => {

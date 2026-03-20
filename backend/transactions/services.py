@@ -222,7 +222,7 @@ class TransactionService:
         tx_id = str(uuid.uuid4())
         tx_date = data.get("date") or date.today()
         if isinstance(tx_date, str):
-            tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
+            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
         category_id = _to_str(data.get("category_id"))
         note = _to_str(data.get("note"))
@@ -635,7 +635,7 @@ class TransactionService:
         if tx_date is None:
             tx_date = date.today()
         if isinstance(tx_date, str):
-            tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
+            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
         debit_id = str(uuid.uuid4())
         credit_id = str(uuid.uuid4())
@@ -727,7 +727,7 @@ class TransactionService:
         if tx_date is None:
             tx_date = date.today()
         if isinstance(tx_date, str):
-            tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
+            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
         instapay_note = "InstaPay transfer"
         if note:
@@ -848,7 +848,7 @@ class TransactionService:
         if tx_date is None:
             tx_date = date.today()
         if isinstance(tx_date, str):
-            tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
+            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
         debit_id = str(uuid.uuid4())
         credit_id = str(uuid.uuid4())
@@ -955,7 +955,7 @@ class TransactionService:
         if tx_date is None:
             tx_date = date.today()
         if isinstance(tx_date, str):
-            tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
+            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
         total_charge = amount + fee
         cc_acc = self._get_account(credit_card_id)
