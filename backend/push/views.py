@@ -16,12 +16,14 @@ import os
 
 from django.http import JsonResponse
 
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from push.services import NotificationService
 
 logger = logging.getLogger(__name__)
 
 
+@general_rate
 def vapid_key(request: AuthenticatedRequest) -> JsonResponse:
     """Return the VAPID public key for browser Push API subscription.
 
@@ -33,6 +35,7 @@ def vapid_key(request: AuthenticatedRequest) -> JsonResponse:
     return JsonResponse({"publicKey": os.environ.get("VAPID_PUBLIC_KEY", "")})
 
 
+@general_rate
 def subscribe(request: AuthenticatedRequest) -> JsonResponse:
     """Accept a push subscription from the browser.
 
@@ -50,6 +53,7 @@ def subscribe(request: AuthenticatedRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
 
 
+@general_rate
 def check_notifications(request: AuthenticatedRequest) -> JsonResponse:
     """Poll for pending notifications.
 

@@ -15,6 +15,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from core.htmx import htmx_redirect
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from investments.services import InvestmentService
 
@@ -34,6 +35,7 @@ def _parse_float(value: str) -> float:
         return 0.0
 
 
+@general_rate
 @require_http_methods(["GET"])
 def investments_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /investments — render the investment portfolio page.
@@ -56,6 +58,7 @@ def investments_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def investment_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /investments/add — create a new investment holding.
@@ -79,6 +82,7 @@ def investment_add(request: AuthenticatedRequest) -> HttpResponse:
     return htmx_redirect(request, "/investments")
 
 
+@general_rate
 @require_http_methods(["POST"])
 def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """POST /investments/<id>/update — update the unit price (NAV).
@@ -96,6 +100,7 @@ def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return htmx_redirect(request, "/investments")
 
 
+@general_rate
 @require_http_methods(["DELETE"])
 def investment_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """DELETE /investments/<id>/delete — remove an investment holding.

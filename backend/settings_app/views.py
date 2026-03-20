@@ -17,11 +17,13 @@ from django.db import connection
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)
 
 
+@general_rate
 def settings_page(request: AuthenticatedRequest) -> HttpResponse:
     """
     Render the settings page.
@@ -36,6 +38,7 @@ def settings_page(request: AuthenticatedRequest) -> HttpResponse:
     return render(request, "settings_app/settings.html")
 
 
+@general_rate
 def export_transactions(request: AuthenticatedRequest) -> HttpResponse:
     """
     Export transactions as a CSV file download.

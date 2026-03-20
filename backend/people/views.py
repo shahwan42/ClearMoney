@@ -16,6 +16,7 @@ from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 
+from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from people.services import PersonService
 
@@ -102,6 +103,7 @@ def _render_people_list(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def people_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /people — people list page with add form.
@@ -125,6 +127,7 @@ def people_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def people_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /people/add — create person via HTMX form.
@@ -144,6 +147,7 @@ def people_add(request: AuthenticatedRequest) -> HttpResponse:
     return _render_people_list(request)
 
 
+@general_rate
 @require_http_methods(["GET"])
 def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     """GET /people/{id} — person detail page with debt summary.
@@ -168,6 +172,7 @@ def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     """POST /people/{id}/loan — record loan via HTMX form.
@@ -199,6 +204,7 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     return _render_people_list(request)
 
 
+@general_rate
 @require_http_methods(["POST"])
 def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     """POST /people/{id}/repay — record repayment via HTMX form.
@@ -233,6 +239,7 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@api_rate
 @require_http_methods(["GET", "POST"])
 def api_person_list_create(request: AuthenticatedRequest) -> HttpResponse:
     """GET/POST /api/persons — list all or create a person (JSON)."""
@@ -257,6 +264,7 @@ def api_person_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse(person, status=201)
 
 
+@api_rate
 @require_http_methods(["GET", "PUT", "DELETE"])
 def api_person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     """GET/PUT/DELETE /api/persons/{id} — single person operations (JSON)."""
@@ -292,6 +300,7 @@ def api_person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResp
     return HttpResponse(status=204)
 
 
+@api_rate
 @require_http_methods(["POST"])
 def api_person_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     """POST /api/persons/{id}/loan — record loan (JSON).
@@ -318,6 +327,7 @@ def api_person_loan(request: AuthenticatedRequest, person_id: str) -> HttpRespon
     return JsonResponse(tx, status=201)
 
 
+@api_rate
 @require_http_methods(["POST"])
 def api_person_repayment(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     """POST /api/persons/{id}/repayment — record repayment (JSON).

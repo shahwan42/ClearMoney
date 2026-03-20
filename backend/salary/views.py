@@ -21,6 +21,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from salary.services import SalaryAllocation, SalaryDistribution, SalaryService
 
@@ -56,6 +57,7 @@ def _parse_float(value: str) -> float:
         return 0.0
 
 
+@general_rate
 @require_http_methods(["GET"])
 def salary_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /salary — render the salary wizard page with step 1.
@@ -77,6 +79,7 @@ def salary_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def salary_step2(request: AuthenticatedRequest) -> HttpResponse:
     """POST /salary/step2 — process step 1, render exchange rate form.
@@ -103,6 +106,7 @@ def salary_step2(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def salary_step3(request: AuthenticatedRequest) -> HttpResponse:
     """POST /salary/step3 — process step 2, render allocation form.
@@ -134,6 +138,7 @@ def salary_step3(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def salary_confirm(request: AuthenticatedRequest) -> HttpResponse:
     """POST /salary/confirm — create all salary transactions atomically.

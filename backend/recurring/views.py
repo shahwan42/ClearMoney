@@ -20,6 +20,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from recurring.services import RecurringService
 
@@ -102,6 +103,7 @@ def _lookup_account_currency(user_id: str, account_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def recurring_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /recurring — recurring rules page with pending, form, and active list.
@@ -139,6 +141,7 @@ def recurring_page(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /recurring/add — create new recurring rule.
@@ -215,6 +218,7 @@ def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def recurring_confirm(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
     """POST /recurring/{id}/confirm — confirm pending rule, create transaction.
@@ -229,6 +233,7 @@ def recurring_confirm(request: AuthenticatedRequest, rule_id: UUID) -> HttpRespo
     return _render_rule_list(request)
 
 
+@general_rate
 @require_http_methods(["POST"])
 def recurring_skip(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
     """POST /recurring/{id}/skip — skip pending rule, advance due date.
@@ -243,6 +248,7 @@ def recurring_skip(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse
     return _render_rule_list(request)
 
 
+@general_rate
 @require_http_methods(["DELETE"])
 def recurring_delete(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
     """DELETE /recurring/{id} — delete recurring rule.

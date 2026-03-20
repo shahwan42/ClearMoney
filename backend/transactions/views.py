@@ -17,6 +17,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from core.htmx import render_htmx_result
+from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 
 from .services import TransactionService
@@ -67,6 +68,7 @@ def _success_html(message: str) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET", "POST"])
 def transactions_list(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transactions — full page. POST /transactions — create (HTMX)."""
@@ -111,6 +113,7 @@ def transactions_list(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["GET"])
 def transactions_list_partial(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transactions/list — HTMX partial for filter updates."""
@@ -148,6 +151,7 @@ def transactions_list_partial(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["GET"])
 def transaction_new(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transactions/new — full transaction form page. Supports ?dup=<id>."""
@@ -182,6 +186,7 @@ def transaction_new(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions — create expense/income transaction (HTMX)."""
@@ -221,6 +226,7 @@ def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
         return _error_html(str(e))
 
 
+@general_rate
 @require_http_methods(["GET"])
 def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
     """GET /transactions/edit/<id> — inline edit form partial (HTMX)."""
@@ -247,6 +253,7 @@ def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResp
     )
 
 
+@general_rate
 @require_http_methods(["PUT", "DELETE"])
 def transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
     """PUT/DELETE /transactions/<id> — dispatches to update or delete."""
@@ -301,6 +308,7 @@ def transaction_delete(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
         return _error_html(str(e))
 
 
+@general_rate
 @require_http_methods(["GET"])
 def transaction_row(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
     """GET /transactions/row/<id> — single row partial (cancel edit)."""
@@ -316,6 +324,7 @@ def transaction_row(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def transfer_new(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transfers/new — transfer form page."""
@@ -331,6 +340,7 @@ def transfer_new(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/transfer — create transfer (HTMX)."""
@@ -352,6 +362,7 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
         return _error_html(str(e))
 
 
+@general_rate
 @require_http_methods(["POST"])
 def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/instapay-transfer — InstaPay with fee (HTMX)."""
@@ -383,6 +394,7 @@ def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def exchange_new(request: AuthenticatedRequest) -> HttpResponse:
     """GET /exchange/new — exchange form page."""
@@ -398,6 +410,7 @@ def exchange_new(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/exchange-submit — currency exchange (HTMX)."""
@@ -425,6 +438,7 @@ def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def fawry_cashout(request: AuthenticatedRequest) -> HttpResponse:
     """GET /fawry-cashout — Fawry cash-out form page."""
@@ -440,6 +454,7 @@ def fawry_cashout(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def fawry_cashout_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/fawry-cashout — process Fawry cash-out (HTMX)."""
@@ -473,6 +488,7 @@ def fawry_cashout_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def batch_entry(request: AuthenticatedRequest) -> HttpResponse:
     """GET /batch-entry — batch entry form page."""
@@ -489,6 +505,7 @@ def batch_entry(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def batch_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/batch — create multiple transactions (HTMX)."""
@@ -526,6 +543,7 @@ def batch_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def sync_transactions(request: AuthenticatedRequest) -> JsonResponse:
     """POST /sync/transactions — JSON API for bulk transaction import."""
@@ -547,6 +565,7 @@ def sync_transactions(request: AuthenticatedRequest) -> JsonResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def suggest_category(request: AuthenticatedRequest) -> HttpResponse:
     """GET /api/transactions/suggest-category?note=TEXT — suggest category."""
@@ -563,6 +582,7 @@ def suggest_category(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transactions/quick-form — quick entry partial for bottom sheet."""
@@ -588,6 +608,7 @@ def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
     """POST /transactions/quick — create quick entry (HTMX toast response)."""
@@ -618,6 +639,7 @@ def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
         return _error_html(str(e))
 
 
+@general_rate
 @require_http_methods(["GET"])
 def quick_transfer_form(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transactions/quick-transfer — quick transfer partial."""
@@ -633,6 +655,7 @@ def quick_transfer_form(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["GET"])
 def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
     """GET /exchange/quick-form — quick exchange partial."""
@@ -653,6 +676,7 @@ def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@api_rate
 @require_http_methods(["GET", "POST"])
 def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
     """GET/POST /api/transactions — list or create transactions (JSON).
@@ -685,6 +709,7 @@ def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse({"transaction": tx, "new_balance": new_balance}, status=201)
 
 
+@api_rate
 @require_http_methods(["POST"])
 def api_transaction_transfer(request: AuthenticatedRequest) -> HttpResponse:
     """POST /api/transactions/transfer — create transfer (JSON).
@@ -712,6 +737,7 @@ def api_transaction_transfer(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse({"debit": debit, "credit": credit}, status=201)
 
 
+@api_rate
 @require_http_methods(["POST"])
 def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
     """POST /api/transactions/exchange — create currency exchange (JSON).
@@ -740,6 +766,7 @@ def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse({"debit": debit, "credit": credit}, status=201)
 
 
+@api_rate
 @require_http_methods(["GET", "DELETE"])
 def api_transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
     """GET/DELETE /api/transactions/{id} — single transaction operations (JSON)."""

@@ -14,6 +14,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from categories.services import CategoryService
+from core.ratelimit import api_rate
 from core.types import AuthenticatedRequest
 
 
@@ -22,6 +23,7 @@ def _svc(request: AuthenticatedRequest) -> CategoryService:
     return CategoryService(request.user_id, request.tz)
 
 
+@api_rate
 @require_http_methods(["GET", "POST"])
 def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
     """GET/POST /api/categories — list all or create a category (JSON).
@@ -56,6 +58,7 @@ def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse(category, status=201)
 
 
+@api_rate
 @require_http_methods(["PUT", "DELETE"])
 def api_category_detail(
     request: AuthenticatedRequest, category_id: str

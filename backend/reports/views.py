@@ -21,6 +21,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
+from core.ratelimit import general_rate
 from core.timing import timed
 from core.types import AuthenticatedRequest
 
@@ -39,6 +40,7 @@ CHART_PALETTE = [
 ]
 
 
+@general_rate
 def reports_page(request: AuthenticatedRequest) -> HttpResponse:
     """
     Render the monthly reports page with spending breakdown and income vs expenses.

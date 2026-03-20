@@ -23,6 +23,7 @@ from auth_app.services import (
     auth_service,
     rate_limit_message,
 )
+from core.ratelimit import login_rate
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+@login_rate
 @require_http_methods(["GET", "POST"])
 def login_view(request: HttpRequest) -> HttpResponse:
     """GET /login — render login form. POST /login — send magic link."""
@@ -99,6 +101,7 @@ def _login_submit(request: HttpRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@login_rate
 @require_http_methods(["GET", "POST"])
 def register_view(request: HttpRequest) -> HttpResponse:
     """GET /register — render form. POST /register — send registration link."""
@@ -176,6 +179,7 @@ def _register_submit(request: HttpRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@login_rate
 @require_http_methods(["GET"])
 def verify_magic_link(request: HttpRequest) -> HttpResponse:
     """GET /auth/verify?token=xxx — verify token, create session, redirect."""
@@ -209,6 +213,7 @@ def verify_magic_link(request: HttpRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@login_rate
 @require_http_methods(["POST"])
 def logout_view(request: HttpRequest) -> HttpResponse:
     """POST /logout — delete session, clear cookie, redirect to /login."""

@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 
 from accounts.services import AccountService
 from core.htmx import htmx_redirect
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from installments.services import InstallmentService
 
@@ -44,6 +45,7 @@ def _parse_int(value: str) -> int:
         return 0
 
 
+@general_rate
 @require_http_methods(["GET"])
 def installments_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /installments — render the installment plans page.
@@ -69,6 +71,7 @@ def installments_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def installment_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /installments/add — create a new installment plan.
@@ -94,6 +97,7 @@ def installment_add(request: AuthenticatedRequest) -> HttpResponse:
     return htmx_redirect(request, "/installments")
 
 
+@general_rate
 @require_http_methods(["POST"])
 def installment_pay(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """POST /installments/<id>/pay — record a payment on an installment plan.
@@ -110,6 +114,7 @@ def installment_pay(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return htmx_redirect(request, "/installments")
 
 
+@general_rate
 @require_http_methods(["DELETE"])
 def installment_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """DELETE /installments/<id> — remove an installment plan.

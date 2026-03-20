@@ -23,6 +23,7 @@ from core.billing import (
     parse_billing_cycle,
 )
 from core.htmx import htmx_redirect, render_htmx_result
+from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 
 from .services import AccountService, InstitutionService, get_statement_data
@@ -80,6 +81,7 @@ def _parse_float(value: str) -> float | None:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def accounts_list(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts — accounts list grouped by institution.
@@ -91,6 +93,7 @@ def accounts_list(request: AuthenticatedRequest) -> HttpResponse:
     return render(request, "accounts/accounts.html", {"data": groups})
 
 
+@general_rate
 @require_http_methods(["GET"])
 def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """GET /accounts/{id} — account detail page.
@@ -169,6 +172,7 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return render(request, "accounts/account_detail.html", {"data": data})
 
 
+@general_rate
 @require_http_methods(["GET"])
 def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """GET /accounts/{id}/statement — credit card statement page.
@@ -231,6 +235,7 @@ def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpRespon
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def account_form(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts/form?institution_id=X — account creation form partial.
@@ -256,6 +261,7 @@ def account_form(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["GET"])
 def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """GET /accounts/{id}/edit-form — account edit form partial.
@@ -271,6 +277,7 @@ def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return render(request, "accounts/_account_edit_form.html", {"account": account})
 
 
+@general_rate
 @require_http_methods(["GET"])
 def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts/institution-form — institution creation form partial.
@@ -281,6 +288,7 @@ def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
     return render(request, "accounts/_institution_form.html", {})
 
 
+@general_rate
 @require_http_methods(["GET"])
 def institution_list_partial(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts/list — render institution list partial.
@@ -292,6 +300,7 @@ def institution_list_partial(request: AuthenticatedRequest) -> HttpResponse:
     return render(request, "accounts/_institution_list.html", {"data": groups})
 
 
+@general_rate
 @require_http_methods(["GET"])
 def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """GET /institutions/{id}/edit-form — institution edit form partial.
@@ -309,6 +318,7 @@ def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpRespon
     )
 
 
+@general_rate
 @require_http_methods(["GET"])
 def institution_delete_confirm(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """GET /institutions/{id}/delete-confirm — delete confirmation partial.
@@ -337,6 +347,7 @@ def institution_delete_confirm(request: AuthenticatedRequest, id: UUID) -> HttpR
     )
 
 
+@general_rate
 @require_http_methods(["GET"])
 def empty_partial(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts/empty — empty response for HTMX auto-dismiss.
@@ -351,6 +362,7 @@ def empty_partial(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def institution_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /institutions/add — create institution.
@@ -379,6 +391,7 @@ def institution_add(request: AuthenticatedRequest) -> HttpResponse:
     return HttpResponse(html)
 
 
+@general_rate
 @require_http_methods(["PUT", "POST"])
 def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """PUT /institutions/{id}/update — update institution.
@@ -423,6 +436,7 @@ def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return HttpResponse(html)
 
 
+@general_rate
 @require_http_methods(["DELETE", "POST"])
 def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """DELETE /institutions/{id}/delete — delete institution (cascade).
@@ -441,6 +455,7 @@ def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return HttpResponse(html)
 
 
+@general_rate
 @require_http_methods(["POST"])
 def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
     """POST /institutions/reorder — update display_order.
@@ -461,6 +476,7 @@ def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def account_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /accounts/add — create account.
@@ -501,6 +517,7 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
     return HttpResponse(html)
 
 
+@general_rate
 @require_http_methods(["POST"])
 def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """POST /accounts/{id}/edit — update account fields.
@@ -529,6 +546,7 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return htmx_redirect(request, f"/accounts/{id}")
 
 
+@general_rate
 @require_http_methods(["DELETE", "POST"])
 def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """DELETE /accounts/{id}/delete — delete account.
@@ -553,6 +571,7 @@ def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return htmx_redirect(request, "/accounts")
 
 
+@general_rate
 @require_http_methods(["POST"])
 def accounts_reorder(request: AuthenticatedRequest) -> HttpResponse:
     """POST /accounts/reorder — update display_order.
@@ -568,6 +587,7 @@ def accounts_reorder(request: AuthenticatedRequest) -> HttpResponse:
     return htmx_redirect(request, "/accounts")
 
 
+@general_rate
 @require_http_methods(["POST"])
 def toggle_dormant(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """POST /accounts/{id}/dormant — toggle dormant flag.
@@ -581,6 +601,7 @@ def toggle_dormant(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return htmx_redirect(request, f"/accounts/{id}")
 
 
+@general_rate
 @require_http_methods(["POST"])
 def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """POST /accounts/{id}/health — save health constraints.
@@ -611,6 +632,7 @@ def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@api_rate
 @require_http_methods(["GET", "POST"])
 def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
     """GET/POST /api/institutions — list all or create an institution (JSON)."""
@@ -641,6 +663,7 @@ def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse(inst, status=201)
 
 
+@api_rate
 @require_http_methods(["GET", "PUT", "DELETE"])
 def api_institution_detail(request: AuthenticatedRequest, inst_id: str) -> HttpResponse:
     """GET/PUT/DELETE /api/institutions/{id} — single institution operations (JSON)."""
@@ -685,6 +708,7 @@ def api_institution_detail(request: AuthenticatedRequest, inst_id: str) -> HttpR
 # ---------------------------------------------------------------------------
 
 
+@api_rate
 @require_http_methods(["GET", "POST"])
 def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
     """GET/POST /api/accounts — list or create accounts (JSON).
@@ -723,6 +747,7 @@ def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse(acc, status=201)
 
 
+@api_rate
 @require_http_methods(["GET", "PUT", "DELETE"])
 def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpResponse:
     """GET/PUT/DELETE /api/accounts/{id} — single account operations (JSON)."""

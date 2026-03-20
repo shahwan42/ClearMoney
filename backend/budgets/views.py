@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 
 from budgets.services import BudgetService
 from core.models import Category
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ def _svc(request: AuthenticatedRequest) -> BudgetService:
     return BudgetService(request.user_id, request.tz)
 
 
+@general_rate
 @require_http_methods(["GET"])
 def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /budgets — budget management page with creation form and active budget list.
@@ -52,6 +54,7 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 @require_http_methods(["POST"])
 def budget_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /budgets/add — create a new budget from form data.
@@ -82,6 +85,7 @@ def budget_add(request: AuthenticatedRequest) -> HttpResponse:
     return redirect("budgets")
 
 
+@general_rate
 @require_http_methods(["POST"])
 def budget_delete(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
     """POST /budgets/{id}/delete — delete a budget.

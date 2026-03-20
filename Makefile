@@ -11,9 +11,9 @@ DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=dis
 run:
 	cd backend && DATABASE_URL="$(DB_URL)" uv run manage.py runserver 0.0.0.0:8000
 
-# Run Django tests with verbose output.
+# Run Django tests with verbose output (rate limiting disabled).
 test:
-	cd backend && DATABASE_URL="$(DB_URL)" uv run pytest -v
+	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest -v
 
 # Run linting (ruff + ruff format check + mypy).
 lint:
@@ -27,11 +27,11 @@ test-e2e:
 
 # Run tests with coverage report (HTML + terminal).
 coverage:
-	cd backend && DATABASE_URL="$(DB_URL)" uv run pytest --cov --cov-report=term-missing --cov-report=html
+	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest --cov --cov-report=term-missing --cov-report=html
 
 # Check coverage meets threshold (for CI).
 coverage-check:
-	cd backend && DATABASE_URL="$(DB_URL)" uv run pytest --cov --cov-fail-under=60
+	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest --cov --cov-fail-under=60
 
 # Remove build artifacts.
 clean:

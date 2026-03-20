@@ -11,12 +11,14 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from exchange_rates.services import ExchangeRateService
 
 logger = logging.getLogger(__name__)
 
 
+@general_rate
 @require_http_methods(["GET"])
 def exchange_rates_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /exchange-rates — render the exchange rate history page.

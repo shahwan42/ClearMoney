@@ -19,6 +19,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from core.htmx import htmx_redirect
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from virtual_accounts.services import VirtualAccountService
 
@@ -71,6 +72,7 @@ def _parse_float(value: str) -> float | None:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /virtual-accounts — list virtual accounts with create form.
@@ -135,6 +137,7 @@ def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /virtual-accounts/add — create a new virtual account.
@@ -169,6 +172,7 @@ def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """GET /virtual-accounts/{id} — detail page with allocations and history.
@@ -230,6 +234,7 @@ def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def virtual_account_archive(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """POST /virtual-accounts/{id}/archive — archive (soft-delete) a VA.
@@ -251,6 +256,7 @@ def virtual_account_archive(request: AuthenticatedRequest, va_id: UUID) -> HttpR
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def virtual_account_allocate(
     request: AuthenticatedRequest, va_id: UUID
@@ -294,6 +300,7 @@ def virtual_account_allocate(
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def virtual_account_toggle_exclude(
     request: AuthenticatedRequest, va_id: UUID
@@ -313,6 +320,7 @@ def virtual_account_toggle_exclude(
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["GET"])
 def virtual_account_edit_form(
     request: AuthenticatedRequest, va_id: UUID
@@ -344,6 +352,7 @@ def virtual_account_edit_form(
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 @require_http_methods(["POST"])
 def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
     """POST /virtual-accounts/{id}/edit — update VA from edit bottom sheet.
@@ -387,11 +396,13 @@ def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
 # ---------------------------------------------------------------------------
 
 
+@general_rate
 def virtual_funds_redirect(request: AuthenticatedRequest) -> HttpResponse:
     """Redirect /virtual-funds to /virtual-accounts (legacy URL support)."""
     return redirect("virtual-accounts", permanent=True)
 
 
+@general_rate
 def virtual_fund_detail_redirect(
     request: AuthenticatedRequest, va_id: UUID
 ) -> HttpResponse:

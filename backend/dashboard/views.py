@@ -15,6 +15,7 @@ import logging
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 
 from .services import DashboardService
@@ -22,6 +23,7 @@ from .services import DashboardService
 logger = logging.getLogger(__name__)
 
 
+@general_rate
 def home(request: AuthenticatedRequest) -> HttpResponse:
     """Dashboard home page. GET /
 
@@ -34,6 +36,7 @@ def home(request: AuthenticatedRequest) -> HttpResponse:
     return render(request, "dashboard/home.html", {"data": data})
 
 
+@general_rate
 def recent_transactions_partial(request: AuthenticatedRequest) -> HttpResponse:
     """HTMX partial: recent transactions. GET /partials/recent-transactions
 
@@ -50,6 +53,7 @@ def recent_transactions_partial(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@general_rate
 def people_summary_partial(request: AuthenticatedRequest) -> HttpResponse:
     """HTMX partial: people summary. GET /partials/people-summary
 
