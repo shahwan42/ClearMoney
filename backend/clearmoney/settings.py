@@ -111,27 +111,7 @@ DATABASES = {
     ),
 }
 
-# Django must NEVER manage schema — Go owns all migrations via golang-migrate.
-# Setting migration modules to None prevents makemigrations/migrate from touching
-# these apps' tables.
-MIGRATION_MODULES = {
-    "core": None,
-    "settings_app": None,
-    "reports": None,
-    "dashboard": None,
-    "accounts": None,
-    "transactions": None,
-    "people": None,
-    "budgets": None,
-    "virtual_accounts": None,
-    "recurring": None,
-    "salary": None,
-    "investments": None,
-    "installments": None,
-    "categories": None,
-    "jobs": None,
-    "auth_app": None,
-}
+# Django owns database migrations natively. All models live in core/models.py.
 
 # --- Timezone ---
 # Match Go app's APP_TIMEZONE for consistent date handling across both backends.

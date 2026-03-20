@@ -9,10 +9,6 @@ Usage:
     user = UserFactory()
     account = AccountFactory(user_id=user.id)
 
-All factories target managed=False models (Go owns schema). factory_boy
-creates rows via ORM's Model.objects.create() — works fine against the
-real PostgreSQL schema that golang-migrate manages.
-
 See conftest.py for the auth_user / auth_client fixtures that wrap UserFactory
 + SessionFactory into ready-to-use pytest fixtures.
 """

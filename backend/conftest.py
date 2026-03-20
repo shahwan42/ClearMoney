@@ -2,7 +2,7 @@
 Root conftest.py — shared pytest fixtures for all Django test files.
 
 Provides:
-- django_db_setup override: skips test DB creation (Go owns the schema, Django never runs migrations)
+- django_db_setup override: uses the real DB with --reuse-db (migrations already applied)
 - UserFactory / SessionFactory: re-exported from tests/factories.py for backward compat
 - auth_user fixture: creates a test user + valid session, yields (user_id, email, token), cleans up
 - auth_cookie fixture: returns the HTTP_COOKIE kwarg dict for Django test client calls
@@ -31,12 +31,11 @@ __all__ = ["UserFactory", "SessionFactory", "AuthTokenFactory"]
 
 @pytest.fixture(scope="session")
 def django_db_setup() -> None:
-    """Use the real database — Go owns the schema, Django never creates it.
+    """Use the real database — migrations are already applied.
 
     Overrides pytest-django's default behaviour of creating/destroying a
-    test_clearmoney database. This mirrors the --keepdb flag used with
-    manage.py test: tests run directly against the real PostgreSQL schema
-    that golang-migrate manages.
+    test database. Combined with --reuse-db in pyproject.toml, tests run
+    directly against the real PostgreSQL schema.
     """
     pass  # intentionally empty
 
