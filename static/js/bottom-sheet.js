@@ -96,6 +96,7 @@ var BottomSheet = (function() {
         s.sheet.offsetHeight; // Force reflow so transition fires
         s.sheet.classList.remove('translate-y-full');
         s.sheet.classList.add('translate-y-0');
+        s.sheet.removeAttribute('aria-hidden'); // Expose sheet to assistive technology
         document.body.style.overflow = 'hidden';
 
         // Hide main content from assistive technology
@@ -135,6 +136,7 @@ var BottomSheet = (function() {
 
         s.sheet.classList.remove('translate-y-0');
         s.sheet.classList.add('translate-y-full');
+        s.sheet.setAttribute('aria-hidden', 'true'); // Hide closed sheet from assistive technology
         s.overlay.classList.add('hidden');
         document.body.style.overflow = '';
 

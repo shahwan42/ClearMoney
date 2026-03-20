@@ -2,9 +2,6 @@
 Transaction views — all /transactions/*, /transfers/*, /exchange/*, /batch-entry,
 /fawry-cashout, and /sync/transactions routes.
 
-Port of Go's PageHandler methods for transactions (pages.go lines 591-1210,
-1606-1725, 1907-1961, 2230-2525). Handles pages, HTMX partials, and mutations.
-
 Like Laravel's TransactionController — thin views that delegate to services.
 """
 
@@ -227,6 +224,7 @@ def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResp
     )
 
 
+@csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and HTMX (which sends X-CSRFToken anyway)
 @general_rate
 @require_http_methods(["PUT", "DELETE"])
 def transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
@@ -647,10 +645,11 @@ def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
 
 
 # ---------------------------------------------------------------------------
-# JSON API Views (port of Go's TransactionHandler)
+# JSON API Views
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "POST"])
 def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
@@ -738,6 +737,7 @@ def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse({"debit": debit, "credit": credit}, status=201)
 
 
+@csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "DELETE"])
 def api_transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:

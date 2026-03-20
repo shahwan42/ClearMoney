@@ -1,9 +1,7 @@
 """
 Accounts & Institutions views — all /accounts/* and /institutions/* routes.
 
-Port of Go's PageHandler methods for accounts (pages.go:455-578, 1421-1596,
-2530-2912, 3276-3325). Handles pages, HTMX partials, and mutations.
-
+Handles pages, HTMX partials, and mutations.
 Like Laravel's AccountController — thin views that delegate to services.
 """
 
@@ -14,6 +12,7 @@ from uuid import UUID
 from django.http import HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render
 from django.template.loader import render_to_string
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from core.billing import (
@@ -65,10 +64,7 @@ def _render_institution_list_oob(request: AuthenticatedRequest) -> str:
 @general_rate
 @require_http_methods(["GET"])
 def accounts_list(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts — accounts list grouped by institution.
-
-    Port of Go's PageHandler.Accounts() (pages.go:455).
-    """
+    """GET /accounts — accounts list grouped by institution."""
     logger.info("page viewed: accounts, user=%s", request.user_email)
     groups = _build_institution_groups(request)
     return render(request, "accounts/accounts.html", {"data": groups})
@@ -79,8 +75,7 @@ def accounts_list(request: AuthenticatedRequest) -> HttpResponse:
 def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """GET /accounts/{id} — account detail page.
 
-    Port of Go's PageHandler.AccountDetail() (pages.go:1421).
-    Most complex view: assembles data from 10+ sources.
+    Assembles data from 10+ sources.
     """
     acc_svc = AccountService(request.user_id, request.tz)
     account = acc_svc.get_by_id(str(id))
@@ -156,10 +151,7 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /accounts/{id}/statement — credit card statement page.
-
-    Port of Go's PageHandler.CreditCardStatement() (pages.go:1541).
-    """
+    """GET /accounts/{id}/statement — credit card statement page."""
     acc_svc = AccountService(request.user_id, request.tz)
     account = acc_svc.get_by_id(str(id))
     if not account:
@@ -219,10 +211,7 @@ def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpRespon
 @general_rate
 @require_http_methods(["GET"])
 def account_form(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/form?institution_id=X — account creation form partial.
-
-    Port of Go's PageHandler.AccountForm() (pages.go:491).
-    """
+    """GET /accounts/form?institution_id=X — account creation form partial."""
     institution_id = request.GET.get("institution_id", "")
     if not institution_id:
         return HttpResponse("institution_id required", status=400)
@@ -245,10 +234,7 @@ def account_form(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /accounts/{id}/edit-form — account edit form partial.
-
-    Port of Go's PageHandler.AccountEditForm() (pages.go:520).
-    """
+    """GET /accounts/{id}/edit-form — account edit form partial."""
     acc_svc = AccountService(request.user_id, request.tz)
     account = acc_svc.get_by_id(str(id))
     if not account:
@@ -261,10 +247,7 @@ def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/institution-form — institution creation form partial.
-
-    Port of Go's PageHandler.InstitutionFormPartial() (pages.go:2829).
-    """
+    """GET /accounts/institution-form — institution creation form partial."""
     logger.info("partial loaded: institution-form, user=%s", request.user_email)
     return render(request, "accounts/_institution_form.html", {})
 
@@ -272,10 +255,7 @@ def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def institution_list_partial(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/list — render institution list partial.
-
-    Port of Go's PageHandler.InstitutionList() (pages.go:2772).
-    """
+    """GET /accounts/list — render institution list partial."""
     logger.info("partial loaded: institution-list, user=%s", request.user_email)
     groups = _build_institution_groups(request)
     return render(request, "accounts/_institution_list.html", {"data": groups})
@@ -284,10 +264,7 @@ def institution_list_partial(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /institutions/{id}/edit-form — institution edit form partial.
-
-    Port of Go's PageHandler.InstitutionEditForm() (pages.go:2839).
-    """
+    """GET /institutions/{id}/edit-form — institution edit form partial."""
     inst_svc = InstitutionService(request.user_id, request.tz)
     inst = inst_svc.get_by_id(str(id))
     if not inst:
@@ -302,10 +279,7 @@ def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpRespon
 @general_rate
 @require_http_methods(["GET"])
 def institution_delete_confirm(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /institutions/{id}/delete-confirm — delete confirmation partial.
-
-    Port of Go's PageHandler.InstitutionDeleteConfirm() (pages.go:2677).
-    """
+    """GET /institutions/{id}/delete-confirm — delete confirmation partial."""
     inst_svc = InstitutionService(request.user_id, request.tz)
     inst = inst_svc.get_by_id(str(id))
     if not inst:
@@ -331,10 +305,7 @@ def institution_delete_confirm(request: AuthenticatedRequest, id: UUID) -> HttpR
 @general_rate
 @require_http_methods(["GET"])
 def empty_partial(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/empty — empty response for HTMX auto-dismiss.
-
-    Port of Go's PageHandler.EmptyPartial() (pages.go:2910).
-    """
+    """GET /accounts/empty — empty response for HTMX auto-dismiss."""
     return HttpResponse("", content_type="text/html; charset=utf-8")
 
 
@@ -348,7 +319,6 @@ def empty_partial(request: AuthenticatedRequest) -> HttpResponse:
 def institution_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /institutions/add — create institution.
 
-    Port of Go's PageHandler.InstitutionAdd() (pages.go:2646).
     Returns toast + close script + OOB institution list refresh.
     """
     name = request.POST.get("name", "")
@@ -377,7 +347,6 @@ def institution_add(request: AuthenticatedRequest) -> HttpResponse:
 def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """PUT /institutions/{id}/update — update institution.
 
-    Port of Go's PageHandler.InstitutionUpdate() (pages.go:2861).
     Returns close script + OOB card swap.
     """
     # Django doesn't auto-parse PUT body into request.POST
@@ -422,7 +391,6 @@ def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """DELETE /institutions/{id}/delete — delete institution (cascade).
 
-    Port of Go's PageHandler.InstitutionDelete() (pages.go:2703).
     Returns toast + close script + OOB list refresh.
     """
     inst_svc = InstitutionService(request.user_id, request.tz)
@@ -439,10 +407,7 @@ def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /institutions/reorder — update display_order.
-
-    Port of Go's PageHandler.ReorderInstitutions() (pages.go:2558).
-    """
+    """POST /institutions/reorder — update display_order."""
     ids = request.POST.getlist("id[]")
     if not ids:
         return HttpResponse("No IDs provided", status=400)
@@ -462,7 +427,6 @@ def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
 def account_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /accounts/add — create account.
 
-    Port of Go's PageHandler.AccountAdd() (pages.go:2723).
     Returns close script + OOB institution list refresh.
     """
     institution_id = request.POST.get("institution_id", "")
@@ -502,10 +466,7 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /accounts/{id}/edit — update account fields.
-
-    Port of Go's PageHandler.AccountUpdate() (pages.go:541).
-    """
+    """POST /accounts/{id}/edit — update account fields."""
     data = {
         "name": request.POST.get("name", ""),
         "type": request.POST.get("type", "current"),
@@ -533,8 +494,7 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """DELETE /accounts/{id}/delete — delete account.
 
-    Port of Go's PageHandler.AccountDelete() (pages.go:3304).
-    Checks for installment FK RESTRICT.
+    Checks for installment FK RESTRICT before deleting.
     """
     acc_svc = AccountService(request.user_id, request.tz)
     error = acc_svc.delete(str(id))
@@ -556,10 +516,7 @@ def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def accounts_reorder(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /accounts/reorder — update display_order.
-
-    Port of Go's PageHandler.ReorderAccounts() (pages.go:2543).
-    """
+    """POST /accounts/reorder — update display_order."""
     ids = request.POST.getlist("id[]")
     if not ids:
         return HttpResponse("No IDs provided", status=400)
@@ -572,10 +529,7 @@ def accounts_reorder(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def toggle_dormant(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /accounts/{id}/dormant — toggle dormant flag.
-
-    Port of Go's PageHandler.ToggleDormant() (pages.go:2530).
-    """
+    """POST /accounts/{id}/dormant — toggle dormant flag."""
     acc_svc = AccountService(request.user_id, request.tz)
     toggled = acc_svc.toggle_dormant(str(id))
     if not toggled:
@@ -586,10 +540,7 @@ def toggle_dormant(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /accounts/{id}/health — save health constraints.
-
-    Port of Go's PageHandler.AccountHealthUpdate() (pages.go:3276).
-    """
+    """POST /accounts/{id}/health — save health constraints."""
     config: dict[str, float | None] = {}
 
     min_balance = parse_float_or_none(request.POST.get("min_balance", ""))
@@ -610,10 +561,11 @@ def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 
 
 # ---------------------------------------------------------------------------
-# JSON API Views — Institutions (port of Go's InstitutionHandler)
+# JSON API Views — Institutions
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "POST"])
 def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
@@ -622,7 +574,6 @@ def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
 
     if request.method == "GET":
         institutions = inst_svc.get_all()
-        # Add user_id to match Go's JSON output
         for inst in institutions:
             inst["user_id"] = request.user_id
         return JsonResponse(institutions, safe=False)
@@ -684,10 +635,11 @@ def api_institution_detail(request: AuthenticatedRequest, inst_id: str) -> HttpR
 
 
 # ---------------------------------------------------------------------------
-# JSON API Views — Accounts (port of Go's AccountHandler)
+# JSON API Views — Accounts
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "POST"])
 def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
@@ -703,7 +655,6 @@ def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
             accounts = acc_svc.get_by_institution(institution_id)
         else:
             accounts = acc_svc.get_all()
-        # Add user_id and strip computed fields for Go parity
         for acc in accounts:
             acc["user_id"] = request.user_id
             acc.pop("is_credit_type", None)

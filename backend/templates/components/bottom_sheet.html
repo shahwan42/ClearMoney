@@ -10,7 +10,7 @@ Usage:
 <div id="{{ name }}-overlay" class="fixed inset-0 {{ z_overlay|default:'z-[60]' }} bg-black/40 hidden" onclick="BottomSheet.close('{{ name }}')"></div>
 <div id="{{ name }}-sheet"
      class="fixed bottom-0 left-0 right-0 {{ z_sheet|default:'z-[70]' }} bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out {{ max_height|default:'max-h-[85vh]' }} overflow-y-auto"
-     data-bottom-sheet="{{ name }}"{% if persist %} data-bottom-sheet-persist{% endif %} role="dialog" aria-modal="true" aria-label="{{ aria_label|default:name }}">
+     data-bottom-sheet="{{ name }}"{% if persist %} data-bottom-sheet-persist{% endif %} role="dialog" aria-modal="true" aria-label="{{ aria_label|default:name }}" aria-hidden="true">
     <div id="{{ name }}-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
     </div>

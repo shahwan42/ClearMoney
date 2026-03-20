@@ -1,7 +1,6 @@
 """
 Auth views — page handlers for /login, /register, /auth/verify, /logout.
 
-Port of Go's internal/handler/auth.go.
 Like Laravel's LoginController — handles magic link auth with honeypot
 and timing anti-bot protection.
 
@@ -216,6 +215,7 @@ def verify_magic_link(request: HttpRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt  # Session-authenticated; no user-controlled data mutated, CSRF not required
 @login_rate
 @require_http_methods(["POST"])
 def logout_view(request: HttpRequest) -> HttpResponse:
