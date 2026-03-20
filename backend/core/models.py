@@ -100,11 +100,14 @@ class Account(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
+    )
     institution = models.ForeignKey(
         Institution,
         on_delete=models.CASCADE,
         db_column="institution_id",
+        db_index=True,
         related_name="accounts",
     )
     name = models.CharField(max_length=100)
@@ -212,7 +215,9 @@ class Transaction(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
+    )
     type = models.CharField(
         max_length=30
     )  # expense/income/transfer/exchange/loan_out/loan_in/loan_repayment
@@ -222,6 +227,7 @@ class Transaction(models.Model):
         Account,
         on_delete=models.CASCADE,
         db_column="account_id",
+        db_index=True,
         related_name="transactions",
     )
     counter_account = models.ForeignKey(
@@ -238,9 +244,10 @@ class Transaction(models.Model):
         null=True,
         blank=True,
         db_column="category_id",
+        db_index=True,
         related_name="+",
     )
-    date = models.DateField()
+    date = models.DateField(db_index=True)
     time = models.TimeField(null=True, blank=True)
     note = models.TextField(null=True, blank=True)
     tags = ArrayField(models.CharField(max_length=100), default=list, blank=True)
@@ -368,7 +375,9 @@ class Budget(models.Model):
     """Monthly spending limit per category. is_active toggles without deleting."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
+    )
     category = models.ForeignKey(
         Category, on_delete=models.CASCADE, db_column="category_id", related_name="+"
     )
@@ -448,8 +457,10 @@ class DailySnapshot(models.Model):
     """Append-only daily financial state. Used for sparklines and MoM comparisons."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    date = models.DateField()
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
+    )
+    date = models.DateField(db_index=True)
     net_worth_egp = models.DecimalField(max_digits=15, decimal_places=2)
     net_worth_raw = models.DecimalField(max_digits=15, decimal_places=2)
     exchange_rate = models.DecimalField(max_digits=10, decimal_places=4)
