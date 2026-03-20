@@ -1,5 +1,5 @@
 # Production Docker Compose for ClearMoney.
-# Deploys Caddy (HTTPS) + App + PostgreSQL.
+# Deploys Caddy (HTTPS) + Django + background jobs + PostgreSQL.
 #
 # Usage:
 #   docker compose -f docker-compose.prod.yml up -d --build
@@ -17,21 +17,9 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
       - django
     restart: unless-stopped
 
-  app:
-    build: .
-    expose:
-      - "8080"
-    env_file: .env.prod
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Django application — serves all routes via Caddy reverse proxy.
   django:
     build:
       context: .
@@ -46,6 +34,31 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+
+  # Background jobs — runs startup jobs then periodic tasks hourly.
+  django-cron:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env.prod
+    environment:
+      - DATABASE_URL=postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+      django:
+        condition: service_started
+    restart: unless-stopped
+    command: >
+      sh -c "
+        python manage.py run_startup_jobs &&
+        while true; do
+          sleep 3600;
+          python manage.py refresh_views;
+          python manage.py take_snapshots;
+          python manage.py cleanup_sessions;
+        done
+      "
 
   db:
     image: postgres:16-alpine
