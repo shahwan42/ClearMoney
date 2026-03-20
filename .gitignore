@@ -20,6 +20,8 @@ bin/
 coverage.*
 *.coverprofile
 profile.cov
+backend/htmlcov/
+.coverage
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

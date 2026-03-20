@@ -31,6 +31,57 @@ DJANGO_SETTINGS_MODULE = "clearmoney.settings"
 python_files = ["tests.py", "test_*.py", "*_test.py"]
 addopts = "--reuse-db -p no:warnings"
 
+# ---------- Coverage ----------
+[tool.coverage.run]
+source = [
+    "clearmoney",
+    "core",
+    "auth_app",
+    "dashboard",
+    "accounts",
+    "transactions",
+    "people",
+    "budgets",
+    "virtual_accounts",
+    "recurring",
+    "salary",
+    "investments",
+    "installments",
+    "exchange_rates",
+    "categories",
+    "push",
+    "jobs",
+    "settings_app",
+    "reports",
+]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/test_*.py",
+    "conftest.py",
+    "manage.py",
+    "clearmoney/wsgi.py",
+    "clearmoney/asgi.py",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "pass$",
+]
+fail_under = 60
+
+[tool.coverage.html]
+directory = "htmlcov"
+
 [tool.ruff]
 line-length = 88
 target-version = "py312"
