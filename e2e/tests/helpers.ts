@@ -3,7 +3,6 @@ import { execSync } from 'child_process';
 import { randomBytes } from 'crypto';
 
 export const TEST_EMAIL = 'test@clearmoney.local';
-export const GO_BASE_URL = 'http://localhost:8080';
 
 /**
  * Get the database URL from environment or use the local dev default.

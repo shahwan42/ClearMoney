@@ -21,13 +21,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `cd .. && DATABASE_URL="${dbUrl}" DISABLE_RATE_LIMIT=true go run ./cmd/server`,
-      url: 'http://localhost:8080/healthz',
-      reuseExistingServer: true,
-      timeout: 30_000,
-    },
-    {
-      command: `cd ../backend && DATABASE_URL="${dbUrl}" uv run python manage.py runserver 0.0.0.0:8000`,
+      command: `cd ../backend && DATABASE_URL="${dbUrl}" DISABLE_RATE_LIMIT=true uv run python manage.py runserver 0.0.0.0:8000`,
       url: 'http://localhost:8000/healthz',
       reuseExistingServer: true,
       timeout: 15_000,

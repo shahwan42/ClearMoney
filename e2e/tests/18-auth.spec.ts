@@ -3,7 +3,6 @@ import {
   resetDatabase,
   ensureAuth,
   TEST_EMAIL,
-  GO_BASE_URL,
   createAuthToken,
   createExpiredSession,
   runSQL,
@@ -208,15 +207,4 @@ test.describe('Auth: Cross-App Session Continuity', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   });
 
-  test('session created by Django works on Go routes', async ({ page }) => {
-    await page.context().clearCookies();
-    const token = createAuthToken(TEST_EMAIL, 'login');
-    // Verify via Django
-    await page.goto(`/auth/verify?token=${token}`);
-    await expect(page).toHaveURL(/\//);
-    // Go to Go's route — session should be valid there too
-    await page.goto(`${GO_BASE_URL}/`);
-    // Should be authenticated (not redirected to /login)
-    await expect(page).toHaveURL(`${GO_BASE_URL}/`);
-  });
 });
