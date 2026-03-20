@@ -210,6 +210,7 @@ class InstitutionService:
                     "UPDATE institutions SET display_order = %s, updated_at = now() WHERE id = %s AND user_id = %s",
                     [i, inst_id, self.user_id],
                 )
+        logger.info("institution.reordered count=%d user=%s", len(ids), self.user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +430,7 @@ class AccountService:
                     "UPDATE accounts SET display_order = %s, updated_at = now() WHERE id = %s AND user_id = %s",
                     [i, account_id, self.user_id],
                 )
+        logger.info("account.reordered count=%d user=%s", len(ids), self.user_id)
 
     def update_health_config(self, account_id: str, config: dict[str, Any]) -> None:
         """Save health constraints to account's health_config JSONB."""
@@ -438,6 +440,9 @@ class AccountService:
                 "UPDATE accounts SET health_config = %s::jsonb, updated_at = now() WHERE id = %s AND user_id = %s",
                 [config_json, account_id, self.user_id],
             )
+        logger.info(
+            "account.health_config_updated id=%s user=%s", account_id, self.user_id
+        )
 
     # --- Account detail data ---
 

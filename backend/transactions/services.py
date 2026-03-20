@@ -23,6 +23,8 @@ from zoneinfo import ZoneInfo
 
 from django.db import connection, transaction
 
+from core.timing import timed
+
 logger = logging.getLogger(__name__)
 
 # Valid transaction types — must match PostgreSQL enum
@@ -426,6 +428,7 @@ class TransactionService:
         ]
         return self._scan_tx_row(row, cols)
 
+    @timed(threshold_ms=500)
     def get_filtered_enriched(
         self, filters: dict[str, Any]
     ) -> tuple[list[dict[str, Any]], bool]:

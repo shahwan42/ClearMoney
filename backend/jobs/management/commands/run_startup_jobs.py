@@ -12,10 +12,13 @@ Usage:
     python manage.py run_startup_jobs
 """
 
+import logging
 from typing import Any
 
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -31,10 +34,10 @@ class Command(BaseCommand):
         ]
 
         for job_name, kwargs in jobs:
-            self.stdout.write(f"Running {job_name}...")
+            logger.info("startup_job.running job=%s", job_name)
             try:
                 call_command(job_name, stdout=self.stdout, **kwargs)
-            except Exception as e:
-                self.stderr.write(self.style.ERROR(f"  {job_name} failed: {e}"))
+            except Exception:
+                logger.exception("startup_job.failed job=%s", job_name)
 
-        self.stdout.write(self.style.SUCCESS("All startup jobs complete"))
+        logger.info("startup_job.all_complete")

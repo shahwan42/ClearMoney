@@ -22,6 +22,8 @@ from zoneinfo import ZoneInfo
 
 from django.db import connection
 
+from core.timing import timed
+
 logger = logging.getLogger(__name__)
 
 
@@ -225,6 +227,7 @@ class DashboardService:
         self.user_id = user_id
         self.tz = tz
 
+    @timed(threshold_ms=1000)
     def get_dashboard(self) -> dict[str, Any]:
         """Compute the full dashboard data. Called once per page load.
 

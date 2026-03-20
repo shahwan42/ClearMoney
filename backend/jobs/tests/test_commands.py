@@ -4,6 +4,7 @@ Integration tests for management commands — verify they run without error.
 Uses call_command() to execute each command and checks stdout output.
 """
 
+import logging
 from datetime import date, timedelta
 from io import StringIO
 
@@ -128,7 +129,7 @@ class TestCommands:
         call_command("process_recurring", stdout=self.out)
         assert "complete" in self.out.getvalue().lower()
 
-    def test_run_startup_jobs_command(self) -> None:
+    def test_run_startup_jobs_command(self, caplog: pytest.LogCaptureFixture) -> None:
         """run_startup_jobs orchestrates all sub-commands."""
         AccountFactory(
             user_id=self.uid,
@@ -137,6 +138,6 @@ class TestCommands:
             current_balance=1000,
             initial_balance=1000,
         )
-        call_command("run_startup_jobs", stdout=self.out)
-        output = self.out.getvalue()
-        assert "startup jobs complete" in output.lower()
+        with caplog.at_level(logging.INFO):
+            call_command("run_startup_jobs", stdout=self.out)
+        assert "startup_job.all_complete" in caplog.text

@@ -21,6 +21,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
+from core.timing import timed
 from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ def reports_page(request: AuthenticatedRequest) -> HttpResponse:
     return render(request, "reports/reports.html", {"data": report})
 
 
+@timed(threshold_ms=500)
 def _get_monthly_report(
     user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
 ) -> dict[str, Any]:

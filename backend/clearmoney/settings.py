@@ -26,7 +26,9 @@ SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
     "django-insecure-dev-only-change-in-production",
 )
-DEBUG = os.environ.get("ENV", "development") != "production"
+ENV = os.environ.get("ENV", "development")
+DEBUG = ENV != "production"
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 ALLOWED_HOSTS = os.environ.get(
     "DJANGO_ALLOWED_HOSTS", "localhost,0.0.0.0,127.0.0.1"
 ).split(",")
@@ -65,10 +67,12 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.correlation.CorrelationIdMiddleware",  # Request correlation IDs for log tracing
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files in production (like Go's http.FileServer)
     "django.middleware.common.CommonMiddleware",
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
     "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from shared sessions table
+    "core.middleware.ExceptionLoggingMiddleware",  # Log unhandled 500s with request context
     "core.middleware.TimezoneMiddleware",  # Sets request.tz from APP_TIMEZONE env var
 ]
 
@@ -164,14 +168,23 @@ RATELIMIT_USE_CACHE = "default"
 RATELIMIT_ENABLE = os.environ.get("DISABLE_RATE_LIMIT", "false").lower() != "true"
 
 # --- Logging ---
-# Structured logging matching Go's slog pattern: level, name, message.
+# JSON structured logging in production (for Loki/Datadog), human-readable in dev.
 # LOG_LEVEL env var controls verbosity (default: INFO).
 
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "structured": {
+        "json": {
+            "()": "pythonjsonlogger.json.JsonFormatter",
+            "fmt": "%(asctime)s %(levelname)s %(name)s %(correlation_id)s %(message)s",
+            "rename_fields": {
+                "asctime": "timestamp",
+                "levelname": "level",
+                "name": "logger",
+            },
+        },
+        "console": {
             "format": "{asctime} {levelname} {name} {message}",
             "style": "{",
         },
@@ -179,11 +192,18 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "structured",
+            "formatter": "json" if ENV == "production" else "console",
         },
     },
     "root": {
         "handlers": ["console"],
-        "level": os.environ.get("LOG_LEVEL", "INFO").upper(),
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
     },
 }
