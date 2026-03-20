@@ -63,6 +63,33 @@ class TestSecretKeyHardening(TestCase):
             assert mod.SECRET_KEY == "a-real-secret-key-for-production"
 
 
+class TestCsrfProtection(TestCase):
+    """Verify CSRF middleware is active and configured correctly."""
+
+    def test_csrf_middleware_enabled(self) -> None:
+        from django.conf import settings as s
+
+        assert "django.middleware.csrf.CsrfViewMiddleware" in s.MIDDLEWARE
+
+    def test_post_without_csrf_token_rejected(self) -> None:
+        """POST requests without CSRF token are rejected (403)."""
+        from django.test import Client
+
+        # enforce_csrf_checks=True makes the test client mimic real browser behavior
+        csrf_client = Client(enforce_csrf_checks=True)
+        response = csrf_client.post("/logout")
+        assert response.status_code == 403
+
+    def test_login_exempt_from_csrf(self) -> None:
+        """Login POST works without CSRF token (uses honeypot anti-bot instead)."""
+        from django.test import Client
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        response = csrf_client.post("/login", {"email": "test@example.com", "_rt": "0"})
+        # Should not be 403 — login is csrf_exempt
+        assert response.status_code != 403
+
+
 class TestDebugFlag(TestCase):
     """Verify DEBUG is explicit opt-in for production."""
 

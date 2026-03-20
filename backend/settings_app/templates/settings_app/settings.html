@@ -78,6 +78,7 @@
 
     {# Logout — standard POST (not HTMX), invalidates session #}
     <form method="POST" action="/logout" class="mt-4">
+        {% csrf_token %}
         <button type="submit" class="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-lg text-sm font-semibold">
             Log Out
         </button>

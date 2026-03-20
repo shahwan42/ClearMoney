@@ -15,6 +15,7 @@ import logging
 import os
 
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
@@ -35,6 +36,7 @@ def vapid_key(request: AuthenticatedRequest) -> JsonResponse:
     return JsonResponse({"publicKey": os.environ.get("VAPID_PUBLIC_KEY", "")})
 
 
+@csrf_exempt  # JS fetch() API — authenticated via session, rate-limited
 @general_rate
 def subscribe(request: AuthenticatedRequest) -> JsonResponse:
     """Accept a push subscription from the browser.

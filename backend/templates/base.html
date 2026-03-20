@@ -45,7 +45,7 @@
     <link rel="icon" href="/static/icons/icon-192.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
 </head>
-<body class="h-full flex flex-col dark:bg-slate-900 dark:text-slate-200" hx-boost="true">
+<body class="h-full flex flex-col dark:bg-slate-900 dark:text-slate-200" hx-boost="true" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
     {% include "components/header.html" %}
 

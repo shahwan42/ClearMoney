@@ -14,6 +14,7 @@ from datetime import date
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from core.htmx import error_response, render_htmx_result, success_response
@@ -516,6 +517,7 @@ def batch_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt  # JS fetch() API (offline sync) — authenticated via session, rate-limited
 @general_rate
 @require_http_methods(["POST"])
 def sync_transactions(request: AuthenticatedRequest) -> JsonResponse:

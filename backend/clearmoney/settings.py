@@ -79,6 +79,7 @@ MIDDLEWARE = [
     "core.correlation.CorrelationIdMiddleware",  # Request correlation IDs for log tracing
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files in production (like Go's http.FileServer)
     "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",  # CSRF protection — HTMX sends token via hx-headers
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
     "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from shared sessions table
     "django.middleware.clickjacking.XFrameOptionsMiddleware",  # X-Frame-Options: DENY
@@ -172,8 +173,8 @@ if ENV == "production":
     SECURE_SSL_REDIRECT = False  # Caddy handles TLS, Django doesn't need to redirect
 
 # --- CSRF ---
-# Exempt for now since Go handles CSRF for shared forms.
-# Django-served pages use standard forms that POST to Go (e.g., logout).
+# CsrfViewMiddleware is enabled. HTMX sends the token via hx-headers on <body>.
+# Regular forms include {% csrf_token %}. Login/register use @csrf_exempt (honeypot anti-bot instead).
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8080",

@@ -14,6 +14,7 @@ import time
 
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from auth_app.services import (
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt  # Auth uses honeypot + timing anti-bot instead of CSRF tokens
 @login_rate
 @require_http_methods(["GET", "POST"])
 def login_view(request: HttpRequest) -> HttpResponse:
@@ -101,6 +103,7 @@ def _login_submit(request: HttpRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@csrf_exempt  # Auth uses honeypot + timing anti-bot instead of CSRF tokens
 @login_rate
 @require_http_methods(["GET", "POST"])
 def register_view(request: HttpRequest) -> HttpResponse:
