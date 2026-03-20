@@ -15,15 +15,19 @@ See conftest.py for the auth_user / auth_client fixtures that wrap UserFactory
 
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 
 import factory
 from django.utils import timezone
 
 from core.models import (
     Account,
+    AccountSnapshot,
     AuthToken,
     Budget,
     Category,
+    DailySnapshot,
+    ExchangeRateLog,
     InstallmentPlan,
     Institution,
     Investment,
@@ -32,6 +36,7 @@ from core.models import (
     Session,
     Transaction,
     User,
+    UserConfig,
     VirtualAccount,
     VirtualAccountAllocation,
 )
@@ -266,3 +271,60 @@ class PersonFactory(factory.django.DjangoModelFactory):
     net_balance = 0
     net_balance_egp = 0
     net_balance_usd = 0
+
+
+class UserConfigFactory(factory.django.DjangoModelFactory):
+    """Factory for legacy user_config table (brute-force protection)."""
+
+    class Meta:
+        model = UserConfig
+
+    id = factory.LazyFunction(uuid.uuid4)
+    pin_hash = "pbkdf2_sha256$placeholder_hash"
+    session_key = factory.LazyFunction(lambda: str(uuid.uuid4()))
+    failed_attempts = 0
+    locked_until = None
+
+
+class DailySnapshotFactory(factory.django.DjangoModelFactory):
+    """Factory for daily net worth snapshots."""
+
+    class Meta:
+        model = DailySnapshot
+
+    id = factory.LazyFunction(uuid.uuid4)
+    user = factory.SubFactory(UserFactory)
+    date = factory.LazyFunction(lambda: timezone.now().date())
+    net_worth_egp = factory.LazyFunction(lambda: Decimal("50000.00"))
+    net_worth_raw = factory.LazyFunction(lambda: Decimal("50000.00"))
+    exchange_rate = factory.LazyFunction(lambda: Decimal("50.8500"))
+    daily_spending = factory.LazyFunction(lambda: Decimal("250.00"))
+    daily_income = factory.LazyFunction(lambda: Decimal("0.00"))
+
+
+class AccountSnapshotFactory(factory.django.DjangoModelFactory):
+    """Factory for per-account daily balance snapshots."""
+
+    class Meta:
+        model = AccountSnapshot
+
+    id = factory.LazyFunction(uuid.uuid4)
+    user = factory.SubFactory(UserFactory)
+    date = factory.LazyFunction(lambda: timezone.now().date())
+    account = factory.SubFactory(AccountFactory)
+    balance = factory.LazyFunction(lambda: Decimal("10000.00"))
+
+
+class ExchangeRateLogFactory(factory.django.DjangoModelFactory):
+    """Factory for exchange rate log entries (global, no user_id)."""
+
+    class Meta:
+        model = ExchangeRateLog
+
+    id = factory.LazyFunction(uuid.uuid4)
+    date = factory.LazyFunction(lambda: timezone.now().date())
+    rate = factory.Sequence(
+        lambda n: Decimal("50.00") + Decimal(str(n)) * Decimal("0.10")
+    )
+    source = "test"
+    note = ""
