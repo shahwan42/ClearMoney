@@ -1,6 +1,8 @@
 """Tests for core.utils parsing helpers."""
 
-from core.utils import parse_float_or_none, parse_float_or_zero
+from django.test import RequestFactory
+
+from core.utils import parse_float_or_none, parse_float_or_zero, parse_json_body
 
 
 class TestParseFloatOrNone:
@@ -63,3 +65,34 @@ class TestParseFloatOrZero:
 
     def test_float_passthrough(self) -> None:
         assert parse_float_or_zero(3.14) == 3.14
+
+
+class TestParseJsonBody:
+    """Tests for parse_json_body()."""
+
+    def _make_request(self, body: bytes) -> object:
+        rf = RequestFactory()
+        request = rf.post("/test", data=body, content_type="application/json")
+        return request
+
+    def test_valid_json(self) -> None:
+        request = self._make_request(b'{"key": "value"}')
+        result = parse_json_body(request)  # type: ignore[arg-type]
+        assert result == {"key": "value"}
+
+    def test_invalid_json_returns_none(self) -> None:
+        request = self._make_request(b"not json")
+        assert parse_json_body(request) is None  # type: ignore[arg-type]
+
+    def test_empty_body_returns_none(self) -> None:
+        request = self._make_request(b"")
+        assert parse_json_body(request) is None  # type: ignore[arg-type]
+
+    def test_json_array_returns_none(self) -> None:
+        request = self._make_request(b"[1, 2, 3]")
+        assert parse_json_body(request) is None  # type: ignore[arg-type]
+
+    def test_nested_json(self) -> None:
+        request = self._make_request(b'{"a": {"b": 1}}')
+        result = parse_json_body(request)  # type: ignore[arg-type]
+        assert result == {"a": {"b": 1}}

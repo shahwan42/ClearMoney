@@ -19,7 +19,7 @@ from django.views.decorators.http import require_http_methods
 from core.htmx import render_htmx_result
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
-from core.utils import parse_float_or_none
+from core.utils import parse_float_or_none, parse_json_body
 
 from .services import TransactionService
 
@@ -687,9 +687,8 @@ def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
         return JsonResponse(transactions, safe=False)
 
     # POST — create
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
 
     try:
@@ -708,9 +707,8 @@ def api_transaction_transfer(request: AuthenticatedRequest) -> HttpResponse:
     Returns {"debit": {...}, "credit": {...}}.
     """
     svc = _svc(request)
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
 
     try:
@@ -736,9 +734,8 @@ def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
     Returns {"debit": {...}, "credit": {...}}.
     """
     svc = _svc(request)
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
 
     try:

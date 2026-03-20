@@ -7,7 +7,6 @@ Port of Go's PageHandler methods for accounts (pages.go:455-578, 1421-1596,
 Like Laravel's AccountController — thin views that delegate to services.
 """
 
-import json
 import logging
 from typing import Any
 from uuid import UUID
@@ -25,7 +24,7 @@ from core.billing import (
 from core.htmx import htmx_redirect, render_htmx_result
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
-from core.utils import parse_float_or_none
+from core.utils import parse_float_or_none, parse_json_body
 
 from .services import AccountService, InstitutionService, get_statement_data
 
@@ -638,9 +637,8 @@ def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
         return JsonResponse(institutions, safe=False)
 
     # POST — create
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
 
     try:
@@ -670,9 +668,8 @@ def api_institution_detail(request: AuthenticatedRequest, inst_id: str) -> HttpR
         return JsonResponse(inst)
 
     if request.method == "PUT":
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
+        body = parse_json_body(request)
+        if body is None:
             return JsonResponse({"error": "invalid JSON body"}, status=400)
 
         try:
@@ -723,9 +720,8 @@ def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
         return JsonResponse(accounts, safe=False)
 
     # POST — create
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
 
     try:
@@ -756,9 +752,8 @@ def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpRe
         return JsonResponse(acc)
 
     if request.method == "PUT":
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
+        body = parse_json_body(request)
+        if body is None:
             return JsonResponse({"error": "invalid JSON body"}, status=400)
 
         try:

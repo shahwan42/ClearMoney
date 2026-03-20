@@ -1,6 +1,9 @@
 """Shared parsing utilities used across views and services."""
 
+import json
 from typing import Any
+
+from django.http import HttpRequest
 
 
 def parse_float_or_none(value: Any) -> float | None:
@@ -24,3 +27,12 @@ def parse_float_or_zero(value: Any) -> float:
         return float(value)
     except (ValueError, TypeError):
         return 0.0
+
+
+def parse_json_body(request: HttpRequest) -> dict[str, Any] | None:
+    """Parse JSON from request body, returning None on failure."""
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None

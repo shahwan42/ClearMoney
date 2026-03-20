@@ -7,7 +7,6 @@ PersonHandler JSON API (person.go).
 Like Laravel's PersonController — handles both HTML (HTMX) and JSON endpoints.
 """
 
-import json
 import logging
 from typing import Any
 
@@ -18,7 +17,7 @@ from django.views.decorators.http import require_http_methods
 
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
-from core.utils import parse_float_or_none
+from core.utils import parse_float_or_none, parse_json_body
 from people.services import PersonService
 
 logger = logging.getLogger(__name__)
@@ -241,9 +240,8 @@ def api_person_list_create(request: AuthenticatedRequest) -> HttpResponse:
         return JsonResponse(persons, safe=False)
 
     # POST — create
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     name = body.get("name", "")
@@ -269,9 +267,8 @@ def api_person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResp
         return JsonResponse(person)
 
     if request.method == "PUT":
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
+        body = parse_json_body(request)
+        if body is None:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
         name = body.get("name", "")
@@ -299,9 +296,8 @@ def api_person_loan(request: AuthenticatedRequest, person_id: str) -> HttpRespon
     Port of Go's PersonHandler.RecordLoan (person.go:148–162).
     """
     svc = _svc(request)
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     try:
@@ -326,9 +322,8 @@ def api_person_repayment(request: AuthenticatedRequest, person_id: str) -> HttpR
     Port of Go's PersonHandler.RecordRepayment (person.go:173–187).
     """
     svc = _svc(request)
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     try:

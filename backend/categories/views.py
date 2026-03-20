@@ -8,14 +8,13 @@ No HTML views — categories are only accessed via JSON API (used by HTMX
 and potentially mobile clients).
 """
 
-import json
-
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from categories.services import CategoryService
 from core.ratelimit import api_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_json_body
 
 
 def _svc(request: AuthenticatedRequest) -> CategoryService:
@@ -41,9 +40,8 @@ def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
         return JsonResponse(categories, safe=False)
 
     # POST — create
-    try:
-        body = json.loads(request.body)
-    except (json.JSONDecodeError, ValueError):
+    body = parse_json_body(request)
+    if body is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     try:
@@ -72,9 +70,8 @@ def api_category_detail(
     cid = str(category_id)
 
     if request.method == "PUT":
-        try:
-            body = json.loads(request.body)
-        except (json.JSONDecodeError, ValueError):
+        body = parse_json_body(request)
+        if body is None:
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
         try:
