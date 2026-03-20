@@ -61,9 +61,10 @@ def render_htmx_result(
     }
     bg, text = colors.get(result_type, colors["info"])
 
+    role = "alert" if result_type == "error" else "status"
     detail_html = f'<p class="text-xs {text} mt-1">{detail}</p>' if detail else ""
     html = (
-        f'<div class="rounded-lg border p-3 {bg}">'
+        f'<div role="{role}" class="rounded-lg border p-3 {bg}">'
         f'<p class="text-sm font-medium {text}">{message}</p>'
         f"{detail_html}"
         f"</div>"
@@ -73,13 +74,13 @@ def render_htmx_result(
 
 def error_html(message: str) -> str:
     """Return error HTML fragment string for HTMX swap targets."""
-    return f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{message}</div>'
+    return f'<div role="alert" class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{message}</div>'
 
 
 def success_html(message: str) -> str:
     """Return success toast HTML fragment string for HTMX swap targets."""
     return (
-        '<div class="bg-teal-50 border border-teal-200 rounded-xl p-3 '
+        '<div role="status" class="bg-teal-50 border border-teal-200 rounded-xl p-3 '
         'text-center animate-toast">'
         f'<p class="text-teal-800 font-semibold text-sm">{message}</p>'
         "</div>"

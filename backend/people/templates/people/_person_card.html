@@ -48,20 +48,23 @@
     <!-- Loan form (hidden by default) -->
     <div id="loan-form-{{ person.id }}" class="hidden border-t border-gray-100 p-4 bg-gray-50">
         <form hx-post="/people/{{ person.id }}/loan" hx-target="#people-list" hx-swap="innerHTML" class="space-y-2">
-            <div class="flex gap-2">
-                <label class="flex-1">
-                    <input type="radio" name="loan_type" value="loan_out" checked class="peer hidden">
-                    <div class="peer-checked:bg-green-50 peer-checked:border-green-400 peer-checked:text-green-700 border border-gray-200 rounded-lg py-1.5 text-center text-xs font-medium cursor-pointer">
-                        I Lent
-                    </div>
-                </label>
-                <label class="flex-1">
-                    <input type="radio" name="loan_type" value="loan_in" class="peer hidden">
-                    <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border border-gray-200 rounded-lg py-1.5 text-center text-xs font-medium cursor-pointer">
-                        I Borrowed
-                    </div>
-                </label>
-            </div>
+            <fieldset class="border-0 p-0 m-0">
+                <legend class="sr-only">Loan type</legend>
+                <div class="flex gap-2">
+                    <label class="flex-1">
+                        <input type="radio" name="loan_type" value="loan_out" checked class="peer hidden">
+                        <div class="peer-checked:bg-green-50 peer-checked:border-green-400 peer-checked:text-green-700 border border-gray-200 rounded-lg py-1.5 text-center text-xs font-medium cursor-pointer">
+                            I Lent
+                        </div>
+                    </label>
+                    <label class="flex-1">
+                        <input type="radio" name="loan_type" value="loan_in" class="peer hidden">
+                        <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border border-gray-200 rounded-lg py-1.5 text-center text-xs font-medium cursor-pointer">
+                            I Borrowed
+                        </div>
+                    </label>
+                </div>
+            </fieldset>
             <input type="number" name="amount" step="0.01" min="0.01" required placeholder="Amount"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
             <select name="account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">

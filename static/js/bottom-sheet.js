@@ -81,16 +81,26 @@ var BottomSheet = (function() {
         if (el) el.focus();
     }
 
+    // Track previously focused element for focus restoration
+    var previousFocus = null;
+
     function open(name, opts) {
         // Always re-register to get fresh DOM references (hx-boost swaps the body)
         var s = register(name);
         if (!s) return;
+
+        // Save current focus for restoration on close
+        previousFocus = document.activeElement;
 
         s.overlay.classList.remove('hidden');
         s.sheet.offsetHeight; // Force reflow so transition fires
         s.sheet.classList.remove('translate-y-full');
         s.sheet.classList.add('translate-y-0');
         document.body.style.overflow = 'hidden';
+
+        // Hide main content from assistive technology
+        var main = document.getElementById('main-content');
+        if (main) main.setAttribute('aria-hidden', 'true');
 
         // Load content via HTMX if URL provided
         if (opts && opts.url) {
@@ -128,6 +138,16 @@ var BottomSheet = (function() {
         s.overlay.classList.add('hidden');
         document.body.style.overflow = '';
 
+        // Restore main content visibility to assistive technology
+        var main = document.getElementById('main-content');
+        if (main) main.removeAttribute('aria-hidden');
+
+        // Restore focus to the element that opened the sheet
+        if (previousFocus && typeof previousFocus.focus === 'function') {
+            previousFocus.focus();
+            previousFocus = null;
+        }
+
         // Clear content after animation unless marked as persistent
         if (s.content && !s.sheet.hasAttribute('data-bottom-sheet-persist')) {
             setTimeout(function() {
@@ -143,15 +163,44 @@ var BottomSheet = (function() {
         });
     }
 
-    // Close topmost open sheet on Escape key
+    // Keyboard handler: Escape to close, Tab to trap focus within open sheet
+    var FOCUSABLE = 'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
     document.addEventListener('keydown', function(e) {
+        // Find the topmost open sheet
+        var openName = null, openSheet = null;
+        for (var name in sheets) {
+            var s = sheets[name];
+            if (s && s.overlay && !s.overlay.classList.contains('hidden')) {
+                openName = name;
+                openSheet = s;
+                break;
+            }
+        }
+        if (!openName) return;
+
         if (e.key === 'Escape') {
-            // Find any open sheet (overlay not hidden) and close it
-            for (var name in sheets) {
-                var s = sheets[name];
-                if (s && s.overlay && !s.overlay.classList.contains('hidden')) {
-                    close(name);
-                    break;
+            close(openName);
+            return;
+        }
+
+        // Focus trap: cycle Tab within the open sheet
+        if (e.key === 'Tab') {
+            var focusable = openSheet.sheet.querySelectorAll(FOCUSABLE);
+            if (focusable.length === 0) return;
+
+            var first = focusable[0];
+            var last = focusable[focusable.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
                 }
             }
         }

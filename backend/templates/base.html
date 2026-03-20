@@ -47,12 +47,14 @@
 </head>
 <body class="h-full flex flex-col dark:bg-slate-900 dark:text-slate-200" hx-boost="true" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:bg-white focus:text-teal-700 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg">Skip to content</a>
+
     {% include "components/header.html" %}
 
     <!-- Notification banner -->
-    <div id="notification-banner" class="fixed top-14 left-0 right-0 z-40 px-4"></div>
+    <div id="notification-banner" class="fixed top-14 left-0 right-0 z-40 px-4" aria-live="polite" aria-atomic="true"></div>
 
-    <main class="flex-1 overflow-y-auto pt-14 pb-20 px-4">
+    <main id="main-content" class="flex-1 overflow-y-auto pt-14 pb-20 px-4">
         {% block content %}{% endblock %}
     </main>
 

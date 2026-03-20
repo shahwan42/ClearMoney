@@ -11,6 +11,12 @@ var KebabMenu = (function () {
       .forEach(function (menu) {
         menu.classList.add("hidden");
       });
+    // Reset aria-expanded on all triggers
+    document
+      .querySelectorAll("[data-kebab-trigger]")
+      .forEach(function (trigger) {
+        trigger.setAttribute("aria-expanded", "false");
+      });
   }
 
   function toggle(button) {
@@ -22,6 +28,7 @@ var KebabMenu = (function () {
 
     if (!isOpen) {
       menu.classList.remove("hidden");
+      button.setAttribute("aria-expanded", "true");
     }
   }
 

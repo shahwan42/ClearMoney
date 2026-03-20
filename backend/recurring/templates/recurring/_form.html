@@ -5,22 +5,25 @@
         {% csrf_token %}
 
         {# Transaction type radio #}
-        <div class="flex gap-2">
-            <label class="flex-1">
-                <input type="radio" name="type" value="expense" class="sr-only peer" checked>
-                <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
-                            peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-300 dark:peer-checked:border-red-700 peer-checked:text-red-700 dark:peer-checked:text-red-400">
-                    Expense
-                </div>
-            </label>
-            <label class="flex-1">
-                <input type="radio" name="type" value="income" class="sr-only peer">
-                <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
-                            peer-checked:bg-green-50 dark:peer-checked:bg-green-900/20 peer-checked:border-green-300 dark:peer-checked:border-green-700 peer-checked:text-green-700 dark:peer-checked:text-green-400">
-                    Income
-                </div>
-            </label>
-        </div>
+        <fieldset class="border-0 p-0 m-0">
+            <legend class="sr-only">Transaction type</legend>
+            <div class="flex gap-2">
+                <label class="flex-1">
+                    <input type="radio" name="type" value="expense" class="sr-only peer" checked>
+                    <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                                peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-300 dark:peer-checked:border-red-700 peer-checked:text-red-700 dark:peer-checked:text-red-400">
+                        Expense
+                    </div>
+                </label>
+                <label class="flex-1">
+                    <input type="radio" name="type" value="income" class="sr-only peer">
+                    <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                                peer-checked:bg-green-50 dark:peer-checked:bg-green-900/20 peer-checked:border-green-300 dark:peer-checked:border-green-700 peer-checked:text-green-700 dark:peer-checked:text-green-400">
+                        Income
+                    </div>
+                </label>
+            </div>
+        </fieldset>
 
         {# Amount #}
         <div>

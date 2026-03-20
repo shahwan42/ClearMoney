@@ -1,6 +1,6 @@
 {% load money %}
 
-<div class="chart-donut-wrap">
+<div class="chart-donut-wrap" role="img" aria-label="Spending breakdown: {{ data.total_spending|format_currency:data.filter_currency|default:'EGP' }} total">
     <div class="chart-donut" style="background: {% conic_gradient data.chart_segments %}">
         <div class="chart-donut-hole">
             {% with cur=data.filter_currency|default:"EGP" %}

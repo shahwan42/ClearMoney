@@ -176,6 +176,53 @@ Follow strict TDD — write failing tests FIRST, then implement just enough code
 - **Enum casting in SQL**: When filtering by enum columns (e.g., `currency`), cast the string: `WHERE currency = %s::currency_type`
 - **Transaction currency**: Never trust the form's currency field — the service layer overrides it from the account
 
+### ARIA Accessibility Standards
+
+All new and modified templates/JS MUST follow these accessibility rules:
+
+#### Interactive Components
+
+- **Bottom sheets/modals**: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to title, focus trap on open, restore focus on close
+- **Dropdown menus**: `aria-haspopup="menu"` and `aria-expanded` on trigger, `role="menu"` on container, `role="menuitem"` on items, arrow key navigation
+- **Toggle buttons** (e.g., dark mode): `aria-pressed="true|false"` or `role="switch"` with `aria-checked`
+- **Tabs/navigation**: `aria-current="page"` on active item
+
+#### HTMX Dynamic Content
+
+- Wrap HTMX swap targets with `aria-live="polite"` for non-urgent updates (form results, list changes)
+- Use `aria-live="assertive"` for errors and alerts
+- Add `aria-busy="true"` during loading, remove when complete
+- Manage focus after content swaps (e.g., focus first element in new content)
+
+#### Forms
+
+- Every `<input>`/`<select>` must have an associated `<label for="">` or `aria-label`
+- Error messages: `role="alert"` and linked via `aria-describedby` on the input
+- Invalid fields: `aria-invalid="true"` when validation fails
+- Radio groups: wrap in `<fieldset>` with `<legend>`
+
+#### Buttons & Links
+
+- Icon-only buttons MUST have `aria-label` (not just `title`)
+- Links that open in new tabs: indicate with `aria-label` or visible text
+
+#### Charts & Data Visualization
+
+- SVG charts: add `<title>` and `<desc>` elements, `role="img"`, `aria-label`
+- CSS-only charts (donut, bar): provide `aria-label` with data summary or a visually-hidden data table
+
+#### Touch Gestures
+
+- Swipe-to-delete, pull-to-refresh: always provide a keyboard/button alternative
+- Never make touch the only way to trigger an action
+
+#### Page Structure
+
+- `<html lang="en">`
+- Skip-to-content link as first focusable element
+- Use semantic landmarks: `<main>`, `<nav aria-label="...">`, `<header>`, `<footer>`
+- Notification/toast container: `aria-live="polite"` and `aria-atomic="true"`
+
 ### Startup Sequence (Background Jobs)
 
 `run_startup_jobs` management command runs: cleanup_sessions → process_recurring → reconcile_balances → refresh_views → take_snapshots

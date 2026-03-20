@@ -16,10 +16,11 @@
     }
     localStorage.setItem(THEME_KEY, theme);
 
-    // Update toggle button icon
+    // Update toggle button icon and aria-pressed state
     const btn = document.getElementById('theme-toggle');
     if (btn) {
       btn.innerHTML = theme === 'dark' ? '☀️' : '🌙';
+      btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
     }
   }
 
