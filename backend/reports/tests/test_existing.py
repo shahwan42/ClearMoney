@@ -17,11 +17,17 @@ from django.db import connection
 
 from conftest import SessionFactory, UserFactory
 from core.middleware import COOKIE_NAME
-from reports.views import (
-    _build_bar_chart,
-    _build_chart_segments,
-    _get_month_summary,
-    _get_spending_by_category,
+from reports.services import (
+    build_bar_chart as _build_bar_chart,
+)
+from reports.services import (
+    build_chart_segments as _build_chart_segments,
+)
+from reports.services import (
+    get_month_summary as _get_month_summary,
+)
+from reports.services import (
+    get_spending_by_category as _get_spending_by_category,
 )
 
 # ---------------------------------------------------------------------------

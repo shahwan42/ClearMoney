@@ -6,12 +6,20 @@ from typing import Any
 
 import pytest
 
-from reports.views import (
-    _build_bar_chart,
-    _build_chart_segments,
-    _get_month_summary,
-    _get_monthly_history,
-    _get_spending_by_category,
+from reports.services import (
+    build_bar_chart as _build_bar_chart,
+)
+from reports.services import (
+    build_chart_segments as _build_chart_segments,
+)
+from reports.services import (
+    get_month_summary as _get_month_summary,
+)
+from reports.services import (
+    get_monthly_history as _get_monthly_history,
+)
+from reports.services import (
+    get_spending_by_category as _get_spending_by_category,
 )
 from tests.factories import (
     AccountFactory,
