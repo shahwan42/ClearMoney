@@ -9,6 +9,7 @@ dependencies = [
     "django-htmx==1.27.0",
     "dj-database-url==3.1.0",
     "django-ratelimit==4.1.0",  # Rate limiting decorators — like Go's token bucket middleware
+    "whitenoise>=6.12.0",
 ]
 
 [dependency-groups]

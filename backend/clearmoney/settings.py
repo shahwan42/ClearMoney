@@ -1,18 +1,14 @@
 """
-Django settings for ClearMoney — Strangler Fig migration from Go.
+Django settings for ClearMoney.
 
-This Django project runs alongside the existing Go backend. Caddy routes
-specific paths (/settings, /reports, /export) to Django while Go handles
-the rest. Both apps share the same PostgreSQL database.
+Personal finance tracker — Django backend with PostgreSQL, HTMX, Tailwind CSS.
 
-Like Laravel's config/ directory or Django's standard settings.py,
-but configured to coexist with the Go app's schema.
+Like Laravel's config/ directory or Django's standard settings.py.
 
 Key differences from a standard Django project:
-- No django.contrib.admin/auth/sessions (Go owns auth)
-- All models use managed=False (Go owns schema via golang-migrate)
-- Custom middleware reads Go's session cookie instead of Django sessions
-- Static files served by Go, not Django
+- No django.contrib.admin/auth/sessions (custom magic link auth)
+- Custom middleware reads session cookie from shared sessions table
+- Static files served by whitenoise in production
 """
 
 import os
@@ -69,9 +65,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files in production (like Go's http.FileServer)
     "django.middleware.common.CommonMiddleware",
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
-    "core.middleware.GoSessionAuthMiddleware",  # Reads Go's session cookie
+    "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from shared sessions table
     "core.middleware.TimezoneMiddleware",  # Sets request.tz from APP_TIMEZONE env var
 ]
 
@@ -145,11 +142,19 @@ USE_TZ = True
 LANGUAGE_CODE = "en-us"
 
 # --- Static files ---
-# Django serves static files directly (CSS, JS, manifest, service worker).
-# The shared static/ directory lives at the project root, one level above backend/.
+# CSS, JS, manifest, service worker served by whitenoise in production.
+# In Docker, static/ is copied to backend/static_src/. In dev, it's at the project root.
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR.parent / "static"]
+_docker_static = BASE_DIR / "static_src"
+STATICFILES_DIRS = [_docker_static if _docker_static.exists() else BASE_DIR.parent / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

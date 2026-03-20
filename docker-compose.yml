@@ -24,11 +24,12 @@ services:
         condition: service_healthy  # Wait for PostgreSQL to be ready before starting the app
     restart: unless-stopped     # Auto-restart on crash (but not if manually stopped)
 
-  # Django application (Strangler Fig migration — serves /settings, /reports, /export).
+  # Django application — serves all routes.
   # Like running `python manage.py runserver` in a container, but with gunicorn for production.
   django:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"             # Map host:container ports (access at http://localhost:8000)
     env_file: .env              # Same env vars as Go app (DATABASE_URL, etc.)
@@ -43,7 +44,8 @@ services:
   # Like Laravel's scheduler (`php artisan schedule:run`) or Celery beat.
   django-cron:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     env_file: .env
     environment:
       - DATABASE_URL=postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable

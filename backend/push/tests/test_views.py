@@ -11,7 +11,6 @@ import pytest
 from django.test import Client
 from pytest_mock import MockerFixture
 
-
 # ---------------------------------------------------------------------------
 # GET /api/push/vapid-key
 # ---------------------------------------------------------------------------
