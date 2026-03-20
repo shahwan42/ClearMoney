@@ -19,4 +19,9 @@ if [ -n "$STAGED_PY" ]; then
         echo "❌ ruff lint check failed. Run: cd backend && uv run ruff check --fix ."
         exit 1
     fi
+
+    if ! DATABASE_URL="postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable" uv run mypy $BACKEND_PY 2>/dev/null; then
+        echo "❌ mypy type check failed. Run: cd backend && uv run mypy ."
+        exit 1
+    fi
 fi
