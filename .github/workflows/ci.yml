@@ -62,23 +62,20 @@ jobs:
           DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
         run: uv run pytest --cov --cov-fail-under=60
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Playwright
+      - name: Install e2e dependencies
         working-directory: e2e
-        run: |
-          npm ci
-          npx playwright install chromium --with-deps
+        run: uv sync
+
+      - name: Install Playwright browser
+        working-directory: e2e
+        run: uv run playwright install chromium --with-deps
 
       - name: Run e2e tests
         env:
           DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
           DISABLE_RATE_LIMIT: "true"
         working-directory: e2e
-        run: npx playwright test
+        run: uv run pytest -v
 
       - name: Upload Playwright report
         if: failure()

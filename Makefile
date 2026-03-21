@@ -21,7 +21,7 @@ lint:
 	cd backend && uv run ruff format --check .
 	cd backend && DATABASE_URL="$(DB_URL)" uv run mypy .
 
-# Run end-to-end tests using Playwright (Python).
+# Run end-to-end tests using Playwright.
 test-e2e:
 	cd e2e && DATABASE_URL="$(DB_URL)" uv run pytest -v
 

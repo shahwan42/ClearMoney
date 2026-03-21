@@ -8,5 +8,5 @@ playwright-report/
 test-results/
 .playwright/
 
-# Node (kept until Phase 6 removes these files)
+# Node (removed in Phase 6, entry kept to prevent accidental reinstall tracking)
 node_modules/
