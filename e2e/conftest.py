@@ -272,7 +272,8 @@ def create_transaction(
         payload["date"] = date
     resp = page.request.post("/api/transactions", data=payload)
     assert resp.ok, f"create_transaction failed: {resp.status} {resp.text()}"
-    return str(resp.json()["id"])
+    # POST /api/transactions returns {"transaction": {...}, "new_balance": X}
+    return str(resp.json()["transaction"]["id"])
 
 
 def seed_basic_data(page: Page) -> tuple[str, str]:
