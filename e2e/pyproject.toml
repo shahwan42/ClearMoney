@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-base_url = "http://localhost:8001"
+base_url = "http://localhost:8765"
 timeout = 30
 # Serial execution — tests share DB state
 # (equivalent to workers: 1 in playwright.config.ts)

@@ -1,0 +1,87 @@
+"""Monthly budget tests.
+
+Converts: 15-budgets.spec.ts
+
+UI notes:
+- Create form: regular POST on /budgets, button text "Create Budget"
+- Category select: first option is empty, then expense and income categories
+- Delete: regular POST form with button text "Delete", action="/budgets/{id}/delete"
+- Progress bar: .bg-gray-100.rounded-full.h-2.5
+- Remaining text: "X remaining" or "Over budget by X"
+- Empty state: "No budgets set. Create one above!"
+"""
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+import pytest
+from playwright.sync_api import Page, expect
+from conftest import (
+    _conn,
+    create_transaction,
+    ensure_auth,
+    get_category_id,
+    reset_database,
+)
+
+_account_id: str = ""
+_user_id: str = ""
+_category_id: str = ""
+
+
+@pytest.fixture(scope="module", autouse=True)
+def db() -> None:
+    """Reset DB and create test institution + account directly via SQL."""
+    global _account_id, _user_id, _category_id
+    _user_id = reset_database()
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO institutions (user_id, name, type, display_order)"
+                " VALUES (%s, 'Test Bank', 'bank', 0) RETURNING id",
+                (_user_id,),
+            )
+            inst_id = str(cur.fetchone()[0])  # type: ignore[index]
+            cur.execute(
+                "INSERT INTO accounts"
+                " (user_id, institution_id, name, type, currency, current_balance, initial_balance, display_order)"
+                " VALUES (%s, %s, 'Current', 'current', 'EGP', 10000, 10000, 0) RETURNING id",
+                (_user_id, inst_id),
+            )
+            _account_id = str(cur.fetchone()[0])  # type: ignore[index]
+        conn.commit()
+    _category_id = get_category_id("expense", _user_id)
+
+
+@pytest.fixture(autouse=True)
+def auth(page: Page) -> None:
+    ensure_auth(page)
+
+
+class TestBudgets:
+    def test_create_budget(self, page: Page) -> None:
+        page.goto("/budgets")
+        page.select_option('select[name="category_id"]', _category_id)
+        page.fill('input[name="monthly_limit"]', "2000")
+        with page.expect_response(
+            lambda r: "/budgets" in r.url and r.request.method == "POST"
+        ):
+            page.click('button[type="submit"]')
+        expect(page.locator("main")).to_contain_text("2,000")
+
+    def test_budget_progress_bar_visible(self, page: Page) -> None:
+        page.goto("/budgets")
+        expect(page.locator(".bg-gray-100.rounded-full")).to_be_visible()
+
+    def test_budget_shows_remaining_amount(self, page: Page) -> None:
+        create_transaction(page, _account_id, _category_id, "500", "expense")
+        page.goto("/budgets")
+        expect(page.locator("main")).to_contain_text("remaining")
+
+    def test_delete_budget(self, page: Page) -> None:
+        page.goto("/budgets")
+        # Use text selector — the create form says "Create Budget", delete says "Delete"
+        page.click('button:has-text("Delete")')
+        page.wait_for_load_state()
+        expect(page.locator("main")).not_to_contain_text("2,000")

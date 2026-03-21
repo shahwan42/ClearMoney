@@ -73,7 +73,7 @@ class TestBasicAuth:
     def test_valid_magic_link_logs_in(self, page: Page) -> None:
         token = create_auth_token(TEST_EMAIL, "login")
         page.goto(f"/auth/verify?token={token}")
-        expect(page).to_have_url(re.compile(r"^http://localhost:8001/$"))
+        expect(page).to_have_url(re.compile(r"^http://localhost:8765/$"))
 
     def test_invalid_token_shows_link_expired(self, page: Page) -> None:
         page.goto("/auth/verify?token=notarealtoken")
@@ -148,7 +148,7 @@ class TestMagicLinkVerification:
     def test_valid_token_creates_session_and_redirects(self, page: Page) -> None:
         token = create_auth_token(TEST_EMAIL, "login")
         page.goto(f"/auth/verify?token={token}")
-        expect(page).to_have_url(re.compile(r"^http://localhost:8001/$"))
+        expect(page).to_have_url(re.compile(r"^http://localhost:8765/$"))
 
     def test_expired_token_shows_link_expired(self, page: Page) -> None:
         token = secrets.token_urlsafe(32)
@@ -168,7 +168,7 @@ class TestMagicLinkVerification:
         token = create_auth_token(TEST_EMAIL, "login")
         # Use it once
         page.goto(f"/auth/verify?token={token}")
-        expect(page).to_have_url(re.compile(r"^http://localhost:8001/$"))
+        expect(page).to_have_url(re.compile(r"^http://localhost:8765/$"))
         # Clear and try again
         page.context.clear_cookies()
         page.goto(f"/auth/verify?token={token}")
@@ -186,7 +186,7 @@ class TestMagicLinkVerification:
         """Verifying a register token should seed 25 system categories."""
         token = create_auth_token("brand-new@example.com", "registration")
         page.goto(f"/auth/verify?token={token}")
-        expect(page).to_have_url(re.compile(r"^http://localhost:8001/$"))
+        expect(page).to_have_url(re.compile(r"^http://localhost:8765/$"))
         with _conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT id FROM users WHERE email = %s", ("brand-new@example.com",))
@@ -204,7 +204,7 @@ class TestLogout:
     def test_logout_clears_session_and_redirects(self, page: Page) -> None:
         ensure_auth(page)
         page.goto("/")
-        expect(page).to_have_url(re.compile(r"^http://localhost:8001/$"))
+        expect(page).to_have_url(re.compile(r"^http://localhost:8765/$"))
         page.request.post("/logout")
         page.goto("/")
         expect(page).to_have_url(re.compile(r"/login"))
@@ -216,7 +216,7 @@ class TestSessionContinuity:
     def test_session_works_across_pages(self, page: Page) -> None:
         ensure_auth(page)
         page.goto("/")
-        expect(page).to_have_url(re.compile(r"^http://localhost:8001/$"))
+        expect(page).to_have_url(re.compile(r"^http://localhost:8765/$"))
         page.goto("/settings")
         expect(page).to_have_url(re.compile(r"/settings"))
         expect(page.locator("main")).to_be_visible()
