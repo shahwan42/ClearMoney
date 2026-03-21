@@ -50,13 +50,14 @@ def django_server() -> Generator[None, None, None]:
     Polls /healthz until ready (max 30 s), then yields for the test session.
     Mirrors the webServer block in playwright.config.ts.
     """
-    # If a server is already running (e.g. developer ran `make run`), reuse it.
+    # If a healthy clearmoney server is already running, reuse it.
     try:
-        urllib.request.urlopen("http://localhost:8000/healthz")
-        yield
-        return
+        with urllib.request.urlopen("http://localhost:8000/healthz") as resp:
+            if resp.status == 200:
+                yield
+                return
     except OSError:
-        pass
+        pass  # Not running or unhealthy — start one below
 
     env = {
         **os.environ,
@@ -65,7 +66,7 @@ def django_server() -> Generator[None, None, None]:
         "DJANGO_SETTINGS_MODULE": "clearmoney.settings",
     }
     proc = subprocess.Popen(
-        ["uv", "run", "python", "manage.py", "runserver", "0.0.0.0:8000"],
+        ["uv", "run", "python", "manage.py", "runserver", "--noreload", "0.0.0.0:8000"],
         cwd=os.path.join(_BASE_DIR, "backend"),
         env=env,
         stdout=subprocess.DEVNULL,
@@ -102,15 +103,14 @@ def reset_database() -> str:
     """
     with _conn() as conn:
         with conn.cursor() as cur:
-            # Wipe all user-owned data in dependency order
+            # Wipe all user-owned data in dependency order (matches actual schema)
             cur.execute("""
                 TRUNCATE TABLE
-                    sessions, auth_tokens, transactions, accounts, institutions,
-                    categories, budgets, virtual_accounts,
-                    virtual_account_allocations, people, loans, investments,
-                    installment_plans, installment_payments, recurring_rules,
-                    salary_configs, daily_snapshots, account_snapshots,
-                    user_configs, push_subscriptions
+                    budgets, virtual_account_allocations, virtual_accounts,
+                    account_snapshots, daily_snapshots, transactions,
+                    accounts, institutions, categories, persons,
+                    recurring_rules, investments, installment_plans,
+                    sessions, auth_tokens, user_config, users
                 RESTART IDENTITY CASCADE
             """)
             # exchange_rate_log has no user_id — truncate separately
