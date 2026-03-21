@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-# Run ruff format + lint check on staged Python files
+# Run ruff format + lint check on staged Python files under backend/
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
 
-if [ -n "$STAGED_PY" ]; then
-    # Strip backend/ prefix for ruff (runs from backend/)
-    BACKEND_PY=$(echo "$STAGED_PY" | sed 's|^backend/||')
+# Only process files that live under backend/ (e2e/ uses its own tooling)
+BACKEND_PY=$(echo "$STAGED_PY" | grep '^backend/' | sed 's|^backend/||' || true)
 
+if [ -n "$BACKEND_PY" ]; then
     cd backend
 
     if ! uv run ruff format --check $BACKEND_PY 2>/dev/null; then

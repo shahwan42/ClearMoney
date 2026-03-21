@@ -1,4 +1,12 @@
-node_modules/
-test-results/
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Playwright artefacts
 playwright-report/
-*.last-run.json
+test-results/
+.playwright/
+
+# Node (kept until Phase 6 removes these files)
+node_modules/
