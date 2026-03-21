@@ -52,7 +52,7 @@ def django_server() -> Generator[None, None, None]:
     """
     # If a healthy clearmoney server is already running, reuse it.
     try:
-        with urllib.request.urlopen("http://localhost:8000/healthz") as resp:
+        with urllib.request.urlopen("http://localhost:8001/healthz", timeout=5) as resp:
             if resp.status == 200:
                 yield
                 return
@@ -66,7 +66,7 @@ def django_server() -> Generator[None, None, None]:
         "DJANGO_SETTINGS_MODULE": "clearmoney.settings",
     }
     proc = subprocess.Popen(
-        ["uv", "run", "python", "manage.py", "runserver", "--noreload", "0.0.0.0:8000"],
+        ["uv", "run", "python", "manage.py", "runserver", "--noreload", "0.0.0.0:8001"],
         cwd=os.path.join(_BASE_DIR, "backend"),
         env=env,
         stdout=subprocess.DEVNULL,
@@ -74,7 +74,7 @@ def django_server() -> Generator[None, None, None]:
     )
     for _ in range(30):
         try:
-            urllib.request.urlopen("http://localhost:8000/healthz")
+            urllib.request.urlopen("http://localhost:8001/healthz")
             break
         except OSError:
             time.sleep(1)
