@@ -177,8 +177,13 @@ def test_load_recent_transactions_empty(svc_data):
 def test_load_streak(svc_data):
     """Streak counts consecutive days with transactions."""
     today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    # How many days since Monday (inclusive of today)
+    days_in_week_so_far = today.weekday() + 1  # 1 on Mon, 7 on Sun
+    # Create one transaction per day from Monday through today
+    tx_dates = [monday + timedelta(days=i) for i in range(days_in_week_so_far)]
     with connection.cursor() as cursor:
-        for i in range(3):
+        for d in tx_dates:
             cursor.execute(
                 "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
                 " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
@@ -189,16 +194,16 @@ def test_load_streak(svc_data):
                     "expense",
                     100,
                     "EGP",
-                    today - timedelta(days=i),
+                    d,
                     -100,
                 ],
             )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     streak = svc._load_streak()
-    assert streak.consecutive_days == 3
+    assert streak.consecutive_days == days_in_week_so_far
     assert streak.active_today is True
-    assert streak.weekly_count >= 3
+    assert streak.weekly_count == days_in_week_so_far
 
 
 @pytest.mark.django_db
