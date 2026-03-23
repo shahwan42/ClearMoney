@@ -61,7 +61,6 @@ INSTALLED_APPS = [
     "virtual_accounts",  # Envelope budgeting
     "recurring",  # Recurring rules + sync
     "investments",  # Investment portfolio tracking
-    "installments",  # Installment/EMI plans
     "exchange_rates",  # Exchange rate history
     "push",  # Push notification API
     "categories",  # Category JSON API

@@ -81,9 +81,6 @@ Events use `entity.action` naming convention. Only IDs, types, and currencies ar
 | `investment.created` | InvestmentService | currency |
 | `investment.valuation_updated` | InvestmentService | id |
 | `investment.deleted` | InvestmentService | id |
-| `installment.created` | InstallmentService | account_id |
-| `installment.payment_recorded` | InstallmentService | id |
-| `installment.deleted` | InstallmentService | id |
 | `recurring.created` | RecurringService | frequency |
 | `recurring.confirmed` | RecurringService | id |
 | `recurring.skipped` | RecurringService | id |

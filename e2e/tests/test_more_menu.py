@@ -6,8 +6,8 @@ UI notes:
 - More button: <span>More</span> in bottom nav (onclick="openMoreMenu()")
 - Sheet: data-bottom-sheet="more-menu" (uses translate-y-full class when closed)
 - Overlay: id="more-menu-overlay"
-- Links: /people, /budgets, /virtual-accounts, /investments, /installments,
-  /recurring, /batch-entry, /fawry-cashout, /settings
+- Links: /people, /budgets, /virtual-accounts, /investments,
+  /recurring, /batch-entry, /salary, /fawry-cashout, /settings
 """
 import re
 import sys
@@ -22,7 +22,7 @@ from conftest import ensure_auth, reset_database
 # All navigation links expected in the more menu
 _MENU_LINKS = [
     "people", "budgets", "virtual-accounts", "investments",
-    "installments", "recurring", "batch-entry",
+    "recurring", "batch-entry", "salary",
     "fawry-cashout", "settings",
 ]
 

@@ -12,7 +12,7 @@ Personal finance tracker for managing multi-bank, multi-currency finances in Egy
 - **Budgets & virtual accounts** — monthly category limits with threshold alerts, envelope-style allocation
 - **People tracking** — loan/borrow/repay with debt payoff projections
 - **Recurring rules** — auto or manual-confirm recurring transactions
-- **Investments & installments** — portfolio tracking, payment plan progress
+- **Investments** — portfolio tracking
 - **PWA** — installable, offline-capable, push notifications
 - **CSS-only charts** — donut, bar, sparkline, and trend charts with no JS libraries
 
@@ -74,7 +74,6 @@ backend/                  # Django backend
   virtual_accounts/       # Envelope budgeting
   recurring/              # Recurring rules + sync
   investments/            # Investment tracking
-  installments/           # Installment/EMI plans
   exchange_rates/         # Exchange rates reference
   categories/             # Category JSON API
   push/                   # Push notification API

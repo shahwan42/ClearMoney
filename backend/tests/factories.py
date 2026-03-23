@@ -28,7 +28,6 @@ from core.models import (
     Category,
     DailySnapshot,
     ExchangeRateLog,
-    InstallmentPlan,
     Institution,
     Investment,
     Person,
@@ -216,23 +215,6 @@ class InvestmentFactory(factory.django.DjangoModelFactory):
     last_unit_price = 1
     currency = "EGP"
     last_updated = factory.LazyFunction(timezone.now)
-
-
-class InstallmentPlanFactory(factory.django.DjangoModelFactory):
-    """Factory for the installment_plans table."""
-
-    class Meta:
-        model = InstallmentPlan
-
-    id = factory.LazyFunction(uuid.uuid4)
-    user_id = factory.LazyFunction(uuid.uuid4)
-    account_id = factory.LazyFunction(uuid.uuid4)
-    description = factory.Sequence(lambda n: f"Plan {n}")
-    total_amount = 12000
-    num_installments = 12
-    monthly_amount = 1000
-    start_date = factory.LazyFunction(lambda: timezone.now().date())
-    remaining_installments = 12
 
 
 class RecurringRuleFactory(factory.django.DjangoModelFactory):

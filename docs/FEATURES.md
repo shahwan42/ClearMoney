@@ -31,7 +31,7 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 ### Account Features
 
 - **Edit via bottom sheet** — lazy-loaded form with pre-filled values, updates account details inline
-- **Delete with confirmation** — bottom sheet requires typing the account name to confirm. Cascades to transactions/snapshots, blocked by active installment plans
+- **Delete with confirmation** — bottom sheet requires typing the account name to confirm. Cascades to transactions and snapshots
 - Dormant toggle — keeps account in totals but de-prioritizes in UI
 - Reordering — drag-to-reorder within institutions
 - Health constraints — configurable min_balance and min_deposit rules (JSONB config)
@@ -123,13 +123,6 @@ Portfolio tracking for fund/stock holdings:
 - Record holdings with units and price per unit
 - Update valuations periodically
 - Total portfolio value = sum(units * current_price)
-
-## Installments
-
-Payment plan tracking:
-- Define total amount, number of installments, start date
-- Track payments made vs remaining
-- Progress indicator
 
 ## Exchange Rates
 
