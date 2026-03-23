@@ -7,7 +7,7 @@ Personal finance tracker for managing multi-bank, multi-currency finances in Egy
 - **Unified dashboard** — net worth, spending trends, budget progress, and account health at a glance
 - **Multi-bank support** — HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, and more
 - **Dual currency** — EGP and USD with exchange rate tracking
-- **Transaction entry** — expenses, income, transfers, currency exchanges, batch entry, salary distribution
+- **Transaction entry** — expenses, income, transfers, currency exchanges, batch entry
 - **Credit card intelligence** — statement views, billing cycles, utilization tracking, interest-free period alerts
 - **Budgets & virtual accounts** — monthly category limits with threshold alerts, envelope-style allocation
 - **People tracking** — loan/borrow/repay with debt payoff projections
@@ -73,7 +73,6 @@ backend/                  # Django backend
   budgets/                # Budget management
   virtual_accounts/       # Envelope budgeting
   recurring/              # Recurring rules + sync
-  salary/                 # Salary wizard
   investments/            # Investment tracking
   installments/           # Installment/EMI plans
   exchange_rates/         # Exchange rates reference

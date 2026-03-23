@@ -47,7 +47,6 @@ source = [
     "budgets",
     "virtual_accounts",
     "recurring",
-    "salary",
     "investments",
     "installments",
     "exchange_rates",
