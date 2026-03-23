@@ -3,7 +3,7 @@
 # Usage: make <target>
 #
 # Like: composer scripts, manage.py commands, or package.json scripts.
-.PHONY: run test test-e2e lint clean up down logs reconcile reconcile-fix deploy deploy-logs shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check
+.PHONY: run test test-fast test-e2e lint clean up down logs reconcile reconcile-fix deploy deploy-logs shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check
 
 DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable
 
@@ -14,6 +14,10 @@ run:
 # Run Django tests with verbose output (rate limiting disabled).
 test:
 	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest -v
+
+# Run Django tests in parallel (rate limiting disabled).
+test-fast:
+	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest -v -n auto
 
 # Run linting (ruff + ruff format check + mypy).
 lint:
