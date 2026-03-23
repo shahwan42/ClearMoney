@@ -87,6 +87,12 @@ def auth_client(client: Client, auth_user: tuple[str, str, str]) -> Client:
     return client
 
 
+@pytest.fixture(autouse=True)
+def _disable_rate_limit(settings: Any) -> None:
+    """Unit tests should not be rate-limited."""
+    settings.RATELIMIT_ENABLE = False
+
+
 def set_auth_cookie(c: Client, token: str) -> Client:
     """Set session cookie on a Django test client. Import in test files.
 
