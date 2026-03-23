@@ -60,7 +60,6 @@ INSTALLED_APPS = [
     "budgets",  # Budget management
     "virtual_accounts",  # Envelope budgeting
     "recurring",  # Recurring rules + sync
-    "salary",  # Salary distribution wizard
     "investments",  # Investment portfolio tracking
     "installments",  # Installment/EMI plans
     "exchange_rates",  # Exchange rate history

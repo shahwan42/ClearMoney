@@ -88,7 +88,6 @@ clear-money/
 |   +-- budgets/                      # Budget management
 |   +-- virtual_accounts/             # Envelope budgeting
 |   +-- recurring/                    # Recurring rules + sync
-|   +-- salary/                       # Salary wizard
 |   +-- investments/                  # Investment tracking
 |   +-- installments/                 # Installment/EMI plans
 |   +-- exchange_rates/               # Exchange rates reference
