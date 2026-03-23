@@ -422,37 +422,6 @@ class Investment(models.Model):
         return float(self.units) * float(self.last_unit_price)
 
 
-class InstallmentPlan(models.Model):
-    """Purchase split into monthly payments (e.g., E24,000 / 12 months).
-
-    remaining_installments is decremented by the service layer each month.
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    account = models.ForeignKey(
-        Account, on_delete=models.PROTECT, db_column="account_id", related_name="+"
-    )
-    description = models.CharField(max_length=255)
-    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    num_installments = models.IntegerField()
-    monthly_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    start_date = models.DateField()
-    remaining_installments = models.IntegerField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "installment_plans"
-
-    def is_complete(self) -> bool:
-        """All payments made."""
-        return self.remaining_installments <= 0
-
-    def paid_installments(self) -> int:
-        return self.num_installments - self.remaining_installments
-
-
 class DailySnapshot(models.Model):
     """Append-only daily financial state. Used for sparklines and MoM comparisons."""
 

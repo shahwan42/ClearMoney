@@ -194,7 +194,6 @@ Create a new account via a slide-up bottom sheet on the accounts page. Click "+ 
 Delete an account via a confirmation bottom sheet on the detail page. The user must type the account name to enable the delete button — prevents accidental deletion of accounts with transaction history.
 
 - **Cascading deletes:** Transactions and snapshots are automatically removed (ON DELETE CASCADE)
-- **Blocked by installment plans:** If the account has active installment plans, a friendly error is shown in the sheet (FK RESTRICT constraint)
 - **Recurring rule cleanup:** The service layer deletes any recurring rules referencing the account before removal
 
 ### Linked Virtual Accounts

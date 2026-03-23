@@ -6,7 +6,6 @@ import pytest
 
 from tests.factories import (
     AccountFactory,
-    InstallmentPlanFactory,
     InstitutionFactory,
     InvestmentFactory,
     UserFactory,
@@ -113,34 +112,3 @@ class TestInvestmentValuation:
             last_unit_price=Decimal("50.0"),
         )
         assert inv.valuation() == 0.0
-
-
-@pytest.mark.django_db
-class TestInstallmentPlanMethods:
-    """InstallmentPlan.is_complete() and .paid_installments()"""
-
-    def test_not_complete(self) -> None:
-        user = UserFactory()
-        inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id)
-        plan = InstallmentPlanFactory(
-            user_id=user.id,
-            account_id=account.id,
-            num_installments=12,
-            remaining_installments=6,
-        )
-        assert plan.is_complete() is False
-        assert plan.paid_installments() == 6
-
-    def test_complete(self) -> None:
-        user = UserFactory()
-        inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id)
-        plan = InstallmentPlanFactory(
-            user_id=user.id,
-            account_id=account.id,
-            num_installments=12,
-            remaining_installments=0,
-        )
-        assert plan.is_complete() is True
-        assert plan.paid_installments() == 12

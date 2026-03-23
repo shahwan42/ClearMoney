@@ -492,20 +492,11 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["DELETE", "POST"])
 def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """DELETE /accounts/{id}/delete — delete account.
-
-    Checks for installment FK RESTRICT before deleting.
-    """
+    """DELETE /accounts/{id}/delete — delete account."""
     acc_svc = AccountService(request.user_id, request.tz)
     error = acc_svc.delete(str(id))
 
     if error:
-        if "installment" in error.lower():
-            return render_htmx_result(
-                "error",
-                "Cannot delete: active installment plans exist",
-                "Delete or complete the installment plans first, then try again.",
-            )
         if "not found" in error.lower():
             return HttpResponse("Account not found", status=404)
         return render_htmx_result("error", "Failed to delete account", "")

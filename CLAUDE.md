@@ -51,7 +51,6 @@ backend/                  # Django backend (sole backend)
   virtual_accounts/       # Envelope budgeting
   recurring/              # Recurring rules + sync
   investments/            # Investment tracking
-  installments/           # Installment/EMI plans
   exchange_rates/         # Exchange rates reference page
   categories/             # Category JSON API
   push/                   # Push notification API

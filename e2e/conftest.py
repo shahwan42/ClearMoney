@@ -109,7 +109,7 @@ def reset_database() -> str:
                     budgets, virtual_account_allocations, virtual_accounts,
                     account_snapshots, daily_snapshots, transactions,
                     accounts, institutions, categories, persons,
-                    recurring_rules, investments, installment_plans,
+                    recurring_rules, investments,
                     sessions, auth_tokens, user_config, users
                 RESTART IDENTITY CASCADE
             """)

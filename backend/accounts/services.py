@@ -402,7 +402,7 @@ class AccountService:
     def delete(self, account_id: str) -> str | None:
         """Delete account. Returns error message or None on success.
 
-        Checks for installment FK RESTRICT, cleans up recurring rules (BUG-012).
+        Cleans up recurring rules referencing this account (BUG-012).
         """
         try:
             with connection.cursor() as cursor:
@@ -423,10 +423,7 @@ class AccountService:
                     return "account not found"
                 logger.info("account.deleted id=%s user=%s", account_id, self.user_id)
                 return None
-        except IntegrityError as e:
-            error_str = str(e)
-            if "23503" in error_str or "installment" in error_str.lower():
-                return "Cannot delete: active installment plans exist"
+        except IntegrityError:
             raise
 
     def toggle_dormant(self, account_id: str) -> bool:

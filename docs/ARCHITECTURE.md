@@ -89,7 +89,6 @@ clear-money/
 |   +-- virtual_accounts/             # Envelope budgeting
 |   +-- recurring/                    # Recurring rules + sync
 |   +-- investments/                  # Investment tracking
-|   +-- installments/                 # Installment/EMI plans
 |   +-- exchange_rates/               # Exchange rates reference
 |   +-- categories/                   # Category JSON API
 |   +-- push/                         # Push notification API
