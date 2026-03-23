@@ -1,0 +1,33 @@
+{
+  "name": "ClearMoney Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "django",
+  "workspaceFolder": "/workspace",
+
+  // VS Code forwards port 8000 to the host so `http://localhost:8000` works in the browser.
+  "forwardPorts": [8000],
+
+  // On first container creation: install Python deps for backend + e2e, install Chromium
+  // for Playwright, then apply any pending DB migrations.
+  "postCreateCommand": "cd /workspace/backend && uv sync && cd /workspace/e2e && uv sync && uv run playwright install chromium --with-deps && cd /workspace && make migrate",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.mypy-type-checker",
+        "charliermarsh.ruff",
+        "bradlc.vscode-tailwindcss",
+        "ms-playwright.playwright"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspace/backend/.venv/bin/python",
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "editor.formatOnSave": true
+      }
+    }
+  }
+}

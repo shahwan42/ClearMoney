@@ -1,0 +1,45 @@
+services:
+  django:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      # Isolate Linux .venv from the macOS host venv — they're incompatible binaries.
+      - devcontainer-backend-venv:/workspace/backend/.venv
+      - devcontainer-e2e-venv:/workspace/e2e/.venv
+    environment:
+      # Override Makefile's DB_URL ?= default so all `make` targets hit the container DB.
+      DB_URL: postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable
+      DATABASE_URL: postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable
+      ENV: development
+      DISABLE_RATE_LIMIT: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - clearmoney
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: clearmoney
+      POSTGRES_PASSWORD: clearmoney
+      POSTGRES_DB: clearmoney
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clearmoney -d clearmoney"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clearmoney
+
+volumes:
+  pgdata:
+  devcontainer-backend-venv:
+  devcontainer-e2e-venv:
+
+networks:
+  clearmoney:
