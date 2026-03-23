@@ -1,9 +1,8 @@
 """
 Person service layer — business logic for people ledger (loans and debts).
 
-Like Laravel's PersonService — validates input, executes atomic SQL,
-logs mutations. Uses raw SQL via connection.cursor() because models are
-managed=False and queries use enum casts.
+Like Laravel's PersonService — validates input, executes atomic operations,
+logs mutations.
 
 CRITICAL INVARIANTS:
 - Currency is ALWAYS overridden from the account record (never trust form input).
@@ -15,15 +14,83 @@ CRITICAL INVARIANTS:
 import logging
 import uuid
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import connection, transaction
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone as django_tz
+
+from core.models import Account, Person, Transaction
 
 logger = logging.getLogger(__name__)
 
-# Columns returned by person SELECT queries
-_PERSON_COLS = [
+
+def _person_to_dict(p: dict[str, Any]) -> dict[str, Any]:
+    """Convert a .values() row to the expected dict format."""
+    return {
+        "id": str(p["id"]),
+        "user_id": str(p["user_id"]),
+        "name": p["name"],
+        "note": p["note"],
+        "net_balance": float(p["net_balance"]),
+        "net_balance_egp": float(p["net_balance_egp"]),
+        "net_balance_usd": float(p["net_balance_usd"]),
+        "created_at": p["created_at"],
+        "updated_at": p["updated_at"],
+    }
+
+
+def _person_instance_to_dict(p: Person) -> dict[str, Any]:
+    """Convert a Person model instance to a dict."""
+    return {
+        "id": str(p.id),
+        "user_id": str(p.user_id),
+        "name": p.name,
+        "note": p.note,
+        "net_balance": float(p.net_balance),
+        "net_balance_egp": float(p.net_balance_egp),
+        "net_balance_usd": float(p.net_balance_usd),
+        "created_at": p.created_at,
+        "updated_at": p.updated_at,
+    }
+
+
+def _tx_to_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """Convert a transaction .values() row to a dict."""
+    return {
+        "id": str(row["id"]),
+        "type": row["type"],
+        "amount": float(row["amount"]),
+        "currency": row["currency"],
+        "account_id": str(row["account_id"]),
+        "person_id": str(row["person_id"]) if row["person_id"] else None,
+        "note": row["note"],
+        "date": row["date"],
+        "balance_delta": float(row["balance_delta"]),
+        "created_at": row["created_at"],
+    }
+
+
+def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
+    """Convert a Transaction model instance to a dict."""
+    return {
+        "id": str(tx.id),
+        "type": tx.type,
+        "amount": float(tx.amount),
+        "currency": tx.currency,
+        "account_id": str(tx.account_id),
+        "person_id": str(tx.person_id) if tx.person_id else None,
+        "note": tx.note,
+        "date": tx.date,
+        "balance_delta": float(tx.balance_delta),
+        "created_at": tx.created_at,
+    }
+
+
+# Fields returned in person dicts
+_PERSON_FIELDS = (
     "id",
     "user_id",
     "name",
@@ -33,10 +100,10 @@ _PERSON_COLS = [
     "net_balance_usd",
     "created_at",
     "updated_at",
-]
+)
 
-# Columns returned by transaction SELECT queries (loan-related)
-_TX_COLS = [
+# Fields returned in transaction dicts
+_TX_FIELDS = (
     "id",
     "type",
     "amount",
@@ -47,38 +114,7 @@ _TX_COLS = [
     "date",
     "balance_delta",
     "created_at",
-]
-
-
-def _row_to_person(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a person SQL row to a dict."""
-    return {
-        "id": str(row[0]),
-        "user_id": str(row[1]),
-        "name": row[2],
-        "note": row[3],
-        "net_balance": float(row[4]),
-        "net_balance_egp": float(row[5]),
-        "net_balance_usd": float(row[6]),
-        "created_at": row[7],
-        "updated_at": row[8],
-    }
-
-
-def _row_to_tx(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a loan transaction SQL row to a dict."""
-    return {
-        "id": str(row[0]),
-        "type": row[1],
-        "amount": float(row[2]),
-        "currency": row[3],
-        "account_id": str(row[4]),
-        "person_id": str(row[5]) if row[5] else None,
-        "note": row[6],
-        "date": row[7],
-        "balance_delta": float(row[8]),
-        "created_at": row[9],
-    }
+)
 
 
 class PersonService:
@@ -92,53 +128,38 @@ class PersonService:
         self.user_id = user_id
         self.tz = tz
 
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return Person.objects.for_user(self.user_id)
+
     # -----------------------------------------------------------------------
     # CRUD
     # -----------------------------------------------------------------------
 
     def get_all(self) -> list[dict[str, Any]]:
         """List all persons for the user, ordered by name."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT id, user_id, name, note, net_balance,
-                          net_balance_egp, net_balance_usd, created_at, updated_at
-                   FROM persons WHERE user_id = %s ORDER BY name""",
-                [self.user_id],
-            )
-            return [_row_to_person(row) for row in cursor.fetchall()]
+        rows = self._qs().order_by("name").values(*_PERSON_FIELDS)
+        return [_person_to_dict(row) for row in rows]
 
     def get_by_id(self, person_id: str) -> dict[str, Any] | None:
         """Fetch a single person by ID. Returns None if not found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT id, user_id, name, note, net_balance,
-                          net_balance_egp, net_balance_usd, created_at, updated_at
-                   FROM persons WHERE id = %s AND user_id = %s""",
-                [person_id, self.user_id],
-            )
-            row = cursor.fetchone()
+        row = self._qs().filter(id=person_id).values(*_PERSON_FIELDS).first()
         if not row:
             return None
-        return _row_to_person(row)
+        return _person_to_dict(row)
 
     def create(self, name: str) -> dict[str, Any]:
         """Create a new person. Name is required."""
         name = name.strip()
         if not name:
             raise ValueError("name is required")
-        person_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """INSERT INTO persons (id, user_id, name)
-                   VALUES (%s, %s, %s)
-                   RETURNING id, user_id, name, note, net_balance,
-                             net_balance_egp, net_balance_usd, created_at, updated_at""",
-                [person_id, self.user_id, name],
-            )
-            row = cursor.fetchone()
-        assert row is not None
+        person = Person.objects.create(
+            id=uuid.uuid4(),
+            user_id=self.user_id,
+            name=name,
+        )
         logger.info("person.created user=%s", self.user_id)
-        return _row_to_person(row)
+        return _person_instance_to_dict(person)
 
     def update(
         self, person_id: str, name: str, note: str | None = None
@@ -147,28 +168,20 @@ class PersonService:
         name = name.strip()
         if not name:
             raise ValueError("name is required")
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """UPDATE persons SET name = %s, note = %s, updated_at = NOW()
-                   WHERE id = %s AND user_id = %s
-                   RETURNING id, user_id, name, note, net_balance,
-                             net_balance_egp, net_balance_usd, created_at, updated_at""",
-                [name, note, person_id, self.user_id],
-            )
-            row = cursor.fetchone()
-        if not row:
+        updated = (
+            self._qs()
+            .filter(id=person_id)
+            .update(name=name, note=note, updated_at=django_tz.now())
+        )
+        if not updated:
             return None
         logger.info("person.updated user=%s person_id=%s", self.user_id, person_id)
-        return _row_to_person(row)
+        return self.get_by_id(person_id)
 
     def delete(self, person_id: str) -> bool:
         """Delete a person. Returns True if deleted, False if not found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM persons WHERE id = %s AND user_id = %s",
-                [person_id, self.user_id],
-            )
-            deleted: bool = cursor.rowcount > 0
+        count, _ = self._qs().filter(id=person_id).delete()
+        deleted: bool = count > 0
         if deleted:
             logger.info("person.deleted user=%s person_id=%s", self.user_id, person_id)
         return deleted
@@ -179,20 +192,19 @@ class PersonService:
 
     def _get_account(self, account_id: str) -> dict[str, Any]:
         """Fetch account record. Raises ValueError if not found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT id, name, currency, current_balance
-                   FROM accounts WHERE id = %s AND user_id = %s""",
-                [account_id, self.user_id],
-            )
-            row = cursor.fetchone()
+        row = (
+            Account.objects.for_user(self.user_id)
+            .filter(id=account_id)
+            .values("id", "name", "currency", "current_balance")
+            .first()
+        )
         if not row:
             raise ValueError(f"Account not found: {account_id}")
         return {
-            "id": str(row[0]),
-            "name": row[1],
-            "currency": row[2],
-            "current_balance": float(row[3]),
+            "id": str(row["id"]),
+            "name": row["name"],
+            "currency": row["currency"],
+            "current_balance": float(row["current_balance"]),
         }
 
     def _balance_col_for_currency(self, currency: str) -> str:
@@ -212,8 +224,8 @@ class PersonService:
     ) -> dict[str, Any]:
         """Record a loan (lend or borrow) and atomically update balances.
 
-        loan_out: I lent money → account_delta = -amount, person_delta = +amount
-        loan_in:  I borrowed   → account_delta = +amount, person_delta = -amount
+        loan_out: I lent money -> account_delta = -amount, person_delta = +amount
+        loan_in:  I borrowed   -> account_delta = +amount, person_delta = -amount
         """
         if amount <= 0:
             raise ValueError("amount must be positive")
@@ -237,61 +249,45 @@ class PersonService:
         if isinstance(tx_date, str):
             tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
 
-        tx_id = str(uuid.uuid4())
+        tx_id = uuid.uuid4()
         balance_col = self._balance_col_for_currency(currency)
 
         with transaction.atomic():
-            with connection.cursor() as cursor:
-                # 1. Create transaction
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        person_id, note, date, balance_delta)
-                       VALUES (%s, %s, %s::transaction_type, %s, %s::currency_type,
-                               %s, %s, %s, %s, %s)
-                       RETURNING id, type, amount, currency, account_id,
-                                 person_id, note, date, balance_delta, created_at""",
-                    [
-                        tx_id,
-                        self.user_id,
-                        loan_type,
-                        amount,
-                        currency,
-                        account_id,
-                        person_id,
-                        note,
-                        tx_date,
-                        account_delta,
-                    ],
-                )
-                row = cursor.fetchone()
+            # 1. Create transaction
+            tx = Transaction.objects.create(
+                id=tx_id,
+                user_id=self.user_id,
+                type=loan_type,
+                amount=amount,
+                currency=currency,
+                account_id=account_id,
+                person_id=person_id,
+                note=note,
+                date=tx_date,
+                balance_delta=account_delta,
+            )
 
-                # 2. Update account balance
-                cursor.execute(
-                    """UPDATE accounts
-                       SET current_balance = current_balance + %s, updated_at = NOW()
-                       WHERE id = %s AND user_id = %s""",
-                    [account_delta, account_id, self.user_id],
-                )
+            # 2. Atomic F() update — avoids race conditions on concurrent balance changes
+            Account.objects.for_user(self.user_id).filter(id=account_id).update(
+                current_balance=F("current_balance") + Decimal(str(account_delta)),
+                updated_at=django_tz.now(),
+            )
 
-                # 3. Update person balance (currency-specific + legacy)
-                cursor.execute(
-                    f"""UPDATE persons
-                       SET {balance_col} = {balance_col} + %s,
-                           net_balance = net_balance + %s,
-                           updated_at = NOW()
-                       WHERE id = %s AND user_id = %s""",
-                    [person_delta, person_delta, person_id, self.user_id],
-                )
+            # 3. Dynamic column via **kwargs — balance_col resolves to
+            # "net_balance_egp" or "net_balance_usd" based on account currency
+            Person.objects.for_user(self.user_id).filter(id=person_id).update(
+                **{balance_col: F(balance_col) + Decimal(str(person_delta))},
+                net_balance=F("net_balance") + Decimal(str(person_delta)),
+                updated_at=django_tz.now(),
+            )
 
-        assert row is not None
         logger.info(
             "person.loan_recorded type=%s currency=%s user=%s",
             loan_type,
             currency,
             self.user_id,
         )
-        return _row_to_tx(row)
+        return _tx_instance_to_dict(tx)
 
     def record_repayment(
         self,
@@ -304,8 +300,8 @@ class PersonService:
         """Record a loan repayment and atomically update balances.
 
         Direction determined by current balance:
-        - Positive (they owe me): money enters my account → account_delta = +amount
-        - Negative (I owe them): money leaves my account → account_delta = -amount
+        - Positive (they owe me): money enters my account -> account_delta = +amount
+        - Negative (I owe them): money leaves my account -> account_delta = -amount
         """
         if amount <= 0:
             raise ValueError("amount must be positive")
@@ -329,11 +325,11 @@ class PersonService:
         )
 
         if relevant_balance > 0:
-            # They owe me → they're paying back → money enters my account
+            # They owe me -> they're paying back -> money enters my account
             account_delta = amount
             person_delta = -amount
         else:
-            # I owe them → I'm paying back → money leaves my account
+            # I owe them -> I'm paying back -> money leaves my account
             account_delta = -amount
             person_delta = amount
 
@@ -341,58 +337,43 @@ class PersonService:
         if isinstance(tx_date, str):
             tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
 
-        tx_id = str(uuid.uuid4())
+        tx_id = uuid.uuid4()
 
         with transaction.atomic():
-            with connection.cursor() as cursor:
-                # 1. Create loan_repayment transaction
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        person_id, note, date, balance_delta)
-                       VALUES (%s, %s, 'loan_repayment'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s)
-                       RETURNING id, type, amount, currency, account_id,
-                                 person_id, note, date, balance_delta, created_at""",
-                    [
-                        tx_id,
-                        self.user_id,
-                        amount,
-                        currency,
-                        account_id,
-                        person_id,
-                        note,
-                        tx_date,
-                        account_delta,
-                    ],
-                )
-                row = cursor.fetchone()
+            # 1. Create loan_repayment transaction
+            tx = Transaction.objects.create(
+                id=tx_id,
+                user_id=self.user_id,
+                type="loan_repayment",
+                amount=amount,
+                currency=currency,
+                account_id=account_id,
+                person_id=person_id,
+                note=note,
+                date=tx_date,
+                balance_delta=account_delta,
+            )
 
-                # 2. Update account balance
-                cursor.execute(
-                    """UPDATE accounts
-                       SET current_balance = current_balance + %s, updated_at = NOW()
-                       WHERE id = %s AND user_id = %s""",
-                    [account_delta, account_id, self.user_id],
-                )
+            # 2. Atomic F() update — avoids race conditions on concurrent balance changes
+            Account.objects.for_user(self.user_id).filter(id=account_id).update(
+                current_balance=F("current_balance") + Decimal(str(account_delta)),
+                updated_at=django_tz.now(),
+            )
 
-                # 3. Update person balance (currency-specific + legacy)
-                cursor.execute(
-                    f"""UPDATE persons
-                       SET {balance_col} = {balance_col} + %s,
-                           net_balance = net_balance + %s,
-                           updated_at = NOW()
-                       WHERE id = %s AND user_id = %s""",
-                    [person_delta, person_delta, person_id, self.user_id],
-                )
+            # 3. Dynamic column via **kwargs — balance_col resolves to
+            # "net_balance_egp" or "net_balance_usd" based on account currency
+            Person.objects.for_user(self.user_id).filter(id=person_id).update(
+                **{balance_col: F(balance_col) + Decimal(str(person_delta))},
+                net_balance=F("net_balance") + Decimal(str(person_delta)),
+                updated_at=django_tz.now(),
+            )
 
-        assert row is not None
         logger.info(
             "person.repayment_recorded currency=%s user=%s",
             currency,
             self.user_id,
         )
-        return _row_to_tx(row)
+        return _tx_instance_to_dict(tx)
 
     # -----------------------------------------------------------------------
     # Read operations
@@ -402,18 +383,16 @@ class PersonService:
         self, person_id: str, limit: int = 200
     ) -> list[dict[str, Any]]:
         """Fetch loan/repayment transactions for a person."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT id, type, amount, currency, account_id,
-                          person_id, note, date, balance_delta, created_at
-                   FROM transactions
-                   WHERE user_id = %s AND person_id = %s
-                     AND type IN ('loan_out', 'loan_in', 'loan_repayment')
-                   ORDER BY date DESC, created_at DESC
-                   LIMIT %s""",
-                [self.user_id, person_id, limit],
+        rows = (
+            Transaction.objects.for_user(self.user_id)
+            .filter(
+                person_id=person_id,
+                type__in=["loan_out", "loan_in", "loan_repayment"],
             )
-            return [_row_to_tx(row) for row in cursor.fetchall()]
+            .order_by("-date", "-created_at")
+            .values(*_TX_FIELDS)[:limit]
+        )
+        return [_tx_to_dict(row) for row in rows]
 
     def get_debt_summary(self, person_id: str) -> dict[str, Any] | None:
         """Compute full debt/loan summary for a person.

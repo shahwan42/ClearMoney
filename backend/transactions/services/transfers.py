@@ -7,9 +7,14 @@ TransactionServiceBase (self._get_account, self.get_by_id, self.user_id, etc.).
 import logging
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
-from django.db import connection, transaction
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone as django_tz
+
+from core.models import Account, ExchangeRateLog, Transaction
 
 from .utils import calculate_instapay_fee, resolve_exchange_fields
 
@@ -56,71 +61,55 @@ class TransferMixin:
         if isinstance(tx_date, str):
             tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
+        uid = self.user_id  # type: ignore[attr-defined]
         debit_id = str(uuid.uuid4())
         credit_id = str(uuid.uuid4())
 
         with transaction.atomic():
-            with connection.cursor() as cursor:
-                # Debit leg (source)
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, note, date, balance_delta)
-                       VALUES (%s, %s, 'transfer'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [
-                        debit_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        amount,
-                        actual_currency,
-                        source_id,
-                        dest_id,
-                        note,
-                        tx_date,
-                        -amount,
-                    ],
-                )
-                # Credit leg (destination)
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, note, date, balance_delta)
-                       VALUES (%s, %s, 'transfer'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [
-                        credit_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        amount,
-                        actual_currency,
-                        dest_id,
-                        source_id,
-                        note,
-                        tx_date,
-                        amount,
-                    ],
-                )
-                # Link bidirectionally
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [credit_id, debit_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [debit_id, credit_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                # Update balances
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance - %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [amount, source_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance + %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [amount, dest_id, self.user_id],  # type: ignore[attr-defined]
-                )
+            # Debit leg (source)
+            Transaction.objects.create(
+                id=debit_id,
+                user_id=uid,
+                type="transfer",
+                amount=amount,
+                currency=actual_currency,
+                account_id=source_id,
+                counter_account_id=dest_id,
+                note=note,
+                date=tx_date,
+                balance_delta=-amount,
+            )
+            # Credit leg (destination)
+            Transaction.objects.create(
+                id=credit_id,
+                user_id=uid,
+                type="transfer",
+                amount=amount,
+                currency=actual_currency,
+                account_id=dest_id,
+                counter_account_id=source_id,
+                note=note,
+                date=tx_date,
+                balance_delta=amount,
+            )
+            # Link bidirectionally
+            Transaction.objects.for_user(uid).filter(id=debit_id).update(
+                linked_transaction_id=credit_id
+            )
+            Transaction.objects.for_user(uid).filter(id=credit_id).update(
+                linked_transaction_id=debit_id
+            )
+            # Atomic F() updates — two separate queries to avoid deadlocks
+            # on concurrent transfers between the same accounts
+            now = django_tz.now()
+            Account.objects.for_user(uid).filter(id=source_id).update(
+                current_balance=F("current_balance") - Decimal(str(amount)),
+                updated_at=now,
+            )
+            Account.objects.for_user(uid).filter(id=dest_id).update(
+                current_balance=F("current_balance") + Decimal(str(amount)),
+                updated_at=now,
+            )
 
         logger.info(
             "transaction.transfer_created currency=%s source=%s dest=%s user=%s",
@@ -172,92 +161,69 @@ class TransferMixin:
         if note:
             instapay_note = f"{note} (InstaPay)"
 
+        uid = self.user_id  # type: ignore[attr-defined]
         debit_id = str(uuid.uuid4())
         credit_id = str(uuid.uuid4())
         fee_tx_id = str(uuid.uuid4())
 
         with transaction.atomic():
-            with connection.cursor() as cursor:
-                # Debit leg
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, note, fee_amount, date, balance_delta)
-                       VALUES (%s, %s, 'transfer'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s, %s)""",
-                    [
-                        debit_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        amount,
-                        actual_currency,
-                        source_id,
-                        dest_id,
-                        instapay_note,
-                        fee,
-                        tx_date,
-                        -amount,
-                    ],
-                )
-                # Credit leg
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, note, date, balance_delta)
-                       VALUES (%s, %s, 'transfer'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [
-                        credit_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        amount,
-                        actual_currency,
-                        dest_id,
-                        source_id,
-                        instapay_note,
-                        tx_date,
-                        amount,
-                    ],
-                )
-                # Link
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [credit_id, debit_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [debit_id, credit_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                # Fee transaction (separate expense)
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        category_id, note, date, balance_delta)
-                       VALUES (%s, %s, 'expense'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [
-                        fee_tx_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        fee,
-                        actual_currency,
-                        source_id,
-                        fees_category_id,
-                        "InstaPay fee",
-                        tx_date,
-                        -fee,
-                    ],
-                )
-                # Update balances: source loses amount + fee
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance - %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [amount + fee, source_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance + %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [amount, dest_id, self.user_id],  # type: ignore[attr-defined]
-                )
+            # Debit leg
+            Transaction.objects.create(
+                id=debit_id,
+                user_id=uid,
+                type="transfer",
+                amount=amount,
+                currency=actual_currency,
+                account_id=source_id,
+                counter_account_id=dest_id,
+                note=instapay_note,
+                fee_amount=fee,
+                date=tx_date,
+                balance_delta=-amount,
+            )
+            # Credit leg
+            Transaction.objects.create(
+                id=credit_id,
+                user_id=uid,
+                type="transfer",
+                amount=amount,
+                currency=actual_currency,
+                account_id=dest_id,
+                counter_account_id=source_id,
+                note=instapay_note,
+                date=tx_date,
+                balance_delta=amount,
+            )
+            # Link
+            Transaction.objects.for_user(uid).filter(id=debit_id).update(
+                linked_transaction_id=credit_id
+            )
+            Transaction.objects.for_user(uid).filter(id=credit_id).update(
+                linked_transaction_id=debit_id
+            )
+            # Fee transaction (separate expense)
+            Transaction.objects.create(
+                id=fee_tx_id,
+                user_id=uid,
+                type="expense",
+                amount=fee,
+                currency=actual_currency,
+                account_id=source_id,
+                category_id=fees_category_id,
+                note="InstaPay fee",
+                date=tx_date,
+                balance_delta=-fee,
+            )
+            # Atomic F() updates — source debited amount+fee, dest credited amount only
+            now = django_tz.now()
+            Account.objects.for_user(uid).filter(id=source_id).update(
+                current_balance=F("current_balance") - Decimal(str(amount + fee)),
+                updated_at=now,
+            )
+            Account.objects.for_user(uid).filter(id=dest_id).update(
+                current_balance=F("current_balance") + Decimal(str(amount)),
+                updated_at=now,
+            )
 
         logger.info(
             "transaction.instapay_created currency=%s user=%s",
@@ -319,93 +285,68 @@ class TransferMixin:
         if isinstance(tx_date, str):
             tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
+        uid = self.user_id  # type: ignore[attr-defined]
         debit_id = str(uuid.uuid4())
         credit_id = str(uuid.uuid4())
 
         with transaction.atomic():
-            with connection.cursor() as cursor:
-                # Debit leg (source currency out)
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, exchange_rate, counter_amount,
-                        note, date, balance_delta)
-                       VALUES (%s, %s, 'exchange'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s, %s, %s)""",
-                    [
-                        debit_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        resolved_amount,
-                        src_acc["currency"],
-                        source_id,
-                        dest_id,
-                        round(display_rate, 6),
-                        round(resolved_counter, 2),
-                        note,
-                        tx_date,
-                        -resolved_amount,
-                    ],
-                )
-                # Credit leg (dest currency in)
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, exchange_rate, counter_amount,
-                        note, date, balance_delta)
-                       VALUES (%s, %s, 'exchange'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s, %s, %s)""",
-                    [
-                        credit_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        resolved_counter,
-                        dest_acc["currency"],
-                        dest_id,
-                        source_id,
-                        round(display_rate, 6),
-                        round(resolved_amount, 2),
-                        note,
-                        tx_date,
-                        resolved_counter,
-                    ],
-                )
-                # Link
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [credit_id, debit_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [debit_id, credit_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                # Update balances
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance - %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [resolved_amount, source_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance + %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [resolved_counter, dest_id, self.user_id],  # type: ignore[attr-defined]
-                )
+            # Debit leg (source currency out)
+            Transaction.objects.create(
+                id=debit_id,
+                user_id=uid,
+                type="exchange",
+                amount=resolved_amount,
+                currency=src_acc["currency"],
+                account_id=source_id,
+                counter_account_id=dest_id,
+                exchange_rate=round(display_rate, 6),
+                counter_amount=round(resolved_counter, 2),
+                note=note,
+                date=tx_date,
+                balance_delta=-resolved_amount,
+            )
+            # Credit leg (dest currency in)
+            Transaction.objects.create(
+                id=credit_id,
+                user_id=uid,
+                type="exchange",
+                amount=resolved_counter,
+                currency=dest_acc["currency"],
+                account_id=dest_id,
+                counter_account_id=source_id,
+                exchange_rate=round(display_rate, 6),
+                counter_amount=round(resolved_amount, 2),
+                note=note,
+                date=tx_date,
+                balance_delta=resolved_counter,
+            )
+            # Link
+            Transaction.objects.for_user(uid).filter(id=debit_id).update(
+                linked_transaction_id=credit_id
+            )
+            Transaction.objects.for_user(uid).filter(id=credit_id).update(
+                linked_transaction_id=debit_id
+            )
+            # Atomic F() updates — amounts differ because currencies differ
+            now = django_tz.now()
+            Account.objects.for_user(uid).filter(id=source_id).update(
+                current_balance=F("current_balance") - Decimal(str(resolved_amount)),
+                updated_at=now,
+            )
+            Account.objects.for_user(uid).filter(id=dest_id).update(
+                current_balance=F("current_balance") + Decimal(str(resolved_counter)),
+                updated_at=now,
+            )
 
         # Log exchange rate (non-critical)
         try:
             source_label = f"{src_acc['currency']}/{dest_acc['currency']}"
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """INSERT INTO exchange_rate_log (id, date, rate, source, note, created_at)
-                       VALUES (%s, %s, %s, %s, %s, NOW())""",
-                    [
-                        str(uuid.uuid4()),
-                        tx_date,
-                        round(display_rate, 6),
-                        source_label,
-                        note,
-                    ],
-                )
+            ExchangeRateLog.objects.create(
+                date=tx_date,
+                rate=round(display_rate, 6),
+                source=source_label,
+                note=note,
+            )
         except Exception:
             logger.warning("Failed to log exchange rate (non-critical)", exc_info=True)
 
@@ -463,74 +404,56 @@ class TransferMixin:
         if note:
             credit_note = f"{note} (Fawry top-up)"
 
+        uid = self.user_id  # type: ignore[attr-defined]
         charge_id = str(uuid.uuid4())
         credit_id = str(uuid.uuid4())
 
         with transaction.atomic():
-            with connection.cursor() as cursor:
-                # CC charge (expense: amount + fee)
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, category_id, fee_amount, note, date,
-                        balance_delta)
-                       VALUES (%s, %s, 'expense'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s, %s, %s)""",
-                    [
-                        charge_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        total_charge,
-                        actual_currency,
-                        credit_card_id,
-                        prepaid_id,
-                        fees_category_id,
-                        fee,
-                        charge_note,
-                        tx_date,
-                        -total_charge,
-                    ],
-                )
-                # Prepaid credit (income: net amount)
-                cursor.execute(
-                    """INSERT INTO transactions
-                       (id, user_id, type, amount, currency, account_id,
-                        counter_account_id, note, date, balance_delta)
-                       VALUES (%s, %s, 'income'::transaction_type, %s,
-                               %s::currency_type, %s, %s, %s, %s, %s)""",
-                    [
-                        credit_id,
-                        self.user_id,  # type: ignore[attr-defined]
-                        amount,
-                        actual_currency,
-                        prepaid_id,
-                        credit_card_id,
-                        credit_note,
-                        tx_date,
-                        amount,
-                    ],
-                )
-                # Link
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [credit_id, charge_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE transactions SET linked_transaction_id = %s
-                       WHERE id = %s AND user_id = %s""",
-                    [charge_id, credit_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                # Update balances
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance - %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [total_charge, credit_card_id, self.user_id],  # type: ignore[attr-defined]
-                )
-                cursor.execute(
-                    """UPDATE accounts SET current_balance = current_balance + %s,
-                       updated_at = NOW() WHERE id = %s AND user_id = %s""",
-                    [amount, prepaid_id, self.user_id],  # type: ignore[attr-defined]
-                )
+            # CC charge (expense: amount + fee)
+            Transaction.objects.create(
+                id=charge_id,
+                user_id=uid,
+                type="expense",
+                amount=total_charge,
+                currency=actual_currency,
+                account_id=credit_card_id,
+                counter_account_id=prepaid_id,
+                category_id=fees_category_id,
+                fee_amount=fee,
+                note=charge_note,
+                date=tx_date,
+                balance_delta=-total_charge,
+            )
+            # Prepaid credit (income: net amount)
+            Transaction.objects.create(
+                id=credit_id,
+                user_id=uid,
+                type="income",
+                amount=amount,
+                currency=actual_currency,
+                account_id=prepaid_id,
+                counter_account_id=credit_card_id,
+                note=credit_note,
+                date=tx_date,
+                balance_delta=amount,
+            )
+            # Link
+            Transaction.objects.for_user(uid).filter(id=charge_id).update(
+                linked_transaction_id=credit_id
+            )
+            Transaction.objects.for_user(uid).filter(id=credit_id).update(
+                linked_transaction_id=charge_id
+            )
+            # Atomic F() updates — CC debited total (amount+fee), prepaid credited net
+            now = django_tz.now()
+            Account.objects.for_user(uid).filter(id=credit_card_id).update(
+                current_balance=F("current_balance") - Decimal(str(total_charge)),
+                updated_at=now,
+            )
+            Account.objects.for_user(uid).filter(id=prepaid_id).update(
+                current_balance=F("current_balance") + Decimal(str(amount)),
+                updated_at=now,
+            )
 
         logger.info(
             "transaction.fawry_cashout_created currency=%s user=%s",

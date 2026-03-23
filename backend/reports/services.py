@@ -1,15 +1,18 @@
 """Reports service — monthly spending and income aggregation.
 
-Extracted from reports/views.py. Contains all SQL query logic and chart
+Extracted from reports/views.py. Contains all query logic and chart
 data building for the monthly reports page.
 """
 
 import logging
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
-from django.db import connection
+from django.db.models import Q, Sum
+from django.db.models.functions import Coalesce
 
+from core.models import Transaction
 from core.timing import timed
 
 logger = logging.getLogger(__name__)
@@ -87,40 +90,34 @@ def get_spending_by_category(
     start_date = date(year, month, 1)
     end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
-    query = """
-        SELECT COALESCE(t.category_id::text, ''),
-               COALESCE(c.name, 'Uncategorized'),
-               COALESCE(c.icon, ''),
-               SUM(t.amount)
-        FROM transactions t
-        LEFT JOIN categories c ON t.category_id = c.id
-        WHERE t.type = 'expense' AND t.date >= %s AND t.date < %s AND t.user_id = %s
-    """
-    params: list[Any] = [start_date, end_date, user_id]
+    qs = Transaction.objects.for_user(user_id).filter(
+        type="expense",
+        date__gte=start_date,
+        date__lt=end_date,
+    )
 
     if account_id:
-        query += " AND t.account_id = %s"
-        params.append(account_id)
+        qs = qs.filter(account_id=account_id)
     if currency:
-        query += " AND t.currency = %s"
-        params.append(currency)
+        qs = qs.filter(currency=currency)
 
-    query += " GROUP BY t.category_id, c.name, c.icon ORDER BY SUM(t.amount) DESC"
+    # LEFT JOIN via category FK — NULL category becomes "Uncategorized"
+    rows = (
+        qs.values("category_id", "category__name", "category__icon")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
+    )
 
-    with connection.cursor() as cursor:
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-
-    spending = []
+    spending: list[dict[str, Any]] = []
     total = 0.0
-    for cat_id, name, icon, amount in rows:
-        amount = float(amount)
+    for row in rows:
+        amount = float(row["total"])
         total += amount
         spending.append(
             {
-                "category_id": cat_id,
-                "name": name,
-                "icon": icon,
+                "category_id": str(row["category_id"]) if row["category_id"] else "",
+                "name": row["category__name"] or "Uncategorized",
+                "icon": row["category__icon"] or "",
                 "amount": amount,
                 "percentage": 0.0,
             }
@@ -140,28 +137,25 @@ def get_month_summary(
     start_date = date(year, month, 1)
     end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
 
-    query = """
-        SELECT
-            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0),
-            COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)
-        FROM transactions
-        WHERE date >= %s AND date < %s AND user_id = %s
-    """
-    params: list[Any] = [start_date, end_date, user_id]
+    qs = Transaction.objects.for_user(user_id).filter(
+        date__gte=start_date,
+        date__lt=end_date,
+    )
 
     if account_id:
-        query += " AND account_id = %s"
-        params.append(account_id)
+        qs = qs.filter(account_id=account_id)
     if currency:
-        query += " AND currency = %s"
-        params.append(currency)
+        qs = qs.filter(currency=currency)
 
-    with connection.cursor() as cursor:
-        cursor.execute(query, params)
-        row = cursor.fetchone()
+    # Conditional aggregation — Sum with filter=Q() computes income and expenses
+    # in a single query instead of two separate filtered queries
+    result = qs.aggregate(
+        income=Coalesce(Sum("amount", filter=Q(type="income")), Decimal(0)),
+        expenses=Coalesce(Sum("amount", filter=Q(type="expense")), Decimal(0)),
+    )
 
-    income = float(row[0])
-    expenses = float(row[1])
+    income = float(result["income"])
+    expenses = float(result["expenses"])
     month_name = date(year, month, 1).strftime("%B")
 
     return {

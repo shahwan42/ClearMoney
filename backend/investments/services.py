@@ -1,17 +1,22 @@
 """
 Investment service — CRUD + validation for investment portfolio tracking.
 
-Like Laravel's InvestmentService — contains validation, raw SQL queries,
+Like Laravel's InvestmentService — contains validation, ORM queries,
 and structured logging for all investment mutations.
 
-Key design: valuation is computed (units × last_unit_price), never stored.
+Key design: valuation is computed (units * last_unit_price), never stored.
 """
 
 import logging
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import connection
+from django.db.models import DecimalField, ExpressionWrapper, F, Sum
+from django.db.models.functions import Coalesce
+from django.utils import timezone as django_tz
+
+from core.models import Investment
 
 logger = logging.getLogger(__name__)
 
@@ -27,36 +32,42 @@ class InvestmentService:
         self.user_id = user_id
         self.tz = tz
 
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return Investment.objects.for_user(self.user_id)
+
     def get_all(self) -> list[dict[str, Any]]:
         """Fetch all investments ordered by platform, fund name.
 
         Returns dicts with a computed 'valuation' field.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, platform, fund_name, units, last_unit_price,
-                       currency, last_updated, created_at, updated_at
-                FROM investments
-                WHERE user_id = %s
-                ORDER BY platform, fund_name
-                """,
-                [self.user_id],
+        rows = (
+            self._qs()
+            .order_by("platform", "fund_name")
+            .values(
+                "id",
+                "platform",
+                "fund_name",
+                "units",
+                "last_unit_price",
+                "currency",
+                "last_updated",
+                "created_at",
+                "updated_at",
             )
-            rows = cursor.fetchall()
-
+        )
         return [
             {
-                "id": str(row[0]),
-                "platform": row[1],
-                "fund_name": row[2],
-                "units": float(row[3]),
-                "last_unit_price": float(row[4]),
-                "currency": row[5],
-                "last_updated": row[6],
-                "created_at": row[7],
-                "updated_at": row[8],
-                "valuation": float(row[3]) * float(row[4]),
+                "id": str(row["id"]),
+                "platform": row["platform"],
+                "fund_name": row["fund_name"],
+                "units": float(row["units"]),
+                "last_unit_price": float(row["last_unit_price"]),
+                "currency": row["currency"],
+                "last_updated": row["last_updated"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+                "valuation": float(row["units"]) * float(row["last_unit_price"]),
             }
             for row in rows
         ]
@@ -64,20 +75,22 @@ class InvestmentService:
     def get_total_valuation(self) -> float:
         """Compute total portfolio value: SUM(units * last_unit_price).
 
-        Returns 0.0 for empty portfolios (COALESCE handles NULL).
+        Returns 0.0 for empty portfolios.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT COALESCE(SUM(units * last_unit_price), 0)
-                FROM investments
-                WHERE user_id = %s
-                """,
-                [self.user_id],
+        # Aggregate: SUM(units * last_unit_price) across all holdings
+        result = self._qs().aggregate(
+            total=Coalesce(
+                Sum(
+                    # ExpressionWrapper needed to multiply two model fields in-DB
+                    ExpressionWrapper(
+                        F("units") * F("last_unit_price"),
+                        output_field=DecimalField(),
+                    )
+                ),
+                Decimal(0),
             )
-            row = cursor.fetchone()
-
-        return float(row[0]) if row else 0.0
+        )
+        return float(result["total"])
 
     def create(self, data: dict[str, Any]) -> str:
         """Create a new investment holding.
@@ -101,18 +114,17 @@ class InvestmentService:
         platform = (data.get("platform") or "").strip() or "Thndr"
         currency = (data.get("currency") or "").strip() or "EGP"
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO investments
-                    (user_id, platform, fund_name, units, last_unit_price, currency)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                RETURNING id
-                """,
-                [self.user_id, platform, fund_name, units, unit_price, currency],
-            )
-            new_id = str(cursor.fetchone()[0])
+        inv = Investment.objects.create(
+            user_id=self.user_id,
+            platform=platform,
+            fund_name=fund_name,
+            units=units,
+            last_unit_price=unit_price,
+            currency=currency,
+            last_updated=django_tz.now(),
+        )
 
+        new_id = str(inv.id)
         logger.info(
             "investment.created id=%s currency=%s user=%s",
             new_id,
@@ -130,17 +142,12 @@ class InvestmentService:
         if unit_price <= 0:
             raise ValueError("Unit price must be positive")
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE investments
-                SET last_unit_price = %s,
-                    last_updated = NOW(),
-                    updated_at = NOW()
-                WHERE id = %s AND user_id = %s
-                """,
-                [unit_price, investment_id, self.user_id],
-            )
+        now = django_tz.now()
+        self._qs().filter(id=investment_id).update(
+            last_unit_price=unit_price,
+            last_updated=now,
+            updated_at=now,
+        )
 
         logger.info(
             "investment.valuation_updated id=%s user=%s",
@@ -150,11 +157,7 @@ class InvestmentService:
 
     def delete(self, investment_id: str) -> None:
         """Delete an investment holding."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM investments WHERE id = %s AND user_id = %s",
-                [investment_id, self.user_id],
-            )
+        self._qs().filter(id=investment_id).delete()
 
         logger.info(
             "investment.deleted id=%s user=%s",

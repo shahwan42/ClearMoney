@@ -14,10 +14,9 @@ import secrets
 from datetime import timedelta
 from enum import IntEnum
 
-from django.db import connection
 from django.utils import timezone
 
-from core.models import AuthToken, Session, User
+from core.models import AuthToken, Category, Session, User
 
 logger = logging.getLogger(__name__)
 
@@ -361,40 +360,45 @@ class AuthService:
 
     def _seed_default_categories(self, user_id: str) -> None:
         """Insert 25 default categories for a new user."""
+        defaults = [
+            # (name, type, icon, display_order)
+            ("Household", "expense", "\U0001f3e0", 1),
+            ("Food & Groceries", "expense", "\U0001f6d2", 2),
+            ("Transport", "expense", "\U0001f697", 3),
+            ("Health", "expense", "\U0001f3e5", 4),
+            ("Education", "expense", "\U0001f4da", 5),
+            ("Mobile", "expense", "\U0001f4f1", 6),
+            ("Electricity", "expense", "\u26a1", 7),
+            ("Gas", "expense", "\U0001f525", 8),
+            ("Internet", "expense", "\U0001f310", 9),
+            ("Gifts", "expense", "\U0001f381", 10),
+            ("Entertainment", "expense", "\U0001f3ac", 11),
+            ("Shopping", "expense", "\U0001f6cd\ufe0f", 12),
+            ("Subscriptions", "expense", "\U0001f4fa", 13),
+            ("Virtual Fund", "expense", "\U0001f3e6", 14),
+            ("Insurance", "expense", "\U0001f6e1\ufe0f", 15),
+            ("Fees & Charges", "expense", "\U0001f4b3", 16),
+            ("Debt Payment", "expense", "\U0001f4b0", 17),
+            ("Other", "expense", "\U0001f516", 18),
+            ("Salary", "income", "\U0001f4b5", 1),
+            ("Freelance", "income", "\U0001f4bb", 2),
+            ("Investment Returns", "income", "\U0001f4c8", 3),
+            ("Refund", "income", "\U0001f504", 4),
+            ("Virtual Fund", "income", "\U0001f3e6", 5),
+            ("Loan Repayment Received", "income", "\U0001f91d", 6),
+            ("Other", "income", "\U0001f48e", 7),
+        ]
         try:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO categories
-                        (user_id, name, type, icon, is_system, display_order)
-                    VALUES
-                        (%s, 'Household',        'expense', '🏠', true, 1),
-                        (%s, 'Food & Groceries', 'expense', '🛒', true, 2),
-                        (%s, 'Transport',        'expense', '🚗', true, 3),
-                        (%s, 'Health',           'expense', '🏥', true, 4),
-                        (%s, 'Education',        'expense', '📚', true, 5),
-                        (%s, 'Mobile',           'expense', '📱', true, 6),
-                        (%s, 'Electricity',      'expense', '⚡', true, 7),
-                        (%s, 'Gas',              'expense', '🔥', true, 8),
-                        (%s, 'Internet',         'expense', '🌐', true, 9),
-                        (%s, 'Gifts',            'expense', '🎁', true, 10),
-                        (%s, 'Entertainment',    'expense', '🎬', true, 11),
-                        (%s, 'Shopping',         'expense', '🛍️', true, 12),
-                        (%s, 'Subscriptions',    'expense', '📺', true, 13),
-                        (%s, 'Virtual Fund',     'expense', '🏦', true, 14),
-                        (%s, 'Insurance',        'expense', '🛡️', true, 15),
-                        (%s, 'Fees & Charges',   'expense', '💳', true, 16),
-                        (%s, 'Debt Payment',     'expense', '💰', true, 17),
-                        (%s, 'Other',            'expense', '🔖', true, 18),
-                        (%s, 'Salary',                    'income', '💵', true, 1),
-                        (%s, 'Freelance',                 'income', '💻', true, 2),
-                        (%s, 'Investment Returns',        'income', '📈', true, 3),
-                        (%s, 'Refund',                    'income', '🔄', true, 4),
-                        (%s, 'Virtual Fund',              'income', '🏦', true, 5),
-                        (%s, 'Loan Repayment Received',   'income', '🤝', true, 6),
-                        (%s, 'Other',                     'income', '💎', true, 7)
-                    """,
-                    [user_id] * 25,
+            # Individual create() calls because PostgreSQL's category_type
+            # enum doesn't work with Django's UNNEST-based bulk_create.
+            for name, cat_type, icon, order in defaults:
+                Category.objects.create(
+                    user_id=user_id,
+                    name=name,
+                    type=cat_type,
+                    icon=icon,
+                    is_system=True,
+                    display_order=order,
                 )
         except Exception:
             logger.exception(

@@ -12,6 +12,8 @@ import uuid
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
+from core.managers import UserScopedManager
+
 
 class User(models.Model):
     """The users table — magic link auth, no password."""
@@ -76,6 +78,8 @@ class UserConfig(models.Model):
 class Institution(models.Model):
     """Groups accounts under a bank/fintech/wallet (e.g., HSBC, Telda, Cash)."""
 
+    objects = UserScopedManager()
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=255)
@@ -98,6 +102,8 @@ class Account(models.Model):
 
     current_balance is cached and updated atomically on every transaction.
     """
+
+    objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(
@@ -144,6 +150,8 @@ class Account(models.Model):
 class Category(models.Model):
     """Expense or income category. is_system marks auto-seeded categories."""
 
+    objects = UserScopedManager()
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=100)
@@ -167,6 +175,8 @@ class Person(models.Model):
 
     net_balance_egp / net_balance_usd are cached running totals (denormalized).
     """
+
+    objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
@@ -193,6 +203,8 @@ class RecurringRule(models.Model):
     template_transaction is a JSONB blob parsed into a TransactionTemplate on demand.
     """
 
+    objects = UserScopedManager()
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     template_transaction = models.JSONField()
@@ -213,6 +225,8 @@ class Transaction(models.Model):
 
     Amount is ALWAYS positive; balance_delta holds the signed impact on the account balance.
     """
+
+    objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(
@@ -303,6 +317,8 @@ class Transaction(models.Model):
 class VirtualAccount(models.Model):
     """Envelope budgeting — earmarks money for goals without moving actual funds."""
 
+    objects = UserScopedManager()
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=100)
@@ -374,6 +390,8 @@ class VirtualAccountAllocation(models.Model):
 class Budget(models.Model):
     """Monthly spending limit per category. is_active toggles without deleting."""
 
+    objects = UserScopedManager()
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, db_column="user_id", db_index=True
@@ -400,6 +418,8 @@ class Budget(models.Model):
 class Investment(models.Model):
     """Fund holding on a platform like Thndr. Value = units * last_unit_price."""
 
+    objects = UserScopedManager()
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     platform = models.CharField(max_length=100)
@@ -425,6 +445,8 @@ class Investment(models.Model):
 class DailySnapshot(models.Model):
     """Append-only daily financial state. Used for sparklines and MoM comparisons."""
 
+    objects = UserScopedManager()
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, db_column="user_id", db_index=True
@@ -449,6 +471,8 @@ class DailySnapshot(models.Model):
 
 class AccountSnapshot(models.Model):
     """Per-account daily balance. Append-only — one row per (user, date, account)."""
+
+    objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")

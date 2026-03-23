@@ -1,7 +1,7 @@
 """
 Exchange rate service — read-only queries for exchange rate history.
 
-Like Laravel's ExchangeRateService — wraps raw SQL queries.
+Like Laravel's ExchangeRateService — wraps ORM queries.
 
 Key design: Exchange rates are global data (no user_id). The service only
 needs a timezone for consistent date handling, not user scoping.
@@ -11,7 +11,7 @@ import logging
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import connection
+from core.models import ExchangeRateLog
 
 logger = logging.getLogger(__name__)
 
@@ -30,25 +30,18 @@ class ExchangeRateService:
 
         Returns up to 100 rows ordered by created_at DESC.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, date, rate, source, note, created_at
-                FROM exchange_rate_log
-                ORDER BY created_at DESC
-                LIMIT 100
-                """
-            )
-            rows = cursor.fetchall()
+        rows = ExchangeRateLog.objects.order_by("-created_at").values(
+            "id", "date", "rate", "source", "note", "created_at"
+        )[:100]
 
         return [
             {
-                "id": str(row[0]),
-                "date": row[1],
-                "rate": float(row[2]),
-                "source": row[3],
-                "note": row[4],
-                "created_at": row[5],
+                "id": str(row["id"]),
+                "date": row["date"],
+                "rate": float(row["rate"]),
+                "source": row["source"],
+                "note": row["note"],
+                "created_at": row["created_at"],
             }
             for row in rows
         ]

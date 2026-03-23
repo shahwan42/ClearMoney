@@ -15,10 +15,10 @@ import zoneinfo
 from collections.abc import Callable
 from typing import cast
 
-from django.db import connection
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.utils import timezone
+from django.utils import timezone as django_tz
 
+from core.models import Session
 from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)
@@ -77,20 +77,14 @@ class GoSessionAuthMiddleware:
             logger.warning("auth: no session cookie, path=%s", path)
             return HttpResponseRedirect("/login")
 
-        # Validate session against database
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT s.user_id, u.email
-                FROM sessions s
-                JOIN users u ON u.id = s.user_id
-                WHERE s.token = %s AND s.expires_at > %s
-                """,
-                [token, timezone.now()],
-            )
-            row = cursor.fetchone()
+        # Validate session against database using ORM with select_related
+        session = (
+            Session.objects.select_related("user")
+            .filter(token=token, expires_at__gt=django_tz.now())
+            .first()
+        )
 
-        if not row:
+        if not session:
             logger.warning("auth: invalid session, path=%s", path)
             response = HttpResponseRedirect("/login")
             response.delete_cookie(COOKIE_NAME)
@@ -98,8 +92,8 @@ class GoSessionAuthMiddleware:
 
         # Cast to AuthenticatedRequest — we've just verified user_id + email from DB
         auth_request = cast(AuthenticatedRequest, request)
-        auth_request.user_id = str(row[0])
-        auth_request.user_email = row[1]
+        auth_request.user_id = str(session.user_id)
+        auth_request.user_email = session.user.email
 
         return self.get_response(auth_request)
 

@@ -7,7 +7,7 @@ confirmation (auto_confirm=false). ProcessDueRules is called on startup,
 similar to Laravel's `php artisan schedule:run`.
 
 KEY BEHAVIOR:
-- template_transaction is stored as JSONB — parsed when executing the rule.
+- template_transaction is stored as JSONB — Django's JSONField auto-parses it.
 - When a rule fires, it creates a real transaction via TransactionService.
 - After firing, next_due_date advances based on frequency (weekly/monthly).
 - Monthly advancement uses dateutil.relativedelta which clamps month overflow
@@ -21,14 +21,15 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
-from django.db import connection
+from django.utils import timezone as django_tz
 
+from core.models import RecurringRule
 from transactions.services import TransactionService
 
 logger = logging.getLogger(__name__)
 
-# Columns returned by recurring_rules SELECT queries
-_RULE_COLS = [
+# Fields returned by .values() queries — matches the old _RULE_COLS
+_FIELDS = (
     "id",
     "user_id",
     "template_transaction",
@@ -39,30 +40,50 @@ _RULE_COLS = [
     "auto_confirm",
     "created_at",
     "updated_at",
-]
+)
 
 
-def _row_to_rule(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a recurring_rules SQL row to a dict.
+def _row_to_rule(row: dict[str, Any]) -> dict[str, Any]:
+    """Convert a .values() dict to a rule dict.
 
-    template_transaction comes back as a Python dict (PostgreSQL JSONB →
-    psycopg auto-parses), but may be a string if manually inserted.
+    template_transaction comes back as a Python dict from Django's JSONField,
+    but may be a string if manually inserted.
     """
-    tmpl = row[2]
+    tmpl = row["template_transaction"]
     if isinstance(tmpl, str):
         tmpl = json.loads(tmpl)
 
     return {
-        "id": str(row[0]),
-        "user_id": str(row[1]),
+        "id": str(row["id"]),
+        "user_id": str(row["user_id"]),
         "template_transaction": tmpl,
-        "frequency": row[3],
-        "day_of_month": row[4],
-        "next_due_date": row[5],
-        "is_active": row[6],
-        "auto_confirm": row[7],
-        "created_at": row[8],
-        "updated_at": row[9],
+        "frequency": row["frequency"],
+        "day_of_month": row["day_of_month"],
+        "next_due_date": row["next_due_date"],
+        "is_active": row["is_active"],
+        "auto_confirm": row["auto_confirm"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def _instance_to_rule(inst: RecurringRule) -> dict[str, Any]:
+    """Convert a RecurringRule model instance to a rule dict."""
+    tmpl = inst.template_transaction
+    if isinstance(tmpl, str):
+        tmpl = json.loads(tmpl)
+
+    return {
+        "id": str(inst.id),
+        "user_id": str(inst.user_id),
+        "template_transaction": tmpl,
+        "frequency": inst.frequency,
+        "day_of_month": inst.day_of_month,
+        "next_due_date": inst.next_due_date,
+        "is_active": inst.is_active,
+        "auto_confirm": inst.auto_confirm,
+        "created_at": inst.created_at,
+        "updated_at": inst.updated_at,
     }
 
 
@@ -77,37 +98,25 @@ class RecurringService:
         self.user_id = user_id
         self.tz = tz
 
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return RecurringRule.objects.for_user(self.user_id)
+
     # ------------------------------------------------------------------
     # Read
     # ------------------------------------------------------------------
 
     def get_all(self) -> list[dict[str, Any]]:
         """All recurring rules ordered by next_due_date ASC."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT id, user_id, template_transaction, frequency,
-                          day_of_month, next_due_date, is_active, auto_confirm,
-                          created_at, updated_at
-                   FROM recurring_rules
-                   WHERE user_id = %s
-                   ORDER BY next_due_date ASC""",
-                [self.user_id],
-            )
-            return [_row_to_rule(row) for row in cursor.fetchall()]
+        rows = self._qs().order_by("next_due_date").values(*_FIELDS)
+        return [_row_to_rule(row) for row in rows]
 
     def get_by_id(self, rule_id: str) -> dict[str, Any] | None:
         """Single rule by ID, scoped to user."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT id, user_id, template_transaction, frequency,
-                          day_of_month, next_due_date, is_active, auto_confirm,
-                          created_at, updated_at
-                   FROM recurring_rules
-                   WHERE id = %s AND user_id = %s""",
-                [rule_id, self.user_id],
-            )
-            row = cursor.fetchone()
-            return _row_to_rule(row) if row else None
+        row = self._qs().filter(id=rule_id).values(*_FIELDS).first()
+        if not row:
+            return None
+        return _row_to_rule(row)
 
     def get_due_pending(self) -> list[dict[str, Any]]:
         """Due rules needing user confirmation (auto_confirm=false).
@@ -120,17 +129,13 @@ class RecurringService:
 
     def _get_due(self, today: date) -> list[dict[str, Any]]:
         """All active rules where next_due_date <= today."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT id, user_id, template_transaction, frequency,
-                          day_of_month, next_due_date, is_active, auto_confirm,
-                          created_at, updated_at
-                   FROM recurring_rules
-                   WHERE is_active = true AND next_due_date <= %s AND user_id = %s
-                   ORDER BY next_due_date ASC""",
-                [today, self.user_id],
-            )
-            return [_row_to_rule(row) for row in cursor.fetchall()]
+        rows = (
+            self._qs()
+            .filter(is_active=True, next_due_date__lte=today)
+            .order_by("next_due_date")
+            .values(*_FIELDS)
+        )
+        return [_row_to_rule(row) for row in rows]
 
     # ------------------------------------------------------------------
     # Write
@@ -154,32 +159,17 @@ class RecurringService:
             raise ValueError("next_due_date is required")
         auto_confirm = bool(data.get("auto_confirm", False))
 
-        # Serialize template to JSON string for JSONB column
-        tmpl_json = json.dumps(tmpl)
+        rule = RecurringRule.objects.create(
+            user_id=self.user_id,
+            template_transaction=tmpl,
+            frequency=frequency,
+            next_due_date=next_due_date,
+            is_active=True,
+            auto_confirm=auto_confirm,
+        )
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """INSERT INTO recurring_rules
-                   (user_id, template_transaction, frequency, next_due_date,
-                    is_active, auto_confirm)
-                   VALUES (%s, %s, %s, %s, true, %s)
-                   RETURNING id, created_at, updated_at""",
-                [self.user_id, tmpl_json, frequency, next_due_date, auto_confirm],
-            )
-            row = cursor.fetchone()
-
-        assert row is not None
         logger.info("recurring.created frequency=%s user=%s", frequency, self.user_id)
-        return {
-            "id": str(row[0]),
-            "template_transaction": tmpl,
-            "frequency": frequency,
-            "next_due_date": next_due_date,
-            "is_active": True,
-            "auto_confirm": auto_confirm,
-            "created_at": row[1],
-            "updated_at": row[2],
-        }
+        return _instance_to_rule(rule)
 
     def confirm(self, rule_id: str) -> None:
         """Execute a pending rule — create transaction + advance due date."""
@@ -200,11 +190,7 @@ class RecurringService:
 
     def delete(self, rule_id: str) -> None:
         """Delete a recurring rule."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM recurring_rules WHERE id = %s AND user_id = %s",
-                [rule_id, self.user_id],
-            )
+        self._qs().filter(id=rule_id).delete()
         logger.info("recurring.deleted id=%s user=%s", rule_id, self.user_id)
 
     def process_due_rules(self) -> int:
@@ -294,13 +280,9 @@ class RecurringService:
 
     def _update_next_due_date(self, rule_id: str, next_date: date) -> None:
         """Persist the advanced next_due_date."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """UPDATE recurring_rules
-                   SET next_due_date = %s, updated_at = NOW()
-                   WHERE id = %s AND user_id = %s""",
-                [next_date, rule_id, self.user_id],
-            )
+        self._qs().filter(id=rule_id).update(
+            next_due_date=next_date, updated_at=django_tz.now()
+        )
 
     # ------------------------------------------------------------------
     # View helpers

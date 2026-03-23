@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from django.db import connection
+from django.db.models import Count
+
+from core.models import Person, Transaction
 
 if TYPE_CHECKING:
     from . import DashboardData
@@ -48,15 +51,11 @@ class TransactionRow:
 
 def load_people_summary(user_id: str, data: DashboardData) -> None:
     """Load people ledger grouped by currency."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT name, net_balance, net_balance_egp, net_balance_usd
-            FROM persons WHERE user_id = %s ORDER BY name
-            """,
-            [user_id],
-        )
-        rows = cursor.fetchall()
+    rows = (
+        Person.objects.for_user(user_id)
+        .order_by("name")
+        .values_list("name", "net_balance", "net_balance_egp", "net_balance_usd")
+    )
 
     egp = PeopleCurrencySummary(currency="EGP")
     usd = PeopleCurrencySummary(currency="USD")
@@ -102,17 +101,16 @@ def load_streak(user_id: str, tz: ZoneInfo) -> StreakInfo:
     now = datetime.now(tz)
     today = now.date()
 
-    with connection.cursor() as cursor:
-        # Distinct transaction dates, descending
-        cursor.execute(
-            """
-            SELECT DISTINCT date::date AS d FROM transactions
-            WHERE date <= %s AND user_id = %s
-            ORDER BY d DESC LIMIT 365
-            """,
-            [today, user_id],
-        )
-        dates = [row[0] for row in cursor.fetchall()]
+    # Distinct transaction dates via GROUP BY + Count, ordered descending.
+    # The Count annotation forces grouping so .values_list returns unique dates.
+    dates = list(
+        Transaction.objects.for_user(user_id)
+        .filter(date__lte=today)
+        .values("date")
+        .annotate(cnt=Count("id"))
+        .order_by("-date")
+        .values_list("date", flat=True)[:365]
+    )
 
     if not dates:
         return info
@@ -135,16 +133,11 @@ def load_streak(user_id: str, tz: ZoneInfo) -> StreakInfo:
     # Weekly count (Mon-Sun)
     weekday = now.weekday()  # 0=Mon, 6=Sun
     monday = today - timedelta(days=weekday)
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM transactions
-            WHERE date >= %s AND date <= %s AND user_id = %s
-            """,
-            [monday, today, user_id],
-        )
-        row = cursor.fetchone()
-        info.weekly_count = row[0] if row else 0
+    info.weekly_count = (
+        Transaction.objects.for_user(user_id)
+        .filter(date__gte=monday, date__lte=today)
+        .count()
+    )
 
     return info
 
@@ -152,8 +145,8 @@ def load_streak(user_id: str, tz: ZoneInfo) -> StreakInfo:
 def load_recent_transactions(user_id: str, limit: int = 10) -> list[TransactionRow]:
     """Load recent transactions with running balance.
 
-    Uses a window function to compute running balance per account.
-    Called by the partial view directly.
+    Raw SQL — window function subtracts cumulative balance_deltas from
+    current_balance to derive running balance per account.
     """
     with connection.cursor() as cursor:
         cursor.execute(

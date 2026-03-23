@@ -1,23 +1,35 @@
 """
-Accounts & Institutions service layer — business logic and raw SQL queries.
+Accounts & Institutions service layer — business logic and ORM queries.
 
-Like Django's fat-model or service-layer pattern. Uses raw SQL via connection.cursor()
-because all models are managed=False and queries use window functions, enum casts,
-and JSONB operations that don't map cleanly to the ORM.
+Like Django's fat-model or service-layer pattern. Uses the Django ORM with
+``Model.objects.for_user(uid)`` for user-scoped queries. Two functions remain
+as raw SQL: ``get_recent_transactions`` (window functions) and
+``get_statement_data`` (complex period queries).
 """
 
 import json
 import logging
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.db import IntegrityError, connection
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
+from django.utils import timezone as django_tz
 
 from core.billing import (
     get_billing_cycle_info,
     interest_free_remaining,
     parse_billing_cycle,
+)
+from core.models import (
+    Account,
+    AccountSnapshot,
+    Institution,
+    RecurringRule,
+    VirtualAccount,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,62 +81,52 @@ def _require_trimmed_name(value: str, field_name: str) -> str:
 
 
 class InstitutionService:
-    """Like Laravel's InstitutionService — validates input, executes SQL,
+    """Like Laravel's InstitutionService — validates input, executes ORM queries,
     logs mutations.
     """
+
+    # Columns fetched for institution dicts
+    _FIELDS = (
+        "id",
+        "name",
+        "type",
+        "color",
+        "icon",
+        "display_order",
+        "created_at",
+        "updated_at",
+    )
 
     def __init__(self, user_id: str, tz: ZoneInfo) -> None:
         self.user_id = user_id
         self.tz = tz
 
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return Institution.objects.for_user(self.user_id)
+
+    def _row_to_dict(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Convert a .values() row to an institution dict with stringified UUID."""
+        return {
+            "id": str(row["id"]),
+            "name": row["name"],
+            "type": row["type"],
+            "color": row["color"],
+            "icon": row["icon"],
+            "display_order": row["display_order"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
     def get_all(self) -> list[dict[str, Any]]:
         """All institutions ordered by display_order, name."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, name, type, color, icon, display_order, created_at, updated_at
-                FROM institutions WHERE user_id = %s
-                ORDER BY display_order, name
-                """,
-                [self.user_id],
-            )
-            return [
-                {
-                    "id": str(row[0]),
-                    "name": row[1],
-                    "type": row[2],
-                    "color": row[3],
-                    "icon": row[4],
-                    "display_order": row[5],
-                    "created_at": row[6],
-                    "updated_at": row[7],
-                }
-                for row in cursor.fetchall()
-            ]
+        rows = self._qs().order_by("display_order", "name").values(*self._FIELDS)
+        return [self._row_to_dict(row) for row in rows]
 
     def get_by_id(self, inst_id: str) -> dict[str, Any] | None:
         """Single institution by ID. Returns None if not found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, name, type, color, icon, display_order, created_at, updated_at
-                FROM institutions WHERE id = %s AND user_id = %s
-                """,
-                [inst_id, self.user_id],
-            )
-            row = cursor.fetchone()
-            if not row:
-                return None
-            return {
-                "id": str(row[0]),
-                "name": row[1],
-                "type": row[2],
-                "color": row[3],
-                "icon": row[4],
-                "display_order": row[5],
-                "created_at": row[6],
-                "updated_at": row[7],
-            }
+        row = self._qs().filter(id=inst_id).values(*self._FIELDS).first()
+        return self._row_to_dict(row) if row else None
 
     def create(self, name: str, inst_type: str) -> dict[str, Any]:
         """Create institution. Validates name and type."""
@@ -134,77 +136,58 @@ class InstitutionService:
         if inst_type not in VALID_INSTITUTION_TYPES:
             raise ValueError(f"invalid institution type: {inst_type}")
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO institutions (user_id, name, type, color, icon, display_order)
-                VALUES (%s, %s, %s, NULL, NULL, 0)
-                RETURNING id, created_at, updated_at
-                """,
-                [self.user_id, name, inst_type],
-            )
-            row = cursor.fetchone()
-            assert row is not None
-            logger.info("institution.created type=%s user=%s", inst_type, self.user_id)
-            return {
-                "id": str(row[0]),
-                "name": name,
-                "type": inst_type,
-                "color": None,
-                "icon": None,
-                "display_order": 0,
-                "created_at": row[1],
-                "updated_at": row[2],
-            }
+        inst = Institution.objects.create(
+            user_id=self.user_id,
+            name=name,
+            type=inst_type,
+            color=None,
+            icon=None,
+            display_order=0,
+        )
+        logger.info("institution.created type=%s user=%s", inst_type, self.user_id)
+        return {
+            "id": str(inst.id),
+            "name": inst.name,
+            "type": inst.type,
+            "color": inst.color,
+            "icon": inst.icon,
+            "display_order": inst.display_order,
+            "created_at": inst.created_at,
+            "updated_at": inst.updated_at,
+        }
 
     def update(self, inst_id: str, name: str, inst_type: str) -> dict[str, Any] | None:
         """Update institution name and type. Returns updated record or None."""
         name = _require_trimmed_name(name, "institution name")
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE institutions
-                SET name = %s, type = %s, updated_at = now()
-                WHERE id = %s AND user_id = %s
-                RETURNING id, name, type, color, icon, display_order, created_at, updated_at
-                """,
-                [name, inst_type, inst_id, self.user_id],
+        now = django_tz.now()
+        updated = (
+            self._qs()
+            .filter(id=inst_id)
+            .update(
+                name=name,
+                type=inst_type,
+                updated_at=now,
             )
-            row = cursor.fetchone()
-            if not row:
-                return None
-            logger.info("institution.updated id=%s user=%s", inst_id, self.user_id)
-            return {
-                "id": str(row[0]),
-                "name": row[1],
-                "type": row[2],
-                "color": row[3],
-                "icon": row[4],
-                "display_order": row[5],
-                "created_at": row[6],
-                "updated_at": row[7],
-            }
+        )
+        if not updated:
+            return None
+        logger.info("institution.updated id=%s user=%s", inst_id, self.user_id)
+        row = self._qs().filter(id=inst_id).values(*self._FIELDS).first()
+        return self._row_to_dict(row) if row else None
 
     def delete(self, inst_id: str) -> bool:
         """Delete institution (cascades to accounts). Returns True if deleted."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM institutions WHERE id = %s AND user_id = %s",
-                [inst_id, self.user_id],
-            )
-            deleted: bool = cursor.rowcount > 0
-            if deleted:
-                logger.info("institution.deleted id=%s user=%s", inst_id, self.user_id)
-            return deleted
+        count, _ = self._qs().filter(id=inst_id).delete()
+        deleted = bool(count > 0)
+        if deleted:
+            logger.info("institution.deleted id=%s user=%s", inst_id, self.user_id)
+        return deleted
 
     def reorder(self, ids: list[str]) -> None:
         """Update display_order for a list of institution IDs."""
-        with connection.cursor() as cursor:
-            for i, inst_id in enumerate(ids):
-                cursor.execute(
-                    "UPDATE institutions SET display_order = %s, updated_at = now() WHERE id = %s AND user_id = %s",
-                    [i, inst_id, self.user_id],
-                )
+        now = django_tz.now()
+        for i, inst_id in enumerate(ids):
+            self._qs().filter(id=inst_id).update(display_order=i, updated_at=now)
         logger.info("institution.reordered count=%d user=%s", len(ids), self.user_id)
 
 
@@ -218,27 +201,39 @@ class AccountService:
     transaction list, and virtual account queries for the account detail page.
     """
 
+    # Columns fetched for full account dicts
+    _FIELDS = (
+        "id",
+        "institution_id",
+        "name",
+        "type",
+        "currency",
+        "current_balance",
+        "initial_balance",
+        "credit_limit",
+        "is_dormant",
+        "role_tags",
+        "display_order",
+        "metadata",
+        "health_config",
+        "created_at",
+        "updated_at",
+    )
+
     def __init__(self, user_id: str, tz: ZoneInfo) -> None:
         self.user_id = user_id
         self.tz = tz
+
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return Account.objects.for_user(self.user_id)
 
     # --- Read operations ---
 
     def get_all(self) -> list[dict[str, Any]]:
         """All accounts ordered by display_order, name."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, institution_id, name, type, currency, current_balance,
-                    initial_balance, credit_limit, is_dormant, role_tags,
-                    display_order, metadata, COALESCE(health_config, '{}'::jsonb),
-                    created_at, updated_at
-                FROM accounts WHERE user_id = %s
-                ORDER BY display_order, name
-                """,
-                [self.user_id],
-            )
-            return [self._row_to_dict(row) for row in cursor.fetchall()]
+        rows = self._qs().order_by("display_order", "name").values(*self._FIELDS)
+        return [self._row_to_dict(row) for row in rows]
 
     def get_for_dropdown(
         self, *, include_balance: bool = False
@@ -248,60 +243,38 @@ class AccountService:
         Returns lightweight dicts with id, name, currency (and optionally
         current_balance). Much cheaper than get_all() for dropdown selects.
         """
+        qs = self._qs().filter(is_dormant=False).order_by("display_order", "name")
         if include_balance:
-            sql = """SELECT id, name, currency, current_balance
-                     FROM accounts WHERE user_id = %s AND is_dormant = false
-                     ORDER BY display_order, name"""
-        else:
-            sql = """SELECT id, name, currency
-                     FROM accounts WHERE user_id = %s AND is_dormant = false
-                     ORDER BY display_order, name"""
-        with connection.cursor() as cursor:
-            cursor.execute(sql, [self.user_id])
-            rows = cursor.fetchall()
-        if include_balance:
+            rows = qs.values("id", "name", "currency", "current_balance")
             return [
                 {
-                    "id": str(r[0]),
-                    "name": r[1],
-                    "currency": r[2],
-                    "current_balance": float(r[3]),
+                    "id": str(r["id"]),
+                    "name": r["name"],
+                    "currency": r["currency"],
+                    "current_balance": float(r["current_balance"]),
                 }
                 for r in rows
             ]
-        return [{"id": str(r[0]), "name": r[1], "currency": r[2]} for r in rows]
+        rows = qs.values("id", "name", "currency")
+        return [
+            {"id": str(r["id"]), "name": r["name"], "currency": r["currency"]}
+            for r in rows
+        ]
 
     def get_by_id(self, account_id: str) -> dict[str, Any] | None:
         """Single account by ID. Returns None if not found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, institution_id, name, type, currency, current_balance,
-                    initial_balance, credit_limit, is_dormant, role_tags,
-                    display_order, metadata, COALESCE(health_config, '{}'::jsonb),
-                    created_at, updated_at
-                FROM accounts WHERE id = %s AND user_id = %s
-                """,
-                [account_id, self.user_id],
-            )
-            row = cursor.fetchone()
-            return self._row_to_dict(row) if row else None
+        row = self._qs().filter(id=account_id).values(*self._FIELDS).first()
+        return self._row_to_dict(row) if row else None
 
     def get_by_institution(self, institution_id: str) -> list[dict[str, Any]]:
         """Accounts for a specific institution."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, institution_id, name, type, currency, current_balance,
-                    initial_balance, credit_limit, is_dormant, role_tags,
-                    display_order, metadata, COALESCE(health_config, '{}'::jsonb),
-                    created_at, updated_at
-                FROM accounts WHERE institution_id = %s AND user_id = %s
-                ORDER BY display_order, name
-                """,
-                [institution_id, self.user_id],
-            )
-            return [self._row_to_dict(row) for row in cursor.fetchall()]
+        rows = (
+            self._qs()
+            .filter(institution_id=institution_id)
+            .order_by("display_order", "name")
+            .values(*self._FIELDS)
+        )
+        return [self._row_to_dict(row) for row in rows]
 
     # --- Write operations ---
 
@@ -328,29 +301,20 @@ class AccountService:
 
         initial_balance = data.get("initial_balance", 0.0)
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO accounts (user_id, institution_id, name, type, currency,
-                    current_balance, initial_balance, credit_limit, is_dormant,
-                    role_tags, display_order, metadata)
-                VALUES (%s, %s, %s, %s::account_type, %s::currency_type,
-                    %s, %s, %s, false, '{}', 0, '{}'::jsonb)
-                RETURNING id, created_at, updated_at
-                """,
-                [
-                    self.user_id,
-                    institution_id,
-                    name,
-                    acc_type,
-                    currency,
-                    initial_balance,
-                    initial_balance,
-                    credit_limit,
-                ],
-            )
-            row = cursor.fetchone()
-            assert row is not None
+        account = Account.objects.create(
+            user_id=self.user_id,
+            institution_id=institution_id,
+            name=name,
+            type=acc_type,
+            currency=currency,
+            current_balance=initial_balance,
+            initial_balance=initial_balance,
+            credit_limit=credit_limit,
+            is_dormant=False,
+            role_tags=[],
+            display_order=0,
+            metadata={},
+        )
 
         logger.info(
             "account.created type=%s currency=%s user=%s",
@@ -359,7 +323,7 @@ class AccountService:
             self.user_id,
         )
         return {
-            "id": str(row[0]),
+            "id": str(account.id),
             "institution_id": institution_id,
             "name": name,
             "type": acc_type,
@@ -368,8 +332,8 @@ class AccountService:
             "initial_balance": float(initial_balance),
             "credit_limit": float(credit_limit) if credit_limit is not None else None,
             "is_dormant": False,
-            "created_at": row[1],
-            "updated_at": row[2],
+            "created_at": account.created_at,
+            "updated_at": account.updated_at,
         }
 
     def update(self, account_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
@@ -378,26 +342,24 @@ class AccountService:
         acc_type = data.get("type", "current")
         currency = data.get("currency", "EGP")
         credit_limit = data.get("credit_limit")
+        now = django_tz.now()
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE accounts
-                SET name = %s, type = %s::account_type, currency = %s::currency_type,
-                    credit_limit = %s, updated_at = now()
-                WHERE id = %s AND user_id = %s
-                RETURNING id, institution_id, name, type, currency, current_balance,
-                    initial_balance, credit_limit, is_dormant, role_tags,
-                    display_order, metadata, COALESCE(health_config, '{}'::jsonb),
-                    created_at, updated_at
-                """,
-                [name, acc_type, currency, credit_limit, account_id, self.user_id],
+        updated = (
+            self._qs()
+            .filter(id=account_id)
+            .update(
+                name=name,
+                type=acc_type,
+                currency=currency,
+                credit_limit=credit_limit,
+                updated_at=now,
             )
-            row = cursor.fetchone()
-            if not row:
-                return None
-            logger.info("account.updated id=%s user=%s", account_id, self.user_id)
-            return self._row_to_dict(row)
+        )
+        if not updated:
+            return None
+        logger.info("account.updated id=%s user=%s", account_id, self.user_id)
+        row = self._qs().filter(id=account_id).values(*self._FIELDS).first()
+        return self._row_to_dict(row) if row else None
 
     def delete(self, account_id: str) -> str | None:
         """Delete account. Returns error message or None on success.
@@ -405,62 +367,42 @@ class AccountService:
         Cleans up recurring rules referencing this account (BUG-012).
         """
         try:
-            with connection.cursor() as cursor:
-                # Clean up recurring rules referencing this account (BUG-012)
-                cursor.execute(
-                    """
-                    DELETE FROM recurring_rules
-                    WHERE template_transaction->>'account_id' = %s AND user_id = %s
-                    """,
-                    [account_id, self.user_id],
-                )
-                # Delete the account (CASCADE to transactions, snapshots, etc.)
-                cursor.execute(
-                    "DELETE FROM accounts WHERE id = %s AND user_id = %s",
-                    [account_id, self.user_id],
-                )
-                if cursor.rowcount == 0:
-                    return "account not found"
-                logger.info("account.deleted id=%s user=%s", account_id, self.user_id)
-                return None
+            # Clean up recurring rules referencing this account (BUG-012)
+            RecurringRule.objects.for_user(self.user_id).filter(
+                template_transaction__account_id=account_id
+            ).delete()
+            # Delete the account (CASCADE to transactions, snapshots, etc.)
+            count, _ = self._qs().filter(id=account_id).delete()
+            if count == 0:
+                return "account not found"
+            logger.info("account.deleted id=%s user=%s", account_id, self.user_id)
+            return None
         except IntegrityError:
             raise
 
     def toggle_dormant(self, account_id: str) -> bool:
         """Toggle dormant flag. Returns True if account found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE accounts SET is_dormant = NOT is_dormant, updated_at = now()
-                WHERE id = %s AND user_id = %s
-                """,
-                [account_id, self.user_id],
-            )
-            toggled: bool = cursor.rowcount > 0
-            if toggled:
-                logger.info(
-                    "account.dormant_toggled id=%s user=%s", account_id, self.user_id
-                )
-            return toggled
+        # Fetch-toggle-save pattern because queryset .update() can't do NOT on a field
+        account = self._qs().filter(id=account_id).first()
+        if account is None:
+            return False
+        account.is_dormant = not account.is_dormant
+        account.updated_at = django_tz.now()
+        account.save(update_fields=["is_dormant", "updated_at"])
+        logger.info("account.dormant_toggled id=%s user=%s", account_id, self.user_id)
+        return True
 
     def reorder(self, ids: list[str]) -> None:
         """Update display_order for a list of account IDs."""
-        with connection.cursor() as cursor:
-            for i, account_id in enumerate(ids):
-                cursor.execute(
-                    "UPDATE accounts SET display_order = %s, updated_at = now() WHERE id = %s AND user_id = %s",
-                    [i, account_id, self.user_id],
-                )
+        now = django_tz.now()
+        for i, account_id in enumerate(ids):
+            self._qs().filter(id=account_id).update(display_order=i, updated_at=now)
         logger.info("account.reordered count=%d user=%s", len(ids), self.user_id)
 
     def update_health_config(self, account_id: str, config: dict[str, Any]) -> None:
         """Save health constraints to account's health_config JSONB."""
-        config_json = json.dumps(config)
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "UPDATE accounts SET health_config = %s::jsonb, updated_at = now() WHERE id = %s AND user_id = %s",
-                [config_json, account_id, self.user_id],
-            )
+        now = django_tz.now()
+        self._qs().filter(id=account_id).update(health_config=config, updated_at=now)
         logger.info(
             "account.health_config_updated id=%s user=%s", account_id, self.user_id
         )
@@ -471,16 +413,13 @@ class AccountService:
         """30-day balance history from account_snapshots for sparkline."""
         today = date.today()
         from_date = today - timedelta(days=days)
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT balance FROM account_snapshots
-                WHERE account_id = %s AND date >= %s AND date <= %s AND user_id = %s
-                ORDER BY date ASC
-                """,
-                [account_id, from_date, today, self.user_id],
-            )
-            return [float(row[0]) for row in cursor.fetchall()]
+        rows = (
+            AccountSnapshot.objects.for_user(self.user_id)
+            .filter(account_id=account_id, date__gte=from_date, date__lte=today)
+            .order_by("date")
+            .values_list("balance", flat=True)
+        )
+        return [float(bal) for bal in rows]
 
     def get_utilization_history(
         self, account_id: str, credit_limit: float, days: int = 30
@@ -496,8 +435,10 @@ class AccountService:
     ) -> list[dict[str, Any]]:
         """Recent transactions with running balance for account detail page.
 
-        Uses window function for running balance calculation.
+        Uses window function for running balance calculation — kept as raw SQL.
         """
+        # Raw SQL — window function computes running balance by subtracting
+        # cumulative balance_deltas from the account's current_balance
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -552,85 +493,94 @@ class AccountService:
 
     def get_linked_virtual_accounts(self, account_id: str) -> list[dict[str, Any]]:
         """Virtual accounts linked to this bank account (non-archived)."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, name, target_amount, current_balance, icon, color,
-                       is_archived, exclude_from_net_worth, display_order, account_id
-                FROM virtual_accounts
-                WHERE account_id = %s AND is_archived = false AND user_id = %s
-                ORDER BY display_order, created_at
-                """,
-                [account_id, self.user_id],
+        rows = (
+            VirtualAccount.objects.for_user(self.user_id)
+            .filter(account_id=account_id, is_archived=False)
+            .order_by("display_order", "created_at")
+            .values(
+                "id",
+                "name",
+                "target_amount",
+                "current_balance",
+                "icon",
+                "color",
+                "is_archived",
+                "exclude_from_net_worth",
+                "display_order",
+                "account_id",
             )
-            result = []
-            for row in cursor.fetchall():
-                target = float(row[2]) if row[2] else 0.0
-                current = float(row[3]) if row[3] else 0.0
-                progress = (current / target * 100) if target > 0 else 0.0
-                result.append(
-                    {
-                        "id": str(row[0]),
-                        "name": row[1],
-                        "target_amount": target,
-                        "current_balance": current,
-                        "icon": row[4],
-                        "color": row[5],
-                        "is_archived": row[6],
-                        "exclude_from_net_worth": row[7],
-                        "display_order": row[8],
-                        "account_id": str(row[9]),
-                        "progress_pct": min(100.0, progress),
-                    }
-                )
-            return result
+        )
+        result = []
+        for row in rows:
+            target = float(row["target_amount"]) if row["target_amount"] else 0.0
+            current = float(row["current_balance"]) if row["current_balance"] else 0.0
+            progress = (current / target * 100) if target > 0 else 0.0
+            result.append(
+                {
+                    "id": str(row["id"]),
+                    "name": row["name"],
+                    "target_amount": target,
+                    "current_balance": current,
+                    "icon": row["icon"],
+                    "color": row["color"],
+                    "is_archived": row["is_archived"],
+                    "exclude_from_net_worth": row["exclude_from_net_worth"],
+                    "display_order": row["display_order"],
+                    "account_id": str(row["account_id"]),
+                    "progress_pct": min(100.0, progress),
+                }
+            )
+        return result
 
     def get_excluded_va_balance(self, account_id: str) -> float:
         """Total excluded VA balance for a bank account."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT COALESCE(SUM(current_balance), 0)
-                FROM virtual_accounts
-                WHERE account_id = %s AND exclude_from_net_worth = true
-                    AND is_archived = false AND user_id = %s
-                """,
-                [account_id, self.user_id],
+        result = (
+            VirtualAccount.objects.for_user(self.user_id)
+            .filter(
+                account_id=account_id,
+                exclude_from_net_worth=True,
+                is_archived=False,
             )
-            row = cursor.fetchone()
-            return float(row[0]) if row else 0.0
+            .aggregate(total=Coalesce(Sum("current_balance"), Decimal("0")))
+        )
+        return float(result["total"])
 
     # --- Internal helpers ---
 
-    def _row_to_dict(self, row: tuple[Any, ...]) -> dict[str, Any]:
-        """Convert a SELECT row to an account dict."""
-        balance = float(row[5])
-        credit_limit = float(row[7]) if row[7] is not None else None
-        acc_type = row[3]
+    def _row_to_dict(self, row: dict[str, Any]) -> dict[str, Any]:
+        """Convert a .values() row to an account dict with computed fields."""
+        balance = float(row["current_balance"])
+        credit_limit = (
+            float(row["credit_limit"]) if row["credit_limit"] is not None else None
+        )
+        acc_type = row["type"]
         is_credit = acc_type in CREDIT_ACCOUNT_TYPES
-        metadata = _parse_jsonb(row[11])
-        health_config = _parse_jsonb(row[12])
+        metadata = _parse_jsonb(row["metadata"])
+        health_config = (
+            _parse_jsonb(row["health_config"]) if row["health_config"] else {}
+        )
 
         available_credit = None
         if is_credit and credit_limit is not None:
             available_credit = credit_limit + balance  # balance is negative for CC
 
+        inst_id = row["institution_id"]
         return {
-            "id": str(row[0]),
-            "institution_id": str(row[1]) if row[1] else None,
-            "name": row[2],
+            "id": str(row["id"]),
+            "institution_id": str(inst_id) if inst_id else None,
+            "name": row["name"],
             "type": acc_type,
-            "currency": row[4],
+            "currency": row["currency"],
             "current_balance": balance,
-            "initial_balance": float(row[6]),
+            "initial_balance": float(row["initial_balance"]),
             "credit_limit": credit_limit,
-            "is_dormant": row[8],
-            "role_tags": row[9] or [],
-            "display_order": row[10],
+            "is_dormant": row["is_dormant"],
+            "role_tags": row["role_tags"] or [],
+            "display_order": row["display_order"],
             "metadata": metadata,
             "health_config": health_config,
-            "created_at": row[13],
-            "updated_at": row[14],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
             # Computed fields
             "is_credit_type": is_credit,
             "available_credit": available_credit,
@@ -648,6 +598,7 @@ def get_statement_data(
     """Full CC statement: transactions, balances, interest-free period, payment history.
 
     Returns None if no billing cycle configured.
+    Kept as raw SQL — complex period queries with multiple aggregations.
     """
     metadata = account.get("metadata")
     cycle = parse_billing_cycle(metadata)
@@ -670,7 +621,8 @@ def get_statement_data(
         except (ValueError, IndexError):
             pass  # Use current period on parse failure
 
-    # Fetch transactions in billing period
+    # Raw SQL — simple date-range filter, but kept consistent with raw SQL pattern
+    # used throughout the statement module
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -714,7 +666,8 @@ def get_statement_data(
     # Interest-free period
     remaining, is_urgent = interest_free_remaining(info.period_end, today)
 
-    # Payment history
+    # Raw SQL — payment history includes counter_account_id match (both legs
+    # of transfers/income that credit this CC), which is simpler in raw SQL
     payment_history: list[dict[str, Any]] = []
     with connection.cursor() as cursor:
         cursor.execute(

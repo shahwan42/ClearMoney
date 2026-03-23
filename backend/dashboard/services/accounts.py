@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from django.db import connection
+from core.models import Account, ExchangeRateLog, Institution
 
 if TYPE_CHECKING:
     from . import DashboardData
@@ -33,73 +33,55 @@ def load_institutions_with_accounts(
     """Load institutions with nested accounts. Returns flat list of all accounts."""
     all_accounts: list[dict[str, Any]] = []
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT id, name, type, color, icon, display_order
-            FROM institutions WHERE user_id = %s
-            ORDER BY display_order, name
-            """,
-            [user_id],
+    institutions = Institution.objects.for_user(user_id).order_by(
+        "display_order", "name"
+    )
+
+    for inst in institutions:
+        accounts = (
+            Account.objects.for_user(user_id)
+            .filter(institution_id=inst.id)
+            .order_by("display_order", "name")
         )
-        institutions = cursor.fetchall()
 
-        for (
-            inst_id,
-            inst_name,
-            inst_type,
-            color,
-            icon,
-            display_order,
-        ) in institutions:
-            cursor.execute(
-                """
-                SELECT id, name, type, currency, current_balance, credit_limit,
-                       is_dormant, metadata, COALESCE(health_config, '{}'::jsonb),
-                       display_order
-                FROM accounts WHERE institution_id = %s AND user_id = %s
-                ORDER BY display_order, name
-                """,
-                [str(inst_id), user_id],
+        account_list: list[dict[str, Any]] = []
+        for row in accounts:
+            acc = {
+                "id": str(row.id),
+                "name": row.name,
+                "type": row.type,
+                "currency": row.currency,
+                "current_balance": float(row.current_balance),
+                "credit_limit": float(row.credit_limit)
+                if row.credit_limit is not None
+                else None,
+                "is_dormant": row.is_dormant,
+                "metadata": row.metadata,
+                "health_config": row.health_config,
+                "display_order": row.display_order,
+            }
+            account_list.append(acc)
+            all_accounts.append(acc)
+
+        # Institution total: convert USD to EGP for consistent display
+        inst_total = 0.0
+        for acc in account_list:
+            if acc["currency"] == "USD" and data.exchange_rate > 0:
+                inst_total += acc["current_balance"] * data.exchange_rate
+            else:
+                inst_total += acc["current_balance"]
+
+        data.institutions.append(
+            InstitutionGroup(
+                institution_id=str(inst.id),
+                name=inst.name,
+                initial=inst.name[0] if inst.name else "?",
+                color=inst.color or "",
+                icon=inst.icon or "",
+                accounts=account_list,
+                total=inst_total,
             )
-            accounts = cursor.fetchall()
-
-            account_list: list[dict[str, Any]] = []
-            for row in accounts:
-                acc = {
-                    "id": str(row[0]),
-                    "name": row[1],
-                    "type": row[2],
-                    "currency": row[3],
-                    "current_balance": float(row[4]),
-                    "credit_limit": float(row[5]) if row[5] is not None else None,
-                    "is_dormant": row[6],
-                    "metadata": row[7],
-                    "health_config": row[8],
-                    "display_order": row[9],
-                }
-                account_list.append(acc)
-                all_accounts.append(acc)
-
-            # Institution total: convert USD to EGP for consistent display
-            inst_total = 0.0
-            for acc in account_list:
-                if acc["currency"] == "USD" and data.exchange_rate > 0:
-                    inst_total += acc["current_balance"] * data.exchange_rate
-                else:
-                    inst_total += acc["current_balance"]
-
-            data.institutions.append(
-                InstitutionGroup(
-                    institution_id=str(inst_id),
-                    name=inst_name,
-                    initial=inst_name[0] if inst_name else "?",
-                    color=color or "",
-                    icon=icon or "",
-                    accounts=account_list,
-                    total=inst_total,
-                )
-            )
+        )
 
     return all_accounts
 
@@ -109,13 +91,9 @@ def load_exchange_rate() -> float:
 
     Exchange rates are global (no user_id filter) — shared across all users.
     """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT rate FROM exchange_rate_log ORDER BY date DESC, created_at DESC LIMIT 1"
-        )
-        row = cursor.fetchone()
-        if row:
-            return float(row[0])
+    latest = ExchangeRateLog.objects.order_by("-date", "-created_at").first()
+    if latest:
+        return float(latest.rate)
     return 0.0
 
 

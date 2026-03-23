@@ -2,19 +2,24 @@
 Budget service — business logic for monthly spending limits per category.
 
 Combines service and repository layers into a single class. Validates input,
-executes SQL, computes spending progress (green/amber/red), and logs mutations.
+queries via Django ORM, computes spending progress (green/amber/red), and logs mutations.
 
 The spending query is the same one used by DashboardService._load_budgets_with_spending().
-Both compute current-month spending by JOINing budgets with transactions filtered
-by type='expense' and matching currency.
+Both compute current-month spending by annotating budgets with a Subquery against
+transactions filtered by type='expense' and matching currency.
 """
 
 import logging
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import connection
+from django.db.models import DecimalField, OuterRef, Subquery, Sum
+from django.db.models.expressions import RawSQL
+from django.db.models.functions import Coalesce
+
+from core.models import Budget, Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +34,18 @@ class BudgetService:
         self.user_id = user_id
         self.tz = tz
 
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return Budget.objects.for_user(self.user_id)
+
     def get_all_with_spending(self) -> list[dict[str, Any]]:
         """Return active budgets with current month's actual spending.
 
-        JOINs budgets with categories and transactions to compute spent amount,
-        percentage, and traffic-light status (green/amber/red).
+        Annotates budgets with a Subquery against transactions to compute spent
+        amount, percentage, and traffic-light status (green/amber/red).
+
+        Uses Subquery because Transaction.category has related_name="+"
+        which disables reverse FK access from Category/Budget.
         """
         today = datetime.now(self.tz).date()
         month_start = today.replace(day=1)
@@ -42,32 +54,38 @@ class BudgetService:
         else:
             month_end = date(today.year, today.month + 1, 1)
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT b.id, b.category_id, b.monthly_limit, b.currency,
-                       c.name AS category_name,
-                       COALESCE(c.icon, '') AS category_icon,
-                       COALESCE(SUM(t.amount), 0) AS spent
-                FROM budgets b
-                JOIN categories c ON b.category_id = c.id
-                LEFT JOIN transactions t ON t.category_id = b.category_id
-                    AND t.type = 'expense'
-                    AND t.date >= %s AND t.date < %s
-                    AND t.currency = b.currency::currency_type
-                    AND t.user_id = b.user_id
-                WHERE b.is_active = true AND b.user_id = %s
-                GROUP BY b.id, c.name, c.icon
-                ORDER BY c.name
-                """,
-                [month_start, month_end, self.user_id],
+        # Subquery: sum of expense transactions for the same category, user, currency
+        # in the current month. Uses OuterRef to correlate with the outer Budget queryset.
+        # Currency cast: transactions.currency is enum currency_type while
+        # budgets.currency is varchar — must cast to match (CLAUDE.md pitfall).
+        currency_cast = RawSQL('("budgets"."currency")::currency_type', params=())
+        spending_subquery = Subquery(
+            Transaction.objects.filter(
+                category_id=OuterRef("category_id"),
+                user_id=OuterRef("user_id"),
+                type="expense",
+                date__gte=month_start,
+                date__lt=month_end,
+                currency=currency_cast,
             )
-            rows = cursor.fetchall()
+            .values("category_id")
+            .annotate(total=Sum("amount"))
+            .values("total")[:1],
+            output_field=DecimalField(),
+        )
+
+        rows = (
+            self._qs()
+            .filter(is_active=True)
+            .select_related("category")
+            .annotate(spent_amount=Coalesce(spending_subquery, Decimal(0)))
+            .order_by("category__name")
+        )
 
         budgets: list[dict[str, Any]] = []
-        for row in rows:
-            limit_amt = float(row[2])
-            spent = float(row[6])
+        for b in rows:
+            limit_amt = float(b.monthly_limit)
+            spent = float(b.spent_amount)
             pct = (spent / limit_amt * 100) if limit_amt > 0 else 0.0
             remaining = limit_amt - spent
 
@@ -80,12 +98,12 @@ class BudgetService:
 
             budgets.append(
                 {
-                    "id": str(row[0]),
-                    "category_id": str(row[1]),
+                    "id": str(b.id),
+                    "category_id": str(b.category_id),
                     "monthly_limit": limit_amt,
-                    "currency": row[3],
-                    "category_name": row[4],
-                    "category_icon": row[5],
+                    "currency": b.currency,
+                    "category_name": b.category.name,
+                    "category_icon": b.category.icon or "",
                     "spent": spent,
                     "remaining": remaining,
                     "percentage": pct,
@@ -116,20 +134,12 @@ class BudgetService:
         if not currency:
             currency = "EGP"
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO budgets (user_id, category_id, monthly_limit, currency)
-                VALUES (%s, %s, %s, %s)
-                RETURNING id, category_id, monthly_limit, currency, is_active,
-                          created_at, updated_at
-                """,
-                [self.user_id, category_id, monthly_limit, currency],
-            )
-            row = cursor.fetchone()
-
-        if row is None:
-            raise ValueError("Failed to create budget")
+        budget = Budget.objects.create(
+            user_id=self.user_id,
+            category_id=category_id,
+            monthly_limit=monthly_limit,
+            currency=currency,
+        )
 
         logger.info(
             "budget.created currency=%s category_id=%s user=%s",
@@ -138,13 +148,13 @@ class BudgetService:
             self.user_id,
         )
         return {
-            "id": str(row[0]),
-            "category_id": str(row[1]),
-            "monthly_limit": float(row[2]),
-            "currency": row[3],
-            "is_active": row[4],
-            "created_at": row[5],
-            "updated_at": row[6],
+            "id": str(budget.id),
+            "category_id": str(budget.category_id),
+            "monthly_limit": float(budget.monthly_limit),
+            "currency": budget.currency,
+            "is_active": budget.is_active,
+            "created_at": budget.created_at,
+            "updated_at": budget.updated_at,
         }
 
     def delete(self, budget_id: str) -> bool:
@@ -153,12 +163,8 @@ class BudgetService:
         Only deletes budgets belonging to the authenticated user.
         Returns True if a row was deleted, False if not found.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM budgets WHERE id = %s AND user_id = %s",
-                [budget_id, self.user_id],
-            )
-            deleted: bool = cursor.rowcount > 0
+        count, _ = self._qs().filter(id=budget_id).delete()
+        deleted = bool(count > 0)
 
         if deleted:
             logger.info("budget.deleted id=%s user=%s", budget_id, self.user_id)

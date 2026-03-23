@@ -5,10 +5,15 @@ from __future__ import annotations
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from django.db import connection
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
+
+from core.models import Transaction
 
 if TYPE_CHECKING:
     from . import DashboardData
@@ -135,17 +140,14 @@ def _query_spending_by_currency(
     user_id: str, start: date, end: date
 ) -> dict[str, float]:
     """Query total expense spending grouped by currency for a date range."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT currency, COALESCE(SUM(amount), 0)
-            FROM transactions
-            WHERE type = 'expense' AND date >= %s AND date < %s AND user_id = %s
-            GROUP BY currency ORDER BY currency
-            """,
-            [start, end, user_id],
-        )
-        return {row[0]: float(row[1]) for row in cursor.fetchall()}
+    rows = (
+        Transaction.objects.for_user(user_id)
+        .filter(type="expense", date__gte=start, date__lt=end)
+        .values("currency")
+        .annotate(total=Coalesce(Sum("amount"), Decimal(0)))
+        .order_by("currency")
+    )
+    return {row["currency"]: float(row["total"]) for row in rows}
 
 
 def _query_top_categories(
@@ -157,7 +159,8 @@ def _query_top_categories(
 ) -> list[dict[str, Any]]:
     """Query top 3 spending categories with month-over-month change.
 
-    Uses a CTE to join this month and last month category totals.
+    Raw SQL — CTE joins this month's top 3 with last month's totals for the
+    same categories. Cross-period comparison doesn't map cleanly to ORM.
     """
     with connection.cursor() as cursor:
         cursor.execute(

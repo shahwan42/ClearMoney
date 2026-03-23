@@ -8,7 +8,9 @@ Called on startup and hourly via the django-cron service.
 
 import logging
 
-from django.db import connection
+from django.utils import timezone as django_tz
+
+from core.models import AuthToken, Session
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +28,10 @@ class CleanupService:
         Returns:
             Tuple of (tokens_deleted, sessions_deleted).
         """
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM auth_tokens WHERE expires_at < NOW()")
-            tokens_deleted = cursor.rowcount
+        now = django_tz.now()
 
-            cursor.execute("DELETE FROM sessions WHERE expires_at < NOW()")
-            sessions_deleted = cursor.rowcount
+        tokens_deleted, _ = AuthToken.objects.filter(expires_at__lt=now).delete()
+        sessions_deleted, _ = Session.objects.filter(expires_at__lt=now).delete()
 
         if tokens_deleted > 0 or sessions_deleted > 0:
             logger.info(

@@ -1,42 +1,68 @@
 """
 Category service layer — business logic for expense/income categories.
 
-Like Laravel's CategoryService — validates input, guards system categories,
-executes raw SQL. Categories are predefined labels for transactions
-(e.g., "Groceries", "Salary"). Some are "system" categories (seeded at setup,
-cannot be modified/deleted), others are user-created.
+Like Laravel's CategoryService — validates input, guards system categories.
+Categories are predefined labels for transactions (e.g., "Groceries", "Salary").
+Some are "system" categories (seeded at setup, cannot be modified/deleted),
+others are user-created.
 """
 
 import logging
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import connection
+from django.utils import timezone as django_tz
+
+from core.models import Category
 
 logger = logging.getLogger(__name__)
 
 VALID_CATEGORY_TYPES = {"expense", "income"}
 
-# Inlined column list — avoids f-string interpolation in queries
-_SELECT_COLS = (
-    "id, user_id, name, type, icon, is_system, is_archived,"
-    " display_order, created_at, updated_at"
+# Fields returned in category dicts
+_FIELDS = (
+    "id",
+    "user_id",
+    "name",
+    "type",
+    "icon",
+    "is_system",
+    "is_archived",
+    "display_order",
+    "created_at",
+    "updated_at",
 )
 
 
-def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a category SQL row to a dict."""
+def _instance_to_dict(cat: Category) -> dict[str, Any]:
+    """Convert a Category model instance to a dict."""
     return {
-        "id": str(row[0]),
-        "user_id": str(row[1]),
-        "name": row[2],
-        "type": row[3],
-        "icon": row[4],
-        "is_system": row[5],
-        "is_archived": row[6],
-        "display_order": row[7],
-        "created_at": row[8],
-        "updated_at": row[9],
+        "id": str(cat.id),
+        "user_id": str(cat.user_id),
+        "name": cat.name,
+        "type": cat.type,
+        "icon": cat.icon,
+        "is_system": cat.is_system,
+        "is_archived": cat.is_archived,
+        "display_order": cat.display_order,
+        "created_at": cat.created_at,
+        "updated_at": cat.updated_at,
+    }
+
+
+def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """Convert a .values() dict — stringify UUIDs."""
+    return {
+        "id": str(row["id"]),
+        "user_id": str(row["user_id"]),
+        "name": row["name"],
+        "type": row["type"],
+        "icon": row["icon"],
+        "is_system": row["is_system"],
+        "is_archived": row["is_archived"],
+        "display_order": row["display_order"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
     }
 
 
@@ -47,39 +73,36 @@ class CategoryService:
         self.user_id = user_id
         self.tz = tz
 
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return Category.objects.for_user(self.user_id)
+
     def get_all(self) -> list[dict[str, Any]]:
         """All non-archived categories, ordered by type, display_order, name."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"SELECT {_SELECT_COLS} FROM categories "
-                "WHERE is_archived = false AND user_id = %s "
-                "ORDER BY type, display_order, name",
-                [self.user_id],
-            )
-            return [_row_to_dict(row) for row in cursor.fetchall()]
+        rows = (
+            self._qs()
+            .filter(is_archived=False)
+            .order_by("type", "display_order", "name")
+            .values(*_FIELDS)
+        )
+        return [_row_to_dict(row) for row in rows]
 
     def get_by_type(self, cat_type: str) -> list[dict[str, Any]]:
         """Non-archived categories filtered by type ('expense' or 'income')."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"SELECT {_SELECT_COLS} FROM categories "
-                "WHERE type = %s AND is_archived = false AND user_id = %s "
-                "ORDER BY display_order, name",
-                [cat_type, self.user_id],
-            )
-            return [_row_to_dict(row) for row in cursor.fetchall()]
+        rows = (
+            self._qs()
+            .filter(type=cat_type, is_archived=False)
+            .order_by("display_order", "name")
+            .values(*_FIELDS)
+        )
+        return [_row_to_dict(row) for row in rows]
 
     def get_by_id(self, cat_id: str) -> dict[str, Any] | None:
         """Single category by ID. Returns None if not found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"SELECT {_SELECT_COLS} FROM categories WHERE id = %s AND user_id = %s",
-                [cat_id, self.user_id],
-            )
-            row = cursor.fetchone()
-            if not row:
-                return None
-            return _row_to_dict(row)
+        row = self._qs().filter(id=cat_id).values(*_FIELDS).first()
+        if not row:
+            return None
+        return _row_to_dict(row)
 
     def create(
         self, name: str, cat_type: str, icon: str | None = None
@@ -95,28 +118,16 @@ class CategoryService:
         if cat_type not in VALID_CATEGORY_TYPES:
             raise ValueError("category type must be 'expense' or 'income'")
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO categories (user_id, name, type, icon, is_system, display_order) "
-                "VALUES (%s, %s, %s, %s, false, 0) "
-                "RETURNING id, is_system, is_archived, display_order, created_at, updated_at",
-                [self.user_id, name, cat_type, icon],
-            )
-            row = cursor.fetchone()
-            assert row is not None
-            logger.info("category.created type=%s user=%s", cat_type, self.user_id)
-            return {
-                "id": str(row[0]),
-                "user_id": self.user_id,
-                "name": name,
-                "type": cat_type,
-                "icon": icon,
-                "is_system": row[1],
-                "is_archived": row[2],
-                "display_order": row[3],
-                "created_at": row[4],
-                "updated_at": row[5],
-            }
+        cat = Category.objects.create(
+            user_id=self.user_id,
+            name=name,
+            type=cat_type,
+            icon=icon,
+            is_system=False,
+            display_order=0,
+        )
+        logger.info("category.created type=%s user=%s", cat_type, self.user_id)
+        return _instance_to_dict(cat)
 
     def update(
         self, cat_id: str, name: str, icon: str | None = None
@@ -132,19 +143,15 @@ class CategoryService:
         if not name:
             raise ValueError("category name is required")
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "UPDATE categories SET name = %s, icon = %s, updated_at = now() "
-                "WHERE id = %s AND user_id = %s "
-                "RETURNING id, user_id, name, type, icon, is_system, is_archived, "
-                "display_order, created_at, updated_at",
-                [name, icon, cat_id, self.user_id],
-            )
-            row = cursor.fetchone()
-            if not row:
-                return None
-            logger.info("category.updated id=%s user=%s", cat_id, self.user_id)
-            return _row_to_dict(row)
+        updated = (
+            self._qs()
+            .filter(id=cat_id)
+            .update(name=name, icon=icon, updated_at=django_tz.now())
+        )
+        if not updated:
+            return None
+        logger.info("category.updated id=%s user=%s", cat_id, self.user_id)
+        return self.get_by_id(cat_id)
 
     def archive(self, cat_id: str) -> bool:
         """Soft-delete a category (sets is_archived=true). System categories cannot be archived.
@@ -157,13 +164,11 @@ class CategoryService:
         if existing["is_system"]:
             raise ValueError("system categories cannot be archived")
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "UPDATE categories SET is_archived = true, updated_at = now() "
-                "WHERE id = %s AND user_id = %s",
-                [cat_id, self.user_id],
-            )
-            deleted: bool = cursor.rowcount > 0
-            if deleted:
-                logger.info("category.archived id=%s user=%s", cat_id, self.user_id)
-            return deleted
+        deleted = (
+            self._qs()
+            .filter(id=cat_id)
+            .update(is_archived=True, updated_at=django_tz.now())
+        )
+        if deleted:
+            logger.info("category.archived id=%s user=%s", cat_id, self.user_id)
+        return bool(deleted > 0)

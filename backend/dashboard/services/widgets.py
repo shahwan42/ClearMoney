@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.db import connection
+from django.db.models import F, Sum
+from django.db.models.functions import Coalesce
+
+from core.models import Investment, Transaction, VirtualAccount
 
 from .helpers import _parse_jsonb
 
@@ -58,25 +63,17 @@ def load_health_warnings(
         # Check minimum monthly deposit
         min_deposit = cfg.get("min_monthly_deposit")
         if min_deposit is not None:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT EXISTS(
-                        SELECT 1 FROM transactions
-                        WHERE account_id = %s AND user_id = %s AND type = 'income'
-                        AND amount >= %s AND date >= %s AND date < %s
-                    )
-                    """,
-                    [
-                        acc["id"],
-                        user_id,
-                        float(min_deposit),
-                        month_start,
-                        month_end,
-                    ],
+            has_deposit = (
+                Transaction.objects.for_user(user_id)
+                .filter(
+                    account_id=acc["id"],
+                    type="income",
+                    amount__gte=Decimal(str(min_deposit)),
+                    date__gte=month_start,
+                    date__lt=month_end,
                 )
-                row = cursor.fetchone()
-                has_deposit = row[0] if row else False
+                .exists()
+            )
 
             if not has_deposit:
                 warnings.append(
@@ -92,7 +89,11 @@ def load_health_warnings(
 
 
 def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any]]:
-    """Load budgets with current month's actual spending."""
+    """Load budgets with current month's actual spending.
+
+    Raw SQL — LEFT JOIN with conditional currency cast (budget varchar →
+    transaction enum) and cross-table aggregation is cleaner than ORM Subquery.
+    """
     today = datetime.now(tz).date()
     month_start = today.replace(day=1)
     if today.month == 12:
@@ -153,34 +154,27 @@ def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any
 
 def load_virtual_accounts(user_id: str) -> list[dict[str, Any]]:
     """Load active virtual accounts for dashboard widget."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT id, name, target_amount, current_balance, icon, color,
-                   exclude_from_net_worth, display_order
-            FROM virtual_accounts
-            WHERE user_id = %s AND is_archived = false
-            ORDER BY display_order, name
-            """,
-            [user_id],
-        )
-        rows = cursor.fetchall()
+    rows = (
+        VirtualAccount.objects.for_user(user_id)
+        .filter(is_archived=False)
+        .order_by("display_order", "name")
+    )
 
     result: list[dict[str, Any]] = []
     for row in rows:
-        target = float(row[2]) if row[2] else 0.0
-        current = float(row[3])
+        target = float(row.target_amount) if row.target_amount else 0.0
+        current = float(row.current_balance)
         progress = (current / target * 100) if target > 0 else 0.0
         result.append(
             {
-                "id": str(row[0]),
-                "name": row[1],
+                "id": str(row.id),
+                "name": row.name,
                 "target_amount": target,
                 "current_balance": current,
-                "icon": row[4] or "",
-                "color": row[5] or "#0d9488",
-                "exclude_from_net_worth": row[6],
-                "display_order": row[7],
+                "icon": row.icon or "",
+                "color": row.color or "#0d9488",
+                "exclude_from_net_worth": row.exclude_from_net_worth,
+                "display_order": row.display_order,
                 "progress_pct": progress,
             }
         )
@@ -189,25 +183,18 @@ def load_virtual_accounts(user_id: str) -> list[dict[str, Any]]:
 
 def load_investments_total(user_id: str) -> float:
     """Load total investment portfolio value."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT COALESCE(SUM(units * last_unit_price), 0) FROM investments WHERE user_id = %s",
-            [user_id],
-        )
-        row = cursor.fetchone()
-        return float(row[0]) if row else 0.0
+    # Aggregate: SUM(units * last_unit_price) — F() product computed in-DB
+    result = Investment.objects.for_user(user_id).aggregate(
+        total=Coalesce(Sum(F("units") * F("last_unit_price")), Decimal(0))
+    )
+    return float(result["total"])
 
 
 def load_excluded_va_total(user_id: str) -> float:
     """Load total balance of virtual accounts excluded from net worth."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT COALESCE(SUM(current_balance), 0)
-            FROM virtual_accounts
-            WHERE user_id = %s AND exclude_from_net_worth = true AND is_archived = false
-            """,
-            [user_id],
-        )
-        row = cursor.fetchone()
-        return float(row[0]) if row else 0.0
+    result = (
+        VirtualAccount.objects.for_user(user_id)
+        .filter(exclude_from_net_worth=True, is_archived=False)
+        .aggregate(total=Coalesce(Sum("current_balance"), Decimal(0)))
+    )
+    return float(result["total"])

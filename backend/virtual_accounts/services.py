@@ -12,15 +12,22 @@ write complexity for read speed (dashboard reads are frequent, allocations are r
 """
 
 import logging
+import uuid as uuid_mod
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from django.db import connection, transaction
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
+from django.utils import timezone as django_tz
+
+from core.models import VirtualAccount, VirtualAccountAllocation
 
 logger = logging.getLogger(__name__)
 
-# Columns returned by virtual_accounts SELECT queries
-_VA_COLS = [
+# Fields returned by .values() queries for virtual accounts
+_VA_FIELDS = (
     "id",
     "user_id",
     "name",
@@ -34,61 +41,66 @@ _VA_COLS = [
     "account_id",
     "created_at",
     "updated_at",
-]
-
-# Columns returned by allocation SELECT queries
-_ALLOC_COLS = [
-    "id",
-    "transaction_id",
-    "virtual_account_id",
-    "amount",
-    "note",
-    "allocated_at",
-    "created_at",
-]
-
-# Columns returned by transaction SELECT queries (for VA history)
-_TX_COLS = [
-    "id",
-    "type",
-    "amount",
-    "currency",
-    "note",
-    "date",
-]
+)
 
 
-def _row_to_va(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a virtual_accounts SQL row to a dict.
+def _row_to_va(row: dict[str, Any]) -> dict[str, Any]:
+    """Convert a .values() dict to a virtual account dict.
 
     Includes computed progress_pct: (current_balance / target_amount) * 100.
     """
-    target = float(row[3]) if row[3] is not None else None
-    balance = float(row[4])
+    target = float(row["target_amount"]) if row["target_amount"] is not None else None
+    balance = float(row["current_balance"])
     progress_pct = 0.0
     if target and target > 0:
         progress_pct = balance / target * 100
 
     return {
-        "id": str(row[0]),
-        "user_id": str(row[1]),
-        "name": row[2],
+        "id": str(row["id"]),
+        "user_id": str(row["user_id"]),
+        "name": row["name"],
         "target_amount": target,
         "current_balance": balance,
-        "icon": row[5] or "",
-        "color": row[6] or "",
-        "is_archived": row[7],
-        "exclude_from_net_worth": row[8],
-        "display_order": row[9],
-        "account_id": str(row[10]) if row[10] else None,
-        "created_at": row[11],
-        "updated_at": row[12],
+        "icon": row["icon"] or "",
+        "color": row["color"] or "",
+        "is_archived": row["is_archived"],
+        "exclude_from_net_worth": row["exclude_from_net_worth"],
+        "display_order": row["display_order"],
+        "account_id": str(row["account_id"]) if row["account_id"] else None,
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "progress_pct": progress_pct,
+    }
+
+
+def _instance_to_va(inst: VirtualAccount) -> dict[str, Any]:
+    """Convert a VirtualAccount model instance to a dict with progress_pct."""
+    target = float(inst.target_amount) if inst.target_amount is not None else None
+    balance = float(inst.current_balance)
+    progress_pct = 0.0
+    if target and target > 0:
+        progress_pct = balance / target * 100
+
+    return {
+        "id": str(inst.id),
+        "user_id": str(inst.user_id),
+        "name": inst.name,
+        "target_amount": target,
+        "current_balance": balance,
+        "icon": inst.icon or "",
+        "color": inst.color or "",
+        "is_archived": inst.is_archived,
+        "exclude_from_net_worth": inst.exclude_from_net_worth,
+        "display_order": inst.display_order,
+        "account_id": str(inst.account_id) if inst.account_id else None,
+        "created_at": inst.created_at,
+        "updated_at": inst.updated_at,
         "progress_pct": progress_pct,
     }
 
 
 def _row_to_allocation(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a virtual_account_allocations SQL row to a dict."""
+    """Convert a virtual_account_allocations raw SQL row to a dict."""
     return {
         "id": str(row[0]),
         "transaction_id": str(row[1]) if row[1] else None,
@@ -101,7 +113,7 @@ def _row_to_allocation(row: tuple[Any, ...]) -> dict[str, Any]:
 
 
 def _row_to_transaction(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a transaction SQL row (VA history subset) to a dict."""
+    """Convert a transaction raw SQL row (VA history subset) to a dict."""
     return {
         "id": str(row[0]),
         "type": row[1],
@@ -121,62 +133,46 @@ class VirtualAccountService:
     def __init__(self, user_id: str) -> None:
         self.user_id = user_id
 
+    def _qs(self) -> Any:
+        """Base queryset scoped to the current user."""
+        return VirtualAccount.objects.for_user(self.user_id)
+
     # -----------------------------------------------------------------------
     # Read operations
     # -----------------------------------------------------------------------
 
     def get_all(self) -> list[dict[str, Any]]:
         """Return all active (non-archived) virtual accounts."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, user_id, name, target_amount, current_balance,
-                       icon, color, is_archived, exclude_from_net_worth,
-                       display_order, account_id, created_at, updated_at
-                FROM virtual_accounts
-                WHERE is_archived = false AND user_id = %s
-                ORDER BY display_order, created_at
-                """,
-                [self.user_id],
-            )
-            return [_row_to_va(row) for row in cursor.fetchall()]
+        rows = (
+            self._qs()
+            .filter(is_archived=False)
+            .order_by("display_order", "created_at")
+            .values(*_VA_FIELDS)
+        )
+        return [_row_to_va(row) for row in rows]
 
     def get_by_id(self, va_id: str) -> dict[str, Any] | None:
         """Return a single virtual account by ID, or None if not found."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, user_id, name, target_amount, current_balance,
-                       icon, color, is_archived, exclude_from_net_worth,
-                       display_order, account_id, created_at, updated_at
-                FROM virtual_accounts
-                WHERE id = %s AND user_id = %s
-                """,
-                [va_id, self.user_id],
-            )
-            row = cursor.fetchone()
-            return _row_to_va(row) if row else None
+        row = self._qs().filter(id=va_id).values(*_VA_FIELDS).first()
+        if not row:
+            return None
+        return _row_to_va(row)
 
     def get_by_account_id(self, account_id: str) -> list[dict[str, Any]]:
         """Return non-archived virtual accounts linked to a specific bank account."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, user_id, name, target_amount, current_balance,
-                       icon, color, is_archived, exclude_from_net_worth,
-                       display_order, account_id, created_at, updated_at
-                FROM virtual_accounts
-                WHERE account_id = %s AND is_archived = false AND user_id = %s
-                ORDER BY display_order, created_at
-                """,
-                [account_id, self.user_id],
-            )
-            return [_row_to_va(row) for row in cursor.fetchall()]
+        rows = (
+            self._qs()
+            .filter(account_id=account_id, is_archived=False)
+            .order_by("display_order", "created_at")
+            .values(*_VA_FIELDS)
+        )
+        return [_row_to_va(row) for row in rows]
 
     def get_allocations(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return allocation records for a virtual account (direct + tx-linked).
 
-        Uses LEFT JOIN so both transaction-linked and direct allocations appear.
+        Raw SQL — ORDER BY COALESCE(t.date, a.allocated_at) merges tx-linked
+        and direct allocations into a single timeline that ORM can't express.
         """
         sql = """
             SELECT a.id, a.transaction_id, a.virtual_account_id, a.amount,
@@ -199,7 +195,8 @@ class VirtualAccountService:
     def get_transactions(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return transactions allocated to a virtual account.
 
-        Returns a subset of transaction fields needed for the history display.
+        Raw SQL — VirtualAccountAllocation.transaction has related_name="+"
+        which disables reverse FK access, so ORM can't traverse from Transaction.
         """
         sql = """
             SELECT t.id, t.type, t.amount, t.currency, t.note, t.date
@@ -243,34 +240,18 @@ class VirtualAccountService:
         if not color:
             color = "#0d9488"
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO virtual_accounts
-                    (user_id, name, target_amount, icon, color, account_id,
-                     exclude_from_net_worth)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                RETURNING id, user_id, name, target_amount, current_balance,
-                          icon, color, is_archived, exclude_from_net_worth,
-                          display_order, account_id, created_at, updated_at
-                """,
-                [
-                    self.user_id,
-                    name.strip(),
-                    target_amount,
-                    icon,
-                    color,
-                    account_id,
-                    exclude_from_net_worth,
-                ],
-            )
-            row = cursor.fetchone()
-
-        if row is None:
-            raise ValueError("Failed to create virtual account")
+        va = VirtualAccount.objects.create(
+            user_id=self.user_id,
+            name=name.strip(),
+            target_amount=target_amount,
+            icon=icon,
+            color=color,
+            account_id=account_id,
+            exclude_from_net_worth=exclude_from_net_worth,
+        )
 
         logger.info("virtual_account.created name=%s user=%s", name, self.user_id)
-        return _row_to_va(row)
+        return _instance_to_va(va)
 
     def update(
         self,
@@ -292,27 +273,20 @@ class VirtualAccountService:
         if not name.strip():
             raise ValueError("Virtual account name is required")
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE virtual_accounts
-                SET name = %s, target_amount = %s, icon = %s, color = %s,
-                    account_id = %s, exclude_from_net_worth = %s,
-                    updated_at = NOW()
-                WHERE id = %s AND user_id = %s
-                """,
-                [
-                    name.strip(),
-                    target_amount,
-                    icon,
-                    color,
-                    account_id,
-                    exclude_from_net_worth,
-                    va_id,
-                    self.user_id,
-                ],
+        count = (
+            self._qs()
+            .filter(id=va_id)
+            .update(
+                name=name.strip(),
+                target_amount=target_amount,
+                icon=icon,
+                color=color,
+                account_id=account_id,
+                exclude_from_net_worth=exclude_from_net_worth,
+                updated_at=django_tz.now(),
             )
-            updated: bool = cursor.rowcount > 0
+        )
+        updated = bool(count > 0)
 
         if updated:
             logger.info("virtual_account.updated id=%s user=%s", va_id, self.user_id)
@@ -323,16 +297,12 @@ class VirtualAccountService:
 
         Returns True if archived, False if not found.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE virtual_accounts
-                SET is_archived = true, updated_at = NOW()
-                WHERE id = %s AND user_id = %s
-                """,
-                [va_id, self.user_id],
-            )
-            archived: bool = cursor.rowcount > 0
+        count = (
+            self._qs()
+            .filter(id=va_id)
+            .update(is_archived=True, updated_at=django_tz.now())
+        )
+        archived = bool(count > 0)
 
         if archived:
             logger.info("virtual_account.archived id=%s user=%s", va_id, self.user_id)
@@ -348,16 +318,12 @@ class VirtualAccountService:
             return False
 
         new_value = not va["exclude_from_net_worth"]
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE virtual_accounts
-                SET exclude_from_net_worth = %s, updated_at = NOW()
-                WHERE id = %s AND user_id = %s
-                """,
-                [new_value, va_id, self.user_id],
-            )
-            return bool(cursor.rowcount > 0)
+        count = (
+            self._qs()
+            .filter(id=va_id)
+            .update(exclude_from_net_worth=new_value, updated_at=django_tz.now())
+        )
+        return bool(count > 0)
 
     def direct_allocate(
         self,
@@ -383,15 +349,12 @@ class VirtualAccountService:
         note_val = note if note else None
 
         with transaction.atomic():
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO virtual_account_allocations
-                        (virtual_account_id, amount, note, allocated_at)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    [va_id, amount, note_val, alloc_date],
-                )
+            VirtualAccountAllocation.objects.create(
+                virtual_account_id=va_id,
+                amount=amount,
+                note=note_val,
+                allocated_at=alloc_date,
+            )
             self._recalculate_balance(va_id)
 
         logger.info(
@@ -408,19 +371,12 @@ class VirtualAccountService:
         """Recompute a virtual account's balance from its allocations.
 
         Called after adding/removing allocations to keep the cached balance in sync.
-        Uses a correlated subquery against virtual_account_allocations.
+        Aggregates SUM(amount) from virtual_account_allocations then updates the VA.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE virtual_accounts
-                SET current_balance = COALESCE((
-                    SELECT SUM(amount)
-                    FROM virtual_account_allocations
-                    WHERE virtual_account_id = %s
-                ), 0),
-                updated_at = NOW()
-                WHERE id = %s AND user_id = %s
-                """,
-                [va_id, va_id, self.user_id],
-            )
+        total = VirtualAccountAllocation.objects.filter(
+            virtual_account_id=uuid_mod.UUID(va_id)
+        ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))["total"]
+
+        self._qs().filter(id=va_id).update(
+            current_balance=total, updated_at=django_tz.now()
+        )
