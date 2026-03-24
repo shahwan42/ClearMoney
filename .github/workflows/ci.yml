@@ -6,7 +6,39 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --group dev
+
+      - name: Run ruff check
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Run ruff format check
+        working-directory: backend
+        run: uv run ruff format --check .
+
+      - name: Run mypy
+        working-directory: backend
+        run: uv run mypy .
+
   test:
     runs-on: ubuntu-latest
 
@@ -34,33 +66,58 @@ jobs:
           python-version: "3.12"
 
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v6
 
-      - name: Install Python dependencies
+      - name: Install dependencies
         working-directory: backend
         run: uv sync --group dev
 
-      - name: Run mypy
+      - name: Apply database migrations
+        working-directory: backend
+        run: uv run python manage.py migrate
+
+      - name: Run tests in parallel with coverage
         working-directory: backend
         env:
-          DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
-        run: uv run mypy .
+          DISABLE_RATE_LIMIT: "true"
+        run: uv run pytest -n auto --cov --cov-fail-under=60
 
-      - name: Run ruff
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clearmoney
+          POSTGRES_PASSWORD: clearmoney
+          POSTGRES_DB: clearmoney
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install backend dependencies
         working-directory: backend
-        run: uv run ruff check .
+        run: uv sync --group dev
 
       - name: Apply database migrations
         working-directory: backend
-        env:
-          DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
         run: uv run python manage.py migrate
-
-      - name: Run Django tests with coverage
-        working-directory: backend
-        env:
-          DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
-        run: uv run pytest --cov --cov-fail-under=60
 
       - name: Install e2e dependencies
         working-directory: e2e
@@ -72,7 +129,6 @@ jobs:
 
       - name: Run e2e tests
         env:
-          DATABASE_URL: postgres://clearmoney:clearmoney@localhost:5432/clearmoney?sslmode=disable
           DISABLE_RATE_LIMIT: "true"
         working-directory: e2e
         run: uv run pytest -v
@@ -84,6 +140,11 @@ jobs:
           name: playwright-report
           path: e2e/playwright-report/
           retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Build Docker image
         run: docker build -t clearmoney:ci -f backend/Dockerfile .
