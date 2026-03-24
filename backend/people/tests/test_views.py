@@ -1,7 +1,7 @@
 """
 People view tests — HTTP-level tests for /people/* routes and /api/persons/* JSON API.
 
-Uses raw SQL fixtures for PostgreSQL enum columns.
+Uses raw SQL fixtures for test data setup.
 """
 
 import json

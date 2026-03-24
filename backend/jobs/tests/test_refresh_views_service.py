@@ -1,7 +1,7 @@
 """
 Tests for RefreshViewsService — materialized view refresh.
 
-Uses real PostgreSQL. The views exist because Go migrations created them.
+Uses real PostgreSQL. The views are created by migration 0004.
 """
 
 import pytest

@@ -6,9 +6,8 @@ accounts, transactions, exchange rates, people, investments, snapshots, virtual 
 budgets, health checks, and credit card billing cycles.
 
 Like Django's TemplateView.get_context_data() that aggregates from many QuerySets
-and services into a single context dictionary. Uses raw SQL via connection.cursor()
-because the queries involve window functions, CTEs, and PostgreSQL enum casts that
-don't map cleanly to the ORM.
+and services into a single context dictionary. A few queries use raw SQL via
+connection.cursor() for window functions and CTEs that don't map cleanly to the ORM.
 """
 
 import logging

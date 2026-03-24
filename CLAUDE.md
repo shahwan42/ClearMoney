@@ -144,7 +144,6 @@ Follow strict TDD — write failing tests FIRST, then implement just enough to p
 
 - **Credit card balance signs**: CC balances are stored as negative numbers (representing debt). Display with `neg` template filter when showing "amount used"
 - **Category dropdowns**: Use `<optgroup label="Expenses">` and `<optgroup label="Income">`
-- **Enum casting in SQL**: When filtering by enum columns (e.g., `currency`), cast the string: `WHERE currency = %s::currency_type`
 - **Transaction currency**: Never trust the form's currency field — the service layer overrides it from the account
 
 ### ARIA Accessibility Standards

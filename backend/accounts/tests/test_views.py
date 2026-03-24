@@ -1,8 +1,7 @@
 """
 Accounts view tests — HTTP-level tests for all /accounts/* and /institutions/* routes.
 
-Follows the dashboard test pattern: fixture creates data via raw SQL
-(needed for PostgreSQL enum columns), tests hit endpoints via Django test client.
+Fixtures create test data via raw SQL, tests hit endpoints via Django test client.
 """
 
 import uuid

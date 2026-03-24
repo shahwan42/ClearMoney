@@ -2,7 +2,7 @@
 Transaction view tests — HTTP-level tests for all /transactions/*, /transfers/*,
 /exchange/*, /batch-entry, and /fawry-cashout routes.
 
-Uses raw SQL fixtures (needed for PostgreSQL enum columns).
+Uses raw SQL fixtures for test data setup.
 """
 
 import json

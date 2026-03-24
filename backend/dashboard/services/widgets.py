@@ -91,8 +91,7 @@ def load_health_warnings(
 def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any]]:
     """Load budgets with current month's actual spending.
 
-    Raw SQL — LEFT JOIN with conditional currency cast (budget varchar →
-    transaction enum) and cross-table aggregation is cleaner than ORM Subquery.
+    Raw SQL — LEFT JOIN with cross-table aggregation is cleaner than ORM Subquery.
     """
     today = datetime.now(tz).date()
     month_start = today.replace(day=1)

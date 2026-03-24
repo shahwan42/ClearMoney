@@ -1,8 +1,7 @@
 """
 Dashboard view tests — HTTP-level tests for dashboard page and HTMX partials.
 
-Tests follow the reports app pattern: fixture creates test data via raw SQL
-(needed for PostgreSQL enum columns), tests hit endpoints via the Django test client.
+Fixtures create test data via raw SQL, tests hit endpoints via the Django test client.
 """
 
 import uuid

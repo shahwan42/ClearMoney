@@ -34,7 +34,7 @@ from core.models import (
 
 logger = logging.getLogger(__name__)
 
-# Valid enum values — must match PostgreSQL enum types
+# Valid account types — validated in service layer
 VALID_ACCOUNT_TYPES = {
     "savings",
     "current",

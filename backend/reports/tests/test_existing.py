@@ -1,10 +1,7 @@
 """
 Reports app tests — reports page rendering and data aggregation.
 
-DB tests use @pytest.mark.django_db with fixtures that create users, sessions,
-accounts, and transactions via a mix of factory_boy (User/Session) and raw SQL
-(Institution/Account/Category/Transaction — needed due to PostgreSQL enum columns
-and missing Django models for Institution).
+DB tests use @pytest.mark.django_db with raw SQL fixtures for test data setup.
 
 Chart builder tests are plain functions (no DB).
 """

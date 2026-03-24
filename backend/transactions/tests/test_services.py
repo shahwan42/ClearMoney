@@ -2,8 +2,8 @@
 Transaction service tests — tests for TransactionService CRUD, transfer, exchange,
 Fawry, batch, smart defaults, and suggest category.
 
-Uses raw SQL fixtures (needed for PostgreSQL enum columns). Tests run against
-the real database with --reuse-db (Go owns schema).
+Uses raw SQL fixtures for test data setup. Tests run against
+the real database with --reuse-db.
 """
 
 import uuid

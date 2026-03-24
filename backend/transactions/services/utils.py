@@ -6,7 +6,7 @@ computation helpers used across CRUD, transfer, and helper modules.
 
 from typing import Any
 
-# Valid transaction types — must match PostgreSQL enum
+# Valid transaction types — validated in service layer
 VALID_TX_TYPES = {
     "expense",
     "income",

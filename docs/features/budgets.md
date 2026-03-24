@@ -19,7 +19,7 @@ A budget ties a monthly spending limit to a specific expense category and curren
 | `category` | FK → Category | Required |
 | `user` | FK → User | Per-user isolation |
 | `monthly_limit` | NUMERIC(15,2) | Must be > 0 |
-| `currency` | enum | `EGP` or `USD` |
+| `currency` | varchar | `EGP` or `USD` |
 | `is_active` | bool | Defaults to True |
 
 Unique constraint: `(user_id, category_id, currency)` — prevents duplicate budgets for the same category+currency.

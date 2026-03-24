@@ -40,7 +40,7 @@ Banks and fintechs serve as grouping containers for accounts. Each has a name, o
 
 Key fields:
 
-- `id` (UUID), `institution_id` (FK), `name`, `type` (account_type enum)
+- `id` (UUID), `institution_id` (FK), `name`, `type` (varchar)
 - `currency` (EGP or USD), `current_balance`, `initial_balance`
 - `credit_limit` (NUMERIC, nullable — only for credit types)
 - `is_dormant` (bool — hides from active lists but keeps in totals)
@@ -57,16 +57,16 @@ Key methods:
 
 ### Institution
 
-Key fields: `id`, `name`, `type` (institution_type enum), `color` (nullable), `icon` (nullable), `display_order`
+Key fields: `id`, `name`, `type` (varchar), `color` (nullable), `icon` (nullable), `display_order`
 
 ## Database Migrations
 
 | Migration | Purpose |
 |-----------|---------|
-| 000001 | Creates `institutions` table + `institution_type` enum |
-| 000002 | Creates `accounts` table + `account_type`/`currency_type` enums |
-| 000017 | Adds `health_config JSONB` column |
-| 000018 | Removes legacy 'checking' type, migrates to 'current' |
+| 0001_initial | Creates all tables (Django-managed) |
+| 0002 | Drops Go-era enum types, converts to varchar |
+| 0003 | Adds DB defaults, aligns column types |
+| 0004 | Creates materialized views |
 
 ## Service Layer
 
@@ -89,7 +89,7 @@ Key operations: `create`, `update`, `delete`, `toggle_dormant`, `update_display_
 
 ### InstitutionService
 
-Validation: name required, type defaults to 'bank', validated against allowed enum values.
+Validation: name required, type defaults to 'bank', validated against allowed values.
 
 Operations: `create`, `update`, `delete`, `update_display_order`
 

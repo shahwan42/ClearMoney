@@ -1,7 +1,7 @@
 """
 Person service tests — CRUD, loan/repayment, multi-currency, debt summary.
 
-Uses raw SQL fixtures for PostgreSQL enum columns. Tests run against the real
+Uses raw SQL fixtures for test data setup. Tests run against the real
 database with --reuse-db.
 """
 
