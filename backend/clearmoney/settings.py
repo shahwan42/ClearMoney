@@ -117,9 +117,6 @@ DATABASES = {
     "default": dj_database_url.config(
         default="postgres://clearmoney:clearmoney@localhost:5433/clearmoney",
         conn_max_age=600,
-        # TEST NAME matches the main DB — Django tests run against the real schema
-        # with --reuse-db. Without this, Django creates an empty test_clearmoney.
-        test_options={"NAME": os.environ.get("TEST_DB_NAME", "clearmoney")},
     ),
 }
 

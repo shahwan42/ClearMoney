@@ -1,11 +1,10 @@
 """
 Tests for ReconcileService — balance verification and auto-fix.
 
-Uses real PostgreSQL. Creates accounts + transactions to test reconciliation.
+Creates accounts + transactions to test reconciliation.
 """
 
 import pytest
-from django.db import connection
 
 from jobs.services.reconcile import ReconcileService
 from tests.factories import (
@@ -25,17 +24,6 @@ class TestReconcileService:
         self.user = UserFactory()
         self.uid = self.user.id
         self.inst = InstitutionFactory(user_id=self.uid)
-
-    def teardown_method(self) -> None:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM transactions WHERE user_id = %s", [str(self.uid)]
-            )
-            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(self.uid)])
-            cursor.execute(
-                "DELETE FROM institutions WHERE user_id = %s", [str(self.uid)]
-            )
-        self.user.delete()
 
     def test_no_discrepancies_when_balanced(self) -> None:
         """Account with matching current_balance returns no discrepancies."""

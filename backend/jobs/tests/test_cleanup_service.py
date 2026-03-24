@@ -1,7 +1,5 @@
 """
 Tests for CleanupService — expired token and session deletion.
-
-Uses real PostgreSQL (Go owns schema, Django tests run against it).
 """
 
 from datetime import timedelta
@@ -21,11 +19,6 @@ class TestCleanupService:
     def setup_method(self) -> None:
         self.svc = CleanupService()
         self.user = UserFactory()
-
-    def teardown_method(self) -> None:
-        AuthToken.objects.filter(email=self.user.email).delete()
-        Session.objects.filter(user=self.user).delete()
-        self.user.delete()
 
     def test_deletes_expired_tokens(self) -> None:
         """Expired auth tokens are removed."""

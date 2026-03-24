@@ -324,7 +324,7 @@ class SnapshotService:
             cursor.execute(
                 """INSERT INTO account_snapshots (user_id, date, account_id, balance)
                    VALUES (%s, %s, %s, %s)
-                   ON CONFLICT (date, account_id) DO UPDATE SET
+                   ON CONFLICT (user_id, date, account_id) DO UPDATE SET
                        balance = EXCLUDED.balance""",
                 [user_id, snapshot_date, account_id, balance],
             )

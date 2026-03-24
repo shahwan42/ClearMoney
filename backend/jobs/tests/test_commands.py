@@ -10,7 +10,6 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
-from django.db import connection
 
 from core.models import DailySnapshot
 from tests.factories import (
@@ -30,17 +29,6 @@ class TestCommands:
         self.uid = self.user.id
         self.inst = InstitutionFactory(user_id=self.uid)
         self.out = StringIO()
-
-    def teardown_method(self) -> None:
-        uid = str(self.uid)
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM account_snapshots WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM daily_snapshots WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM recurring_rules WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [uid])
-        self.user.delete()
 
     def test_cleanup_sessions_command(self) -> None:
         """cleanup_sessions runs without error."""

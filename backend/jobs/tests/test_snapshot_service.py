@@ -1,15 +1,14 @@
 """
 Tests for SnapshotService — daily balance snapshot capture and backfill.
 
-Uses real PostgreSQL. Creates users, accounts, transactions, and exchange rates
-to test the full snapshot pipeline.
+Creates users, accounts, transactions, and exchange rates to test the
+full snapshot pipeline.
 """
 
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from core.models import AccountSnapshot, DailySnapshot, ExchangeRateLog
 from jobs.services.snapshot import SnapshotService
@@ -33,18 +32,6 @@ class TestSnapshotService:
         self.user = UserFactory()
         self.uid = self.user.id
         self.inst = InstitutionFactory(user_id=self.uid)
-
-    def teardown_method(self) -> None:
-        uid = str(self.uid)
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM account_snapshots WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM daily_snapshots WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM virtual_accounts WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [uid])
-        ExchangeRateLog.objects.filter(source="test-snapshot").delete()
-        self.user.delete()
 
     def test_take_snapshot_basic_egp(self) -> None:
         """Single EGP account → correct net worth in daily snapshot."""
