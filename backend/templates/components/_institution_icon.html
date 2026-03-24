@@ -1,0 +1,26 @@
+{% comment %}
+Institution icon component — renders either a brand logo <img> or an emoji/letter avatar.
+
+Context:
+  icon   — icon field value: image filename (e.g. "cib.svg"), emoji, or None
+  name   — institution name (used for alt text and fallback initial)
+  color  — brand color hex string (used for non-image avatar background), optional
+  size   — CSS size class, defaults to "w-8 h-8"
+{% endcomment %}
+{% load money static %}
+{% if icon|is_image_icon %}
+    <img src="{% static 'img/institutions/' %}{{ icon }}"
+         alt="{{ name }}"
+         class="{{ size|default:'w-8 h-8' }} rounded-lg object-contain"
+         aria-hidden="true">
+{% elif icon %}
+    <div class="{{ size|default:'w-8 h-8' }} rounded-full flex items-center justify-center text-lg leading-none"
+         style="{% if color %}background-color: {{ color }};{% else %}background-color: #1e293b;{% endif %}">
+        {{ icon }}
+    </div>
+{% else %}
+    <div class="{{ size|default:'w-8 h-8' }} rounded-full flex items-center justify-center text-white text-sm font-bold"
+         style="{% if color %}background-color: {{ color }};{% else %}background-color: #1e293b;{% endif %}">
+        {{ name|make_list|first }}
+    </div>
+{% endif %}

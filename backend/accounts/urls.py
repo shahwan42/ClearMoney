@@ -20,6 +20,11 @@ urlpatterns = [
         views.institution_form_partial,
         name="institution-form",
     ),
+    path(
+        "accounts/institution-presets",
+        views.institution_presets,
+        name="institution-presets",
+    ),
     path("accounts/empty", views.empty_partial, name="empty-partial"),
     path("accounts/reorder", views.accounts_reorder, name="accounts-reorder"),
     # UUID sub-paths

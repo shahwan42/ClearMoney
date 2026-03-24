@@ -5,6 +5,7 @@ Handles pages, HTMX partials, and mutations.
 Like Laravel's AccountController — thin views that delegate to services.
 """
 
+import json
 import logging
 from typing import Any
 from uuid import UUID
@@ -25,6 +26,7 @@ from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
 
+from .institution_data import EGYPTIAN_BANKS, EGYPTIAN_FINTECHS, WALLET_EXAMPLES
 from .services import AccountService, InstitutionService, get_statement_data
 
 logger = logging.getLogger(__name__)
@@ -246,10 +248,43 @@ def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 
 @general_rate
 @require_http_methods(["GET"])
+def institution_presets(request: AuthenticatedRequest) -> JsonResponse:
+    """GET /accounts/institution-presets?type=bank|fintech|wallet — preset list JSON.
+
+    Returns the static preset entries for the requested institution type.
+    Used by the institution form's JS combobox and available as an API.
+    """
+    inst_type = request.GET.get("type", "")
+    presets: list[dict[str, str]] = []
+    if inst_type == "bank":
+        presets = EGYPTIAN_BANKS
+    elif inst_type == "fintech":
+        presets = EGYPTIAN_FINTECHS
+    elif inst_type == "wallet":
+        presets = list(WALLET_EXAMPLES)
+    else:
+        return JsonResponse({"error": f"unknown type: {inst_type}"}, status=400)
+
+    return JsonResponse(presets, safe=False)
+
+
+@general_rate
+@require_http_methods(["GET"])
 def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts/institution-form — institution creation form partial."""
     logger.info("partial loaded: institution-form, user=%s", request.user_email)
-    return render(request, "accounts/_institution_form.html", {})
+    presets_json = json.dumps(
+        {
+            "bank": EGYPTIAN_BANKS,
+            "fintech": EGYPTIAN_FINTECHS,
+            "wallet": list(WALLET_EXAMPLES),
+        }
+    )
+    return render(
+        request,
+        "accounts/_institution_form.html",
+        {"presets_json": presets_json},
+    )
 
 
 @general_rate
@@ -323,10 +358,12 @@ def institution_add(request: AuthenticatedRequest) -> HttpResponse:
     """
     name = request.POST.get("name", "")
     inst_type = request.POST.get("type", "bank")
+    icon = request.POST.get("icon", "") or None
+    color = request.POST.get("color", "") or None
 
     inst_svc = InstitutionService(request.user_id, request.tz)
     try:
-        inst_svc.create(name, inst_type)
+        inst_svc.create(name, inst_type, icon=icon, color=color)
     except ValueError as e:
         return render(
             request,

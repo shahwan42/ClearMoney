@@ -47,9 +47,11 @@ class TestInstitutions:
         sheet = page.locator('[data-bottom-sheet="create-sheet"]')
         expect(sheet).not_to_have_class(re.compile(r"translate-y-full"))
 
-        # Wait for HTMX to load the form into the sheet content area
+        # Wait for HTMX to load the form into the sheet content area.
+        # The form now uses a combobox: type to search, then select a preset.
         content = page.locator("#create-sheet-content")
-        content.locator('input[name="name"]').fill("HSBC Egypt")
+        content.locator('#preset-search').fill("HSBC")
+        content.locator('[data-preset-option="HSBC Egypt"]').click()
         with page.expect_response(lambda r: "/institutions/add" in r.url):
             content.locator('button[type="submit"]').click()
 

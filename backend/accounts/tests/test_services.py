@@ -1,7 +1,7 @@
 """
-Tests for accounts services — billing cycle math + AccountService.
+Tests for accounts services — billing cycle math + AccountService + InstitutionService.
 
-Billing tests are pure (no DB). AccountService tests need PostgreSQL.
+Billing tests are pure (no DB). AccountService/InstitutionService tests need PostgreSQL.
 """
 
 import uuid
@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.db import connection
 
-from accounts.services import AccountService
+from accounts.services import AccountService, InstitutionService
 from conftest import SessionFactory, UserFactory
 from core.billing import (
     compute_due_date,
@@ -200,3 +200,47 @@ class TestGetForDropdown:
         acc = accounts[0]
         assert "current_balance" in acc
         assert isinstance(acc["current_balance"], float)
+
+
+# ---------------------------------------------------------------------------
+# InstitutionService.create() — branding (icon + color)
+# ---------------------------------------------------------------------------
+
+
+class TestInstitutionCreateWithBranding:
+    """InstitutionService.create() accepts icon and color from presets."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_create_bank_with_image_icon(self, db: None) -> None:
+        user = UserFactory()
+        svc = InstitutionService(str(user.id), self.tz)
+        inst = svc.create(
+            "CIB - Commercial International Bank",
+            "bank",
+            icon="cib.svg",
+            color="#003DA5",
+        )
+        assert inst["icon"] == "cib.svg"
+        assert inst["color"] == "#003DA5"
+
+    def test_create_wallet_with_emoji_icon(self, db: None) -> None:
+        user = UserFactory()
+        svc = InstitutionService(str(user.id), self.tz)
+        inst = svc.create("Pocket Wallet", "wallet", icon="👛", color="#8B5E3C")
+        assert inst["icon"] == "👛"
+        assert inst["color"] == "#8B5E3C"
+
+    def test_create_without_icon_and_color_defaults_none(self, db: None) -> None:
+        user = UserFactory()
+        svc = InstitutionService(str(user.id), self.tz)
+        inst = svc.create("Custom Wallet", "wallet")
+        assert inst["icon"] is None
+        assert inst["color"] is None
+
+    def test_create_custom_bank_no_preset(self, db: None) -> None:
+        user = UserFactory()
+        svc = InstitutionService(str(user.id), self.tz)
+        inst = svc.create("My Local Bank", "bank")
+        assert inst["name"] == "My Local Bank"
+        assert inst["icon"] is None

@@ -1,35 +1,64 @@
 {% comment %}
 Institution create form — rendered inside the create bottom sheet.
-Port of Go's partials/institution-form.html.
-Context: error (optional string).
+Context: error (optional string), presets_json (JSON string of preset lists).
+
+The form uses a combobox (type-to-search listbox) instead of a plain text input.
+All preset data is embedded once as JSON — no extra network requests needed for filtering.
 {% endcomment %}
+{% load static %}
 <div class="space-y-3">
     {% if error %}
-    <div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{{ error }}</div>
+    <div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
     {% endif %}
+
+    <!-- Preset data embedded once for the JS combobox -->
+    <script id="institution-presets" type="application/json">{{ presets_json|safe }}</script>
 
     <form hx-post="/institutions/add"
           hx-target="#create-sheet-content"
-          hx-swap="innerHTML">
+          hx-swap="innerHTML"
+          id="institution-form">
 
         <h3 class="font-semibold text-slate-800 text-sm mb-3">Add Institution</h3>
 
         <div class="space-y-3">
+            <!-- Institution type -->
             <div>
-                <label class="block text-xs text-gray-500 mb-1">Name</label>
-                <input type="text" name="name" required placeholder="e.g., HSBC, CIB, Telda"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-            </div>
-
-            <div>
-                <label class="block text-xs text-gray-500 mb-1">Type</label>
-                <select name="type"
+                <label class="block text-xs text-gray-500 mb-1" for="inst-type">Type</label>
+                <select id="inst-type" name="type"
                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                     <option value="bank">Bank</option>
-                    <option value="fintech">Fintech</option>
+                    <option value="fintech">Finance App (ValU, Fawry…)</option>
                     <option value="wallet">Wallet</option>
                 </select>
             </div>
+
+            <!-- Preset combobox -->
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="preset-search">Name</label>
+                <div class="relative" id="preset-combobox">
+                    <!-- Visible search / display input -->
+                    <input type="text"
+                           id="preset-search"
+                           placeholder="Search or type name…"
+                           autocomplete="off"
+                           aria-haspopup="listbox"
+                           aria-expanded="false"
+                           aria-controls="preset-list"
+                           aria-label="Institution name"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+
+                    <!-- Dropdown listbox -->
+                    <div id="preset-list" role="listbox" aria-label="Institution presets"
+                         class="hidden absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden fields submitted with the form -->
+            <input type="hidden" name="name" id="inst-name">
+            <input type="hidden" name="icon" id="inst-icon">
+            <input type="hidden" name="color" id="inst-color">
         </div>
 
         <div class="flex gap-2 mt-4">
@@ -44,3 +73,191 @@ Context: error (optional string).
         </div>
     </form>
 </div>
+
+<script>
+(function () {
+    const presetsEl = document.getElementById('institution-presets');
+    if (!presetsEl) return;
+    const ALL_PRESETS = JSON.parse(presetsEl.textContent);
+
+    const typeSelect  = document.getElementById('inst-type');
+    const searchInput = document.getElementById('preset-search');
+    const listbox     = document.getElementById('preset-list');
+    const nameInput   = document.getElementById('inst-name');
+    const iconInput   = document.getElementById('inst-icon');
+    const colorInput  = document.getElementById('inst-color');
+
+    let currentPresets = []; // active preset list for the selected type
+    let isCustom = false;    // true when user typed a custom name (Other selected)
+
+    // -----------------------------------------------------------------------
+    // Render listbox options
+    // -----------------------------------------------------------------------
+    function renderList(query) {
+        const q = query.toLowerCase().trim();
+        const type = typeSelect.value;
+        const presets = ALL_PRESETS[type] || [];
+        currentPresets = presets;
+
+        // Filter by query (show all if empty)
+        const matched = q
+            ? presets.filter(p => p.name.toLowerCase().includes(q))
+            : presets;
+
+        listbox.innerHTML = '';
+
+        // For wallets: group by physical / digital
+        if (type === 'wallet') {
+            renderGroupedWallets(matched);
+        } else {
+            matched.forEach(p => appendOption(p));
+        }
+
+        // "Other" option always at the bottom
+        appendOtherOption();
+
+        listbox.classList.remove('hidden');
+        searchInput.setAttribute('aria-expanded', 'true');
+    }
+
+    function renderGroupedWallets(items) {
+        const groups = { physical: [], digital: [] };
+        items.forEach(p => {
+            if (groups[p.group] !== undefined) groups[p.group].push(p);
+        });
+
+        ['physical', 'digital'].forEach(group => {
+            if (!groups[group].length) return;
+            const header = document.createElement('div');
+            header.className = 'px-3 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50';
+            header.textContent = group.charAt(0).toUpperCase() + group.slice(1);
+            listbox.appendChild(header);
+            groups[group].forEach(p => appendOption(p));
+        });
+    }
+
+    function appendOption(preset) {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-teal-50 text-sm text-slate-700';
+        div.setAttribute('role', 'option');
+        div.setAttribute('data-preset-option', preset.name);
+        div.setAttribute('data-name', preset.name);
+        div.setAttribute('data-icon', preset.icon || '');
+        div.setAttribute('data-color', preset.color || '');
+
+        // Icon: image or emoji
+        const iconEl = document.createElement('span');
+        iconEl.className = 'w-6 h-6 flex-shrink-0 flex items-center justify-center rounded';
+        if (preset.icon && (preset.icon.endsWith('.png') || preset.icon.endsWith('.svg'))) {
+            const img = document.createElement('img');
+            img.src = '/static/img/institutions/' + preset.icon;
+            img.alt = preset.name;
+            img.className = 'w-6 h-6 rounded object-contain';
+            iconEl.appendChild(img);
+        } else if (preset.icon) {
+            iconEl.textContent = preset.icon;
+        } else {
+            iconEl.style.backgroundColor = preset.color || '#1e293b';
+            iconEl.textContent = preset.name.charAt(0);
+            iconEl.style.color = 'white';
+            iconEl.style.fontSize = '12px';
+            iconEl.style.fontWeight = '700';
+        }
+        div.appendChild(iconEl);
+
+        // Name
+        const nameEl = document.createElement('span');
+        nameEl.textContent = preset.name;
+        div.appendChild(nameEl);
+
+        div.addEventListener('click', () => selectPreset(preset));
+        div.addEventListener('mousedown', e => e.preventDefault()); // keep focus on input
+        listbox.appendChild(div);
+    }
+
+    function appendOtherOption() {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-teal-50 text-sm text-gray-500 border-t border-gray-100';
+        div.setAttribute('role', 'option');
+        div.setAttribute('data-preset-option', 'other');
+        div.innerHTML = '<span class="w-6 h-6 flex-shrink-0 flex items-center justify-center text-base">✏️</span><span>Other (custom name)</span>';
+        div.addEventListener('click', selectOther);
+        div.addEventListener('mousedown', e => e.preventDefault());
+        listbox.appendChild(div);
+    }
+
+    // -----------------------------------------------------------------------
+    // Selection handlers
+    // -----------------------------------------------------------------------
+    function selectPreset(preset) {
+        isCustom = false;
+        searchInput.value = preset.name;
+        nameInput.value   = preset.value || preset.name;  // store short abbrev when available
+        iconInput.value   = preset.icon  || '';
+        colorInput.value  = preset.color || '';
+        closeList();
+    }
+
+    function selectOther() {
+        isCustom = true;
+        const typed = searchInput.value.trim();
+        // Keep whatever was typed; clear preset branding
+        nameInput.value  = typed;
+        iconInput.value  = '';
+        colorInput.value = '';
+        closeList();
+        searchInput.placeholder = 'Type institution name…';
+        searchInput.focus();
+    }
+
+    // -----------------------------------------------------------------------
+    // Input events
+    // -----------------------------------------------------------------------
+    searchInput.addEventListener('input', () => {
+        if (isCustom) {
+            // In custom mode just sync the name field
+            nameInput.value  = searchInput.value.trim();
+            iconInput.value  = '';
+            colorInput.value = '';
+        } else {
+            renderList(searchInput.value);
+        }
+    });
+
+    searchInput.addEventListener('focus', () => {
+        if (!isCustom) renderList(searchInput.value);
+    });
+
+    searchInput.addEventListener('blur', () => {
+        // Delay close to allow click events on listbox to fire
+        setTimeout(closeList, 150);
+        // If no preset selected and not in custom mode, treat as custom
+        if (!isCustom && nameInput.value === '' && searchInput.value.trim()) {
+            nameInput.value = searchInput.value.trim();
+        }
+    });
+
+    typeSelect.addEventListener('change', () => {
+        isCustom = false;
+        searchInput.value = '';
+        searchInput.placeholder = 'Search or type name…';
+        nameInput.value  = '';
+        iconInput.value  = '';
+        colorInput.value = '';
+        closeList();
+    });
+
+    function closeList() {
+        listbox.classList.add('hidden');
+        listbox.innerHTML = '';
+        searchInput.setAttribute('aria-expanded', 'false');
+    }
+
+    // Sync search input → hidden name on form submit (handles typed custom names)
+    document.getElementById('institution-form').addEventListener('submit', () => {
+        if (!nameInput.value && searchInput.value.trim()) {
+            nameInput.value = searchInput.value.trim();
+        }
+    });
+})();
+</script>

@@ -128,8 +128,17 @@ class InstitutionService:
         row = self._qs().filter(id=inst_id).values(*self._FIELDS).first()
         return self._row_to_dict(row) if row else None
 
-    def create(self, name: str, inst_type: str) -> dict[str, Any]:
-        """Create institution. Validates name and type."""
+    def create(
+        self,
+        name: str,
+        inst_type: str,
+        icon: str | None = None,
+        color: str | None = None,
+    ) -> dict[str, Any]:
+        """Create institution. Validates name and type.
+
+        icon and color may be supplied from preset selection (e.g. "cib.svg", "#003DA5").
+        """
         name = _require_trimmed_name(name, "institution name")
         if not inst_type:
             inst_type = "bank"
@@ -140,8 +149,8 @@ class InstitutionService:
             user_id=self.user_id,
             name=name,
             type=inst_type,
-            color=None,
-            icon=None,
+            color=color or None,
+            icon=icon or None,
             display_order=0,
         )
         logger.info("institution.created type=%s user=%s", inst_type, self.user_id)

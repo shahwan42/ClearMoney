@@ -9,11 +9,9 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
     <details open>
         <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white text-sm font-bold">
-                    {{ institution.name|make_list|first }}
-                </div>
+                {% include "components/_institution_icon.html" with icon=institution.icon name=institution.name color=institution.color %}
                 <div>
-                    <h3 class="font-semibold text-slate-800">{{ institution.name }}</h3>
+                    <h3 class="font-semibold text-slate-800">{{ institution.name|institution_display_name }}</h3>
                     <span class="text-xs text-gray-400">{{ institution.type }}</span>
                 </div>
             </div>

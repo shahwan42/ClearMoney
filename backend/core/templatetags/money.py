@@ -263,3 +263,26 @@ def get_item(dictionary: object, key: object) -> Any:
     if isinstance(dictionary, dict):
         return dictionary.get(str(key))
     return None
+
+
+@register.filter
+def is_image_icon(value: object) -> bool:
+    """Return True if value is an image filename (.png or .svg), False for emoji/None.
+
+    Usage: {% if institution.icon|is_image_icon %}<img ...>{% endif %}
+    """
+    return isinstance(value, str) and value.endswith((".png", ".svg"))
+
+
+@register.filter
+def institution_display_name(stored_name: object) -> str:
+    """Expand a stored institution abbreviation to its full display name.
+
+    e.g. "CIB" → "CIB - Commercial International Bank", "BM" → "Banque Misr"
+    Falls back to the stored value for custom (non-preset) institutions.
+
+    Usage: {{ institution.name|institution_display_name }}
+    """
+    from accounts.institution_data import get_display_name
+
+    return get_display_name(str(stored_name)) if stored_name else ""

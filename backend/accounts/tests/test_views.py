@@ -386,3 +386,128 @@ class TestCreditCardStatement:
         c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{uuid.uuid4()}/statement")
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Institution preset API
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInstitutionPresetsView:
+    """GET /accounts/institution-presets returns JSON preset lists."""
+
+    def test_returns_bank_presets(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/institution-presets?type=bank")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) > 0
+        # All bank entries have required fields
+        for entry in data:
+            assert "name" in entry
+            assert "icon" in entry
+            assert "color" in entry
+
+    def test_bank_list_includes_cib(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/institution-presets?type=bank")
+        names = [b["name"] for b in resp.json()]
+        assert any("CIB" in n for n in names)
+
+    def test_returns_fintech_presets(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/institution-presets?type=fintech")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert any(f["name"] == "Telda" for f in data)
+
+    def test_returns_wallet_presets(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/institution-presets?type=wallet")
+        assert resp.status_code == 200
+        data = resp.json()
+        groups = {w["group"] for w in data}
+        assert "physical" in groups
+        assert "digital" in groups
+        assert any(w["name"] == "Pocket Wallet" for w in data)
+        assert any(w["name"] == "Vodafone Cash" for w in data)
+
+    def test_invalid_type_returns_400(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/institution-presets?type=unknown")
+        assert resp.status_code == 400
+
+    def test_requires_auth(self, client):
+        resp = client.get("/accounts/institution-presets?type=bank")
+        assert resp.status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# Institution add — icon + color from preset
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInstitutionCreateWithPreset:
+    """POST /institutions/add persists icon and color from preset selection."""
+
+    def test_creates_bank_with_image_icon(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/institutions/add",
+            {
+                "name": "CIB - Commercial International Bank",
+                "type": "bank",
+                "icon": "cib.svg",
+                "color": "#003DA5",
+            },
+        )
+        assert resp.status_code == 200
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT icon, color FROM institutions WHERE name = %s AND user_id = %s",
+                ["CIB - Commercial International Bank", accounts_data["user_id"]],
+            )
+            row = cursor.fetchone()
+        assert row is not None
+        assert row[0] == "cib.svg"
+        assert row[1] == "#003DA5"
+
+    def test_creates_wallet_with_emoji_icon(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/institutions/add",
+            {
+                "name": "Pocket Wallet",
+                "type": "wallet",
+                "icon": "👛",
+                "color": "#8B5E3C",
+            },
+        )
+        assert resp.status_code == 200
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT icon FROM institutions WHERE name = %s AND user_id = %s",
+                ["Pocket Wallet", accounts_data["user_id"]],
+            )
+            row = cursor.fetchone()
+        assert row is not None
+        assert row[0] == "👛"
+
+    def test_creates_institution_without_icon(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/institutions/add",
+            {"name": "My Local Bank", "type": "bank"},
+        )
+        assert resp.status_code == 200
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT icon, color FROM institutions WHERE name = %s AND user_id = %s",
+                ["My Local Bank", accounts_data["user_id"]],
+            )
+            row = cursor.fetchone()
+        assert row is not None
+        assert row[0] is None
+        assert row[1] is None
