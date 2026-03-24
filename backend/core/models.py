@@ -11,17 +11,22 @@ import uuid
 
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from django.db.models import Func
+from django.db.models.functions import Now
 
 from core.managers import UserScopedManager
+
+# SQL-level default for UUID primary keys (gen_random_uuid())
+GEN_UUID = Func(function="gen_random_uuid")
 
 
 class User(models.Model):
     """The users table — magic link auth, no password."""
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     email = models.CharField(max_length=255, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "users"
@@ -33,11 +38,11 @@ class User(models.Model):
 class Session(models.Model):
     """Server-side sessions — validated by GoSessionAuthMiddleware."""
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     token = models.CharField(max_length=255, unique=True)
     expires_at = models.DateTimeField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         db_table = "sessions"
@@ -46,15 +51,15 @@ class Session(models.Model):
 class AuthToken(models.Model):
     """Short-lived, single-use magic link tokens. Like Laravel's password_resets table."""
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     email = models.CharField(max_length=255)
     token = models.CharField(max_length=255, unique=True)
     purpose = models.CharField(
-        max_length=20, default="login"
+        max_length=20, default="login", db_default="login"
     )  # 'login' or 'registration'
     expires_at = models.DateTimeField()
-    used = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False, db_default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         db_table = "auth_tokens"
@@ -63,13 +68,17 @@ class AuthToken(models.Model):
 class UserConfig(models.Model):
     """Legacy single-user config table. Kept for backward compat (brute-force protection)."""
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     pin_hash = models.TextField()
     session_key = models.TextField()
-    failed_attempts = models.IntegerField(default=0)
+    failed_attempts = models.IntegerField(default=0, db_default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
-    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+    created_at = models.DateTimeField(
+        auto_now_add=True, null=True, blank=True, db_default=Now()
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True, null=True, blank=True, db_default=Now()
+    )
 
     class Meta:
         db_table = "user_config"
@@ -80,15 +89,17 @@ class Institution(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=255)
-    type = models.CharField(max_length=20)  # 'bank', 'fintech', 'wallet'
+    type = models.CharField(
+        max_length=20, db_default="bank"
+    )  # 'bank', 'fintech', 'wallet'
     color = models.CharField(max_length=20, null=True, blank=True)
     icon = models.CharField(max_length=255, null=True, blank=True)
-    display_order = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    display_order = models.IntegerField(default=0, db_default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "institutions"
@@ -105,7 +116,7 @@ class Account(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
@@ -120,23 +131,27 @@ class Account(models.Model):
     type = models.CharField(
         max_length=20
     )  # 'savings', 'current', 'prepaid', 'credit_card', 'credit_limit', 'cash'
-    currency = models.CharField(max_length=3)  # 'EGP' or 'USD'
-    current_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    initial_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    currency = models.CharField(max_length=3, db_default="EGP")  # 'EGP' or 'USD'
+    current_balance = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
+    initial_balance = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
     credit_limit = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
     )
-    is_dormant = models.BooleanField(default=False)
+    is_dormant = models.BooleanField(default=False, db_default=False)
     role_tags = ArrayField(
         models.CharField(max_length=100), default=list, blank=True, null=True
     )
-    display_order = models.IntegerField(default=0)
+    display_order = models.IntegerField(default=0, db_default=0)
     metadata = models.JSONField(null=True, blank=True)  # JSONB: billing cycle, etc.
     health_config = models.JSONField(
         null=True, blank=True
     )  # JSONB: min_balance, min_monthly_deposit
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "accounts"
@@ -154,16 +169,16 @@ class Category(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=20)  # 'expense' or 'income'
     icon = models.CharField(max_length=10, null=True, blank=True)
-    is_system = models.BooleanField(default=False)
-    is_archived = models.BooleanField(default=False)
-    display_order = models.IntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    is_system = models.BooleanField(default=False, db_default=False)
+    is_archived = models.BooleanField(default=False, db_default=False)
+    display_order = models.IntegerField(default=0, db_default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "categories"
@@ -180,17 +195,21 @@ class Person(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=100)
     note = models.TextField(null=True, blank=True)
     net_balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0
+        max_digits=15, decimal_places=2, default=0, db_default=0
     )  # legacy
-    net_balance_egp = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    net_balance_usd = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    net_balance_egp = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
+    net_balance_usd = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "persons"
@@ -207,16 +226,16 @@ class RecurringRule(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     template_transaction = models.JSONField()
     frequency = models.CharField(max_length=20)  # 'monthly' or 'weekly'
     day_of_month = models.IntegerField(null=True, blank=True)
     next_due_date = models.DateField()
-    is_active = models.BooleanField(default=True)
-    auto_confirm = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True, db_default=True)
+    auto_confirm = models.BooleanField(default=False, db_default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "recurring_rules"
@@ -230,7 +249,7 @@ class Transaction(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
@@ -263,7 +282,7 @@ class Transaction(models.Model):
         db_index=True,
         related_name="+",
     )
-    date = models.DateField(db_index=True)
+    date = models.DateField(db_index=True, db_default=Now())
     time = models.TimeField(null=True, blank=True)
     note = models.TextField(null=True, blank=True)
     tags = ArrayField(models.CharField(max_length=100), default=list, blank=True)
@@ -308,9 +327,11 @@ class Transaction(models.Model):
         db_column="recurring_rule_id",
         related_name="+",
     )
-    balance_delta = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    balance_delta = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "transactions"
@@ -321,18 +342,24 @@ class VirtualAccount(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     name = models.CharField(max_length=100)
     target_amount = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
     )
-    current_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    icon = models.CharField(max_length=10, default="", null=True, blank=True)
-    color = models.CharField(max_length=20, default="", null=True, blank=True)
-    is_archived = models.BooleanField(default=False)
-    exclude_from_net_worth = models.BooleanField(default=False)
-    display_order = models.IntegerField(default=0)
+    current_balance = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
+    icon = models.CharField(
+        max_length=10, default="", null=True, blank=True, db_default=""
+    )
+    color = models.CharField(
+        max_length=20, default="", null=True, blank=True, db_default="#0d9488"
+    )
+    is_archived = models.BooleanField(default=False, db_default=False)
+    exclude_from_net_worth = models.BooleanField(default=False, db_default=False)
+    display_order = models.IntegerField(default=0, db_default=0)
     account = models.ForeignKey(
         Account,
         on_delete=models.SET_NULL,
@@ -341,8 +368,8 @@ class VirtualAccount(models.Model):
         db_column="account_id",
         related_name="+",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "virtual_accounts"
@@ -363,7 +390,7 @@ class VirtualAccountAllocation(models.Model):
     transaction is nullable for direct (non-transaction) allocations.
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     transaction = models.ForeignKey(
         Transaction,
         on_delete=models.CASCADE,
@@ -383,7 +410,7 @@ class VirtualAccountAllocation(models.Model):
     )  # positive=contribution, negative=withdrawal
     note = models.TextField(null=True, blank=True)
     allocated_at = models.DateField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         db_table = "virtual_account_allocations"
@@ -394,7 +421,7 @@ class Budget(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
@@ -402,10 +429,10 @@ class Budget(models.Model):
         Category, on_delete=models.CASCADE, db_column="category_id", related_name="+"
     )
     monthly_limit = models.DecimalField(max_digits=15, decimal_places=2)
-    currency = models.CharField(max_length=3)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    currency = models.CharField(max_length=3, db_default="EGP")
+    is_active = models.BooleanField(default=True, db_default=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "budgets"
@@ -422,16 +449,16 @@ class Investment(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    platform = models.CharField(max_length=100)
+    platform = models.CharField(max_length=100, db_default="Thndr")
     fund_name = models.CharField(max_length=100)
-    units = models.DecimalField(max_digits=15, decimal_places=4)
-    last_unit_price = models.DecimalField(max_digits=15, decimal_places=4)
-    currency = models.CharField(max_length=3)
-    last_updated = models.DateTimeField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    units = models.DecimalField(max_digits=15, decimal_places=4, db_default=0)
+    last_unit_price = models.DecimalField(max_digits=15, decimal_places=4, db_default=0)
+    currency = models.CharField(max_length=3, db_default="EGP")
+    last_updated = models.DateTimeField(db_default=Now())
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
     class Meta:
         db_table = "investments"
@@ -449,17 +476,21 @@ class DailySnapshot(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
     date = models.DateField(db_index=True)
-    net_worth_egp = models.DecimalField(max_digits=15, decimal_places=2)
-    net_worth_raw = models.DecimalField(max_digits=15, decimal_places=2)
-    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4)
-    daily_spending = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    daily_income = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
+    net_worth_egp = models.DecimalField(max_digits=15, decimal_places=2, db_default=0)
+    net_worth_raw = models.DecimalField(max_digits=15, decimal_places=2, db_default=0)
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=4, db_default=0)
+    daily_spending = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
+    daily_income = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, db_default=0
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         db_table = "daily_snapshots"
@@ -476,14 +507,14 @@ class AccountSnapshot(models.Model):
 
     objects = UserScopedManager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     date = models.DateField()
     account = models.ForeignKey(
         Account, on_delete=models.CASCADE, db_column="account_id", related_name="+"
     )
-    balance = models.DecimalField(max_digits=15, decimal_places=2)
-    created_at = models.DateTimeField(auto_now_add=True)
+    balance = models.DecimalField(max_digits=15, decimal_places=2, db_default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         db_table = "account_snapshots"
@@ -501,12 +532,12 @@ class ExchangeRateLog(models.Model):
     Rate = EGP per 1 USD (e.g., 50.5 means 1 USD = 50.5 EGP).
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     date = models.DateField()
     rate = models.DecimalField(max_digits=10, decimal_places=4)
     source = models.CharField(max_length=50, null=True, blank=True)
     note = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
 
     class Meta:
         db_table = "exchange_rate_log"
