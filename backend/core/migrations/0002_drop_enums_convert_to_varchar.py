@@ -12,6 +12,12 @@ so all operations are conditional no-ops.
 from django.db import migrations
 
 DROP_ENUMS_SQL = """
+-- Drop materialized views first — they reference enum-typed columns and
+-- PostgreSQL won't allow ALTER COLUMN TYPE while views depend on them.
+-- Migration 0004 recreates these views after schema changes.
+DROP MATERIALIZED VIEW IF EXISTS mv_monthly_category_totals;
+DROP MATERIALIZED VIEW IF EXISTS mv_daily_tx_counts;
+
 -- Convert enum columns to varchar (conditional: only if column is USER-DEFINED)
 DO $$
 BEGIN
