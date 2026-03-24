@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Edit(/.claude/skills/commit/**)",
-      "Edit(/.claude/skills/deploy/**)"
+      "Edit(/.claude/skills/deploy/**)",
+      "Edit(/.claude/skills/qa-review/**)"
     ]
   }
 }
