@@ -8,6 +8,8 @@ server
 .gitignore
 .claude/
 .github/
+**/.venv/
+**/__pycache__/
 README.md
 TASKS.md
 clearmoney-prd.md
