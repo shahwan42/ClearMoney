@@ -20,6 +20,7 @@ from core.billing import (
     interest_free_remaining,
     parse_billing_cycle,
 )
+from tests.factories import InstitutionFactory
 
 
 class TestParseBillingCycle:
@@ -244,3 +245,82 @@ class TestInstitutionCreateWithBranding:
         inst = svc.create("My Local Bank", "bank")
         assert inst["name"] == "My Local Bank"
         assert inst["icon"] is None
+
+
+# ---------------------------------------------------------------------------
+# AccountService.create — auto-generated name when blank
+# ---------------------------------------------------------------------------
+
+
+class TestAccountCreateAutoName:
+    """AccountService.create() generates default name when blank."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    @pytest.fixture
+    def setup(self, db: None) -> dict[str, str]:
+        """User + institution for auto-name tests."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id, name="CIB", type="bank")
+        return {"user_id": str(user.id), "institution_id": str(inst.id)}
+
+    def test_auto_name_savings(self, setup: dict[str, str]) -> None:
+        svc = AccountService(setup["user_id"], self.tz)
+        account = svc.create(
+            {
+                "institution_id": setup["institution_id"],
+                "name": "",
+                "type": "savings",
+                "currency": "EGP",
+            }
+        )
+        assert account["name"] == "CIB - Savings"
+
+    def test_auto_name_credit_card(self, setup: dict[str, str]) -> None:
+        svc = AccountService(setup["user_id"], self.tz)
+        account = svc.create(
+            {
+                "institution_id": setup["institution_id"],
+                "name": "  ",
+                "type": "credit_card",
+                "currency": "EGP",
+                "credit_limit": 50000,
+            }
+        )
+        assert account["name"] == "CIB - Credit Card"
+
+    def test_explicit_name_preserved(self, setup: dict[str, str]) -> None:
+        svc = AccountService(setup["user_id"], self.tz)
+        account = svc.create(
+            {
+                "institution_id": setup["institution_id"],
+                "name": "My Main Account",
+                "type": "current",
+                "currency": "EGP",
+            }
+        )
+        assert account["name"] == "My Main Account"
+
+    def test_auto_name_prepaid(self, setup: dict[str, str]) -> None:
+        svc = AccountService(setup["user_id"], self.tz)
+        account = svc.create(
+            {
+                "institution_id": setup["institution_id"],
+                "name": "",
+                "type": "prepaid",
+                "currency": "EGP",
+            }
+        )
+        assert account["name"] == "CIB - Prepaid"
+
+    def test_auto_name_cash(self, setup: dict[str, str]) -> None:
+        svc = AccountService(setup["user_id"], self.tz)
+        account = svc.create(
+            {
+                "institution_id": setup["institution_id"],
+                "name": "",
+                "type": "cash",
+                "currency": "EGP",
+            }
+        )
+        assert account["name"] == "CIB - Cash"

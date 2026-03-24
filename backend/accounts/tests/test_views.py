@@ -511,3 +511,55 @@ class TestInstitutionCreateWithPreset:
         assert row is not None
         assert row[0] is None
         assert row[1] is None
+
+
+# ---------------------------------------------------------------------------
+# Account add — auto-generated name
+# ---------------------------------------------------------------------------
+
+
+class TestAccountAddAutoName:
+    """POST /accounts/add with blank name auto-generates a default."""
+
+    def test_blank_name_creates_auto_named_account(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/accounts/add",
+            {
+                "institution_id": accounts_data["institution_id"],
+                "name": "",
+                "type": "prepaid",
+                "currency": "EGP",
+                "initial_balance": "0",
+            },
+        )
+        assert resp.status_code == 200
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT name FROM accounts WHERE user_id = %s AND type = 'prepaid'",
+                [accounts_data["user_id"]],
+            )
+            row = cursor.fetchone()
+        assert row is not None
+        assert row[0] == "Test Bank - Prepaid"
+
+    def test_explicit_name_still_works(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/accounts/add",
+            {
+                "institution_id": accounts_data["institution_id"],
+                "name": "My Custom Account",
+                "type": "current",
+                "currency": "EGP",
+                "initial_balance": "1000",
+            },
+        )
+        assert resp.status_code == 200
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT name FROM accounts WHERE user_id = %s AND name = %s",
+                [accounts_data["user_id"], "My Custom Account"],
+            )
+            row = cursor.fetchone()
+        assert row is not None

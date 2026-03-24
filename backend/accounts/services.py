@@ -47,6 +47,16 @@ CREDIT_ACCOUNT_TYPES = {"credit_card", "credit_limit"}
 VALID_INSTITUTION_TYPES = {"bank", "fintech", "wallet"}
 VALID_CURRENCIES = {"EGP", "USD"}
 
+# Human-readable labels for auto-generated account names
+ACCOUNT_TYPE_LABELS: dict[str, str] = {
+    "savings": "Savings",
+    "current": "Current",
+    "prepaid": "Prepaid",
+    "cash": "Cash",
+    "credit_card": "Credit Card",
+    "credit_limit": "Credit Limit",
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -288,8 +298,11 @@ class AccountService:
     # --- Write operations ---
 
     def create(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Create account. Validates name, institution, credit limit rules."""
-        name = _require_trimmed_name(data.get("name", ""), "account name")
+        """Create account. Validates institution, credit limit rules.
+
+        Name is optional — auto-generates "{Institution} - {Type}" if blank.
+        """
+        raw_name = (data.get("name", "") or "").strip()
         institution_id = data.get("institution_id", "")
         if not institution_id:
             raise ValueError("institution_id is required")
@@ -297,6 +310,14 @@ class AccountService:
         acc_type = data.get("type", "current")
         if acc_type not in VALID_ACCOUNT_TYPES:
             raise ValueError(f"invalid account type: {acc_type}")
+
+        # Auto-generate name from institution + type if left blank
+        if raw_name:
+            name = raw_name
+        else:
+            institution = Institution.objects.get(id=institution_id)
+            type_label = ACCOUNT_TYPE_LABELS.get(acc_type, acc_type)
+            name = f"{institution.name} - {type_label}"
 
         currency = data.get("currency", "EGP")
         if currency not in VALID_CURRENCIES:
