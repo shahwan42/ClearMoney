@@ -36,7 +36,7 @@ def dashboard_data(db):
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s)",
             [account_id, user_id, inst_id, "Main Savings", 15000],
         )
         for i in range(3):

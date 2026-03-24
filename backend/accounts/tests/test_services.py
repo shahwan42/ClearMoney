@@ -152,12 +152,12 @@ def dropdown_data(db):
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, 5000, 5000)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', 5000, 5000)",
             [active_id, user_id, inst_id, "Active Savings"],
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance, is_dormant)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, 0, 0, true)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', 0, 0, true)",
             [dormant_id, user_id, inst_id, "Dormant"],
         )
 

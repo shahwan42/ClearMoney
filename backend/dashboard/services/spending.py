@@ -171,7 +171,7 @@ def _query_top_categories(
                     SUM(t.amount) AS amount
                 FROM transactions t
                 LEFT JOIN categories c ON t.category_id = c.id
-                WHERE t.type = 'expense' AND t.currency = %s::currency_type
+                WHERE t.type = 'expense' AND t.currency = %s
                     AND t.date >= %s AND t.date < %s
                     AND t.user_id = %s
                 GROUP BY c.name, c.icon
@@ -183,7 +183,7 @@ def _query_top_categories(
                     SUM(t.amount) AS amount
                 FROM transactions t
                 LEFT JOIN categories c ON t.category_id = c.id
-                WHERE t.type = 'expense' AND t.currency = %s::currency_type
+                WHERE t.type = 'expense' AND t.currency = %s
                     AND t.date >= %s AND t.date < %s
                     AND t.user_id = %s
                 GROUP BY c.name

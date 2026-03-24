@@ -34,7 +34,7 @@ def tx_view_data(db):
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
             " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
             [egp_id, user_id, inst_id, "EGP Savings", 10000, 10000],
         )
         cursor.execute(
@@ -239,7 +239,7 @@ class TestTransferViews:
                 "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+                " %s, 'savings', 'EGP', %s, %s)",
                 [
                     dest_id,
                     tx_view_data["user_id"],

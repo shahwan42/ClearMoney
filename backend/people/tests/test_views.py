@@ -32,13 +32,13 @@ def people_view_data(db):
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
             " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
             [egp_id, user_id, inst_id, "EGP Savings", 10000, 10000],
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
             " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'USD'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'USD', %s, %s)",
             [usd_id, user_id, inst_id, "USD Savings", 500, 500],
         )
 

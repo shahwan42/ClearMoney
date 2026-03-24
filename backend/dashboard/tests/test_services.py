@@ -42,12 +42,12 @@ def svc_data(db):
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s)",
             [savings_id, user_id, inst_id, "Savings EGP", 10000],
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, credit_limit)"
-            " VALUES (%s, %s, %s, %s, 'credit_card'::account_type, 'EGP'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', %s, %s)",
             [cc_id, user_id, inst_id, "CC EGP", -2000, 10000],
         )
         cursor.execute(
@@ -293,7 +293,7 @@ def test_load_budgets_with_spending(svc_data):
     with connection.cursor() as cursor:
         cursor.execute(
             "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
-            " VALUES (%s, %s, %s, %s, 'EGP'::currency_type, true)",
+            " VALUES (%s, %s, %s, %s, 'EGP', true)",
             [budget_id, svc_data["user_id"], svc_data["cat_id"], 1000],
         )
         # Add 2 expenses in current month

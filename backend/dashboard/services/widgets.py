@@ -113,7 +113,7 @@ def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any
             LEFT JOIN transactions t ON t.category_id = b.category_id
                 AND t.type = 'expense'
                 AND t.date >= %s AND t.date < %s
-                AND t.currency = b.currency::currency_type
+                AND t.currency = b.currency
                 AND t.user_id = b.user_id
             WHERE b.is_active = true AND b.user_id = %s
             GROUP BY b.id, c.name, c.icon

@@ -247,13 +247,13 @@ def _create_expense(
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
             " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, 'Test', 'savings'::account_type,"
-            " 'EGP'::currency_type, 0, 0)",
+            " VALUES (%s, %s, %s, 'Test', 'savings',"
+            " 'EGP', 0, 0)",
             [acct_id, user_id, inst_id],
         )
         cursor.execute(
             "INSERT INTO transactions (id, user_id, account_id, category_id, type,"
             " amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', %s, 'EGP'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'expense', %s, 'EGP', %s, %s)",
             [tx_id, user_id, acct_id, category_id, amount, tx_date, -amount],
         )

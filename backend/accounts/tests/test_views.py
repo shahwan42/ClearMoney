@@ -35,12 +35,12 @@ def accounts_data(db):
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
             [savings_id, user_id, inst_id, "Main Savings", 15000, 15000],
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance, credit_limit, metadata)"
-            " VALUES (%s, %s, %s, %s, 'credit_card'::account_type, 'EGP'::currency_type, %s, %s, %s, %s::jsonb)",
+            " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', %s, %s, %s, %s::jsonb)",
             [
                 cc_id,
                 user_id,

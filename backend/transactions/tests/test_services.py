@@ -49,19 +49,19 @@ def tx_data(db):
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
             " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
             [egp_id, user_id, inst_id, "EGP Savings", 10000, 10000],
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
             " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings'::account_type, 'USD'::currency_type, %s, %s)",
+            " VALUES (%s, %s, %s, %s, 'savings', 'USD', %s, %s)",
             [usd_id, user_id, inst_id, "USD Savings", 500, 500],
         )
         cursor.execute(
             "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
             " current_balance, initial_balance, credit_limit)"
-            " VALUES (%s, %s, %s, %s, 'credit_card'::account_type, 'EGP'::currency_type,"
+            " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP',"
             " %s, %s, %s)",
             [cc_id, user_id, inst_id, "Test CC", 0, 0, 5000],
         )
@@ -314,7 +314,7 @@ class TestDelete:
                 "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+                " %s, 'savings', 'EGP', %s, %s)",
                 [
                     dest_id,
                     tx_data["user_id"],
@@ -451,7 +451,7 @@ class TestTransfer:
                 "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+                " %s, 'savings', 'EGP', %s, %s)",
                 [dest_id, tx_data["user_id"], tx_data["user_id"], "Dest", 5000, 5000],
             )
         debit, credit = svc.create_transfer(
@@ -503,7 +503,7 @@ class TestInstapayTransfer:
                 "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+                " %s, 'savings', 'EGP', %s, %s)",
                 [dest_id, tx_data["user_id"], tx_data["user_id"], "Dest", 5000, 5000],
             )
         _, _, fee = svc.create_instapay_transfer(
@@ -574,7 +574,7 @@ class TestExchange:
                 "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings'::account_type, 'EGP'::currency_type, %s, %s)",
+                " %s, 'savings', 'EGP', %s, %s)",
                 [egp2_id, tx_data["user_id"], tx_data["user_id"], "EGP 2", 1000, 1000],
             )
         with pytest.raises(ValueError, match="different currencies"):
@@ -624,7 +624,7 @@ class TestFawryCashout:
                 "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
                 " current_balance, initial_balance)"
                 " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'prepaid'::account_type, 'EGP'::currency_type, %s, %s)",
+                " %s, 'prepaid', 'EGP', %s, %s)",
                 [prepaid_id, tx_data["user_id"], tx_data["user_id"], "Prepaid", 0, 0],
             )
         charge, credit = svc.create_fawry_cashout(

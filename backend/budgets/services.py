@@ -16,7 +16,6 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.db.models import DecimalField, OuterRef, Subquery, Sum
-from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce
 
 from core.models import Budget, Transaction
@@ -56,9 +55,6 @@ class BudgetService:
 
         # Subquery: sum of expense transactions for the same category, user, currency
         # in the current month. Uses OuterRef to correlate with the outer Budget queryset.
-        # Currency cast: transactions.currency is enum currency_type while
-        # budgets.currency is varchar — must cast to match (CLAUDE.md pitfall).
-        currency_cast = RawSQL('("budgets"."currency")::currency_type', params=())
         spending_subquery = Subquery(
             Transaction.objects.filter(
                 category_id=OuterRef("category_id"),
@@ -66,7 +62,7 @@ class BudgetService:
                 type="expense",
                 date__gte=month_start,
                 date__lt=month_end,
-                currency=currency_cast,
+                currency=OuterRef("currency"),
             )
             .values("category_id")
             .annotate(total=Sum("amount"))
