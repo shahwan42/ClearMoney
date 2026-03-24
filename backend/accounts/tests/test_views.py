@@ -152,6 +152,35 @@ class TestAccountDetail:
         assert response.status_code == 200
         assert b"Credit Utilization" in response.content
 
+    def test_transaction_row_shows_category(self, client, accounts_data):
+        """Account detail transaction rows display category icon and name."""
+        user_id = accounts_data["user_id"]
+        cat_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, icon)"
+                " VALUES (%s, %s, 'Groceries', 'expense', '🍕')",
+                [cat_id, user_id],
+            )
+            cursor.execute(
+                "UPDATE transactions SET category_id = %s WHERE user_id = %s",
+                [cat_id, user_id],
+            )
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}")
+        content = response.content.decode()
+        assert "🍕" in content
+        assert "Groceries" in content
+
+    def test_transaction_row_hides_account_name(self, client, accounts_data):
+        """Account detail transaction rows do not repeat the account name (hide_account_name=True)."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}")
+        content = response.content.decode()
+        # The account name appears in the page header but must not appear inside a row's
+        # secondary info line — check the row secondary span specifically
+        assert "· Main Savings" not in content
+
 
 # ---------------------------------------------------------------------------
 # HTMX partials

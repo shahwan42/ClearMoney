@@ -657,3 +657,245 @@ class TestSuggestCategory:
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get("/api/transactions/suggest-category?note=test")
         assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Category visible in transaction list rows
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionListShowsCategory:
+    """Transaction list page displays category icon and name in each row."""
+
+    def test_category_visible_in_row(self, client, tx_view_data: dict) -> None:
+        """Row HTML includes the category icon and name when a category is set."""
+        user_id = tx_view_data["user_id"]
+        cat_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, icon)"
+                " VALUES (%s, %s, 'Groceries', 'expense', '🍕')",
+                [cat_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', CURRENT_DATE, %s, -100)",
+                [tx_id, user_id, tx_view_data["egp_id"], cat_id],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "🍕" in content
+        assert "Groceries" in content
+
+    def test_category_and_note_combined(self, client, tx_view_data: dict) -> None:
+        """Row shows 'Category · Note' when both are present."""
+        user_id = tx_view_data["user_id"]
+        cat_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, icon)"
+                " VALUES (%s, %s, 'Groceries', 'expense', '🍕')",
+                [cat_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', CURRENT_DATE, %s, %s, -100)",
+                [tx_id, user_id, tx_view_data["egp_id"], cat_id, "Carrefour"],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "Groceries · Carrefour" in content
+
+    def test_no_category_no_separator(self, client, tx_view_data: dict) -> None:
+        """Row HTML renders correctly (no dangling separator) when category is null."""
+        user_id = tx_view_data["user_id"]
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 50, 'EGP', CURRENT_DATE, -50)",
+                [tx_id, user_id, tx_view_data["egp_id"]],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        assert response.status_code == 200
+        # Row renders without a trailing " · " separator after account name
+        content = response.content.decode()
+        assert "EGP Savings · <" not in content  # no trailing separator
+
+    # gap: functional — category with no icon
+    def test_category_without_icon_renders_name_only(
+        self, client, tx_view_data: dict
+    ) -> None:
+        """Category with NULL icon shows just the name — no leading space or placeholder."""
+        user_id = tx_view_data["user_id"]
+        cat_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type)"  # icon omitted → NULL
+                " VALUES (%s, %s, 'Transport', 'expense')",
+                [cat_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 30, 'EGP', CURRENT_DATE, %s, -30)",
+                [tx_id, user_id, tx_view_data["egp_id"], cat_id],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "Transport" in content
+
+    # gap: functional — note present, no category
+    def test_note_shown_when_no_category(self, client, tx_view_data: dict) -> None:
+        """When category is NULL but note is set, row shows only the note."""
+        user_id = tx_view_data["user_id"]
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 20, 'EGP', CURRENT_DATE, %s, -20)",
+                [tx_id, user_id, tx_view_data["egp_id"], "Uber ride"],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "Uber ride" in content
+
+    # gap: functional — type fallback explicit assertion
+    def test_type_fallback_when_no_category_no_note(
+        self, client, tx_view_data: dict
+    ) -> None:
+        """When both category and note are absent, row falls back to the type label."""
+        user_id = tx_view_data["user_id"]
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 15, 'EGP', CURRENT_DATE, -15)",
+                [tx_id, user_id, tx_view_data["egp_id"]],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "Expense" in content  # format_type('expense') → 'Expense'
+
+    def test_empty_string_note_falls_back_to_category(
+        self, client, tx_view_data: dict
+    ) -> None:
+        """Empty-string note is treated as absent — category icon+name is shown instead."""
+        user_id = tx_view_data["user_id"]
+        cat_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, icon)"
+                " VALUES (%s, %s, 'Transport', 'expense', '🚗')",
+                [cat_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 40, 'EGP', CURRENT_DATE, %s, '', -40)",
+                [tx_id, user_id, tx_view_data["egp_id"], cat_id],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "🚗" in content
+        assert "Transport" in content
+
+    # gap: functional — category with no icon + note present
+    def test_category_without_icon_and_with_note(
+        self, client, tx_view_data: dict
+    ) -> None:
+        """Category with NULL icon + note renders as 'Category · Note' (no icon prefix)."""
+        user_id = tx_view_data["user_id"]
+        cat_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type)"  # icon omitted → NULL
+                " VALUES (%s, %s, 'Transport', 'expense')",
+                [cat_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 45, 'EGP', CURRENT_DATE, %s, %s, -45)",
+                [tx_id, user_id, tx_view_data["egp_id"], cat_id, "Uber"],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "Transport · Uber" in content
+
+    # gap: functional — account name shown in list rows (not hide_account_name path)
+    def test_transaction_row_shows_account_name_in_list(
+        self, client, tx_view_data: dict
+    ) -> None:
+        """Transaction list rows include the account name in the secondary info line."""
+        user_id = tx_view_data["user_id"]
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 10, 'EGP', CURRENT_DATE, -10)",
+                [tx_id, user_id, tx_view_data["egp_id"]],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert "· EGP Savings" in content
+
+
+# ---------------------------------------------------------------------------
+# Edit response row contains category (gap: functional)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionEditResponseShowsCategory:
+    """PUT /transactions/<id> returns updated row HTML that includes category."""
+
+    def test_edit_response_row_shows_category(self, client, tx_view_data: dict) -> None:
+        # gap: functional — edit response row
+        user_id = tx_view_data["user_id"]
+        cat_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, icon)"
+                " VALUES (%s, %s, 'Dining', 'expense', '🍽️')",
+                [cat_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 200, 'EGP', CURRENT_DATE, %s, -200)",
+                [tx_id, user_id, tx_view_data["egp_id"], cat_id],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.put(
+            f"/transactions/{tx_id}",
+            data=f"type=expense&amount=200&category_id={cat_id}&note=Pasta&date=2026-03-24",
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Dining" in content
+        assert "Pasta" in content
+        assert "Dining · Pasta" in content

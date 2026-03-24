@@ -752,3 +752,52 @@ class TestSuggestCategory:
         svc = _svc(tx_data["user_id"])
         assert svc.suggest_category("") is None
         assert svc.suggest_category("   ") is None
+
+
+# ---------------------------------------------------------------------------
+# Category fields in list query
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionListIncludesCategory:
+    """Transaction list query returns category_name and category_icon."""
+
+    def test_list_includes_category_fields(self, tx_data: dict) -> None:
+        """Transactions with a category expose category_name and category_icon."""
+        cat_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, icon)"
+                " VALUES (%s, %s, 'Food', 'expense', '🍕')",
+                [cat_id, tx_data["user_id"]],
+            )
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "category_id": cat_id,
+            }
+        )
+        txs, _ = svc.get_filtered_enriched(filters={})
+        matching = [t for t in txs if t["category_name"] == "Food"]
+        assert len(matching) == 1
+        assert matching[0]["category_icon"] == "🍕"
+
+    def test_list_null_category(self, tx_data: dict) -> None:
+        """Transactions without a category return None for both category fields."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 50,
+                "account_id": tx_data["egp_id"],
+                "category_id": None,
+            }
+        )
+        txs, _ = svc.get_filtered_enriched(filters={})
+        uncategorised = [t for t in txs if t["category_name"] is None]
+        assert len(uncategorised) == 1
+        assert uncategorised[0]["category_icon"] is None

@@ -196,7 +196,7 @@
         {% if data.transactions %}
         <div class="space-y-2">
             {% for tx in data.transactions %}
-            {% include "accounts/_transaction_row.html" with tx=tx %}
+            {% include "transactions/_transaction_row.html" with tx=tx hide_account_name=True %}
             {% endfor %}
         </div>
         {% if data.has_more %}

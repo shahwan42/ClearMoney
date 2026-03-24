@@ -1,4 +1,11 @@
 {% load money %}
+{% comment %}
+Shared transaction row used on both the transactions list and account detail pages.
+Context:
+  tx             — transaction dict (id, type, amount, currency, date, note,
+                   category_name, category_icon, account_name, running_balance, …)
+  hide_account_name — pass True when account name would be redundant (e.g. account detail page)
+{% endcomment %}
 <div class="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center justify-between group"
      id="tx-{{ tx.id }}">
     <div class="flex-1 min-w-0">
@@ -11,11 +18,17 @@
             <span class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span>
             {% endif %}
             <span class="text-sm font-medium text-slate-800 truncate">
-                {% if tx.note %}{{ tx.note }}{% else %}{{ tx.type|format_type }}{% endif %}
+                {# category present: [icon] Category [· note] #}
+                {% if tx.category_name %}
+                    {% if tx.category_icon %}{{ tx.category_icon }} {% endif %}{{ tx.category_name }}{% if tx.note %} · {{ tx.note }}{% endif %}
+                {# no category, note only #}
+                {% elif tx.note %}{{ tx.note }}
+                {# fallback: type label (e.g. "Expense") #}
+                {% else %}{{ tx.type|format_type }}{% endif %}
             </span>
         </div>
         <div class="text-xs text-gray-400 ml-4 mt-0.5">
-            {{ tx.date|format_date_short }}{% if tx.account_name %} · {{ tx.account_name }}{% endif %}
+            {{ tx.date|format_date_short }}{% if not hide_account_name and tx.account_name %} · {{ tx.account_name }}{% endif %}
         </div>
     </div>
     <div class="flex items-center gap-2">
