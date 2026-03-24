@@ -66,24 +66,46 @@
         </select>
     </div>
 
-    <input type="hidden" name="date" id="qe-date-input">
+    <!-- Hidden date submitted when "More options" is collapsed -->
+    <input type="hidden" name="date" id="qe-date-input" value="{{ today|date:'Y-m-d' }}">
 
     <div>
-        <input type="text" name="note" placeholder="Note (optional)"
+        <label class="block text-xs text-gray-500 mb-1" for="qe-note-input">Note (optional)</label>
+        <input type="text" name="note" id="qe-note-input" placeholder="What was this for?"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
 
-    {% if virtual_accounts %}
-    <div>
-        <select name="virtual_account_id" id="qe-va-select"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <option value="">Virtual Account (optional)</option>
-            {% for va in virtual_accounts %}
-            <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}">{{ va.name }}</option>
-            {% endfor %}
-        </select>
+    <!-- More options toggle -->
+    <button type="button" id="qe-more-options-toggle"
+        aria-expanded="false" aria-controls="qe-more-options"
+        class="text-sm text-teal-600 hover:text-teal-800 font-medium flex items-center gap-1 transition-colors min-h-[44px]">
+        <svg id="qe-more-options-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+        More options<span id="qe-more-options-date-hint" class="text-gray-400 font-normal"></span>
+    </button>
+
+    <!-- Optional fields: date, virtual account -->
+    <div id="qe-more-options" class="hidden space-y-4">
+        <div>
+            <label class="block text-xs text-gray-500 mb-1" for="qe-date-picker">Date</label>
+            <input type="date" name="date" id="qe-date-picker" disabled
+                value="{{ today|date:'Y-m-d' }}"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+        {% if virtual_accounts %}
+        <div>
+            <label class="block text-xs text-gray-500 mb-1" for="qe-va-select">Virtual Account (optional)</label>
+            <select name="virtual_account_id" id="qe-va-select"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                <option value="">None</option>
+                {% for va in virtual_accounts %}
+                <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}">{{ va.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 
     <button type="submit"
         class="w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all active:animate-bounce">
@@ -93,7 +115,33 @@
 
 <script>
 (function() {
-    document.getElementById('qe-date-input').value = new Date().toISOString().split('T')[0];
+    // More options toggle — swaps hidden date input ↔ visible date picker
+    var qeToggle = document.getElementById('qe-more-options-toggle');
+    var qePanel = document.getElementById('qe-more-options');
+    var qeChevron = document.getElementById('qe-more-options-chevron');
+    var qeDatePicker = document.getElementById('qe-date-picker');
+    var qeDateHidden = document.getElementById('qe-date-input');
+    var qeDateHint = document.getElementById('qe-more-options-date-hint');
+    var qeTodayIso = '{{ today|date:"Y-m-d" }}';
+
+    function qeUpdateDateHint() {
+        if (!qeDateHint || !qeDatePicker) return;
+        var val = qeDatePicker.value;
+        qeDateHint.textContent = (val && val !== qeTodayIso)
+            ? ' · ' + new Date(val + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            : '';
+    }
+
+    qeToggle.addEventListener('click', function() {
+        var expanded = qeToggle.getAttribute('aria-expanded') === 'true';
+        qePanel.classList.toggle('hidden', expanded);
+        qeToggle.setAttribute('aria-expanded', String(!expanded));
+        if (qeChevron) qeChevron.style.transform = expanded ? '' : 'rotate(180deg)';
+        if (qeDatePicker) qeDatePicker.disabled = expanded;
+        if (qeDateHidden) qeDateHidden.disabled = !expanded;
+        // Show date hint when collapsing with a non-today date
+        if (expanded) qeUpdateDateHint(); else if (qeDateHint) qeDateHint.textContent = '';
+    });
 
     var acctSelect = document.getElementById('qe-account-select');
     if (acctSelect && acctSelect.value) {
@@ -122,7 +170,7 @@
 
     function filterQeVirtualAccounts() {
         var vaSelect = document.getElementById('qe-va-select');
-        if (!acctSelect || !vaSelect) return;
+        if (!acctSelect || !vaSelect || !acctSelect.value) return;
         var selectedAcct = acctSelect.value;
         vaSelect.querySelectorAll('option').forEach(function(opt) {
             if (!opt.value) return;
@@ -137,7 +185,7 @@
     }
     filterQeVirtualAccounts();
 
-    var noteInput = document.querySelector('#quick-entry-form input[name="note"]');
+    var noteInput = document.getElementById('qe-note-input');
     var suggestTimer = null;
     if (noteInput) {
         noteInput.addEventListener('input', function() {

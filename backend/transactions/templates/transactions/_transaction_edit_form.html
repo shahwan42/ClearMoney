@@ -32,12 +32,52 @@
                class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
 
         {% if virtual_accounts %}
-        <select name="virtual_account_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-            <option value="">No virtual account</option>
-            {% for va in virtual_accounts %}
-            <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}" {% if va.id == selected_va_id %}selected{% endif %}>{{ va.name }}</option>
-            {% endfor %}
-        </select>
+        <!-- More options toggle (only shown when there's something to reveal) -->
+        <button type="button" class="edit-more-toggle text-xs text-teal-600 hover:text-teal-800 font-medium flex items-center gap-1 transition-colors min-h-[44px]"
+            aria-expanded="false" aria-controls="edit-more-options-{{ tx.id }}">
+            <svg class="edit-more-chevron w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+            More options
+        </button>
+
+        <!-- Optional fields: virtual account -->
+        <div id="edit-more-options-{{ tx.id }}" class="hidden space-y-4">
+            <select name="virtual_account_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                <option value="">No virtual account</option>
+                {% for va in virtual_accounts %}
+                <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}" {% if va.id == selected_va_id %}selected{% endif %}>{{ va.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <script>
+        (function() {
+            var panel = document.getElementById('edit-more-options-{{ tx.id }}');
+            var btn = document.querySelector('[aria-controls="edit-more-options-{{ tx.id }}"]');
+            if (!panel || !btn) return;
+
+            function openEditMore() {
+                panel.classList.remove('hidden');
+                btn.setAttribute('aria-expanded', 'true');
+                var chevron = btn.querySelector('.edit-more-chevron');
+                if (chevron) chevron.style.transform = 'rotate(180deg)';
+            }
+
+            btn.addEventListener('click', function() {
+                if (btn.getAttribute('aria-expanded') === 'true') {
+                    panel.classList.add('hidden');
+                    btn.setAttribute('aria-expanded', 'false');
+                    var chevron = btn.querySelector('.edit-more-chevron');
+                    if (chevron) chevron.style.transform = '';
+                } else {
+                    openEditMore();
+                }
+            });
+
+            // Auto-expand if a VA is already selected
+            {% if selected_va_id %}openEditMore();{% endif %}
+        })();
+        </script>
         {% endif %}
 
         <input type="hidden" name="currency" value="{{ tx.currency }}">

@@ -81,34 +81,54 @@
             </select>
         </div>
 
-        <!-- Date -->
-        <div>
-            <label class="block text-xs text-gray-500 mb-1">Date</label>
-            <input type="date" name="date" value="{{ today|date:'Y-m-d' }}"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-        </div>
-
         <!-- Note -->
         <div>
-            <label class="block text-xs text-gray-500 mb-1">Note (optional)</label>
-            <input type="text" name="note" placeholder="What was this for?"
+            <label class="block text-xs text-gray-500 mb-1" for="note-input">Note (optional)</label>
+            <input type="text" name="note" id="note-input" placeholder="What was this for?"
                 {% if prefill and prefill.note %}value="{{ prefill.note }}"{% endif %}
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
 
-        <!-- Virtual account -->
-        {% if virtual_accounts %}
-        <div>
-            <label class="block text-xs text-gray-500 mb-1">Virtual Account (optional)</label>
-            <select name="virtual_account_id" id="va-select"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-                <option value="">None</option>
-                {% for va in virtual_accounts %}
-                <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}">{{ va.name }}</option>
-                {% endfor %}
-            </select>
+        <!-- Hidden date submitted when "More options" is collapsed -->
+        <input type="hidden" name="date" id="date-default" value="{{ today|date:'Y-m-d' }}">
+
+        <!-- More options toggle -->
+        <button type="button" id="more-options-toggle"
+            aria-expanded="false" aria-controls="more-options"
+            class="text-sm text-teal-600 hover:text-teal-800 font-medium flex items-center gap-1 transition-colors min-h-[44px]">
+            <svg id="more-options-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+            More options<span id="more-options-date-hint" class="text-gray-400 font-normal"></span>
+        </button>
+
+        <!-- Optional fields: date, virtual account -->
+        <div id="more-options" class="hidden space-y-4">
+
+            <!-- Date -->
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="date-picker">Date</label>
+                <input type="date" name="date" id="date-picker" disabled
+                    value="{% if prefill and prefill.date %}{{ prefill.date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+
+            <!-- Virtual account -->
+            {% if virtual_accounts %}
+            <div>
+                <label class="block text-xs text-gray-500 mb-1" for="va-select">Virtual Account (optional)</label>
+                <select name="virtual_account_id" id="va-select"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    <option value="">None</option>
+                    {% for va in virtual_accounts %}
+                    <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}"
+                        {% if prefill and prefill.virtual_account_id == va.id %}selected{% endif %}>{{ va.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
         </div>
-        {% endif %}
 
         <button type="submit"
             class="w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
@@ -120,9 +140,49 @@
 
 <script>
 (function() {
-    var dateInput = document.querySelector('input[name="date"]');
-    if (dateInput && !dateInput.value) {
-        dateInput.value = new Date().toISOString().split('T')[0];
+    // --- More options toggle ---
+    var toggle = document.getElementById('more-options-toggle');
+    var panel = document.getElementById('more-options');
+    var datePicker = document.getElementById('date-picker');
+    var dateDefault = document.getElementById('date-default');
+    var chevron = document.getElementById('more-options-chevron');
+    var dateHint = document.getElementById('more-options-date-hint');
+    var todayIso = '{{ today|date:"Y-m-d" }}';
+
+    function updateDateHint() {
+        if (!dateHint || !datePicker) return;
+        var val = datePicker.value;
+        dateHint.textContent = (val && val !== todayIso)
+            ? ' · ' + new Date(val + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            : '';
+    }
+
+    function openMoreOptions() {
+        panel.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+        if (datePicker) datePicker.disabled = false;
+        if (dateDefault) dateDefault.disabled = true;
+        if (dateHint) dateHint.textContent = '';
+    }
+
+    function closeMoreOptions() {
+        panel.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+        if (chevron) chevron.style.transform = '';
+        if (datePicker) datePicker.disabled = true;
+        if (dateDefault) dateDefault.disabled = false;
+        updateDateHint();
+    }
+
+    if (toggle) {
+        toggle.addEventListener('click', function() {
+            if (toggle.getAttribute('aria-expanded') === 'true') {
+                closeMoreOptions();
+            } else {
+                openMoreOptions();
+            }
+        });
     }
 
     function toggleCategories(isExpense) {

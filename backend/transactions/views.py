@@ -579,6 +579,7 @@ def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
             "virtual_accounts": virtual_accounts,
             "last_account_id": defaults["last_account_id"],
             "auto_category_id": defaults["auto_category_id"],
+            "today": date.today(),
         },
     )
 

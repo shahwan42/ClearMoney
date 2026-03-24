@@ -121,6 +121,108 @@ class TestTransactionNew:
         assert response.status_code == 200
         assert b"Test note" in response.content
 
+    def test_form_has_more_options_toggle(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+        assert 'id="more-options"' in content
+        assert 'aria-expanded="false"' in content
+
+    def test_hidden_date_defaults_to_today(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+        today = date.today().isoformat()
+        assert f'value="{today}"' in content
+
+    def test_note_visible_above_toggle(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+        note_pos = content.index('name="note"')
+        toggle_pos = content.index('id="more-options-toggle"')
+        assert note_pos < toggle_pos, (
+            "note should appear before the More options toggle"
+        )
+
+    def test_duplicate_date_shown_in_date_picker(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        response = c.get(f"/transactions/new?dup={tx_id}")
+        assert b'value="2026-03-15"' in response.content
+
+    def test_duplicate_note_prefilled_and_visible(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, 'Lunch', -500)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        response = c.get(f"/transactions/new?dup={tx_id}")
+        assert response.status_code == 200
+        assert b"Lunch" in response.content
+        # Note is now always visible — no auto-expand flag needed
+        assert b"data-auto-expand" not in response.content
+
+    def test_date_picker_starts_disabled(self, client, tx_view_data):
+        """Date picker must start disabled so only the hidden input submits on collapse."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+        # The visible date picker is disabled; the hidden one is not
+        assert 'id="date-picker" disabled' in content
+        assert 'id="date-default"' in content
+        assert 'id="date-default" disabled' not in content
+
+    def test_hidden_date_input_has_today(self, client, tx_view_data):
+        """The hidden date input specifically (not just any element) holds today's date."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+        today = date.today().isoformat()
+        assert f'id="date-default" value="{today}"' in content
+
+    def test_duplicate_hidden_date_still_today(self, client, tx_view_data):
+        """On dup the hidden input keeps today's date; only the picker shows the original."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        response = c.get(f"/transactions/new?dup={tx_id}")
+        content = response.content.decode()
+        today = date.today().isoformat()
+        # Hidden input has today
+        assert f'id="date-default" value="{today}"' in content
+        # Picker has the original date
+        assert b'value="2026-03-15"' in response.content
+
 
 # ---------------------------------------------------------------------------
 # Transaction CRUD
@@ -175,6 +277,126 @@ class TestTransactionCRUD:
         response = c.get(f"/transactions/edit/{tx_id}", HTTP_HX_REQUEST="true")
         assert response.status_code == 200
         assert b"Save" in response.content
+
+    def test_edit_form_va_hidden_behind_toggle(self, client, tx_view_data):
+        # VA toggle only renders when the user has virtual accounts
+        va_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'Groceries', 0, 1)",
+                [va_id, tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{tx_id}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert "edit-more-options" in content
+        assert 'aria-expanded="false"' in content
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM virtual_accounts WHERE id = %s", [va_id])
+
+    def test_edit_form_no_toggle_without_virtual_accounts(self, client, tx_view_data):
+        """No More options toggle when the user has no virtual accounts."""
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{tx_id}", HTTP_HX_REQUEST="true")
+        assert b"edit-more-options" not in response.content
+        assert b"More options" not in response.content
+
+    def test_edit_form_auto_expands_when_va_selected(self, client, tx_view_data):
+        """JS openEditMore() is rendered when the transaction has a VA allocation."""
+        va_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        alloc_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'Groceries', 0, 1)",
+                [va_id, tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO virtual_account_allocations (id, transaction_id, virtual_account_id, amount)"
+                " VALUES (%s, %s, %s, -200)",
+                [alloc_id, tx_id, va_id],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{tx_id}", HTTP_HX_REQUEST="true")
+        # The auto-expand invocation appears after the comment, distinct from the function definition
+        assert b"// Auto-expand if a VA is already selected" in response.content
+        assert b"openEditMore();" in response.content
+        # Confirm it's the conditional call specifically (not just the function body)
+        content = response.content.decode()
+        auto_expand_block = content.split("// Auto-expand if a VA is already selected")[
+            1
+        ]
+        assert "openEditMore();" in auto_expand_block
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM virtual_account_allocations WHERE id = %s", [alloc_id]
+            )
+            cursor.execute("DELETE FROM virtual_accounts WHERE id = %s", [va_id])
+
+    def test_edit_form_no_auto_expand_without_va(self, client, tx_view_data):
+        """Auto-expand call is absent after the marker comment when no VA is allocated."""
+        va_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'Groceries', 0, 1)",
+                [va_id, tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{tx_id}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        auto_expand_block = content.split("// Auto-expand if a VA is already selected")[
+            1
+        ]
+        assert "openEditMore();" not in auto_expand_block
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM virtual_accounts WHERE id = %s", [va_id])
 
     def test_update_via_put(self, client, tx_view_data):
         """PUT /transactions/<id> should update the transaction amount."""
@@ -346,6 +568,46 @@ class TestQuickEntryViews:
         response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
         assert response.status_code == 200
         assert b"Quick Entry" in response.content
+
+    def test_quick_form_note_has_label(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert 'for="qe-note-input"' in content
+        assert 'id="qe-note-input"' in content
+
+    def test_quick_form_hidden_date_has_today(self, client, tx_view_data):
+        """The hidden date input specifically holds today's date."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        today = date.today().isoformat()
+        assert f'id="qe-date-input" value="{today}"' in content
+
+    def test_quick_form_date_picker_starts_disabled(self, client, tx_view_data):
+        """Date picker inside More options must start disabled."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert 'id="qe-date-picker" disabled' in content
+
+    def test_quick_form_structure(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        # Note is visible above the toggle (not inside the panel)
+        assert 'name="note"' in content
+        note_pos = content.index('name="note"')
+        toggle_pos = content.index('id="qe-more-options-toggle"')
+        assert note_pos < toggle_pos, (
+            "note should appear before the More options toggle"
+        )
+        # Toggle and panel present
+        assert 'id="qe-more-options"' in content
+        assert 'aria-expanded="false"' in content
+        # Date picker is inside the panel
+        today = date.today().isoformat()
+        assert f'value="{today}"' in content
 
     def test_quick_transfer_form(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
