@@ -176,6 +176,35 @@ class TestTransactionCRUD:
         assert response.status_code == 200
         assert b"Save" in response.content
 
+    def test_update_via_put(self, client, tx_view_data):
+        """PUT /transactions/<id> should update the transaction amount."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+            cursor.execute(
+                "UPDATE accounts SET current_balance = current_balance - 200 WHERE id = %s",
+                [tx_view_data["egp_id"]],
+            )
+        response = c.put(
+            f"/transactions/{tx_id}",
+            data="type=expense&amount=300&category_id=&note=Updated&date=2026-03-15",
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}: {response.content!r}"
+        )
+
     def test_delete(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
         tx_id = str(uuid.uuid4())

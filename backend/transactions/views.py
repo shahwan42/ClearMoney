@@ -9,7 +9,7 @@ import json
 import logging
 from datetime import date
 
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -237,19 +237,21 @@ def transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
 def transaction_update(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
     """PUT /transactions/<id> — update transaction (HTMX inline edit)."""
     svc = _svc(request)
+    # Django only populates request.POST for POST method — parse PUT body manually
+    put_data = QueryDict(request.body)
     try:
         data = {
-            "type": request.POST.get("type", ""),
-            "amount": request.POST.get("amount", "0"),
-            "category_id": request.POST.get("category_id", ""),
-            "note": request.POST.get("note", ""),
-            "date": request.POST.get("date", ""),
+            "type": put_data.get("type", ""),
+            "amount": put_data.get("amount", "0"),
+            "category_id": put_data.get("category_id", ""),
+            "note": put_data.get("note", ""),
+            "date": put_data.get("date", ""),
         }
         svc.update(str(tx_id), data)
 
         # Handle VA reallocation
         old_va_id = svc.get_allocation_for_tx(str(tx_id))
-        new_va_id = request.POST.get("virtual_account_id", "")
+        new_va_id = put_data.get("virtual_account_id", "")
         if old_va_id != new_va_id:
             if old_va_id:
                 svc.deallocate_from_virtual_accounts(str(tx_id))
