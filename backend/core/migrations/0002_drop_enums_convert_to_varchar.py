@@ -76,12 +76,12 @@ BEGIN
     END IF;
 END $$;
 
--- Drop enum types (safe: IF EXISTS handles fresh DBs)
-DROP TYPE IF EXISTS account_type;
-DROP TYPE IF EXISTS currency_type;
-DROP TYPE IF EXISTS transaction_type;
-DROP TYPE IF EXISTS institution_type;
-DROP TYPE IF EXISTS category_type;
+-- Drop enum types (CASCADE removes dependent defaults — 0003 re-adds them)
+DROP TYPE IF EXISTS account_type CASCADE;
+DROP TYPE IF EXISTS currency_type CASCADE;
+DROP TYPE IF EXISTS transaction_type CASCADE;
+DROP TYPE IF EXISTS institution_type CASCADE;
+DROP TYPE IF EXISTS category_type CASCADE;
 """
 
 # Reverse: recreate enum types and convert back (for rollback safety)
