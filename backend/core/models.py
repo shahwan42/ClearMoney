@@ -68,8 +68,8 @@ class UserConfig(models.Model):
     session_key = models.TextField()
     failed_attempts = models.IntegerField(default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     class Meta:
         db_table = "user_config"
@@ -127,7 +127,9 @@ class Account(models.Model):
         max_digits=15, decimal_places=2, null=True, blank=True
     )
     is_dormant = models.BooleanField(default=False)
-    role_tags = ArrayField(models.CharField(max_length=100), default=list, blank=True)
+    role_tags = ArrayField(
+        models.CharField(max_length=100), default=list, blank=True, null=True
+    )
     display_order = models.IntegerField(default=0)
     metadata = models.JSONField(null=True, blank=True)  # JSONB: billing cycle, etc.
     health_config = models.JSONField(
@@ -326,8 +328,8 @@ class VirtualAccount(models.Model):
         max_digits=15, decimal_places=2, null=True, blank=True
     )
     current_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    icon = models.CharField(max_length=20, default="")
-    color = models.CharField(max_length=20, default="")
+    icon = models.CharField(max_length=10, default="", null=True, blank=True)
+    color = models.CharField(max_length=20, default="", null=True, blank=True)
     is_archived = models.BooleanField(default=False)
     exclude_from_net_worth = models.BooleanField(default=False)
     display_order = models.IntegerField(default=0)
@@ -423,7 +425,7 @@ class Investment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4)
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     platform = models.CharField(max_length=100)
-    fund_name = models.CharField(max_length=255)
+    fund_name = models.CharField(max_length=100)
     units = models.DecimalField(max_digits=15, decimal_places=4)
     last_unit_price = models.DecimalField(max_digits=15, decimal_places=4)
     currency = models.CharField(max_length=3)
