@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(/.claude/skills/commit/**)",
+      "Edit(/.claude/skills/deploy/**)"
+    ]
+  }
+}
