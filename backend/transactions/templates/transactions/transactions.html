@@ -12,29 +12,45 @@
     <!-- Filter bar -->
     <form id="tx-filters" hx-get="/transactions/list" hx-target="#transaction-list" hx-trigger="change, keyup changed delay:300ms from:#search-input"
           class="bg-white rounded-xl shadow-sm p-3 space-y-2">
+        <label class="sr-only" for="search-input">Search transaction notes</label>
         <input id="search-input" type="text" name="search" placeholder="Search notes..."
+               aria-label="Search transaction notes"
                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5">
 
         <div class="grid grid-cols-2 gap-2">
-            <select name="account_id" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-                <option value="">All Accounts</option>
-                {% for acc in data.accounts %}
-                <option value="{{ acc.id }}">{{ acc.name }}</option>
-                {% endfor %}
-            </select>
+            <div>
+                <label class="sr-only" for="filter-account">Filter by account</label>
+                <select name="account_id" id="filter-account" aria-label="Filter by account" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                    <option value="">All Accounts</option>
+                    {% for acc in data.accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
-            <select name="type" class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-                <option value="">All Types</option>
-                <option value="expense">Expense</option>
-                <option value="income">Income</option>
-            </select>
+            <div>
+                <label class="sr-only" for="filter-type">Filter by type</label>
+                <select name="type" id="filter-type" aria-label="Filter by type" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                    <option value="">All Types</option>
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                </select>
+            </div>
         </div>
 
         <div class="grid grid-cols-2 gap-2">
-            <input type="date" name="date_from" placeholder="From"
-                   class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-            <input type="date" name="date_to" placeholder="To"
-                   class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            <div>
+                <label class="sr-only" for="date-from">From date</label>
+                <input type="date" id="date-from" name="date_from"
+                       aria-label="From date"
+                       class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            </div>
+            <div>
+                <label class="sr-only" for="date-to">To date</label>
+                <input type="date" id="date-to" name="date_to"
+                       aria-label="To date"
+                       class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+            </div>
         </div>
 
         <div data-category-combobox

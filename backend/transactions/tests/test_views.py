@@ -2108,3 +2108,68 @@ class TestBottomSheetScrollIndicator:
         content = resp.content.decode()
         assert "overflow-y-auto" in content
         assert "max-h-" in content
+
+
+# ---------------------------------------------------------------------------
+# BATCH 5: Accessibility ARIA & Keyboard (Issues 21-25)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestFilterFormLabels:
+    """Issues 21, 23, 24: Transaction filter form has labels for all inputs."""
+
+    def test_search_input_has_label(self, client, tx_view_data) -> None:
+        """Search input has explicit <label> or aria-label for screen readers."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        # Must have label for search-input OR aria-label on search input
+        assert 'for="search-input"' in content or 'aria-label="Search' in content
+
+    def test_date_from_has_label(self, client, tx_view_data) -> None:
+        """Date from filter input has label for screen reader accessibility."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert 'for="date-from"' in content or 'aria-label="From date"' in content
+
+    def test_date_to_has_label(self, client, tx_view_data) -> None:
+        """Date to filter input has label for screen reader accessibility."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert 'for="date-to"' in content or 'aria-label="To date"' in content
+
+    def test_account_filter_has_label(self, client, tx_view_data) -> None:
+        """Account filter select has a label or aria-label."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert (
+            'for="filter-account"' in content
+            or 'aria-label="Filter by account"' in content
+        )
+
+    def test_type_filter_has_label(self, client, tx_view_data) -> None:
+        """Type filter select has a label or aria-label."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert (
+            'for="filter-type"' in content or 'aria-label="Filter by type"' in content
+        )
+
+
+@pytest.mark.django_db
+class TestTypeRadioKeyboard:
+    """Issue 25: Type radio buttons have aria-keyshortcuts or keyboard hint."""
+
+    def test_type_selector_uses_fieldset_legend(self, client, tx_view_data) -> None:
+        """Transaction form type selector uses fieldset+legend for keyboard nav."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        # Must have fieldset with legend for radio group accessibility
+        assert "<fieldset" in content
+        assert "<legend" in content
