@@ -220,6 +220,13 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
     background-color: #3b0d0d !important;
 }
 
+/* Indigo-100 button (push notifications) — lighter indigo on dark bg */
+.dark .bg-indigo-100 { background-color: #312e81 !important; } /* indigo-900 */
+
+/* teal-800 text (#115e59) is nearly invisible on dark teal-50 override (#0d3b3b).
+   Use teal-300 (#5eead4) for sufficient contrast on dark teal backgrounds. */
+.dark .text-teal-800 { color: #5eead4 !important; } /* teal-300 */
+
 /* Bottom sheet scroll shadow — CSS-only scroll indicator.
    Shows a shadow at top/bottom of overflow container when content exists. */
 .scroll-shadow {

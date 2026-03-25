@@ -146,3 +146,46 @@ class TestDarkModeCardTemplates:
         assert "dark:text-slate-100" in html or "dark:text-white" in html, (
             "accounts.html heading missing dark text variant"
         )
+
+
+class TestDarkModeButtonTemplates:
+    """Buttons and interactive elements must have dark: variants or be covered by global CSS."""
+
+    def test_quick_entry_heading_has_dark_text(self) -> None:
+        """Quick entry heading (text-slate-800) must be visible in dark mode."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_quick_entry.html"
+        )
+        assert "dark:text-slate-100" in html or "dark:text-white" in html, (
+            "_quick_entry.html heading missing dark text variant"
+        )
+
+    def test_kebab_trigger_button_has_dark_hover(self) -> None:
+        """Kebab trigger hover:bg-gray-100 would show a white flash in dark mode."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_transaction_row.html"
+        )
+        assert "dark:hover:bg-slate-700" in html or "dark:hover:bg-slate-800" in html, (
+            "_transaction_row.html kebab trigger missing dark hover background"
+        )
+
+    def test_dormant_button_has_dark_variant(self) -> None:
+        """Dormant toggle button (bg-gray-100) needs a dark mode background."""
+        html = read_template("backend/accounts/templates/accounts/account_detail.html")
+        assert "dark:bg-slate-700" in html or "dark:bg-slate-600" in html, (
+            "account_detail.html dormant button missing dark:bg variant"
+        )
+
+    def test_css_has_indigo_100_dark_override(self) -> None:
+        """bg-indigo-100 (push notifications button) needs dark override in CSS."""
+        css = read_css(CSS_PATH)
+        assert ".dark .bg-indigo-100" in css, (
+            "Missing .dark .bg-indigo-100 override — indigo-100 is too light on dark bg"
+        )
+
+    def test_css_has_teal_800_dark_override(self) -> None:
+        """text-teal-800 (#115e59) on teal-50 dark (#0d3b3b) fails contrast — needs override."""
+        css = read_css(CSS_PATH)
+        assert ".dark .text-teal-800" in css, (
+            "Missing .dark .text-teal-800 override — very dark on dark bg"
+        )

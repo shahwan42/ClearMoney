@@ -1,7 +1,7 @@
 {% load money %}
-<div class="bg-teal-50 border border-teal-200 rounded-xl p-5 text-center space-y-2 animate-fade-in">
+<div class="bg-teal-50 border border-teal-200 dark:border-teal-800 rounded-xl p-5 text-center space-y-2 animate-fade-in">
     <div class="text-3xl">&#10003;</div>
-    <p class="text-teal-800 font-semibold">Transaction saved!</p>
+    <p class="text-teal-800 dark:text-teal-300 font-semibold">Transaction saved!</p>
     <p class="text-sm text-teal-600">
         New balance: <span class="font-bold">{{ new_balance|format_currency:currency }}</span>
     </p>
@@ -11,7 +11,7 @@
             Add Another
         </a>
         <a href="/"
-            class="px-4 py-2 bg-white text-teal-600 border border-teal-200 rounded-lg text-sm font-medium hover:bg-teal-50">
+            class="px-4 py-2 bg-white dark:bg-slate-800 text-teal-600 border border-teal-200 dark:border-teal-800 rounded-lg text-sm font-medium hover:bg-teal-50 dark:hover:bg-teal-900/20">
             Go to Dashboard
         </a>
     </div>
