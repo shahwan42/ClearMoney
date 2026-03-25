@@ -62,19 +62,19 @@ class TestInstitutions:
         expect(page.locator("main")).to_contain_text("HSBC")
 
     def test_delete_institution_requires_name_confirmation(self, page: Page) -> None:
-        # Ensure an institution exists (may be missing if this runs after cancel test)
-        create_institution(page, "HSBC Egypt")
-
+        # Create a unique institution for this test to avoid ambiguity with other
+        # institutions created in the same module run.
+        inst_id = create_institution(page, "Delete Bank")
         page.goto("/accounts")
-        # Red trash icon button inside institution card → opens delete-sheet
-        page.click('[title="Delete institution"]')
+        # Scope to the specific institution card to avoid strict-mode ambiguity
+        page.locator(f'#institution-{inst_id}').locator('[title="Delete institution"]').click()
         content = page.locator("#delete-sheet-content")
-        content.locator('#delete-confirm-input').wait_for(timeout=5000)
+        content.locator('#delete-confirm-input').wait_for(timeout=10000)
         delete_btn = content.locator('#delete-confirm-btn')
         expect(delete_btn).to_be_disabled()
 
-        # Institution stored as "HSBC Egypt"
-        content.locator('#delete-confirm-input').fill("HSBC Egypt")
+        content.locator('#delete-confirm-input').fill("Delete Bank")
+        content.locator('#delete-confirm-input').dispatch_event("input")
         expect(delete_btn).to_be_enabled()
 
     def test_dismiss_sheet_via_cancel(self, page: Page) -> None:

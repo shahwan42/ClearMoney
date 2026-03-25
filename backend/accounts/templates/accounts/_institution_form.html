@@ -89,6 +89,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
 
     let currentPresets = []; // active preset list for the selected type
     let isCustom = false;    // true when user typed a custom name (Other selected)
+    let _closeTimer = null;  // setTimeout handle for blur-triggered closeList
 
     // -----------------------------------------------------------------------
     // Render listbox options
@@ -140,7 +141,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
         const div = document.createElement('div');
         div.className = 'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-teal-50 text-sm text-slate-700';
         div.setAttribute('role', 'option');
-        div.setAttribute('data-preset-option', preset.name);
+        div.setAttribute('data-preset-option', preset.value || preset.name);
         div.setAttribute('data-name', preset.name);
         div.setAttribute('data-icon', preset.icon || '');
         div.setAttribute('data-color', preset.color || '');
@@ -151,7 +152,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
         if (preset.icon && (preset.icon.endsWith('.png') || preset.icon.endsWith('.svg'))) {
             const img = document.createElement('img');
             img.src = '/static/img/institutions/' + preset.icon;
-            img.alt = preset.name;
+            img.alt = preset.value || preset.name;
             img.className = 'w-6 h-6 rounded object-contain';
             iconEl.appendChild(img);
         } else if (preset.icon) {
@@ -171,7 +172,10 @@ All preset data is embedded once as JSON — no extra network requests needed fo
         div.appendChild(nameEl);
 
         div.addEventListener('click', () => selectPreset(preset));
-        div.addEventListener('mousedown', e => e.preventDefault()); // keep focus on input
+        div.addEventListener('mousedown', e => {
+            e.preventDefault();        // keep focus on input
+            clearTimeout(_closeTimer); // cancel any pending blur-close
+        });
         listbox.appendChild(div);
     }
 
@@ -182,7 +186,10 @@ All preset data is embedded once as JSON — no extra network requests needed fo
         div.setAttribute('data-preset-option', 'other');
         div.innerHTML = '<span class="w-6 h-6 flex-shrink-0 flex items-center justify-center text-base">✏️</span><span>Other (custom name)</span>';
         div.addEventListener('click', selectOther);
-        div.addEventListener('mousedown', e => e.preventDefault());
+        div.addEventListener('mousedown', e => {
+            e.preventDefault();
+            clearTimeout(_closeTimer);
+        });
         listbox.appendChild(div);
     }
 
@@ -191,7 +198,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
     // -----------------------------------------------------------------------
     function selectPreset(preset) {
         isCustom = false;
-        searchInput.value = preset.name;
+        searchInput.value = preset.value || preset.name;
         nameInput.value   = preset.value || preset.name;  // store short abbrev when available
         iconInput.value   = preset.icon  || '';
         colorInput.value  = preset.color || '';
@@ -225,12 +232,16 @@ All preset data is embedded once as JSON — no extra network requests needed fo
     });
 
     searchInput.addEventListener('focus', () => {
-        if (!isCustom) renderList(searchInput.value);
+        // Only open list on focus if it's currently hidden — prevents re-render
+        // (and DOM detachment) when Playwright or the browser re-focuses the
+        // input while a click on a listbox option is in progress.
+        if (!isCustom && listbox.classList.contains('hidden')) renderList(searchInput.value);
     });
 
     searchInput.addEventListener('blur', () => {
-        // Delay close to allow click events on listbox to fire
-        setTimeout(closeList, 150);
+        // Delay close to allow click events on listbox to fire.
+        // mousedown on an option calls clearTimeout(_closeTimer) to cancel this.
+        _closeTimer = setTimeout(closeList, 150);
         // If no preset selected and not in custom mode, treat as custom
         if (!isCustom && nameInput.value === '' && searchInput.value.trim()) {
             nameInput.value = searchInput.value.trim();
