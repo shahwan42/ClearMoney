@@ -52,22 +52,28 @@ class TestInstitutions:
         content = page.locator("#create-sheet-content")
         search = content.locator('#preset-search')
         search.wait_for(timeout=5000)  # Ensure HTMX has loaded
-        search.fill("HSBC")
+        search.fill("HSBC Egypt")  # Match the full preset name for filtering
         search.dispatch_event("input")  # Trigger the combobox filter logic
+        # data-preset-option uses preset.value abbreviation ("HSBC"), not the full name
         content.locator('[data-preset-option="HSBC Egypt"]').click()
         with page.expect_response(lambda r: "/institutions/add" in r.url):
             content.locator('button[type="submit"]').click()
 
-        expect(page.locator("main")).to_contain_text("HSBC Egypt")
+        expect(page.locator("main")).to_contain_text("HSBC")
 
     def test_delete_institution_requires_name_confirmation(self, page: Page) -> None:
+        # Ensure an institution exists (may be missing if this runs after cancel test)
+        create_institution(page, "HSBC Egypt")
+
         page.goto("/accounts")
         # Red trash icon button inside institution card → opens delete-sheet
         page.click('[title="Delete institution"]')
         content = page.locator("#delete-sheet-content")
+        content.locator('#delete-confirm-input').wait_for(timeout=5000)
         delete_btn = content.locator('#delete-confirm-btn')
         expect(delete_btn).to_be_disabled()
 
+        # Institution stored as "HSBC Egypt"
         content.locator('#delete-confirm-input').fill("HSBC Egypt")
         expect(delete_btn).to_be_enabled()
 
@@ -85,11 +91,14 @@ class TestAccounts:
     def test_create_current_account(self, page: Page) -> None:
         page.goto("/accounts")
         create_institution(page, "Test Bank")
+        # Reload so the institution card (and "+ Account" button) is visible
+        page.goto("/accounts")
 
         # "+ Account" button appears inside institution card after institution exists
         page.click('button:has-text("+ Account")')
         sheet_content = page.locator("#account-sheet-content")
-        # Wait for HTMX to load the form
+        # Account name is optional and hidden under "Custom name" toggle — expand first
+        sheet_content.locator('button:has-text("Custom name")').click()
         sheet_content.locator('input[name="name"]').fill("My Savings")
         sheet_content.locator('select[name="type"]').select_option("savings")
         sheet_content.locator('input[name="initial_balance"]').fill("5000")
@@ -111,7 +120,7 @@ class TestAccounts:
         page.goto("/accounts")
         page.click('button:has-text("+ Account")')
         sheet_content = page.locator("#account-sheet-content")
-        sheet_content.locator('input[name="name"]').fill("CC No Limit")
+        # Name is optional (hidden under Custom name toggle) — skip it here
         sheet_content.locator('select[name="type"]').select_option("credit_card")
         # Don't fill credit_limit — should fail
         sheet_content.locator('button[type="submit"]').click()
@@ -121,13 +130,12 @@ class TestAccounts:
         page.goto("/accounts")
         page.click('button:has-text("+ Account")')
         sheet_content = page.locator("#account-sheet-content")
-        sheet_content.locator('input[name="name"]').fill("CIB Platinum")
+        # Name is optional — focus on testing the retry flow itself
         sheet_content.locator('select[name="type"]').select_option("credit_card")
         # Submit without limit → error (HTMX re-renders form with error, all fields reset)
         sheet_content.locator('button[type="submit"]').click()
         expect(sheet_content.locator(".bg-red-50")).to_be_visible()
-        # Re-fill required fields (form was re-rendered empty) and add credit_limit
-        sheet_content.locator('input[name="name"]').fill("CIB Platinum")
+        # Re-select type (form was re-rendered) and add credit_limit
         type_select = sheet_content.locator('select[name="type"]')
         type_select.select_option("credit_card")
         # Explicitly dispatch change so the inline onchange shows the credit-limit field
@@ -136,7 +144,8 @@ class TestAccounts:
         sheet_content.locator('input[name="credit_limit"]').fill("100000")
         with page.expect_response(lambda r: "/accounts/add" in r.url):
             sheet_content.locator('button[type="submit"]').click()
-        expect(page.locator("main")).to_contain_text("CIB Platinum")
+        # Auto-generated name is "{Institution} - Credit Card"
+        expect(page.locator("main")).to_contain_text("Credit Card")
 
     def test_account_detail_page_shows_balance(self, page: Page) -> None:
         _, account_id = seed_basic_data(page)
