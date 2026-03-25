@@ -12,8 +12,9 @@ Auth pages use bare layout (no header/nav) and standard form POST
 import logging
 import time
 
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
+from django.utils import timezone as django_tz
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
@@ -23,6 +24,7 @@ from auth_app.services import (
     SendResult,
     auth_service,
 )
+from core.models import Session
 from core.ratelimit import login_rate
 
 logger = logging.getLogger(__name__)
@@ -142,3 +144,29 @@ def logout_view(request: HttpRequest) -> HttpResponse:
     response = HttpResponseRedirect("/login")
     response.delete_cookie(SESSION_COOKIE_NAME, path="/")
     return response
+
+
+# ---------------------------------------------------------------------------
+# Session status API — for timeout warning JS
+# ---------------------------------------------------------------------------
+
+
+@require_http_methods(["GET"])
+def session_status(request: HttpRequest) -> HttpResponse:
+    """GET /api/session-status — return session expiry for timeout warning.
+
+    Returns JSON with expires_in_seconds. Used by session-warning.js
+    to show a warning banner before the session expires.
+    """
+    token = request.COOKIES.get(SESSION_COOKIE_NAME, "")
+    if not token:
+        return JsonResponse({"error": "not authenticated"}, status=401)
+
+    session = Session.objects.filter(
+        token=token, expires_at__gt=django_tz.now()
+    ).first()
+    if not session:
+        return JsonResponse({"error": "session expired"}, status=401)
+
+    remaining = (session.expires_at - django_tz.now()).total_seconds()
+    return JsonResponse({"expires_in_seconds": int(remaining)})

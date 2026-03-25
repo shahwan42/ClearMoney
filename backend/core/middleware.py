@@ -51,6 +51,7 @@ PUBLIC_PATHS = [
     "/register",
     "/auth/verify",
     "/logout",
+    "/api/session-status",
 ]
 
 

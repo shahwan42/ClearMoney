@@ -20,4 +20,6 @@ urlpatterns = [
     path("auth/verify", views.verify_magic_link, name="verify-magic-link"),
     # Logout (unchanged)
     path("logout", views.logout_view, name="logout"),
+    # Session status API for timeout warning
+    path("api/session-status", views.session_status, name="session-status"),
 ]
