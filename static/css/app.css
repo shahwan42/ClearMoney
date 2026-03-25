@@ -117,6 +117,11 @@
     background-size: 200% 100%;
 }
 
+/* HTMX indicator — hidden by default, shown during requests */
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator { display: block; }
+
 /* TASK-084: Dark mode polish for Phase 5-8 components */
 
 /* Budget progress bars — dark backgrounds for the track */

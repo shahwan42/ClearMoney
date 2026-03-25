@@ -334,3 +334,21 @@ class TestMutedStreakCard:
         resp = client.get("/", **cookie)
         content = resp.content.decode()
         assert "day streak" not in content
+
+
+# ---------------------------------------------------------------------------
+# Loading progress bar
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestLoadingProgressBar:
+    """Base template includes loading progress bar."""
+
+    def test_progress_bar_in_dashboard(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        assert 'id="page-progress"' in content
+        assert 'role="progressbar"' in content
+        assert 'aria-label="Page loading"' in content

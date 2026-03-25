@@ -40,6 +40,7 @@
     <script src="/static/js/gestures.js" defer></script>
     <script src="/static/js/kebab-menu.js" defer></script>
     <script src="/static/js/category-combobox.js" defer></script>
+    <script src="/static/js/progress.js" defer></script>
 
     <!-- PWA -->
     <link rel="manifest" href="/static/manifest.json">
@@ -47,6 +48,10 @@
     <link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
 </head>
 <body class="h-full flex flex-col dark:bg-slate-900 dark:text-slate-200" hx-boost="true" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+    <div id="page-progress"
+         class="fixed top-0 left-0 w-0 h-0.5 bg-teal-500 z-[100] transition-all duration-300 opacity-0"
+         role="progressbar" aria-label="Page loading" aria-hidden="true"></div>
 
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:top-2 focus:left-2 focus:bg-white focus:text-teal-700 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg">Skip to content</a>
 
