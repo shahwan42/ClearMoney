@@ -50,7 +50,10 @@ class TestInstitutions:
         # Wait for HTMX to load the form into the sheet content area.
         # The form now uses a combobox: type to search, then select a preset.
         content = page.locator("#create-sheet-content")
-        content.locator('#preset-search').fill("HSBC")
+        search = content.locator('#preset-search')
+        search.wait_for(timeout=5000)  # Ensure HTMX has loaded
+        search.fill("HSBC")
+        search.dispatch_event("input")  # Trigger the combobox filter logic
         content.locator('[data-preset-option="HSBC Egypt"]').click()
         with page.expect_response(lambda r: "/institutions/add" in r.url):
             content.locator('button[type="submit"]').click()

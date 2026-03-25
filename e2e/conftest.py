@@ -41,6 +41,37 @@ def browser_context_args(browser_context_args: dict) -> dict:
     }
 
 
+_DISABLE_ANIMATIONS_SCRIPT = """
+(() => {
+    // Inject a <style> that zeroes all CSS transitions/animations as soon as
+    // <head> exists.  This prevents "element not stable" flakiness in tests
+    // that interact with animated containers (e.g. bottom sheets).
+    function inject() {
+        var s = document.createElement('style');
+        s.textContent = '*, *::before, *::after { ' +
+            'transition-duration: 0ms !important; ' +
+            'transition-delay: 0ms !important; ' +
+            'animation-duration: 0ms !important; ' +
+            'animation-delay: 0ms !important; }';
+        document.head.insertBefore(s, document.head.firstChild);
+    }
+    if (document.head) {
+        inject();
+    } else {
+        new MutationObserver(function(_, obs) {
+            if (document.head) { inject(); obs.disconnect(); }
+        }).observe(document.documentElement, { childList: true, subtree: true });
+    }
+})();
+"""
+
+
+@pytest.fixture(autouse=True)
+def _disable_animations(page: Page) -> None:
+    """Disable CSS transitions/animations so Playwright stability checks pass instantly."""
+    page.add_init_script(_DISABLE_ANIMATIONS_SCRIPT)
+
+
 # ── Django dev server (replaces playwright.config.ts webServer) ───────────────
 
 @pytest.fixture(scope="session", autouse=True)
