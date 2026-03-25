@@ -70,6 +70,15 @@ class TestTransactionsList:
         # Partial should not contain full page structure
         assert b"<!DOCTYPE" not in response.content
 
+    def test_no_new_button_in_header(self, client, tx_view_data):
+        """The '+ New' link was removed from the transactions page header."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions")
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert "Transactions" in content
+        assert "+ New" not in content
+
     def test_unauthenticated_redirects(self, client):
         response = client.get("/transactions")
         assert response.status_code == 302
