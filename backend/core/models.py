@@ -444,6 +444,31 @@ class Budget(models.Model):
         ]
 
 
+class TotalBudget(models.Model):
+    """Overall monthly spending cap per currency. One per user per currency."""
+
+    objects = UserScopedManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
+    )
+    monthly_limit = models.DecimalField(max_digits=15, decimal_places=2)
+    currency = models.CharField(max_length=3, db_default="EGP")
+    is_active = models.BooleanField(default=True, db_default=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
+
+    class Meta:
+        db_table = "total_budgets"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "currency"],
+                name="uq_total_budget_user_currency",
+            ),
+        ]
+
+
 class Investment(models.Model):
     """Fund holding on a platform like Thndr. Value = units * last_unit_price."""
 

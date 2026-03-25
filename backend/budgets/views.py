@@ -38,6 +38,7 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
     categories = Category.objects.filter(
         user_id=request.user_id, type="expense"
     ).order_by("name")
+    total_budget = svc.get_total_budget("EGP")
 
     return render(
         request,
@@ -45,6 +46,7 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
         {
             "budgets": budgets,
             "categories": categories,
+            "total_budget": total_budget,
             "active_tab": "more",
         },
     )
@@ -77,6 +79,39 @@ def budget_add(request: AuthenticatedRequest) -> HttpResponse:
             "A budget already exists for this category and currency", status=400
         )
 
+    return redirect("budgets")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def total_budget_set(request: AuthenticatedRequest) -> HttpResponse:
+    """POST /budgets/total/set — create or update the total monthly budget."""
+    svc = _svc(request)
+    monthly_limit_str = request.POST.get("monthly_limit", "")
+    currency = request.POST.get("currency", "EGP")
+
+    try:
+        from decimal import Decimal
+
+        monthly_limit = Decimal(monthly_limit_str) if monthly_limit_str else Decimal(0)
+    except Exception:
+        return HttpResponse("Invalid monthly limit", status=400)
+
+    try:
+        svc.set_total_budget(monthly_limit, currency)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
+
+    return redirect("budgets")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def total_budget_delete(request: AuthenticatedRequest) -> HttpResponse:
+    """POST /budgets/total/delete — delete the total monthly budget."""
+    svc = _svc(request)
+    currency = request.POST.get("currency", "EGP")
+    svc.delete_total_budget(currency)
     return redirect("budgets")
 
 

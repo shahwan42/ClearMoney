@@ -167,6 +167,22 @@ class BudgetFactory(factory.django.DjangoModelFactory):
     is_active = True
 
 
+class TotalBudgetFactory(factory.django.DjangoModelFactory):
+    """Factory for the total_budgets table.
+
+    user_id must be passed in.
+    """
+
+    class Meta:
+        model = "core.TotalBudget"
+
+    id = factory.LazyFunction(uuid.uuid4)
+    user_id = factory.LazyFunction(uuid.uuid4)
+    monthly_limit = Decimal("15000")
+    currency = "EGP"
+    is_active = True
+
+
 class VirtualAccountFactory(factory.django.DjangoModelFactory):
     """Factory for the virtual_accounts table.
 

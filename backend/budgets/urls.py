@@ -12,5 +12,7 @@ from budgets import views
 urlpatterns = [
     path("budgets", views.budgets_page, name="budgets"),
     path("budgets/add", views.budget_add, name="budget-add"),
+    path("budgets/total/set", views.total_budget_set, name="total-budget-set"),
+    path("budgets/total/delete", views.total_budget_delete, name="total-budget-delete"),
     path("budgets/<uuid:budget_id>/delete", views.budget_delete, name="budget-delete"),
 ]

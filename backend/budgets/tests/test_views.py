@@ -5,10 +5,13 @@ Tests run against the real database with --reuse-db.
 """
 
 import uuid
+from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 from django.test import Client
 
+from budgets.services import BudgetService
 from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.middleware import COOKIE_NAME
 from core.models import Session, User
@@ -230,3 +233,84 @@ class TestBudgetDelete:
         # Cleanup user2
         Session.objects.filter(user=user2).delete()
         User.objects.filter(id=user2.id).delete()
+
+
+# ---------------------------------------------------------------------------
+# Total budget views
+# ---------------------------------------------------------------------------
+
+TZ = ZoneInfo("Africa/Cairo")
+
+
+@pytest.mark.django_db
+class TestTotalBudgetViews:
+    """Total budget CRUD via HTTP."""
+
+    def test_budgets_page_shows_total(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        svc = BudgetService(budget_view_data["user_id"], TZ)
+        svc.set_total_budget(Decimal("15000"), "EGP")
+        resp = c.get("/budgets")
+        content = resp.content.decode()
+        assert "Total Monthly Budget" in content
+        assert "15,000" in content
+
+    def test_budgets_page_without_total(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        resp = c.get("/budgets")
+        assert resp.status_code == 200
+        # Should show set-total form prompt
+        assert b"Set Total Budget" in resp.content
+
+    def test_set_total_budget(self, client: Client, budget_view_data: dict) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        resp = c.post(
+            "/budgets/total/set",
+            {
+                "monthly_limit": "15000",
+                "currency": "EGP",
+            },
+        )
+        assert resp.status_code == 302
+        # Verify it appears on page
+        page = c.get("/budgets")
+        assert b"15,000" in page.content
+
+    def test_delete_total_budget(self, client: Client, budget_view_data: dict) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        # Set via HTTP
+        c.post("/budgets/total/set", {"monthly_limit": "10000", "currency": "EGP"})
+        page = c.get("/budgets")
+        assert b"Total Monthly Budget" in page.content
+        # Delete via HTTP
+        resp = c.post("/budgets/total/delete", {"currency": "EGP"})
+        assert resp.status_code == 302
+        page = c.get("/budgets")
+        assert b"Total Monthly Budget" not in page.content
+
+    def test_set_invalid_limit_rejected(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        resp = c.post(
+            "/budgets/total/set",
+            {
+                "monthly_limit": "-1000",
+                "currency": "EGP",
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_total_budget_has_aria_progressbar(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        svc = BudgetService(budget_view_data["user_id"], TZ)
+        svc.set_total_budget(Decimal("15000"), "EGP")
+        resp = c.get("/budgets")
+        content = resp.content.decode()
+        assert 'role="progressbar"' in content

@@ -6,6 +6,7 @@ Tests run against the real database with --reuse-db.
 
 import uuid
 from datetime import date, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -14,6 +15,7 @@ from budgets.services import BudgetService
 from conftest import SessionFactory, UserFactory
 from tests.factories import (
     AccountFactory,
+    BudgetFactory,
     CategoryFactory,
     InstitutionFactory,
     TransactionFactory,
@@ -301,3 +303,176 @@ def _create_expense(
         date=tx_date,
         balance_delta=-amount,
     )
+
+
+# ---------------------------------------------------------------------------
+# TotalBudget service
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def user_with_expenses(db):
+    """User + EGP account + 8,000 in expenses this month."""
+    user = UserFactory()
+    SessionFactory(user=user)
+    inst = InstitutionFactory(user_id=str(user.id), name="Bank", type="bank")
+    account = AccountFactory(
+        user_id=str(user.id),
+        institution_id=inst.id,
+        name="EGP",
+        type="savings",
+        currency="EGP",
+        current_balance=0,
+        initial_balance=0,
+    )
+    cat = CategoryFactory(user_id=user.id, name="General", type="expense")
+    today = date.today().replace(day=1)
+    for amount in [3000, 2500, 1500, 1000]:
+        TransactionFactory(
+            user_id=str(user.id),
+            account_id=account.id,
+            category_id=str(cat.id),
+            type="expense",
+            amount=Decimal(str(amount)),
+            currency="EGP",
+            date=today,
+            balance_delta=-amount,
+        )
+    return {
+        "user_id": str(user.id),
+        "account": account,
+        "category": cat,
+    }
+
+
+@pytest.mark.django_db
+class TestTotalBudgetService:
+    """TotalBudget CRUD and spending calculation."""
+
+    def test_set_total_budget(self, user_with_expenses: dict) -> None:
+        svc = _svc(user_with_expenses["user_id"])
+        result = svc.set_total_budget(Decimal("15000"), "EGP")
+        assert result["monthly_limit"] == Decimal("15000")
+        assert result["currency"] == "EGP"
+
+    def test_get_total_budget_with_spending(self, user_with_expenses: dict) -> None:
+        svc = _svc(user_with_expenses["user_id"])
+        svc.set_total_budget(Decimal("15000"), "EGP")
+        result = svc.get_total_budget("EGP")
+        assert result is not None
+        assert result["monthly_limit"] == Decimal("15000")
+        assert result["spent"] == Decimal("8000")
+        assert result["remaining"] == Decimal("7000")
+        assert result["percentage"] == pytest.approx(53.3, abs=0.1)
+        assert result["status"] == "green"
+
+    def test_total_budget_amber_status(self, user_with_expenses: dict) -> None:
+        svc = _svc(user_with_expenses["user_id"])
+        svc.set_total_budget(Decimal("9000"), "EGP")
+        result = svc.get_total_budget("EGP")
+        assert result is not None
+        assert result["status"] == "amber"
+
+    def test_total_budget_red_status(self, user_with_expenses: dict) -> None:
+        svc = _svc(user_with_expenses["user_id"])
+        svc.set_total_budget(Decimal("7000"), "EGP")
+        result = svc.get_total_budget("EGP")
+        assert result is not None
+        assert result["status"] == "red"
+
+    def test_category_sum_warning(self, user_with_expenses: dict) -> None:
+        uid = user_with_expenses["user_id"]
+        svc = _svc(uid)
+        svc.set_total_budget(Decimal("10000"), "EGP")
+        cat1 = CategoryFactory(user_id=uid, name="Cat1", type="expense")
+        cat2 = CategoryFactory(user_id=uid, name="Cat2", type="expense")
+        BudgetFactory(user_id=uid, category_id=cat1.id, monthly_limit=Decimal("7000"))
+        BudgetFactory(user_id=uid, category_id=cat2.id, monthly_limit=Decimal("5000"))
+        result = svc.get_total_budget("EGP")
+        assert result is not None
+        assert result["category_sum_exceeds"] is True
+        assert result["category_sum"] == Decimal("12000")
+
+    def test_upsert_total_budget(self, db: None) -> None:
+        user = UserFactory()
+        svc = _svc(str(user.id))
+        svc.set_total_budget(Decimal("10000"), "EGP")
+        svc.set_total_budget(Decimal("15000"), "EGP")
+        result = svc.get_total_budget("EGP")
+        assert result is not None
+        assert result["monthly_limit"] == Decimal("15000")
+
+    def test_delete_total_budget(self, db: None) -> None:
+        user = UserFactory()
+        svc = _svc(str(user.id))
+        svc.set_total_budget(Decimal("10000"), "EGP")
+        svc.delete_total_budget("EGP")
+        result = svc.get_total_budget("EGP")
+        assert result is None
+
+    def test_income_not_counted(self, user_with_expenses: dict) -> None:
+        account = user_with_expenses["account"]
+        TransactionFactory(
+            user_id=user_with_expenses["user_id"],
+            account_id=account.id,
+            category_id=str(user_with_expenses["category"].id),
+            type="income",
+            amount=Decimal("5000"),
+            currency="EGP",
+            date=date.today().replace(day=1),
+            balance_delta=5000,
+        )
+        svc = _svc(user_with_expenses["user_id"])
+        svc.set_total_budget(Decimal("15000"), "EGP")
+        result = svc.get_total_budget("EGP")
+        assert result is not None
+        assert result["spent"] == Decimal("8000")
+
+    def test_uncategorized_expenses_counted(self, user_with_expenses: dict) -> None:
+        """Expenses with no category still count toward total budget."""
+        account = user_with_expenses["account"]
+        TransactionFactory(
+            user_id=user_with_expenses["user_id"],
+            account_id=account.id,
+            category_id=None,
+            type="expense",
+            amount=Decimal("1000"),
+            currency="EGP",
+            date=date.today().replace(day=1),
+            balance_delta=-1000,
+        )
+        svc = _svc(user_with_expenses["user_id"])
+        svc.set_total_budget(Decimal("15000"), "EGP")
+        result = svc.get_total_budget("EGP")
+        assert result is not None
+        assert result["spent"] == Decimal("9000")
+
+    def test_get_nonexistent_total_budget(self, db: None) -> None:
+        user = UserFactory()
+        svc = _svc(str(user.id))
+        result = svc.get_total_budget("EGP")
+        assert result is None
+
+    def test_different_currencies_independent(self, db: None) -> None:
+        user = UserFactory()
+        svc = _svc(str(user.id))
+        svc.set_total_budget(Decimal("15000"), "EGP")
+        svc.set_total_budget(Decimal("500"), "USD")
+        egp = svc.get_total_budget("EGP")
+        usd = svc.get_total_budget("USD")
+        assert egp is not None
+        assert usd is not None
+        assert egp["monthly_limit"] == Decimal("15000")
+        assert usd["monthly_limit"] == Decimal("500")
+
+    def test_negative_limit_raises(self, db: None) -> None:
+        user = UserFactory()
+        svc = _svc(str(user.id))
+        with pytest.raises(ValueError, match="Monthly limit must be positive"):
+            svc.set_total_budget(Decimal("-1000"), "EGP")
+
+    def test_zero_limit_raises(self, db: None) -> None:
+        user = UserFactory()
+        svc = _svc(str(user.id))
+        with pytest.raises(ValueError, match="Monthly limit must be positive"):
+            svc.set_total_budget(Decimal("0"), "EGP")
