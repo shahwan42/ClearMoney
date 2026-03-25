@@ -151,3 +151,106 @@ class TestTransactionCRUD:
 
         page.reload()
         expect(page.locator("main")).not_to_contain_text("DeleteMe")
+
+    def test_edit_transaction_via_ui(self, page: Page) -> None:
+        category_id = get_category_id("expense", _user_id)
+        tx_id = create_transaction(
+            page,
+            _account_id,
+            category_id,
+            "250",
+            "expense",
+            note="Original",
+        )
+        page.goto("/transactions")
+        # Click on transaction row to open detail sheet
+        page.locator(f"#tx-{tx_id}").click()
+        # Wait for detail sheet and click Edit button
+        detail_sheet = page.locator("#tx-detail-content")
+        detail_sheet.wait_for(timeout=5000)
+        detail_sheet.locator("button:has-text('Edit')").click()
+        # Edit sheet should open
+        edit_sheet = page.locator("#tx-edit-content")
+        edit_sheet.wait_for(timeout=5000)
+        # Update amount
+        edit_sheet.locator('input[name="amount"]').fill("350")
+        # Update note
+        edit_sheet.locator('input[name="note"]').fill("Updated")
+        # Submit
+        with page.expect_response(lambda r: "/transactions/" in r.url):
+            edit_sheet.locator('button[type="submit"]').click()
+        # Verify change
+        page.goto("/transactions")
+        expect(page.locator("main")).to_contain_text("Updated")
+        expect(page.locator("main")).not_to_contain_text("Original")
+
+    def test_draft_persistence_saves_form_data(self, page: Page) -> None:
+        """Test that transaction form data is saved to localStorage on change."""
+        page.goto("/transactions/new")
+
+        # Fill in some form data
+        page.fill('input[name="amount"]', "99.50")
+        page.fill('input[name="note"]', "Test draft")
+
+        # Wait briefly for localStorage save (no specific debounce in current impl)
+        page.wait_for_timeout(500)
+
+        # Verify data was saved to localStorage
+        draft_data = page.evaluate("() => localStorage.getItem('tx-draft')")
+        assert draft_data is not None
+        assert "99.50" in draft_data
+        assert "Test draft" in draft_data
+
+    def test_draft_persistence_restores_form_data(self, page: Page) -> None:
+        """Test that transaction form data is restored from localStorage on page load."""
+        page.goto("/transactions/new")
+
+        # Set up draft in localStorage
+        page.evaluate("""() => {
+            const draft = {
+                amount: "75.25",
+                note: "Restored draft",
+                type: "expense"
+            };
+            localStorage.setItem('tx-draft', JSON.stringify(draft));
+        }""")
+
+        # Reload page
+        page.reload()
+
+        # Verify form data was restored
+        assert page.locator('input[name="amount"]').input_value() == "75.25"
+        assert page.locator('input[name="note"]').input_value() == "Restored draft"
+
+    def test_draft_persistence_clears_on_success(self, page: Page) -> None:
+        """Test that localStorage draft is cleared after successful submission."""
+        category_id = get_category_id("expense", _user_id)
+        page.goto("/transactions/new")
+
+        # Set up draft in localStorage
+        page.evaluate("""() => {
+            const draft = {
+                amount: "50",
+                note: "Will be submitted"
+            };
+            localStorage.setItem('tx-draft', JSON.stringify(draft));
+        }""")
+
+        # Fill and submit form
+        page.select_option('select[name="account_id"]', _account_id)
+        page.click('#type-expense-label')
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+        )
+        page.fill('input[name="amount"]', "50")
+        page.fill('input[name="note"]', "Will be submitted")
+
+        with page.expect_response(
+            lambda r: "/transactions" in r.url and r.request.method == "POST"
+        ):
+            page.click('button[type="submit"]')
+
+        # Verify draft was cleared
+        page.wait_for_timeout(500)
+        draft_data = page.evaluate("() => localStorage.getItem('tx-draft')")
+        assert draft_data is None
