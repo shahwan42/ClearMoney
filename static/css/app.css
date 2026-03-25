@@ -259,6 +259,14 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
     background-size: 100% 40px, 100% 40px, 100% 8px, 100% 8px;
 }
 
+/* Touch target compliance — WCAG 2.5.5 AAA: all form controls must be at least 44px tall.
+   Excludes radio/checkbox (custom-styled with peer-checked pattern) and range sliders. */
+input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not([type="range"]),
+select,
+textarea {
+    min-height: 44px;
+}
+
 /* Hide scrollbar on main content for a cleaner mobile look */
 main::-webkit-scrollbar {
     display: none;

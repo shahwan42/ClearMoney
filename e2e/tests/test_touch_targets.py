@@ -100,6 +100,60 @@ class TestQuickEntryTabTouchTargets:
             )
 
 
+class TestFormControlTouchTargets:
+    """Form inputs, selects, and textareas must be at least 44px tall."""
+
+    def test_account_form_selects_min_44px(self, page: Page) -> None:
+        page.goto("/accounts")
+        page.click('button:has-text("+ Account")')
+        # Wait for HTMX to load the form into the bottom sheet
+        page.wait_for_selector('select[name="type"]', timeout=5000)
+        selects = page.query_selector_all('select')
+        for sel in selects:
+            box = sel.bounding_box()
+            if box and box["width"] > 0 and box["height"] > 0:
+                assert box["height"] >= MIN_TARGET, (
+                    f"Select height {box['height']:.0f}px < {MIN_TARGET}px"
+                )
+
+    def test_account_form_inputs_min_44px(self, page: Page) -> None:
+        page.goto("/accounts")
+        page.click('button:has-text("+ Account")')
+        # Wait for HTMX to load the form into the bottom sheet
+        page.wait_for_selector('input[name="name"]', timeout=5000)
+        inputs = page.query_selector_all('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"])')
+        for inp in inputs:
+            box = inp.bounding_box()
+            if box and box["width"] > 0 and box["height"] > 0:
+                assert box["height"] >= MIN_TARGET, (
+                    f"Input (type={inp.get_attribute('type') or 'text'}) height {box['height']:.0f}px < {MIN_TARGET}px"
+                )
+
+    def test_settings_date_inputs_min_44px(self, page: Page) -> None:
+        page.goto("/settings")
+        date_inputs = page.query_selector_all('input[type="date"]')
+        for inp in date_inputs:
+            box = inp.bounding_box()
+            if box and box["width"] > 0 and box["height"] > 0:
+                assert box["height"] >= MIN_TARGET, (
+                    f"Date input height {box['height']:.0f}px < {MIN_TARGET}px"
+                )
+
+    def test_settings_buttons_min_44px(self, page: Page) -> None:
+        page.goto("/settings")
+        # Check all interactive buttons in main content are ≥44px
+        buttons = page.query_selector_all('main button')
+        for btn in buttons:
+            box = btn.bounding_box()
+            if box and box["width"] > 0 and box["height"] > 0:
+                assert box["height"] >= MIN_TARGET, (
+                    f"Settings button '{btn.inner_text()[:20]}' height {box['height']:.0f}px < {MIN_TARGET}px"
+                )
+                assert box["width"] >= MIN_TARGET, (
+                    f"Settings button '{btn.inner_text()[:20]}' width {box['width']:.0f}px < {MIN_TARGET}px"
+                )
+
+
 class TestHeaderTouchTargets:
     """Header icon buttons must be at least 44×44px."""
 
