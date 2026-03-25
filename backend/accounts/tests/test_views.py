@@ -748,3 +748,27 @@ class TestCreditCardStatementNoBillingCycle:
         response = c.get(f"/accounts/{cc_empty_meta.id}/statement")
         assert response.status_code == 200
         assert b"billing cycle" in response.content.lower()
+
+
+# ---------------------------------------------------------------------------
+# Dark mode hover contrast
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestDarkModeHoverClasses:
+    """Accounts page has proper dark mode hover states."""
+
+    def test_institution_card_has_dark_hover(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts")
+        content = resp.content.decode()
+        assert "dark:hover:bg-slate-700" in content
+
+    def test_no_bare_hover_bg_gray_50(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts")
+        content = resp.content.decode()
+        for line in content.split("\n"):
+            if "hover:bg-gray-50" in line:
+                assert "dark:hover:bg-" in line, f"Missing dark hover: {line.strip()}"

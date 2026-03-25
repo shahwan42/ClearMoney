@@ -7,7 +7,7 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
 <!-- Single institution card with its accounts. Expandable/collapsible via details/summary. -->
 <div class="bg-white rounded-xl shadow-sm overflow-hidden" id="institution-{{ institution.id }}">
     <details open>
-        <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50">
+        <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700">
             <div class="flex items-center gap-3">
                 {% include "components/_institution_icon.html" with icon=institution.icon name=institution.name color=institution.color %}
                 <div>
@@ -44,7 +44,7 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
         <div class="border-t border-gray-100">
             {% if accounts %}
                 {% for account in accounts %}
-                <a href="/accounts/{{ account.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                <a href="/accounts/{{ account.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 border-b border-gray-50 last:border-0">
                     <div>
                         <p class="text-sm font-medium text-slate-700">{{ account.name }}</p>
                         <p class="text-xs text-gray-400">{{ account.type|format_account_type }} &middot; {{ account.currency }}</p>
