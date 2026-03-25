@@ -85,6 +85,21 @@ class TestErrorHtml:
     def test_returns_string(self) -> None:
         assert isinstance(error_html("test"), str)
 
+    def test_has_aria_live_assertive(self) -> None:
+        """Error HTML must use aria-live='assertive' for screen readers."""
+        html = error_html("Invalid amount")
+        assert 'aria-live="assertive"' in html
+
+    def test_has_error_icon(self) -> None:
+        """Error HTML must include a visual error indicator."""
+        html = error_html("Invalid amount")
+        assert "svg" in html.lower() or "&#" in html or "⚠" in html
+
+    def test_scrolls_into_view(self) -> None:
+        """Error HTML must scroll into view when rendered."""
+        html = error_html("Invalid amount")
+        assert "scrollIntoView" in html
+
 
 class TestSuccessHtml:
     """success_html returns styled success HTML string."""
