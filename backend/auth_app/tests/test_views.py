@@ -200,7 +200,7 @@ class TestVerifyMagicLink:
 
         # Categories seeded (23 defaults — type-agnostic)
         cat_count = Category.objects.filter(user_id=user.id).count()
-        assert cat_count == 23
+        assert cat_count == 27
 
         # Cleanup
         session_token = response.cookies[SESSION_COOKIE_NAME].value

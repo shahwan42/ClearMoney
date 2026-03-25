@@ -389,6 +389,10 @@ class AuthService:
             ("Refund", "\U0001f504", 21),
             ("Loan Repayment Received", "\U0001f91d", 22),
             ("Other", "\U0001f516", 23),
+            ("Travel", "\u2708\ufe0f", 24),
+            ("Cafe", "\u2615", 25),
+            ("Restaurant", "\U0001f37d\ufe0f", 26),
+            ("Car", "\U0001f699", 27),
         ]
         try:
             for name, icon, order in defaults:

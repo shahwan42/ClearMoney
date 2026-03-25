@@ -178,7 +178,7 @@ class TestVerifyMagicLink:
 
         # Categories were seeded (23 defaults — type-agnostic)
         cat_count = Category.objects.filter(user_id=user.id).count()
-        assert cat_count == 23
+        assert cat_count == 27
 
         # Session was created
         assert Session.objects.filter(token=result["session_token"]).exists()
