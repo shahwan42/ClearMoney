@@ -78,7 +78,7 @@
         <!-- Note -->
         <div>
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="note-input">Note (optional)</label>
-            <input type="text" name="note" id="note-input" placeholder="What was this for?"
+            <input type="text" name="note" id="note-input" maxlength="500" placeholder="What was this for?"
                 {% if prefill and prefill.note %}value="{{ prefill.note }}"{% endif %}
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
@@ -102,7 +102,7 @@
             <!-- Date -->
             <div>
                 <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="date-picker">Date</label>
-                <input type="date" name="date" id="date-picker" disabled
+                <input type="date" name="date" id="date-picker" disabled max="{{ today|date:'Y-m-d' }}"
                     value="{% if prefill and prefill.date %}{{ prefill.date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
@@ -229,9 +229,64 @@
                 if (currInput) currInput.value = 'EGP';
                 // Re-close more-options panel
                 closeMoreOptions();
+                // Clear draft localStorage
+                localStorage.removeItem('tx-draft');
             }
         });
     }
+
+    // --- Draft persistence (localStorage) ---
+    var draftKey = 'tx-draft';
+
+    function saveDraft() {
+        if (!txForm) return;
+        var draft = {};
+        var inputs = txForm.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select, input[type="radio"]:checked');
+        inputs.forEach(function(input) {
+            if (input.name) {
+                draft[input.name] = input.value;
+            }
+        });
+        try {
+            localStorage.setItem(draftKey, JSON.stringify(draft));
+        } catch (e) {
+            // Silently fail if localStorage is unavailable
+        }
+    }
+
+    function restoreDraft() {
+        if (!txForm) return;
+        try {
+            var draft = JSON.parse(localStorage.getItem(draftKey));
+            if (!draft) return;
+
+            Object.keys(draft).forEach(function(key) {
+                var input = txForm.querySelector('[name="' + key + '"]');
+                if (!input) return;
+
+                if (input.type === 'radio') {
+                    var radio = txForm.querySelector('input[type="radio"][name="' + key + '"][value="' + draft[key] + '"]');
+                    if (radio) radio.checked = true;
+                } else if (input.type === 'text' || input.type === 'number' || input.type === 'date') {
+                    input.value = draft[key];
+                } else if (input.tagName === 'SELECT') {
+                    input.value = draft[key];
+                }
+            });
+        } catch (e) {
+            // Silently fail if localStorage is corrupted
+        }
+    }
+
+    // Save draft on input change
+    if (txForm) {
+        ['input', 'change'].forEach(function(event) {
+            txForm.addEventListener(event, saveDraft, true);
+        });
+    }
+
+    // Restore draft on page load
+    restoreDraft();
 })();
 </script>
 {% endblock %}
