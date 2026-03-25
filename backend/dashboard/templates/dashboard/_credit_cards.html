@@ -34,9 +34,19 @@
                 <p class="text-sm font-semibold {% if cc.balance < 0 %}text-red-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">
                     {{ cc.balance|format_egp }}
                 </p>
-                {% if cc.has_billing_cycle %}
-                <a href="/accounts/{{ cc.account_id }}/statement" class="text-[10px] text-teal-600 hover:text-teal-700">Statement</a>
-                {% endif %}
+                <div class="flex items-center gap-2 justify-end mt-0.5">
+                    {% if cc.balance < 0 %}
+                    <button type="button"
+                            onclick="openQuickEntry(); setQuickEntryTab('transfer'); setTimeout(function(){ var s=document.querySelector('#quick-entry-content [name=dest_account_id]'); if(s){s.value='{{ cc.account_id }}';} },500);"
+                            class="text-[10px] font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
+                            aria-label="Record payment for {{ cc.account_name }}">
+                        Pay
+                    </button>
+                    {% endif %}
+                    {% if cc.has_billing_cycle %}
+                    <a href="/accounts/{{ cc.account_id }}/statement" class="text-[10px] text-teal-600 hover:text-teal-700">Statement</a>
+                    {% endif %}
+                </div>
             </div>
         </div>
         {% endfor %}
