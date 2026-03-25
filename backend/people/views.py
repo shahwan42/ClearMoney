@@ -138,7 +138,7 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     note = request.POST.get("note", "").strip() or None
 
     if not amount or amount <= 0:
-        return error_response("Amount is required")
+        return error_response("Amount is required", field="amount")
 
     try:
         svc.record_loan(
@@ -164,7 +164,7 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     note = request.POST.get("note", "").strip() or None
 
     if not amount or amount <= 0:
-        return error_response("Amount is required")
+        return error_response("Amount is required", field="amount")
 
     try:
         svc.record_repayment(

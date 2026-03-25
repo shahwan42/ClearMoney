@@ -124,6 +124,33 @@ class TestSuccessHtml:
         assert "Dismiss" in html
 
 
+class TestFieldErrorHighlighting:
+    """error_html with field param highlights the specific input."""
+
+    def test_field_param_adds_highlight_script(self) -> None:
+        """Passing a field name injects JS to mark the input as invalid."""
+        html = error_html("Amount is required", field="amount")
+        assert "aria-invalid" in html
+        assert "amount" in html
+
+    def test_field_param_adds_aria_describedby(self) -> None:
+        """Error with field sets aria-describedby to connect input to error."""
+        html = error_html("Amount is required", field="amount")
+        assert "aria-describedby" in html
+
+    def test_no_field_param_no_highlight(self) -> None:
+        """Without field param, no field highlight script is added."""
+        html = error_html("Something went wrong")
+        assert "aria-invalid" not in html
+
+    def test_error_response_with_field(self) -> None:
+        """error_response passes field through to error_html."""
+        response = error_response("Amount is required", field="amount")
+        content = response.content.decode()
+        assert "aria-invalid" in content
+        assert response.status_code == 400
+
+
 class TestErrorResponse:
     """error_response returns HttpResponse with status 400."""
 

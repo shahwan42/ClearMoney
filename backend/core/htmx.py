@@ -68,13 +68,17 @@ def render_htmx_result(
     return HttpResponse(html)
 
 
-def error_html(message: str) -> str:
+def error_html(message: str, field: str = "") -> str:
     """Return error HTML fragment string for HTMX swap targets.
 
     Includes aria-live for screen readers, error icon, and scroll-into-view.
+    When ``field`` is provided, the named input gets a red border, aria-invalid,
+    and aria-describedby linking it to the error message.
     """
-    return (
-        '<div role="alert" aria-live="assertive" '
+    error_id = f"error-{field}" if field else ""
+    id_attr = f' id="{error_id}"' if error_id else ""
+    html = (
+        f'<div role="alert" aria-live="assertive"{id_attr} '
         'class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 '
         'text-red-700 dark:text-red-300 p-3 rounded-lg text-sm flex items-start gap-2">'
         '<svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" '
@@ -84,10 +88,32 @@ def error_html(message: str) -> str:
         "1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 "
         '16c-.77 1.333.192 3 1.732 3z"/></svg>'
         f"<span>{message}</span>"
-        "<script>(function(){var el=document.querySelector('[role=\"alert\"]');"
-        "if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});})()</script>"
-        "</div>"
     )
+    # Field highlighting script — marks the input with red border + ARIA attributes
+    if field:
+        html += (
+            "<script>(function(){"
+            f"var f=document.querySelector('[name=\"{field}\"]');"
+            "if(f){"
+            "f.setAttribute('aria-invalid','true');"
+            f"f.setAttribute('aria-describedby','{error_id}');"
+            "f.classList.add('border-red-500','ring-1','ring-red-500');"
+            "f.addEventListener('input',function h(){"
+            "f.removeAttribute('aria-invalid');"
+            "f.removeAttribute('aria-describedby');"
+            "f.classList.remove('border-red-500','ring-1','ring-red-500');"
+            "f.removeEventListener('input',h);},{once:true});"
+            "f.scrollIntoView({behavior:'smooth',block:'nearest'});"
+            "}"
+            "})()</script>"
+        )
+    else:
+        html += (
+            "<script>(function(){var el=document.querySelector('[role=\"alert\"]');"
+            "if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});})()</script>"
+        )
+    html += "</div>"
+    return html
 
 
 def success_html(message: str) -> str:
@@ -111,9 +137,9 @@ def success_html(message: str) -> str:
     )
 
 
-def error_response(message: str) -> HttpResponse:
+def error_response(message: str, field: str = "") -> HttpResponse:
     """Return error HTML fragment as HttpResponse with status 400."""
-    return HttpResponse(error_html(message), status=400)
+    return HttpResponse(error_html(message, field=field), status=400)
 
 
 def success_response(message: str) -> HttpResponse:

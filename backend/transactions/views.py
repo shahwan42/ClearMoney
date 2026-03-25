@@ -377,7 +377,7 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
     try:
         amount = parse_float_or_none(request.POST.get("amount", ""))
         if not amount:
-            return error_response("Amount is required")
+            return error_response("Amount is required", field="amount")
         fee = parse_float_or_none(request.POST.get("fee_amount", ""))
         svc.create_transfer(
             source_id=request.POST.get("source_account_id", ""),
