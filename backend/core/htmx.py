@@ -74,11 +74,22 @@ def error_html(message: str) -> str:
 
 
 def success_html(message: str) -> str:
-    """Return success toast HTML fragment string for HTMX swap targets."""
+    """Return success toast HTML fragment string for HTMX swap targets.
+
+    Includes auto-dismiss after 3 seconds and a manual dismiss button.
+    """
     return (
-        '<div role="status" class="bg-teal-50 border border-teal-200 rounded-xl p-3 '
-        'text-center animate-toast">'
+        '<div role="status" aria-live="polite" class="bg-teal-50 border border-teal-200 '
+        'rounded-xl p-3 text-center animate-toast relative" data-auto-dismiss>'
         f'<p class="text-teal-800 font-semibold text-sm">{message}</p>'
+        '<button type="button" aria-label="Dismiss" '
+        'class="absolute top-1 right-2 text-teal-400 hover:text-teal-600 text-lg leading-none" '
+        'onclick="this.parentElement.remove()">&times;</button>'
+        "<script>"
+        "(function(){var el=document.querySelector('[data-auto-dismiss]');"
+        "if(el) setTimeout(function(){el.style.transition='opacity 0.3s';"
+        "el.style.opacity='0';setTimeout(function(){el.remove()},300)},3000);})()"
+        "</script>"
         "</div>"
     )
 

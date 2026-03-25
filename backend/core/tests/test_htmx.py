@@ -98,6 +98,16 @@ class TestSuccessHtml:
     def test_returns_string(self) -> None:
         assert isinstance(success_html("test"), str)
 
+    def test_has_auto_dismiss(self) -> None:
+        """Success toast must auto-dismiss after a timeout."""
+        html = success_html("Saved!")
+        assert "setTimeout" in html
+
+    def test_has_dismiss_button(self) -> None:
+        """Success toast must have a manual dismiss button."""
+        html = success_html("Saved!")
+        assert "Dismiss" in html
+
 
 class TestErrorResponse:
     """error_response returns HttpResponse with status 400."""
