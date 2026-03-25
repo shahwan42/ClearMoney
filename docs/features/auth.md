@@ -6,55 +6,52 @@ Multi-user magic link authentication system using Resend email API with server-s
 
 ClearMoney uses passwordless magic link authentication:
 
-1. **Login** → enter email → receive magic link → click → logged in
-2. **Registration** → enter email → receive magic link → click → account created + categories seeded
-3. **Session** → 30-day cookie backed by database sessions
+1. **Unified Auth** → enter email → app auto-detects login vs registration → receive magic link → click → logged in
+2. **Session** → 30-day cookie backed by database sessions
+3. **Session Timeout Warning** → dashboard shows banner when session will expire within 24 hours
 
 No passwords, no PINs. Magic links are single-use, expire in 15 minutes.
 
-## Login Flow
+## Unified Auth Flow
 
-**Route:** `GET /login` → `POST /login`
+**Routes:** `GET /login` and `POST /login` (unified entry point); `/register` redirects to `/login`
 
-**View:** `backend/auth_app/views.py`
-
-1. User enters email address
-2. Honeypot + timing check (anti-bot)
-3. Service checks if user exists in `users` table
-4. If user exists: generate token, send email via Resend
-5. If user doesn't exist: show same "Check your email" page (prevents email enumeration)
-6. No email sent for unknown addresses — zero quota cost
-
-**Template:** `backend/auth_app/templates/auth_app/login.html` — bare page (no header/nav)
-
-## Registration Flow
-
-**Route:** `GET /register` → `POST /register`
-
-**View:** `backend/auth_app/views.py`
+**View:** `backend/auth_app/views.py` — `auth_view()`
 
 1. User enters email address
-2. Honeypot + timing check (anti-bot)
-3. Service checks if email already registered → error if so
-4. Generate registration token, send email via Resend
-5. Show "Check your email" page
+2. Honeypot + timing check (anti-bot protection)
+3. Service checks if user exists in `users` table:
+   - **Existing user (login):** generate token, send email via Resend
+   - **New user (registration):** generate token, send email via Resend
+4. Both cases show same "Check your email" page (prevents email enumeration)
+5. For unknown addresses on login attempt: no email sent, same UX (zero quota cost)
 
-**Template:** `backend/auth_app/templates/auth_app/register.html` — bare page
+**Template:** `backend/auth_app/templates/auth_app/auth.html` — bare page (no header/nav), single email form for both login and registration
+
+**Service method:** `auth_service.request_access_link(email)` — unified entry point that internally calls `request_login_link()` or `request_registration_link()` based on user existence. Returns `(SendResult, error_msg, is_new_user)`.
 
 ## Magic Link Verification
 
 **Route:** `GET /auth/verify?token=xxx`
 
-**View:** `backend/auth_app/views.py`
+**View:** `backend/auth_app/views.py` — `verify_magic_link()`
 
 1. Look up token in `auth_tokens` table
 2. Validate: exists, not expired (15 min TTL), not already used
-3. Mark token as used
+3. Mark token as used (single-use enforcement)
 4. **Login token:** find existing user → create session
 5. **Registration token:** create user → seed 25 default categories → create session
 6. Set session cookie, redirect to dashboard
 
-**Template:** `backend/auth_app/templates/auth_app/link_expired.html` — shown if token is invalid/expired
+**Template behavior:**
+- If token is valid → user redirected to `/` (dashboard)
+- If token is invalid/expired → show `backend/auth_app/templates/auth_app/link_expired.html`
+
+**Confirmation page:** After submitting email, user sees `backend/auth_app/templates/auth_app/check_email.html` with conditional messaging:
+- **New user (registration):** "Welcome to ClearMoney! We sent a link to activate your account."
+- **Existing user (login):** "Check your email. We sent a sign-in link..."
+
+The `is_new_user` flag is passed from the view to distinguish the UX.
 
 ## New User Onboarding
 
@@ -82,6 +79,37 @@ Sessions stored in `sessions` table with `user_id`, `token`, `expires_at`.
 - MaxAge: 30 days
 - Flags: `HttpOnly`, `SameSite=Lax`, `Secure` when HTTPS
 
+## Session Timeout Warning
+
+**Feature:** Before a session expires, the dashboard shows a warning banner alerting the user with time remaining.
+
+**API Endpoint:** `GET /api/session-status`
+
+Returns JSON with session expiry:
+```json
+{
+  "expires_in_seconds": 864000
+}
+```
+
+If session is expired or missing, returns 401 status.
+
+**Frontend Implementation:** `static/js/session-warning.js`
+
+- Checks `/api/session-status` every 5 minutes
+- Threshold: shows warning when session expires within 24 hours
+- First check runs 10 seconds after page load
+- If session expired: shows "Your session has expired" banner with "Sign in again" link
+- If session expiring soon: shows "Your session expires in X hours" with "Sign in again" link
+- Banner includes dismiss button and is ARIA-compliant (`role="alert"`, `aria-live="polite"`)
+- Styles for light/dark modes: amber warning, red expired state
+- Loaded on authenticated pages (base template includes the script)
+
+**Script behavior:**
+- Silent network error handling (no popups on connection issues)
+- `warningShown` flag prevents duplicate warnings
+- Uses `fetch()` with `credentials: 'same-origin'` for secure session checking
+
 ## Auth Middleware
 
 **File:** `backend/core/middleware.py` — `GoSessionAuthMiddleware`
@@ -98,8 +126,9 @@ Every view filters all queries by `user_id` for per-user data isolation.
 
 ### Public Paths (no auth required)
 
-- `/login`, `/register` — auth pages
+- `/login` — unified auth entry point (login + registration)
 - `/auth/verify` — magic link verification
+- `/api/session-status` — session expiry check (used by timeout warning JS)
 - `/healthz` — health check endpoint
 - `/static/*` — CSS, JS, images, manifest
 
@@ -157,14 +186,15 @@ On app startup: `cleanup_sessions` management command deletes expired tokens and
 
 | File | Purpose |
 |------|---------|
-| `backend/auth_app/views.py` | Login, Register, Verify, Logout views |
+| `backend/auth_app/views.py` | Login, Verify, Logout views + session status API |
 | `backend/auth_app/services.py` | AuthService + EmailService — magic link flow, rate limits, token management |
 | `backend/core/middleware.py` | `GoSessionAuthMiddleware` — session validation, user injection |
 | `backend/core/models.py` | User, Session, AuthToken models |
-| `backend/auth_app/templates/auth_app/login.html` | Login page (email form) |
-| `backend/auth_app/templates/auth_app/register.html` | Registration page |
-| `backend/auth_app/templates/auth_app/check_email.html` | "Check your email" confirmation |
+| `backend/auth_app/templates/auth_app/auth.html` | Unified auth page (email form for login + registration) |
+| `backend/auth_app/templates/auth_app/check_email.html` | "Check your email" confirmation (conditional for new vs existing users) |
 | `backend/auth_app/templates/auth_app/link_expired.html` | Expired/invalid link page |
+| `backend/auth_app/templates/auth_app/bare.html` | Bare layout (extends base, no header/nav for auth pages) |
+| `static/js/session-warning.js` | Session timeout warning banner — polls `/api/session-status` every 5 minutes |
 
 ## Environment Variables
 
@@ -184,7 +214,7 @@ On app startup: `cleanup_sessions` management command deletes expired tokens and
 - `auth.login_success` — magic link verified, session created
 - `auth.logout` — user logged out
 
-**Page views:** `login`, `register`, `check-email`, `link-expired`
+**Page views:** `auth`, `check-email`, `link-expired`
 
 ## Security Checklist
 
