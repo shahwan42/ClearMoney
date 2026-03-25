@@ -5,12 +5,12 @@
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
-    <h2 class="text-lg font-bold text-slate-800">Batch Entry</h2>
-    <p class="text-sm text-gray-500">Add multiple transactions at once — useful for catching up on missed days.</p>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Batch Entry</h2>
+    <p class="text-sm text-gray-500 dark:text-slate-400">Add multiple transactions at once — useful for catching up on missed days.</p>
 
     <form hx-post="/transactions/batch" hx-target="#batch-result" hx-disabled-elt="find button[type='submit']" class="space-y-3">
         <div id="batch-rows" class="space-y-3">
-            <div class="batch-row bg-white rounded-xl shadow-sm p-4 space-y-2">
+            <div class="batch-row bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 space-y-2">
                 <div class="flex gap-2">
                     <select name="type[]" aria-label="Type" data-batch-reset="expense" class="border rounded-lg px-2 py-1.5 text-sm">
                         <option value="expense">Expense</option>

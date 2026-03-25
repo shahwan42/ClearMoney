@@ -11,7 +11,7 @@
 
     <!-- Filter bar -->
     <form id="tx-filters" hx-get="/transactions/list" hx-target="#transaction-list" hx-trigger="change, keyup changed delay:300ms from:#search-input"
-          class="bg-white rounded-xl shadow-sm p-3 space-y-2">
+          class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-3 space-y-2">
         <label class="sr-only" for="search-input">Search transaction notes</label>
         <input id="search-input" type="text" name="search" placeholder="Search notes..."
                aria-label="Search transaction notes"

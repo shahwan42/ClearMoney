@@ -74,6 +74,23 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
     color: #e2e8f0;
     border-color: #475569;
 }
+/* Placeholder text — slate-400 (4.8:1 on slate-800) is readable but clearly secondary */
+.dark input::placeholder, .dark textarea::placeholder {
+    color: #94a3b8; /* slate-400 */
+}
+/* Disabled form fields — dimmed background signals non-interactive state */
+.dark input:disabled, .dark select:disabled, .dark textarea:disabled {
+    background-color: #0f172a; /* slate-900 — darker than enabled #1e293b */
+    color: #475569;  /* slate-600 — clearly dimmed */
+    opacity: 0.75;
+}
+/* Text color contrast fixes for dark mode (light-mode -600 shades fail on dark backgrounds)
+   red-600 (#dc2626) is only 2.6:1 on slate-800; red-400 (#f87171) achieves 3.6:1.
+   green-600 (#16a34a) is 3.7:1 — fails 4.5:1 text; emerald-400 (#34d399) is 5.0:1. */
+.dark .text-red-600 { color: #f87171 !important; }  /* red-400 */
+.dark .text-red-700 { color: #fca5a5 !important; }  /* red-300 — slightly lighter for heading-weight */
+.dark .text-green-600 { color: #34d399 !important; } /* emerald-400 */
+.dark .text-green-700 { color: #6ee7b7 !important; } /* emerald-300 */
 .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
 .dark .bg-teal-50 { background-color: #0d3b3b !important; }
 .dark .bg-amber-50 { background-color: #3b2e0d !important; }
