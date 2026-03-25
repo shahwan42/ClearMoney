@@ -75,6 +75,48 @@ class TestExportTransactions:
         assert "transactions" in disposition
         assert ".csv" in disposition
 
+    def test_csv_null_category_outputs_empty_string(
+        self, auth_user: tuple[str, str, str], auth_client: Client
+    ) -> None:
+        """Transaction with no category → CSV cell is empty string, not 'None'."""  # gap: data
+        user_id, _, _ = auth_user
+        inst = InstitutionFactory(user_id=user_id)
+        account = AccountFactory(user_id=user_id, institution_id=inst.id)
+        TransactionFactory(
+            user_id=user_id,
+            account_id=account.id,
+            category_id=None,
+            type="expense",
+            amount=Decimal("50"),
+            currency="EGP",
+            date=datetime.date(2026, 3, 15),
+        )
+        response = auth_client.get("/export/transactions?from=2026-03-01&to=2026-03-31")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "None" not in content  # category_id must not stringify as "None"
+
+    def test_csv_null_note_outputs_empty_string(
+        self, auth_user: tuple[str, str, str], auth_client: Client
+    ) -> None:
+        """Transaction with no note → CSV cell is empty string, not 'None'."""  # gap: data
+        user_id, _, _ = auth_user
+        inst = InstitutionFactory(user_id=user_id)
+        account = AccountFactory(user_id=user_id, institution_id=inst.id)
+        TransactionFactory(
+            user_id=user_id,
+            account_id=account.id,
+            note=None,
+            type="expense",
+            amount=Decimal("75"),
+            currency="EGP",
+            date=datetime.date(2026, 3, 15),
+        )
+        response = auth_client.get("/export/transactions?from=2026-03-01&to=2026-03-31")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "None" not in content  # note must not stringify as "None"
+
     def test_unauthenticated_redirects(self) -> None:
         client = Client()
         response = client.get("/export/transactions?from=2026-03-01&to=2026-03-31")

@@ -14,12 +14,12 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from django.db import connection
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from accounts.services import AccountService
+from core.models import Account, Category
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from recurring.services import RecurringService
@@ -37,23 +37,21 @@ def _get_categories(request: AuthenticatedRequest) -> list[dict[str, Any]]:
 
     Returns all non-archived categories with type info for optgroup rendering.
     """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT id, name, type, icon
-               FROM categories
-               WHERE user_id = %s AND NOT is_archived
-               ORDER BY type, name""",
-            [request.user_id],
-        )
-        return [
-            {
-                "id": str(row[0]),
-                "name": row[1],
-                "type": row[2],
-                "icon": row[3],
-            }
-            for row in cursor.fetchall()
-        ]
+    qs = (
+        Category.objects.for_user(request.user_id)
+        .filter(is_archived=False)
+        .order_by("type", "name")
+        .values("id", "name", "type", "icon")
+    )
+    return [
+        {
+            "id": str(row["id"]),
+            "name": row["name"],
+            "type": row["type"],
+            "icon": row["icon"],
+        }
+        for row in qs
+    ]
 
 
 def _render_rule_list(request: AuthenticatedRequest) -> HttpResponse:
@@ -66,13 +64,13 @@ def _render_rule_list(request: AuthenticatedRequest) -> HttpResponse:
 
 def _lookup_account_currency(user_id: str, account_id: str) -> str:
     """Look up an account's currency. Returns 'EGP' as fallback."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT currency FROM accounts WHERE id = %s AND user_id = %s",
-            [account_id, user_id],
-        )
-        row = cursor.fetchone()
-        return row[0] if row else "EGP"
+    return (
+        Account.objects.for_user(user_id)
+        .filter(id=account_id)
+        .values_list("currency", flat=True)
+        .first()
+        or "EGP"
+    )
 
 
 # ---------------------------------------------------------------------------

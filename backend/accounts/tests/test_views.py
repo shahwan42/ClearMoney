@@ -416,6 +416,58 @@ class TestCreditCardStatement:
         response = c.get(f"/accounts/{uuid.uuid4()}/statement")
         assert response.status_code == 404
 
+    def test_shows_transaction_in_billing_period(self, client, accounts_data):
+        """Transaction dated within the billing period appears in the statement."""  # gap: functional
+        user_id = accounts_data["user_id"]
+        cc_id = accounts_data["cc_id"]
+        # statement_day=15, period=2026-03 covers 2026-02-16 to 2026-03-15
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 1234, 'EGP', %s, 'CC Charge', -1234)",
+                [str(uuid.uuid4()), user_id, cc_id, date(2026, 3, 10)],
+            )
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{cc_id}/statement?period=2026-03")
+        assert response.status_code == 200
+        assert b"CC Charge" in response.content
+
+    def test_excludes_transaction_outside_billing_period(self, client, accounts_data):
+        """Transaction outside the requested period is not shown."""  # gap: functional
+        user_id = accounts_data["user_id"]
+        cc_id = accounts_data["cc_id"]
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 999, 'EGP', %s, 'Old Charge', -999)",
+                [str(uuid.uuid4()), user_id, cc_id, date(2026, 1, 5)],
+            )
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{cc_id}/statement?period=2026-03")
+        assert response.status_code == 200
+        assert b"Old Charge" not in response.content
+
+    def test_payment_history_shows_transfer_to_cc(self, client, accounts_data):
+        """Transfer into the CC account appears in payment history."""  # gap: functional
+        user_id = accounts_data["user_id"]
+        cc_id = accounts_data["cc_id"]
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, counter_account_id, type, amount, currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, %s, 'transfer', 2000, 'EGP', %s, 'CC Payment', 2000)",
+                [
+                    str(uuid.uuid4()),
+                    user_id,
+                    accounts_data["savings_id"],
+                    cc_id,
+                    date(2026, 3, 10),
+                ],
+            )
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{cc_id}/statement?period=2026-03")
+        assert response.status_code == 200
+        assert b"CC Payment" in response.content
+
 
 # ---------------------------------------------------------------------------
 # Institution preset API

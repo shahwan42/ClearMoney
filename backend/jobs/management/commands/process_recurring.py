@@ -15,8 +15,8 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.db import connection
 
+from core.models import User
 from recurring.services import RecurringService
 
 
@@ -43,6 +43,4 @@ class Command(BaseCommand):
 
     def _get_all_user_ids(self) -> list[str]:
         """Get all user IDs from the users table."""
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM users")
-            return [str(row[0]) for row in cursor.fetchall()]
+        return [str(uid) for uid in User.objects.values_list("id", flat=True)]

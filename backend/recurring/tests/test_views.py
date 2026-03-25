@@ -5,6 +5,7 @@ Tests run against the real database with --reuse-db.
 """
 
 import json
+import uuid
 from datetime import date, timedelta
 
 import pytest
@@ -110,6 +111,19 @@ class TestRecurringPage:
         assert b"Pending Confirmation" in response.content
         assert b"Pending Rule" in response.content
 
+    def test_archived_category_excluded_from_form(self, client, rec_view_data):
+        """Archived categories must not appear in the recurring rule form dropdown."""  # gap: functional
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, is_archived)"
+                " VALUES (%s, %s, 'Archived Cat', 'expense', true)",
+                [str(uuid.uuid4()), rec_view_data["user_id"]],
+            )
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        response = c.get("/recurring")
+        assert response.status_code == 200
+        assert b"Archived Cat" not in response.content
+
     def test_unauthenticated_redirects(self, client):
         response = client.get("/recurring")
         assert response.status_code == 302
@@ -173,6 +187,29 @@ class TestRecurringAdd:
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT template_transaction FROM recurring_rules WHERE user_id = %s",
+                [rec_view_data["user_id"]],
+            )
+            row = cursor.fetchone()
+            assert row is not None
+            tmpl = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+            assert tmpl["currency"] == "EGP"
+
+    def test_currency_fallback_for_unknown_account(self, client, rec_view_data):
+        """Unknown account_id falls back to EGP for currency."""  # gap: functional
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        _create_rule(
+            c,
+            {
+                "type": "expense",
+                "amount": "100",
+                "account_id": str(uuid.uuid4()),  # nonexistent account
+                "frequency": "monthly",
+                "next_due_date": "2026-04-01",
+            },
+        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT template_transaction FROM recurring_rules WHERE user_id = %s ORDER BY created_at DESC LIMIT 1",
                 [rec_view_data["user_id"]],
             )
             row = cursor.fetchone()

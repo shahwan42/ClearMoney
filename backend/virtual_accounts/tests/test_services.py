@@ -5,14 +5,14 @@ Tests run against the real database with --reuse-db.
 """
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from django.db import connection
 
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User
-from tests.factories import AccountFactory, InstitutionFactory
+from core.models import Session, User, VirtualAccountAllocation
+from tests.factories import AccountFactory, InstitutionFactory, TransactionFactory
 from virtual_accounts.services import VirtualAccountService
 
 
@@ -373,6 +373,146 @@ class TestGetAllocations:
 
         allocs = svc.get_allocations(va["id"], limit=3)
         assert len(allocs) == 3
+
+
+# gap: data — tx-linked allocation appears in get_allocations
+@pytest.mark.django_db
+class TestGetAllocationsOrdering:
+    def test_tx_linked_allocation_appears(self, va_data):
+        """Allocation linked to a real transaction is returned by get_allocations."""
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+        tx = TransactionFactory(
+            user_id=va_data["user_id"],
+            account_id=va_data["account_id"],
+            type="expense",
+            amount=500,
+            balance_delta=-500,
+            date=date.today(),
+        )
+        VirtualAccountAllocation.objects.create(
+            virtual_account_id=va["id"],
+            transaction_id=tx.id,
+            amount=500,
+        )
+
+        allocs = svc.get_allocations(va["id"])
+        assert len(allocs) == 1
+        assert allocs[0]["transaction_id"] == str(tx.id)
+
+    def test_ordering_by_transaction_date_desc(self, va_data):
+        """Tx-linked allocs sort by transaction.date DESC, older one comes last."""
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+        older_tx = TransactionFactory(
+            user_id=va_data["user_id"],
+            account_id=va_data["account_id"],
+            date=date.today() - timedelta(days=5),
+            amount=100,
+            balance_delta=-100,
+        )
+        newer_tx = TransactionFactory(
+            user_id=va_data["user_id"],
+            account_id=va_data["account_id"],
+            date=date.today(),
+            amount=200,
+            balance_delta=-200,
+        )
+        VirtualAccountAllocation.objects.create(
+            virtual_account_id=va["id"], transaction_id=older_tx.id, amount=100
+        )
+        VirtualAccountAllocation.objects.create(
+            virtual_account_id=va["id"], transaction_id=newer_tx.id, amount=200
+        )
+
+        allocs = svc.get_allocations(va["id"])
+        assert allocs[0]["transaction_id"] == str(newer_tx.id)
+        assert allocs[1]["transaction_id"] == str(older_tx.id)
+
+    def test_direct_alloc_ordering_uses_allocated_at(self, va_data):
+        """Direct allocs (no tx) sort by allocated_at when transaction date is absent."""
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+        svc.direct_allocate(va["id"], 100, "Old", date.today() - timedelta(days=3))
+        svc.direct_allocate(va["id"], 200, "New", date.today())
+
+        allocs = svc.get_allocations(va["id"])
+        # Most recent allocated_at first
+        assert allocs[0]["note"] == "New"
+        assert allocs[1]["note"] == "Old"
+
+
+# ---------------------------------------------------------------------------
+# get_transactions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestGetTransactions:
+    def test_returns_linked_transactions(self, va_data):
+        """Transactions linked via allocations are returned."""  # gap: functional
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+        tx = TransactionFactory(
+            user_id=va_data["user_id"],
+            account_id=va_data["account_id"],
+            type="expense",
+            amount=300,
+            balance_delta=-300,
+        )
+        VirtualAccountAllocation.objects.create(
+            virtual_account_id=va["id"], transaction_id=tx.id, amount=300
+        )
+
+        txs = svc.get_transactions(va["id"])
+        assert len(txs) == 1
+        assert txs[0]["id"] == str(tx.id)
+        assert txs[0]["amount"] == 300.0
+
+    def test_respects_limit(self, va_data):
+        """limit param caps results."""  # gap: data
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+        for i in range(5):
+            tx = TransactionFactory(
+                user_id=va_data["user_id"],
+                account_id=va_data["account_id"],
+                amount=10 * (i + 1),
+                balance_delta=-(10 * (i + 1)),
+            )
+            VirtualAccountAllocation.objects.create(
+                virtual_account_id=va["id"], transaction_id=tx.id, amount=10 * (i + 1)
+            )
+
+        txs = svc.get_transactions(va["id"], limit=3)
+        assert len(txs) == 3
+
+    def test_excludes_direct_allocations(self, va_data):
+        """Direct allocations (no tx) are not returned."""  # gap: data
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+        svc.direct_allocate(va["id"], 500, "Direct", date.today())
+
+        txs = svc.get_transactions(va["id"])
+        assert txs == []
+
+    def test_other_user_cannot_read(self, va_data):
+        """A different user_id sees no transactions."""  # gap: functional
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+        tx = TransactionFactory(
+            user_id=va_data["user_id"],
+            account_id=va_data["account_id"],
+            amount=100,
+            balance_delta=-100,
+        )
+        VirtualAccountAllocation.objects.create(
+            virtual_account_id=va["id"], transaction_id=tx.id, amount=100
+        )
+
+        other_svc = _svc(str(uuid.uuid4()))
+        txs = other_svc.get_transactions(va["id"])
+        assert txs == []
 
 
 # ---------------------------------------------------------------------------

@@ -195,6 +195,30 @@ class TestSnapshotService:
         assert snap is not None
         assert float(snap.net_worth_raw) == pytest.approx(800, abs=0.01)
 
+    def test_dormant_account_excluded_from_snapshot(self) -> None:
+        """Dormant account balance is not included in net_worth_raw."""  # gap: functional
+        AccountFactory(
+            user_id=self.uid,
+            institution_id=self.inst.id,
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+            is_dormant=False,
+        )
+        AccountFactory(
+            user_id=self.uid,
+            institution_id=self.inst.id,
+            currency="EGP",
+            current_balance=9999,
+            initial_balance=9999,
+            is_dormant=True,  # should be excluded
+        )
+        self.svc.take_snapshot(str(self.uid))
+
+        snap = DailySnapshot.objects.filter(user_id=self.uid).first()
+        assert snap is not None
+        assert float(snap.net_worth_raw) == pytest.approx(5000, abs=0.01)
+
     def test_daily_spending_and_income(self) -> None:
         """Snapshot captures daily spending and income totals."""
         acc = AccountFactory(

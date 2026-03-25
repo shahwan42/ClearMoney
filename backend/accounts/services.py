@@ -15,7 +15,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.db import IntegrityError, connection
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
@@ -29,6 +29,7 @@ from core.models import (
     AccountSnapshot,
     Institution,
     RecurringRule,
+    Transaction,
     VirtualAccount,
 )
 
@@ -651,33 +652,37 @@ def get_statement_data(
         except (ValueError, IndexError):
             pass  # Use current period on parse failure
 
-    # Raw SQL — simple date-range filter, but kept consistent with raw SQL pattern
-    # used throughout the statement module
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT id, type, amount, currency, account_id, date, note,
-                   balance_delta, created_at
-            FROM transactions
-            WHERE account_id = %s AND date >= %s AND date <= %s AND user_id = %s
-            ORDER BY date DESC, created_at DESC
-            """,
-            [account["id"], info.period_start, info.period_end, user_id],
+    transactions = [
+        {
+            "id": str(row["id"]),
+            "type": row["type"],
+            "amount": float(row["amount"]),
+            "currency": row["currency"],
+            "account_id": str(row["account_id"]),
+            "date": row["date"],
+            "note": row["note"],
+            "balance_delta": float(row["balance_delta"]),
+            "created_at": row["created_at"],
+        }
+        for row in Transaction.objects.for_user(user_id)
+        .filter(
+            account_id=account["id"],
+            date__gte=info.period_start,
+            date__lte=info.period_end,
         )
-        transactions = [
-            {
-                "id": str(row[0]),
-                "type": row[1],
-                "amount": float(row[2]),
-                "currency": row[3],
-                "account_id": str(row[4]),
-                "date": row[5],
-                "note": row[6],
-                "balance_delta": float(row[7]),
-                "created_at": row[8],
-            }
-            for row in cursor.fetchall()
-        ]
+        .order_by("-date", "-created_at")
+        .values(
+            "id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "date",
+            "note",
+            "balance_delta",
+            "created_at",
+        )
+    ]
 
     # Calculate totals
     total_spending = 0.0
@@ -696,38 +701,37 @@ def get_statement_data(
     # Interest-free period
     remaining, is_urgent = interest_free_remaining(info.period_end, today)
 
-    # Raw SQL — payment history includes counter_account_id match (both legs
-    # of transfers/income that credit this CC), which is simpler in raw SQL
-    payment_history: list[dict[str, Any]] = []
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT id, type, amount, currency, account_id, date, note,
-                   balance_delta, created_at
-            FROM transactions
-            WHERE (account_id = %s OR counter_account_id = %s)
-              AND balance_delta > 0
-              AND type IN ('income', 'transfer')
-              AND user_id = %s
-            ORDER BY date DESC, created_at DESC
-            LIMIT 10
-            """,
-            [account["id"], account["id"], user_id],
+    payment_history: list[dict[str, Any]] = [
+        {
+            "id": str(row["id"]),
+            "type": row["type"],
+            "amount": float(row["amount"]),
+            "currency": row["currency"],
+            "account_id": str(row["account_id"]),
+            "date": row["date"],
+            "note": row["note"],
+            "balance_delta": float(row["balance_delta"]),
+            "created_at": row["created_at"],
+        }
+        for row in Transaction.objects.for_user(user_id)
+        .filter(
+            Q(account_id=account["id"]) | Q(counter_account_id=account["id"]),
+            balance_delta__gt=0,
+            type__in=["income", "transfer"],
         )
-        payment_history = [
-            {
-                "id": str(row[0]),
-                "type": row[1],
-                "amount": float(row[2]),
-                "currency": row[3],
-                "account_id": str(row[4]),
-                "date": row[5],
-                "note": row[6],
-                "balance_delta": float(row[7]),
-                "created_at": row[8],
-            }
-            for row in cursor.fetchall()
-        ]
+        .order_by("-date", "-created_at")[:10]
+        .values(
+            "id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "date",
+            "note",
+            "balance_delta",
+            "created_at",
+        )
+    ]
 
     return {
         "account": account,

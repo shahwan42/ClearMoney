@@ -10,7 +10,7 @@ Snapshots power:
     - Month-over-month comparisons
 
 Key patterns:
-    - UPSERT (INSERT ... ON CONFLICT DO UPDATE) for idempotency
+    - UPSERT (update_or_create) for idempotency
     - Historical balance = current_balance - SUM(future balance_deltas)
     - USD → EGP conversion using latest exchange rate
     - Excluded virtual account balances subtracted from net worth
@@ -18,19 +18,27 @@ Key patterns:
 
 import logging
 from datetime import date, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from django.db import connection
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
+
+from core.models import (
+    Account,
+    AccountSnapshot,
+    DailySnapshot,
+    ExchangeRateLog,
+    Transaction,
+    User,
+    VirtualAccount,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class SnapshotService:
-    """Manages daily balance snapshots — combined service + repository logic.
-
-    All SQL queries are inline (raw SQL via django.db.connection),
-    consistent with other Django services.
-    """
+    """Manages daily balance snapshots — combined service + repository logic."""
 
     def __init__(self, tz: ZoneInfo) -> None:
         self.tz = tz
@@ -63,7 +71,7 @@ class SnapshotService:
     def take_snapshot(self, user_id: str) -> None:
         """Capture today's financial state as a daily snapshot.
 
-        Safe to call multiple times (UPSERT semantics).
+        Safe to call multiple times (update_or_create semantics).
         """
         today = self._today()
         self._take_snapshot_for_date(user_id, today, use_current_balances=True)
@@ -114,7 +122,7 @@ class SnapshotService:
         4. Subtract excluded virtual account balances
         5. Convert USD → EGP using latest exchange rate
         6. Get daily spending/income
-        7. UPSERT daily + account snapshots
+        7. Upsert daily + account snapshots
         """
         # Get all accounts grouped by institution
         accounts = self._get_all_accounts(user_id)
@@ -153,7 +161,7 @@ class SnapshotService:
         spending = self._get_daily_spending(user_id, snapshot_date)
         income = self._get_daily_income(user_id, snapshot_date)
 
-        # UPSERT daily snapshot
+        # Upsert daily snapshot
         self._upsert_daily(
             user_id,
             snapshot_date,
@@ -164,7 +172,7 @@ class SnapshotService:
             income,
         )
 
-        # UPSERT per-account snapshots
+        # Upsert per-account snapshots
         for acc_id, balance in account_balances:
             try:
                 self._upsert_account(user_id, snapshot_date, acc_id, balance)
@@ -176,31 +184,25 @@ class SnapshotService:
                 )
 
     # ------------------------------------------------------------------
-    # SQL queries
+    # ORM queries
     # ------------------------------------------------------------------
 
     def _get_all_user_ids(self) -> list[str]:
         """Get all user IDs."""
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM users")
-            return [str(row[0]) for row in cursor.fetchall()]
+        return [str(uid) for uid in User.objects.values_list("id", flat=True)]
 
     def _get_all_accounts(self, user_id: str) -> list[tuple[str, str, float]]:
         """Get all non-dormant accounts for a user.
 
         Returns list of (account_id, currency, current_balance).
-        Iterates via institutions like Go does (institutions → accounts).
+        Ordered by institution display_order then account display_order.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT a.id, a.currency, a.current_balance
-                   FROM accounts a
-                   JOIN institutions i ON a.institution_id = i.id
-                   WHERE a.user_id = %s AND a.is_dormant = false
-                   ORDER BY i.display_order, a.display_order""",
-                [user_id],
-            )
-            return [(str(row[0]), row[1], float(row[2])) for row in cursor.fetchall()]
+        rows = (
+            Account.objects.filter(user_id=user_id, is_dormant=False)
+            .order_by("institution__display_order", "display_order")
+            .values_list("id", "currency", "current_balance")
+        )
+        return [(str(row[0]), row[1], float(row[2])) for row in rows]
 
     def _get_balance_delta_after_date(
         self, user_id: str, account_id: str, snapshot_date: date
@@ -209,72 +211,54 @@ class SnapshotService:
 
         Used to compute historical balances for backfill.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT COALESCE(SUM(balance_delta), 0)
-                   FROM transactions
-                   WHERE account_id = %s AND date::date > %s::date AND user_id = %s""",
-                [account_id, snapshot_date, user_id],
-            )
-            row = cursor.fetchone()
-            return float(row[0]) if row else 0.0
+        total = Transaction.objects.filter(
+            user_id=user_id,
+            account_id=account_id,
+            date__gt=snapshot_date,
+        ).aggregate(total=Coalesce(Sum("balance_delta"), Decimal("0")))["total"]
+        return float(total)
 
     def _get_excluded_va_balance(self, user_id: str) -> float:
         """Total balance of VAs excluded from net worth."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT COALESCE(SUM(current_balance), 0)
-                   FROM virtual_accounts
-                   WHERE exclude_from_net_worth = true
-                     AND is_archived = false
-                     AND user_id = %s""",
-                [user_id],
-            )
-            row = cursor.fetchone()
-            return float(row[0]) if row else 0.0
+        total = VirtualAccount.objects.filter(
+            user_id=user_id,
+            exclude_from_net_worth=True,
+            is_archived=False,
+        ).aggregate(total=Coalesce(Sum("current_balance"), Decimal("0")))["total"]
+        return float(total)
 
     def _get_latest_exchange_rate(self) -> float:
         """Latest USD/EGP exchange rate. No user_id — global data."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT rate FROM exchange_rate_log ORDER BY date DESC, created_at DESC LIMIT 1"
-            )
-            row = cursor.fetchone()
-            return float(row[0]) if row else 0.0
+        rate = (
+            ExchangeRateLog.objects.order_by("-date", "-created_at")
+            .values_list("rate", flat=True)
+            .first()
+        )
+        return float(rate) if rate is not None else 0.0
 
     def _get_daily_spending(self, user_id: str, snapshot_date: date) -> float:
         """Sum of expense amounts for a given date."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT COALESCE(SUM(amount), 0)
-                   FROM transactions
-                   WHERE date::date = %s::date AND type = 'expense' AND user_id = %s""",
-                [snapshot_date, user_id],
-            )
-            row = cursor.fetchone()
-            return float(row[0]) if row else 0.0
+        total = Transaction.objects.filter(
+            user_id=user_id,
+            date=snapshot_date,
+            type="expense",
+        ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+        return float(total)
 
     def _get_daily_income(self, user_id: str, snapshot_date: date) -> float:
         """Sum of income amounts for a given date."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """SELECT COALESCE(SUM(amount), 0)
-                   FROM transactions
-                   WHERE date::date = %s::date AND type = 'income' AND user_id = %s""",
-                [snapshot_date, user_id],
-            )
-            row = cursor.fetchone()
-            return float(row[0]) if row else 0.0
+        total = Transaction.objects.filter(
+            user_id=user_id,
+            date=snapshot_date,
+            type="income",
+        ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
+        return float(total)
 
     def _snapshot_exists(self, user_id: str, snapshot_date: date) -> bool:
         """Check if a daily snapshot already exists."""
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT EXISTS(SELECT 1 FROM daily_snapshots WHERE date = %s AND user_id = %s)",
-                [snapshot_date, user_id],
-            )
-            row = cursor.fetchone()
-            return bool(row[0]) if row else False
+        return DailySnapshot.objects.filter(
+            user_id=user_id, date=snapshot_date
+        ).exists()
 
     def _upsert_daily(
         self,
@@ -286,48 +270,34 @@ class SnapshotService:
         daily_spending: float,
         daily_income: float,
     ) -> None:
-        """UPSERT a daily snapshot row.
+        """Upsert a daily snapshot row (idempotent).
 
-        ON CONFLICT (date, user_id) DO UPDATE ensures idempotency.
+        update_or_create issues SELECT + INSERT/UPDATE (two round-trips), unlike
+        INSERT ... ON CONFLICT which is atomic. Safe here — the job runs once daily
+        and any IntegrityError from a concurrent run is caught by the caller.
         """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """INSERT INTO daily_snapshots
-                       (user_id, date, net_worth_egp, net_worth_raw,
-                        exchange_rate, daily_spending, daily_income)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)
-                   ON CONFLICT (date, user_id) DO UPDATE SET
-                       net_worth_egp = EXCLUDED.net_worth_egp,
-                       net_worth_raw = EXCLUDED.net_worth_raw,
-                       exchange_rate = EXCLUDED.exchange_rate,
-                       daily_spending = EXCLUDED.daily_spending,
-                       daily_income = EXCLUDED.daily_income""",
-                [
-                    user_id,
-                    snapshot_date,
-                    net_worth_egp,
-                    net_worth_raw,
-                    exchange_rate,
-                    daily_spending,
-                    daily_income,
-                ],
-            )
+        DailySnapshot.objects.update_or_create(
+            user_id=user_id,
+            date=snapshot_date,
+            defaults={
+                "net_worth_egp": net_worth_egp,
+                "net_worth_raw": net_worth_raw,
+                "exchange_rate": exchange_rate,
+                "daily_spending": daily_spending,
+                "daily_income": daily_income,
+            },
+        )
 
     def _upsert_account(
         self, user_id: str, snapshot_date: date, account_id: str, balance: float
     ) -> None:
-        """UPSERT an account snapshot row.
-
-        ON CONFLICT (date, account_id) DO UPDATE ensures idempotency.
-        """
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """INSERT INTO account_snapshots (user_id, date, account_id, balance)
-                   VALUES (%s, %s, %s, %s)
-                   ON CONFLICT (user_id, date, account_id) DO UPDATE SET
-                       balance = EXCLUDED.balance""",
-                [user_id, snapshot_date, account_id, balance],
-            )
+        """Upsert an account snapshot row (idempotent). See _upsert_daily for atomicity note."""
+        AccountSnapshot.objects.update_or_create(
+            user_id=user_id,
+            date=snapshot_date,
+            account_id=account_id,
+            defaults={"balance": balance},
+        )
 
     def _today(self) -> date:
         """Today's date in the configured timezone."""

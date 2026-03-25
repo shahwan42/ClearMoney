@@ -8,10 +8,10 @@ import csv
 import logging
 from datetime import datetime
 
-from django.db import connection
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from core.models import Transaction
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 
@@ -60,18 +60,21 @@ def export_transactions(request: AuthenticatedRequest) -> HttpResponse:
         return HttpResponse("Invalid 'from' or 'to' date", status=400)
 
     # Query transactions in date range for this user
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT date, type, amount, currency, account_id,
-                   COALESCE(category_id::text, ''), COALESCE(note, ''), created_at
-            FROM transactions
-            WHERE user_id = %s AND date >= %s AND date <= %s
-            ORDER BY date DESC, created_at DESC
-            """,
-            [user_id, from_date, to_date],
+    qs = (
+        Transaction.objects.for_user(user_id)
+        .filter(date__gte=from_date, date__lte=to_date)
+        .order_by("-date", "-created_at")
+        .values(
+            "date",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "category_id",
+            "note",
+            "created_at",
         )
-        rows = cursor.fetchall()
+    )
 
     # Build CSV response
     response = HttpResponse(content_type="text/csv")
@@ -93,19 +96,21 @@ def export_transactions(request: AuthenticatedRequest) -> HttpResponse:
         ]
     )
 
+    rows = list(qs)  # evaluate once so len(rows) below doesn't re-query
     for row in rows:
-        date_val, tx_type, amount, currency, account_id, cat_id, note, created_at = row
+        date_val = row["date"]
+        created_at = row["created_at"]
         writer.writerow(
             [
                 date_val.strftime("%Y-%m-%d")
                 if hasattr(date_val, "strftime")
                 else str(date_val),
-                tx_type,
-                f"{float(amount):.2f}",
-                currency,
-                str(account_id),
-                cat_id,
-                note,
+                row["type"],
+                f"{float(row['amount']):.2f}",
+                row["currency"],
+                str(row["account_id"]),
+                str(row["category_id"]) if row["category_id"] else "",
+                row["note"] or "",
                 created_at.isoformat()
                 if hasattr(created_at, "isoformat")
                 else str(created_at),

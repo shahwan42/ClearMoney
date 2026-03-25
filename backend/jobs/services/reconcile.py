@@ -7,16 +7,20 @@ denormalized data. The core formula:
     expected_balance = initial_balance + SUM(balance_delta)
     discrepancy = expected_balance - current_balance
 
-Uses a correlated subquery — the inner SELECT references the outer table (a.id).
+Uses a correlated Subquery — the inner queryset references the outer Account via OuterRef('pk').
 COALESCE handles accounts with zero transactions (SUM returns NULL for empty sets).
 
 Tolerance: 0.005 to avoid floating-point noise on NUMERIC(15,2) values.
 """
 
 import logging
+from decimal import Decimal
 from typing import NamedTuple
 
-from django.db import connection
+from django.db.models import DecimalField, F, OuterRef, Subquery, Sum
+from django.db.models.functions import Coalesce, Now
+
+from core.models import Account, Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -44,62 +48,64 @@ class ReconcileService:
         """Run balance reconciliation across all accounts.
 
         Args:
-            auto_fix: If True, UPDATE current_balance to match computed value.
+            auto_fix: If True, update current_balance to match computed value.
 
         Returns:
             List of discrepancies found (may be empty if all balances match).
         """
         discrepancies: list[Discrepancy] = []
 
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT
-                    a.id,
-                    a.name,
-                    a.current_balance,
-                    a.initial_balance + COALESCE((
-                        SELECT SUM(t.balance_delta)
-                        FROM transactions t
-                        WHERE t.account_id = a.id
-                    ), 0) AS expected_balance
-                FROM accounts a
-                ORDER BY a.name
-            """)
+        # Correlated subquery: scalar SUM(balance_delta) per account.
+        # .values("account_id") groups by account so the subquery returns one row,
+        # then .values("s") extracts the scalar for use in the outer annotation.
+        delta_sum = (
+            Transaction.objects.filter(account=OuterRef("pk"))
+            .values("account_id")
+            .annotate(s=Sum("balance_delta"))
+            .values("s")
+        )
 
-            for row in cursor.fetchall():
-                account_id = str(row[0])
-                account_name = row[1]
-                cached = float(row[2])
-                expected = float(row[3])
-                diff = expected - cached
+        accounts = Account.objects.annotate(
+            expected_balance=F("initial_balance")
+            + Coalesce(
+                Subquery(
+                    delta_sum,
+                    output_field=DecimalField(max_digits=15, decimal_places=2),
+                ),
+                Decimal("0"),
+            )
+        ).order_by("name")
 
-                if abs(diff) > TOLERANCE:
-                    discrepancies.append(
-                        Discrepancy(
-                            account_id=account_id,
-                            account_name=account_name,
-                            cached_balance=cached,
-                            expected_balance=expected,
-                            difference=diff,
-                        )
+        for account in accounts:
+            cached = float(account.current_balance)
+            expected = float(account.expected_balance)
+            diff = expected - cached
+
+            if abs(diff) > TOLERANCE:
+                discrepancies.append(
+                    Discrepancy(
+                        account_id=str(account.id),
+                        account_name=account.name,
+                        cached_balance=cached,
+                        expected_balance=expected,
+                        difference=diff,
                     )
+                )
 
-            if auto_fix and discrepancies:
-                for d in discrepancies:
-                    try:
-                        cursor.execute(
-                            "UPDATE accounts SET current_balance = %s, updated_at = NOW() WHERE id = %s",
-                            [d.expected_balance, d.account_id],
-                        )
-                        logger.info(
-                            "reconcile.fixed account=%s from=%.2f to=%.2f",
-                            d.account_name,
-                            d.cached_balance,
-                            d.expected_balance,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "reconcile.fix_failed account=%s", d.account_name
-                        )
+        if auto_fix and discrepancies:
+            for d in discrepancies:
+                try:
+                    Account.objects.filter(id=d.account_id).update(
+                        current_balance=d.expected_balance,
+                        updated_at=Now(),
+                    )
+                    logger.info(
+                        "reconcile.fixed account=%s from=%.2f to=%.2f",
+                        d.account_name,
+                        d.cached_balance,
+                        d.expected_balance,
+                    )
+                except Exception:
+                    logger.exception("reconcile.fix_failed account=%s", d.account_name)
 
         return discrepancies

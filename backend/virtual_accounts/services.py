@@ -17,7 +17,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from django.db import connection, transaction
+from django.db import transaction
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
@@ -99,31 +99,6 @@ def _instance_to_va(inst: VirtualAccount) -> dict[str, Any]:
     }
 
 
-def _row_to_allocation(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a virtual_account_allocations raw SQL row to a dict."""
-    return {
-        "id": str(row[0]),
-        "transaction_id": str(row[1]) if row[1] else None,
-        "virtual_account_id": str(row[2]),
-        "amount": float(row[3]),
-        "note": row[4],
-        "allocated_at": row[5],
-        "created_at": row[6],
-    }
-
-
-def _row_to_transaction(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a transaction raw SQL row (VA history subset) to a dict."""
-    return {
-        "id": str(row[0]),
-        "type": row[1],
-        "amount": float(row[2]),
-        "currency": row[3],
-        "note": row[4],
-        "date": row[5],
-    }
-
-
 class VirtualAccountService:
     """Handles virtual account CRUD, allocations, and balance management.
 
@@ -171,49 +146,68 @@ class VirtualAccountService:
     def get_allocations(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return allocation records for a virtual account (direct + tx-linked).
 
-        Raw SQL — ORDER BY COALESCE(t.date, a.allocated_at) merges tx-linked
-        and direct allocations into a single timeline that ORM can't express.
+        Ordered by COALESCE(transaction date, allocated_at) to merge tx-linked
+        and direct allocations into a single timeline.
         """
-        sql = """
-            SELECT a.id, a.transaction_id, a.virtual_account_id, a.amount,
-                   a.note, a.allocated_at, a.created_at
-            FROM virtual_account_allocations a
-            LEFT JOIN transactions t ON a.transaction_id = t.id
-            JOIN virtual_accounts va ON a.virtual_account_id = va.id
-            WHERE a.virtual_account_id = %s AND va.user_id = %s
-            ORDER BY COALESCE(t.date, a.allocated_at) DESC, a.created_at DESC
-        """
-        params: list[Any] = [va_id, self.user_id]
+        qs = (
+            VirtualAccountAllocation.objects.filter(
+                virtual_account_id=uuid_mod.UUID(va_id),
+                virtual_account__user_id=uuid_mod.UUID(self.user_id),
+            )
+            .select_related("transaction")
+            .order_by(
+                Coalesce("transaction__date", "allocated_at").desc(),
+                "-created_at",
+            )
+        )
         if limit > 0:
-            sql += " LIMIT %s"
-            params.append(limit)
-
-        with connection.cursor() as cursor:
-            cursor.execute(sql, params)
-            return [_row_to_allocation(row) for row in cursor.fetchall()]
+            qs = qs[:limit]
+        return [
+            {
+                "id": str(a.id),
+                "transaction_id": str(a.transaction_id) if a.transaction_id else None,
+                "virtual_account_id": str(a.virtual_account_id),
+                "amount": float(a.amount),
+                "note": a.note,
+                "allocated_at": a.allocated_at,
+                "created_at": a.created_at,
+            }
+            for a in qs
+        ]
 
     def get_transactions(self, va_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Return transactions allocated to a virtual account.
 
-        Raw SQL — VirtualAccountAllocation.transaction has related_name="+"
-        which disables reverse FK access, so ORM can't traverse from Transaction.
+        Queries via VirtualAccountAllocation since the FK from Transaction to
+        VirtualAccountAllocation has related_name="+" (no reverse accessor).
         """
-        sql = """
-            SELECT t.id, t.type, t.amount, t.currency, t.note, t.date
-            FROM transactions t
-            JOIN virtual_account_allocations a ON t.id = a.transaction_id
-            JOIN virtual_accounts va ON a.virtual_account_id = va.id
-            WHERE a.virtual_account_id = %s AND va.user_id = %s
-            ORDER BY t.date DESC, t.created_at DESC
-        """
-        params: list[Any] = [va_id, self.user_id]
+        qs = (
+            VirtualAccountAllocation.objects.filter(
+                virtual_account_id=uuid_mod.UUID(va_id),
+                virtual_account__user_id=uuid_mod.UUID(self.user_id),
+                transaction__isnull=False,
+            )
+            .select_related("transaction")
+            .order_by("-transaction__date", "-transaction__created_at")
+        )
         if limit > 0:
-            sql += " LIMIT %s"
-            params.append(limit)
-
-        with connection.cursor() as cursor:
-            cursor.execute(sql, params)
-            return [_row_to_transaction(row) for row in cursor.fetchall()]
+            qs = qs[:limit]
+        result = []
+        for a in qs:
+            assert (
+                a.transaction is not None
+            )  # guaranteed by transaction__isnull=False filter
+            result.append(
+                {
+                    "id": str(a.transaction.id),
+                    "type": a.transaction.type,
+                    "amount": float(a.transaction.amount),
+                    "currency": a.transaction.currency,
+                    "note": a.transaction.note,
+                    "date": a.transaction.date,
+                }
+            )
+        return result
 
     # -----------------------------------------------------------------------
     # Write operations
