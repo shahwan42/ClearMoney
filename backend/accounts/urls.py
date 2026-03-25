@@ -12,6 +12,7 @@ urlpatterns = [
     # --- Pages ---
     path("accounts", views.accounts_list, name="accounts"),
     # Static sub-paths MUST come before <uuid:id> to avoid being swallowed
+    path("accounts/add-form", views.account_add_form, name="account-add-form"),
     path("accounts/form", views.account_form, name="account-form"),
     path("accounts/add", views.account_add, name="account-add"),
     path("accounts/list", views.institution_list_partial, name="institution-list"),

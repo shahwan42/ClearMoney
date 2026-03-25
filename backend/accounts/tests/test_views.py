@@ -102,7 +102,7 @@ class TestAccountsList:
         c = set_auth_cookie(client, empty_user["session_token"])
         response = c.get("/accounts")
         assert response.status_code == 200
-        assert b"No institutions yet" in response.content
+        assert b"No accounts yet" in response.content
 
     def test_redirects_without_auth(self, client):
         response = client.get("/accounts")
@@ -772,3 +772,159 @@ class TestDarkModeHoverClasses:
         for line in content.split("\n"):
             if "hover:bg-gray-50" in line:
                 assert "dark:hover:bg-" in line, f"Missing dark hover: {line.strip()}"
+
+
+# ---------------------------------------------------------------------------
+# Plan 21: Unified add account form
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAccountAddForm:
+    """GET /accounts/add-form renders unified form."""
+
+    def test_renders_unified_form(self, client, accounts_data) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/add-form")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        assert "institution_name" in content or "institution_type" in content
+        assert 'name="type"' in content
+
+    def test_preselected_institution(self, client, accounts_data) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        inst_id = accounts_data["institution_id"]
+        resp = c.get(f"/accounts/add-form?institution_id={inst_id}")
+        content = resp.content.decode()
+        assert "Test Bank" in content
+        assert f'value="{inst_id}"' in content
+
+    def test_unknown_institution_falls_back(self, client, accounts_data) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get(
+            "/accounts/add-form?institution_id=00000000-0000-0000-0000-000000000000"
+        )
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        assert "institution_type" in content
+
+    def test_requires_auth(self, client) -> None:
+        resp = client.get("/accounts/add-form")
+        assert resp.status_code == 302
+
+
+@pytest.mark.django_db
+class TestAccountAddUnified:
+    """POST /accounts/add handles inline institution creation."""
+
+    def test_creates_account_with_inline_institution(
+        self, client, accounts_data
+    ) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/accounts/add",
+            {
+                "institution_name": "NBE",
+                "institution_type": "bank",
+                "name": "Savings",
+                "type": "savings",
+                "currency": "EGP",
+                "initial_balance": "1000",
+            },
+        )
+        assert resp.status_code == 200
+        assert Institution.objects.filter(
+            user_id=accounts_data["user_id"], name="NBE"
+        ).exists()
+        assert Account.objects.filter(
+            user_id=accounts_data["user_id"], name="Savings"
+        ).exists()
+
+    def test_reuses_existing_institution(self, client, accounts_data) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/accounts/add",
+            {
+                "institution_name": "Test Bank",
+                "institution_type": "bank",
+                "name": "Current",
+                "type": "current",
+                "currency": "EGP",
+                "initial_balance": "0",
+            },
+        )
+        assert resp.status_code == 200
+        assert (
+            Institution.objects.filter(
+                user_id=accounts_data["user_id"], name__iexact="Test Bank"
+            ).count()
+            == 1
+        )
+
+    def test_institution_id_still_works(self, client, accounts_data) -> None:
+        """Backward compatibility — old flow with institution_id."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/accounts/add",
+            {
+                "institution_id": accounts_data["institution_id"],
+                "name": "Current",
+                "type": "current",
+                "currency": "EGP",
+                "initial_balance": "0",
+            },
+        )
+        assert resp.status_code == 200
+        assert Account.objects.filter(
+            user_id=accounts_data["user_id"], name="Current"
+        ).exists()
+
+    def test_missing_institution_name_error(self, client, accounts_data) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.post(
+            "/accounts/add",
+            {
+                "name": "Savings",
+                "type": "savings",
+                "currency": "EGP",
+                "initial_balance": "0",
+            },
+        )
+        assert resp.status_code == 422
+
+    def test_old_institution_form_route_still_works(
+        self, client, accounts_data
+    ) -> None:
+        """Production safety — old routes kept."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/institution-form")
+        assert resp.status_code == 200
+
+    def test_old_account_form_route_still_works(self, client, accounts_data) -> None:
+        """Production safety — old routes kept."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get(f"/accounts/form?institution_id={accounts_data['institution_id']}")
+        assert resp.status_code == 200
+
+    def test_accounts_page_shows_plus_account(self, client, accounts_data) -> None:
+        """Accounts page button says '+ Account' not '+ Institution'."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts")
+        content = resp.content.decode()
+        assert "+ Account" in content
+        assert "+ Institution" not in content
+
+    def test_empty_state_text(self, client, accounts_data) -> None:
+        """Empty state text updated."""
+        # The accounts_data fixture has accounts so we can't test empty state directly
+        # but we can check the template renders correctly
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts")
+        assert resp.status_code == 200
+
+    def test_create_sheet_uses_unified_form_url(self, client, accounts_data) -> None:
+        """The create sheet JS opens /accounts/add-form (not institution-form)."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts")
+        content = resp.content.decode()
+        assert "/accounts/add-form" in content

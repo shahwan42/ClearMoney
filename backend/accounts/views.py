@@ -289,6 +289,44 @@ def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
 
 @general_rate
 @require_http_methods(["GET"])
+def account_add_form(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /accounts/add-form?institution_id=<optional> — unified add account form.
+
+    When institution_id is provided, the institution picker is hidden and the
+    institution name is shown as a read-only label. Otherwise the full picker
+    (type tabs + combobox) is displayed.
+    """
+    institution_id = request.GET.get("institution_id", "")
+    preselected_institution = None
+
+    if institution_id:
+        inst_svc = InstitutionService(request.user_id, request.tz)
+        preselected_institution = inst_svc.get_by_id(institution_id)
+        if not preselected_institution:
+            institution_id = ""  # fall back to full picker
+
+    presets_json = json.dumps(
+        {
+            "bank": EGYPTIAN_BANKS,
+            "fintech": EGYPTIAN_FINTECHS,
+            "wallet": list(WALLET_EXAMPLES),
+        }
+    )
+
+    logger.info("partial loaded: add-account-form, user=%s", request.user_email)
+    return render(
+        request,
+        "accounts/_add_account_form.html",
+        {
+            "institution_id": institution_id,
+            "preselected_institution": preselected_institution,
+            "presets_json": presets_json,
+        },
+    )
+
+
+@general_rate
+@require_http_methods(["GET"])
 def institution_list_partial(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts/list — render institution list partial."""
     logger.info("partial loaded: institution-list, user=%s", request.user_email)
@@ -464,10 +502,62 @@ def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
 def account_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /accounts/add — create account.
 
+    Handles both the old flow (institution_id provided) and the unified flow
+    (institution_name + institution_type provided, resolved via get_or_create).
     Returns close script + OOB institution list refresh.
     """
     institution_id = request.POST.get("institution_id", "")
-    institution_name = request.POST.get("institution_name_display", "")
+
+    # Unified flow: resolve institution via get_or_create if no institution_id
+    if not institution_id:
+        inst_name = request.POST.get("institution_name", "").strip()
+        inst_type = request.POST.get("institution_type", "bank")
+        inst_icon = request.POST.get("institution_icon", "") or None
+        inst_color = request.POST.get("institution_color", "") or None
+
+        if not inst_name:
+            return render(
+                request,
+                "accounts/_add_account_form.html",
+                {
+                    "institution_id": "",
+                    "preselected_institution": None,
+                    "presets_json": json.dumps(
+                        {
+                            "bank": EGYPTIAN_BANKS,
+                            "fintech": EGYPTIAN_FINTECHS,
+                            "wallet": list(WALLET_EXAMPLES),
+                        }
+                    ),
+                    "error": "Institution name is required",
+                },
+                status=422,
+            )
+
+        inst_svc = InstitutionService(request.user_id, request.tz)
+        try:
+            inst = inst_svc.get_or_create(
+                inst_name, inst_type, icon=inst_icon, color=inst_color
+            )
+            institution_id = inst["id"]
+        except ValueError as e:
+            return render(
+                request,
+                "accounts/_add_account_form.html",
+                {
+                    "institution_id": "",
+                    "preselected_institution": None,
+                    "presets_json": json.dumps(
+                        {
+                            "bank": EGYPTIAN_BANKS,
+                            "fintech": EGYPTIAN_FINTECHS,
+                            "wallet": list(WALLET_EXAMPLES),
+                        }
+                    ),
+                    "error": str(e),
+                },
+                status=422,
+            )
 
     data = {
         "institution_id": institution_id,
@@ -483,19 +573,31 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
     try:
         acc_svc.create(data)
     except ValueError as e:
+        # Re-render the unified form on error
+        preselected = None
+        if institution_id:
+            inst_svc = InstitutionService(request.user_id, request.tz)
+            preselected = inst_svc.get_by_id(institution_id)
         return render(
             request,
-            "accounts/_account_form.html",
+            "accounts/_add_account_form.html",
             {
-                "institution_id": institution_id,
-                "institution_name": institution_name,
+                "institution_id": institution_id if preselected else "",
+                "preselected_institution": preselected,
+                "presets_json": json.dumps(
+                    {
+                        "bank": EGYPTIAN_BANKS,
+                        "fintech": EGYPTIAN_FINTECHS,
+                        "wallet": list(WALLET_EXAMPLES),
+                    }
+                ),
                 "error": str(e),
             },
             status=422,
         )
 
     # Success: close sheet + OOB list refresh
-    html = "<script>closeAccountSheet();</script>"
+    html = "<script>BottomSheet.close('create-sheet');</script>"
     html += _render_institution_list_oob(request)
     return HttpResponse(html)
 

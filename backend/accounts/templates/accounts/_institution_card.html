@@ -18,7 +18,7 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
             <div class="flex items-center gap-1">
                 <button
                     class="text-xs text-teal-600 hover:text-teal-700 px-2 py-1"
-                    onclick="event.stopPropagation(); openAccountSheet('{{ institution.id }}')"
+                    onclick="event.stopPropagation(); openCreateSheet('/accounts/add-form?institution_id={{ institution.id }}')"
                 >+ Account</button>
                 <button
                     class="text-xs text-gray-400 hover:text-teal-600 px-1 py-1"

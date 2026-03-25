@@ -203,6 +203,31 @@ class InstitutionService:
             logger.info("institution.deleted id=%s user=%s", inst_id, self.user_id)
         return deleted
 
+    def get_or_create(
+        self,
+        name: str,
+        inst_type: str,
+        icon: str | None = None,
+        color: str | None = None,
+    ) -> dict[str, Any]:
+        """Get existing institution by name+type (case-insensitive) or create new one.
+
+        Used by the unified add-account form so the user never sees the institution
+        creation step — the backend handles deduplication transparently.
+        """
+        name = _require_trimmed_name(name, "institution name")
+        if inst_type not in VALID_INSTITUTION_TYPES:
+            raise ValueError(f"invalid institution type: {inst_type}")
+        row = (
+            self._qs()
+            .filter(name__iexact=name, type=inst_type)
+            .values(*self._FIELDS)
+            .first()
+        )
+        if row:
+            return self._row_to_dict(row)
+        return self.create(name, inst_type, icon=icon, color=color)
+
     def reorder(self, ids: list[str]) -> None:
         """Update display_order for a list of institution IDs."""
         now = django_tz.now()

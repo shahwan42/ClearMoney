@@ -758,3 +758,76 @@ class TestGetLinkedVirtualAccounts:
         svc = AccountService(str(user.id), self.tz)
         result = svc.get_linked_virtual_accounts(str(account.id))
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# InstitutionService.get_or_create
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInstitutionServiceGetOrCreate:
+    """InstitutionService.get_or_create() deduplicates by name+type."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_creates_new_institution(self) -> None:
+        user = UserFactory()
+        svc = InstitutionService(str(user.id), self.tz)
+        result = svc.get_or_create("CIB", "bank", icon="cib.svg")
+        assert result["name"] == "CIB"
+        assert result["type"] == "bank"
+        from core.models import Institution
+
+        assert Institution.objects.filter(user_id=user.id, name="CIB").count() == 1
+
+    def test_reuses_existing_same_name_and_type(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id, name="CIB", type="bank")
+        svc = InstitutionService(str(user.id), self.tz)
+        result = svc.get_or_create("CIB", "bank")
+        assert result["id"] == str(inst.id)
+        from core.models import Institution
+
+        assert (
+            Institution.objects.filter(user_id=user.id, name__iexact="CIB").count() == 1
+        )
+
+    def test_case_insensitive_match(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id, name="CIB", type="bank")
+        svc = InstitutionService(str(user.id), self.tz)
+        result = svc.get_or_create("cib", "bank")
+        assert result["id"] == str(inst.id)
+
+    def test_different_type_creates_new(self) -> None:
+        user = UserFactory()
+        InstitutionFactory(user_id=user.id, name="Vodafone", type="fintech")
+        svc = InstitutionService(str(user.id), self.tz)
+        svc.get_or_create("Vodafone", "wallet")
+        from core.models import Institution
+
+        assert Institution.objects.filter(user_id=user.id, name="Vodafone").count() == 2
+
+    def test_empty_name_raises(self) -> None:
+        user = UserFactory()
+        svc = InstitutionService(str(user.id), self.tz)
+        with pytest.raises(ValueError):
+            svc.get_or_create("", "bank")
+
+    def test_invalid_type_raises(self) -> None:
+        user = UserFactory()
+        svc = InstitutionService(str(user.id), self.tz)
+        with pytest.raises(ValueError):
+            svc.get_or_create("CIB", "invalid")
+
+    def test_user_isolation(self) -> None:
+        """User A's institution is not reused for User B."""
+        user_a = UserFactory()
+        user_b = UserFactory()
+        InstitutionFactory(user_id=user_a.id, name="CIB", type="bank")
+        svc_b = InstitutionService(str(user_b.id), self.tz)
+        svc_b.get_or_create("CIB", "bank")
+        from core.models import Institution
+
+        assert Institution.objects.filter(name="CIB").count() == 2
