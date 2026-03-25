@@ -146,6 +146,66 @@ def test_recent_transactions_contains_data(client, dashboard_data):
     assert "Expense" in content
 
 
+@pytest.mark.django_db
+def test_recent_transactions_rows_have_no_card_styling(client, dashboard_data):
+    # gap: functional — compact=True removes bg-white/rounded-xl/shadow-sm card classes
+    cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+    response = client.get("/partials/recent-transactions", **cookie)
+    content = response.content.decode()
+    # shadow-sm only appears on card-style rows, not compact rows
+    assert "shadow-sm" not in content
+
+
+@pytest.mark.django_db
+def test_recent_transactions_rows_have_no_kebab_menu(client, dashboard_data):
+    # gap: functional — hide_kebab=True removes kebab trigger from dashboard rows
+    cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+    response = client.get("/partials/recent-transactions", **cookie)
+    content = response.content.decode()
+    assert "data-kebab-trigger" not in content
+
+
+@pytest.mark.django_db
+def test_dashboard_includes_tx_detail_bottom_sheet(client, dashboard_data):
+    # gap: state — bottom sheet include must be present for row clicks to work
+    cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+    response = client.get("/", **cookie)
+    content = response.content.decode()
+    assert 'id="tx-detail-sheet"' in content
+
+
+@pytest.mark.django_db
+def test_recent_transactions_shows_category_name(client, dashboard_data):
+    # gap: data — dashboard rows show category name when category is set
+    cat_id = str(uuid.uuid4())
+    tx_id = str(uuid.uuid4())
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type) VALUES (%s, %s, %s, %s)",
+                [cat_id, dashboard_data["user_id"], "Transport", "expense"],
+            )
+            cursor.execute(
+                "SELECT id FROM accounts WHERE user_id = %s LIMIT 1",
+                [dashboard_data["user_id"]],
+            )
+            acct_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 50, 'EGP', CURRENT_DATE, %s, -50)",
+                [tx_id, dashboard_data["user_id"], acct_id, cat_id],
+            )
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        response = client.get("/partials/recent-transactions", **cookie)
+        content = response.content.decode()
+        assert "Transport" in content
+    finally:
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM transactions WHERE id = %s", [tx_id])
+            cursor.execute("DELETE FROM categories WHERE id = %s", [cat_id])
+
+
 # ---------------------------------------------------------------------------
 # GET /partials/people-summary — HTMX partial
 # ---------------------------------------------------------------------------

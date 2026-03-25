@@ -161,6 +161,50 @@ def test_load_recent_transactions(svc_data):
 
 
 @pytest.mark.django_db
+def test_load_recent_transactions_includes_category(svc_data):
+    """TransactionRow includes category_name and category_icon when category is set."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+            " currency, date, category_id, balance_delta)"
+            " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, %s, -100)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                date.today(),
+                svc_data["cat_id"],
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    txns = svc.load_recent_transactions(limit=5)
+    assert len(txns) == 1
+    assert txns[0].category_name == "Food"
+    assert txns[0].category_icon == "🛒"
+
+
+@pytest.mark.django_db
+def test_load_recent_transactions_no_category(svc_data):
+    """TransactionRow has None category fields when no category set."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+            " currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                date.today(),
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    txns = svc.load_recent_transactions(limit=5)
+    assert txns[0].category_name is None
+    assert txns[0].category_icon is None
+
+
+@pytest.mark.django_db
 def test_load_recent_transactions_empty(svc_data):
     """Returns empty list when no transactions."""
     svc = DashboardService(svc_data["user_id"], TZ)

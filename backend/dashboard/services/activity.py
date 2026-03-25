@@ -47,6 +47,8 @@ class TransactionRow:
     balance_delta: float
     account_name: str
     running_balance: float
+    category_name: str | None = None
+    category_icon: str | None = None
 
 
 def load_people_summary(user_id: str, data: DashboardData) -> None:
@@ -151,7 +153,7 @@ def load_recent_transactions(user_id: str, limit: int = 10) -> list[TransactionR
     """
     qs = (
         Transaction.objects.filter(user_id=user_id)
-        .select_related("account")
+        .select_related("account", "category")
         .annotate(
             account_name=F("account__name"),
             running_balance=running_balance_annotation(),
@@ -170,6 +172,8 @@ def load_recent_transactions(user_id: str, limit: int = 10) -> list[TransactionR
             balance_delta=float(t.balance_delta),
             account_name=t.account_name,
             running_balance=float(t.running_balance),
+            category_name=t.category.name if t.category else None,
+            category_icon=t.category.icon if t.category else None,
         )
         for t in qs
     ]

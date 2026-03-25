@@ -899,3 +899,454 @@ class TestTransactionEditResponseShowsCategory:
         assert "Dining" in content
         assert "Pasta" in content
         assert "Dining · Pasta" in content
+
+
+# ---------------------------------------------------------------------------
+# Transaction detail sheet (bottom sheet partial)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionDetailSheet:
+    """GET /transactions/detail/<id> returns a bottom-sheet detail partial."""
+
+    def test_returns_200_with_detail_content(self, client, tx_view_data):
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "500" in content
+        assert "EGP Savings" in content
+
+    def test_404_for_nonexistent_id(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{uuid.uuid4()}")
+        assert response.status_code == 404
+
+    def test_404_for_other_users_tx(self, client, tx_view_data):
+        other_user = UserFactory()
+        SessionFactory(user=other_user)
+        other_inst_id = str(uuid.uuid4())
+        other_acct_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO institutions (id, user_id, name, type)"
+                " VALUES (%s, %s, %s, 'bank')",
+                [other_inst_id, str(other_user.id), "Other Bank"],
+            )
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type,"
+                " currency, current_balance, initial_balance)"
+                " VALUES (%s, %s, %s, 'Other Acct', 'savings', 'EGP', 5000, 5000)",
+                [other_acct_id, str(other_user.id), other_inst_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
+                [tx_id, str(other_user.id), other_acct_id, date(2026, 3, 15)],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        assert response.status_code == 404
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM transactions WHERE id = %s", [tx_id])
+            cursor.execute("DELETE FROM accounts WHERE id = %s", [other_acct_id])
+            cursor.execute("DELETE FROM institutions WHERE id = %s", [other_inst_id])
+        Session.objects.filter(user=other_user).delete()
+        User.objects.filter(id=other_user.id).delete()
+
+    def test_unauthenticated_redirects(self, client):
+        response = client.get(f"/transactions/detail/{uuid.uuid4()}")
+        assert response.status_code == 302
+        assert "/login" in response.url
+
+    def test_shows_category_name_and_icon(self, client, tx_view_data):
+        cat_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO categories (id, user_id, name, type, icon)"
+                " VALUES (%s, %s, 'Dining', 'expense', '🍽️')",
+                [cat_id, tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, category_id, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 150, 'EGP', %s, %s, -150)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                    cat_id,
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        content = response.content.decode()
+        assert "Dining" in content
+        assert "\U0001f37d\ufe0f" in content  # 🍽️
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM transactions WHERE id = %s", [tx_id])
+            cursor.execute("DELETE FROM categories WHERE id = %s", [cat_id])
+
+    def test_shows_transfer_counter_account(self, client, tx_view_data):
+        acct2_id = str(uuid.uuid4())
+        tx1_id = str(uuid.uuid4())
+        tx2_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type,"
+                " currency, current_balance, initial_balance)"
+                " VALUES (%s, %s,"
+                " (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
+                " 'USD Savings', 'savings', 'USD', 5000, 5000)",
+                [acct2_id, tx_view_data["user_id"], tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id,"
+                " counter_account_id, type, amount, currency, date,"
+                " balance_delta, linked_transaction_id)"
+                " VALUES (%s, %s, %s, %s, 'transfer', 1000, 'EGP', %s, -1000, %s)",
+                [
+                    tx1_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    acct2_id,
+                    date(2026, 3, 15),
+                    tx2_id,
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id,"
+                " counter_account_id, type, amount, currency, date,"
+                " balance_delta, linked_transaction_id)"
+                " VALUES (%s, %s, %s, %s, 'transfer', 1000, 'USD', %s, 1000, %s)",
+                [
+                    tx2_id,
+                    tx_view_data["user_id"],
+                    acct2_id,
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                    tx1_id,
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx1_id}")
+        content = response.content.decode()
+        assert "USD Savings" in content
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM transactions WHERE id IN (%s, %s)", [tx1_id, tx2_id]
+            )
+            cursor.execute("DELETE FROM accounts WHERE id = %s", [acct2_id])
+
+    def test_shows_virtual_account_allocation(self, client, tx_view_data):
+        va_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts"
+                " (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'Groceries Fund', 0, 1)",
+                [va_id, tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO virtual_account_allocations"
+                " (id, virtual_account_id, transaction_id, amount)"
+                " VALUES (%s, %s, %s, -200)",
+                [str(uuid.uuid4()), va_id, tx_id],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        content = response.content.decode()
+        assert "Groceries Fund" in content
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM virtual_account_allocations WHERE transaction_id = %s",
+                [tx_id],
+            )
+            cursor.execute("DELETE FROM transactions WHERE id = %s", [tx_id])
+            cursor.execute("DELETE FROM virtual_accounts WHERE id = %s", [va_id])
+
+    def test_shows_edit_and_delete_buttons(self, client, tx_view_data):
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        content = response.content.decode()
+        assert "Edit" in content
+        assert "Delete" in content
+        assert f"/transactions/edit/{tx_id}" in content
+        assert "hx-delete" in content
+
+    def test_income_shows_plus_sign(self, client, tx_view_data):
+        # gap: functional — income amount sign and color
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'income', 250, 'EGP', %s, 250)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        content = response.content.decode()
+        assert "+EGP" in content or "+$" in content or ("+EGP" in content)
+        assert "text-green-600" in content
+        assert "Income" in content
+
+    def test_transfer_from_label_on_credit_leg(self, client, tx_view_data):
+        # gap: functional — transfer direction label for incoming
+        acct2_id = str(uuid.uuid4())
+        tx1_id = str(uuid.uuid4())
+        tx2_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type,"
+                " currency, current_balance, initial_balance)"
+                " VALUES (%s, %s,"
+                " (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
+                " 'Savings', 'savings', 'EGP', 5000, 5000)",
+                [acct2_id, tx_view_data["user_id"], tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id,"
+                " counter_account_id, type, amount, currency, date,"
+                " balance_delta, linked_transaction_id)"
+                " VALUES (%s, %s, %s, %s, 'transfer', 500, 'EGP', %s, -500, %s)",
+                [
+                    tx1_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    acct2_id,
+                    date(2026, 3, 15),
+                    tx2_id,
+                ],
+            )
+            # Credit leg — this is the one we'll check
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id,"
+                " counter_account_id, type, amount, currency, date,"
+                " balance_delta, linked_transaction_id)"
+                " VALUES (%s, %s, %s, %s, 'transfer', 500, 'EGP', %s, 500, %s)",
+                [
+                    tx2_id,
+                    tx_view_data["user_id"],
+                    acct2_id,
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                    tx1_id,
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx2_id}")
+        content = response.content.decode()
+        assert "Transfer from" in content
+        assert "EGP Savings" in content
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM transactions WHERE id IN (%s, %s)", [tx1_id, tx2_id]
+            )
+            cursor.execute("DELETE FROM accounts WHERE id = %s", [acct2_id])
+
+    def test_no_category_hides_category_row(self, client, tx_view_data):
+        # gap: functional — category absent branch
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        content = response.content.decode()
+        # "Category" label should not appear when no category set
+        assert ">Category<" not in content
+
+    def test_empty_note_hides_note_row(self, client, tx_view_data):
+        # gap: data — empty string note
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, '', -100)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        content = response.content.decode()
+        assert ">Note<" not in content
+
+    def test_shows_tags(self, client, tx_view_data):
+        # gap: data — tags display
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, tags, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s,"
+                " '{food,lunch}', -100)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        content = response.content.decode()
+        assert "food" in content
+        assert "lunch" in content
+        assert "Tags" in content
+
+    def test_exchange_counter_amount_uses_counter_currency(self, client, tx_view_data):
+        # gap: data — cross-currency exchange shows counter_amount in counter account's currency
+        acct2_id = str(uuid.uuid4())
+        tx1_id = str(uuid.uuid4())
+        tx2_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type,"
+                " currency, current_balance, initial_balance)"
+                " VALUES (%s, %s,"
+                " (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
+                " 'USD Account', 'savings', 'USD', 500, 500)",
+                [acct2_id, tx_view_data["user_id"], tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id,"
+                " counter_account_id, type, amount, currency, date,"
+                " balance_delta, linked_transaction_id,"
+                " exchange_rate, counter_amount)"
+                " VALUES (%s, %s, %s, %s, 'exchange', 5000, 'EGP', %s, -5000, %s, 50.0, 100.0)",
+                [
+                    tx1_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    acct2_id,
+                    date(2026, 3, 15),
+                    tx2_id,
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id,"
+                " counter_account_id, type, amount, currency, date,"
+                " balance_delta, linked_transaction_id)"
+                " VALUES (%s, %s, %s, %s, 'exchange', 100, 'USD', %s, 100, %s)",
+                [
+                    tx2_id,
+                    tx_view_data["user_id"],
+                    acct2_id,
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 15),
+                    tx1_id,
+                ],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx1_id}")
+        content = response.content.decode()
+        # counter_amount should be shown in USD (counter account currency), not EGP
+        assert "$100" in content or "USD" in content
+        assert "Counter amount" in content
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM transactions WHERE id IN (%s, %s)", [tx1_id, tx2_id]
+            )
+            cursor.execute("DELETE FROM accounts WHERE id = %s", [acct2_id])
+
+    def test_counter_amount_hidden_when_counter_account_deleted(
+        self, client, tx_view_data
+    ):
+        # gap: data — counter_amount must not render with wrong currency when counter account gone
+        # counter_currency will be missing from context → format_currency defaults to EGP (wrong)
+        # The fix: guard {% if tx.counter_amount %} with counter_currency too
+        acct2_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type,"
+                " currency, current_balance, initial_balance)"
+                " VALUES (%s, %s,"
+                " (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
+                " 'Temp USD', 'savings', 'USD', 500, 500)",
+                [acct2_id, tx_view_data["user_id"], tx_view_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id,"
+                " counter_account_id, type, amount, currency, date,"
+                " balance_delta, exchange_rate, counter_amount)"
+                " VALUES (%s, %s, %s, %s, 'exchange', 5000, 'EGP', %s, -5000, 50.0, 100.0)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    acct2_id,
+                    date(2026, 3, 15),
+                ],
+            )
+            # Delete the counter account (simulating a deleted account scenario)
+            cursor.execute("DELETE FROM accounts WHERE id = %s", [acct2_id])
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        assert response.status_code == 200
+        content = response.content.decode()
+        # counter_amount must NOT appear with wrong EGP default when counter account is gone
+        assert "Counter amount" not in content

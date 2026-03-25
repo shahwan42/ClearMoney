@@ -1,27 +1,7 @@
-{% load money %}
 {% if transactions %}
 <div class="space-y-2">
     {% for tx in transactions %}
-    <div class="flex items-center justify-between py-1.5">
-        <div>
-            <p class="text-sm text-slate-700">
-                {% if tx.note %}{{ tx.note }}{% else %}{{ tx.type|format_type }}{% endif %}
-            </p>
-            <p class="text-xs text-gray-400">{{ tx.date|format_date_short }} &middot; {{ tx.account_name }}</p>
-        </div>
-        <div class="text-right">
-            {% if tx.type == "expense" %}
-            <span class="text-sm font-semibold text-red-600">-{{ tx.amount|format_currency:tx.currency }}</span>
-            {% elif tx.type == "income" %}
-            <span class="text-sm font-semibold text-teal-600">+{{ tx.amount|format_currency:tx.currency }}</span>
-            {% else %}
-            <span class="text-sm font-semibold {% if tx.balance_delta < 0 %}text-red-600{% else %}text-blue-600{% endif %}">
-                {% if tx.balance_delta < 0 %}-{% else %}+{% endif %}{{ tx.amount|format_currency:tx.currency }}
-            </span>
-            {% endif %}
-            <div class="text-xs text-gray-400">Balance {{ tx.running_balance|format_currency:tx.currency }}</div>
-        </div>
-    </div>
+    {% include "transactions/_transaction_row.html" with tx=tx hide_kebab=True compact=True %}
     {% endfor %}
 </div>
 {% else %}

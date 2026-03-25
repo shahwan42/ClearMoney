@@ -41,6 +41,11 @@ urlpatterns = [
     path("transactions/batch", views.batch_create, name="batch-create"),
     # UUID sub-paths
     path(
+        "transactions/detail/<uuid:tx_id>",
+        views.transaction_detail_sheet,
+        name="transaction-detail-sheet",
+    ),
+    path(
         "transactions/edit/<uuid:tx_id>",
         views.transaction_edit_form,
         name="transaction-edit",

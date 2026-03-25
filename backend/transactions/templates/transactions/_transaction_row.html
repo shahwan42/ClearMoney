@@ -5,9 +5,14 @@ Context:
   tx             — transaction dict (id, type, amount, currency, date, note,
                    category_name, category_icon, account_name, running_balance, …)
   hide_account_name — pass True when account name would be redundant (e.g. account detail page)
+  hide_kebab     — pass True to hide the kebab menu (e.g. dashboard recent transactions)
+  compact        — pass True to remove card styling (bg/shadow/rounding) for use inside cards
 {% endcomment %}
-<div class="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center justify-between group"
-     id="tx-{{ tx.id }}">
+<div class="{% if compact %}px-1 py-1.5{% else %}bg-white dark:bg-slate-800 rounded-xl shadow-sm px-4 py-3{% endif %} flex items-center justify-between group cursor-pointer"
+     id="tx-{{ tx.id }}"
+     role="button" tabindex="0" aria-label="View transaction details"
+     onclick="BottomSheet.open('tx-detail', {url: '/transactions/detail/{{ tx.id }}'})"
+     onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
     <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
             {% if tx.type == "expense" %}
@@ -46,6 +51,7 @@ Context:
             <div class="text-xs text-gray-400">Balance {{ tx.running_balance|format_currency:tx.currency }}</div>
             {% endif %}
         </div>
+        {% if not hide_kebab %}
         <!-- Kebab menu -->
         <div class="relative flex-shrink-0">
             <button onclick="event.stopPropagation(); KebabMenu.toggle(this)" data-kebab-trigger
@@ -55,7 +61,7 @@ Context:
                     <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z"/>
                 </svg>
             </button>
-            <div data-kebab-menu role="menu" class="hidden absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+            <div data-kebab-menu role="menu" onclick="event.stopPropagation()" class="hidden absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                 <a href="/transactions/new?dup={{ tx.id }}" role="menuitem"
                    class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                     <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
@@ -81,5 +87,6 @@ Context:
                 </button>
             </div>
         </div>
+        {% endif %}
     </div>
 </div>

@@ -15,6 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from core.htmx import error_response, render_htmx_result, success_response
+from core.models import Account, Person, VirtualAccountAllocation
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
@@ -222,6 +223,53 @@ def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResp
             "selected_va_id": selected_va_id or "",
         },
     )
+
+
+@general_rate
+@require_http_methods(["GET"])
+def transaction_detail_sheet(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
+    """GET /transactions/detail/<id> — bottom sheet detail partial."""
+    svc = _svc(request)
+    tx = svc.get_by_id_enriched(str(tx_id))
+    if not tx:
+        return HttpResponse("Not found", status=404)
+
+    context: dict[str, object] = {"tx": tx}
+
+    # Counter account name + currency (transfers/exchanges)
+    if tx.get("counter_account_id"):
+        counter = (
+            Account.objects.for_user(request.user_id)
+            .filter(id=tx["counter_account_id"])
+            .values("name", "currency")
+            .first()
+        )
+        if counter:
+            context["counter_account_name"] = counter["name"]
+            context["counter_currency"] = counter["currency"]
+
+    # Person name (loans)
+    if tx.get("person_id"):
+        person_name = (
+            Person.objects.for_user(request.user_id)
+            .filter(id=tx["person_id"])
+            .values_list("name", flat=True)
+            .first()
+        )
+        context["person_name"] = person_name
+
+    # Virtual account allocation
+    va_alloc = (
+        VirtualAccountAllocation.objects.filter(transaction_id=str(tx_id))
+        .select_related("virtual_account")
+        .values("virtual_account__name")
+        .first()
+    )
+    if va_alloc:
+        context["va_name"] = va_alloc["virtual_account__name"]
+
+    logger.info("partial loaded: transaction-detail-sheet, user=%s", request.user_email)
+    return render(request, "transactions/_transaction_detail_sheet.html", context)
 
 
 @csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and HTMX (which sends X-CSRFToken anyway)
