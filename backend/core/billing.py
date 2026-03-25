@@ -74,31 +74,42 @@ def get_billing_cycle_info(
     """Full billing cycle info: period start/end, due date, urgency.
 
     Uses calendar date arithmetic with explicit month overflow wrapping.
+
+    MONTH OVERFLOW STRATEGY:
+    - If statement_day=31 but we're in February, use Feb 28 instead (clamping via monthrange).
+    - This preserves the semantic intent: "statement on the 31st → Feb 28" rather than rolling
+      forward to Mar 3.
+    - Example: Today=Feb 5, statement_day=31 → period_start=Jan 31, period_end=Feb 28.
     """
     year = today.year
     month = today.month
     day = today.day
 
     if day <= statement_day:
-        # Before statement date — period started from previous month
+        # CASE 1: day <= statement_day (e.g., today=Mar 15, statement_day=31)
+        # → Still in the current billing cycle that started last month
         prev_month = month - 1
         prev_year = year
         if prev_month < 1:
             prev_month = 12
             prev_year -= 1
-        # Clamp statement_day+1 to valid day in prev month
+        # Period started: day AFTER previous month's statement (statement_day+1 of prev_month)
+        # Clamp to valid day (e.g., Jan 32 → Jan 31)
         _, max_day = monthrange(prev_year, prev_month)
         start_day = min(statement_day + 1, max_day)
         period_start = date(prev_year, prev_month, start_day)
-        # Period ends on statement_day of current month
+        # Period ends: on the statement day of the current month
+        # Clamp to valid day (e.g., Feb 31 → Feb 28)
         _, max_day_cur = monthrange(year, month)
         period_end = date(year, month, min(statement_day, max_day_cur))
     else:
-        # After statement date — period started this month
+        # CASE 2: day > statement_day (e.g., today=Mar 31, statement_day=15)
+        # → Now in a new billing cycle that started this month
         _, max_day_cur = monthrange(year, month)
+        # Period started: day AFTER statement day of current month
         start_day = min(statement_day + 1, max_day_cur)
         period_start = date(year, month, start_day)
-        # Period ends on statement_day of next month
+        # Period ends: on the statement day of next month
         next_month = month + 1
         next_year = year
         if next_month > 12:
@@ -107,7 +118,9 @@ def get_billing_cycle_info(
         _, max_day_next = monthrange(next_year, next_month)
         period_end = date(next_year, next_month, min(statement_day, max_day_next))
 
-    # Due date: same logic as compute_due_date but based on period_end
+    # Due date: computed from period_end, using same logic as compute_due_date
+    # If due_day > statement_day, due date is in the same month as period_end.
+    # Otherwise, due date is in the next month (payment grace period).
     pe_year = period_end.year
     pe_month = period_end.month
     if due_day > statement_day:

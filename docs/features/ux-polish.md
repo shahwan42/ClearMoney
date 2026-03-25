@@ -19,19 +19,6 @@ Three animation keyframes:
 
 **Usage:** Shown after quick-entry transaction creation via HTMX response.
 
-## Skeleton Loading
-
-**CSS:** `static/css/app.css` (lines ~102-118)
-- `skeleton-shimmer` — gradient moves left-to-right (1.5s infinite)
-- `.skeleton` class — gray gradient background with border-radius
-- Dark mode: darker gradient (slate-400 to slate-600)
-
-**Templates:**
-- `partials/skeleton-card.html` — dashboard card placeholder (label + value + subtitle)
-- `partials/skeleton-list.html` — transaction list placeholder (3 rows)
-
-**Usage:** HTMX `hx-indicator` attribute shows skeleton while loading partial content.
-
 ## Smart Category Suggestions
 
 **Endpoint:** `GET /api/transactions/suggest-category?note=...`
