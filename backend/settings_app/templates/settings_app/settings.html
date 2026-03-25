@@ -13,8 +13,13 @@
                 <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Dark Mode</h3>
                 <p class="text-xs text-gray-400 mt-0.5">Toggle between light and dark theme</p>
             </div>
-            <button onclick="toggleTheme()" class="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold">
-                Toggle
+            <button id="settings-theme-toggle"
+                    onclick="toggleTheme()"
+                    class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg text-sm font-semibold min-h-[44px] transition-colors"
+                    aria-pressed="false"
+                    aria-label="Toggle dark mode">
+                <span id="settings-theme-icon" aria-hidden="true">🌙</span>
+                <span id="settings-theme-label">Enable Dark Mode</span>
             </button>
         </div>
     </section>

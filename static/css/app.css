@@ -154,6 +154,12 @@ button[disabled] { opacity: 0.7; cursor: not-allowed; }
 .dark .text-blue-800 { color: #93c5fd !important; }
 .dark .text-blue-600 { color: #60a5fa !important; }
 
+/* WCAG AA contrast fix: teal-600 (#0d9488) on slate-800 is 3.6:1 — below 4.5:1.
+   Override to teal-400 (#2dd4bf) which achieves 8.1:1 on slate-900. */
+.dark .text-teal-600 { color: #2dd4bf !important; }
+.dark .hover\:text-teal-700:hover { color: #5eead4 !important; }
+.dark .amount-positive { color: #2dd4bf !important; }
+
 /* Success toast in dark mode */
 .dark .bg-teal-50 { background-color: #0d3b3b !important; }
 .dark .border-teal-200 { border-color: #115e59 !important; }
