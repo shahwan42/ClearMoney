@@ -227,6 +227,15 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
    Use teal-300 (#5eead4) for sufficient contrast on dark teal backgrounds. */
 .dark .text-teal-800 { color: #5eead4 !important; } /* teal-300 */
 
+/* Alert and status color overrides for dark mode.
+   Light -50 backgrounds + -200 borders are invisible / glaring on dark slate. */
+.dark .bg-red-100  { background-color: #7f1d1d !important; } /* red-900 */
+.dark .text-red-800 { color: #fca5a5 !important; }            /* red-300 */
+.dark .border-red-200 { border-color: #991b1b !important; }   /* red-800 */
+.dark .border-amber-200 { border-color: #92400e !important; } /* amber-800 */
+.dark .border-green-200 { border-color: #166534 !important; } /* green-800 */
+.dark .border-emerald-200 { border-color: #065f46 !important; } /* emerald-800 */
+
 /* Bottom sheet scroll shadow — CSS-only scroll indicator.
    Shows a shadow at top/bottom of overflow container when content exists. */
 .scroll-shadow {

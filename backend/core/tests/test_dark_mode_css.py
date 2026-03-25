@@ -225,3 +225,58 @@ class TestDarkModeListTemplates:
         assert "dark:text-slate-" in html, (
             "credit_card_statement.html missing dark text variants"
         )
+
+
+class TestDarkModeAlertCSS:
+    """Alert, warning, and status color overrides must exist in CSS.
+
+    Light mode -50 backgrounds and -200 borders look fine, but on dark
+    slate-800 they become either near-invisible or jarring. Each needs
+    a dark-specific override with appropriate contrast.
+    """
+
+    def test_css_has_text_red_800_override(self) -> None:
+        """text-red-800 is too dark for dark mode — needs lighter override."""
+        css = read_css(CSS_PATH)
+        assert ".dark .text-red-800" in css, (
+            "Missing .dark .text-red-800 — #991b1b is nearly black on dark bg"
+        )
+
+    def test_css_has_border_red_200_override(self) -> None:
+        """border-red-200 (light red) is invisible on dark bg — needs darker border."""
+        css = read_css(CSS_PATH)
+        assert ".dark .border-red-200" in css, (
+            "Missing .dark .border-red-200 override — light border invisible in dark mode"
+        )
+
+    def test_css_has_bg_red_100_override(self) -> None:
+        """bg-red-100 (light pink) is too light for dark mode icon backgrounds."""
+        css = read_css(CSS_PATH)
+        assert ".dark .bg-red-100" in css, (
+            "Missing .dark .bg-red-100 override — pink icon bg glows on dark screen"
+        )
+
+    def test_css_has_border_amber_200_override(self) -> None:
+        """border-amber-200 needs dark mode override to remain visible."""
+        css = read_css(CSS_PATH)
+        assert ".dark .border-amber-200" in css, (
+            "Missing .dark .border-amber-200 override"
+        )
+
+    def test_due_date_warning_has_dark_variants(self) -> None:
+        """Due date warning card must have complete dark mode."""
+        html = read_template(
+            "backend/dashboard/templates/dashboard/_due_date_warning.html"
+        )
+        assert "dark:" in html, (
+            "_due_date_warning.html missing dark: variants — red alert on dark bg needs override"
+        )
+
+    def test_credit_card_info_has_dark_variants(self) -> None:
+        """Credit card billing cycle info card must have dark mode."""
+        html = read_template(
+            "backend/accounts/templates/accounts/_credit_card_info.html"
+        )
+        assert "dark:" in html, (
+            "_credit_card_info.html missing dark: variants — blue card needs dark override"
+        )
