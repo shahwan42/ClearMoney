@@ -1934,3 +1934,31 @@ class TestBatchEntryLabels:
         content = resp.content.decode()
         # The clone function should call reset on selects: verified via data-batch-reset attr
         assert "data-batch-reset" in content
+
+
+@pytest.mark.django_db
+class TestFormFocusAndDarkMode:
+    """Transaction forms have proper focus states and dark mode classes."""
+
+    def test_new_transaction_form_has_ring_offset(self, client, tx_view_data) -> None:
+        """New transaction form inputs have focus:ring-offset-2 for visible focus."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        assert resp.status_code == 200
+        assert b"focus:ring-offset-2" in resp.content
+
+    def test_new_transaction_form_has_dark_mode_inputs(
+        self, client, tx_view_data
+    ) -> None:
+        """New transaction form inputs have dark mode background classes."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        assert resp.status_code == 200
+        assert b"dark:bg-slate-800" in resp.content
+
+    def test_quick_entry_form_has_ring_offset(self, client, tx_view_data) -> None:
+        """Quick entry form inputs have focus:ring-offset-2 for visible focus."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/quick-form")
+        assert resp.status_code == 200
+        assert b"focus:ring-offset-2" in resp.content

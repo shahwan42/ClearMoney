@@ -8,7 +8,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
 {% load static %}
 <div class="space-y-3">
     {% if error %}
-    <div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
+    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
     {% endif %}
 
     <!-- Preset data embedded once for the JS combobox -->
@@ -19,14 +19,14 @@ All preset data is embedded once as JSON — no extra network requests needed fo
           hx-swap="innerHTML"
           id="institution-form">
 
-        <h3 class="font-semibold text-slate-800 text-sm mb-3">Add Institution</h3>
+        <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">Add Institution</h3>
 
         <div class="space-y-3">
             <!-- Institution type -->
             <div>
-                <label class="block text-xs text-gray-500 mb-1" for="inst-type">Type</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="inst-type">Type</label>
                 <select id="inst-type" name="type"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                     <option value="bank">Bank</option>
                     <option value="fintech">Finance App (ValU, Fawry…)</option>
                     <option value="wallet">Wallet</option>
@@ -35,7 +35,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
 
             <!-- Preset combobox -->
             <div>
-                <label class="block text-xs text-gray-500 mb-1" for="preset-search">Name</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="preset-search">Name</label>
                 <div class="relative" id="preset-combobox">
                     <!-- Visible search / display input -->
                     <input type="text"
@@ -46,7 +46,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
                            aria-expanded="false"
                            aria-controls="preset-list"
                            aria-label="Institution name"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                           class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
 
                     <!-- Dropdown listbox -->
                     <div id="preset-list" role="listbox" aria-label="Institution presets"

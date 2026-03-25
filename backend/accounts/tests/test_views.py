@@ -216,6 +216,14 @@ class TestInstitutionAdd:
         c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.post("/institutions/add", {"name": "", "type": "bank"})
         assert response.status_code == 422
+        # Error message must have role="alert" for screen readers
+        assert b'role="alert"' in response.content
+
+    def test_rejects_empty_name_error_has_dark_mode(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.post("/institutions/add", {"name": "", "type": "bank"})
+        assert response.status_code == 422
+        assert b"dark:" in response.content
 
 
 @pytest.mark.django_db
@@ -230,6 +238,17 @@ class TestInstitutionUpdate:
         assert response.status_code == 200
         # Response contains the close script + OOB card swap
         assert b"closeEditSheet" in response.content
+
+    def test_rejects_empty_name_error_has_role_alert(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.put(
+            f"/institutions/{accounts_data['institution_id']}/update",
+            "name=&type=bank",
+            content_type="application/x-www-form-urlencoded",
+        )
+        assert response.status_code == 422
+        assert b'role="alert"' in response.content
+        assert b"dark:" in response.content
 
 
 @pytest.mark.django_db
@@ -297,6 +316,23 @@ class TestAccountAdd:
         )
         assert response.status_code == 422
         assert b"credit_limit is required" in response.content
+
+    def test_error_has_role_alert(self, client, accounts_data):
+        """Account form error must include role=alert and dark mode classes."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.post(
+            "/accounts/add",
+            {
+                "institution_id": accounts_data["institution_id"],
+                "name": "My CC",
+                "type": "credit_card",
+                "currency": "EGP",
+                # missing credit_limit — triggers error
+            },
+        )
+        assert response.status_code == 422
+        assert b'role="alert"' in response.content
+        assert b"dark:" in response.content
 
 
 @pytest.mark.django_db
@@ -811,6 +847,19 @@ class TestAccountAddForm:
     def test_requires_auth(self, client) -> None:
         resp = client.get("/accounts/add-form")
         assert resp.status_code == 302
+
+    def test_initial_balance_has_placeholder(self, client, accounts_data) -> None:
+        """Initial balance field must have placeholder for user guidance."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/add-form")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        # The initial_balance input line should include a placeholder attribute
+        for line in content.split("\n"):
+            if 'name="initial_balance"' in line:
+                assert "placeholder" in line, (
+                    f"initial_balance input is missing placeholder: {line.strip()}"
+                )
 
 
 @pytest.mark.django_db

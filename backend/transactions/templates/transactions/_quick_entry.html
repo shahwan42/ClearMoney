@@ -32,13 +32,13 @@
     <div>
         <input type="number" name="amount" step="0.01" min="0.01" required autofocus
             placeholder="0.00"
-            class="w-full text-3xl font-bold text-center border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            class="w-full text-3xl font-bold text-center border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
             inputmode="decimal">
     </div>
 
     <div>
         <select name="account_id" required
-            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
             id="qe-account-select">
             <option value="">Select account...</option>
             {% for acc in accounts %}
@@ -64,9 +64,9 @@
     <input type="hidden" name="date" id="qe-date-input" value="{{ today|date:'Y-m-d' }}">
 
     <div>
-        <label class="block text-xs text-gray-500 mb-1" for="qe-note-input">Note (optional)</label>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-note-input">Note (optional)</label>
         <input type="text" name="note" id="qe-note-input" placeholder="What was this for?"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
     <!-- More options toggle -->
@@ -82,16 +82,16 @@
     <!-- Optional fields: date, virtual account -->
     <div id="qe-more-options" class="hidden space-y-4">
         <div>
-            <label class="block text-xs text-gray-500 mb-1" for="qe-date-picker">Date</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-date-picker">Date</label>
             <input type="date" name="date" id="qe-date-picker" disabled
                 value="{{ today|date:'Y-m-d' }}"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
         {% if virtual_accounts %}
         <div>
-            <label class="block text-xs text-gray-500 mb-1" for="qe-va-select">Virtual Account (optional)</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-va-select">Virtual Account (optional)</label>
             <select name="virtual_account_id" id="qe-va-select"
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="">None</option>
                 {% for va in virtual_accounts %}
                 <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}">{{ va.name }}</option>

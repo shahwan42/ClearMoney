@@ -40,19 +40,19 @@
 
         <!-- Amount -->
         <div>
-            <label class="block text-xs text-gray-500 mb-1">Amount</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Amount</label>
             <input type="number" name="amount" step="0.01" min="0.01" required autofocus
                 placeholder="0.00"
                 {% if prefill %}value="{{ prefill.amount }}"{% endif %}
-                class="w-full text-3xl font-bold text-center border border-gray-300 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                class="w-full text-3xl font-bold text-center border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
                 inputmode="decimal">
         </div>
 
         <!-- Account -->
         <div>
-            <label class="block text-xs text-gray-500 mb-1">Account</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Account</label>
             <select name="account_id" required
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="">Select account...</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}" {% if prefill and prefill.account_id == acc.id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
@@ -64,7 +64,7 @@
 
         <!-- Category -->
         <div>
-            <label class="block text-xs text-gray-500 mb-1" id="category-label">Category</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="category-label">Category</label>
             <div data-category-combobox
                  data-categories='{{ categories|categories_json }}'
                  data-name="category_id"
@@ -77,10 +77,10 @@
 
         <!-- Note -->
         <div>
-            <label class="block text-xs text-gray-500 mb-1" for="note-input">Note (optional)</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="note-input">Note (optional)</label>
             <input type="text" name="note" id="note-input" placeholder="What was this for?"
                 {% if prefill and prefill.note %}value="{{ prefill.note }}"{% endif %}
-                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
 
         <!-- Hidden date submitted when "More options" is collapsed -->
@@ -101,18 +101,18 @@
 
             <!-- Date -->
             <div>
-                <label class="block text-xs text-gray-500 mb-1" for="date-picker">Date</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="date-picker">Date</label>
                 <input type="date" name="date" id="date-picker" disabled
                     value="{% if prefill and prefill.date %}{{ prefill.date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 
             <!-- Virtual account -->
             {% if virtual_accounts %}
             <div>
-                <label class="block text-xs text-gray-500 mb-1" for="va-select">Virtual Account (optional)</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="va-select">Virtual Account (optional)</label>
                 <select name="virtual_account_id" id="va-select"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                     <option value="">None</option>
                     {% for va in virtual_accounts %}
                     <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}"
@@ -214,6 +214,24 @@
         }
     }
     filterVirtualAccounts();
+
+    // --- Auto-reset form after successful HTMX submit ---
+    var txForm = document.querySelector('form[hx-post="/transactions"]');
+    if (txForm) {
+        txForm.addEventListener('htmx:afterRequest', function(evt) {
+            if (evt.detail.successful) {
+                txForm.reset();
+                // Reset category combobox (custom component)
+                var catEl = document.getElementById('category-combobox');
+                if (catEl && catEl._combobox) catEl._combobox.selectById('');
+                // Reset currency hidden field to EGP default
+                var currInput = document.getElementById('currency-input');
+                if (currInput) currInput.value = 'EGP';
+                // Re-close more-options panel
+                closeMoreOptions();
+            }
+        });
+    }
 })();
 </script>
 {% endblock %}
