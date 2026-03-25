@@ -67,6 +67,20 @@
 
     {% include "components/bottom-nav.html" %}
 
+    <!-- Scroll focused inputs into view when virtual keyboard appears (iOS/Android) -->
+    <script>
+    (function() {
+        document.addEventListener('focusin', function(e) {
+            var el = e.target;
+            if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+                setTimeout(function() {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 350);
+            }
+        }, true);
+    })();
+    </script>
+
     <!-- Service Worker -->
     <script>
     if ('serviceWorker' in navigator) {

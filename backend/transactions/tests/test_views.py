@@ -2078,3 +2078,33 @@ class TestMoreOptionsPanelTransition:
         resp = c.get("/transactions/new")
         content = resp.content.decode()
         assert "more-options-panel" in content
+
+
+# ---------------------------------------------------------------------------
+# BATCH 4: Mobile Optimization (Issues 16-20)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestMobileScrollIntoView:
+    """Issue 17: base.html includes scroll-into-view for keyboard-covered inputs."""
+
+    def test_base_has_scroll_into_view_script(self, client, tx_view_data) -> None:
+        """Transaction page includes scroll-into-view JS for mobile keyboard."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        assert "scrollIntoView" in content
+
+
+@pytest.mark.django_db
+class TestBottomSheetScrollIndicator:
+    """Issue 20: Bottom sheet has visual indicator for scrollable content."""
+
+    def test_quick_entry_sheet_has_overflow_auto(self, client, tx_view_data) -> None:
+        """Quick entry bottom sheet uses overflow-y-auto for scrollability."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/")
+        content = resp.content.decode()
+        assert "overflow-y-auto" in content
+        assert "max-h-" in content

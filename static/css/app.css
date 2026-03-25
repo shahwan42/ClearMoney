@@ -199,6 +199,29 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
     background-color: #3b0d0d !important;
 }
 
+/* Bottom sheet scroll shadow — CSS-only scroll indicator.
+   Shows a shadow at top/bottom of overflow container when content exists. */
+.scroll-shadow {
+    background:
+        linear-gradient(white 30%, transparent) 0 0,
+        linear-gradient(transparent, white 70%) 0 100%,
+        radial-gradient(farthest-side at 50% 0%, rgba(0,0,0,.10), transparent) 0 0,
+        radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.10), transparent) 0 100%;
+    background-attachment: local, local, scroll, scroll;
+    background-repeat: no-repeat;
+    background-size: 100% 40px, 100% 40px, 100% 8px, 100% 8px;
+}
+.dark .scroll-shadow {
+    background:
+        linear-gradient(#0f172a 30%, transparent) 0 0,
+        linear-gradient(transparent, #0f172a 70%) 0 100%,
+        radial-gradient(farthest-side at 50% 0%, rgba(0,0,0,.20), transparent) 0 0,
+        radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.20), transparent) 0 100%;
+    background-attachment: local, local, scroll, scroll;
+    background-repeat: no-repeat;
+    background-size: 100% 40px, 100% 40px, 100% 8px, 100% 8px;
+}
+
 /* Hide scrollbar on main content for a cleaner mobile look */
 main::-webkit-scrollbar {
     display: none;
