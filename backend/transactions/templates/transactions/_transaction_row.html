@@ -10,6 +10,7 @@ Context:
 {% endcomment %}
 <div class="{% if compact %}px-1 py-1.5{% else %}bg-white dark:bg-slate-800 rounded-xl shadow-sm px-4 py-3{% endif %} flex items-center justify-between group cursor-pointer"
      id="tx-{{ tx.id }}"
+     {% if not compact and not hide_kebab %}data-swipe-delete="/transactions/{{ tx.id }}"{% endif %}
      role="button" tabindex="0" aria-label="View transaction details"
      onclick="BottomSheet.open('tx-detail', {url: '/transactions/detail/{{ tx.id }}'})"
      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
