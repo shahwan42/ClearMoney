@@ -9,7 +9,8 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Count, F
+from django.db.models import Count, F, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
 from core.models import (
@@ -227,12 +228,22 @@ class HelperMixin:
         ]
 
     def get_categories(self, cat_type: str | None = None) -> list[dict[str, Any]]:
-        """Get categories, optionally filtered by type."""
+        """Get categories sorted by usage count (most used first), then name."""
         uid = self.user_id  # type: ignore[attr-defined]
-        qs = Category.objects.for_user(uid)
+        usage_sq = Subquery(
+            Transaction.objects.filter(category_id=OuterRef("id"))
+            .values("category_id")
+            .annotate(cnt=Count("id"))
+            .values("cnt")[:1]
+        )
+        qs = Category.objects.for_user(uid).filter(is_archived=False)
         if cat_type:
             qs = qs.filter(type=cat_type)
-        rows = qs.order_by("name").values("id", "name", "type", "icon")
+        rows = (
+            qs.annotate(usage_count=Coalesce(usage_sq, Value(0)))
+            .order_by("-usage_count", "name")
+            .values("id", "name", "type", "icon")
+        )
         return [
             {
                 "id": str(r["id"]),

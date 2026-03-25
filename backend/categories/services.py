@@ -80,21 +80,23 @@ class CategoryService:
         return Category.objects.for_user(self.user_id)
 
     def get_all(self) -> list[dict[str, Any]]:
-        """All non-archived categories, ordered by display_order then name."""
+        """All non-archived categories, sorted by usage count then name."""
         rows = (
             self._qs()
             .filter(is_archived=False)
-            .order_by("display_order", "name")
+            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            .order_by("-usage_count", "name")
             .values(*_FIELDS)
         )
         return [_row_to_dict(row) for row in rows]
 
     def get_by_type(self, cat_type: str) -> list[dict[str, Any]]:
-        """Non-archived categories filtered by type ('expense' or 'income')."""
+        """Non-archived categories filtered by type, sorted by usage then name."""
         rows = (
             self._qs()
             .filter(type=cat_type, is_archived=False)
-            .order_by("display_order", "name")
+            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            .order_by("-usage_count", "name")
             .values(*_FIELDS)
         )
         return [_row_to_dict(row) for row in rows]

@@ -11,12 +11,15 @@ after mutations.
 import logging
 
 from django.db import IntegrityError, transaction
+from django.db.models import Count, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from budgets.services import BudgetService
 from core.models import Category
+from core.models import Transaction as TransactionModel
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 
@@ -35,9 +38,19 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
     logger.info("page viewed: budgets, user=%s", request.user_email)
     svc = _svc(request)
     budgets = svc.get_all_with_spending()
-    categories = Category.objects.filter(
-        user_id=request.user_id, type="expense"
-    ).order_by("name")
+    usage_sq = Subquery(
+        TransactionModel.objects.filter(category_id=OuterRef("id"))
+        .values("category_id")
+        .annotate(cnt=Count("id"))
+        .values("cnt")[:1]
+    )
+    categories = (
+        Category.objects.filter(
+            user_id=request.user_id, type="expense", is_archived=False
+        )
+        .annotate(usage_count=Coalesce(usage_sq, Value(0)))
+        .order_by("-usage_count", "name")
+    )
     total_budget = svc.get_total_budget("EGP")
 
     return render(

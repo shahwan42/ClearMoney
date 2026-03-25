@@ -57,25 +57,31 @@ class TestCategoryServiceGetAll:
         assert len(cats) >= 2
         assert all(not c["is_archived"] for c in cats)
 
-    def test_sorted_by_display_order_then_name(self, cat_svc):
-        """Categories ordered by display_order then name (no type grouping)."""
+    def test_sorted_by_usage_then_name(self, cat_svc):
+        """Categories ordered by usage count descending, then name alphabetically."""
         svc, user_id = cat_svc
-        CategoryFactory(
-            user_id=user_id,
-            name="Zebra",
-            type="expense",
-            display_order=2,
-        )
-        CategoryFactory(
-            user_id=user_id,
-            name="Alpha",
-            type="expense",
-            display_order=1,
-        )
+        # "Zzz" is alphabetically last but should come first due to usage
+        cat_used = CategoryFactory(user_id=user_id, name="Zzz Used")
+        CategoryFactory(user_id=user_id, name="Aaa Unused")
+        inst = InstitutionFactory(user_id=user_id)
+        acct = AccountFactory(user_id=user_id, institution_id=inst.id)
+        for _ in range(3):
+            TransactionFactory(
+                user_id=user_id, account_id=acct.id, category_id=cat_used.id
+            )
         cats = svc.get_all()
-        orders = [c["display_order"] for c in cats]
-        # display_order should be non-decreasing
-        assert orders == sorted(orders)
+        names = [c["name"] for c in cats]
+        # Zzz Used has usage so it should come before Aaa Unused despite alpha order
+        assert names.index("Zzz Used") < names.index("Aaa Unused")
+
+    def test_zero_usage_alphabetical(self, cat_svc):
+        """Categories with zero usage sorted alphabetically."""
+        svc, user_id = cat_svc
+        CategoryFactory(user_id=user_id, name="Zebra")
+        CategoryFactory(user_id=user_id, name="Alpha")
+        cats = svc.get_all()
+        names = [c["name"] for c in cats]
+        assert names.index("Alpha") < names.index("Zebra")
 
     def test_returns_all_types_together(self, cat_svc):
         """get_all returns expense and income categories in a flat list."""

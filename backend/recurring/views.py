@@ -14,12 +14,14 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from django.db.models import Count, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
 from accounts.services import AccountService
-from core.models import Account, Category
+from core.models import Account, Category, Transaction
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from recurring.services import RecurringService
@@ -37,10 +39,17 @@ def _get_categories(request: AuthenticatedRequest) -> list[dict[str, Any]]:
 
     Returns all non-archived categories with type info for optgroup rendering.
     """
+    usage_sq = Subquery(
+        Transaction.objects.filter(category_id=OuterRef("id"))
+        .values("category_id")
+        .annotate(cnt=Count("id"))
+        .values("cnt")[:1]
+    )
     qs = (
         Category.objects.for_user(request.user_id)
         .filter(is_archived=False)
-        .order_by("type", "name")
+        .annotate(usage_count=Coalesce(usage_sq, Value(0)))
+        .order_by("-usage_count", "name")
         .values("id", "name", "type", "icon")
     )
     return [
