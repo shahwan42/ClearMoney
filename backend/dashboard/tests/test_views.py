@@ -2,9 +2,10 @@
 Dashboard view tests — HTTP-level tests for dashboard page and HTMX partials.
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
+from django.utils import timezone
 
 from conftest import SessionFactory, UserFactory
 from core.middleware import COOKIE_NAME
@@ -273,3 +274,63 @@ class TestNetWorthBreakdownView:
         content = resp.content.decode()
         assert 'role="button"' in content
         assert "View Liquid Cash breakdown" in content
+
+
+# ---------------------------------------------------------------------------
+# Streak card styling
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def streak_data(db):
+    """User with transactions today + yesterday → 2-day streak."""
+    user = UserFactory()
+    session = SessionFactory(user=user)
+    inst = InstitutionFactory(user_id=user.id, name="Test Bank")
+    account = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="EGP Savings",
+        currency="EGP",
+        current_balance=10000,
+    )
+    today = timezone.now().date()
+    for days_ago in range(2):
+        TransactionFactory(
+            user_id=user.id,
+            account_id=account.id,
+            date=today - timedelta(days=days_ago),
+            amount=100,
+            balance_delta=-100,
+        )
+    return {"session_token": session.token}
+
+
+@pytest.mark.django_db
+class TestMutedStreakCard:
+    """Streak card uses muted styling, no gradient."""
+
+    def test_no_gradient_classes(self, client, streak_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={streak_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        assert "from-amber-50" not in content
+        assert "to-orange-50" not in content
+
+    def test_streak_shows_day_streak_format(self, client, streak_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={streak_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        assert "day streak" in content
+
+    def test_streak_shows_this_week(self, client, streak_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={streak_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        assert "this week" in content
+
+    def test_streak_hidden_when_zero(self, client, empty_user):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={empty_user['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        assert "day streak" not in content
