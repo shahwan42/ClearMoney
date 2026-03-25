@@ -230,3 +230,46 @@ class TestDashboardSectionIds:
         content = resp.content.decode()
         # Both net worth and accounts wrappers should have aria-live
         assert content.count('aria-live="polite"') >= 2
+
+
+# ---------------------------------------------------------------------------
+# GET /dashboard/net-worth/<card_type> — breakdown partial
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestNetWorthBreakdownView:
+    """Net worth breakdown bottom sheet partial."""
+
+    def test_liquid_cash_returns_200(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/dashboard/net-worth/liquid_cash", **cookie)
+        assert resp.status_code == 200
+        assert b"Liquid Cash" in resp.content
+
+    def test_all_four_types_work(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        for card_type in ["liquid_cash", "credit_used", "credit_available", "debt"]:
+            resp = client.get(f"/dashboard/net-worth/{card_type}", **cookie)
+            assert resp.status_code == 200
+
+    def test_invalid_type_returns_400(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/dashboard/net-worth/invalid", **cookie)
+        assert resp.status_code == 400
+
+    def test_requires_auth(self, client):
+        resp = client.get("/dashboard/net-worth/liquid_cash")
+        assert resp.status_code == 302
+
+    def test_dashboard_includes_nw_breakdown_sheet(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        assert b'id="nw-breakdown-sheet"' in resp.content
+
+    def test_subcards_are_tappable(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        assert 'role="button"' in content
+        assert "View Liquid Cash breakdown" in content

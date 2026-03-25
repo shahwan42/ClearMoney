@@ -18,4 +18,9 @@ urlpatterns = [
         views.people_summary_partial,
         name="people-summary",
     ),
+    path(
+        "dashboard/net-worth/<str:card_type>",
+        views.net_worth_breakdown_partial,
+        name="net-worth-breakdown",
+    ),
 ]

@@ -9,11 +9,13 @@ import logging
 
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.views.decorators.http import require_http_methods
 
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 
 from .services import DashboardService
+from .services.accounts import get_net_worth_breakdown
 
 logger = logging.getLogger(__name__)
 
@@ -56,3 +58,29 @@ def people_summary_partial(request: AuthenticatedRequest) -> HttpResponse:
     svc = DashboardService(request.user_id, request.tz)
     data = svc.get_dashboard()
     return render(request, "dashboard/_people_summary.html", {"data": data})
+
+
+@general_rate
+@require_http_methods(["GET"])
+def net_worth_breakdown_partial(
+    request: AuthenticatedRequest, card_type: str
+) -> HttpResponse:
+    """HTMX partial: net worth breakdown by card type.
+
+    GET /dashboard/net-worth/<card_type> — returns account list HTML
+    for the bottom sheet drill-down.
+    """
+    try:
+        result = get_net_worth_breakdown(request.user_id, card_type)
+    except ValueError:
+        return HttpResponse("Invalid card type", status=400)
+
+    return render(
+        request,
+        "dashboard/_net_worth_breakdown.html",
+        {
+            "title": result["title"],
+            "accounts": result["accounts"],
+            "card_type": card_type,
+        },
+    )

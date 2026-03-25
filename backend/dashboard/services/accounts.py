@@ -13,6 +13,14 @@ if TYPE_CHECKING:
 # Credit account types
 CREDIT_TYPES = {"credit_card", "credit_limit"}
 
+# Card type → display title
+_CARD_TITLES: dict[str, str] = {
+    "liquid_cash": "Liquid Cash",
+    "credit_used": "Credit Used",
+    "credit_available": "Credit Available",
+    "debt": "Debt",
+}
+
 
 @dataclass
 class InstitutionGroup:
@@ -127,3 +135,77 @@ def compute_net_worth(data: DashboardData, all_accounts: list[dict[str, Any]]) -
                 else:
                     total += acc["current_balance"]
             group.total = total
+
+
+def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
+    """Return accounts contributing to a specific net worth sub-card.
+
+    Like drilling down from a KPI card to its underlying data.
+
+    Args:
+        user_id: The authenticated user's ID.
+        card_type: One of 'liquid_cash', 'credit_used', 'credit_available', 'debt'.
+
+    Returns:
+        {"title": str, "accounts": [{"name", "balance", "currency", ...}]}
+    """
+    if card_type not in _CARD_TITLES:
+        raise ValueError(f"Unknown card type: {card_type}")
+
+    # Load all accounts with institution info
+    accounts = (
+        Account.objects.for_user(user_id)
+        .select_related("institution")
+        .order_by("institution__name", "name")
+    )
+
+    result_accounts: list[dict[str, Any]] = []
+
+    for acc in accounts:
+        bal = float(acc.current_balance)
+        inst = acc.institution
+        inst_name = inst.name if inst else ""
+        inst_icon = (inst.icon or "") if inst else ""
+
+        row: dict[str, Any] = {
+            "name": acc.name,
+            "balance": bal,
+            "currency": acc.currency,
+            "institution_name": inst_name,
+            "institution_icon": inst_icon,
+        }
+
+        if card_type == "liquid_cash":
+            # Non-credit, non-dormant, positive balance
+            if acc.type not in CREDIT_TYPES and not acc.is_dormant and bal > 0:
+                result_accounts.append(row)
+
+        elif card_type == "credit_used":
+            # Credit accounts with negative balance (debt on card)
+            if acc.type in CREDIT_TYPES and bal < 0:
+                row["balance"] = abs(bal)  # show as positive "used" amount
+                result_accounts.append(row)
+
+        elif card_type == "credit_available":
+            # Credit accounts with a limit
+            if acc.type in CREDIT_TYPES:
+                limit = float(acc.credit_limit) if acc.credit_limit else 0
+                if limit > 0:
+                    row["available"] = limit + bal  # limit + negative balance
+                    row["credit_limit"] = limit
+                    result_accounts.append(row)
+
+        elif card_type == "debt":
+            # All accounts with negative balance
+            if bal < 0:
+                result_accounts.append(row)
+
+    # Sort: highest first for assets, most negative first for debt
+    if card_type == "credit_available":
+        result_accounts.sort(key=lambda a: a["available"], reverse=True)
+    elif card_type in ("liquid_cash", "credit_used"):
+        result_accounts.sort(key=lambda a: a["balance"], reverse=True)
+    else:  # debt: most negative first
+        result_accounts.sort(key=lambda a: a["balance"])
+
+    return {"title": _CARD_TITLES[card_type], "accounts": result_accounts}

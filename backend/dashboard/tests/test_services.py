@@ -16,6 +16,7 @@ from dashboard.services import (
     DashboardService,
     _compute_due_date,
 )
+from dashboard.services.accounts import get_net_worth_breakdown
 from tests.factories import (
     AccountFactory,
     AccountSnapshotFactory,
@@ -1219,3 +1220,103 @@ class TestLoadInvestmentsTotal:
         svc = DashboardService(svc_data["user_id"], TZ)
         total = svc._load_investments_total()
         assert total == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Net worth breakdown
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestNetWorthBreakdown:
+    """get_net_worth_breakdown returns correct accounts per card type."""
+
+    @pytest.fixture
+    def nw_data(self, db):
+        """User with savings, current, credit card, and dormant accounts."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id, name="CIB", icon="🏦")
+        savings = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Savings",
+            type="savings",
+            currency="EGP",
+            current_balance=50000,
+        )
+        current = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Current",
+            type="current",
+            currency="EGP",
+            current_balance=10000,
+        )
+        cc = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="CC",
+            type="credit_card",
+            currency="EGP",
+            current_balance=-5000,
+            credit_limit=20000,
+        )
+        dormant = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Old",
+            type="savings",
+            currency="EGP",
+            current_balance=100,
+            is_dormant=True,
+        )
+        return {
+            "user_id": str(user.id),
+            "savings": savings,
+            "current": current,
+            "cc": cc,
+            "dormant": dormant,
+        }
+
+    def test_liquid_cash_includes_non_credit_positive(self, nw_data):
+        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash")
+        names = [a["name"] for a in result["accounts"]]
+        assert "Savings" in names
+        assert "Current" in names
+        assert "CC" not in names
+        assert "Old" not in names  # dormant excluded
+
+    def test_liquid_cash_sorted_by_balance_desc(self, nw_data):
+        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash")
+        balances = [a["balance"] for a in result["accounts"]]
+        assert balances == sorted(balances, reverse=True)
+
+    def test_credit_used_includes_cc(self, nw_data):
+        result = get_net_worth_breakdown(nw_data["user_id"], "credit_used")
+        names = [a["name"] for a in result["accounts"]]
+        assert "CC" in names
+        assert "Savings" not in names
+
+    def test_credit_available(self, nw_data):
+        result = get_net_worth_breakdown(nw_data["user_id"], "credit_available")
+        cc = result["accounts"][0]
+        # Available = credit_limit + current_balance = 20000 + (-5000) = 15000
+        assert cc["available"] == 15000
+
+    def test_debt_includes_negative_balances(self, nw_data):
+        result = get_net_worth_breakdown(nw_data["user_id"], "debt")
+        names = [a["name"] for a in result["accounts"]]
+        assert "CC" in names
+
+    def test_invalid_card_type(self, nw_data):
+        with pytest.raises(ValueError):
+            get_net_worth_breakdown(nw_data["user_id"], "invalid")
+
+    def test_title_matches_card_type(self, nw_data):
+        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash")
+        assert result["title"] == "Liquid Cash"
+
+    def test_empty_result(self, db):
+        user = UserFactory()
+        result = get_net_worth_breakdown(str(user.id), "liquid_cash")
+        assert result["accounts"] == []
