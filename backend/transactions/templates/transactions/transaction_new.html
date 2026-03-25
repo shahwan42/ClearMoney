@@ -68,16 +68,9 @@
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 id="category-select">
                 <option value="">None</option>
-                <optgroup label="Expense" class="category-expense">
-                {% for cat in expense_categories %}
+                {% for cat in categories %}
                 <option value="{{ cat.id }}" {% if prefill and prefill.category_id == cat.id %}selected{% endif %}>{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
                 {% endfor %}
-                </optgroup>
-                <optgroup label="Income" class="category-income" style="display:none">
-                {% for cat in income_categories %}
-                <option value="{{ cat.id }}" {% if prefill and prefill.category_id == cat.id %}selected{% endif %}>{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-                {% endfor %}
-                </optgroup>
             </select>
         </div>
 
@@ -183,24 +176,6 @@
                 openMoreOptions();
             }
         });
-    }
-
-    function toggleCategories(isExpense) {
-        var expGrp = document.querySelector('optgroup.category-expense');
-        var incGrp = document.querySelector('optgroup.category-income');
-        expGrp.style.display = isExpense ? '' : 'none';
-        incGrp.style.display = isExpense ? 'none' : '';
-        expGrp.querySelectorAll('option').forEach(function(o) { o.disabled = !isExpense; o.hidden = !isExpense; });
-        incGrp.querySelectorAll('option').forEach(function(o) { o.disabled = isExpense; o.hidden = isExpense; });
-        document.getElementById('category-select').value = '';
-    }
-    document.querySelectorAll('input[name="type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() { toggleCategories(this.value === 'expense'); });
-    });
-
-    var checkedType = document.querySelector('input[name="type"]:checked');
-    if (checkedType && checkedType.value === 'income') {
-        toggleCategories(false);
     }
 
     var acctSelect = document.querySelector('select[name="account_id"]');

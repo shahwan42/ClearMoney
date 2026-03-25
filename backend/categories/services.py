@@ -78,11 +78,11 @@ class CategoryService:
         return Category.objects.for_user(self.user_id)
 
     def get_all(self) -> list[dict[str, Any]]:
-        """All non-archived categories, ordered by type, display_order, name."""
+        """All non-archived categories, ordered by display_order then name."""
         rows = (
             self._qs()
             .filter(is_archived=False)
-            .order_by("type", "display_order", "name")
+            .order_by("display_order", "name")
             .values(*_FIELDS)
         )
         return [_row_to_dict(row) for row in rows]
@@ -105,28 +105,29 @@ class CategoryService:
         return _row_to_dict(row)
 
     def create(
-        self, name: str, cat_type: str, icon: str | None = None
+        self,
+        name: str,
+        cat_type: str = "expense",
+        icon: str | None = None,
     ) -> dict[str, Any]:
         """Create a new custom category.
 
-        Validates name (non-empty) and type (expense/income).
-        System categories are only created by migrations, never via API.
+        Validates name (non-empty). Type is ignored — always stored as 'expense'
+        since categories are type-agnostic (any category works with any tx type).
         """
         name = name.strip() if name else ""
         if not name:
             raise ValueError("category name is required")
-        if cat_type not in VALID_CATEGORY_TYPES:
-            raise ValueError("category type must be 'expense' or 'income'")
 
         cat = Category.objects.create(
             user_id=self.user_id,
             name=name,
-            type=cat_type,
+            type="expense",
             icon=icon,
             is_system=False,
             display_order=0,
         )
-        logger.info("category.created type=%s user=%s", cat_type, self.user_id)
+        logger.info("category.created user=%s", self.user_id)
         return _instance_to_dict(cat)
 
     def update(

@@ -1613,3 +1613,31 @@ class TestTransactionUpdateVaReallocation:
         # Allocation should be deleted
         count = VirtualAccountAllocation.objects.filter(transaction_id=tx.id).count()
         assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# No optgroup in forms (category type agnostic)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestNoOptgroupInForms:
+    """Category dropdowns show flat lists — no optgroup elements."""
+
+    def test_no_optgroup_in_new_form(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        assert "<optgroup" not in content
+
+    def test_no_optgroup_in_filter_bar(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert "<optgroup" not in content
+
+    def test_no_optgroup_in_quick_entry(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = resp.content.decode()
+        assert "<optgroup" not in content

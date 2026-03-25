@@ -74,14 +74,18 @@ class TestCategoryAPI:
         assert cat["icon"] == "🎬"
         assert cat["is_system"] is False
 
-    def test_create_invalid_type(self, client, cat_api_data):
+    def test_create_without_type(self, client, cat_api_data):
+        """Type is optional — defaults to expense."""
         c = set_auth_cookie(client, cat_api_data["session_token"])
         resp = c.post(
             "/api/categories",
-            data=json.dumps({"name": "Bad", "type": "invalid"}),
+            data=json.dumps({"name": "Travel", "icon": "✈️"}),
             content_type="application/json",
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 201
+        cat = json.loads(resp.content)
+        assert cat["name"] == "Travel"
+        assert cat["type"] == "expense"
 
     def test_create_empty_name(self, client, cat_api_data):
         c = set_auth_cookie(client, cat_api_data["session_token"])

@@ -46,7 +46,6 @@ def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
     try:
         category = svc.create(
             name=body.get("name", ""),
-            cat_type=body.get("type", ""),
             icon=body.get("icon"),
         )
     except ValueError as e:

@@ -53,16 +53,9 @@
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             id="qe-category-select">
             <option value="">No category</option>
-            <optgroup label="Expense" class="qe-category-expense">
-            {% for cat in expense_categories %}
+            {% for cat in categories %}
             <option value="{{ cat.id }}" {% if cat.id == auto_category_id %}selected{% endif %}>{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
             {% endfor %}
-            </optgroup>
-            <optgroup label="Income" class="qe-category-income" style="display:none">
-            {% for cat in income_categories %}
-            <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-            {% endfor %}
-            </optgroup>
         </select>
     </div>
 
@@ -150,15 +143,6 @@
             document.getElementById('qe-currency-input').value = 'USD';
         }
     }
-
-    document.querySelectorAll('#quick-entry-form input[name="type"]').forEach(function(radio) {
-        radio.addEventListener('change', function() {
-            var isExpense = this.value === 'expense';
-            document.querySelector('optgroup.qe-category-expense').style.display = isExpense ? '' : 'none';
-            document.querySelector('optgroup.qe-category-income').style.display = isExpense ? 'none' : '';
-            document.getElementById('qe-category-select').value = '';
-        });
-    });
 
     if (acctSelect) {
         acctSelect.addEventListener('change', function() {

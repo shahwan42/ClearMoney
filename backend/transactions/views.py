@@ -130,8 +130,7 @@ def transaction_new(request: AuthenticatedRequest) -> HttpResponse:
     """GET /transactions/new — full transaction form page. Supports ?dup=<id>."""
     svc = _svc(request)
     accounts = svc.get_accounts()
-    expense_cats = svc.get_categories("expense")
-    income_cats = svc.get_categories("income")
+    categories = svc.get_categories()
     virtual_accounts = svc.get_virtual_accounts()
 
     prefill = None
@@ -145,8 +144,7 @@ def transaction_new(request: AuthenticatedRequest) -> HttpResponse:
         "transactions/transaction_new.html",
         {
             "accounts": accounts,
-            "expense_categories": expense_cats,
-            "income_categories": income_cats,
+            "categories": categories,
             "virtual_accounts": virtual_accounts,
             "today": date.today(),
             "prefill": prefill,
@@ -468,7 +466,7 @@ def batch_entry(request: AuthenticatedRequest) -> HttpResponse:
         "transactions/batch_entry.html",
         {
             "accounts": svc.get_accounts(),
-            "expense_categories": svc.get_categories("expense"),
+            "categories": svc.get_categories(),
             "today": date.today(),
         },
     )
@@ -559,8 +557,7 @@ def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
     svc = _svc(request)
     defaults = svc.get_smart_defaults("expense")
     accounts = svc.get_accounts()
-    expense_cats = svc.get_categories("expense")
-    income_cats = svc.get_categories("income")
+    categories = svc.get_categories()
     virtual_accounts = svc.get_virtual_accounts()
 
     logger.info("partial loaded: quick-entry, user=%s", request.user_email)
@@ -569,8 +566,7 @@ def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
         "transactions/_quick_entry.html",
         {
             "accounts": accounts,
-            "expense_categories": expense_cats,
-            "income_categories": income_cats,
+            "categories": categories,
             "virtual_accounts": virtual_accounts,
             "last_account_id": defaults["last_account_id"],
             "auto_category_id": defaults["auto_category_id"],

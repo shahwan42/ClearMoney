@@ -359,43 +359,43 @@ class AuthService:
             logger.warning("auth.logout session not found")
 
     def _seed_default_categories(self, user_id: str) -> None:
-        """Insert 25 default categories for a new user."""
+        """Insert default categories for a new user.
+
+        Categories are type-agnostic — all stored as type='expense'.
+        Any category can be used with any transaction type.
+        """
         defaults = [
-            # (name, type, icon, display_order)
-            ("Household", "expense", "\U0001f3e0", 1),
-            ("Food & Groceries", "expense", "\U0001f6d2", 2),
-            ("Transport", "expense", "\U0001f697", 3),
-            ("Health", "expense", "\U0001f3e5", 4),
-            ("Education", "expense", "\U0001f4da", 5),
-            ("Mobile", "expense", "\U0001f4f1", 6),
-            ("Electricity", "expense", "\u26a1", 7),
-            ("Gas", "expense", "\U0001f525", 8),
-            ("Internet", "expense", "\U0001f310", 9),
-            ("Gifts", "expense", "\U0001f381", 10),
-            ("Entertainment", "expense", "\U0001f3ac", 11),
-            ("Shopping", "expense", "\U0001f6cd\ufe0f", 12),
-            ("Subscriptions", "expense", "\U0001f4fa", 13),
-            ("Virtual Fund", "expense", "\U0001f3e6", 14),
-            ("Insurance", "expense", "\U0001f6e1\ufe0f", 15),
-            ("Fees & Charges", "expense", "\U0001f4b3", 16),
-            ("Debt Payment", "expense", "\U0001f4b0", 17),
-            ("Other", "expense", "\U0001f516", 18),
-            ("Salary", "income", "\U0001f4b5", 1),
-            ("Freelance", "income", "\U0001f4bb", 2),
-            ("Investment Returns", "income", "\U0001f4c8", 3),
-            ("Refund", "income", "\U0001f504", 4),
-            ("Virtual Fund", "income", "\U0001f3e6", 5),
-            ("Loan Repayment Received", "income", "\U0001f91d", 6),
-            ("Other", "income", "\U0001f48e", 7),
+            # (name, icon, display_order)
+            ("Household", "\U0001f3e0", 1),
+            ("Food & Groceries", "\U0001f6d2", 2),
+            ("Transport", "\U0001f697", 3),
+            ("Health", "\U0001f3e5", 4),
+            ("Education", "\U0001f4da", 5),
+            ("Mobile", "\U0001f4f1", 6),
+            ("Electricity", "\u26a1", 7),
+            ("Gas", "\U0001f525", 8),
+            ("Internet", "\U0001f310", 9),
+            ("Gifts", "\U0001f381", 10),
+            ("Entertainment", "\U0001f3ac", 11),
+            ("Shopping", "\U0001f6cd\ufe0f", 12),
+            ("Subscriptions", "\U0001f4fa", 13),
+            ("Virtual Fund", "\U0001f3e6", 14),
+            ("Insurance", "\U0001f6e1\ufe0f", 15),
+            ("Fees & Charges", "\U0001f4b3", 16),
+            ("Debt Payment", "\U0001f4b0", 17),
+            ("Salary", "\U0001f4b5", 18),
+            ("Freelance", "\U0001f4bb", 19),
+            ("Investment Returns", "\U0001f4c8", 20),
+            ("Refund", "\U0001f504", 21),
+            ("Loan Repayment Received", "\U0001f91d", 22),
+            ("Other", "\U0001f516", 23),
         ]
         try:
-            # Individual create() calls because PostgreSQL's category_type
-            # enum doesn't work with Django's UNNEST-based bulk_create.
-            for name, cat_type, icon, order in defaults:
+            for name, icon, order in defaults:
                 Category.objects.create(
                     user_id=user_id,
                     name=name,
-                    type=cat_type,
+                    type="expense",
                     icon=icon,
                     is_system=True,
                     display_order=order,

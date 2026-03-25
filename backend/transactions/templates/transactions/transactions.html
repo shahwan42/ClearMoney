@@ -39,16 +39,9 @@
 
         <select name="category_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
             <option value="">All Categories</option>
-            <optgroup label="Expense">
-                {% for cat in data.categories %}{% if cat.type == "expense" %}
-                <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-                {% endif %}{% endfor %}
-            </optgroup>
-            <optgroup label="Income">
-                {% for cat in data.categories %}{% if cat.type == "income" %}
-                <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-                {% endif %}{% endfor %}
-            </optgroup>
+            {% for cat in data.categories %}
+            <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
+            {% endfor %}
         </select>
     </form>
 

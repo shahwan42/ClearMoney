@@ -52,11 +52,33 @@ class TestCategoryServiceGetAll:
         assert len(cats) >= 2
         assert all(not c["is_archived"] for c in cats)
 
-    def test_sorted_by_type_then_display_order(self, cat_svc):
+    def test_sorted_by_display_order_then_name(self, cat_svc):
+        """Categories ordered by display_order then name (no type grouping)."""
+        svc, user_id = cat_svc
+        CategoryFactory(
+            user_id=user_id,
+            name="Zebra",
+            type="expense",
+            display_order=2,
+        )
+        CategoryFactory(
+            user_id=user_id,
+            name="Alpha",
+            type="expense",
+            display_order=1,
+        )
+        cats = svc.get_all()
+        orders = [c["display_order"] for c in cats]
+        # display_order should be non-decreasing
+        assert orders == sorted(orders)
+
+    def test_returns_all_types_together(self, cat_svc):
+        """get_all returns expense and income categories in a flat list."""
         svc, _ = cat_svc
         cats = svc.get_all()
-        types = [c["type"] for c in cats]
-        assert types == sorted(types)
+        names = [c["name"] for c in cats]
+        assert "Groceries" in names
+        assert "Salary" in names
 
 
 @pytest.mark.django_db
@@ -76,29 +98,31 @@ class TestCategoryServiceGetByType:
 class TestCategoryServiceCreate:
     def test_create_custom(self, cat_svc):
         svc, user_id = cat_svc
-        cat = svc.create("Custom Cat", "expense", icon="🎯")
+        cat = svc.create("Custom Cat", icon="🎯")
         assert cat["name"] == "Custom Cat"
-        assert cat["type"] == "expense"
+        assert cat["type"] == "expense"  # default
         assert cat["icon"] == "🎯"
         assert cat["is_system"] is False
         assert cat["user_id"] == user_id
 
-    def test_create_invalid_type(self, cat_svc):
+    def test_create_with_type_still_works(self, cat_svc):
+        """Backward compat: type param accepted."""
         svc, _ = cat_svc
-        with pytest.raises(ValueError, match="expense.*income"):
-            svc.create("Bad Type", "invalid")
+        cat = svc.create("Bonus", cat_type="income", icon="💰")
+        assert cat["name"] == "Bonus"
+        assert cat["type"] == "expense"  # always stored as expense
 
     def test_create_empty_name(self, cat_svc):
         svc, _ = cat_svc
         with pytest.raises(ValueError, match="required"):
-            svc.create("", "expense")
+            svc.create("")
 
 
 @pytest.mark.django_db
 class TestCategoryServiceUpdate:
     def test_update_custom(self, cat_svc):
         svc, _ = cat_svc
-        created = svc.create("ToUpdate", "expense")
+        created = svc.create("ToUpdate")
         updated = svc.update(created["id"], "Updated Name", icon="✏️")
         assert updated is not None
         assert updated["name"] == "Updated Name"
@@ -121,7 +145,7 @@ class TestCategoryServiceUpdate:
 class TestCategoryServiceArchive:
     def test_archive_custom(self, cat_svc):
         svc, _ = cat_svc
-        created = svc.create("ToArchive", "expense")
+        created = svc.create("ToArchive")
         assert svc.archive(created["id"]) is True
         # Should no longer appear in get_all
         cats = svc.get_all()

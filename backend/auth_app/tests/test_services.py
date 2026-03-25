@@ -176,9 +176,9 @@ class TestVerifyMagicLink:
         user = User.objects.get(email="brand-new@example.com")
         assert str(user.id) == result["user_id"]
 
-        # Categories were seeded (25 defaults)
+        # Categories were seeded (23 defaults — type-agnostic)
         cat_count = Category.objects.filter(user_id=user.id).count()
-        assert cat_count == 25
+        assert cat_count == 23
 
         # Session was created
         assert Session.objects.filter(token=result["session_token"]).exists()
