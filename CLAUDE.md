@@ -63,3 +63,13 @@ HTTP → Caddy → Django (gunicorn) → WhiteNoise → GoSessionAuthMiddleware 
 
 - Materialized views: `mv_monthly_category_totals`, `mv_daily_tx_counts`
 - Startup jobs (`run_startup_jobs`): cleanup_sessions → process_recurring → reconcile_balances → refresh_views → take_snapshots
+
+## Git Commit Practices
+
+**NEVER use `git add .`** — always stage only the files relevant to the currently implemented feature or fix.
+
+- When implementing a feature, stage only files modified for that feature: `git add backend/app/models.py backend/app/services.py backend/templates/component.html` etc.
+- When fixing a bug, stage only the bug fix — not cleanup of surrounding code, not unrelated refactors.
+- Use `/commit` skill or `git commit` after each feature/fix is complete and tested. **Commit frequently** — do not batch multiple features into a single commit.
+- If you accidentally staged unrelated files, unstage them: `git reset HEAD filename.py` before committing.
+- This keeps git history clean, makes reverting individual changes safe, and prevents mixing unrelated work.
