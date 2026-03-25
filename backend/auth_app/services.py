@@ -200,6 +200,24 @@ class AuthService:
 
         return self._send_magic_link(email, "registration")
 
+    def request_access_link(self, email: str) -> tuple[SendResult, str | None, bool]:
+        """Unified entry point: log in existing users, register new ones.
+
+        Returns (result, error_msg, is_new_user).
+        """
+        email = email.strip().lower()
+        if not email:
+            return SendResult.SKIPPED, None, False
+
+        user_exists = User.objects.filter(email__iexact=email).exists()
+
+        if user_exists:
+            result, error = self._send_magic_link(email, "login")
+            return result, error, False
+        else:
+            result, error = self._send_magic_link(email, "registration")
+            return result, error, True
+
     def _send_magic_link(
         self, email: str, purpose: str
     ) -> tuple[SendResult, str | None]:

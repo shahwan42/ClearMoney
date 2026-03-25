@@ -1,16 +1,23 @@
 """
-Auth URL patterns — routes for /login, /register, /auth/verify, /logout.
+Auth URL patterns — routes for /login, /register (redirect), /auth/verify, /logout.
 
-Each route uses a single view function that dispatches on request.method.
+/register redirects to /login for backward compatibility (unified auth flow).
 """
 
 from django.urls import path
+from django.views.generic import RedirectView
 
 from auth_app import views
 
 urlpatterns = [
-    path("login", views.login_view, name="login"),
-    path("register", views.register_view, name="register"),
+    # Unified auth entry point (login + registration)
+    path("login", views.auth_view, name="auth"),
+    # Backward-compatible redirect for /register bookmarks
+    path(
+        "register", RedirectView.as_view(url="/login", permanent=False), name="register"
+    ),
+    # Token verification + session creation (unchanged)
     path("auth/verify", views.verify_magic_link, name="verify-magic-link"),
+    # Logout (unchanged)
     path("logout", views.logout_view, name="logout"),
 ]

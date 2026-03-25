@@ -176,7 +176,7 @@ class TestVerifyMagicLink:
         user = User.objects.get(email="brand-new@example.com")
         assert str(user.id) == result["user_id"]
 
-        # Categories were seeded (23 defaults — type-agnostic)
+        # Categories were seeded (27 defaults — type-agnostic)
         cat_count = Category.objects.filter(user_id=user.id).count()
         assert cat_count == 27
 
@@ -245,3 +245,58 @@ class TestLogout:
     def test_logout_nonexistent_token_no_error(self, auth_svc: AuthService) -> None:
         # Should not raise
         auth_svc.logout("nonexistent-token")
+
+
+# ---------------------------------------------------------------------------
+# AuthService — Unified Access Link
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestRequestAccessLink:
+    def test_existing_user_sends_login_link(self, auth_svc: AuthService) -> None:
+        """Existing email → (SENT, None, False) with purpose=login."""
+        user = UserFactory(email="access-existing@example.com")
+        result, err, is_new = auth_svc.request_access_link(
+            "access-existing@example.com"
+        )
+        assert result == SendResult.SENT
+        assert err is None
+        assert is_new is False
+        assert AuthToken.objects.filter(
+            email="access-existing@example.com", purpose="login"
+        ).exists()
+        # Cleanup
+        AuthToken.objects.filter(email="access-existing@example.com").delete()
+        User.objects.filter(id=user.id).delete()
+
+    def test_new_email_sends_registration_link(self, auth_svc: AuthService) -> None:
+        """New email → (SENT, None, True) with purpose=registration."""
+        result, err, is_new = auth_svc.request_access_link("access-new@example.com")
+        assert result == SendResult.SENT
+        assert err is None
+        assert is_new is True
+        assert AuthToken.objects.filter(
+            email="access-new@example.com", purpose="registration"
+        ).exists()
+        # Cleanup
+        AuthToken.objects.filter(email="access-new@example.com").delete()
+
+    def test_empty_email_skipped(self, auth_svc: AuthService) -> None:
+        """Empty email → (SKIPPED, None, False)."""
+        result, err, is_new = auth_svc.request_access_link("")
+        assert result == SendResult.SKIPPED
+        assert err is None
+        assert is_new is False
+
+    def test_reuse_existing_user(self, auth_svc: AuthService) -> None:
+        """Existing user with unexpired token → REUSED."""
+        user = UserFactory(email="access-reuse@example.com")
+        result1, _, _ = auth_svc.request_access_link("access-reuse@example.com")
+        assert result1 == SendResult.SENT
+        result2, _, is_new = auth_svc.request_access_link("access-reuse@example.com")
+        assert result2 == SendResult.REUSED
+        assert is_new is False
+        # Cleanup
+        AuthToken.objects.filter(email="access-reuse@example.com").delete()
+        User.objects.filter(id=user.id).delete()

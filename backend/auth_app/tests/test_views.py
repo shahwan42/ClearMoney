@@ -1,5 +1,5 @@
 """
-Tests for auth views — login, register, verify, logout page handlers.
+Tests for auth views — unified auth, verify, logout page handlers.
 
 Integration tests hitting real DB.
 """
@@ -16,138 +16,104 @@ from core.models import AuthToken, Category, Session, User
 from tests.factories import AuthTokenFactory, SessionFactory, UserFactory
 
 # ---------------------------------------------------------------------------
-# Login
+# Unified Auth (/login)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-class TestLoginPage:
+class TestUnifiedAuthPage:
     def test_get_renders_form(self, client: Client) -> None:
+        """GET /login renders unified auth page with email form."""
         response = client.get("/login")
         assert response.status_code == 200
         content = response.content.decode()
-        assert "Sign in" in content
+        assert "sign in or create an account" in content
         assert 'name="email"' in content
         assert 'name="website"' in content  # honeypot field
         assert 'name="_rt"' in content  # timing field
 
-    def test_post_valid_email_shows_check_email(self, client: Client) -> None:
-        user = UserFactory(email="login-test@example.com")
+    def test_existing_email_sends_login_link(self, client: Client) -> None:
+        """Existing user → sends login link → check_email (not new user)."""
+        user = UserFactory(email="unified-login@example.com")
         response = client.post(
             "/login",
             {
-                "email": "login-test@example.com",
-                "_rt": str(int(time.time()) - 5),  # 5 seconds ago
+                "email": "unified-login@example.com",
+                "_rt": str(int(time.time()) - 5),
             },
         )
         assert response.status_code == 200
         content = response.content.decode()
         assert "Check your email" in content
-        assert "login-test@example.com" in content
+        assert "unified-login@example.com" in content
+        # Should NOT show "Welcome to ClearMoney" (existing user)
+        assert "Welcome to ClearMoney" not in content
+        # Token created with login purpose
+        assert AuthToken.objects.filter(
+            email="unified-login@example.com", purpose="login"
+        ).exists()
         # Cleanup
-        AuthToken.objects.filter(email="login-test@example.com").delete()
+        AuthToken.objects.filter(email="unified-login@example.com").delete()
         User.objects.filter(id=user.id).delete()
 
-    def test_post_unknown_email_still_shows_check_email(self, client: Client) -> None:
-        """Email enumeration prevention: unknown emails get same response."""
+    def test_new_email_sends_registration_link(self, client: Client) -> None:
+        """New email → sends registration link → check_email with welcome."""
         response = client.post(
             "/login",
             {
-                "email": "nonexistent@example.com",
+                "email": "unified-new@example.com",
                 "_rt": str(int(time.time()) - 5),
             },
         )
         assert response.status_code == 200
         content = response.content.decode()
-        assert "Check your email" in content
-        # Hint should show (since email wasn't sent)
-        assert "previously sent link" in content
-
-    def test_post_empty_email_shows_error(self, client: Client) -> None:
-        response = client.post(
-            "/login",
-            {
-                "email": "",
-                "_rt": str(int(time.time()) - 5),
-            },
-        )
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "Email is required" in content
-
-    def test_honeypot_silently_rejects(self, client: Client) -> None:
-        response = client.post(
-            "/login",
-            {
-                "email": "bot@example.com",
-                "website": "http://spam.com",
-                "_rt": str(int(time.time()) - 5),
-            },
-        )
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "Check your email" in content
-        # No token should be created
-        assert not AuthToken.objects.filter(email="bot@example.com").exists()
-
-
-# ---------------------------------------------------------------------------
-# Register
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestRegisterPage:
-    def test_get_renders_form(self, client: Client) -> None:
-        response = client.get("/register")
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "Create account" in content
-        assert 'name="email"' in content
-
-    def test_post_new_email_shows_check_email(self, client: Client) -> None:
-        response = client.post(
-            "/register",
-            {
-                "email": "newreg@example.com",
-                "_rt": str(int(time.time()) - 5),
-            },
-        )
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "Check your email" in content
+        # New users get welcome message
+        assert "Welcome to ClearMoney" in content
+        assert "unified-new@example.com" in content
+        # Token created with registration purpose
+        assert AuthToken.objects.filter(
+            email="unified-new@example.com", purpose="registration"
+        ).exists()
         # Cleanup
-        AuthToken.objects.filter(email="newreg@example.com").delete()
+        AuthToken.objects.filter(email="unified-new@example.com").delete()
 
-    def test_post_existing_email_shows_error(self, client: Client) -> None:
-        user = UserFactory(email="already@example.com")
-        response = client.post(
-            "/register",
-            {
-                "email": "already@example.com",
-                "_rt": str(int(time.time()) - 5),
-            },
+    def test_both_cases_show_check_email(self, client: Client) -> None:
+        """Both existing and new emails always render check_email page."""
+        user = UserFactory(email="both-test@example.com")
+        # Existing user
+        resp1 = client.post(
+            "/login",
+            {"email": "both-test@example.com", "_rt": str(int(time.time()) - 5)},
         )
-        assert response.status_code == 200
-        content = response.content.decode()
-        assert "already exists" in content
+        assert b"Check your email" in resp1.content
+        # Clean up token to avoid cooldown
+        AuthToken.objects.filter(email="both-test@example.com").delete()
+
+        # New user
+        resp2 = client.post(
+            "/login",
+            {"email": "brand-new-both@example.com", "_rt": str(int(time.time()) - 5)},
+        )
+        content2 = resp2.content.decode()
+        # New users see "Welcome to ClearMoney" instead of "Check your email"
+        assert "Welcome to ClearMoney" in content2
         # Cleanup
+        AuthToken.objects.filter(email="brand-new-both@example.com").delete()
         User.objects.filter(id=user.id).delete()
 
-    def test_post_empty_email_shows_error(self, client: Client) -> None:
+    def test_empty_email_shows_error(self, client: Client) -> None:
+        """Empty email → error on form."""
         response = client.post(
-            "/register",
-            {
-                "email": "",
-                "_rt": str(int(time.time()) - 5),
-            },
+            "/login",
+            {"email": "", "_rt": str(int(time.time()) - 5)},
         )
         assert response.status_code == 200
         assert b"Email is required" in response.content
 
     def test_honeypot_silently_rejects(self, client: Client) -> None:
+        """Honeypot filled → silently shows check_email (bot thinks it worked)."""
         response = client.post(
-            "/register",
+            "/login",
             {
                 "email": "bot@example.com",
                 "website": "http://spam.com",
@@ -156,7 +122,22 @@ class TestRegisterPage:
         )
         assert response.status_code == 200
         assert b"Check your email" in response.content
+        # No token created
         assert not AuthToken.objects.filter(email="bot@example.com").exists()
+
+
+# ---------------------------------------------------------------------------
+# Register Redirect
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestRegisterRedirect:
+    def test_register_redirects_to_login(self, client: Client) -> None:
+        """GET /register → 302 redirect to /login."""
+        response = client.get("/register")
+        assert response.status_code == 302
+        assert response.url == "/login"  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------

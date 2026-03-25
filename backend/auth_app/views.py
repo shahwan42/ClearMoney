@@ -1,8 +1,9 @@
 """
-Auth views — page handlers for /login, /register, /auth/verify, /logout.
+Auth views — page handlers for /login, /auth/verify, /logout.
 
 Like Laravel's LoginController — handles magic link auth with honeypot
-and timing anti-bot protection.
+and timing anti-bot protection. Unified flow: /login handles both
+sign-in and registration via auto-detect.
 
 Auth pages use bare layout (no header/nav) and standard form POST
 (no HTMX) for proper cookie handling.
@@ -21,7 +22,6 @@ from auth_app.services import (
     SESSION_MAX_AGE_SECONDS,
     SendResult,
     auth_service,
-    rate_limit_message,
 )
 from core.ratelimit import login_rate
 
@@ -29,151 +29,66 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Login
+# Unified Auth (login + registration)
 # ---------------------------------------------------------------------------
 
 
 @csrf_exempt  # Auth uses honeypot + timing anti-bot instead of CSRF tokens
 @login_rate
 @require_http_methods(["GET", "POST"])
-def login_view(request: HttpRequest) -> HttpResponse:
-    """GET /login — render login form. POST /login — send magic link."""
+def auth_view(request: HttpRequest) -> HttpResponse:
+    """GET /login — render unified auth page. POST /login — request magic link."""
     if request.method == "POST":
-        return _login_submit(request)
+        return _auth_submit(request)
 
-    logger.info("page viewed page=login")
+    logger.info("page viewed page=auth")
     return render(
         request,
-        "auth_app/login.html",
-        {
-            "render_time": int(time.time()),
-        },
+        "auth_app/auth.html",
+        {"render_time": int(time.time())},
     )
 
 
-def _login_submit(request: HttpRequest) -> HttpResponse:
-    """Process login form — send magic link if user exists.
-
-    Always shows "Check your email" regardless of whether user exists
-    (prevents email enumeration).
-    """
-    # Honeypot check: hidden field that bots fill
+def _auth_submit(request: HttpRequest) -> HttpResponse:
+    """Handle unified magic link request — auto-detects login vs registration."""
+    # Honeypot check: hidden field that bots fill — show check_email so bots
+    # think the submission succeeded (silent trap, not a visible rejection)
     if request.POST.get("website"):
-        logger.info("login: honeypot triggered (bot detected)")
+        logger.info("auth: honeypot triggered (bot detected)")
         return render(request, "auth_app/check_email.html", {})
 
     # Timing check: reject if submitted too fast (< 2 seconds)
-    rt_str = request.POST.get("_rt", "")
-    if rt_str:
-        try:
-            rt = int(rt_str)
-            if int(time.time()) - rt < 2:
-                logger.info("login: timing check failed (too fast)")
-                return render(request, "auth_app/check_email.html", {})
-        except (ValueError, TypeError):
-            pass
+    try:
+        render_time = int(request.POST.get("_rt", "0"))
+    except ValueError:
+        render_time = 0
+    if int(time.time()) - render_time < 2:
+        logger.info("auth: timing check failed (too fast)")
+        return render(request, "auth_app/auth.html", {"render_time": int(time.time())})
 
     email = request.POST.get("email", "").strip()
     if not email:
         return render(
             request,
-            "auth_app/login.html",
+            "auth_app/auth.html",
             {
-                "error": "Email is required",
                 "render_time": int(time.time()),
+                "error": "Email is required",
             },
         )
 
-    result, err = auth_service.request_login_link(email)
-    if err:
-        logger.error("login: failed to request magic link error=%s", err)
+    result, _error, is_new_user = auth_service.request_access_link(email)
 
-    # Always show "check your email" — even if user doesn't exist.
-    # Hint flag shows for ALL non-sent outcomes (unknown, cooldown, etc.)
-    # so it reveals nothing about whether the account exists.
-    ctx: dict[str, object] = {"email": email}
-    if result != SendResult.SENT:
-        ctx["hint"] = True
-    return render(request, "auth_app/check_email.html", ctx)
-
-
-# ---------------------------------------------------------------------------
-# Register
-# ---------------------------------------------------------------------------
-
-
-@csrf_exempt  # Auth uses honeypot + timing anti-bot instead of CSRF tokens
-@login_rate
-@require_http_methods(["GET", "POST"])
-def register_view(request: HttpRequest) -> HttpResponse:
-    """GET /register — render form. POST /register — send registration link."""
-    if request.method == "POST":
-        return _register_submit(request)
-
-    logger.info("page viewed page=register")
+    hint = result != SendResult.SENT
     return render(
         request,
-        "auth_app/register.html",
+        "auth_app/check_email.html",
         {
-            "render_time": int(time.time()),
+            "email": email,
+            "hint": hint,
+            "is_new_user": is_new_user,
         },
     )
-
-
-def _register_submit(request: HttpRequest) -> HttpResponse:
-    """Process registration form — send magic link for new user."""
-    # Honeypot check
-    if request.POST.get("website"):
-        logger.info("register: honeypot triggered (bot detected)")
-        return render(request, "auth_app/check_email.html", {})
-
-    # Timing check
-    rt_str = request.POST.get("_rt", "")
-    if rt_str:
-        try:
-            rt = int(rt_str)
-            if int(time.time()) - rt < 2:
-                logger.info("register: timing check failed (too fast)")
-                return render(request, "auth_app/check_email.html", {})
-        except (ValueError, TypeError):
-            pass
-
-    email = request.POST.get("email", "").strip()
-    if not email:
-        return render(
-            request,
-            "auth_app/register.html",
-            {
-                "error": "Email is required",
-                "render_time": int(time.time()),
-            },
-        )
-
-    result, err = auth_service.request_registration_link(email)
-    if err:
-        # Show error for registration (safe to reveal "already registered")
-        return render(
-            request,
-            "auth_app/register.html",
-            {
-                "error": err,
-                "render_time": int(time.time()),
-            },
-        )
-
-    # Registration reveals email existence, so specific rate-limit messages are safe
-    if result != SendResult.SENT:
-        msg = rate_limit_message(result)
-        return render(
-            request,
-            "auth_app/register.html",
-            {
-                "error": msg,
-                "render_time": int(time.time()),
-            },
-        )
-
-    return render(request, "auth_app/check_email.html", {"email": email})
 
 
 # ---------------------------------------------------------------------------

@@ -61,10 +61,10 @@ class TestBasicAuth:
         expect(page.locator('input[name="email"]')).to_be_visible()
         expect(page.locator('button[type="submit"]')).to_be_visible()
 
-    def test_register_form_renders(self, page: Page) -> None:
+    def test_register_redirects_to_login(self, page: Page) -> None:
         page.goto("/register")
+        expect(page).to_have_url(re.compile(r"/login"))
         expect(page.locator('input[name="email"]')).to_be_visible()
-        expect(page.locator('button[type="submit"]')).to_be_visible()
 
     def test_submit_login_shows_check_email(self, page: Page) -> None:
         _submit_auth_form(page, TEST_EMAIL, "login")
@@ -104,8 +104,9 @@ class TestPageRendering:
         page.goto("/login")
         expect(page.locator('input[name="_rt"]')).to_have_count(1)
 
-    def test_register_page_has_honeypot_field(self, page: Page) -> None:
+    def test_register_redirect_has_honeypot_field(self, page: Page) -> None:
         page.goto("/register")
+        # /register now redirects to /login
         expect(page.locator('input[name="website"]')).to_have_count(1)
 
 
@@ -116,10 +117,10 @@ class TestLoginFlow:
         _submit_auth_form(page, TEST_EMAIL, "login")
         expect(page.locator("main")).to_contain_text("Check your email")
 
-    def test_unknown_email_also_shows_check_email(self, page: Page) -> None:
-        # Enumeration prevention — unknown email looks identical to valid one
+    def test_new_email_shows_welcome(self, page: Page) -> None:
+        # New emails auto-register — show welcome message
         _submit_auth_form(page, "nobody@example.com", "login")
-        expect(page.locator("main")).to_contain_text("Check your email")
+        expect(page.locator("main")).to_contain_text("Welcome to ClearMoney")
 
     def test_empty_email_shows_validation_error(self, page: Page) -> None:
         page.goto("/login")
@@ -129,17 +130,17 @@ class TestLoginFlow:
         expect(page.locator("main")).to_contain_text("email")
 
 
-# ── Registration flow (from 18-auth.spec.ts describe "Registration Flow") ─────
+# ── Unified flow handles both login + registration ───────────────────────────
 
-class TestRegistrationFlow:
-    def test_new_email_shows_check_email(self, page: Page) -> None:
-        _submit_auth_form(page, "newuser@example.com", "register")
-        expect(page.locator("main")).to_contain_text("Check your email")
+class TestUnifiedFlow:
+    def test_new_email_shows_welcome(self, page: Page) -> None:
+        _submit_auth_form(page, "newuser-unified@example.com", "login")
+        expect(page.locator("main")).to_contain_text("Welcome to ClearMoney")
 
-    def test_existing_email_shows_error(self, page: Page) -> None:
+    def test_existing_email_shows_check_email(self, page: Page) -> None:
         # TEST_EMAIL was created by reset_database()
-        _submit_auth_form(page, TEST_EMAIL, "register")
-        expect(page.locator("main")).to_contain_text("already exists")
+        _submit_auth_form(page, TEST_EMAIL, "login")
+        expect(page.locator("main")).to_contain_text("Check your email")
 
 
 # ── Magic link verification (from 18-auth.spec.ts describe "Verification") ────
@@ -183,7 +184,7 @@ class TestMagicLinkVerification:
         expect(page.locator("main")).to_contain_text("Link expired")
 
     def test_registration_verify_seeds_categories(self, page: Page) -> None:
-        """Verifying a register token should seed 25 system categories."""
+        """Verifying a register token should seed 27 system categories."""
         token = create_auth_token("brand-new@example.com", "registration")
         page.goto(f"/auth/verify?token={token}")
         expect(page).to_have_url(re.compile(r"^http://localhost:8765/$"))
@@ -195,7 +196,7 @@ class TestMagicLinkVerification:
                 cur.execute("SELECT COUNT(*) FROM categories WHERE user_id = %s", (str(row[0]),))
                 count_row = cur.fetchone()
                 assert count_row is not None
-                assert count_row[0] == 25
+                assert count_row[0] == 27
 
 
 # ── Logout ────────────────────────────────────────────────────────────────────
