@@ -302,7 +302,7 @@ function checkDeleteConfirmation() {
     var sheet = document.getElementById('delete-sheet');
     var input = document.getElementById('delete-confirm-input');
     var btn = document.getElementById('delete-confirm-btn');
-    btn.disabled = input.value.trim() !== sheet.dataset.accountName;
+    btn.disabled = input.value.trim().toLowerCase() !== sheet.dataset.accountName.toLowerCase();
 }
 
 // Show error container when HTMX swaps content into it

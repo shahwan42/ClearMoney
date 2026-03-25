@@ -59,7 +59,7 @@ function checkDeleteConfirm() {
     var input = document.getElementById('delete-confirm-input');
     var btn = document.getElementById('delete-confirm-btn');
     if (input && btn) {
-        btn.disabled = (input.value.trim() !== expectedDeleteName);
+        btn.disabled = (input.value.trim().toLowerCase() !== expectedDeleteName.toLowerCase());
     }
 }
 </script>
