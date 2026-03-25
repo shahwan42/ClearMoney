@@ -208,6 +208,20 @@ var BottomSheet = (function() {
         }
     });
 
+    // Scroll focused input into view when mobile keyboard opens inside bottom sheets.
+    // Fixes landscape mode where keyboard hides the active input.
+    document.addEventListener('focusin', function(e) {
+        var target = e.target;
+        if (!target || !target.matches('input, textarea, select')) return;
+        // Check if inside an open bottom sheet
+        var sheet = target.closest('[data-bottom-sheet]');
+        if (!sheet) return;
+        // Small delay lets the keyboard animation finish before scrolling
+        setTimeout(function() {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+    });
+
     // Auto-initialize on page load and after HTMX content swaps
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
