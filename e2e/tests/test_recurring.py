@@ -63,7 +63,10 @@ class TestRecurring:
         # Type defaults to "expense" — no need to change the hidden radio
         page.fill('input[name="amount"]', "200")
         page.select_option('select[name="account_id"]', _account_id)
-        page.select_option('select[name="category_id"]', category_id)
+        # Category uses a custom combobox — select via its programmatic API
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+        )
         page.fill('input[name="note"]', "Netflix")
         page.select_option('select[name="frequency"]', "monthly")
         page.fill('input[name="next_due_date"]', "2026-04-01")

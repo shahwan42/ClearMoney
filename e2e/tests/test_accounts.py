@@ -3,13 +3,15 @@
 Converts: 02-accounts.spec.ts
 
 UI notes (verified against actual templates):
-- Bottom sheets: data-bottom-sheet="create-sheet", "account-sheet", "delete-sheet"
-  Content areas: #create-sheet-content, #account-sheet-content, #delete-sheet-content
+- Bottom sheets: data-bottom-sheet="create-sheet", "delete-sheet", "account-sheet"
+  Content areas: #create-sheet-content, #delete-sheet-content, #account-sheet-content
   (loaded via HTMX on sheet open — wait for the form to appear before interacting)
-- Add Institution: button with text "+ Institution", onclick="openCreateSheet()"
-- Add Account: button with text "+ Account" inside institution card
+- Add Account: header button "+ Account" opens unified institution+account form in create-sheet
+- Institution card "+ Account" opens same form but with institution pre-selected
 - Delete institution: trash icon button → opens delete-sheet, confirm via #delete-confirm-btn
 - Delete confirm input: id="delete-confirm-input" (not name="confirm_name")
+- Institution picker: #add-acct-inst-search combobox, options rendered with data-name attribute
+- Credit limit field: id="add-acct-credit-limit-field"
 """
 import re
 import sys, os
@@ -39,24 +41,23 @@ def auth(page: Page) -> None:
 class TestInstitutions:
     def test_accounts_page_shows_empty_state(self, page: Page) -> None:
         page.goto("/accounts")
-        expect(page.locator("main")).to_contain_text("No institutions")
+        expect(page.locator("main")).to_contain_text("No accounts yet")
 
     def test_create_institution_via_bottom_sheet(self, page: Page) -> None:
         page.goto("/accounts")
-        page.click('button:has-text("+ Institution")')
+        page.click('button:has-text("+ Account")')
         sheet = page.locator('[data-bottom-sheet="create-sheet"]')
         expect(sheet).not_to_have_class(re.compile(r"translate-y-full"))
 
-        # Wait for HTMX to load the form into the sheet content area.
-        # The form now uses a combobox: type to search, then select a preset.
+        # Wait for HTMX to load the unified add-account form into the sheet.
+        # Type in the institution combobox to filter presets, then click the option.
         content = page.locator("#create-sheet-content")
-        search = content.locator('#preset-search')
+        search = content.locator('#add-acct-inst-search')
         search.wait_for(timeout=5000)  # Ensure HTMX has loaded
-        search.fill("HSBC Egypt")  # Match the full preset name for filtering
-        search.dispatch_event("input")  # Trigger the combobox filter logic
-        # data-preset-option uses preset.value abbreviation ("HSBC"), not the full name
-        content.locator('[data-preset-option="HSBC Egypt"]').click()
-        with page.expect_response(lambda r: "/institutions/add" in r.url):
+        search.fill("HSBC")  # Triggers JS renderList — options rendered with data-name
+        # Click the preset option rendered by JS (data-name = preset.name)
+        content.locator('[data-name="HSBC Egypt"]').click()
+        with page.expect_response(lambda r: "/accounts/add" in r.url):
             content.locator('button[type="submit"]').click()
 
         expect(page.locator("main")).to_contain_text("HSBC")
@@ -79,7 +80,7 @@ class TestInstitutions:
 
     def test_dismiss_sheet_via_cancel(self, page: Page) -> None:
         page.goto("/accounts")
-        page.click('button:has-text("+ Institution")')
+        page.click('button:has-text("+ Account")')
         sheet = page.locator('[data-bottom-sheet="create-sheet"]')
         expect(sheet).not_to_have_class(re.compile(r"translate-y-full"))
 
@@ -91,14 +92,14 @@ class TestAccounts:
     def test_create_current_account(self, page: Page) -> None:
         page.goto("/accounts")
         create_institution(page, "Test Bank")
-        # Reload so the institution card (and "+ Account" button) is visible
+        # Reload so the institution card (and institution-specific "+ Account" button) is visible
         page.goto("/accounts")
 
-        # "+ Account" button appears inside institution card after institution exists
-        page.click('button:has-text("+ Account")')
-        sheet_content = page.locator("#account-sheet-content")
-        # Account name is optional and hidden under "Custom name" toggle — expand first
-        sheet_content.locator('button:has-text("Custom name")').click()
+        # Use the institution card's "+ Account" button — opens form with institution pre-selected
+        page.locator('button[aria-label="Add account to Test Bank"]').click()
+        sheet_content = page.locator("#create-sheet-content")
+        # Custom name field is always visible — no toggle needed
+        sheet_content.locator('input[name="name"]').wait_for(timeout=5000)
         sheet_content.locator('input[name="name"]').fill("My Savings")
         sheet_content.locator('select[name="type"]').select_option("savings")
         sheet_content.locator('input[name="initial_balance"]').fill("5000")
@@ -111,36 +112,40 @@ class TestAccounts:
     def test_credit_card_shows_credit_limit_field(self, page: Page) -> None:
         page.goto("/accounts")
         page.click('button:has-text("+ Account")')
-        sheet_content = page.locator("#account-sheet-content")
+        sheet_content = page.locator("#create-sheet-content")
 
+        sheet_content.locator('select[name="type"]').wait_for(timeout=5000)
         sheet_content.locator('select[name="type"]').select_option("credit_card")
-        expect(sheet_content.locator("#credit-limit-field")).to_be_visible()
+        expect(sheet_content.locator("#add-acct-credit-limit-field")).to_be_visible()
 
     def test_credit_card_without_limit_shows_error(self, page: Page) -> None:
+        # Use institution card button so institution is pre-selected (avoids institution error)
+        create_institution(page, "CC Error Bank")
         page.goto("/accounts")
-        page.click('button:has-text("+ Account")')
-        sheet_content = page.locator("#account-sheet-content")
-        # Name is optional (hidden under Custom name toggle) — skip it here
+        page.locator('button[aria-label="Add account to CC Error Bank"]').click()
+        sheet_content = page.locator("#create-sheet-content")
+        sheet_content.locator('select[name="type"]').wait_for(timeout=5000)
         sheet_content.locator('select[name="type"]').select_option("credit_card")
-        # Don't fill credit_limit — should fail
+        # Don't fill credit_limit — should fail with validation error
         sheet_content.locator('button[type="submit"]').click()
         expect(sheet_content.locator(".bg-red-50")).to_be_visible()
 
     def test_credit_card_error_allows_retry(self, page: Page) -> None:
+        # Use institution card button so institution is pre-selected (preserved on error re-render)
+        create_institution(page, "CC Retry Bank")
         page.goto("/accounts")
-        page.click('button:has-text("+ Account")')
-        sheet_content = page.locator("#account-sheet-content")
-        # Name is optional — focus on testing the retry flow itself
+        page.locator('button[aria-label="Add account to CC Retry Bank"]').click()
+        sheet_content = page.locator("#create-sheet-content")
+        sheet_content.locator('select[name="type"]').wait_for(timeout=5000)
         sheet_content.locator('select[name="type"]').select_option("credit_card")
-        # Submit without limit → error (HTMX re-renders form with error, all fields reset)
+        # Submit without credit_limit → error (HTMX re-renders form, institution still pre-selected)
         sheet_content.locator('button[type="submit"]').click()
         expect(sheet_content.locator(".bg-red-50")).to_be_visible()
         # Re-select type (form was re-rendered) and add credit_limit
         type_select = sheet_content.locator('select[name="type"]')
         type_select.select_option("credit_card")
-        # Explicitly dispatch change so the inline onchange shows the credit-limit field
         type_select.dispatch_event("change")
-        expect(sheet_content.locator("#credit-limit-field")).to_be_visible()
+        expect(sheet_content.locator("#add-acct-credit-limit-field")).to_be_visible()
         sheet_content.locator('input[name="credit_limit"]').fill("100000")
         with page.expect_response(lambda r: "/accounts/add" in r.url):
             sheet_content.locator('button[type="submit"]').click()

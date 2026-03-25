@@ -1,8 +1,17 @@
 """Institution preset combobox E2E tests.
 
-Tests that the institution creation form shows a searchable preset combobox
-for all three institution types (bank, fintech, wallet), auto-fills the name,
-and persists the icon and color on submission.
+Tests that the unified add-account form shows a searchable institution preset
+combobox for all three institution types (bank, fintech, wallet), auto-fills the
+name, and persists the icon and color on submission.
+
+UI notes (current form):
+- Header "+ Account" button opens create-sheet with unified institution+account form
+- Institution search: #add-acct-inst-search (combobox)
+- Preset options: rendered with data-name attribute in #add-acct-preset-list
+- Institution type: radio inputs with name="institution_type" (bank/fintech/wallet)
+  wrapped in labels — check the radio input to select
+- Other option: role="option" with text "Other (custom name)"
+- Submits to /accounts/add (not /institutions/add)
 """
 import sys
 import os
@@ -25,49 +34,46 @@ def auth(page: Page) -> None:
 
 
 def open_create_sheet(page: Page) -> None:
-    """Navigate to /accounts and open the add-institution bottom sheet."""
+    """Navigate to /accounts and open the add-account bottom sheet."""
     page.goto("/accounts")
-    page.click('button:has-text("+ Institution")')
-    # Wait for HTMX to load the form
+    page.click('button:has-text("+ Account")')
+    # Wait for HTMX to load the unified form
     content = page.locator("#create-sheet-content")
-    content.locator("#preset-search").wait_for(timeout=10000)
+    content.locator("#add-acct-inst-search").wait_for(timeout=10000)
 
 
 class TestBankPresets:
     def test_bank_preset_appears_when_typing(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        search = content.locator("#preset-search")
+        search = content.locator("#add-acct-inst-search")
         search.fill("CIB")
-        search.dispatch_event("input")
-        expect(content.locator('[data-preset-option="CIB - Commercial International Bank"]')).to_be_visible()
+        expect(content.locator('[data-name="CIB - Commercial International Bank"]')).to_be_visible()
 
     def test_bank_preset_option_shows_logo(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        search = content.locator("#preset-search")
+        search = content.locator("#add-acct-inst-search")
         search.fill("CIB")
-        search.dispatch_event("input")
-        option = content.locator('[data-preset-option="CIB - Commercial International Bank"]')
+        option = content.locator('[data-name="CIB - Commercial International Bank"]')
         expect(option.locator("img")).to_be_visible()
 
     def test_bank_preset_fills_name(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        search = content.locator("#preset-search")
+        search = content.locator("#add-acct-inst-search")
         search.fill("CIB")
-        search.dispatch_event("input")
-        content.locator('[data-preset-option="CIB - Commercial International Bank"]').click()
-        expect(content.locator("#preset-search")).to_have_value("CIB - Commercial International Bank")
+        content.locator('[data-name="CIB - Commercial International Bank"]').click()
+        # After selection, the search input shows the preset's value ("CIB")
+        expect(content.locator("#add-acct-inst-search")).to_have_value("CIB")
 
     def test_bank_preset_submitted_with_icon_and_color(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        search = content.locator("#preset-search")
+        search = content.locator("#add-acct-inst-search")
         search.fill("CIB")
-        search.dispatch_event("input")
-        content.locator('[data-preset-option="CIB - Commercial International Bank"]').click()
-        with page.expect_response(lambda r: "/institutions/add" in r.url) as resp:
+        content.locator('[data-name="CIB - Commercial International Bank"]').click()
+        with page.expect_response(lambda r: "/accounts/add" in r.url) as resp:
             content.locator('button[type="submit"]').click()
         assert resp.value.status == 200
         expect(page.locator("main")).to_contain_text("CIB")
@@ -79,64 +85,60 @@ class TestFintechPresets:
     def test_fintech_presets_appear_after_type_change(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        content.locator("#inst-type").select_option("fintech")
-        search = content.locator("#preset-search")
+        # Select fintech type via radio button
+        page.evaluate("() => { const r = document.querySelector('input[name=\"institution_type\"][value=\"fintech\"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }")
+        search = content.locator("#add-acct-inst-search")
         search.fill("Telda")
-        search.dispatch_event("input")
-        expect(content.locator('[data-preset-option="Telda"]')).to_be_visible()
+        expect(content.locator('[data-name="Telda"]')).to_be_visible()
 
     def test_fintech_preset_fills_name(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        content.locator("#inst-type").select_option("fintech")
-        search = content.locator("#preset-search")
+        page.evaluate("() => { const r = document.querySelector('input[name=\"institution_type\"][value=\"fintech\"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }")
+        search = content.locator("#add-acct-inst-search")
         search.fill("Telda")
-        search.dispatch_event("input")
-        content.locator('[data-preset-option="Telda"]').click()
-        expect(content.locator("#preset-search")).to_have_value("Telda")
+        content.locator('[data-name="Telda"]').click()
+        expect(content.locator("#add-acct-inst-search")).to_have_value("Telda")
 
 
 class TestWalletPresets:
     def test_wallet_shows_physical_and_digital_groups(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        content.locator("#inst-type").select_option("wallet")
-        search = content.locator("#preset-search")
+        page.evaluate("() => { const r = document.querySelector('input[name=\"institution_type\"][value=\"wallet\"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }")
+        search = content.locator("#add-acct-inst-search")
         search.click()
-        search.dispatch_event("focus")
         expect(content.locator("text=Physical")).to_be_visible()
         expect(content.locator("text=Digital")).to_be_visible()
 
     def test_physical_wallet_preset_fills_name(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        content.locator("#inst-type").select_option("wallet")
-        search = content.locator("#preset-search")
+        page.evaluate("() => { const r = document.querySelector('input[name=\"institution_type\"][value=\"wallet\"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }")
+        search = content.locator("#add-acct-inst-search")
         search.fill("Pocket")
-        search.dispatch_event("input")
-        content.locator('[data-preset-option="Pocket Wallet"]').click()
-        expect(content.locator("#preset-search")).to_have_value("Pocket Wallet")
+        content.locator('[data-name="Pocket Wallet"]').click()
+        expect(content.locator("#add-acct-inst-search")).to_have_value("Pocket Wallet")
 
     def test_digital_wallet_preset_fills_name(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        content.locator("#inst-type").select_option("wallet")
-        search = content.locator("#preset-search")
+        page.evaluate("() => { const r = document.querySelector('input[name=\"institution_type\"][value=\"wallet\"]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }")
+        search = content.locator("#add-acct-inst-search")
         search.fill("Vodafone")
-        search.dispatch_event("input")
-        content.locator('[data-preset-option="Vodafone Cash"]').click()
-        expect(content.locator("#preset-search")).to_have_value("Vodafone Cash")
+        content.locator('[data-name="Vodafone Cash"]').click()
+        expect(content.locator("#add-acct-inst-search")).to_have_value("Vodafone Cash")
 
 
 class TestCustomName:
     def test_other_option_allows_custom_name(self, page: Page) -> None:
         open_create_sheet(page)
         content = page.locator("#create-sheet-content")
-        search = content.locator("#preset-search")
+        search = content.locator("#add-acct-inst-search")
         search.fill("My Savings Jar")
-        search.dispatch_event("input")
-        content.locator('[data-preset-option="other"]').click()
-        with page.expect_response(lambda r: "/institutions/add" in r.url) as resp:
+        # Click "Other (custom name)" option — last item in the listbox
+        content.locator('[role="option"]').filter(has_text="Other").click()
+        with page.expect_response(lambda r: "/accounts/add" in r.url) as resp:
             content.locator('button[type="submit"]').click()
         assert resp.value.status == 200
         expect(page.locator("main")).to_contain_text("My Savings Jar")

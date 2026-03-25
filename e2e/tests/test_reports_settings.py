@@ -68,14 +68,17 @@ class TestReports:
 
 class TestFawryCashout:
     def test_fawry_page_loads(self, page: Page) -> None:
+        # /fawry-cashout redirects to /transfers/new
         page.goto("/fawry-cashout")
-        expect(page.locator('input[name="amount"]')).to_be_visible()
+        expect(page.locator("#transfer-amount")).to_be_visible()
 
-    def test_fawry_fee_calculation(self, page: Page) -> None:
-        page.goto("/fawry-cashout")
-        page.fill('input[name="amount"]', "1000")
+    def test_transfer_fee_total_display(self, page: Page) -> None:
+        page.goto("/transfers/new")
+        page.fill("#transfer-amount", "1000")
+        page.fill("#transfer-fee", "10")
         page.wait_for_timeout(300)
-        expect(page.locator("#fawry-total")).to_be_visible()
+        # Fee > 0 shows the total display
+        expect(page.locator("#transfer-total-display")).to_be_visible()
 
 
 class TestBatchEntry:
@@ -100,4 +103,4 @@ class TestSettings:
 
     def test_logout_button_visible_in_settings(self, page: Page) -> None:
         page.goto("/settings")
-        expect(page.locator('button:has-text("Log Out")')).to_be_visible()
+        expect(page.locator('button:has-text("Log Out")').first).to_be_visible()

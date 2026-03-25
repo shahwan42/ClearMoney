@@ -70,7 +70,10 @@ class TestTransactionCRUD:
         page.select_option('select[name="account_id"]', _account_id)
         # Type uses hidden radios (Tailwind peer pattern) — click the visible label div
         page.click('#type-expense-label')
-        page.select_option('select[name="category_id"]', category_id)
+        # Category uses a custom combobox — select via its programmatic API
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+        )
         page.fill('input[name="amount"]', "150")
         page.fill('input[name="note"]', "Coffee")
 
@@ -89,7 +92,10 @@ class TestTransactionCRUD:
         page.goto("/transactions/new")
         page.select_option('select[name="account_id"]', _account_id)
         page.click('#type-income-label')
-        page.select_option('select[name="category_id"]', category_id)
+        # Category uses a custom combobox — select via its programmatic API
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+        )
         page.fill('input[name="amount"]', "5000")
         page.fill('input[name="note"]', "Salary")
 

@@ -83,17 +83,17 @@ class TestTransactionDetailSheet:
     def test_edit_button_closes_sheet_opens_edit_form(self, page: Page) -> None:
         page.goto("/transactions")
         row = page.locator('[role="button"][id^="tx-"]').first
-        row_id = row.get_attribute("id")
         row.click()
         page.wait_for_selector("#tx-detail-content dl", timeout=5000)
         content = page.locator("#tx-detail-content")
-        # Click Edit button
+        # Click Edit button — closes detail sheet and opens tx-edit sheet
         content.locator("button:has-text('Edit')").click()
-        # Sheet should close
-        sheet = page.locator("#tx-detail-sheet")
-        expect(sheet).to_have_attribute("aria-hidden", "true", timeout=3000)
-        # Edit form should appear in the same row container
-        expect(page.locator(f"#{row_id} input[name='amount']")).to_be_visible(
+        # Detail sheet should close
+        detail_sheet = page.locator("#tx-detail-sheet")
+        expect(detail_sheet).to_have_attribute("aria-hidden", "true", timeout=3000)
+        # Edit sheet opens with the edit form
+        edit_sheet_content = page.locator("#tx-edit-content")
+        expect(edit_sheet_content.locator("input[name='amount']")).to_be_visible(
             timeout=5000
         )
 

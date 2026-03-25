@@ -92,13 +92,13 @@ class TestTransfers:
         page.goto("/")
         expect(page.locator("main")).to_contain_text("20,000")
 
-    def test_instapay_toggle_shows_fee(self, page: Page) -> None:
+    def test_fee_field_shows_total_display(self, page: Page) -> None:
         page.goto("/transfers/new")
         page.fill("#transfer-amount", "1000")
-        # Checkbox is sr-only with a styled div overlay — force=True bypasses interception
-        page.locator("#instapay-toggle").check(force=True)
-        # Fee = max(0.5, min(1000 × 0.001, 20)) = 1.00 EGP
-        expect(page.locator("#instapay-fee-amount")).to_contain_text("1.00")
+        page.fill("#transfer-fee", "5")
+        # Fee > 0 shows the total charged display
+        expect(page.locator("#transfer-total-display")).to_be_visible()
+        expect(page.locator("[data-transfer-total]")).to_contain_text("1005.00")
 
     def test_transfer_with_note(self, page: Page) -> None:
         page.goto("/transfers/new")

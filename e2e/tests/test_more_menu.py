@@ -23,7 +23,7 @@ from conftest import ensure_auth, reset_database
 _MENU_LINKS = [
     "people", "budgets", "virtual-accounts", "investments",
     "recurring", "batch-entry",
-    "fawry-cashout", "settings",
+    "reports", "settings",
 ]
 
 

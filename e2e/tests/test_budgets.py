@@ -62,12 +62,16 @@ def auth(page: Page) -> None:
 class TestBudgets:
     def test_create_budget(self, page: Page) -> None:
         page.goto("/budgets")
-        page.select_option('select[name="category_id"]', _category_id)
-        page.fill('input[name="monthly_limit"]', "2000")
+        # Category uses a custom combobox — select via its programmatic API
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{_category_id}')"
+        )
+        # Use the budget form's specific input ID (page has two monthly_limit inputs)
+        page.fill('input#cat-monthly-limit', "2000")
         with page.expect_response(
             lambda r: "/budgets" in r.url and r.request.method == "POST"
         ):
-            page.click('button[type="submit"]')
+            page.locator('button:has-text("Create Budget")').click()
         expect(page.locator("main")).to_contain_text("2,000")
 
     def test_budget_progress_bar_visible(self, page: Page) -> None:
