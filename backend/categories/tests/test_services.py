@@ -117,6 +117,12 @@ class TestCategoryServiceCreate:
         with pytest.raises(ValueError, match="required"):
             svc.create("")
 
+    def test_create_duplicate_name_rejected(self, cat_svc):
+        svc, _ = cat_svc
+        svc.create("Coffee", icon="☕")
+        with pytest.raises(ValueError, match="already exists"):
+            svc.create("coffee", icon="☕")  # case-insensitive match
+
 
 @pytest.mark.django_db
 class TestCategoryServiceUpdate:

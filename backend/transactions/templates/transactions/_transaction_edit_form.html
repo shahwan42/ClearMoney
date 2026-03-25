@@ -10,12 +10,13 @@
                    class="text-sm border border-gray-200 rounded-lg px-2 py-1.5" required>
         </div>
 
-        <select name="category_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-            <option value="">No category</option>
-            {% for cat in categories %}
-            <option value="{{ cat.id }}" {% if cat.id == selected_category_id %}selected{% endif %}>{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-            {% endfor %}
-        </select>
+        <div data-category-combobox
+             data-categories='{{ categories|categories_json }}'
+             data-name="category_id"
+             data-selected-id="{{ selected_category_id|default:'' }}"
+             data-placeholder="Search categories..."
+             data-allow-empty="true">
+        </div>
 
         <input type="text" name="note" value="{{ tx.note|default:'' }}"
                placeholder="Note (optional)"

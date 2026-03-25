@@ -76,13 +76,13 @@
         <form method="POST" action="{% url 'budget-add' %}" class="space-y-3">
             {% csrf_token %}
             <div>
-                <label for="category-select" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Category</label>
-                <select name="category_id" id="category-select" required class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
-                    <option value="">Select category...</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-                    {% endfor %}
-                </select>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="budget-category-label">Category</label>
+                <div data-category-combobox
+                     data-categories='{{ categories|categories_json }}'
+                     data-name="category_id"
+                     data-placeholder="Select category..."
+                     data-allow-empty="false">
+                </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>

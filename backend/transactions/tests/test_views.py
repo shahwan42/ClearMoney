@@ -1621,23 +1621,52 @@ class TestTransactionUpdateVaReallocation:
 
 
 @pytest.mark.django_db
-class TestNoOptgroupInForms:
-    """Category dropdowns show flat lists — no optgroup elements."""
+class TestCategoryCombobox:
+    """Category combobox replaces native <select> in forms."""
 
-    def test_no_optgroup_in_new_form(self, client, tx_view_data) -> None:
+    def test_combobox_in_new_form(self, client, tx_view_data) -> None:
         c = set_auth_cookie(client, tx_view_data["session_token"])
         resp = c.get("/transactions/new")
         content = resp.content.decode()
-        assert "<optgroup" not in content
+        assert "data-category-combobox" in content
+        assert "data-categories" in content
+        # No native category <select> should remain
+        assert '<select name="category_id"' not in content
 
-    def test_no_optgroup_in_filter_bar(self, client, tx_view_data) -> None:
+    def test_combobox_in_filter_bar(self, client, tx_view_data) -> None:
         c = set_auth_cookie(client, tx_view_data["session_token"])
         resp = c.get("/transactions")
         content = resp.content.decode()
-        assert "<optgroup" not in content
+        assert "data-category-combobox" in content
 
-    def test_no_optgroup_in_quick_entry(self, client, tx_view_data) -> None:
+    def test_combobox_in_quick_entry(self, client, tx_view_data) -> None:
         c = set_auth_cookie(client, tx_view_data["session_token"])
         resp = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
         content = resp.content.decode()
-        assert "<optgroup" not in content
+        assert "data-category-combobox" in content
+
+    def test_categories_json_is_valid(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        import re
+
+        match = re.search(r"data-categories='(.+?)'", content)
+        assert match
+        data = json.loads(match.group(1))
+        assert len(data) > 0
+        assert "id" in data[0]
+        assert "name" in data[0]
+        assert "icon" in data[0]
+
+    def test_combobox_in_edit_form(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            category_id=tx_view_data["cat_id"],
+        )
+        resp = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
+        content = resp.content.decode()
+        assert "data-category-combobox" in content
+        assert f'data-selected-id="{tx_view_data["cat_id"]}"' in content

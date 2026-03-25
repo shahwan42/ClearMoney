@@ -119,6 +119,10 @@ class CategoryService:
         if not name:
             raise ValueError("category name is required")
 
+        # Reject duplicate names (case-insensitive) for this user
+        if self._qs().filter(name__iexact=name, is_archived=False).exists():
+            raise ValueError("A category with this name already exists")
+
         cat = Category.objects.create(
             user_id=self.user_id,
             name=name,

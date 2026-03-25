@@ -37,12 +37,13 @@
                    class="text-sm border border-gray-200 rounded-lg px-2 py-1.5">
         </div>
 
-        <select name="category_id" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-            <option value="">All Categories</option>
-            {% for cat in data.categories %}
-            <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-            {% endfor %}
-        </select>
+        <div data-category-combobox
+             data-categories='{{ data.categories|categories_json }}'
+             data-name="category_id"
+             data-selected-id="{{ data.category_id|default:'' }}"
+             data-placeholder="All Categories"
+             data-allow-empty="true">
+        </div>
     </form>
 
     <div id="transaction-list">

@@ -11,10 +11,12 @@ Usage:
     {{ date_val|format_date }}
 """
 
+import json
 from datetime import date, datetime
 from typing import Any
 
 from django import template
+from django.utils.safestring import mark_safe
 
 register = template.Library()
 
@@ -286,3 +288,27 @@ def institution_display_name(stored_name: object) -> str:
     from accounts.institution_data import get_display_name
 
     return get_display_name(str(stored_name)) if stored_name else ""
+
+
+@register.filter
+def categories_json(categories: Any) -> str:
+    """Serialize a categories queryset/list to JSON for use in data-categories attribute.
+
+    Returns a JSON string with [{id, name, icon}, ...].
+    Usage: data-categories='{{ categories|categories_json }}'
+    """
+    items = []
+    for cat in categories:
+        if hasattr(cat, "id"):
+            # Model instance
+            items.append({"id": str(cat.id), "name": cat.name, "icon": cat.icon or ""})
+        elif isinstance(cat, dict):
+            # Dict from .values() or service layer
+            items.append(
+                {
+                    "id": str(cat.get("id", "")),
+                    "name": cat.get("name", ""),
+                    "icon": cat.get("icon", "") or "",
+                }
+            )
+    return mark_safe(json.dumps(items, ensure_ascii=False))

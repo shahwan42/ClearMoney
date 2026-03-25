@@ -49,14 +49,14 @@
     <input type="hidden" name="currency" value="EGP" id="qe-currency-input">
 
     <div>
-        <select name="category_id"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            id="qe-category-select">
-            <option value="">No category</option>
-            {% for cat in categories %}
-            <option value="{{ cat.id }}" {% if cat.id == auto_category_id %}selected{% endif %}>{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-            {% endfor %}
-        </select>
+        <div data-category-combobox
+             data-categories='{{ categories|categories_json }}'
+             data-name="category_id"
+             data-selected-id="{{ auto_category_id|default:'' }}"
+             data-placeholder="Search categories..."
+             data-allow-empty="true"
+             id="qe-category-combobox">
+        </div>
     </div>
 
     <!-- Hidden date submitted when "More options" is collapsed -->
@@ -181,8 +181,10 @@
                     .then(function(r) { return r.ok ? r.text() : ''; })
                     .then(function(catId) {
                         if (catId) {
-                            var sel = document.getElementById('qe-category-select');
-                            if (sel && !sel.value) { sel.value = catId; }
+                            var comboEl = document.getElementById('qe-category-combobox');
+                            if (comboEl && comboEl._combobox && !comboEl._combobox.hiddenInput.value) {
+                                comboEl._combobox.selectById(catId);
+                            }
                         }
                     }).catch(function() {});
             }, 300);

@@ -1,3 +1,4 @@
+{% load money %}
 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 space-y-3">
     <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">New Recurring Rule</h3>
 
@@ -46,12 +47,12 @@
         {# Category #}
         <div>
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Category</label>
-            <select name="category_id" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
-                <option value="">None</option>
-                {% for cat in categories %}
-                <option value="{{ cat.id }}">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</option>
-                {% endfor %}
-            </select>
+            <div data-category-combobox
+                 data-categories='{{ categories|categories_json }}'
+                 data-name="category_id"
+                 data-placeholder="Search categories..."
+                 data-allow-empty="true">
+            </div>
         </div>
 
         {# Note #}
