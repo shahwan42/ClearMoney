@@ -1023,3 +1023,24 @@ class TestCustomAccountNameVisibility:
         assert 'id="add-acct-custom-name-field"' in content
         # The hidden toggle button should be gone
         assert 'id="add-acct-custom-name-toggle"' not in content
+
+
+@pytest.mark.django_db
+class TestInstitutionButtonTooltips:
+    """Institution card buttons have title tooltip attributes for discoverability."""
+
+    def test_edit_button_has_title(self, client, accounts_data) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        # Edit button should have a title tooltip
+        assert 'title="Edit institution"' in content or 'title="Edit"' in content
+
+    def test_delete_button_has_title(self, client, accounts_data) -> None:
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        # Delete button should have a title tooltip
+        assert 'title="Delete institution"' in content or 'title="Delete"' in content
