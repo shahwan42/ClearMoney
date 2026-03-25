@@ -217,3 +217,21 @@ def test_people_summary_partial_200(client, dashboard_data):
     cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
     response = client.get("/partials/people-summary", **cookie)
     assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# GET / — empty dashboard state (no accounts, transactions, or data)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_dashboard_empty_user_renders_without_error(client, empty_user):
+    # gap: state — user with no data at all must not crash any dashboard service
+    cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={empty_user['session_token']}"}
+    response = client.get("/", **cookie)
+    assert response.status_code == 200
+    content = response.content.decode()
+    # Page should render (not 500) and show the welcome message
+    assert "Welcome to ClearMoney" in content
+    # No institution groups should be present
+    assert "Test Bank" not in content

@@ -5,6 +5,7 @@ Filter tests use plain functions (no DB). Middleware tests use
 @pytest.mark.django_db and the auth_user fixture from conftest.py.
 """
 
+import logging
 from datetime import date, timedelta
 
 import pytest
@@ -13,7 +14,11 @@ from django.test import RequestFactory
 from django.utils import timezone
 
 from conftest import SessionFactory
-from core.middleware import COOKIE_NAME, GoSessionAuthMiddleware
+from core.middleware import (
+    COOKIE_NAME,
+    ExceptionLoggingMiddleware,
+    GoSessionAuthMiddleware,
+)
 from core.templatetags.money import (
     _format_number,
     chart_color,
@@ -205,3 +210,52 @@ def test_middleware_expired_session_redirects(auth_user):
     response = middleware(request)
     assert response.status_code == 302
     assert response.url == "/login"
+
+
+# ---------------------------------------------------------------------------
+# ExceptionLoggingMiddleware tests
+# ---------------------------------------------------------------------------
+
+
+def _make_exception_middleware() -> ExceptionLoggingMiddleware:
+    return ExceptionLoggingMiddleware(lambda req: _dummy_response(req))
+
+
+class TestExceptionLoggingMiddleware:
+    """Verify that unhandled exceptions are logged with request context."""
+
+    def test_logs_exception_with_user_info(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Request with user_id logs the user identifier."""
+        rf = RequestFactory()
+        request = rf.get("/accounts")
+        request.user_id = "user-abc-123"  # type: ignore[attr-defined]
+        middleware = _make_exception_middleware()
+        exc = ValueError("something broke")
+
+        with caplog.at_level(logging.ERROR, logger="core.middleware"):
+            middleware.process_exception(request, exc)
+
+        assert len(caplog.records) == 1
+        record = caplog.records[0]
+        assert "/accounts" in record.message
+        assert "GET" in record.message
+        assert "user-abc-123" in record.message
+
+    def test_logs_anonymous_when_no_user(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Request without user_id attribute logs 'anonymous'."""
+        rf = RequestFactory()
+        request = rf.get("/dashboard")
+        middleware = _make_exception_middleware()
+        exc = RuntimeError("oops")
+
+        with caplog.at_level(logging.ERROR, logger="core.middleware"):
+            middleware.process_exception(request, exc)
+
+        assert len(caplog.records) == 1
+        record = caplog.records[0]
+        assert "/dashboard" in record.message
+        assert "anonymous" in record.message

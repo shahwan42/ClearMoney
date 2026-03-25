@@ -538,3 +538,29 @@ class TestGetByAccountID:
 
         result = svc.get_by_account_id(va_data["account_id"])
         assert len(result) == 0
+
+
+# ---------------------------------------------------------------------------
+# Direct allocate edge cases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestDirectAllocateEdgeCases:
+    """Monetary edge cases for direct_allocate withdrawals."""
+
+    def test_withdrawal_causes_negative_balance(self, va_data: dict) -> None:
+        """Withdrawing more than the balance results in negative VA balance.
+
+        The service has no floor constraint — _recalculate_balance simply sums
+        all allocations, so the balance goes negative.
+        """
+        svc = _svc(va_data["user_id"])
+        va = svc.create(name="Fund")
+
+        svc.direct_allocate(va["id"], 100, "Deposit", date.today())
+        svc.direct_allocate(va["id"], -200, "Large withdrawal", date.today())
+
+        result = svc.get_by_id(va["id"])
+        assert result is not None
+        assert result["current_balance"] == -100.0

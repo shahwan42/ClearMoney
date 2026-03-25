@@ -2,14 +2,20 @@
 Transaction API view tests — HTTP-level tests for /api/transactions/* JSON API.
 """
 
+from __future__ import annotations
+
 import json
 import uuid
+from typing import TYPE_CHECKING
 
 import pytest
 from django.db import connection
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
+
+if TYPE_CHECKING:
+    from django.test import Client
 
 
 @pytest.fixture
@@ -267,3 +273,154 @@ class TestTransactionAPI:
     def test_unauthenticated(self, client):
         resp = client.get("/api/transactions")
         assert resp.status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# Transfer API error paths
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestApiTransactionTransferErrors:
+    """Error-path tests for POST /api/transactions/transfer."""
+
+    def test_missing_source_account_returns_error(
+        self, client: Client, tx_api_data: dict[str, str]
+    ) -> None:
+        """Omitting source_account_id triggers a 400 with error message."""
+        c = set_auth_cookie(client, tx_api_data["session_token"])
+        resp = c.post(
+            "/api/transactions/transfer",
+            data=json.dumps(
+                {
+                    "dest_account_id": tx_api_data["egp_id"],
+                    "amount": 500,
+                    "date": "2026-03-25",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+
+    def test_missing_amount_returns_error(
+        self, client: Client, tx_api_data: dict[str, str]
+    ) -> None:
+        """Omitting amount defaults to 0, which the service rejects."""
+        c = set_auth_cookie(client, tx_api_data["session_token"])
+        # Create a second EGP account for valid source/dest pair
+        egp2_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+                " current_balance, initial_balance)"
+                " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
+                [
+                    egp2_id,
+                    tx_api_data["user_id"],
+                    tx_api_data["inst_id"],
+                    "EGP Extra",
+                    5000,
+                    5000,
+                ],
+            )
+
+        resp = c.post(
+            "/api/transactions/transfer",
+            data=json.dumps(
+                {
+                    "source_account_id": tx_api_data["egp_id"],
+                    "dest_account_id": egp2_id,
+                    "date": "2026-03-25",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+
+    def test_zero_amount_returns_error(
+        self, client: Client, tx_api_data: dict[str, str]
+    ) -> None:
+        """Explicit amount=0 is rejected as non-positive."""
+        c = set_auth_cookie(client, tx_api_data["session_token"])
+        egp2_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+                " current_balance, initial_balance)"
+                " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
+                [
+                    egp2_id,
+                    tx_api_data["user_id"],
+                    tx_api_data["inst_id"],
+                    "EGP Extra 2",
+                    5000,
+                    5000,
+                ],
+            )
+
+        resp = c.post(
+            "/api/transactions/transfer",
+            data=json.dumps(
+                {
+                    "source_account_id": tx_api_data["egp_id"],
+                    "dest_account_id": egp2_id,
+                    "amount": 0,
+                    "date": "2026-03-25",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+        assert "positive" in body["error"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Exchange API error paths
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestApiTransactionExchangeErrors:
+    """Error-path tests for POST /api/transactions/exchange."""
+
+    def test_missing_fields_returns_error(
+        self, client: Client, tx_api_data: dict[str, str]
+    ) -> None:
+        """Omitting required fields (source/dest) triggers a 400."""
+        c = set_auth_cookie(client, tx_api_data["session_token"])
+        resp = c.post(
+            "/api/transactions/exchange",
+            data=json.dumps({"amount": 100, "rate": 50.5}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+
+    def test_zero_amount_returns_error(
+        self, client: Client, tx_api_data: dict[str, str]
+    ) -> None:
+        """Exchange with amount=0 is rejected."""
+        c = set_auth_cookie(client, tx_api_data["session_token"])
+        resp = c.post(
+            "/api/transactions/exchange",
+            data=json.dumps(
+                {
+                    "source_account_id": tx_api_data["usd_id"],
+                    "dest_account_id": tx_api_data["egp_id"],
+                    "amount": 0,
+                    "rate": 50.5,
+                    "date": "2026-03-25",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body

@@ -314,3 +314,41 @@ class TestDebtSummary:
         # Both transactions present (order: date DESC, created_at DESC)
         types = {tx["type"] for tx in summary["transactions"]}
         assert types == {"loan_out", "loan_repayment"}
+
+
+# ---------------------------------------------------------------------------
+# Over-Repayment Tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestOverRepayment:
+    """Tests for repaying more than owed — balance flips sign."""
+
+    def test_over_repay_positive_flips_to_negative(self, people_data: dict) -> None:
+        """Person owes me 500 EGP, repay 800 → net_balance_egp = -300 (now I owe them)."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("OverPayPos")
+
+        svc.record_loan(person["id"], people_data["egp_id"], 500, "loan_out")
+        svc.record_repayment(person["id"], people_data["egp_id"], 800)
+
+        bal = _get_person_balance(person["id"])
+        assert bal["net_balance_egp"] == -300
+        assert bal["net_balance"] == -300
+        # Account: 10000 - 500 (loan out) + 800 (repayment enters) = 10300
+        assert _get_balance(people_data["egp_id"]) == 10300
+
+    def test_over_repay_negative_flips_to_positive(self, people_data: dict) -> None:
+        """I owe person 500 EGP, repay 800 → net_balance_egp = 300 (now they owe me)."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("OverPayNeg")
+
+        svc.record_loan(person["id"], people_data["egp_id"], 500, "loan_in")
+        svc.record_repayment(person["id"], people_data["egp_id"], 800)
+
+        bal = _get_person_balance(person["id"])
+        assert bal["net_balance_egp"] == 300
+        assert bal["net_balance"] == 300
+        # Account: 10000 + 500 (loan in) - 800 (repayment leaves) = 9700
+        assert _get_balance(people_data["egp_id"]) == 9700

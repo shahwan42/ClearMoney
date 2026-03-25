@@ -72,3 +72,15 @@ class TestCleanupService:
         )
         tokens, _ = self.svc.cleanup()
         assert tokens >= 2
+
+
+@pytest.mark.django_db(transaction=True)
+class TestCleanupEmptyTables:
+    """Verify cleanup handles empty tables gracefully."""
+
+    def test_cleanup_on_empty_tables(self) -> None:
+        """Cleanup with no expired tokens/sessions returns (0, 0) without error."""  # gap: data
+        svc = CleanupService()
+        tokens, sessions = svc.cleanup()
+        assert tokens == 0
+        assert sessions == 0

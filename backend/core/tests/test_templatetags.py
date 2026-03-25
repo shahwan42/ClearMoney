@@ -15,6 +15,8 @@ from core.templatetags.money import (
     format_num,
     format_type,
     get_item,
+    institution_display_name,
+    is_image_icon,
     make_dict,
     sparkline_points,
 )
@@ -181,3 +183,34 @@ class TestMakeDict:
     def test_empty(self) -> None:
         result = make_dict()
         assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# is_image_icon and institution_display_name tests
+# ---------------------------------------------------------------------------
+
+
+class TestIsImageIcon:
+    """is_image_icon returns True for image filenames, False for emoji/other."""
+
+    def test_png_returns_true(self) -> None:
+        assert is_image_icon("bank-logo.png") is True
+
+    def test_svg_returns_true(self) -> None:
+        assert is_image_icon("icon.svg") is True
+
+    def test_emoji_returns_false(self) -> None:
+        assert is_image_icon("\U0001f3e6") is False
+
+
+class TestInstitutionDisplayName:
+    """institution_display_name expands preset abbreviations to full names."""
+
+    def test_preset_abbreviation(self) -> None:
+        # "CIB" is stored in the DB; display name should be the full preset name
+        result = institution_display_name("CIB")
+        assert result == "CIB - Commercial International Bank"
+
+    def test_custom_name_returns_as_is(self) -> None:
+        result = institution_display_name("My Custom Bank")
+        assert result == "My Custom Bank"

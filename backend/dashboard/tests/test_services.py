@@ -1072,3 +1072,251 @@ def test_top_categories_multiple_with_last_month(svc_data):
     # Transport: 300 this / 600 last → -50% decrease
     assert by_name["Transport"]["change"] == pytest.approx(-50.0)
     assert by_name["Transport"]["is_up"] is False
+
+
+# ---------------------------------------------------------------------------
+# Net Worth By Currency (per-currency sparkline)
+# ---------------------------------------------------------------------------
+
+
+class TestLoadNetWorthByCurrency:
+    """Tests for load_net_worth_by_currency — per-currency sparkline data."""
+
+    @pytest.mark.django_db
+    def test_sums_by_currency(self, svc_data):
+        # gap: functional — load_net_worth_by_currency never directly tested
+        today = date.today()
+        # Create 2 EGP accounts and 1 USD account with snapshots across 3 days
+        usd_acc_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
+                " VALUES (%s, %s, %s, 'USD Savings', 'savings', 'USD', 500)",
+                [usd_acc_id, svc_data["user_id"], svc_data["inst_id"]],
+            )
+            for i in range(3):
+                snap_date = today - timedelta(days=5 - i)
+                # EGP account snapshot
+                cursor.execute(
+                    "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
+                    " VALUES (%s, %s, %s, %s, %s)",
+                    [
+                        str(uuid.uuid4()),
+                        svc_data["user_id"],
+                        svc_data["savings_id"],
+                        snap_date,
+                        10000 + i * 100,
+                    ],
+                )
+                # USD account snapshot
+                cursor.execute(
+                    "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
+                    " VALUES (%s, %s, %s, %s, %s)",
+                    [
+                        str(uuid.uuid4()),
+                        svc_data["user_id"],
+                        usd_acc_id,
+                        snap_date,
+                        500 + i * 10,
+                    ],
+                )
+
+        svc = DashboardService(svc_data["user_id"], TZ)
+        from dashboard.services import DashboardData
+
+        data = DashboardData()
+        svc._load_net_worth_by_currency(data)
+        assert "EGP" in data.net_worth_history_by_currency
+        assert "USD" in data.net_worth_history_by_currency
+        assert len(data.net_worth_history_by_currency["EGP"]) == 3
+        assert len(data.net_worth_history_by_currency["USD"]) == 3
+
+    @pytest.mark.django_db
+    def test_empty_when_no_snapshots(self, svc_data):
+        # gap: functional — empty snapshots must leave net_worth_history_by_currency as default {}
+        svc = DashboardService(svc_data["user_id"], TZ)
+        from dashboard.services import DashboardData
+
+        data = DashboardData()
+        svc._load_net_worth_by_currency(data)
+        assert data.net_worth_history_by_currency == {}
+
+
+# ---------------------------------------------------------------------------
+# Account Sparklines (per-account balance history)
+# ---------------------------------------------------------------------------
+
+
+class TestLoadAccountSparklines:
+    """Tests for load_account_sparklines — per-account 30-day balance sparklines."""
+
+    @pytest.mark.django_db
+    def test_with_snapshots(self, svc_data):
+        # gap: functional — load_account_sparklines never directly tested
+        today = date.today()
+        with connection.cursor() as cursor:
+            for i in range(5):
+                cursor.execute(
+                    "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
+                    " VALUES (%s, %s, %s, %s, %s)",
+                    [
+                        str(uuid.uuid4()),
+                        svc_data["user_id"],
+                        svc_data["savings_id"],
+                        today - timedelta(days=10 - i),
+                        10000 + i * 100,
+                    ],
+                )
+
+        svc = DashboardService(svc_data["user_id"], TZ)
+        from dashboard.services import DashboardData
+
+        data = DashboardData()
+        accounts = svc._load_institutions_with_accounts(data)
+        svc._load_account_sparklines(data, accounts)
+        assert svc_data["savings_id"] in data.account_sparklines
+        assert len(data.account_sparklines[svc_data["savings_id"]]) == 5
+
+    @pytest.mark.django_db
+    def test_without_snapshots(self, svc_data):
+        # gap: functional — no snapshots → account_sparklines stays empty {}
+        svc = DashboardService(svc_data["user_id"], TZ)
+        from dashboard.services import DashboardData
+
+        data = DashboardData()
+        accounts = svc._load_institutions_with_accounts(data)
+        svc._load_account_sparklines(data, accounts)
+        assert data.account_sparklines == {}
+
+    @pytest.mark.django_db
+    def test_requires_at_least_two_points(self, svc_data):
+        # gap: functional — single snapshot must NOT produce a sparkline (needs >=2)
+        today = date.today()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
+                " VALUES (%s, %s, %s, %s, 10000)",
+                [
+                    str(uuid.uuid4()),
+                    svc_data["user_id"],
+                    svc_data["savings_id"],
+                    today,
+                ],
+            )
+
+        svc = DashboardService(svc_data["user_id"], TZ)
+        from dashboard.services import DashboardData
+
+        data = DashboardData()
+        accounts = svc._load_institutions_with_accounts(data)
+        svc._load_account_sparklines(data, accounts)
+        assert svc_data["savings_id"] not in data.account_sparklines
+
+
+# ---------------------------------------------------------------------------
+# Virtual Accounts
+# ---------------------------------------------------------------------------
+
+
+class TestLoadVirtualAccounts:
+    """Tests for load_virtual_accounts — dashboard VA widget data."""
+
+    @pytest.mark.django_db
+    def test_with_virtual_accounts(self, svc_data):
+        # gap: functional — load_virtual_accounts never directly tested
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, target_amount,"
+                " icon, color, is_archived, exclude_from_net_worth, display_order)"
+                " VALUES (%s, %s, 'Emergency Fund', 5000, 10000, %s, '#ff0000', false, false, 0)",
+                [str(uuid.uuid4()), svc_data["user_id"], "\U0001f6e1\ufe0f"],
+            )
+
+        svc = DashboardService(svc_data["user_id"], TZ)
+        vas = svc._load_virtual_accounts()
+        assert len(vas) == 1
+        assert vas[0]["name"] == "Emergency Fund"
+        assert vas[0]["current_balance"] == 5000.0
+        assert vas[0]["target_amount"] == 10000.0
+        assert vas[0]["progress_pct"] == pytest.approx(50.0)
+
+    @pytest.mark.django_db
+    def test_empty(self, svc_data):
+        # gap: functional — no VAs → empty list
+        svc = DashboardService(svc_data["user_id"], TZ)
+        vas = svc._load_virtual_accounts()
+        assert vas == []
+
+    @pytest.mark.django_db
+    def test_excludes_archived(self, svc_data):
+        # gap: functional — archived VAs must be filtered out
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
+                " is_archived, exclude_from_net_worth, display_order)"
+                " VALUES (%s, %s, 'Active VA', 1000, false, false, 0)",
+                [str(uuid.uuid4()), svc_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
+                " is_archived, exclude_from_net_worth, display_order)"
+                " VALUES (%s, %s, 'Archived VA', 2000, true, false, 1)",
+                [str(uuid.uuid4()), svc_data["user_id"]],
+            )
+
+        svc = DashboardService(svc_data["user_id"], TZ)
+        vas = svc._load_virtual_accounts()
+        assert len(vas) == 1
+        assert vas[0]["name"] == "Active VA"
+
+    @pytest.mark.django_db
+    def test_progress_zero_when_no_target(self, svc_data):
+        # gap: functional — VA with no target_amount → progress_pct=0
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
+                " is_archived, exclude_from_net_worth, display_order)"
+                " VALUES (%s, %s, 'No Target VA', 3000, false, false, 0)",
+                [str(uuid.uuid4()), svc_data["user_id"]],
+            )
+
+        svc = DashboardService(svc_data["user_id"], TZ)
+        vas = svc._load_virtual_accounts()
+        assert len(vas) == 1
+        assert vas[0]["progress_pct"] == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Investments Total
+# ---------------------------------------------------------------------------
+
+
+class TestLoadInvestmentsTotal:
+    """Tests for load_investments_total — SUM(units * last_unit_price)."""
+
+    @pytest.mark.django_db
+    def test_sum_investments(self, svc_data):
+        # gap: functional — load_investments_total never directly tested
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO investments (id, user_id, platform, fund_name, units, last_unit_price, currency)"
+                " VALUES (%s, %s, 'Thndr', 'Fund A', 100, 15.50, 'EGP')",
+                [str(uuid.uuid4()), svc_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO investments (id, user_id, platform, fund_name, units, last_unit_price, currency)"
+                " VALUES (%s, %s, 'Thndr', 'Fund B', 50, 20.00, 'EGP')",
+                [str(uuid.uuid4()), svc_data["user_id"]],
+            )
+
+        svc = DashboardService(svc_data["user_id"], TZ)
+        total = svc._load_investments_total()
+        # 100*15.50 + 50*20.00 = 1550 + 1000 = 2550
+        assert total == pytest.approx(2550.0)
+
+    @pytest.mark.django_db
+    def test_empty_investments(self, svc_data):
+        # gap: functional — no investments → total=0
+        svc = DashboardService(svc_data["user_id"], TZ)
+        total = svc._load_investments_total()
+        assert total == pytest.approx(0.0)

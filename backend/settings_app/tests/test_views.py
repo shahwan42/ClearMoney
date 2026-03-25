@@ -121,3 +121,39 @@ class TestExportTransactions:
         client = Client()
         response = client.get("/export/transactions?from=2026-03-01&to=2026-03-31")
         assert response.status_code == 302
+
+
+@pytest.mark.django_db
+class TestCsvEdgeCases:
+    """Edge cases for CSV export."""  # gap: data
+
+    def test_csv_from_after_to_returns_empty(self, auth_client: Client) -> None:
+        """Date range where from > to returns CSV with header only."""  # gap: data
+        response = auth_client.get("/export/transactions?from=2026-03-31&to=2026-03-01")
+        assert response.status_code == 200
+        assert response["Content-Type"] == "text/csv"
+        lines = response.content.decode().strip().split("\n")
+        assert len(lines) == 1  # header only, no data rows
+
+    def test_csv_note_with_formula_chars(
+        self, auth_user: tuple[str, str, str], auth_client: Client
+    ) -> None:
+        """Note starting with '=' is exported as-is (documents current behavior)."""  # gap: data
+        user_id, _, _ = auth_user
+        inst = InstitutionFactory(user_id=user_id)
+        account = AccountFactory(
+            user_id=user_id, institution_id=inst.id, currency="EGP"
+        )
+        TransactionFactory(
+            user_id=user_id,
+            account_id=account.id,
+            type="expense",
+            amount=Decimal("50"),
+            currency="EGP",
+            date=datetime.date(2026, 3, 15),
+            note="=SUM(A1:A10)",
+        )
+        response = auth_client.get("/export/transactions?from=2026-03-01&to=2026-03-31")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "=SUM(A1:A10)" in content

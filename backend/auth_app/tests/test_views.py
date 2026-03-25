@@ -274,3 +274,37 @@ class TestLogout:
         response = client.post("/logout")
         assert response.status_code == 302
         assert response.url == "/login"  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# Invalid Email Format
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInvalidEmailFormat:
+    """Verify login rejects malformed email inputs."""  # gap: data
+
+    def test_login_empty_email_shows_error(self, client: Client) -> None:
+        """POST /login with empty email renders an error message."""  # gap: data
+        response = client.post(
+            "/login",
+            {
+                "email": "",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
+        assert response.status_code == 200
+        assert b"Email is required" in response.content
+
+    def test_login_whitespace_email_shows_error(self, client: Client) -> None:
+        """POST /login with whitespace-only email renders an error message."""  # gap: data
+        response = client.post(
+            "/login",
+            {
+                "email": "   ",
+                "_rt": str(int(time.time()) - 5),
+            },
+        )
+        assert response.status_code == 200
+        assert b"Email is required" in response.content

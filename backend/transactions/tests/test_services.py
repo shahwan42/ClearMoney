@@ -801,3 +801,210 @@ class TestTransactionListIncludesCategory:
         uncategorised = [t for t in txs if t["category_name"] is None]
         assert len(uncategorised) == 1
         assert uncategorised[0]["category_icon"] is None
+
+
+# ---------------------------------------------------------------------------
+# Virtual Account deallocation tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestDeallocateFromVirtualAccounts:
+    """Tests for VA allocation cleanup on transaction delete."""
+
+    def test_deallocates_and_reverses_balance(self, tx_data: dict) -> None:
+        """Allocate tx to VA, then deallocate — allocation deleted, VA balance reversed."""
+        svc = _svc(tx_data["user_id"])
+
+        # Create a transaction to allocate
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+
+        # Create a virtual account (not linked to a specific account)
+        va_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
+                " icon, color, display_order)"
+                " VALUES (%s, %s, %s, 0, '💰', '#0d9488', 0)",
+                [va_id, tx_data["user_id"], "Test VA"],
+            )
+
+        # Allocate 200 to the VA
+        svc.allocate_to_virtual_account(tx["id"], va_id, 200)
+
+        # Verify VA balance increased
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT current_balance FROM virtual_accounts WHERE id = %s", [va_id]
+            )
+            row = cursor.fetchone()
+        assert float(row[0]) == 200
+
+        # Deallocate
+        svc.deallocate_from_virtual_accounts(tx["id"])
+
+        # VA balance should be reversed back to 0
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT current_balance FROM virtual_accounts WHERE id = %s", [va_id]
+            )
+            row = cursor.fetchone()
+        assert float(row[0]) == 0
+
+        # Allocation row should be deleted
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) FROM virtual_account_allocations"
+                " WHERE transaction_id = %s",
+                [tx["id"]],
+            )
+            count = cursor.fetchone()[0]
+        assert count == 0
+
+    def test_noop_when_no_allocations(self, tx_data: dict) -> None:
+        """Deallocating a tx with no allocations should not error."""
+        svc = _svc(tx_data["user_id"])
+
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+
+        # Should not raise
+        svc.deallocate_from_virtual_accounts(tx["id"])
+
+
+# ---------------------------------------------------------------------------
+# TransactionService.get_allocation_for_tx — returns VA id or None
+# ---------------------------------------------------------------------------
+
+
+class TestGetAllocationForTx:
+    """get_allocation_for_tx returns the allocated VA id string, or None."""
+
+    def test_returns_va_id_when_allocated(self, tx_data: dict) -> None:
+        """When a tx is allocated to a VA, returns that VA's id."""
+        svc = _svc(tx_data["user_id"])
+
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 200,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+
+        # Create VA + allocate
+        va_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'Test VA', 0, 1)",
+                [va_id, tx_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO virtual_account_allocations"
+                " (id, virtual_account_id, transaction_id, amount)"
+                " VALUES (%s, %s, %s, -200)",
+                [str(uuid.uuid4()), va_id, tx["id"]],
+            )
+
+        result = svc.get_allocation_for_tx(tx["id"])
+        assert result == va_id
+
+    def test_returns_none_when_not_allocated(self, tx_data: dict) -> None:
+        """When a tx has no allocation, returns None."""
+        svc = _svc(tx_data["user_id"])
+
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+
+        result = svc.get_allocation_for_tx(tx["id"])
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# TransactionService._validate_basic — empty account_id
+# ---------------------------------------------------------------------------
+
+
+class TestValidateBasicEmptyAccountId:
+    """_validate_basic raises ValueError for empty account_id."""
+
+    def test_empty_account_id_raises(self, tx_data: dict) -> None:
+        """Creating a tx with empty string account_id raises ValueError."""
+        svc = _svc(tx_data["user_id"])
+
+        with pytest.raises(ValueError, match="account_id is required"):
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 100,
+                    "account_id": "",
+                }
+            )
+
+
+# ---------------------------------------------------------------------------
+# Boundary amount tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionBoundaryAmounts:
+    """Edge cases for transaction amount validation and storage precision."""
+
+    def test_negative_amount_raises(self, tx_data: dict) -> None:
+        """Negative amount is rejected by _validate_basic (amount must be positive)."""
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="positive"):
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": -100,
+                    "account_id": tx_data["egp_id"],
+                }
+            )
+
+    def test_large_amount_succeeds(self, tx_data: dict) -> None:
+        """Amount near NUMERIC(15,2) max succeeds without DB overflow."""
+        svc = _svc(tx_data["user_id"])
+        tx, new_bal = svc.create(
+            {
+                "type": "income",
+                "amount": 999999999.99,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+        assert tx["amount"] == 999999999.99
+        assert new_bal == 10000 + 999999999.99
+
+    def test_decimal_precision(self, tx_data: dict) -> None:
+        """Amount with >2 decimal places is rounded to 2dp by NUMERIC(15,2) column."""
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 100.999,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+        # Re-fetch from DB to see what NUMERIC(15,2) actually stored
+        refetched = svc.get_by_id(tx["id"])
+        assert refetched is not None
+        # DB stores NUMERIC(15,2) — rounds to 101.00
+        assert refetched["amount"] == 101.0

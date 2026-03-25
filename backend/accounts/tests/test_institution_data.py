@@ -12,6 +12,7 @@ from accounts.institution_data import (
     EGYPTIAN_BANKS,
     EGYPTIAN_FINTECHS,
     WALLET_EXAMPLES,
+    get_display_name,
     is_image_icon,
 )
 
@@ -94,6 +95,22 @@ class TestInstitutionPresets:
             if is_image_icon(preset["icon"]):
                 path = os.path.join(icon_dir, preset["icon"])
                 assert os.path.exists(path), f"Missing icon file: {path}"
+
+
+class TestGetDisplayName:
+    """get_display_name() resolves stored abbreviations to full display names."""
+
+    def test_preset_returns_full_name(self) -> None:
+        """Known preset abbreviation returns the full 'ABBR - Full Name' string."""
+        assert get_display_name("CIB") == "CIB - Commercial International Bank"
+
+    def test_custom_name_passes_through(self) -> None:
+        """Non-preset names are returned as-is (custom institutions)."""
+        assert get_display_name("My Custom Bank") == "My Custom Bank"
+
+    def test_empty_string(self) -> None:
+        """Empty string is not a preset — returned unchanged."""
+        assert get_display_name("") == ""
 
 
 class TestIsImageIcon:

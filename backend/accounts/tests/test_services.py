@@ -21,7 +21,7 @@ from core.billing import (
     parse_billing_cycle,
 )
 from core.models import User
-from tests.factories import InstitutionFactory
+from tests.factories import AccountFactory, InstitutionFactory, VirtualAccountFactory
 
 
 class TestParseBillingCycle:
@@ -536,3 +536,279 @@ class TestGetRecentTransactions:
         assert txns[0]["balance_delta"] == pytest.approx(1000.0)
         # Single tx → no preceding rows → running_balance == current_balance (10000)
         assert txns[0]["running_balance"] == pytest.approx(10000.0)
+
+
+# ---------------------------------------------------------------------------
+# get_statement_data — CC statement with billing cycle
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def statement_data(db):
+    """User + institution + CC account with billing cycle + savings account."""
+    user = UserFactory()
+    user_id = str(user.id)
+    inst_id = str(uuid.uuid4())
+    cc_id = str(uuid.uuid4())
+    savings_id = str(uuid.uuid4())
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
+            [inst_id, user_id, "Test Bank"],
+        )
+        # CC account with billing cycle metadata: statement_day=15, due_day=5
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+            " current_balance, initial_balance, credit_limit, metadata)"
+            " VALUES (%s, %s, %s, 'Test CC', 'credit_card', 'EGP', -5000, 0, 50000,"
+            ' \'{"statement_day": 15, "due_day": 5}\'::jsonb)',
+            [cc_id, user_id, inst_id],
+        )
+        # Savings account — no billing cycle
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+            " current_balance, initial_balance)"
+            " VALUES (%s, %s, %s, 'My Savings', 'savings', 'EGP', 10000, 10000)",
+            [savings_id, user_id, inst_id],
+        )
+
+    yield {
+        "user_id": user_id,
+        "cc_id": cc_id,
+        "savings_id": savings_id,
+    }
+
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
+    User.objects.filter(id=user_id).delete()
+
+
+class TestGetStatementData:
+    """get_statement_data — CC statement structure, None for non-CC, spending totals."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    @pytest.mark.django_db
+    def test_with_billing_cycle(self, statement_data: dict) -> None:
+        """CC account with billing_cycle metadata returns full statement structure."""
+        from accounts.services import AccountService, get_statement_data
+
+        svc = AccountService(statement_data["user_id"], self.tz)
+        account = svc.get_by_id(statement_data["cc_id"])
+        assert account is not None
+
+        result = get_statement_data(account, statement_data["user_id"], self.tz)
+        assert result is not None
+        # Verify top-level keys
+        assert "account" in result
+        assert "billing_cycle" in result
+        assert "transactions" in result
+        assert "opening_balance" in result
+        assert "total_spending" in result
+        assert "total_payments" in result
+        assert "closing_balance" in result
+        assert "interest_free_days" in result
+        assert "interest_free_remain" in result
+        assert "interest_free_urgent" in result
+        assert "payment_history" in result
+        # Verify types
+        assert isinstance(result["transactions"], list)
+        assert isinstance(result["payment_history"], list)
+        assert isinstance(result["total_spending"], float)
+        assert isinstance(result["total_payments"], float)
+        assert result["interest_free_days"] == 55
+        assert result["closing_balance"] == -5000.0
+
+    @pytest.mark.django_db
+    def test_without_billing_cycle(self, statement_data: dict) -> None:
+        """Savings account (no billing cycle metadata) returns None."""
+        from accounts.services import AccountService, get_statement_data
+
+        svc = AccountService(statement_data["user_id"], self.tz)
+        account = svc.get_by_id(statement_data["savings_id"])
+        assert account is not None
+
+        result = get_statement_data(account, statement_data["user_id"], self.tz)
+        assert result is None
+
+    @pytest.mark.django_db
+    def test_statement_spending_calculation(self, statement_data: dict) -> None:
+        """Spending total aggregates negative balance_delta transactions in period."""
+        from accounts.services import AccountService, get_statement_data
+
+        svc = AccountService(statement_data["user_id"], self.tz)
+        account = svc.get_by_id(statement_data["cc_id"])
+        assert account is not None
+
+        # Compute the current billing period to place transactions within it
+        result_empty = get_statement_data(account, statement_data["user_id"], self.tz)
+        assert result_empty is not None
+        period_start = result_empty["billing_cycle"].period_start
+        period_end = result_empty["billing_cycle"].period_end
+
+        # Insert transactions within the billing period
+        mid_date = period_start + timedelta(days=5)
+        # Clamp to period range
+        if mid_date > period_end:
+            mid_date = period_end
+
+        with connection.cursor() as cursor:
+            # Expense (negative balance_delta = spending)
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 1500, 'EGP', %s, -1500)",
+                [
+                    str(uuid.uuid4()),
+                    statement_data["user_id"],
+                    statement_data["cc_id"],
+                    mid_date,
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 800, 'EGP', %s, -800)",
+                [
+                    str(uuid.uuid4()),
+                    statement_data["user_id"],
+                    statement_data["cc_id"],
+                    mid_date,
+                ],
+            )
+            # Payment (positive balance_delta)
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'income', 500, 'EGP', %s, 500)",
+                [
+                    str(uuid.uuid4()),
+                    statement_data["user_id"],
+                    statement_data["cc_id"],
+                    mid_date,
+                ],
+            )
+
+        result = get_statement_data(account, statement_data["user_id"], self.tz)
+        assert result is not None
+        assert result["total_spending"] == pytest.approx(2300.0)
+        assert result["total_payments"] == pytest.approx(500.0)
+        assert len(result["transactions"]) == 3
+        # Opening balance = closing - sum of balance_deltas
+        # closing = -5000, deltas sum = -1500 + -800 + 500 = -1800
+        # opening = -5000 - (-1800) = -3200
+        assert result["opening_balance"] == pytest.approx(-3200.0)
+
+
+# ---------------------------------------------------------------------------
+# AccountService.get_excluded_va_balance — sum of excluded VA balances
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestGetExcludedVaBalance:
+    """AccountService.get_excluded_va_balance returns total of excluded VAs."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_returns_sum_of_excluded_va_balances(self, db: None) -> None:
+        """Only excluded (non-archived) VA balances are summed."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id)
+        # Excluded VA — should be counted
+        VirtualAccountFactory(
+            user_id=user.id,
+            account=account,
+            current_balance=500,
+            exclude_from_net_worth=True,
+            is_archived=False,
+        )
+        # Non-excluded VA — should be ignored
+        VirtualAccountFactory(
+            user_id=user.id,
+            account=account,
+            current_balance=300,
+            exclude_from_net_worth=False,
+            is_archived=False,
+        )
+
+        svc = AccountService(str(user.id), self.tz)
+        result = svc.get_excluded_va_balance(str(account.id))
+        assert result == pytest.approx(500.0)
+
+    def test_returns_zero_when_no_excluded_vas(self, db: None) -> None:
+        """Returns 0.0 when no VAs are excluded from net worth."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id)
+        VirtualAccountFactory(
+            user_id=user.id,
+            account=account,
+            current_balance=200,
+            exclude_from_net_worth=False,
+        )
+
+        svc = AccountService(str(user.id), self.tz)
+        result = svc.get_excluded_va_balance(str(account.id))
+        assert result == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# AccountService.get_linked_virtual_accounts — VA list with progress_pct
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestGetLinkedVirtualAccounts:
+    """AccountService.get_linked_virtual_accounts returns non-archived VAs."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_returns_linked_vas_with_progress(self, db: None) -> None:
+        """Progress pct is computed from current_balance / target_amount."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id)
+        va = VirtualAccountFactory(
+            user_id=user.id,
+            account=account,
+            current_balance=750,
+            target_amount=1000,
+            is_archived=False,
+        )
+
+        svc = AccountService(str(user.id), self.tz)
+        result = svc.get_linked_virtual_accounts(str(account.id))
+
+        assert len(result) == 1
+        assert result[0]["id"] == str(va.id)
+        assert result[0]["progress_pct"] == pytest.approx(75.0)
+
+    def test_excludes_archived_vas(self, db: None) -> None:
+        """Archived VAs are filtered out."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id)
+        VirtualAccountFactory(
+            user_id=user.id,
+            account=account,
+            is_archived=True,
+        )
+
+        svc = AccountService(str(user.id), self.tz)
+        result = svc.get_linked_virtual_accounts(str(account.id))
+        assert result == []
+
+    def test_empty_when_no_vas(self, db: None) -> None:
+        """Returns empty list when account has no linked VAs."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id)
+
+        svc = AccountService(str(user.id), self.tz)
+        result = svc.get_linked_virtual_accounts(str(account.id))
+        assert result == []

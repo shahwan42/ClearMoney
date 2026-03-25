@@ -220,6 +220,69 @@ class TestBudgetDelete:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.django_db
+class TestBudgetEdgeCases:
+    """Monetary edge cases: refunds (negative spending) and zero-limit budgets."""
+
+    def test_negative_spending_refund(self, budget_data: dict) -> None:
+        """Budget with a refund (income for the same category) — pct stays at 0."""
+        svc = _svc(budget_data["user_id"])
+        svc.create(budget_data["cat1_id"], 1000.0, "EGP")
+
+        # Only income transactions for this category — spending subquery only counts
+        # type='expense', so income (refunds) are excluded and spent stays at 0.
+        inst_id = str(uuid.uuid4())
+        acct_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO institutions (id, user_id, name, type)"
+                " VALUES (%s, %s, 'TestInst', 'bank')"
+                " ON CONFLICT DO NOTHING",
+                [inst_id, budget_data["user_id"]],
+            )
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+                " current_balance, initial_balance)"
+                " VALUES (%s, %s, %s, 'Test', 'savings', 'EGP', 0, 0)",
+                [acct_id, budget_data["user_id"], inst_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, category_id, type,"
+                " amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, %s, 'income', %s, 'EGP', %s, %s)",
+                [
+                    tx_id,
+                    budget_data["user_id"],
+                    acct_id,
+                    budget_data["cat1_id"],
+                    500.0,
+                    date.today(),
+                    500.0,
+                ],
+            )
+
+        result = svc.get_all_with_spending()
+        assert len(result) == 1
+        b = result[0]
+        # Income transactions don't count as spending — spent is 0
+        assert b["spent"] == 0.0
+        assert b["percentage"] == 0.0
+        assert b["status"] == "green"
+
+    def test_zero_limit_budget_percentage(self, budget_data: dict) -> None:
+        """Budget with monthly_limit=0 is rejected by create validation."""
+        svc = _svc(budget_data["user_id"])
+        # The service rejects monthly_limit <= 0, so zero-limit cannot be created
+        with pytest.raises(ValueError, match="Monthly limit must be positive"):
+            svc.create(budget_data["cat1_id"], 0.0, "EGP")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
 def _create_expense(
     user_id: str,
     category_id: str,

@@ -5,6 +5,7 @@ Tests run against the real database with --reuse-db.
 """
 
 from datetime import date, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -449,3 +450,51 @@ class TestRuleToView:
         rule["template_transaction"].pop("note", None)
         view = svc.rule_to_view(rule)
         assert view["note"] == "expense"
+
+
+# ---------------------------------------------------------------------------
+# rule_to_view edge cases — missing/empty template fields
+# ---------------------------------------------------------------------------
+
+
+class TestRuleToViewEdgeCases:
+    """rule_to_view handles incomplete template_transaction data gracefully."""
+
+    def test_missing_amount_in_template(self) -> None:
+        """Template with no 'amount' key defaults to 0 in display."""
+        svc = RecurringService("fake-user-id", TZ)
+        rule: dict[str, Any] = {
+            "id": "rule-1",
+            "user_id": "fake-user-id",
+            "template_transaction": {"type": "expense", "note": "No amount"},
+            "frequency": "monthly",
+            "day_of_month": None,
+            "next_due_date": date(2026, 4, 1),
+            "is_active": True,
+            "auto_confirm": False,
+            "created_at": None,
+            "updated_at": None,
+        }
+        view = svc.rule_to_view(rule)
+        assert view["amount_display"] == "0.00 EGP"
+        assert view["note"] == "No amount"
+
+    def test_empty_template_transaction(self) -> None:
+        """Completely empty template_transaction still produces valid output."""
+        svc = RecurringService("fake-user-id", TZ)
+        rule: dict[str, Any] = {
+            "id": "rule-2",
+            "user_id": "fake-user-id",
+            "template_transaction": {},
+            "frequency": "monthly",
+            "day_of_month": None,
+            "next_due_date": date(2026, 4, 1),
+            "is_active": True,
+            "auto_confirm": False,
+            "created_at": None,
+            "updated_at": None,
+        }
+        view = svc.rule_to_view(rule)
+        # No note, no type → note falls back to empty string from .get("type", "")
+        assert view["note"] == ""
+        assert view["amount_display"] == "0.00 EGP"

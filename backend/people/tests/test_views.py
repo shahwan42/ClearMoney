@@ -4,14 +4,20 @@ People view tests — HTTP-level tests for /people/* routes and /api/persons/* J
 Uses raw SQL fixtures for test data setup.
 """
 
+from __future__ import annotations
+
 import json
 import uuid
+from typing import TYPE_CHECKING
 
 import pytest
 from django.db import connection
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.models import Session, User
+
+if TYPE_CHECKING:
+    from django.test import Client
 
 
 @pytest.fixture
@@ -351,3 +357,155 @@ class TestPersonAPI:
         tx = json.loads(resp.content)
         assert tx["type"] == "loan_repayment"
         assert tx["amount"] == 800
+
+
+# ---------------------------------------------------------------------------
+# Loan API error paths
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestApiPersonLoanErrors:
+    """Error-path tests for POST /api/persons/{id}/loan."""
+
+    def _create_person(self, c: Client, people_view_data: dict[str, str]) -> str:
+        """Helper — create a person via API and return its ID."""
+        resp = c.post(
+            "/api/persons",
+            data=json.dumps({"name": "Loan Error Test"}),
+            content_type="application/json",
+        )
+        pid: str = json.loads(resp.content)["id"]
+        return pid
+
+    def test_missing_account_id_returns_error(
+        self, client: Client, people_view_data: dict[str, str]
+    ) -> None:
+        """Omitting account_id triggers a 400 from the service layer."""
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        pid = self._create_person(c, people_view_data)
+
+        resp = c.post(
+            f"/api/persons/{pid}/loan",
+            data=json.dumps({"amount": 500, "type": "loan_out"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+
+    def test_zero_amount_returns_error(
+        self, client: Client, people_view_data: dict[str, str]
+    ) -> None:
+        """amount=0 is rejected as non-positive."""
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        pid = self._create_person(c, people_view_data)
+
+        resp = c.post(
+            f"/api/persons/{pid}/loan",
+            data=json.dumps(
+                {
+                    "account_id": people_view_data["egp_id"],
+                    "amount": 0,
+                    "type": "loan_out",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+        assert "positive" in body["error"].lower()
+
+    def test_invalid_loan_type_returns_error(
+        self, client: Client, people_view_data: dict[str, str]
+    ) -> None:
+        """Invalid loan type triggers a 400 from the service layer."""
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        pid = self._create_person(c, people_view_data)
+
+        resp = c.post(
+            f"/api/persons/{pid}/loan",
+            data=json.dumps(
+                {
+                    "account_id": people_view_data["egp_id"],
+                    "amount": 500,
+                    "type": "invalid_type",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+
+
+# ---------------------------------------------------------------------------
+# Repayment API error paths
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestApiPersonRepaymentErrors:
+    """Error-path tests for POST /api/persons/{id}/repayment."""
+
+    def _create_person_with_loan(
+        self, c: Client, people_view_data: dict[str, str]
+    ) -> str:
+        """Helper — create a person with an outstanding loan, return person ID."""
+        resp = c.post(
+            "/api/persons",
+            data=json.dumps({"name": "Repay Error Test"}),
+            content_type="application/json",
+        )
+        pid: str = json.loads(resp.content)["id"]
+        c.post(
+            f"/api/persons/{pid}/loan",
+            data=json.dumps(
+                {
+                    "account_id": people_view_data["egp_id"],
+                    "amount": 2000,
+                    "type": "loan_out",
+                }
+            ),
+            content_type="application/json",
+        )
+        return pid
+
+    def test_missing_amount_returns_error(
+        self, client: Client, people_view_data: dict[str, str]
+    ) -> None:
+        """Omitting amount defaults to 0, which the service rejects."""
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        pid = self._create_person_with_loan(c, people_view_data)
+
+        resp = c.post(
+            f"/api/persons/{pid}/repayment",
+            data=json.dumps({"account_id": people_view_data["egp_id"]}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+        body = json.loads(resp.content)
+        assert "error" in body
+
+    def test_nonexistent_person_returns_404(
+        self, client: Client, people_view_data: dict[str, str]
+    ) -> None:
+        """Repayment to a non-existent person_id returns an error."""
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        fake_pid = str(uuid.uuid4())
+
+        resp = c.post(
+            f"/api/persons/{fake_pid}/repayment",
+            data=json.dumps(
+                {
+                    "account_id": people_view_data["egp_id"],
+                    "amount": 500,
+                }
+            ),
+            content_type="application/json",
+        )
+        # Service raises ValueError("Person not found") -> 400
+        assert resp.status_code in (400, 404)
+        body = json.loads(resp.content)
+        assert "error" in body

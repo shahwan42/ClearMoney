@@ -10,6 +10,7 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
+from pytest_mock import MockerFixture
 
 from core.models import DailySnapshot
 from tests.factories import (
@@ -128,4 +129,43 @@ class TestCommands:
         )
         with caplog.at_level(logging.INFO):
             call_command("run_startup_jobs", stdout=self.out)
+        assert "startup_job.all_complete" in caplog.text
+
+
+@pytest.mark.django_db(transaction=True)
+class TestStartupJobsPartialFailure:
+    """Verify partial failure resilience in run_startup_jobs."""
+
+    def test_single_job_failure_does_not_stop_others(
+        self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """One failing sub-command should not prevent the rest from running."""  # gap: functional
+        # Make reconcile_balances blow up
+        original_call_command = call_command
+
+        calls: list[str] = []
+
+        def tracking_call_command(name: str, **kwargs: object) -> None:
+            calls.append(name)
+            if name == "reconcile_balances":
+                raise RuntimeError("simulated reconcile failure")
+            original_call_command(name, **kwargs)
+
+        mocker.patch(
+            "jobs.management.commands.run_startup_jobs.call_command",
+            side_effect=tracking_call_command,
+        )
+
+        out = StringIO()
+        with caplog.at_level(logging.INFO):
+            call_command("run_startup_jobs", stdout=out)
+
+        # All 5 jobs were attempted despite reconcile_balances failing
+        assert "cleanup_sessions" in calls
+        assert "process_recurring" in calls
+        assert "reconcile_balances" in calls
+        assert "refresh_views" in calls
+        assert "take_snapshots" in calls
+
+        # The orchestrator still completed
         assert "startup_job.all_complete" in caplog.text

@@ -644,3 +644,158 @@ class TestAccountAddAutoName:
             )
             row = cursor.fetchone()
         assert row is not None
+
+
+# ---------------------------------------------------------------------------
+# Institution list partial
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInstitutionListPartial:
+    """GET /accounts/list renders institution list partial."""
+
+    def test_200_with_data(self, client, accounts_data) -> None:  # gap: functional
+        """Partial returns institution list HTML with existing data."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get("/accounts/list")
+        assert response.status_code == 200
+        assert b"Test Bank" in response.content
+        assert b"Main Savings" in response.content
+
+    def test_200_empty_user(self, client, empty_user) -> None:  # gap: functional
+        """Partial returns 200 even when user has no institutions."""
+        c = set_auth_cookie(client, empty_user["session_token"])
+        response = c.get("/accounts/list")
+        assert response.status_code == 200
+
+    def test_is_partial_not_full_page(
+        self, client, accounts_data
+    ) -> None:  # gap: functional
+        """Response is an HTML fragment, not a full page."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get("/accounts/list")
+        assert b"<!DOCTYPE" not in response.content
+
+
+# ---------------------------------------------------------------------------
+# Empty partial
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestEmptyPartial:
+    """GET /accounts/empty returns empty HTML for HTMX auto-dismiss."""
+
+    def test_200_empty_body(self, client, accounts_data) -> None:  # gap: functional
+        """Returns 200 with empty body."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get("/accounts/empty")
+        assert response.status_code == 200
+        assert response.content == b""
+        assert "text/html" in response["Content-Type"]
+
+
+# ---------------------------------------------------------------------------
+# Account edit form 404
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAccountEditForm404:
+    """GET /accounts/<id>/edit-form returns 404 for non-existent account."""
+
+    def test_nonexistent_account_returns_404(
+        self, client, accounts_data
+    ) -> None:  # gap: functional
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{uuid.uuid4()}/edit-form")
+        assert response.status_code == 404
+
+    def test_valid_account_returns_200(
+        self, client, accounts_data
+    ) -> None:  # gap: functional
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}/edit-form")
+        assert response.status_code == 200
+        assert b"Main Savings" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Institution edit form 404
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInstitutionEditForm404:
+    """GET /institutions/<id>/edit-form returns 404 for non-existent institution."""
+
+    def test_nonexistent_institution_returns_404(
+        self, client, accounts_data
+    ) -> None:  # gap: functional
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/institutions/{uuid.uuid4()}/edit-form")
+        assert response.status_code == 404
+
+    def test_valid_institution_returns_200(
+        self, client, accounts_data
+    ) -> None:  # gap: functional
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/institutions/{accounts_data['institution_id']}/edit-form")
+        assert response.status_code == 200
+        assert b"Test Bank" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Credit card statement — no billing cycle
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestCreditCardStatementNoBillingCycle:
+    """GET /accounts/<id>/statement for CC without billing cycle metadata."""
+
+    def test_renders_error_template(self, client, accounts_data) -> None:  # gap: state
+        """CC with no billing cycle in metadata renders the error template."""
+        user_id = accounts_data["user_id"]
+        cc_no_cycle_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+                " current_balance, initial_balance, credit_limit)"
+                " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', -2000, 0, 30000)",
+                [
+                    cc_no_cycle_id,
+                    user_id,
+                    accounts_data["institution_id"],
+                    "CC No Cycle",
+                ],
+            )
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{cc_no_cycle_id}/statement")
+        assert response.status_code == 200
+        assert b"billing cycle" in response.content.lower()
+
+    def test_empty_metadata_renders_error(
+        self, client, accounts_data
+    ) -> None:  # gap: state
+        """CC with empty JSON metadata (no statement_day/due_day) renders error."""
+        user_id = accounts_data["user_id"]
+        cc_empty_meta_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+                " current_balance, initial_balance, credit_limit, metadata)"
+                " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', -1000, 0, 20000, %s::jsonb)",
+                [
+                    cc_empty_meta_id,
+                    user_id,
+                    accounts_data["institution_id"],
+                    "CC Empty Meta",
+                    "{}",
+                ],
+            )
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{cc_empty_meta_id}/statement")
+        assert response.status_code == 200
+        assert b"billing cycle" in response.content.lower()

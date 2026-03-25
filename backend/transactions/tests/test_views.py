@@ -46,6 +46,7 @@ def tx_view_data(db):
     yield {
         "user_id": user_id,
         "session_token": session.token,
+        "inst_id": inst_id,
         "egp_id": egp_id,
         "cat_id": cat_id,
     }
@@ -1350,3 +1351,316 @@ class TestTransactionDetailSheet:
         content = response.content.decode()
         # counter_amount must NOT appear with wrong EGP default when counter account is gone
         assert "Counter amount" not in content
+
+
+# ---------------------------------------------------------------------------
+# Transaction new — duplicate prefill
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionNewDuplicate:
+    """GET /transactions/new?dup=<tx_id> prefills form from existing tx."""
+
+    def test_prefills_amount_and_account(
+        self, client, tx_view_data
+    ) -> None:  # gap: functional
+        """Dup param loads the source tx data into the form as prefill context."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, category_id, type,"
+                " amount, currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, %s, 'expense', 750, 'EGP', %s, 'Groceries run', -750)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    tx_view_data["cat_id"],
+                    date(2026, 3, 20),
+                ],
+            )
+        response = c.get(f"/transactions/new?dup={tx_id}")
+        assert response.status_code == 200
+        content = response.content.decode()
+        # Amount prefilled
+        assert "750" in content
+        # Note prefilled
+        assert "Groceries run" in content
+        # Account ID present (selected in dropdown)
+        assert tx_view_data["egp_id"] in content
+
+    def test_invalid_dup_id_still_loads_page(
+        self, client, tx_view_data
+    ) -> None:  # gap: functional
+        """Non-existent dup ID doesn't crash — page loads with no prefill."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/new?dup={uuid.uuid4()}")
+        assert response.status_code == 200
+        assert b"New Transaction" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Transaction row partial
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionRowHappyPath:
+    """GET /transactions/row/<id> renders a single transaction row partial."""
+
+    def test_returns_row_html(self, client, tx_view_data) -> None:  # gap: functional
+        """Row partial returns 200 with transaction data."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 300, 'EGP', %s, 'Coffee beans', -300)",
+                [
+                    tx_id,
+                    tx_view_data["user_id"],
+                    tx_view_data["egp_id"],
+                    date(2026, 3, 22),
+                ],
+            )
+        response = c.get(f"/transactions/row/{tx_id}")
+        assert response.status_code == 200
+        assert b"Coffee beans" in response.content
+        # Partial, not full page
+        assert b"<!DOCTYPE" not in response.content
+
+    def test_nonexistent_tx_returns_404(
+        self, client, tx_view_data
+    ) -> None:  # gap: functional
+        """Non-existent tx_id returns 404."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/row/{uuid.uuid4()}")
+        assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Transaction detail sheet — transfer
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionDetailSheetTransfer:
+    """GET /transactions/detail/<id> for a transfer tx shows counter_account_name."""
+
+    def test_shows_counter_account_name(
+        self, client, tx_view_data
+    ) -> None:  # gap: state
+        """Transfer tx detail sheet includes the counter account's name."""
+        user_id = tx_view_data["user_id"]
+        dest_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            # Create destination account
+            cursor.execute(
+                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
+                " current_balance, initial_balance)"
+                " VALUES (%s, %s, %s, %s, 'savings', 'EGP', 5000, 5000)",
+                [dest_id, user_id, tx_view_data["inst_id"], "Dest Savings"],
+            )
+            # Create transfer transaction
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, counter_account_id,"
+                " type, amount, currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, %s, 'transfer', 1000, 'EGP', %s, 'Rent payment', -1000)",
+                [tx_id, user_id, tx_view_data["egp_id"], dest_id, date(2026, 3, 20)],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Dest Savings" in content
+        assert "Rent payment" in content
+
+
+# ---------------------------------------------------------------------------
+# Transaction detail sheet — loan
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionDetailSheetLoan:
+    """GET /transactions/detail/<id> for a loan tx shows person_name."""
+
+    def test_shows_person_name(self, client, tx_view_data) -> None:  # gap: state
+        """Loan tx detail sheet includes the person's name."""
+        user_id = tx_view_data["user_id"]
+        person_id = str(uuid.uuid4())
+        tx_id = str(uuid.uuid4())
+        with connection.cursor() as cursor:
+            # Create person
+            cursor.execute(
+                "INSERT INTO persons (id, user_id, name, net_balance, net_balance_egp, net_balance_usd)"
+                " VALUES (%s, %s, %s, 0, 0, 0)",
+                [person_id, user_id, "Omar"],
+            )
+            # Create loan transaction
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, person_id,"
+                " type, amount, currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, %s, 'lend', 2000, 'EGP', %s, 'Lent to Omar', -2000)",
+                [tx_id, user_id, tx_view_data["egp_id"], person_id, date(2026, 3, 21)],
+            )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx_id}")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Omar" in content
+        assert "Lent to Omar" in content
+
+
+# ---------------------------------------------------------------------------
+# Transaction update — VA reallocation via PUT
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionUpdateVaReallocation:
+    """PUT /transactions/<id> reallocates virtual account correctly."""
+
+    def test_update_reallocates_va(self, client, tx_view_data) -> None:
+        """Updating from VA1 to VA2 reverses VA1 balance and increases VA2."""
+        user_id = tx_view_data["user_id"]
+        egp_id = tx_view_data["egp_id"]
+        cat_id = tx_view_data["cat_id"]
+        tx_id = str(uuid.uuid4())
+        va1_id = str(uuid.uuid4())
+        va2_id = str(uuid.uuid4())
+        alloc_id = str(uuid.uuid4())
+
+        with connection.cursor() as cursor:
+            # Create two virtual accounts
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'VA1', -500, 1)",
+                [va1_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'VA2', 0, 2)",
+                [va2_id, user_id],
+            )
+            # Create expense transaction
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, 'Test', -500)",
+                [tx_id, user_id, egp_id, date(2026, 3, 20)],
+            )
+            # Allocate to VA1
+            cursor.execute(
+                "INSERT INTO virtual_account_allocations"
+                " (id, virtual_account_id, transaction_id, amount)"
+                " VALUES (%s, %s, %s, -500)",
+                [alloc_id, va1_id, tx_id],
+            )
+
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.put(
+            f"/transactions/{tx_id}",
+            data=f"type=expense&amount=500&category_id={cat_id}&note=Test&date=2026-03-20&virtual_account_id={va2_id}",
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+
+        # VA1 balance should be reversed: -500 - (-500) = 0
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT current_balance FROM virtual_accounts WHERE id = %s", [va1_id]
+            )
+            va1_balance = float(cursor.fetchone()[0])
+            assert va1_balance == pytest.approx(0.0)
+
+            # VA2 balance should be increased: 0 + (-500) = -500
+            cursor.execute(
+                "SELECT current_balance FROM virtual_accounts WHERE id = %s", [va2_id]
+            )
+            va2_balance = float(cursor.fetchone()[0])
+            assert va2_balance == pytest.approx(-500.0)
+
+            # Allocation should point to VA2
+            cursor.execute(
+                "SELECT virtual_account_id FROM virtual_account_allocations"
+                " WHERE transaction_id = %s",
+                [tx_id],
+            )
+            row = cursor.fetchone()
+            assert str(row[0]) == va2_id
+
+        # Cleanup
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM virtual_account_allocations WHERE transaction_id = %s",
+                [tx_id],
+            )
+            cursor.execute("DELETE FROM transactions WHERE id = %s", [tx_id])
+            cursor.execute(
+                "DELETE FROM virtual_accounts WHERE id IN (%s, %s)", [va1_id, va2_id]
+            )
+
+    def test_update_removes_va_when_cleared(self, client, tx_view_data) -> None:
+        """Updating with no VA clears the allocation and reverses balance."""
+        user_id = tx_view_data["user_id"]
+        egp_id = tx_view_data["egp_id"]
+        cat_id = tx_view_data["cat_id"]
+        tx_id = str(uuid.uuid4())
+        va_id = str(uuid.uuid4())
+        alloc_id = str(uuid.uuid4())
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
+                " VALUES (%s, %s, 'VA-Remove', -300, 1)",
+                [va_id, user_id],
+            )
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
+                " currency, date, note, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 300, 'EGP', %s, 'Remove VA', -300)",
+                [tx_id, user_id, egp_id, date(2026, 3, 20)],
+            )
+            cursor.execute(
+                "INSERT INTO virtual_account_allocations"
+                " (id, virtual_account_id, transaction_id, amount)"
+                " VALUES (%s, %s, %s, -300)",
+                [alloc_id, va_id, tx_id],
+            )
+
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.put(
+            f"/transactions/{tx_id}",
+            data=f"type=expense&amount=300&category_id={cat_id}&note=Remove VA&date=2026-03-20&virtual_account_id=",
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+
+        with connection.cursor() as cursor:
+            # VA balance should be reversed: -300 - (-300) = 0
+            cursor.execute(
+                "SELECT current_balance FROM virtual_accounts WHERE id = %s", [va_id]
+            )
+            va_balance = float(cursor.fetchone()[0])
+            assert va_balance == pytest.approx(0.0)
+
+            # Allocation should be deleted
+            cursor.execute(
+                "SELECT COUNT(*) FROM virtual_account_allocations"
+                " WHERE transaction_id = %s",
+                [tx_id],
+            )
+            count = cursor.fetchone()[0]
+            assert count == 0
+
+        # Cleanup
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM transactions WHERE id = %s", [tx_id])
+            cursor.execute("DELETE FROM virtual_accounts WHERE id = %s", [va_id])

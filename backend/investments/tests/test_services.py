@@ -192,3 +192,42 @@ class TestDelete:
 
         assert len(svc.get_all()) == 0
         assert svc.get_total_valuation() == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Valuation edge cases
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestInvestmentValuationEdgeCases:
+    """Monetary edge cases: very small prices and large value products."""
+
+    def test_very_small_unit_price(self, inv_data: dict) -> None:
+        """A fractional unit price (0.001) is stored and retrieved correctly."""
+        svc = _svc(inv_data["user_id"])
+        inv_id = svc.create(
+            {"fund_name": "MicroFund", "units": 1000, "unit_price": 0.001}
+        )
+
+        investments = svc.get_all()
+        match = [i for i in investments if i["id"] == inv_id]
+        assert len(match) == 1
+        assert match[0]["last_unit_price"] == 0.001
+
+    def test_large_units_times_large_price(self, inv_data: dict) -> None:
+        """Large units * large price computes without DB overflow.
+
+        999999 * 999.99 = 999,990,000.01 — fits within NUMERIC(15,2).
+        """
+        svc = _svc(inv_data["user_id"])
+        svc.create({"fund_name": "BigFund", "units": 999999, "unit_price": 999.99})
+
+        investments = svc.get_all()
+        assert len(investments) == 1
+        expected = 999999 * 999.99
+        assert abs(investments[0]["valuation"] - expected) < 0.01
+
+        # Also verify get_total_valuation aggregates correctly
+        total = svc.get_total_valuation()
+        assert abs(total - expected) < 0.01
