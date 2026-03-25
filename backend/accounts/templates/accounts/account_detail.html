@@ -218,6 +218,13 @@
 
 <!-- Transaction detail bottom sheet -->
 {% include "components/bottom_sheet.html" with name="tx-detail" aria_label="Transaction details" %}
+{% include "components/bottom_sheet.html" with name="tx-edit" aria_label="Edit transaction" %}
+
+<script>
+document.body.addEventListener('closeEditSheet', function() {
+    BottomSheet.close('tx-edit');
+});
+</script>
 
 <!-- Edit account bottom sheet -->
 {% include "components/bottom_sheet.html" with name="edit-account" %}

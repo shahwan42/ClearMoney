@@ -109,7 +109,7 @@ Context:
 
     {# ── Action buttons ── #}
     <div class="flex gap-3 pt-2">
-        <button onclick="BottomSheet.close('tx-detail'); htmx.ajax('GET', '/transactions/edit/{{ tx.id }}', {target: '#tx-{{ tx.id }}', swap: 'outerHTML'})"
+        <button onclick="BottomSheet.close('tx-detail'); setTimeout(function(){ BottomSheet.open('tx-edit', {url: '/transactions/edit/{{ tx.id }}'}); }, 350)"
                 class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
                 aria-label="Edit transaction">
             Edit

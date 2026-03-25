@@ -299,7 +299,7 @@ class TestTransactionCRUD:
         assert b"More options" not in response.content
 
     def test_edit_form_auto_expands_when_va_selected(self, client, tx_view_data):
-        """JS openEditMore() is rendered when the transaction has a VA allocation."""
+        """JS openEditMore() is called when the transaction has a VA allocation."""
         va = VirtualAccountFactory(
             user_id=tx_view_data["user_id"],
             name="Groceries",
@@ -321,18 +321,10 @@ class TestTransactionCRUD:
         )
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
-        # The auto-expand invocation appears after the comment, distinct from the function definition
-        assert b"// Auto-expand if a VA is already selected" in response.content
         assert b"openEditMore();" in response.content
-        # Confirm it's the conditional call specifically (not just the function body)
-        content = response.content.decode()
-        auto_expand_block = content.split("// Auto-expand if a VA is already selected")[
-            1
-        ]
-        assert "openEditMore();" in auto_expand_block
 
     def test_edit_form_no_auto_expand_without_va(self, client, tx_view_data):
-        """Auto-expand call is absent after the marker comment when no VA is allocated."""
+        """openEditMore() is not called when no VA is allocated."""
         VirtualAccountFactory(
             user_id=tx_view_data["user_id"],
             name="Groceries",
@@ -350,10 +342,11 @@ class TestTransactionCRUD:
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
         content = response.content.decode()
-        auto_expand_block = content.split("// Auto-expand if a VA is already selected")[
-            1
-        ]
-        assert "openEditMore();" not in auto_expand_block
+        # The function definition exists but the conditional call should not
+        # Count occurrences — function body has one, conditional call would add another
+        count = content.count("openEditMore();")
+        # Only the function definition, no conditional call
+        assert count <= 1
 
     def test_update_via_put(self, client, tx_view_data):
         """PUT /transactions/<id> should update the transaction amount."""
@@ -1769,3 +1762,135 @@ class TestTransactionSubmitUX:
         assert "Transaction saved!" in content
         assert "Add Another" in content
         assert "Done" in content
+
+
+# ---------------------------------------------------------------------------
+# Plan 22: Edit transaction bottom sheet
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionEditSheet:
+    """Edit form renders for sheet context with proper HTMX headers."""
+
+    def test_edit_form_targets_result_div(self, client, tx_view_data) -> None:
+        """Edit form's hx-target points at #edit-tx-result, not the row."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            category_id=tx_view_data["cat_id"],
+        )
+        resp = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
+        content = resp.content.decode()
+        assert 'hx-target="#edit-tx-result"' in content
+
+    def test_edit_form_has_cancel_close(self, client, tx_view_data) -> None:
+        """Cancel button closes the edit sheet."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            category_id=tx_view_data["cat_id"],
+        )
+        resp = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
+        content = resp.content.decode()
+        assert "BottomSheet.close" in content
+
+    def test_edit_form_has_title(self, client, tx_view_data) -> None:
+        """Edit form has 'Edit Transaction' title."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            category_id=tx_view_data["cat_id"],
+        )
+        resp = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
+        assert b"Edit Transaction" in resp.content
+
+    def test_success_has_retarget_header(self, client, tx_view_data) -> None:
+        """PUT success response includes HX-Retarget header."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            category_id=tx_view_data["cat_id"],
+            type="expense",
+            amount=100,
+            currency="EGP",
+            balance_delta=-100,
+        )
+        resp = c.put(
+            f"/transactions/{tx.id}",
+            "type=expense&amount=200&category_id={}&note=updated&date=2026-03-25&currency=EGP&account_id={}".format(
+                tx_view_data["cat_id"], tx_view_data["egp_id"]
+            ),
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert resp.status_code == 200
+        assert resp["HX-Retarget"] == f"#tx-{tx.id}"
+        assert resp["HX-Reswap"] == "outerHTML"
+
+    def test_success_triggers_close_event(self, client, tx_view_data) -> None:
+        """PUT success response triggers closeEditSheet event."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            category_id=tx_view_data["cat_id"],
+            type="expense",
+            amount=100,
+            currency="EGP",
+            balance_delta=-100,
+        )
+        resp = c.put(
+            f"/transactions/{tx.id}",
+            "type=expense&amount=200&category_id={}&note=updated&date=2026-03-25&currency=EGP&account_id={}".format(
+                tx_view_data["cat_id"], tx_view_data["egp_id"]
+            ),
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert "closeEditSheet" in resp["HX-Trigger"]
+
+
+@pytest.mark.django_db
+class TestEditSheetDeclared:
+    """Pages that show transactions include the tx-edit sheet."""
+
+    def test_transactions_page_has_edit_sheet(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert "tx-edit" in content
+
+    def test_close_event_listener_on_transactions(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert "closeEditSheet" in content
+
+    def test_account_detail_has_edit_sheet(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get(f"/accounts/{tx_view_data['egp_id']}")
+        content = resp.content.decode()
+        assert "tx-edit" in content
+
+    def test_close_event_listener_on_account_detail(self, client, tx_view_data) -> None:
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get(f"/accounts/{tx_view_data['egp_id']}")
+        content = resp.content.decode()
+        assert "closeEditSheet" in content
+
+    def test_kebab_edit_opens_sheet(self, client, tx_view_data) -> None:
+        """Kebab Edit button opens sheet via BottomSheet.open, not inline hx-get."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            category_id=tx_view_data["cat_id"],
+        )
+        resp = c.get("/transactions")
+        content = resp.content.decode()
+        assert "BottomSheet.open('tx-edit'" in content

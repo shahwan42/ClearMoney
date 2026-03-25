@@ -311,9 +311,17 @@ def transaction_update(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
                 except ValueError:
                     pass
 
-        # Return updated row
+        # Return updated row with retarget headers so HTMX updates the row
+        # in-place, regardless of the form's hx-target (which points at the
+        # error div inside the sheet).
         enriched = svc.get_by_id_enriched(str(tx_id))
-        return render(request, "transactions/_transaction_row.html", {"tx": enriched})
+        response = render(
+            request, "transactions/_transaction_row.html", {"tx": enriched}
+        )
+        response["HX-Retarget"] = f"#tx-{tx_id}"
+        response["HX-Reswap"] = "outerHTML"
+        response["HX-Trigger"] = "closeEditSheet"
+        return response
     except ValueError as e:
         return error_response(str(e))
 
