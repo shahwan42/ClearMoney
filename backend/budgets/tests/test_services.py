@@ -9,12 +9,15 @@ from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from budgets.services import BudgetService
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User
-from tests.factories import CategoryFactory
+from tests.factories import (
+    AccountFactory,
+    CategoryFactory,
+    InstitutionFactory,
+    TransactionFactory,
+)
 
 TZ = ZoneInfo("Africa/Cairo")
 
@@ -33,16 +36,6 @@ def budget_data(db):
         "cat1_id": str(cat1.id),
         "cat2_id": str(cat2.id),
     }
-
-    # Cleanup — order matters for FK constraints
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM budgets WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 def _svc(user_id: str) -> BudgetService:
@@ -231,36 +224,28 @@ class TestBudgetEdgeCases:
 
         # Only income transactions for this category — spending subquery only counts
         # type='expense', so income (refunds) are excluded and spent stays at 0.
-        inst_id = str(uuid.uuid4())
-        acct_id = str(uuid.uuid4())
-        tx_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO institutions (id, user_id, name, type)"
-                " VALUES (%s, %s, 'TestInst', 'bank')"
-                " ON CONFLICT DO NOTHING",
-                [inst_id, budget_data["user_id"]],
-            )
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, %s, 'Test', 'savings', 'EGP', 0, 0)",
-                [acct_id, budget_data["user_id"], inst_id],
-            )
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, category_id, type,"
-                " amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, %s, 'income', %s, 'EGP', %s, %s)",
-                [
-                    tx_id,
-                    budget_data["user_id"],
-                    acct_id,
-                    budget_data["cat1_id"],
-                    500.0,
-                    date.today(),
-                    500.0,
-                ],
-            )
+        inst = InstitutionFactory(
+            user_id=budget_data["user_id"], name="TestInst", type="bank"
+        )
+        acct = AccountFactory(
+            user_id=budget_data["user_id"],
+            institution_id=inst.id,
+            name="Test",
+            type="savings",
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        TransactionFactory(
+            user_id=budget_data["user_id"],
+            account_id=acct.id,
+            category_id=budget_data["cat1_id"],
+            type="income",
+            amount=500.0,
+            currency="EGP",
+            date=date.today(),
+            balance_delta=500.0,
+        )
 
         result = svc.get_all_with_spending()
         assert len(result) == 1
@@ -291,32 +276,28 @@ def _create_expense(
 ) -> None:
     """Insert a test expense transaction with an account.
 
-    Creates a temporary account if needed, then inserts a transaction.
+    Creates a temporary institution + account via factories, then inserts a transaction.
     """
     if tx_date is None:
         tx_date = date.today()
 
-    inst_id = str(uuid.uuid4())
-    acct_id = str(uuid.uuid4())
-    tx_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type)"
-            " VALUES (%s, %s, 'TestInst', 'bank')"
-            " ON CONFLICT DO NOTHING",
-            [inst_id, user_id],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, 'Test', 'savings',"
-            " 'EGP', 0, 0)",
-            [acct_id, user_id, inst_id],
-        )
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type,"
-            " amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', %s, 'EGP', %s, %s)",
-            [tx_id, user_id, acct_id, category_id, amount, tx_date, -amount],
-        )
+    inst = InstitutionFactory(user_id=user_id, name="TestInst", type="bank")
+    acct = AccountFactory(
+        user_id=user_id,
+        institution_id=inst.id,
+        name="Test",
+        type="savings",
+        currency="EGP",
+        current_balance=0,
+        initial_balance=0,
+    )
+    TransactionFactory(
+        user_id=user_id,
+        account_id=acct.id,
+        category_id=category_id,
+        type="expense",
+        amount=amount,
+        currency="EGP",
+        date=tx_date,
+        balance_delta=-amount,
+    )

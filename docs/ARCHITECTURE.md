@@ -14,7 +14,7 @@ ClearMoney is a **server-rendered** personal finance app. Django handles all rou
 | HTTP Router    | `urls.py`                   | `routes/web.php`            |
 | Controllers    | `views.py`                  | `app/Http/Controllers/`     |
 | Business Logic | `services.py`               | `app/Services/`             |
-| Database Layer | Django ORM + raw SQL        | Eloquent Models             |
+| Database Layer | Django ORM                  | Eloquent Models             |
 | Models         | `core/models.py`            | `app/Models/`               |
 | Templates      | Django Templates            | Blade templates             |
 | Migrations     | `python manage.py migrate`  | `php artisan migrate`       |
@@ -44,7 +44,7 @@ core/middleware.py           -- GoSessionAuthMiddleware: session cookie → user
 <app>/services.py            -- Business logic (like a Service class)
      |
      v
-connection.cursor()          -- Raw SQL / ORM queries (like Eloquent)
+Django ORM / cursor()        -- ORM queries (like Eloquent); raw SQL only for DDL/window funcs
      |
      v
 PostgreSQL
@@ -250,23 +250,14 @@ make makemigrations   # Generate migration files
 make migrate          # Apply pending migrations
 ```
 
-### Raw SQL vs ORM
+### ORM vs Raw SQL
 
-The codebase uses both:
-- **ORM** for simple queries and model definitions
-- **Raw SQL** via `connection.cursor()` for complex aggregations (reports, dashboard stats)
+The codebase primarily uses the Django ORM. Raw SQL via `connection.cursor()` is reserved for two cases with no ORM equivalent:
 
-```python
-# Raw SQL example (reports/services.py)
-with connection.cursor() as cursor:
-    cursor.execute("""
-        SELECT category_id, SUM(amount)
-        FROM transactions
-        WHERE user_id = %s AND date >= %s
-        GROUP BY category_id
-    """, [user_id, start_date])
-    rows = cursor.fetchall()
-```
+- **Window functions** — `transactions/services/crud.py` uses `SUM() OVER (PARTITION BY ...)` for running balance calculations
+- **DDL** — `jobs/services/refresh_views.py` runs `REFRESH MATERIALIZED VIEW CONCURRENTLY`
+
+Everything else (reports aggregations, dashboard stats, CRUD) uses Django ORM.
 
 All monetary values use `NUMERIC(15,2)`. Balance updates are atomic — every transaction INSERT and balance UPDATE happen in a single DB transaction.
 

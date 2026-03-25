@@ -8,10 +8,9 @@ import uuid
 from datetime import date, timedelta
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User, VirtualAccountAllocation
+from core.models import VirtualAccount, VirtualAccountAllocation
 from tests.factories import AccountFactory, InstitutionFactory, TransactionFactory
 from virtual_accounts.services import VirtualAccountService
 
@@ -37,19 +36,6 @@ def va_data(db):
         "user_id": user_id,
         "account_id": str(acct.id),
     }
-
-    # Cleanup — order matters for FK constraints
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "DELETE FROM virtual_account_allocations WHERE virtual_account_id IN "
-            "(SELECT id FROM virtual_accounts WHERE user_id = %s)",
-            [user_id],
-        )
-        cursor.execute("DELETE FROM virtual_accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 def _svc(user_id: str) -> VirtualAccountService:
@@ -84,15 +70,8 @@ class TestGetAll:
         va2 = svc.create(name="First", account_id=va_data["account_id"])
 
         # Manually set display_order to verify ordering
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "UPDATE virtual_accounts SET display_order = 2 WHERE id = %s",
-                [va1["id"]],
-            )
-            cursor.execute(
-                "UPDATE virtual_accounts SET display_order = 1 WHERE id = %s",
-                [va2["id"]],
-            )
+        VirtualAccount.objects.filter(id=va1["id"]).update(display_order=2)
+        VirtualAccount.objects.filter(id=va2["id"]).update(display_order=1)
 
         result = svc.get_all()
         assert len(result) == 2

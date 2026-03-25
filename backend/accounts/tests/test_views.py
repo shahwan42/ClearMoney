@@ -1,17 +1,22 @@
 """
 Accounts view tests — HTTP-level tests for all /accounts/* and /institutions/* routes.
 
-Fixtures create test data via raw SQL, tests hit endpoints via Django test client.
+Fixtures create test data via factory_boy factories, tests hit endpoints via Django test client.
 """
 
 import uuid
 from datetime import date
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from core.models import Account, Institution, Transaction
+from tests.factories import (
+    AccountFactory,
+    CategoryFactory,
+    InstitutionFactory,
+    TransactionFactory,
+)
 
 
 @pytest.fixture
@@ -22,56 +27,46 @@ def accounts_data(db):
     """
     user = UserFactory()
     session = SessionFactory(user=user)
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    savings_id = str(uuid.uuid4())
-    cc_id = str(uuid.uuid4())
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Test Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-            [savings_id, user_id, inst_id, "Main Savings", 15000, 15000],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance, credit_limit, metadata)"
-            " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', %s, %s, %s, %s::jsonb)",
-            [
-                cc_id,
-                user_id,
-                inst_id,
-                "Test CC",
-                -5000,
-                0,
-                50000,
-                '{"statement_day": 15, "due_day": 5}',
-            ],
-        )
-        # One transaction for the savings account
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
-            " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, 'Test tx', -500)",
-            [str(uuid.uuid4()), user_id, savings_id, date(2026, 3, 15)],
-        )
+    inst = InstitutionFactory(user_id=user.id, name="Test Bank", type="bank")
+    savings = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Main Savings",
+        type="savings",
+        currency="EGP",
+        current_balance=15000,
+        initial_balance=15000,
+    )
+    cc = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Test CC",
+        type="credit_card",
+        currency="EGP",
+        current_balance=-5000,
+        initial_balance=0,
+        credit_limit=50000,
+        metadata={"statement_day": 15, "due_day": 5},
+    )
+    TransactionFactory(
+        user_id=user.id,
+        account_id=savings.id,
+        type="expense",
+        amount=500,
+        currency="EGP",
+        date=date(2026, 3, 15),
+        note="Test tx",
+        balance_delta=-500,
+    )
 
     yield {
-        "user_id": user_id,
+        "user_id": str(user.id),
         "session_token": session.token,
-        "institution_id": inst_id,
-        "savings_id": savings_id,
-        "cc_id": cc_id,
+        "institution_id": str(inst.id),
+        "savings_id": str(savings.id),
+        "cc_id": str(cc.id),
     }
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 @pytest.fixture
@@ -81,9 +76,6 @@ def empty_user(db):
     session = SessionFactory(user=user)
 
     yield {"user_id": str(user.id), "session_token": session.token}
-
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 # ---------------------------------------------------------------------------
@@ -155,17 +147,10 @@ class TestAccountDetail:
     def test_transaction_row_shows_category(self, client, accounts_data):
         """Account detail transaction rows display category icon and name."""
         user_id = accounts_data["user_id"]
-        cat_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO categories (id, user_id, name, type, icon)"
-                " VALUES (%s, %s, 'Groceries', 'expense', '🍕')",
-                [cat_id, user_id],
-            )
-            cursor.execute(
-                "UPDATE transactions SET category_id = %s WHERE user_id = %s",
-                [cat_id, user_id],
-            )
+        cat = CategoryFactory(
+            user_id=user_id, name="Groceries", type="expense", icon="🍕"
+        )
+        Transaction.objects.filter(user_id=user_id).update(category_id=cat.id)
         c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['savings_id']}")
         content = response.content.decode()
@@ -256,12 +241,12 @@ class TestInstitutionDelete:
         assert b"Institution deleted!" in response.content
 
         # Verify accounts were cascade-deleted
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT COUNT(*) FROM accounts WHERE institution_id = %s",
-                [accounts_data["institution_id"]],
-            )
-            assert cursor.fetchone()[0] == 0
+        assert (
+            Account.objects.filter(
+                institution_id=accounts_data["institution_id"]
+            ).count()
+            == 0
+        )
 
 
 @pytest.mark.django_db
@@ -342,12 +327,7 @@ class TestToggleDormant:
         assert response.status_code == 302
 
         # Verify the flag was toggled
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT is_dormant FROM accounts WHERE id = %s",
-                [accounts_data["savings_id"]],
-            )
-            assert cursor.fetchone()[0] is True
+        assert Account.objects.get(id=accounts_data["savings_id"]).is_dormant is True
 
 
 @pytest.mark.django_db
@@ -361,13 +341,8 @@ class TestHealthUpdate:
         assert response.status_code == 302
 
         # Verify the config was saved
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT health_config FROM accounts WHERE id = %s",
-                [accounts_data["savings_id"]],
-            )
-            config = cursor.fetchone()[0]
-            assert "5000" in str(config)
+        config = Account.objects.get(id=accounts_data["savings_id"]).health_config
+        assert "5000" in str(config)
 
 
 @pytest.mark.django_db
@@ -418,53 +393,54 @@ class TestCreditCardStatement:
 
     def test_shows_transaction_in_billing_period(self, client, accounts_data):
         """Transaction dated within the billing period appears in the statement."""  # gap: functional
-        user_id = accounts_data["user_id"]
-        cc_id = accounts_data["cc_id"]
         # statement_day=15, period=2026-03 covers 2026-02-16 to 2026-03-15
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 1234, 'EGP', %s, 'CC Charge', -1234)",
-                [str(uuid.uuid4()), user_id, cc_id, date(2026, 3, 10)],
-            )
+        TransactionFactory(
+            user_id=accounts_data["user_id"],
+            account_id=accounts_data["cc_id"],
+            type="expense",
+            amount=1234,
+            currency="EGP",
+            date=date(2026, 3, 10),
+            note="CC Charge",
+            balance_delta=-1234,
+        )
         c = set_auth_cookie(client, accounts_data["session_token"])
-        response = c.get(f"/accounts/{cc_id}/statement?period=2026-03")
+        response = c.get(f"/accounts/{accounts_data['cc_id']}/statement?period=2026-03")
         assert response.status_code == 200
         assert b"CC Charge" in response.content
 
     def test_excludes_transaction_outside_billing_period(self, client, accounts_data):
         """Transaction outside the requested period is not shown."""  # gap: functional
-        user_id = accounts_data["user_id"]
-        cc_id = accounts_data["cc_id"]
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 999, 'EGP', %s, 'Old Charge', -999)",
-                [str(uuid.uuid4()), user_id, cc_id, date(2026, 1, 5)],
-            )
+        TransactionFactory(
+            user_id=accounts_data["user_id"],
+            account_id=accounts_data["cc_id"],
+            type="expense",
+            amount=999,
+            currency="EGP",
+            date=date(2026, 1, 5),
+            note="Old Charge",
+            balance_delta=-999,
+        )
         c = set_auth_cookie(client, accounts_data["session_token"])
-        response = c.get(f"/accounts/{cc_id}/statement?period=2026-03")
+        response = c.get(f"/accounts/{accounts_data['cc_id']}/statement?period=2026-03")
         assert response.status_code == 200
         assert b"Old Charge" not in response.content
 
     def test_payment_history_shows_transfer_to_cc(self, client, accounts_data):
         """Transfer into the CC account appears in payment history."""  # gap: functional
-        user_id = accounts_data["user_id"]
-        cc_id = accounts_data["cc_id"]
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, counter_account_id, type, amount, currency, date, note, balance_delta)"
-                " VALUES (%s, %s, %s, %s, 'transfer', 2000, 'EGP', %s, 'CC Payment', 2000)",
-                [
-                    str(uuid.uuid4()),
-                    user_id,
-                    accounts_data["savings_id"],
-                    cc_id,
-                    date(2026, 3, 10),
-                ],
-            )
+        TransactionFactory(
+            user_id=accounts_data["user_id"],
+            account_id=accounts_data["savings_id"],
+            counter_account_id=accounts_data["cc_id"],
+            type="transfer",
+            amount=2000,
+            currency="EGP",
+            date=date(2026, 3, 10),
+            note="CC Payment",
+            balance_delta=2000,
+        )
         c = set_auth_cookie(client, accounts_data["session_token"])
-        response = c.get(f"/accounts/{cc_id}/statement?period=2026-03")
+        response = c.get(f"/accounts/{accounts_data['cc_id']}/statement?period=2026-03")
         assert response.status_code == 200
         assert b"CC Payment" in response.content
 
@@ -545,15 +521,12 @@ class TestInstitutionCreateWithPreset:
             },
         )
         assert resp.status_code == 200
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT icon, color FROM institutions WHERE name = %s AND user_id = %s",
-                ["CIB - Commercial International Bank", accounts_data["user_id"]],
-            )
-            row = cursor.fetchone()
-        assert row is not None
-        assert row[0] == "cib.svg"
-        assert row[1] == "#003DA5"
+        inst = Institution.objects.get(
+            name="CIB - Commercial International Bank",
+            user_id=accounts_data["user_id"],
+        )
+        assert inst.icon == "cib.svg"
+        assert inst.color == "#003DA5"
 
     def test_creates_wallet_with_emoji_icon(self, client, accounts_data):
         c = set_auth_cookie(client, accounts_data["session_token"])
@@ -567,14 +540,11 @@ class TestInstitutionCreateWithPreset:
             },
         )
         assert resp.status_code == 200
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT icon FROM institutions WHERE name = %s AND user_id = %s",
-                ["Pocket Wallet", accounts_data["user_id"]],
-            )
-            row = cursor.fetchone()
-        assert row is not None
-        assert row[0] == "👛"
+        inst = Institution.objects.get(
+            name="Pocket Wallet",
+            user_id=accounts_data["user_id"],
+        )
+        assert inst.icon == "👛"
 
     def test_creates_institution_without_icon(self, client, accounts_data):
         c = set_auth_cookie(client, accounts_data["session_token"])
@@ -583,15 +553,12 @@ class TestInstitutionCreateWithPreset:
             {"name": "My Local Bank", "type": "bank"},
         )
         assert resp.status_code == 200
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT icon, color FROM institutions WHERE name = %s AND user_id = %s",
-                ["My Local Bank", accounts_data["user_id"]],
-            )
-            row = cursor.fetchone()
-        assert row is not None
-        assert row[0] is None
-        assert row[1] is None
+        inst = Institution.objects.get(
+            name="My Local Bank",
+            user_id=accounts_data["user_id"],
+        )
+        assert inst.icon is None
+        assert inst.color is None
 
 
 # ---------------------------------------------------------------------------
@@ -615,14 +582,8 @@ class TestAccountAddAutoName:
             },
         )
         assert resp.status_code == 200
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT name FROM accounts WHERE user_id = %s AND type = 'prepaid'",
-                [accounts_data["user_id"]],
-            )
-            row = cursor.fetchone()
-        assert row is not None
-        assert row[0] == "Test Bank - Prepaid"
+        acct = Account.objects.get(user_id=accounts_data["user_id"], type="prepaid")
+        assert acct.name == "Test Bank - Prepaid"
 
     def test_explicit_name_still_works(self, client, accounts_data):
         c = set_auth_cookie(client, accounts_data["session_token"])
@@ -637,13 +598,9 @@ class TestAccountAddAutoName:
             },
         )
         assert resp.status_code == 200
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT name FROM accounts WHERE user_id = %s AND name = %s",
-                [accounts_data["user_id"], "My Custom Account"],
-            )
-            row = cursor.fetchone()
-        assert row is not None
+        assert Account.objects.filter(
+            user_id=accounts_data["user_id"], name="My Custom Account"
+        ).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -757,22 +714,18 @@ class TestCreditCardStatementNoBillingCycle:
 
     def test_renders_error_template(self, client, accounts_data) -> None:  # gap: state
         """CC with no billing cycle in metadata renders the error template."""
-        user_id = accounts_data["user_id"]
-        cc_no_cycle_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance, credit_limit)"
-                " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', -2000, 0, 30000)",
-                [
-                    cc_no_cycle_id,
-                    user_id,
-                    accounts_data["institution_id"],
-                    "CC No Cycle",
-                ],
-            )
+        cc_no_cycle = AccountFactory(
+            user_id=accounts_data["user_id"],
+            institution_id=accounts_data["institution_id"],
+            name="CC No Cycle",
+            type="credit_card",
+            currency="EGP",
+            current_balance=-2000,
+            initial_balance=0,
+            credit_limit=30000,
+        )
         c = set_auth_cookie(client, accounts_data["session_token"])
-        response = c.get(f"/accounts/{cc_no_cycle_id}/statement")
+        response = c.get(f"/accounts/{cc_no_cycle.id}/statement")
         assert response.status_code == 200
         assert b"billing cycle" in response.content.lower()
 
@@ -780,22 +733,18 @@ class TestCreditCardStatementNoBillingCycle:
         self, client, accounts_data
     ) -> None:  # gap: state
         """CC with empty JSON metadata (no statement_day/due_day) renders error."""
-        user_id = accounts_data["user_id"]
-        cc_empty_meta_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance, credit_limit, metadata)"
-                " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', -1000, 0, 20000, %s::jsonb)",
-                [
-                    cc_empty_meta_id,
-                    user_id,
-                    accounts_data["institution_id"],
-                    "CC Empty Meta",
-                    "{}",
-                ],
-            )
+        cc_empty_meta = AccountFactory(
+            user_id=accounts_data["user_id"],
+            institution_id=accounts_data["institution_id"],
+            name="CC Empty Meta",
+            type="credit_card",
+            currency="EGP",
+            current_balance=-1000,
+            initial_balance=0,
+            credit_limit=20000,
+            metadata={},
+        )
         c = set_auth_cookie(client, accounts_data["session_token"])
-        response = c.get(f"/accounts/{cc_empty_meta_id}/statement")
+        response = c.get(f"/accounts/{cc_empty_meta.id}/statement")
         assert response.status_code == 200
         assert b"billing cycle" in response.content.lower()

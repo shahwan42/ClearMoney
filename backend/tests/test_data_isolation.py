@@ -10,12 +10,10 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from accounts.services import AccountService, InstitutionService
 from budgets.services import BudgetService
 from categories.services import CategoryService
-from core.models import Session, User
 from people.services import PersonService
 from tests.factories import (
     AccountFactory,
@@ -41,29 +39,8 @@ def two_users(db: Any) -> Generator[dict[str, str], None, None]:
     user_b = UserFactory()
     SessionFactory(user=user_a)
     SessionFactory(user=user_b)
-    user_a_id = str(user_a.id)
-    user_b_id = str(user_b.id)
 
-    yield {"user_a_id": user_a_id, "user_b_id": user_b_id}
-
-    # Cleanup — order matters for FK constraints
-    for uid in [user_a_id, user_b_id]:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "DELETE FROM virtual_account_allocations"
-                " WHERE virtual_account_id IN"
-                " (SELECT id FROM virtual_accounts WHERE user_id = %s)",
-                [uid],
-            )
-            cursor.execute("DELETE FROM transactions WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM budgets WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM virtual_accounts WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM persons WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM categories WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM accounts WHERE user_id = %s", [uid])
-            cursor.execute("DELETE FROM institutions WHERE user_id = %s", [uid])
-    Session.objects.filter(user__in=[user_a, user_b]).delete()
-    User.objects.filter(id__in=[user_a.id, user_b.id]).delete()
+    yield {"user_a_id": str(user_a.id), "user_b_id": str(user_b.id)}
 
 
 @pytest.mark.django_db

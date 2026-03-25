@@ -1,67 +1,50 @@
 """
 Dashboard view tests — HTTP-level tests for dashboard page and HTMX partials.
-
-Fixtures create test data via raw SQL, tests hit endpoints via the Django test client.
 """
 
-import uuid
 from datetime import date
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory
 from core.middleware import COOKIE_NAME
-from core.models import Session, User
+from tests.factories import (
+    AccountFactory,
+    CategoryFactory,
+    InstitutionFactory,
+    TransactionFactory,
+)
 
 
 @pytest.fixture
 def dashboard_data(db):
-    """User + session + institution + 2 accounts + 3 transactions.
-
-    Creates minimal data for the dashboard to render. Yields dict with
-    user_id and session_token. Cleans up on teardown.
-    """
+    """User + session + institution + account + 3 transactions."""
     user = UserFactory()
     session = SessionFactory(user=user)
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    account_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-            [inst_id, user_id, "Test Bank"],
+    institution = InstitutionFactory(user_id=user.id, name="Test Bank")
+    account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="Main Savings",
+        currency="EGP",
+        current_balance=15000,
+    )
+    for i in range(3):
+        TransactionFactory(
+            user_id=user.id,
+            account_id=account.id,
+            type="expense",
+            amount=100 + i * 50,
+            currency="EGP",
+            date=date(2026, 3, 10 + i),
+            note=f"Expense {i}",
+            balance_delta=-(100 + i * 50),
         )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s)",
-            [account_id, user_id, inst_id, "Main Savings", 15000],
-        )
-        for i in range(3):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    user_id,
-                    account_id,
-                    "expense",
-                    100 + i * 50,
-                    "EGP",
-                    date(2026, 3, 10 + i),
-                    f"Expense {i}",
-                ],
-            )
-
-    yield {"user_id": user_id, "session_token": session.token}
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
+    yield {
+        "user_id": str(user.id),
+        "session_token": session.token,
+        "account_id": str(account.id),
+    }
 
 
 @pytest.fixture
@@ -69,11 +52,7 @@ def empty_user(db):
     """User + session with no accounts or transactions (empty state)."""
     user = UserFactory()
     session = SessionFactory(user=user)
-
     yield {"user_id": str(user.id), "session_token": session.token}
-
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 # ---------------------------------------------------------------------------
@@ -177,33 +156,22 @@ def test_dashboard_includes_tx_detail_bottom_sheet(client, dashboard_data):
 @pytest.mark.django_db
 def test_recent_transactions_shows_category_name(client, dashboard_data):
     # gap: data — dashboard rows show category name when category is set
-    cat_id = str(uuid.uuid4())
-    tx_id = str(uuid.uuid4())
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO categories (id, user_id, name, type) VALUES (%s, %s, %s, %s)",
-                [cat_id, dashboard_data["user_id"], "Transport", "expense"],
-            )
-            cursor.execute(
-                "SELECT id FROM accounts WHERE user_id = %s LIMIT 1",
-                [dashboard_data["user_id"]],
-            )
-            acct_id = cursor.fetchone()[0]
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
-                " currency, date, category_id, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 50, 'EGP', CURRENT_DATE, %s, -50)",
-                [tx_id, dashboard_data["user_id"], acct_id, cat_id],
-            )
-        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
-        response = client.get("/partials/recent-transactions", **cookie)
-        content = response.content.decode()
-        assert "Transport" in content
-    finally:
-        with connection.cursor() as cursor:
-            cursor.execute("DELETE FROM transactions WHERE id = %s", [tx_id])
-            cursor.execute("DELETE FROM categories WHERE id = %s", [cat_id])
+    category = CategoryFactory(
+        user_id=dashboard_data["user_id"], name="Transport", type="expense"
+    )
+    TransactionFactory(
+        user_id=dashboard_data["user_id"],
+        account_id=dashboard_data["account_id"],
+        type="expense",
+        amount=50,
+        currency="EGP",
+        balance_delta=-50,
+        category_id=category.id,
+    )
+    cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+    response = client.get("/partials/recent-transactions", **cookie)
+    content = response.content.decode()
+    assert "Transport" in content
 
 
 # ---------------------------------------------------------------------------

@@ -9,10 +9,9 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User
+from core.models import Transaction
 from recurring.services import RecurringService
 from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
 
@@ -42,16 +41,6 @@ def rec_data(db):
         "account_id": str(acct.id),
         "category_id": str(cat.id),
     }
-
-    # Cleanup — order matters for FK constraints
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM recurring_rules WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user_id=user_id).delete()
-    User.objects.filter(id=user_id).delete()
 
 
 def _svc(user_id: str) -> RecurringService:
@@ -240,17 +229,14 @@ class TestConfirm:
         assert updated_rule is not None
         assert updated_rule["next_due_date"] > yesterday
 
-        # Transaction should have been created
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT COUNT(*) FROM transactions WHERE recurring_rule_id = %s",
-                [rule["id"]],
-            )
-            count = cursor.fetchone()[0]
+        # Transaction should have been created via ORM
+        count = Transaction.objects.filter(recurring_rule_id=rule["id"]).count()
         assert count == 1
 
     def test_updates_account_balance(self, rec_data):
         """Confirm should deduct from account balance (expense)."""
+        from core.models import Account
+
         svc = _svc(rec_data["user_id"])
 
         rule = svc.create(
@@ -264,12 +250,7 @@ class TestConfirm:
 
         svc.confirm(rule["id"])
 
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT current_balance FROM accounts WHERE id = %s",
-                [rec_data["account_id"]],
-            )
-            balance = float(cursor.fetchone()[0])
+        balance = float(Account.objects.get(id=rec_data["account_id"]).current_balance)
         assert balance == 49500.0  # 50000 - 500
 
 
@@ -301,12 +282,8 @@ class TestSkip:
         assert updated["next_due_date"] == yesterday + timedelta(days=7)
 
         # No transaction should have been created
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT COUNT(*) FROM transactions WHERE recurring_rule_id = %s",
-                [rule["id"]],
-            )
-            assert cursor.fetchone()[0] == 0
+        count = Transaction.objects.filter(recurring_rule_id=rule["id"]).count()
+        assert count == 0
 
 
 # ---------------------------------------------------------------------------

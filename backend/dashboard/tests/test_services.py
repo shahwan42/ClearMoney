@@ -1,22 +1,33 @@
 """
 Dashboard service tests — integration tests for each query method.
 
-Tests follow the reports app pattern: raw SQL inserts for test data,
-direct calls to service methods, cleanup on teardown.
+Tests follow the factory_boy pattern: ORM factories for test data,
+direct calls to service methods, automatic rollback via pytest-django.
 """
 
-import uuid
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from conftest import UserFactory
-from core.models import User
+from core.models import Account, User
 from dashboard.services import (
     DashboardService,
     _compute_due_date,
+)
+from tests.factories import (
+    AccountFactory,
+    AccountSnapshotFactory,
+    BudgetFactory,
+    CategoryFactory,
+    DailySnapshotFactory,
+    ExchangeRateLogFactory,
+    InstitutionFactory,
+    InvestmentFactory,
+    PersonFactory,
+    TransactionFactory,
+    VirtualAccountFactory,
 )
 
 TZ = ZoneInfo("Africa/Cairo")
@@ -29,56 +40,36 @@ def svc_data(db):
     Yields a dict with user_id and account IDs. Creates DashboardService-ready data.
     """
     user = UserFactory()
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    savings_id = str(uuid.uuid4())
-    cc_id = str(uuid.uuid4())
-    cat_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-            [inst_id, user_id, "Test Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s)",
-            [savings_id, user_id, inst_id, "Savings EGP", 10000],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, credit_limit)"
-            " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP', %s, %s)",
-            [cc_id, user_id, inst_id, "CC EGP", -2000, 10000],
-        )
-        cursor.execute(
-            "INSERT INTO exchange_rate_log (id, date, rate) VALUES (%s, %s, %s)",
-            [str(uuid.uuid4()), date.today(), 50.5],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type, icon) VALUES (%s, %s, %s, %s, %s)",
-            [cat_id, user_id, "Food", "expense", "🛒"],
-        )
+    inst = InstitutionFactory(user_id=user.id, name="Test Bank")
+    savings = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Savings EGP",
+        type="savings",
+        currency="EGP",
+        current_balance=10000,
+    )
+    cc = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="CC EGP",
+        type="credit_card",
+        currency="EGP",
+        current_balance=-2000,
+        credit_limit=10000,
+    )
+    ExchangeRateLogFactory(date=date.today(), rate=50.5)
+    cat = CategoryFactory(user_id=user.id, name="Food", type="expense", icon="🛒")
 
     yield {
-        "user_id": user_id,
-        "inst_id": inst_id,
-        "savings_id": savings_id,
-        "cc_id": cc_id,
-        "cat_id": cat_id,
+        "user": user,
+        "user_id": str(user.id),
+        "inst_id": str(inst.id),
+        "savings_id": str(savings.id),
+        "savings": savings,
+        "cc_id": str(cc.id),
+        "cat_id": str(cat.id),
     }
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM budgets WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM virtual_accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM persons WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM daily_snapshots WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM account_snapshots WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM exchange_rate_log WHERE date = %s", [date.today()])
-    User.objects.filter(id=user_id).delete()
 
 
 # ---------------------------------------------------------------------------
@@ -135,23 +126,16 @@ def test_load_exchange_rate_empty(db):
 def test_load_recent_transactions(svc_data):
     """Returns transactions with running balance."""
     today = date.today()
-    with connection.cursor() as cursor:
-        for i in range(3):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note, balance_delta)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    "expense",
-                    100 + i * 50,
-                    "EGP",
-                    today - timedelta(days=i),
-                    f"Tx {i}",
-                    -(100 + i * 50),
-                ],
-            )
+    for i in range(3):
+        TransactionFactory(
+            user_id=svc_data["user"].id,
+            account_id=svc_data["savings"].id,
+            type="expense",
+            amount=100 + i * 50,
+            currency="EGP",
+            date=today - timedelta(days=i),
+            balance_delta=-(100 + i * 50),
+        )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     txns = svc.load_recent_transactions(limit=5)
@@ -163,19 +147,16 @@ def test_load_recent_transactions(svc_data):
 @pytest.mark.django_db
 def test_load_recent_transactions_includes_category(svc_data):
     """TransactionRow includes category_name and category_icon when category is set."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount,"
-            " currency, date, category_id, balance_delta)"
-            " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, %s, -100)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                date.today(),
-                svc_data["cat_id"],
-            ],
-        )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=100,
+        currency="EGP",
+        date=date.today(),
+        category_id=svc_data["cat_id"],
+        balance_delta=-100,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     txns = svc.load_recent_transactions(limit=5)
     assert len(txns) == 1
@@ -186,18 +167,15 @@ def test_load_recent_transactions_includes_category(svc_data):
 @pytest.mark.django_db
 def test_load_recent_transactions_no_category(svc_data):
     """TransactionRow has None category fields when no category set."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount,"
-            " currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                date.today(),
-            ],
-        )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=100,
+        currency="EGP",
+        date=date.today(),
+        balance_delta=-100,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     txns = svc.load_recent_transactions(limit=5)
     assert txns[0].category_name is None
@@ -226,22 +204,16 @@ def test_load_streak(svc_data):
     days_in_week_so_far = today.weekday() + 1  # 1 on Mon, 7 on Sun
     # Create one transaction per day from Monday through today
     tx_dates = [monday + timedelta(days=i) for i in range(days_in_week_so_far)]
-    with connection.cursor() as cursor:
-        for d in tx_dates:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    "expense",
-                    100,
-                    "EGP",
-                    d,
-                    -100,
-                ],
-            )
+    for d in tx_dates:
+        TransactionFactory(
+            user_id=svc_data["user"].id,
+            account_id=svc_data["savings"].id,
+            type="expense",
+            amount=100,
+            currency="EGP",
+            date=d,
+            balance_delta=-100,
+        )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     streak = svc._load_streak()
@@ -254,38 +226,27 @@ def test_load_streak(svc_data):
 def test_load_streak_with_gap(svc_data):
     """Streak breaks at gap in transaction dates."""
     today = date.today()
-    with connection.cursor() as cursor:
-        # Today and yesterday
-        for i in range(2):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    "expense",
-                    100,
-                    "EGP",
-                    today - timedelta(days=i),
-                    -100,
-                ],
-            )
-        # Skip day 2, add day 3
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                "expense",
-                100,
-                "EGP",
-                today - timedelta(days=3),
-                -100,
-            ],
+    # Today and yesterday
+    for i in range(2):
+        TransactionFactory(
+            user_id=svc_data["user"].id,
+            account_id=svc_data["savings"].id,
+            type="expense",
+            amount=100,
+            currency="EGP",
+            date=today - timedelta(days=i),
+            balance_delta=-100,
         )
+    # Skip day 2, add day 3
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=100,
+        currency="EGP",
+        date=today - timedelta(days=3),
+        balance_delta=-100,
+    )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     streak = svc._load_streak()
@@ -300,17 +261,20 @@ def test_load_streak_with_gap(svc_data):
 @pytest.mark.django_db
 def test_load_people_summary(svc_data):
     """Groups people by currency."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO persons (id, user_id, name, net_balance, net_balance_egp, net_balance_usd)"
-            " VALUES (%s, %s, %s, %s, %s, %s)",
-            [str(uuid.uuid4()), svc_data["user_id"], "Alice", 500, 500, 0],
-        )
-        cursor.execute(
-            "INSERT INTO persons (id, user_id, name, net_balance, net_balance_egp, net_balance_usd)"
-            " VALUES (%s, %s, %s, %s, %s, %s)",
-            [str(uuid.uuid4()), svc_data["user_id"], "Bob", -200, -200, 0],
-        )
+    PersonFactory(
+        user_id=svc_data["user"].id,
+        name="Alice",
+        net_balance=500,
+        net_balance_egp=500,
+        net_balance_usd=0,
+    )
+    PersonFactory(
+        user_id=svc_data["user"].id,
+        name="Bob",
+        net_balance=-200,
+        net_balance_egp=-200,
+        net_balance_usd=0,
+    )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
@@ -333,30 +297,24 @@ def test_load_people_summary(svc_data):
 def test_load_budgets_with_spending(svc_data):
     """Returns budget with correct spent amount."""
     today = date.today()
-    budget_id = str(uuid.uuid4())
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
-            " VALUES (%s, %s, %s, %s, 'EGP', true)",
-            [budget_id, svc_data["user_id"], svc_data["cat_id"], 1000],
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=1000,
+        currency="EGP",
+    )
+    # Add 2 expenses in current month
+    for i in range(2):
+        TransactionFactory(
+            user_id=svc_data["user"].id,
+            account_id=svc_data["savings"].id,
+            category_id=svc_data["cat_id"],
+            type="expense",
+            amount=200,
+            currency="EGP",
+            date=today.replace(day=max(1, today.day - i)),
+            balance_delta=-200,
         )
-        # Add 2 expenses in current month
-        for i in range(2):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    svc_data["cat_id"],
-                    "expense",
-                    200,
-                    "EGP",
-                    today.replace(day=max(1, today.day - i)),
-                    -200,
-                ],
-            )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     budgets = svc._load_budgets_with_spending()
@@ -374,11 +332,9 @@ def test_load_budgets_with_spending(svc_data):
 @pytest.mark.django_db
 def test_load_health_warnings(svc_data):
     """Detects min_balance violation."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "UPDATE accounts SET health_config = %s::jsonb WHERE id = %s",
-            ['{"min_balance": 20000}', svc_data["savings_id"]],
-        )
+    Account.objects.filter(id=svc_data["savings_id"]).update(
+        health_config={"min_balance": 20000}
+    )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
@@ -400,20 +356,14 @@ def test_load_health_warnings(svc_data):
 def test_load_net_worth_history(svc_data):
     """Returns sparkline values from daily_snapshots."""
     today = date.today()
-    with connection.cursor() as cursor:
-        for i in range(5):
-            cursor.execute(
-                "INSERT INTO daily_snapshots (id, user_id, date, net_worth_egp, net_worth_raw, exchange_rate)"
-                " VALUES (%s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    today - timedelta(days=10 - i),
-                    10000 + i * 100,
-                    10000 + i * 100,
-                    50.0,
-                ],
-            )
+    for i in range(5):
+        DailySnapshotFactory(
+            user=svc_data["user"],
+            date=today - timedelta(days=10 - i),
+            net_worth_egp=10000 + i * 100,
+            net_worth_raw=10000 + i * 100,
+            exchange_rate=50.0,
+        )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
@@ -509,38 +459,27 @@ def test_compute_spending_comparison(svc_data):
     else:
         last_month_start = date(this_month_start.year, this_month_start.month - 1, 1)
 
-    with connection.cursor() as cursor:
-        # This month: 2 expenses
-        for i in range(2):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    "expense",
-                    300,
-                    "EGP",
-                    this_month_start + timedelta(days=i),
-                    -300,
-                ],
-            )
-        # Last month: 1 expense
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                "expense",
-                500,
-                "EGP",
-                last_month_start + timedelta(days=5),
-                -500,
-            ],
+    # This month: 2 expenses
+    for i in range(2):
+        TransactionFactory(
+            user_id=svc_data["user"].id,
+            account_id=svc_data["savings"].id,
+            type="expense",
+            amount=300,
+            currency="EGP",
+            date=this_month_start + timedelta(days=i),
+            balance_delta=-300,
         )
+    # Last month: 1 expense
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=500,
+        currency="EGP",
+        date=last_month_start + timedelta(days=5),
+        balance_delta=-500,
+    )
 
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
@@ -598,20 +537,16 @@ def test_load_recent_transactions_running_balance_value(svc_data):
     #   yesterday (delta=-150): 10000 - (-100)       = 10100
     #   2 days ago(delta=-200): 10000 - (-100 + -150)= 10250
     today = date.today()
-    with connection.cursor() as cursor:
-        for days_ago, delta in [(2, -200), (1, -150), (0, -100)]:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', %s, 'EGP', %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    abs(delta),
-                    today - timedelta(days=days_ago),
-                    delta,
-                ],
-            )
+    for days_ago, delta in [(2, -200), (1, -150), (0, -100)]:
+        TransactionFactory(
+            user_id=svc_data["user"].id,
+            account_id=svc_data["savings"].id,
+            type="expense",
+            amount=abs(delta),
+            currency="EGP",
+            date=today - timedelta(days=days_ago),
+            balance_delta=delta,
+        )
     svc = DashboardService(svc_data["user_id"], TZ)
     txns = svc.load_recent_transactions(limit=5)
     assert len(txns) == 3
@@ -625,22 +560,24 @@ def test_load_recent_transactions_multi_account_running_balance(svc_data):
     # gap: data — per-account window partition: balances must not bleed across accounts
     # savings current_balance=10000, CC current_balance=-2000
     today = date.today()
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
-            [str(uuid.uuid4()), svc_data["user_id"], svc_data["savings_id"], today],
-        )
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["cc_id"],
-                today - timedelta(days=1),
-            ],
-        )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=500,
+        currency="EGP",
+        date=today,
+        balance_delta=-500,
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["cc_id"],
+        type="expense",
+        amount=200,
+        currency="EGP",
+        date=today - timedelta(days=1),
+        balance_delta=-200,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     txns = svc.load_recent_transactions(limit=5)
     assert len(txns) == 2
@@ -659,25 +596,23 @@ def test_load_recent_transactions_multi_account_running_balance(svc_data):
 def test_load_budgets_amber_status(svc_data):
     # gap: functional — only "green" status was tested; amber branch uncovered
     today = date.today()
-    budget_id = str(uuid.uuid4())
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
-            " VALUES (%s, %s, %s, 1000, 'EGP', true)",
-            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
-        )
-        # 850 EGP spent = 85% → amber
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 850, 'EGP', %s, -850)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                today,
-            ],
-        )
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=1000,
+        currency="EGP",
+    )
+    # 850 EGP spent = 85% → amber
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=850,
+        currency="EGP",
+        date=today,
+        balance_delta=-850,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     budgets = svc._load_budgets_with_spending()
     assert len(budgets) == 1
@@ -689,25 +624,23 @@ def test_load_budgets_amber_status(svc_data):
 def test_load_budgets_red_status(svc_data):
     # gap: functional — red (≥100%) status branch never tested
     today = date.today()
-    budget_id = str(uuid.uuid4())
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
-            " VALUES (%s, %s, %s, 1000, 'EGP', true)",
-            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
-        )
-        # 1200 EGP spent = 120% → red
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 1200, 'EGP', %s, -1200)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                today,
-            ],
-        )
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=1000,
+        currency="EGP",
+    )
+    # 1200 EGP spent = 120% → red
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=1200,
+        currency="EGP",
+        date=today,
+        balance_delta=-1200,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     budgets = svc._load_budgets_with_spending()
     assert budgets[0]["status"] == "red"
@@ -717,13 +650,12 @@ def test_load_budgets_red_status(svc_data):
 @pytest.mark.django_db
 def test_load_budgets_zero_spending(svc_data):
     # gap: data — budget with no transactions this month; spent=0 never asserted
-    budget_id = str(uuid.uuid4())
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
-            " VALUES (%s, %s, %s, 500, 'EGP', true)",
-            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
-        )
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=500,
+        currency="EGP",
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     budgets = svc._load_budgets_with_spending()
     assert len(budgets) == 1
@@ -735,26 +667,24 @@ def test_load_budgets_zero_spending(svc_data):
 @pytest.mark.django_db
 def test_load_budgets_currency_isolation(svc_data):
     # gap: data — USD budget must not count EGP transactions (OuterRef("currency") match)
-    budget_id = str(uuid.uuid4())
     today = date.today()
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
-            " VALUES (%s, %s, %s, 200, 'USD', true)",
-            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
-        )
-        # EGP expense for same category — must NOT be counted against USD budget
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                today,
-            ],
-        )
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=200,
+        currency="USD",
+    )
+    # EGP expense for same category — must NOT be counted against USD budget
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=500,
+        currency="EGP",
+        date=today,
+        balance_delta=-500,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     budgets = svc._load_budgets_with_spending()
     usd_budget = next(b for b in budgets if b["currency"] == "USD")
@@ -771,18 +701,16 @@ def test_top_categories_populated(svc_data):
     # gap: functional — top_categories on CurrencySpending never asserted
     today = date.today()
     this_month_start = today.replace(day=1)
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 400, 'EGP', %s, -400)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                this_month_start,
-            ],
-        )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=400,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-400,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
 
@@ -805,18 +733,16 @@ def test_top_categories_no_last_month(svc_data):
     # gap: functional — new category with no last-month data → change=0.0, is_up=False
     today = date.today()
     this_month_start = today.replace(day=1)
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                this_month_start,
-            ],
-        )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=300,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-300,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
 
@@ -833,18 +759,16 @@ def test_top_categories_uncategorized(svc_data):
     # gap: data — NULL category transaction must appear as name="Uncategorized", icon=""
     today = date.today()
     this_month_start = today.replace(day=1)
-    with connection.cursor() as cursor:
-        # Expense with NO category
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, 'expense', 250, 'EGP', %s, -250)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                this_month_start,
-            ],
-        )
+    # Expense with NO category
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=250,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-250,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
 
@@ -883,29 +807,26 @@ def test_top_categories_is_up_true(svc_data):
         if this_month_start.month == 1
         else date(this_month_start.year, this_month_start.month - 1, 1)
     )
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                this_month_start,
-            ],
-        )
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                last_month_start,
-            ],
-        )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=500,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-500,
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=300,
+        currency="EGP",
+        date=last_month_start,
+        balance_delta=-300,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
 
@@ -928,29 +849,26 @@ def test_top_categories_spending_decreased(svc_data):
         if this_month_start.month == 1
         else date(this_month_start.year, this_month_start.month - 1, 1)
     )
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                this_month_start,
-            ],
-        )
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                last_month_start,
-            ],
-        )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=200,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-200,
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=500,
+        currency="EGP",
+        date=last_month_start,
+        balance_delta=-500,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
 
@@ -965,12 +883,13 @@ def test_top_categories_spending_decreased(svc_data):
 @pytest.mark.django_db
 def test_load_budgets_inactive_excluded(svc_data):
     # gap: functional — inactive budget (is_active=False) must not appear in results
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
-            " VALUES (%s, %s, %s, 1000, 'EGP', false)",
-            [str(uuid.uuid4()), svc_data["user_id"], svc_data["cat_id"]],
-        )
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=1000,
+        currency="EGP",
+        is_active=False,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     budgets = svc._load_budgets_with_spending()
     assert budgets == []
@@ -980,18 +899,16 @@ def test_load_budgets_inactive_excluded(svc_data):
 def test_load_recent_transactions_default_limit(svc_data):
     # gap: functional — limit parameter never actually cuts off results (all prior tests use limit < row count)
     today = date.today()
-    with connection.cursor() as cursor:
-        for i in range(15):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 50, 'EGP', %s, -50)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    today - timedelta(days=i),
-                ],
-            )
+    for i in range(15):
+        TransactionFactory(
+            user_id=svc_data["user"].id,
+            account_id=svc_data["savings"].id,
+            type="expense",
+            amount=50,
+            currency="EGP",
+            date=today - timedelta(days=i),
+            balance_delta=-50,
+        )
     svc = DashboardService(svc_data["user_id"], TZ)
     txns = svc.load_recent_transactions(limit=10)
     assert len(txns) == 10
@@ -1007,58 +924,51 @@ def test_top_categories_multiple_with_last_month(svc_data):
         if this_month_start.month == 1
         else date(this_month_start.year, this_month_start.month - 1, 1)
     )
-    cat2_id = str(uuid.uuid4())
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type) VALUES (%s, %s, 'Transport', 'expense')",
-            [cat2_id, svc_data["user_id"]],
-        )
-        # This month: Food=400, Transport=300
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 400, 'EGP', %s, -400)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                this_month_start,
-            ],
-        )
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                cat2_id,
-                this_month_start,
-            ],
-        )
-        # Last month: Food=200, Transport=600
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                svc_data["cat_id"],
-                last_month_start,
-            ],
-        )
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-            " VALUES (%s, %s, %s, %s, 'expense', 600, 'EGP', %s, -600)",
-            [
-                str(uuid.uuid4()),
-                svc_data["user_id"],
-                svc_data["savings_id"],
-                cat2_id,
-                last_month_start,
-            ],
-        )
+    cat2 = CategoryFactory(
+        user_id=svc_data["user"].id, name="Transport", type="expense"
+    )
+    # This month: Food=400, Transport=300
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=400,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-400,
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=cat2.id,
+        type="expense",
+        amount=300,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-300,
+    )
+    # Last month: Food=200, Transport=600
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=200,
+        currency="EGP",
+        date=last_month_start,
+        balance_delta=-200,
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=cat2.id,
+        type="expense",
+        amount=600,
+        currency="EGP",
+        date=last_month_start,
+        balance_delta=-600,
+    )
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
 
@@ -1087,39 +997,30 @@ class TestLoadNetWorthByCurrency:
         # gap: functional — load_net_worth_by_currency never directly tested
         today = date.today()
         # Create 2 EGP accounts and 1 USD account with snapshots across 3 days
-        usd_acc_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-                " VALUES (%s, %s, %s, 'USD Savings', 'savings', 'USD', 500)",
-                [usd_acc_id, svc_data["user_id"], svc_data["inst_id"]],
+        usd_acc = AccountFactory(
+            user_id=svc_data["user"].id,
+            institution_id=svc_data["inst_id"],
+            name="USD Savings",
+            type="savings",
+            currency="USD",
+            current_balance=500,
+        )
+        for i in range(3):
+            snap_date = today - timedelta(days=5 - i)
+            # EGP account snapshot
+            AccountSnapshotFactory(
+                user=svc_data["user"],
+                account=svc_data["savings"],
+                date=snap_date,
+                balance=10000 + i * 100,
             )
-            for i in range(3):
-                snap_date = today - timedelta(days=5 - i)
-                # EGP account snapshot
-                cursor.execute(
-                    "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
-                    " VALUES (%s, %s, %s, %s, %s)",
-                    [
-                        str(uuid.uuid4()),
-                        svc_data["user_id"],
-                        svc_data["savings_id"],
-                        snap_date,
-                        10000 + i * 100,
-                    ],
-                )
-                # USD account snapshot
-                cursor.execute(
-                    "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
-                    " VALUES (%s, %s, %s, %s, %s)",
-                    [
-                        str(uuid.uuid4()),
-                        svc_data["user_id"],
-                        usd_acc_id,
-                        snap_date,
-                        500 + i * 10,
-                    ],
-                )
+            # USD account snapshot
+            AccountSnapshotFactory(
+                user=svc_data["user"],
+                account=usd_acc,
+                date=snap_date,
+                balance=500 + i * 10,
+            )
 
         svc = DashboardService(svc_data["user_id"], TZ)
         from dashboard.services import DashboardData
@@ -1154,19 +1055,13 @@ class TestLoadAccountSparklines:
     def test_with_snapshots(self, svc_data):
         # gap: functional — load_account_sparklines never directly tested
         today = date.today()
-        with connection.cursor() as cursor:
-            for i in range(5):
-                cursor.execute(
-                    "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
-                    " VALUES (%s, %s, %s, %s, %s)",
-                    [
-                        str(uuid.uuid4()),
-                        svc_data["user_id"],
-                        svc_data["savings_id"],
-                        today - timedelta(days=10 - i),
-                        10000 + i * 100,
-                    ],
-                )
+        for i in range(5):
+            AccountSnapshotFactory(
+                user=svc_data["user"],
+                account=svc_data["savings"],
+                date=today - timedelta(days=10 - i),
+                balance=10000 + i * 100,
+            )
 
         svc = DashboardService(svc_data["user_id"], TZ)
         from dashboard.services import DashboardData
@@ -1192,17 +1087,12 @@ class TestLoadAccountSparklines:
     def test_requires_at_least_two_points(self, svc_data):
         # gap: functional — single snapshot must NOT produce a sparkline (needs >=2)
         today = date.today()
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO account_snapshots (id, user_id, account_id, date, balance)"
-                " VALUES (%s, %s, %s, %s, 10000)",
-                [
-                    str(uuid.uuid4()),
-                    svc_data["user_id"],
-                    svc_data["savings_id"],
-                    today,
-                ],
-            )
+        AccountSnapshotFactory(
+            user=svc_data["user"],
+            account=svc_data["savings"],
+            date=today,
+            balance=10000,
+        )
 
         svc = DashboardService(svc_data["user_id"], TZ)
         from dashboard.services import DashboardData
@@ -1224,13 +1114,16 @@ class TestLoadVirtualAccounts:
     @pytest.mark.django_db
     def test_with_virtual_accounts(self, svc_data):
         # gap: functional — load_virtual_accounts never directly tested
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, target_amount,"
-                " icon, color, is_archived, exclude_from_net_worth, display_order)"
-                " VALUES (%s, %s, 'Emergency Fund', 5000, 10000, %s, '#ff0000', false, false, 0)",
-                [str(uuid.uuid4()), svc_data["user_id"], "\U0001f6e1\ufe0f"],
-            )
+        VirtualAccountFactory(
+            user_id=svc_data["user"].id,
+            name="Emergency Fund",
+            current_balance=5000,
+            target_amount=10000,
+            icon="\U0001f6e1\ufe0f",
+            color="#ff0000",
+            is_archived=False,
+            display_order=0,
+        )
 
         svc = DashboardService(svc_data["user_id"], TZ)
         vas = svc._load_virtual_accounts()
@@ -1250,19 +1143,20 @@ class TestLoadVirtualAccounts:
     @pytest.mark.django_db
     def test_excludes_archived(self, svc_data):
         # gap: functional — archived VAs must be filtered out
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
-                " is_archived, exclude_from_net_worth, display_order)"
-                " VALUES (%s, %s, 'Active VA', 1000, false, false, 0)",
-                [str(uuid.uuid4()), svc_data["user_id"]],
-            )
-            cursor.execute(
-                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
-                " is_archived, exclude_from_net_worth, display_order)"
-                " VALUES (%s, %s, 'Archived VA', 2000, true, false, 1)",
-                [str(uuid.uuid4()), svc_data["user_id"]],
-            )
+        VirtualAccountFactory(
+            user_id=svc_data["user"].id,
+            name="Active VA",
+            current_balance=1000,
+            is_archived=False,
+            display_order=0,
+        )
+        VirtualAccountFactory(
+            user_id=svc_data["user"].id,
+            name="Archived VA",
+            current_balance=2000,
+            is_archived=True,
+            display_order=1,
+        )
 
         svc = DashboardService(svc_data["user_id"], TZ)
         vas = svc._load_virtual_accounts()
@@ -1272,13 +1166,13 @@ class TestLoadVirtualAccounts:
     @pytest.mark.django_db
     def test_progress_zero_when_no_target(self, svc_data):
         # gap: functional — VA with no target_amount → progress_pct=0
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
-                " is_archived, exclude_from_net_worth, display_order)"
-                " VALUES (%s, %s, 'No Target VA', 3000, false, false, 0)",
-                [str(uuid.uuid4()), svc_data["user_id"]],
-            )
+        VirtualAccountFactory(
+            user_id=svc_data["user"].id,
+            name="No Target VA",
+            current_balance=3000,
+            is_archived=False,
+            display_order=0,
+        )
 
         svc = DashboardService(svc_data["user_id"], TZ)
         vas = svc._load_virtual_accounts()
@@ -1297,17 +1191,22 @@ class TestLoadInvestmentsTotal:
     @pytest.mark.django_db
     def test_sum_investments(self, svc_data):
         # gap: functional — load_investments_total never directly tested
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO investments (id, user_id, platform, fund_name, units, last_unit_price, currency)"
-                " VALUES (%s, %s, 'Thndr', 'Fund A', 100, 15.50, 'EGP')",
-                [str(uuid.uuid4()), svc_data["user_id"]],
-            )
-            cursor.execute(
-                "INSERT INTO investments (id, user_id, platform, fund_name, units, last_unit_price, currency)"
-                " VALUES (%s, %s, 'Thndr', 'Fund B', 50, 20.00, 'EGP')",
-                [str(uuid.uuid4()), svc_data["user_id"]],
-            )
+        InvestmentFactory(
+            user_id=svc_data["user"].id,
+            platform="Thndr",
+            fund_name="Fund A",
+            units=100,
+            last_unit_price=15.50,
+            currency="EGP",
+        )
+        InvestmentFactory(
+            user_id=svc_data["user"].id,
+            platform="Thndr",
+            fund_name="Fund B",
+            units=50,
+            last_unit_price=20.00,
+            currency="EGP",
+        )
 
         svc = DashboardService(svc_data["user_id"], TZ)
         total = svc._load_investments_total()

@@ -8,30 +8,22 @@ Uses authenticated test client with session cookie.
 from typing import Any
 
 import pytest
-from django.db import connection
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from core.models import Investment
 
 
 @pytest.fixture
 def inv_view_data(db: object):  # noqa: ARG001
-    """User + session for view tests. Cleans up investments on teardown."""
+    """User + session for view tests. Cleanup is automatic via pytest-django rollback."""
     user = UserFactory()
     session = SessionFactory(user=user)
-    user_id = str(user.id)
 
     yield {
-        "user_id": user_id,
+        "user_id": str(user.id),
         "session_token": session.token,
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM investments WHERE user_id = %s", [user_id])
-    Session.objects.filter(user_id=user_id).delete()
-    User.objects.filter(id=user_id).delete()
 
 
 def _create_investment(client: Client, token: str) -> None:
@@ -143,15 +135,14 @@ class TestInvestmentUpdate:
     def test_updates_price(self, client: Client, inv_view_data: dict[str, Any]) -> None:
         _create_investment(client, inv_view_data["session_token"])
 
-        # Get the investment ID
-        c = set_auth_cookie(client, inv_view_data["session_token"])
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM investments WHERE user_id = %s LIMIT 1",
-                [inv_view_data["user_id"]],
-            )
-            inv_id = cursor.fetchone()[0]
+        # Get the investment ID via ORM
+        inv_id = (
+            Investment.objects.filter(user_id=inv_view_data["user_id"])
+            .values_list("id", flat=True)
+            .first()
+        )
 
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.post(
             f"/investments/{inv_id}/update",
             {"unit_price": "15.0"},
@@ -168,14 +159,13 @@ class TestInvestmentUpdate:
     ) -> None:
         _create_investment(client, inv_view_data["session_token"])
 
-        c = set_auth_cookie(client, inv_view_data["session_token"])
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM investments WHERE user_id = %s LIMIT 1",
-                [inv_view_data["user_id"]],
-            )
-            inv_id = cursor.fetchone()[0]
+        inv_id = (
+            Investment.objects.filter(user_id=inv_view_data["user_id"])
+            .values_list("id", flat=True)
+            .first()
+        )
 
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.post(
             f"/investments/{inv_id}/update",
             {"unit_price": "0"},
@@ -195,14 +185,13 @@ class TestInvestmentDelete:
     ) -> None:
         _create_investment(client, inv_view_data["session_token"])
 
-        c = set_auth_cookie(client, inv_view_data["session_token"])
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM investments WHERE user_id = %s LIMIT 1",
-                [inv_view_data["user_id"]],
-            )
-            inv_id = cursor.fetchone()[0]
+        inv_id = (
+            Investment.objects.filter(user_id=inv_view_data["user_id"])
+            .values_list("id", flat=True)
+            .first()
+        )
 
+        c = set_auth_cookie(client, inv_view_data["session_token"])
         response = c.delete(f"/investments/{inv_id}/delete")
         assert response.status_code in (200, 302)
 

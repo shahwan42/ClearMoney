@@ -1,16 +1,14 @@
 """
 Reports app tests — reports page rendering and data aggregation.
 
-DB tests use @pytest.mark.django_db with raw SQL fixtures for test data setup.
+DB tests use @pytest.mark.django_db with factory_boy fixtures for test data setup.
 
 Chart builder tests are plain functions (no DB).
 """
 
-import uuid
 from datetime import date
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory
 from core.middleware import COOKIE_NAME
@@ -26,6 +24,12 @@ from reports.services import (
 from reports.services import (
     get_spending_by_category as _get_spending_by_category,
 )
+from tests.factories import (
+    AccountFactory,
+    CategoryFactory,
+    InstitutionFactory,
+    TransactionFactory,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -38,80 +42,52 @@ def reports_data(db):
 
     Creates March 2026 data: 3 expense transactions + 1 income transaction.
     Yields a dict with user_id, session_token, account_id, category_id.
-    Cleans up on teardown.
     """
     user = UserFactory()
     session = SessionFactory(user=user)
-    inst_id = str(uuid.uuid4())
-    account_id = str(uuid.uuid4())
-    category_id = str(uuid.uuid4())
-    tx_ids = []
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-            [inst_id, str(user.id), "Test Bank"],
+    inst = InstitutionFactory(user_id=user.id, name="Test Bank")
+    acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Test Acct",
+        type="savings",
+        currency="EGP",
+        current_balance=10000,
+    )
+    cat = CategoryFactory(user_id=user.id, name="Food", type="expense")
+
+    for i in range(3):
+        amount = 100 + i * 50
+        TransactionFactory(
+            user_id=user.id,
+            account_id=acct.id,
+            category_id=cat.id,
+            type="expense",
+            amount=amount,
+            currency="EGP",
+            date=date(2026, 3, 10 + i),
+            note=f"Test expense {i}",
+            balance_delta=-amount,
         )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s)",
-            [account_id, str(user.id), inst_id, "Test Acct", 10000],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type, icon) VALUES (%s, %s, %s, %s, %s)",
-            [category_id, str(user.id), "Food", "expense", "🛒"],
-        )
-        for i in range(3):
-            tx_id = str(uuid.uuid4())
-            tx_ids.append(tx_id)
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, note)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    tx_id,
-                    str(user.id),
-                    account_id,
-                    category_id,
-                    "expense",
-                    100 + i * 50,
-                    "EGP",
-                    date(2026, 3, 10 + i),
-                    f"Test expense {i}",
-                ],
-            )
-        income_id = str(uuid.uuid4())
-        tx_ids.append(income_id)
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, note)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-            [
-                income_id,
-                str(user.id),
-                account_id,
-                "income",
-                5000,
-                "EGP",
-                date(2026, 3, 1),
-                "Test income",
-            ],
-        )
+
+    TransactionFactory(
+        user_id=user.id,
+        account_id=acct.id,
+        type="income",
+        amount=5000,
+        currency="EGP",
+        date=date(2026, 3, 1),
+        note="Test income",
+        balance_delta=5000,
+    )
 
     yield {
         "user_id": str(user.id),
         "session_token": session.token,
-        "account_id": account_id,
-        "category_id": category_id,
+        "account_id": str(acct.id),
+        "category_id": str(cat.id),
     }
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [str(user.id)])
-    from core.models import Session, User
-
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 @pytest.fixture
@@ -122,54 +98,36 @@ def spending_data(db):
     Yields dict with user_id and account_id.
     """
     user = UserFactory()
-    inst_id = str(uuid.uuid4())
-    account_id = str(uuid.uuid4())
-    category_id = str(uuid.uuid4())
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-            [inst_id, str(user.id), "Test Bank"],
+    inst = InstitutionFactory(user_id=user.id, name="Test Bank")
+    acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Test",
+        type="savings",
+        currency="EGP",
+        current_balance=0,
+    )
+    cat = CategoryFactory(user_id=user.id, name="Food", type="expense")
+
+    for i in range(3):
+        amount = 100 + i * 50
+        TransactionFactory(
+            user_id=user.id,
+            account_id=acct.id,
+            category_id=cat.id,
+            type="expense",
+            amount=amount,
+            currency="EGP",
+            date=date(2026, 3, 10 + i),
+            balance_delta=-amount,
         )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s)",
-            [account_id, str(user.id), inst_id, "Test", 0],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type, icon) VALUES (%s, %s, %s, %s, %s)",
-            [category_id, str(user.id), "Food", "expense", "🛒"],
-        )
-        for i in range(3):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    str(user.id),
-                    account_id,
-                    category_id,
-                    "expense",
-                    100 + i * 50,
-                    "EGP",
-                    date(2026, 3, 10 + i),
-                ],
-            )
 
     yield {
         "user_id": str(user.id),
-        "account_id": account_id,
-        "category_id": category_id,
+        "account_id": str(acct.id),
+        "category_id": str(cat.id),
     }
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [str(user.id)])
-    from core.models import User
-
-    User.objects.filter(id=user.id).delete()
 
 
 @pytest.fixture
@@ -180,56 +138,40 @@ def summary_data(db):
     Yields dict with user_id.
     """
     user = UserFactory()
-    inst_id = str(uuid.uuid4())
-    account_id = str(uuid.uuid4())
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-            [inst_id, str(user.id), "Test Bank"],
+    inst = InstitutionFactory(user_id=user.id, name="Test Bank")
+    acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Test",
+        type="savings",
+        currency="EGP",
+        current_balance=0,
+    )
+
+    TransactionFactory(
+        user_id=user.id,
+        account_id=acct.id,
+        type="income",
+        amount=5000,
+        currency="EGP",
+        date=date(2026, 3, 1),
+        balance_delta=5000,
+    )
+
+    for i in range(3):
+        amount = 100 + i * 50
+        TransactionFactory(
+            user_id=user.id,
+            account_id=acct.id,
+            type="expense",
+            amount=amount,
+            currency="EGP",
+            date=date(2026, 3, 10 + i),
+            balance_delta=-amount,
         )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s)",
-            [account_id, str(user.id), inst_id, "Test", 0],
-        )
-        cursor.execute(
-            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            [
-                str(uuid.uuid4()),
-                str(user.id),
-                account_id,
-                "income",
-                5000,
-                "EGP",
-                date(2026, 3, 1),
-            ],
-        )
-        for i in range(3):
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date)"
-                " VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                [
-                    str(uuid.uuid4()),
-                    str(user.id),
-                    account_id,
-                    "expense",
-                    100 + i * 50,
-                    "EGP",
-                    date(2026, 3, 10 + i),
-                ],
-            )
 
     yield {"user_id": str(user.id)}
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [str(user.id)])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [str(user.id)])
-    from core.models import User
-
-    User.objects.filter(id=user.id).delete()
 
 
 # ---------------------------------------------------------------------------

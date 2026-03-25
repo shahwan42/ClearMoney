@@ -13,46 +13,27 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from exchange_rates.services import ExchangeRateService
+from tests.factories import ExchangeRateLogFactory
 
 TZ = ZoneInfo("Africa/Cairo")
 
 
 @pytest.fixture
 def rate_data(db: object) -> Any:  # noqa: ARG001
-    """Insert test exchange rates. Cleans up on teardown."""
-    rate_ids: list[str] = []
+    """Insert test exchange rates. Cleanup is automatic via pytest-django rollback."""
+    r1 = ExchangeRateLogFactory(
+        date=date.today() - timedelta(days=1),
+        rate="50.25",
+        source="CBE",
+        note="Daily rate",
+    )
+    r2 = ExchangeRateLogFactory(
+        date=date.today(), rate="50.50", source="manual", note=None
+    )
 
-    with connection.cursor() as cursor:
-        # Insert two rates with different dates
-        cursor.execute(
-            """
-            INSERT INTO exchange_rate_log (date, rate, source, note)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-            """,
-            [date.today() - timedelta(days=1), 50.25, "CBE", "Daily rate"],
-        )
-        rate_ids.append(str(cursor.fetchone()[0]))
-
-        cursor.execute(
-            """
-            INSERT INTO exchange_rate_log (date, rate, source, note)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-            """,
-            [date.today(), 50.50, "manual", None],
-        )
-        rate_ids.append(str(cursor.fetchone()[0]))
-
-    yield {"rate_ids": rate_ids}
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        for rid in rate_ids:
-            cursor.execute("DELETE FROM exchange_rate_log WHERE id = %s", [rid])
+    yield {"rate_ids": [str(r1.id), str(r2.id)]}
 
 
 # ---------------------------------------------------------------------------

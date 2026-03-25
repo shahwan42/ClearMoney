@@ -7,11 +7,10 @@ Tests run against real PostgreSQL (--reuse-db).
 import uuid
 
 import pytest
-from django.db import connection
 
 from categories.services import CategoryService
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User
+from tests.factories import CategoryFactory
 
 _TZ = __import__("zoneinfo").ZoneInfo("Africa/Cairo")
 
@@ -24,26 +23,25 @@ def cat_svc(db):
     user_id = str(user.id)
 
     # Seed a system category + a custom category
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO categories (user_id, name, type, icon, is_system, display_order) "
-            "VALUES (%s, 'Groceries', 'expense', '🛒', true, 1)",
-            [user_id],
-        )
-        cursor.execute(
-            "INSERT INTO categories (user_id, name, type, icon, is_system, display_order) "
-            "VALUES (%s, 'Salary', 'income', '💵', true, 1)",
-            [user_id],
-        )
+    CategoryFactory(
+        user_id=user.id,
+        name="Groceries",
+        type="expense",
+        icon="🛒",
+        is_system=True,
+        display_order=1,
+    )
+    CategoryFactory(
+        user_id=user.id,
+        name="Salary",
+        type="income",
+        icon="💵",
+        is_system=True,
+        display_order=1,
+    )
 
     svc = CategoryService(user_id, _TZ)
     yield svc, user_id
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-    Session.objects.filter(user_id=user.id).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 @pytest.mark.django_db

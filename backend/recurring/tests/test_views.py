@@ -4,16 +4,14 @@ Recurring rules view tests — HTTP-level tests for /recurring* routes.
 Tests run against the real database with --reuse-db.
 """
 
-import json
 import uuid
 from datetime import date, timedelta
 
 import pytest
-from django.db import connection
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from core.models import RecurringRule, Transaction
 from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
 
 
@@ -41,16 +39,6 @@ def rec_view_data(db):
         "account_id": str(acct.id),
         "category_id": str(cat.id),
     }
-
-    # Cleanup — order matters for FK constraints
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM recurring_rules WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 def _create_rule(client: Client, data: dict) -> None:
@@ -113,12 +101,12 @@ class TestRecurringPage:
 
     def test_archived_category_excluded_from_form(self, client, rec_view_data):
         """Archived categories must not appear in the recurring rule form dropdown."""  # gap: functional
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO categories (id, user_id, name, type, is_archived)"
-                " VALUES (%s, %s, 'Archived Cat', 'expense', true)",
-                [str(uuid.uuid4()), rec_view_data["user_id"]],
-            )
+        CategoryFactory(
+            user_id=rec_view_data["user_id"],
+            name="Archived Cat",
+            type="expense",
+            is_archived=True,
+        )
         c = set_auth_cookie(client, rec_view_data["session_token"])
         response = c.get("/recurring")
         assert response.status_code == 200
@@ -183,16 +171,10 @@ class TestRecurringAdd:
             },
         )
 
-        # Check that the created rule has EGP (from account, not a form field)
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT template_transaction FROM recurring_rules WHERE user_id = %s",
-                [rec_view_data["user_id"]],
-            )
-            row = cursor.fetchone()
-            assert row is not None
-            tmpl = row[0] if isinstance(row[0], dict) else json.loads(row[0])
-            assert tmpl["currency"] == "EGP"
+        # Verify currency is EGP (taken from the account, not a form field)
+        rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
+        assert rule is not None
+        assert rule.template_transaction["currency"] == "EGP"
 
     def test_currency_fallback_for_unknown_account(self, client, rec_view_data):
         """Unknown account_id falls back to EGP for currency."""  # gap: functional
@@ -207,15 +189,13 @@ class TestRecurringAdd:
                 "next_due_date": "2026-04-01",
             },
         )
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT template_transaction FROM recurring_rules WHERE user_id = %s ORDER BY created_at DESC LIMIT 1",
-                [rec_view_data["user_id"]],
-            )
-            row = cursor.fetchone()
-            assert row is not None
-            tmpl = row[0] if isinstance(row[0], dict) else json.loads(row[0])
-            assert tmpl["currency"] == "EGP"
+        rule = (
+            RecurringRule.objects.filter(user_id=rec_view_data["user_id"])
+            .order_by("-created_at")
+            .first()
+        )
+        assert rule is not None
+        assert rule.template_transaction["currency"] == "EGP"
 
 
 # ---------------------------------------------------------------------------
@@ -240,24 +220,16 @@ class TestRecurringConfirm:
             },
         )
 
-        # Get the rule ID
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM recurring_rules WHERE user_id = %s",
-                [rec_view_data["user_id"]],
-            )
-            rule_id = str(cursor.fetchone()[0])
+        # Get the rule ID via ORM
+        rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
+        assert rule is not None
+        rule_id = str(rule.id)
 
         response = c.post(f"/recurring/{rule_id}/confirm")
         assert response.status_code == 200
 
         # Transaction should exist
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT COUNT(*) FROM transactions WHERE recurring_rule_id = %s",
-                [rule_id],
-            )
-            assert cursor.fetchone()[0] == 1
+        assert Transaction.objects.filter(recurring_rule_id=rule.id).count() == 1
 
 
 # ---------------------------------------------------------------------------
@@ -281,33 +253,20 @@ class TestRecurringSkip:
             },
         )
 
-        # Get rule ID
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM recurring_rules WHERE user_id = %s",
-                [rec_view_data["user_id"]],
-            )
-            rule_id = str(cursor.fetchone()[0])
+        # Get rule ID via ORM
+        rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
+        assert rule is not None
+        rule_id = str(rule.id)
 
         response = c.post(f"/recurring/{rule_id}/skip")
         assert response.status_code == 200
 
         # Date should have advanced by 7 days
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT next_due_date FROM recurring_rules WHERE id = %s",
-                [rule_id],
-            )
-            new_date = cursor.fetchone()[0]
-        assert new_date == yesterday + timedelta(days=7)
+        rule.refresh_from_db()
+        assert rule.next_due_date == yesterday + timedelta(days=7)
 
         # No transaction created
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT COUNT(*) FROM transactions WHERE recurring_rule_id = %s",
-                [rule_id],
-            )
-            assert cursor.fetchone()[0] == 0
+        assert Transaction.objects.filter(recurring_rule_id=rule.id).count() == 0
 
 
 # ---------------------------------------------------------------------------
@@ -330,24 +289,16 @@ class TestRecurringDelete:
             },
         )
 
-        # Get rule ID
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM recurring_rules WHERE user_id = %s",
-                [rec_view_data["user_id"]],
-            )
-            rule_id = str(cursor.fetchone()[0])
+        # Get rule ID via ORM
+        rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
+        assert rule is not None
+        rule_id = str(rule.id)
 
         response = c.delete(f"/recurring/{rule_id}")
         assert response.status_code == 200
 
         # Rule should be gone
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT COUNT(*) FROM recurring_rules WHERE id = %s",
-                [rule_id],
-            )
-            assert cursor.fetchone()[0] == 0
+        assert RecurringRule.objects.filter(id=rule_id).count() == 0
 
     def test_unauthenticated_redirects(self, client):
         import uuid

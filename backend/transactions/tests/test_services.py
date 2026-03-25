@@ -1,9 +1,6 @@
 """
 Transaction service tests — tests for TransactionService CRUD, transfer, exchange,
 Fawry, batch, smart defaults, and suggest category.
-
-Uses raw SQL fixtures for test data setup. Tests run against
-the real database with --reuse-db.
 """
 
 import uuid
@@ -11,10 +8,21 @@ from datetime import date
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User
+from core.models import (
+    Account,
+    ExchangeRateLog,
+    VirtualAccount,
+    VirtualAccountAllocation,
+)
+from tests.factories import (
+    AccountFactory,
+    CategoryFactory,
+    InstitutionFactory,
+    VirtualAccountAllocationFactory,
+    VirtualAccountFactory,
+)
 from transactions.services import (
     TransactionService,
     calculate_instapay_fee,
@@ -26,83 +34,49 @@ TZ = ZoneInfo("Africa/Cairo")
 
 @pytest.fixture
 def tx_data(db):
-    """User + institution + 2 accounts (savings EGP, savings USD) + 1 CC.
-
-    Creates minimal test data for transaction service tests.
-    """
+    """User + institution + 2 accounts (savings EGP, savings USD) + 1 CC."""
     user = UserFactory()
     SessionFactory(user=user)
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    egp_id = str(uuid.uuid4())
-    usd_id = str(uuid.uuid4())
-    cc_id = str(uuid.uuid4())
-    cat_expense_id = str(uuid.uuid4())
-    cat_income_id = str(uuid.uuid4())
-    fees_cat_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Test Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-            [egp_id, user_id, inst_id, "EGP Savings", 10000, 10000],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'USD', %s, %s)",
-            [usd_id, user_id, inst_id, "USD Savings", 500, 500],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance, credit_limit)"
-            " VALUES (%s, %s, %s, %s, 'credit_card', 'EGP',"
-            " %s, %s, %s)",
-            [cc_id, user_id, inst_id, "Test CC", 0, 0, 5000],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type)"
-            " VALUES (%s, %s, %s, 'expense')",
-            [cat_expense_id, user_id, "Food"],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type)"
-            " VALUES (%s, %s, %s, 'income')",
-            [cat_income_id, user_id, "Salary"],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type)"
-            " VALUES (%s, %s, %s, 'expense')",
-            [fees_cat_id, user_id, "Fees & Charges"],
-        )
-
+    institution = InstitutionFactory(user_id=user.id, name="Test Bank")
+    egp_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="EGP Savings",
+        currency="EGP",
+        current_balance=10000,
+        initial_balance=10000,
+    )
+    usd_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="USD Savings",
+        currency="USD",
+        current_balance=500,
+        initial_balance=500,
+    )
+    cc_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="Test CC",
+        type="credit_card",
+        currency="EGP",
+        current_balance=0,
+        initial_balance=0,
+        credit_limit=5000,
+    )
+    cat_expense = CategoryFactory(user_id=user.id, name="Food", type="expense")
+    cat_income = CategoryFactory(user_id=user.id, name="Salary", type="income")
+    fees_cat = CategoryFactory(user_id=user.id, name="Fees & Charges", type="expense")
     yield {
-        "user_id": user_id,
-        "egp_id": egp_id,
-        "usd_id": usd_id,
-        "cc_id": cc_id,
-        "cat_expense_id": cat_expense_id,
-        "cat_income_id": cat_income_id,
-        "fees_cat_id": fees_cat_id,
+        "user_id": str(user.id),
+        "inst_id": str(institution.id),
+        "egp_id": str(egp_account.id),
+        "usd_id": str(usd_account.id),
+        "cc_id": str(cc_account.id),
+        "cat_expense_id": str(cat_expense.id),
+        "cat_income_id": str(cat_income.id),
+        "fees_cat_id": str(fees_cat.id),
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "DELETE FROM virtual_account_allocations WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = %s)",
-            [user_id],
-        )
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 def _svc(user_id: str) -> TransactionService:
@@ -110,13 +84,8 @@ def _svc(user_id: str) -> TransactionService:
 
 
 def _get_balance(account_id: str) -> float:
-    """Fetch current_balance directly from DB."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT current_balance FROM accounts WHERE id = %s", [account_id]
-        )
-        row = cursor.fetchone()
-    return float(row[0]) if row else 0
+    """Fetch current_balance from DB via ORM."""
+    return float(Account.objects.get(id=account_id).current_balance)
 
 
 # ---------------------------------------------------------------------------
@@ -308,22 +277,15 @@ class TestDelete:
     def test_linked_reverses_both_accounts(self, tx_data):
         svc = _svc(tx_data["user_id"])
         # Create a second EGP account for transfer
-        dest_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings', 'EGP', %s, %s)",
-                [
-                    dest_id,
-                    tx_data["user_id"],
-                    tx_data["user_id"],
-                    "Dest Account",
-                    5000,
-                    5000,
-                ],
-            )
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest Account",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        dest_id = str(dest.id)
         debit, credit = svc.create_transfer(
             tx_data["egp_id"],
             dest_id,
@@ -445,15 +407,15 @@ class TestTransfer:
     def test_updates_both_balances(self, tx_data):
         svc = _svc(tx_data["user_id"])
         # Create second EGP account
-        dest_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings', 'EGP', %s, %s)",
-                [dest_id, tx_data["user_id"], tx_data["user_id"], "Dest", 5000, 5000],
-            )
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        dest_id = str(dest.id)
         debit, credit = svc.create_transfer(
             tx_data["egp_id"],
             dest_id,
@@ -497,15 +459,15 @@ class TestTransfer:
 class TestInstapayTransfer:
     def test_deducts_fee_from_source(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        dest_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings', 'EGP', %s, %s)",
-                [dest_id, tx_data["user_id"], tx_data["user_id"], "Dest", 5000, 5000],
-            )
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        dest_id = str(dest.id)
         _, _, fee = svc.create_instapay_transfer(
             tx_data["egp_id"],
             dest_id,
@@ -568,15 +530,15 @@ class TestExchange:
     def test_same_currency_rejected(self, tx_data):
         svc = _svc(tx_data["user_id"])
         # Create a second EGP account to test currency validation (not same-account)
-        egp2_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'savings', 'EGP', %s, %s)",
-                [egp2_id, tx_data["user_id"], tx_data["user_id"], "EGP 2", 1000, 1000],
-            )
+        egp2 = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="EGP 2",
+            currency="EGP",
+            current_balance=1000,
+            initial_balance=1000,
+        )
+        egp2_id = str(egp2.id)
         with pytest.raises(ValueError, match="different currencies"):
             svc.create_exchange(
                 tx_data["egp_id"],
@@ -599,13 +561,9 @@ class TestExchange:
             None,
             date(2026, 3, 15),
         )
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT rate FROM exchange_rate_log ORDER BY created_at DESC LIMIT 1"
-            )
-            row = cursor.fetchone()
-        assert row is not None
-        assert float(row[0]) == 50.0
+        log = ExchangeRateLog.objects.order_by("-created_at").first()
+        assert log is not None
+        assert float(log.rate) == 50.0
 
 
 # ---------------------------------------------------------------------------
@@ -618,15 +576,16 @@ class TestFawryCashout:
     def test_charges_cc_credits_prepaid(self, tx_data):
         svc = _svc(tx_data["user_id"])
         # Create prepaid account
-        prepaid_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, (SELECT id FROM institutions WHERE user_id = %s LIMIT 1),"
-                " %s, 'prepaid', 'EGP', %s, %s)",
-                [prepaid_id, tx_data["user_id"], tx_data["user_id"], "Prepaid", 0, 0],
-            )
+        prepaid = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Prepaid",
+            type="prepaid",
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        prepaid_id = str(prepaid.id)
         charge, credit = svc.create_fawry_cashout(
             tx_data["cc_id"],
             prepaid_id,
@@ -765,13 +724,10 @@ class TestTransactionListIncludesCategory:
 
     def test_list_includes_category_fields(self, tx_data: dict) -> None:
         """Transactions with a category expose category_name and category_icon."""
-        cat_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO categories (id, user_id, name, type, icon)"
-                " VALUES (%s, %s, 'Food', 'expense', '🍕')",
-                [cat_id, tx_data["user_id"]],
-            )
+        cat = CategoryFactory(
+            user_id=tx_data["user_id"], name="Food", type="expense", icon="🍕"
+        )
+        cat_id = str(cat.id)
         svc = _svc(tx_data["user_id"])
         svc.create(
             {
@@ -826,46 +782,28 @@ class TestDeallocateFromVirtualAccounts:
         )
 
         # Create a virtual account (not linked to a specific account)
-        va_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO virtual_accounts (id, user_id, name, current_balance,"
-                " icon, color, display_order)"
-                " VALUES (%s, %s, %s, 0, '💰', '#0d9488', 0)",
-                [va_id, tx_data["user_id"], "Test VA"],
-            )
+        va = VirtualAccountFactory(
+            user_id=tx_data["user_id"], name="Test VA", current_balance=0
+        )
+        va_id = str(va.id)
 
         # Allocate 200 to the VA
         svc.allocate_to_virtual_account(tx["id"], va_id, 200)
 
         # Verify VA balance increased
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT current_balance FROM virtual_accounts WHERE id = %s", [va_id]
-            )
-            row = cursor.fetchone()
-        assert float(row[0]) == 200
+        assert float(VirtualAccount.objects.get(id=va_id).current_balance) == 200
 
         # Deallocate
         svc.deallocate_from_virtual_accounts(tx["id"])
 
         # VA balance should be reversed back to 0
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT current_balance FROM virtual_accounts WHERE id = %s", [va_id]
-            )
-            row = cursor.fetchone()
-        assert float(row[0]) == 0
+        assert float(VirtualAccount.objects.get(id=va_id).current_balance) == 0
 
         # Allocation row should be deleted
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT COUNT(*) FROM virtual_account_allocations"
-                " WHERE transaction_id = %s",
-                [tx["id"]],
-            )
-            count = cursor.fetchone()[0]
-        assert count == 0
+        assert (
+            VirtualAccountAllocation.objects.filter(transaction_id=tx["id"]).count()
+            == 0
+        )
 
     def test_noop_when_no_allocations(self, tx_data: dict) -> None:
         """Deallocating a tx with no allocations should not error."""
@@ -904,19 +842,13 @@ class TestGetAllocationForTx:
         )
 
         # Create VA + allocate
-        va_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO virtual_accounts (id, user_id, name, current_balance, display_order)"
-                " VALUES (%s, %s, 'Test VA', 0, 1)",
-                [va_id, tx_data["user_id"]],
-            )
-            cursor.execute(
-                "INSERT INTO virtual_account_allocations"
-                " (id, virtual_account_id, transaction_id, amount)"
-                " VALUES (%s, %s, %s, -200)",
-                [str(uuid.uuid4()), va_id, tx["id"]],
-            )
+        va = VirtualAccountFactory(
+            user_id=tx_data["user_id"], name="Test VA", current_balance=0
+        )
+        va_id = str(va.id)
+        VirtualAccountAllocationFactory(
+            virtual_account_id=va.id, transaction_id=tx["id"], amount=-200
+        )
 
         result = svc.get_allocation_for_tx(tx["id"])
         assert result == va_id

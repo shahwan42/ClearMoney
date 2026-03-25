@@ -4,12 +4,10 @@ Tests for accounts services — billing cycle math + AccountService + Institutio
 Billing tests are pure (no DB). AccountService/InstitutionService tests need PostgreSQL.
 """
 
-import uuid
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from accounts.services import AccountService, InstitutionService
 from conftest import SessionFactory, UserFactory
@@ -20,8 +18,13 @@ from core.billing import (
     interest_free_remaining,
     parse_billing_cycle,
 )
-from core.models import User
-from tests.factories import AccountFactory, InstitutionFactory, VirtualAccountFactory
+from tests.factories import (
+    AccountFactory,
+    CategoryFactory,
+    InstitutionFactory,
+    TransactionFactory,
+    VirtualAccountFactory,
+)
 
 
 class TestParseBillingCycle:
@@ -139,39 +142,32 @@ class TestInterestFreeRemaining:
 
 @pytest.fixture
 def dropdown_data(db):
-    """User with institution + 2 active accounts + 1 dormant account."""
+    """User with institution + 1 active account + 1 dormant account."""
     user = UserFactory()
     SessionFactory(user=user)
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    active_id = str(uuid.uuid4())
-    dormant_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', 5000, 5000)",
-            [active_id, user_id, inst_id, "Active Savings"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance, initial_balance, is_dormant)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', 0, 0, true)",
-            [dormant_id, user_id, inst_id, "Dormant"],
-        )
-
-    yield {"user_id": user_id, "active_id": active_id, "dormant_id": dormant_id}
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    from core.models import Session, User
-
-    Session.objects.filter(user_id=user_id).delete()
-    User.objects.filter(id=user_id).delete()
+    institution = InstitutionFactory(user_id=user.id, name="Bank")
+    active = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="Active Savings",
+        currency="EGP",
+        current_balance=5000,
+        initial_balance=5000,
+    )
+    dormant = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="Dormant",
+        currency="EGP",
+        current_balance=0,
+        initial_balance=0,
+        is_dormant=True,
+    )
+    yield {
+        "user_id": str(user.id),
+        "active_id": str(active.id),
+        "dormant_id": str(dormant.id),
+    }
 
 
 class TestGetForDropdown:
@@ -336,45 +332,28 @@ class TestAccountCreateAutoName:
 def recent_tx_data(db):
     """User + institution + 2 accounts + category for get_recent_transactions tests."""
     user = UserFactory()
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    account_id = str(uuid.uuid4())
-    other_account_id = str(uuid.uuid4())
-    cat_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
-            [inst_id, user_id, "Test Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, 'My Savings', 'savings', 'EGP', 10000)",
-            [account_id, user_id, inst_id],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
-            " VALUES (%s, %s, %s, 'Other Account', 'savings', 'EGP', 5000)",
-            [other_account_id, user_id, inst_id],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type) VALUES (%s, %s, 'Food', 'expense')",
-            [cat_id, user_id],
-        )
-
+    institution = InstitutionFactory(user_id=user.id, name="Test Bank")
+    account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="My Savings",
+        currency="EGP",
+        current_balance=10000,
+    )
+    other_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="Other Account",
+        currency="EGP",
+        current_balance=5000,
+    )
+    category = CategoryFactory(user_id=user.id, name="Food", type="expense")
     yield {
-        "user_id": user_id,
-        "account_id": account_id,
-        "other_account_id": other_account_id,
-        "cat_id": cat_id,
+        "user_id": str(user.id),
+        "account_id": str(account.id),
+        "other_account_id": str(other_account.id),
+        "cat_id": str(category.id),
     }
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-    User.objects.filter(id=user_id).delete()
 
 
 class TestGetRecentTransactions:
@@ -385,18 +364,16 @@ class TestGetRecentTransactions:
     @pytest.mark.django_db
     def test_returns_correct_fields(self, recent_tx_data: dict) -> None:
         # gap: functional — happy path field coverage was zero
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
-                [
-                    str(uuid.uuid4()),
-                    recent_tx_data["user_id"],
-                    recent_tx_data["account_id"],
-                    recent_tx_data["cat_id"],
-                    date.today(),
-                ],
-            )
+        TransactionFactory(
+            user_id=recent_tx_data["user_id"],
+            account_id=recent_tx_data["account_id"],
+            category_id=recent_tx_data["cat_id"],
+            type="expense",
+            amount=300,
+            currency="EGP",
+            date=date.today(),
+            balance_delta=-300,
+        )
         svc = AccountService(recent_tx_data["user_id"], self.tz)
         txns = svc.get_recent_transactions(recent_tx_data["account_id"])
         assert len(txns) == 1
@@ -419,20 +396,16 @@ class TestGetRecentTransactions:
         #   tx2 (yesterday, delta=-150): 10000 - (-100)       = 10100
         #   tx1 (2 days ago,delta=-200): 10000 - (-100 + -150)= 10250
         today = date.today()
-        with connection.cursor() as cursor:
-            for days_ago, delta in [(2, -200), (1, -150), (0, -100)]:
-                cursor.execute(
-                    "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                    " VALUES (%s, %s, %s, 'expense', %s, 'EGP', %s, %s)",
-                    [
-                        str(uuid.uuid4()),
-                        recent_tx_data["user_id"],
-                        recent_tx_data["account_id"],
-                        abs(delta),
-                        today - timedelta(days=days_ago),
-                        delta,
-                    ],
-                )
+        for days_ago, delta in [(2, -200), (1, -150), (0, -100)]:
+            TransactionFactory(
+                user_id=recent_tx_data["user_id"],
+                account_id=recent_tx_data["account_id"],
+                type="expense",
+                amount=abs(delta),
+                currency="EGP",
+                date=today - timedelta(days=days_ago),
+                balance_delta=delta,
+            )
         svc = AccountService(recent_tx_data["user_id"], self.tz)
         txns = svc.get_recent_transactions(recent_tx_data["account_id"])
         assert len(txns) == 3
@@ -444,28 +417,25 @@ class TestGetRecentTransactions:
     def test_account_isolation(self, recent_tx_data: dict) -> None:
         # gap: data — no test that other accounts' transactions are excluded
         today = date.today()
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
-                [
-                    str(uuid.uuid4()),
-                    recent_tx_data["user_id"],
-                    recent_tx_data["account_id"],
-                    today,
-                ],
-            )
-            # Different account — must not appear
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 999, 'EGP', %s, -999)",
-                [
-                    str(uuid.uuid4()),
-                    recent_tx_data["user_id"],
-                    recent_tx_data["other_account_id"],
-                    today,
-                ],
-            )
+        TransactionFactory(
+            user_id=recent_tx_data["user_id"],
+            account_id=recent_tx_data["account_id"],
+            type="expense",
+            amount=100,
+            currency="EGP",
+            date=today,
+            balance_delta=-100,
+        )
+        # Different account — must not appear
+        TransactionFactory(
+            user_id=recent_tx_data["user_id"],
+            account_id=recent_tx_data["other_account_id"],
+            type="expense",
+            amount=999,
+            currency="EGP",
+            date=today,
+            balance_delta=-999,
+        )
         svc = AccountService(recent_tx_data["user_id"], self.tz)
         txns = svc.get_recent_transactions(recent_tx_data["account_id"])
         assert len(txns) == 1
@@ -475,18 +445,16 @@ class TestGetRecentTransactions:
     def test_limit_respected(self, recent_tx_data: dict) -> None:
         # gap: functional — limit parameter was never tested
         today = date.today()
-        with connection.cursor() as cursor:
-            for i in range(7):
-                cursor.execute(
-                    "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                    " VALUES (%s, %s, %s, 'expense', 50, 'EGP', %s, -50)",
-                    [
-                        str(uuid.uuid4()),
-                        recent_tx_data["user_id"],
-                        recent_tx_data["account_id"],
-                        today - timedelta(days=i),
-                    ],
-                )
+        for i in range(7):
+            TransactionFactory(
+                user_id=recent_tx_data["user_id"],
+                account_id=recent_tx_data["account_id"],
+                type="expense",
+                amount=50,
+                currency="EGP",
+                date=today - timedelta(days=i),
+                balance_delta=-50,
+            )
         svc = AccountService(recent_tx_data["user_id"], self.tz)
         txns = svc.get_recent_transactions(recent_tx_data["account_id"], limit=3)
         assert len(txns) == 3
@@ -494,17 +462,15 @@ class TestGetRecentTransactions:
     @pytest.mark.django_db
     def test_uncategorized_transaction(self, recent_tx_data: dict) -> None:
         # gap: data — NULL category_id must map to category_id=None, not raise
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
-                [
-                    str(uuid.uuid4()),
-                    recent_tx_data["user_id"],
-                    recent_tx_data["account_id"],
-                    date.today(),
-                ],
-            )
+        TransactionFactory(
+            user_id=recent_tx_data["user_id"],
+            account_id=recent_tx_data["account_id"],
+            type="expense",
+            amount=100,
+            currency="EGP",
+            date=date.today(),
+            balance_delta=-100,
+        )
         svc = AccountService(recent_tx_data["user_id"], self.tz)
         txns = svc.get_recent_transactions(recent_tx_data["account_id"])
         assert len(txns) == 1
@@ -518,17 +484,15 @@ class TestGetRecentTransactions:
         # gap: data — positive balance_delta (income) never tested in window expression
         # account current_balance=10000; single income tx, delta=+1000
         # No preceding rows → running_balance = 10000 - 0 = 10000
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'income', 1000, 'EGP', %s, 1000)",
-                [
-                    str(uuid.uuid4()),
-                    recent_tx_data["user_id"],
-                    recent_tx_data["account_id"],
-                    date.today(),
-                ],
-            )
+        TransactionFactory(
+            user_id=recent_tx_data["user_id"],
+            account_id=recent_tx_data["account_id"],
+            type="income",
+            amount=1000,
+            currency="EGP",
+            date=date.today(),
+            balance_delta=1000,
+        )
         svc = AccountService(recent_tx_data["user_id"], self.tz)
         txns = svc.get_recent_transactions(recent_tx_data["account_id"])
         assert len(txns) == 1
@@ -547,43 +511,32 @@ class TestGetRecentTransactions:
 def statement_data(db):
     """User + institution + CC account with billing cycle + savings account."""
     user = UserFactory()
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    cc_id = str(uuid.uuid4())
-    savings_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Test Bank"],
-        )
-        # CC account with billing cycle metadata: statement_day=15, due_day=5
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance, credit_limit, metadata)"
-            " VALUES (%s, %s, %s, 'Test CC', 'credit_card', 'EGP', -5000, 0, 50000,"
-            ' \'{"statement_day": 15, "due_day": 5}\'::jsonb)',
-            [cc_id, user_id, inst_id],
-        )
-        # Savings account — no billing cycle
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, 'My Savings', 'savings', 'EGP', 10000, 10000)",
-            [savings_id, user_id, inst_id],
-        )
-
+    institution = InstitutionFactory(user_id=user.id, name="Test Bank")
+    # CC account with billing cycle metadata: statement_day=15, due_day=5
+    cc = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="Test CC",
+        type="credit_card",
+        currency="EGP",
+        current_balance=-5000,
+        initial_balance=0,
+        credit_limit=50000,
+        metadata={"statement_day": 15, "due_day": 5},
+    )
+    savings = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="My Savings",
+        currency="EGP",
+        current_balance=10000,
+        initial_balance=10000,
+    )
     yield {
-        "user_id": user_id,
-        "cc_id": cc_id,
-        "savings_id": savings_id,
+        "user_id": str(user.id),
+        "cc_id": str(cc.id),
+        "savings_id": str(savings.id),
     }
-
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    User.objects.filter(id=user_id).delete()
 
 
 class TestGetStatementData:
@@ -655,42 +608,35 @@ class TestGetStatementData:
         if mid_date > period_end:
             mid_date = period_end
 
-        with connection.cursor() as cursor:
-            # Expense (negative balance_delta = spending)
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
-                " currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 1500, 'EGP', %s, -1500)",
-                [
-                    str(uuid.uuid4()),
-                    statement_data["user_id"],
-                    statement_data["cc_id"],
-                    mid_date,
-                ],
-            )
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
-                " currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'expense', 800, 'EGP', %s, -800)",
-                [
-                    str(uuid.uuid4()),
-                    statement_data["user_id"],
-                    statement_data["cc_id"],
-                    mid_date,
-                ],
-            )
-            # Payment (positive balance_delta)
-            cursor.execute(
-                "INSERT INTO transactions (id, user_id, account_id, type, amount,"
-                " currency, date, balance_delta)"
-                " VALUES (%s, %s, %s, 'income', 500, 'EGP', %s, 500)",
-                [
-                    str(uuid.uuid4()),
-                    statement_data["user_id"],
-                    statement_data["cc_id"],
-                    mid_date,
-                ],
-            )
+        # Expense (negative balance_delta = spending)
+        TransactionFactory(
+            user_id=statement_data["user_id"],
+            account_id=statement_data["cc_id"],
+            type="expense",
+            amount=1500,
+            currency="EGP",
+            date=mid_date,
+            balance_delta=-1500,
+        )
+        TransactionFactory(
+            user_id=statement_data["user_id"],
+            account_id=statement_data["cc_id"],
+            type="expense",
+            amount=800,
+            currency="EGP",
+            date=mid_date,
+            balance_delta=-800,
+        )
+        # Payment (positive balance_delta)
+        TransactionFactory(
+            user_id=statement_data["user_id"],
+            account_id=statement_data["cc_id"],
+            type="income",
+            amount=500,
+            currency="EGP",
+            date=mid_date,
+            balance_delta=500,
+        )
 
         result = get_statement_data(account, statement_data["user_id"], self.tz)
         assert result is not None

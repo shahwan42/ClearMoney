@@ -8,11 +8,9 @@ import re
 import uuid
 
 import pytest
-from django.db import connection
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
 from tests.factories import AccountFactory, InstitutionFactory
 
 
@@ -38,19 +36,6 @@ def va_view_data(db):
         "session_token": session.token,
         "account_id": str(acct.id),
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "DELETE FROM virtual_account_allocations WHERE virtual_account_id IN "
-            "(SELECT id FROM virtual_accounts WHERE user_id = %s)",
-            [user_id],
-        )
-        cursor.execute("DELETE FROM virtual_accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 # ---------------------------------------------------------------------------

@@ -6,10 +6,9 @@ Category API view tests — HTTP-level tests for /api/categories/* JSON API.
 import json
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from tests.factories import CategoryFactory
 
 
 @pytest.fixture
@@ -19,28 +18,27 @@ def cat_api_data(db):
     session = SessionFactory(user=user)
     user_id = str(user.id)
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO categories (user_id, name, type, icon, is_system, display_order) "
-            "VALUES (%s, 'Groceries', 'expense', '🛒', true, 1)",
-            [user_id],
-        )
-        cursor.execute(
-            "INSERT INTO categories (user_id, name, type, icon, is_system, display_order) "
-            "VALUES (%s, 'Salary', 'income', '💵', true, 1)",
-            [user_id],
-        )
+    CategoryFactory(
+        user_id=user.id,
+        name="Groceries",
+        type="expense",
+        icon="🛒",
+        is_system=True,
+        display_order=1,
+    )
+    CategoryFactory(
+        user_id=user.id,
+        name="Salary",
+        type="income",
+        icon="💵",
+        is_system=True,
+        display_order=1,
+    )
 
     yield {
         "user_id": user_id,
         "session_token": session.token,
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 @pytest.mark.django_db

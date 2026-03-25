@@ -9,45 +9,29 @@ from datetime import date
 from typing import Any
 
 import pytest
-from django.db import connection
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from core.models import ExchangeRateLog
+from tests.factories import ExchangeRateLogFactory
 
 
 @pytest.fixture
 def er_view_data(db: object) -> Any:  # noqa: ARG001
-    """User + session + a test exchange rate for view tests."""
+    """User + session + a test exchange rate for view tests. Cleanup via rollback."""
     user = UserFactory()
     session = SessionFactory(user=user)
-    user_id = str(user.id)
 
-    # Insert a test exchange rate (global data, no user_id)
-    rate_ids: list[str] = []
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            INSERT INTO exchange_rate_log (date, rate, source, note)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id
-            """,
-            [date.today(), 50.75, "CBE", "Test rate"],
-        )
-        rate_ids.append(str(cursor.fetchone()[0]))
+    # Create a test exchange rate (global data, no user_id)
+    rate = ExchangeRateLogFactory(
+        date=date.today(), rate="50.75", source="CBE", note="Test rate"
+    )
 
     yield {
-        "user_id": user_id,
+        "user_id": str(user.id),
         "session_token": session.token,
-        "rate_ids": rate_ids,
+        "rate_ids": [str(rate.id)],
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        for rid in rate_ids:
-            cursor.execute("DELETE FROM exchange_rate_log WHERE id = %s", [rid])
-    Session.objects.filter(user_id=user_id).delete()
-    User.objects.filter(id=user_id).delete()
 
 
 # ---------------------------------------------------------------------------
@@ -71,29 +55,12 @@ class TestExchangeRatesPage:
 
     def test_empty_state(self, client: Client, er_view_data: dict[str, Any]) -> None:
         """When no rates exist, shows empty state message."""
-        # Save existing rates, clear table, test, then restore
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT id, date, rate, source, note FROM exchange_rate_log")
-            saved_rows = cursor.fetchall()
-            cursor.execute("DELETE FROM exchange_rate_log")
+        # Delete all rates for this test, then check empty state
+        ExchangeRateLog.objects.all().delete()
 
-        er_view_data["rate_ids"].clear()
-
-        try:
-            c = set_auth_cookie(client, er_view_data["session_token"])
-            response = c.get("/exchange-rates")
-            assert b"No exchange rates recorded yet" in response.content
-        finally:
-            # Restore saved rates
-            with connection.cursor() as cursor:
-                for row in saved_rows:
-                    cursor.execute(
-                        """
-                        INSERT INTO exchange_rate_log (id, date, rate, source, note)
-                        VALUES (%s, %s, %s, %s, %s)
-                        """,
-                        list(row),
-                    )
+        c = set_auth_cookie(client, er_view_data["session_token"])
+        response = c.get("/exchange-rates")
+        assert b"No exchange rates recorded yet" in response.content
 
     def test_unauthenticated_redirects(self, client: Client) -> None:
         response = client.get("/exchange-rates")

@@ -8,10 +8,9 @@ import json
 import uuid
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from tests.factories import AccountFactory, InstitutionFactory
 
 
 @pytest.fixture
@@ -19,36 +18,24 @@ def api_data(db):
     """User + session + institution + EGP account."""
     user = UserFactory()
     session = SessionFactory(user=user)
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    account_id = str(uuid.uuid4())
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Fixture Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-            [account_id, user_id, inst_id, "EGP Savings", 10000, 10000],
-        )
+    inst = InstitutionFactory(user_id=user.id, name="Fixture Bank", type="bank")
+    acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="EGP Savings",
+        type="savings",
+        currency="EGP",
+        current_balance=10000,
+        initial_balance=10000,
+    )
 
     yield {
-        "user_id": user_id,
+        "user_id": str(user.id),
         "session_token": session.token,
-        "inst_id": inst_id,
-        "account_id": account_id,
+        "inst_id": str(inst.id),
+        "account_id": str(acct.id),
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 # ---------------------------------------------------------------------------

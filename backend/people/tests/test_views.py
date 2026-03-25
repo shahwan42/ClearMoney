@@ -1,7 +1,5 @@
 """
 People view tests — HTTP-level tests for /people/* routes and /api/persons/* JSON API.
-
-Uses raw SQL fixtures for test data setup.
 """
 
 from __future__ import annotations
@@ -11,10 +9,9 @@ import uuid
 from typing import TYPE_CHECKING
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from tests.factories import AccountFactory, InstitutionFactory
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -26,43 +23,33 @@ def people_view_data(db):
     user = UserFactory()
     session = SessionFactory(user=user)
     user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    egp_id = str(uuid.uuid4())
-    usd_id = str(uuid.uuid4())
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Test Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-            [egp_id, user_id, inst_id, "EGP Savings", 10000, 10000],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'USD', %s, %s)",
-            [usd_id, user_id, inst_id, "USD Savings", 500, 500],
-        )
+    inst = InstitutionFactory(user_id=user.id, name="Test Bank", type="bank")
+    egp_acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="EGP Savings",
+        type="savings",
+        currency="EGP",
+        current_balance=10000,
+        initial_balance=10000,
+    )
+    usd_acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="USD Savings",
+        type="savings",
+        currency="USD",
+        current_balance=500,
+        initial_balance=500,
+    )
 
     yield {
         "user_id": user_id,
         "session_token": session.token,
-        "egp_id": egp_id,
-        "usd_id": usd_id,
+        "egp_id": str(egp_acct.id),
+        "usd_id": str(usd_acct.id),
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM persons WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 # ---------------------------------------------------------------------------

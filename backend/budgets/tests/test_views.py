@@ -7,7 +7,6 @@ Tests run against the real database with --reuse-db.
 import uuid
 
 import pytest
-from django.db import connection
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
@@ -31,13 +30,6 @@ def budget_view_data(db):
         "cat1_id": str(cat1.id),
         "cat2_id": str(cat2.id),
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM budgets WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 # ---------------------------------------------------------------------------

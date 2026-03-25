@@ -44,7 +44,7 @@ Three animation keyframes:
 5. Only auto-selects if category dropdown is empty (preserves user intent)
 6. Silent failure — no error shown if suggestion fails
 
-**Backend:** `backend/transactions/views.py` → service → raw SQL
+**Backend:** `backend/transactions/views.py` → `helpers.suggest_category()` → Django ORM
 **Frontend:** JavaScript in `backend/transactions/templates/transactions/_quick_entry.html` with debounced fetch
 
 ## Swipe-to-Delete Gestures

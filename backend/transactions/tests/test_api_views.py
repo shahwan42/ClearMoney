@@ -5,14 +5,12 @@ Transaction API view tests — HTTP-level tests for /api/transactions/* JSON API
 from __future__ import annotations
 
 import json
-import uuid
 from typing import TYPE_CHECKING
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Session, User
+from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -23,52 +21,38 @@ def tx_api_data(db):
     """User + session + institution + EGP account (10000) + USD account (500) + category."""
     user = UserFactory()
     session = SessionFactory(user=user)
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    egp_id = str(uuid.uuid4())
-    usd_id = str(uuid.uuid4())
-    cat_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Test Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-            [egp_id, user_id, inst_id, "EGP Savings", 10000, 10000],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'USD', %s, %s)",
-            [usd_id, user_id, inst_id, "USD Savings", 500, 500],
-        )
-        cursor.execute(
-            "INSERT INTO categories (id, user_id, name, type, is_system, display_order) "
-            "VALUES (%s, %s, 'Groceries', 'expense', true, 1)",
-            [cat_id, user_id],
-        )
-
+    institution = InstitutionFactory(user_id=user.id, name="Test Bank")
+    egp_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="EGP Savings",
+        currency="EGP",
+        current_balance=10000,
+        initial_balance=10000,
+    )
+    usd_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="USD Savings",
+        currency="USD",
+        current_balance=500,
+        initial_balance=500,
+    )
+    category = CategoryFactory(
+        user_id=user.id,
+        name="Groceries",
+        type="expense",
+        is_system=True,
+        display_order=1,
+    )
     yield {
-        "user_id": user_id,
+        "user_id": str(user.id),
         "session_token": session.token,
-        "inst_id": inst_id,
-        "egp_id": egp_id,
-        "usd_id": usd_id,
-        "cat_id": cat_id,
+        "inst_id": str(institution.id),
+        "egp_id": str(egp_account.id),
+        "usd_id": str(usd_account.id),
+        "cat_id": str(category.id),
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 @pytest.mark.django_db
@@ -206,21 +190,15 @@ class TestTransactionAPI:
         c = set_auth_cookie(client, tx_api_data["session_token"])
 
         # Create a second EGP account for same-currency transfer
-        egp2_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-                [
-                    egp2_id,
-                    tx_api_data["user_id"],
-                    tx_api_data["inst_id"],
-                    "EGP Savings 2",
-                    5000,
-                    5000,
-                ],
-            )
+        egp2 = AccountFactory(
+            user_id=tx_api_data["user_id"],
+            institution_id=tx_api_data["inst_id"],
+            name="EGP Savings 2",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        egp2_id = str(egp2.id)
 
         resp = c.post(
             "/api/transactions/transfer",
@@ -310,21 +288,15 @@ class TestApiTransactionTransferErrors:
         """Omitting amount defaults to 0, which the service rejects."""
         c = set_auth_cookie(client, tx_api_data["session_token"])
         # Create a second EGP account for valid source/dest pair
-        egp2_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-                [
-                    egp2_id,
-                    tx_api_data["user_id"],
-                    tx_api_data["inst_id"],
-                    "EGP Extra",
-                    5000,
-                    5000,
-                ],
-            )
+        egp2 = AccountFactory(
+            user_id=tx_api_data["user_id"],
+            institution_id=tx_api_data["inst_id"],
+            name="EGP Extra",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        egp2_id = str(egp2.id)
 
         resp = c.post(
             "/api/transactions/transfer",
@@ -346,21 +318,15 @@ class TestApiTransactionTransferErrors:
     ) -> None:
         """Explicit amount=0 is rejected as non-positive."""
         c = set_auth_cookie(client, tx_api_data["session_token"])
-        egp2_id = str(uuid.uuid4())
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-                " current_balance, initial_balance)"
-                " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-                [
-                    egp2_id,
-                    tx_api_data["user_id"],
-                    tx_api_data["inst_id"],
-                    "EGP Extra 2",
-                    5000,
-                    5000,
-                ],
-            )
+        egp2 = AccountFactory(
+            user_id=tx_api_data["user_id"],
+            institution_id=tx_api_data["inst_id"],
+            name="EGP Extra 2",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        egp2_id = str(egp2.id)
 
         resp = c.post(
             "/api/transactions/transfer",

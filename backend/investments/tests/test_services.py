@@ -8,10 +8,8 @@ total valuation, and input validation.
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User
 from investments.services import InvestmentService
 
 TZ = ZoneInfo("Africa/Cairo")
@@ -19,18 +17,11 @@ TZ = ZoneInfo("Africa/Cairo")
 
 @pytest.fixture
 def inv_data(db: object):  # noqa: ARG001
-    """User for investment tests. Cleans up investments on teardown."""
+    """User for investment tests. Cleanup is automatic via pytest-django rollback."""
     user = UserFactory()
     SessionFactory(user=user)
-    user_id = str(user.id)
 
-    yield {"user_id": user_id}
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM investments WHERE user_id = %s", [user_id])
-    Session.objects.filter(user_id=user_id).delete()
-    User.objects.filter(id=user_id).delete()
+    yield {"user_id": str(user.id)}
 
 
 def _svc(user_id: str) -> InvestmentService:

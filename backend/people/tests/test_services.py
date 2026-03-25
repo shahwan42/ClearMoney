@@ -1,68 +1,47 @@
 """
 Person service tests — CRUD, loan/repayment, multi-currency, debt summary.
-
-Uses raw SQL fixtures for test data setup. Tests run against the real
-database with --reuse-db.
 """
 
 import uuid
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
 
 from conftest import SessionFactory, UserFactory
-from core.models import Session, User
+from core.models import Account, Person
 from people.services import PersonService
+from tests.factories import AccountFactory, InstitutionFactory
 
 TZ = ZoneInfo("Africa/Cairo")
 
 
 @pytest.fixture
 def people_data(db):
-    """User + institution + EGP account (10000) + USD account (500) + person.
-
-    Creates minimal test data for person service tests.
-    """
+    """User + institution + EGP account (10000) + USD account (500) + person."""
     user = UserFactory()
     SessionFactory(user=user)
-    user_id = str(user.id)
-    inst_id = str(uuid.uuid4())
-    egp_id = str(uuid.uuid4())
-    usd_id = str(uuid.uuid4())
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO institutions (id, user_id, name, type) VALUES (%s, %s, %s, 'bank')",
-            [inst_id, user_id, "Test Bank"],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'EGP', %s, %s)",
-            [egp_id, user_id, inst_id, "EGP Savings", 10000, 10000],
-        )
-        cursor.execute(
-            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency,"
-            " current_balance, initial_balance)"
-            " VALUES (%s, %s, %s, %s, 'savings', 'USD', %s, %s)",
-            [usd_id, user_id, inst_id, "USD Savings", 500, 500],
-        )
-
+    institution = InstitutionFactory(user_id=user.id, name="Test Bank")
+    egp_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="EGP Savings",
+        currency="EGP",
+        current_balance=10000,
+        initial_balance=10000,
+    )
+    usd_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="USD Savings",
+        currency="USD",
+        current_balance=500,
+        initial_balance=500,
+    )
     yield {
-        "user_id": user_id,
-        "egp_id": egp_id,
-        "usd_id": usd_id,
+        "user_id": str(user.id),
+        "egp_id": str(egp_account.id),
+        "usd_id": str(usd_account.id),
     }
-
-    # Cleanup
-    with connection.cursor() as cursor:
-        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM persons WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
-        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
-    Session.objects.filter(user=user).delete()
-    User.objects.filter(id=user.id).delete()
 
 
 def _svc(user_id: str) -> PersonService:
@@ -70,28 +49,17 @@ def _svc(user_id: str) -> PersonService:
 
 
 def _get_balance(account_id: str) -> float:
-    """Fetch current_balance directly from DB."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT current_balance FROM accounts WHERE id = %s", [account_id]
-        )
-        row = cursor.fetchone()
-    return float(row[0]) if row else 0
+    """Fetch current_balance from DB via ORM."""
+    return float(Account.objects.get(id=account_id).current_balance)
 
 
 def _get_person_balance(person_id: str) -> dict[str, float]:
-    """Fetch person balance columns directly from DB."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT net_balance, net_balance_egp, net_balance_usd FROM persons WHERE id = %s",
-            [person_id],
-        )
-        row = cursor.fetchone()
-    assert row is not None
+    """Fetch person balance columns via ORM."""
+    p = Person.objects.get(id=person_id)
     return {
-        "net_balance": float(row[0]),
-        "net_balance_egp": float(row[1]),
-        "net_balance_usd": float(row[2]),
+        "net_balance": float(p.net_balance),
+        "net_balance_egp": float(p.net_balance_egp),
+        "net_balance_usd": float(p.net_balance_usd),
     }
 
 
