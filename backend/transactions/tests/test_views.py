@@ -450,6 +450,59 @@ class TestTransferViews:
         assert response.status_code == 200
         assert b"Transfer completed!" in response.content
 
+    def test_transfer_with_fee_via_form(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        dest = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+            type="savings",
+        )
+        response = c.post(
+            "/transactions/transfer",
+            {
+                "source_account_id": tx_view_data["egp_id"],
+                "dest_account_id": str(dest.id),
+                "amount": "500",
+                "fee_amount": "10",
+                "date": "2026-03-15",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        assert b"Transfer completed!" in response.content
+
+    def test_transfer_form_has_fee_field(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transfers/new")
+        content = response.content.decode()
+        assert 'name="fee_amount"' in content
+
+    def test_transfer_form_no_instapay_toggle(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transfers/new")
+        content = response.content.decode()
+        assert "instapay-toggle" not in content
+        assert "InstaPay" not in content
+
+    def test_fawry_route_redirects_to_transfers(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/fawry-cashout")
+        assert response.status_code == 302
+        assert "/transfers/new" in response.url  # type: ignore[attr-defined]
+
+    def test_instapay_route_redirects_to_transfers(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            "/transactions/instapay-transfer",
+            {},
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 302
+
 
 # ---------------------------------------------------------------------------
 # Exchange
@@ -486,11 +539,12 @@ class TestBatchViews:
 
 @pytest.mark.django_db
 class TestFawryViews:
-    def test_fawry_cashout_page(self, client, tx_view_data):
+    def test_fawry_cashout_redirects(self, client, tx_view_data):
+        """Fawry page now redirects to unified transfer form."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get("/fawry-cashout")
-        assert response.status_code == 200
-        assert b"Fawry" in response.content
+        assert response.status_code == 302
+        assert "/transfers/new" in response.url  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------

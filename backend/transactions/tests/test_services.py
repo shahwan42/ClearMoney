@@ -456,6 +456,135 @@ class TestTransfer:
 
 
 @pytest.mark.django_db
+class TestTransferWithFee:
+    """Unified create_transfer() with optional fee_amount."""
+
+    def test_transfer_with_fee_deducts_total_from_source(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        svc.create_transfer(
+            tx_data["egp_id"],
+            str(dest.id),
+            1000,
+            None,
+            "Transfer with fee",
+            date(2026, 3, 15),
+            fee_amount=15.0,
+        )
+        # Source: 10000 - 1000 - 15 = 8985
+        assert _get_balance(tx_data["egp_id"]) == 8985
+        # Dest: 5000 + 1000 = 6000
+        assert _get_balance(str(dest.id)) == 6000
+
+    def test_fee_creates_separate_transaction(self, tx_data):
+        from core.models import Transaction
+
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        svc.create_transfer(
+            tx_data["egp_id"],
+            str(dest.id),
+            1000,
+            None,
+            None,
+            date(2026, 3, 15),
+            fee_amount=15.0,
+        )
+        txs = Transaction.objects.filter(user_id=tx_data["user_id"])
+        assert txs.count() == 3  # debit + credit + fee
+        fee_tx = txs.filter(note__icontains="fee").first()
+        assert fee_tx is not None
+        assert float(fee_tx.amount) == 15.0
+
+    def test_fee_categorized_as_fees_and_charges(self, tx_data):
+        from core.models import Transaction
+
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        svc.create_transfer(
+            tx_data["egp_id"],
+            str(dest.id),
+            1000,
+            None,
+            None,
+            date(2026, 3, 15),
+            fee_amount=15.0,
+        )
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"], note__icontains="fee"
+        ).first()
+        assert fee_tx is not None
+        assert fee_tx.category is not None
+        assert "fee" in fee_tx.category.name.lower()
+
+    def test_zero_fee_no_extra_transaction(self, tx_data):
+        from core.models import Transaction
+
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        svc.create_transfer(
+            tx_data["egp_id"],
+            str(dest.id),
+            1000,
+            None,
+            None,
+            date(2026, 3, 15),
+            fee_amount=0.0,
+        )
+        txs = Transaction.objects.filter(user_id=tx_data["user_id"])
+        assert txs.count() == 2  # no fee transaction
+
+    def test_negative_fee_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        with pytest.raises(ValueError, match="fee"):
+            svc.create_transfer(
+                tx_data["egp_id"],
+                str(dest.id),
+                1000,
+                None,
+                None,
+                date(2026, 3, 15),
+                fee_amount=-5.0,
+            )
+
+
+@pytest.mark.django_db
 class TestInstapayTransfer:
     def test_deducts_fee_from_source(self, tx_data):
         svc = _svc(tx_data["user_id"])

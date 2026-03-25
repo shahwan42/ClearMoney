@@ -9,7 +9,7 @@ import json
 import logging
 from datetime import date
 
-from django.http import HttpResponse, JsonResponse, QueryDict
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, QueryDict
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
@@ -366,12 +366,13 @@ def transfer_new(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /transactions/transfer — create transfer (HTMX)."""
+    """POST /transactions/transfer — create transfer with optional fee (HTMX)."""
     svc = _svc(request)
     try:
         amount = parse_float_or_none(request.POST.get("amount", ""))
         if not amount:
             return error_response("Amount is required")
+        fee = parse_float_or_none(request.POST.get("fee_amount", ""))
         svc.create_transfer(
             source_id=request.POST.get("source_account_id", ""),
             dest_id=request.POST.get("dest_account_id", ""),
@@ -379,37 +380,17 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
             currency=request.POST.get("currency"),
             note=request.POST.get("note") or None,
             tx_date=request.POST.get("date") or None,
+            fee_amount=fee,
         )
         return success_response("Transfer completed!")
     except ValueError as e:
         return error_response(str(e))
 
 
-@general_rate
 @require_http_methods(["POST"])
 def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /transactions/instapay-transfer — InstaPay with fee (HTMX)."""
-    svc = _svc(request)
-    try:
-        amount = parse_float_or_none(request.POST.get("amount", ""))
-        if not amount:
-            return error_response("Amount is required")
-        fees_cat_id = svc.get_fees_category_id()
-        _, _, fee = svc.create_instapay_transfer(
-            source_id=request.POST.get("source_account_id", ""),
-            dest_id=request.POST.get("dest_account_id", ""),
-            amount=amount,
-            currency=request.POST.get("currency"),
-            note=request.POST.get("note") or None,
-            tx_date=request.POST.get("date") or None,
-            fees_category_id=fees_cat_id,
-        )
-        return render_htmx_result(
-            "success",
-            f"InstaPay transfer completed! Fee: EGP {fee:.2f}",
-        )
-    except ValueError as e:
-        return render_htmx_result("error", str(e))
+    """POST /transactions/instapay-transfer — deprecated, redirect to unified transfer."""
+    return HttpResponseRedirect("/transfers/new")
 
 
 # ---------------------------------------------------------------------------
@@ -461,49 +442,14 @@ def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
-@general_rate
-@require_http_methods(["GET"])
 def fawry_cashout(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /fawry-cashout — Fawry cash-out form page."""
-    svc = _svc(request)
-    logger.info("page viewed: fawry-cashout, user=%s", request.user_email)
-    return render(
-        request,
-        "transactions/fawry_cashout.html",
-        {
-            "accounts": svc.get_accounts(),
-            "today": date.today(),
-        },
-    )
+    """GET /fawry-cashout — deprecated, redirect to unified transfer."""
+    return HttpResponseRedirect("/transfers/new")
 
 
-@general_rate
-@require_http_methods(["POST"])
 def fawry_cashout_create(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /transactions/fawry-cashout — process Fawry cash-out (HTMX)."""
-    svc = _svc(request)
-    try:
-        amount = parse_float_or_none(request.POST.get("amount", ""))
-        fee = parse_float_or_none(request.POST.get("fee", "")) or 0.0
-        if not amount:
-            return render_htmx_result("error", "Amount is required")
-        fees_cat_id = svc.get_fees_category_id()
-        svc.create_fawry_cashout(
-            credit_card_id=request.POST.get("credit_card_id", ""),
-            prepaid_id=request.POST.get("prepaid_account_id", ""),
-            amount=amount,
-            fee=fee,
-            currency=request.POST.get("currency"),
-            note=request.POST.get("note") or None,
-            tx_date=request.POST.get("date") or None,
-            fees_category_id=fees_cat_id,
-        )
-        return render_htmx_result(
-            "success",
-            f"Cash-out complete! Amount: EGP {amount:.2f}, Fee: EGP {fee:.2f}",
-        )
-    except ValueError as e:
-        return render_htmx_result("error", str(e))
+    """POST /transactions/fawry-cashout — deprecated, redirect to unified transfer."""
+    return HttpResponseRedirect("/transfers/new")
 
 
 # ---------------------------------------------------------------------------

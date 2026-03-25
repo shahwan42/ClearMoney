@@ -36,13 +36,17 @@ class TransferMixin:
         currency: str | None,
         note: str | None,
         tx_date: date | str | None,
+        fee_amount: float | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Create a same-currency transfer between two accounts.
+        """Create a same-currency transfer between two accounts with optional fee.
 
-        6-step atomic: debit + credit + link + update source + update dest + commit.
+        When fee_amount > 0, creates a separate fee transaction (expense) on the
+        source account categorized as "Fees & Charges". Source is debited amount + fee.
         """
         if amount <= 0:
             raise ValueError("Amount must be positive")
+        if fee_amount is not None and fee_amount < 0:
+            raise ValueError("Transfer fee cannot be negative")
         if not source_id or not dest_id:
             raise ValueError("Both source and destination account_id required")
         if source_id == dest_id:
@@ -99,11 +103,35 @@ class TransferMixin:
             Transaction.objects.for_user(uid).filter(id=credit_id).update(
                 linked_transaction_id=debit_id
             )
+            # Optional fee transaction
+            effective_fee = fee_amount if fee_amount and fee_amount > 0 else 0
+            if effective_fee > 0:
+                from core.models import Category
+
+                fees_cat = (
+                    Category.objects.for_user(uid).filter(name="Fees & Charges").first()
+                )
+                fee_tx_id = str(uuid.uuid4())
+                Transaction.objects.create(
+                    id=fee_tx_id,
+                    user_id=uid,
+                    type="expense",
+                    amount=effective_fee,
+                    currency=actual_currency,
+                    account_id=source_id,
+                    category_id=fees_cat.id if fees_cat else None,
+                    note="Transfer fee",
+                    date=tx_date,
+                    balance_delta=-effective_fee,
+                    linked_transaction_id=debit_id,
+                )
+
             # Atomic F() updates — two separate queries to avoid deadlocks
             # on concurrent transfers between the same accounts
+            total_debit = Decimal(str(amount)) + Decimal(str(effective_fee))
             now = django_tz.now()
             Account.objects.for_user(uid).filter(id=source_id).update(
-                current_balance=F("current_balance") - Decimal(str(amount)),
+                current_balance=F("current_balance") - total_debit,
                 updated_at=now,
             )
             Account.objects.for_user(uid).filter(id=dest_id).update(
