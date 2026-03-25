@@ -124,8 +124,8 @@ If no exchange rate is available, USD amounts are added at face value (better th
 Per-currency spending is tracked separately:
 
 ```python
-this_month_label = "₩4,000 EGP, $80 USD"
-last_month_label = "₩6,000 EGP, $120 USD"
+this_month_label = "4,000 EGP, $80 USD"
+last_month_label = "6,000 EGP, $120 USD"
 ```
 
 ### Example

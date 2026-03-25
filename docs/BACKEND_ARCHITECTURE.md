@@ -1,6 +1,6 @@
 # ClearMoney — Backend Architecture
 
-> Complete Django backend with 13 apps, 88+ routes, 692+ tests. Service-oriented architecture with atomic transactions and per-user data isolation.
+> Complete Django backend with 17 custom apps, 125+ routes, 1129+ tests. Service-oriented architecture with atomic transactions and per-user data isolation.
 
 ---
 
@@ -34,7 +34,7 @@ backend/
 **Key files:**
 - `backend/pyproject.toml` — Python dependencies, pytest config, mypy config, coverage
 - `backend/clearmoney/urls.py` — Main URL routing
-- `backend/core/models.py` — All 14 Django models
+- `backend/core/models.py` — All 18 Django models
 - `backend/core/types.py` — `AuthenticatedRequest` type
 - `backend/core/templatetags/money.py` — Template filters (currency, charts, etc.)
 

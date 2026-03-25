@@ -39,9 +39,9 @@ Each investment tracks:
 
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
-| `/investments` | GET | `investments()` | Portfolio page with all holdings |
+| `/investments` | GET | `investments_page()` | Portfolio page with all holdings |
 | `/investments/add` | POST | `investment_add()` | Create investment |
-| `/investments/{id}/update` | POST | `investment_update_valuation()` | Update unit price |
+| `/investments/{id}/update` | POST | `investment_update()` | Update unit price |
 | `/investments/{id}/delete` | POST | `investment_delete()` | Delete investment |
 
 ## Template

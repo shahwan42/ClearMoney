@@ -73,16 +73,21 @@ Comprehensive summary returned by `get_debt_summary`:
 | `/people/<id>` | GET | `person_detail()` | Detail page with debt summary |
 | `/people/<id>/loan` | POST | `people_loan()` | Record a loan |
 | `/people/<id>/repay` | POST | `people_repay()` | Record a repayment |
-| `/partials/people-summary` | GET | `people_summary_partial()` | Dashboard partial |
 
 ### JSON API Routes
 
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
-| `/api/people` | GET | `people_list()` | List all people (JSON) |
-| `/api/people` | POST | `people_create()` | Create person (JSON) |
-| `/api/people/<id>` | GET | `person_detail_json()` | Get person with debt summary (JSON) |
-| `/api/people/<id>` | PUT | `person_update()` | Update person (JSON) |
+| `/api/persons` | GET | `people_list()` | List all people (JSON) |
+| `/api/persons` | POST | `people_create()` | Create person (JSON) |
+| `/api/persons/<id>` | GET | `person_detail_json()` | Get person with debt summary (JSON) |
+| `/api/persons/<id>` | PUT | `person_update()` | Update person (JSON) |
+
+### Dashboard Partial
+
+| Route | Method | Handler | Purpose |
+|-------|--------|---------|---------|
+| `/partials/people-summary` | GET | `people_summary_partial()` | Dashboard partial (from dashboard app) |
 
 ### HTMX Pattern
 
