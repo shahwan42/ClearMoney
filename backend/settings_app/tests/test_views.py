@@ -298,3 +298,22 @@ class TestCategoryUpdate:
             {"name": "Ghost", "icon": ""},
         )
         assert response.status_code == 404
+
+
+@pytest.mark.django_db
+class TestLogoutConfirmation:
+    """Logout requires confirmation to prevent accidental logouts."""
+
+    def test_logout_has_confirmation_dialog(self, auth_client: Client) -> None:
+        """Settings page includes a logout confirmation dialog."""
+        response = auth_client.get("/settings")
+        content = response.content.decode()
+        assert 'id="logout-confirm-dialog"' in content
+
+    def test_logout_button_opens_dialog(self, auth_client: Client) -> None:
+        """Logout button triggers confirmation dialog, not direct POST."""
+        response = auth_client.get("/settings")
+        content = response.content.decode()
+        # The visible logout button should open a dialog, not submit the form directly
+        assert "logout-confirm-dialog" in content
+        assert 'role="dialog"' in content

@@ -352,3 +352,23 @@ class TestLoadingProgressBar:
         assert 'id="page-progress"' in content
         assert 'role="progressbar"' in content
         assert 'aria-label="Page loading"' in content
+
+
+@pytest.mark.django_db
+class TestSpendingDateRangeLabel:
+    """Spending section shows explicit date range (e.g. 'Mar 1–25') not just 'This month'."""
+
+    def test_spending_partial_shows_date_range(self, client, dashboard_data):
+        """Dashboard home shows actual date range label like 'Mar 1–25'."""
+        from core.middleware import COOKIE_NAME
+
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        # Should show month abbreviation like "Jan", "Feb", "Mar" in date range context
+        # Pattern: "Mar 1" or "Jan 1" etc.
+        import re
+
+        assert re.search(
+            r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}", content
+        )

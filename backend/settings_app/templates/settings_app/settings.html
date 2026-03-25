@@ -91,12 +91,39 @@
         <a href="/fawry-cashout" class="block text-sm text-teal-600 hover:text-teal-700">Fawry Cash-Out</a>
     </section>
 
-    {# Logout — standard POST (not HTMX), invalidates session #}
-    <form method="POST" action="/logout" class="mt-4">
-        {% csrf_token %}
-        <button type="submit" class="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-lg text-sm font-semibold">
+    {# Logout — button triggers confirmation dialog before POSTing #}
+    <div class="mt-4">
+        <button type="button"
+                onclick="var d=document.getElementById('logout-confirm-dialog'); d.classList.remove('hidden'); d.classList.add('flex'); d.focus();"
+                class="w-full bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-lg text-sm font-semibold">
             Log Out
         </button>
-    </form>
+    </div>
+
+    {# Logout confirmation dialog — hidden by default, shown via JS #}
+    <div id="logout-confirm-dialog"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="logout-dialog-title"
+         tabindex="-1"
+         class="hidden fixed inset-0 z-[80] items-center justify-center bg-black/50 px-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
+            <h2 id="logout-dialog-title" class="text-base font-semibold text-slate-800 dark:text-slate-100 mb-2">Log out?</h2>
+            <p class="text-sm text-gray-500 dark:text-slate-400 mb-5">You'll need your magic link to sign back in.</p>
+            <div class="flex gap-3">
+                <button type="button"
+                        onclick="var d=document.getElementById('logout-confirm-dialog'); d.classList.add('hidden'); d.classList.remove('flex');"
+                        class="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-300">
+                    Cancel
+                </button>
+                <form method="POST" action="/logout" class="flex-1">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold">
+                        Log Out
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

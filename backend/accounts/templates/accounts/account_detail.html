@@ -65,6 +65,9 @@
             <p class="text-xs text-gray-400">Dormant accounts are collapsed on the dashboard</p>
         </div>
         <button hx-post="/accounts/{{ data.account.id }}/dormant"
+                role="switch"
+                aria-checked="{% if data.account.is_dormant %}true{% else %}false{% endif %}"
+                aria-label="Mark account as dormant"
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold {% if data.account.is_dormant %}bg-amber-100 text-amber-700{% else %}bg-gray-100 text-gray-600{% endif %}">
             {% if data.account.is_dormant %}Active{% else %}Dormant{% endif %}
         </button>

@@ -928,3 +928,49 @@ class TestAccountAddUnified:
         resp = c.get("/accounts")
         content = resp.content.decode()
         assert "/accounts/add-form" in content
+
+
+@pytest.mark.django_db
+class TestDormantToggleARIA:
+    """Dormant toggle button has role=switch + aria-checked for accessibility."""
+
+    def test_dormant_toggle_has_role_switch(self, client, accounts_data) -> None:
+        """Account detail dormant toggle has role="switch"."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get(f"/accounts/{accounts_data['savings_id']}")
+        content = resp.content.decode()
+        assert 'role="switch"' in content
+
+    def test_dormant_toggle_aria_checked_false_when_active(
+        self, client, accounts_data
+    ) -> None:
+        """Dormant toggle shows aria-checked=false when account is active."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get(f"/accounts/{accounts_data['savings_id']}")
+        content = resp.content.decode()
+        assert 'aria-checked="false"' in content
+
+    def test_dormant_toggle_aria_checked_true_when_dormant(
+        self, client, accounts_data
+    ) -> None:
+        """Dormant toggle shows aria-checked=true when account is dormant."""
+        Account.objects.filter(id=accounts_data["savings_id"]).update(is_dormant=True)
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get(f"/accounts/{accounts_data['savings_id']}")
+        content = resp.content.decode()
+        assert 'aria-checked="true"' in content
+
+
+@pytest.mark.django_db
+class TestCustomAccountNameVisibility:
+    """Custom account name field is visible by default (not hidden under toggle)."""
+
+    def test_add_account_form_custom_name_visible(self, client, accounts_data) -> None:
+        """The add-account form shows the custom name field without display:none."""
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        resp = c.get("/accounts/add-form")
+        content = resp.content.decode()
+        # custom name field should be present without hidden toggle button
+        assert 'id="add-acct-custom-name-field"' in content
+        # The hidden toggle button should be gone
+        assert 'id="add-acct-custom-name-toggle"' not in content

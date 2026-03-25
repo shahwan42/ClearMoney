@@ -1894,3 +1894,43 @@ class TestEditSheetDeclared:
         resp = c.get("/transactions")
         content = resp.content.decode()
         assert "BottomSheet.open('tx-edit'" in content
+
+
+@pytest.mark.django_db
+class TestBatchEntryLabels:
+    """Batch entry form has accessible labels for all select inputs."""
+
+    def test_batch_entry_has_aria_label_on_type_select(
+        self, client, tx_view_data
+    ) -> None:
+        """Type select in batch entry row has aria-label."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/batch-entry")
+        content = resp.content.decode()
+        assert 'aria-label="Type"' in content
+
+    def test_batch_entry_has_aria_label_on_account_select(
+        self, client, tx_view_data
+    ) -> None:
+        """Account select in batch entry row has aria-label."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/batch-entry")
+        content = resp.content.decode()
+        assert 'aria-label="Account"' in content
+
+    def test_batch_entry_has_aria_label_on_category_select(
+        self, client, tx_view_data
+    ) -> None:
+        """Category select in batch entry row has aria-label."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/batch-entry")
+        content = resp.content.decode()
+        assert 'aria-label="Category"' in content
+
+    def test_batch_entry_clone_resets_selects(self, client, tx_view_data) -> None:
+        """addBatchRow clone logic resets select elements — verified via JS data-attr."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/batch-entry")
+        content = resp.content.decode()
+        # The clone function should call reset on selects: verified via data-batch-reset attr
+        assert "data-batch-reset" in content

@@ -18,7 +18,7 @@
         <div class="space-y-2 mb-3">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs text-gray-400 dark:text-slate-500">This month</span>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">{{ cs.this_month_label|default:"This month" }}</span>
                     <span class="text-xl font-bold text-slate-900 dark:text-slate-100 ml-2">{{ cs.this_month|format_currency:cs.currency }}</span>
                 </div>
                 {% if cs.change != 0 %}
@@ -27,7 +27,7 @@
             </div>
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs text-gray-400 dark:text-slate-500">Last month</span>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">{{ cs.last_month_label|default:"Last month" }}</span>
                     <span class="text-sm font-medium text-gray-500 dark:text-slate-400 ml-2">{{ cs.last_month|format_currency:cs.currency }}</span>
                 </div>
             </div>

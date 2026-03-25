@@ -27,6 +27,8 @@ class CurrencySpending:
     last_month: float
     change: float  # % change (positive = spending more)
     top_categories: list[dict[str, Any]]
+    this_month_label: str = ""  # e.g. "Mar 1–25"
+    last_month_label: str = ""  # e.g. "Feb"
 
 
 @dataclass
@@ -80,6 +82,24 @@ def compute_spending_comparison(
         if c != "EGP":
             ordered.append(c)
 
+    # Human-readable date range labels
+    month_abbrs = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
+    this_month_label = f"{month_abbrs[this_month_start.month - 1]} 1\u2013{today.day}"
+    last_month_label = month_abbrs[last_month_start.month - 1]
+
     for cur in ordered:
         this_amt = this_month_by_currency.get(cur, 0.0)
         last_amt = last_month_by_currency.get(cur, 0.0)
@@ -96,6 +116,8 @@ def compute_spending_comparison(
                 last_month=last_amt,
                 change=change,
                 top_categories=top_cats,
+                this_month_label=this_month_label,
+                last_month_label=last_month_label,
             )
         )
 
