@@ -560,6 +560,107 @@ class TestQuickEntryViews:
 
 
 # ---------------------------------------------------------------------------
+# Quick entry OOB swaps for dashboard balance refresh
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestQuickEntryOOBSwaps:
+    """Quick entry response includes OOB swaps for dashboard balances."""
+
+    def test_response_contains_oob_net_worth(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": tx_view_data["egp_id"],
+                "category_id": tx_view_data["cat_id"],
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        content = resp.content.decode()
+        assert "hx-swap-oob" in content
+        assert 'id="dashboard-net-worth"' in content
+
+    def test_response_contains_oob_accounts(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": tx_view_data["egp_id"],
+                "category_id": tx_view_data["cat_id"],
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        content = resp.content.decode()
+        assert 'id="dashboard-accounts"' in content
+
+    def test_oob_reflects_new_balance(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": tx_view_data["egp_id"],
+                "category_id": tx_view_data["cat_id"],
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        content = resp.content.decode()
+        assert "9,500" in content
+
+    def test_income_also_triggers_oob(self, client, tx_view_data):
+        cat = CategoryFactory(
+            user_id=tx_view_data["user_id"], name="Salary", type="income"
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "income",
+                "amount": "2000",
+                "account_id": tx_view_data["egp_id"],
+                "category_id": str(cat.id),
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        content = resp.content.decode()
+        assert "hx-swap-oob" in content
+
+    def test_error_response_has_no_oob(self, client, tx_view_data):
+        """Failed quick entry should not include OOB swaps."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {"type": "expense", "amount": "", "account_id": tx_view_data["egp_id"]},
+            HTTP_HX_REQUEST="true",
+        )
+        content = resp.content.decode()
+        assert "hx-swap-oob" not in content
+
+    def test_success_toast_still_present(self, client, tx_view_data):
+        """OOB response still contains the success toast."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "expense",
+                "amount": "100",
+                "account_id": tx_view_data["egp_id"],
+                "category_id": tx_view_data["cat_id"],
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        content = resp.content.decode()
+        assert "Saved!" in content
+
+
+# ---------------------------------------------------------------------------
 # Sync API
 # ---------------------------------------------------------------------------
 

@@ -11,6 +11,7 @@ from datetime import date
 
 from django.http import HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render
+from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
@@ -658,7 +659,24 @@ def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
             except ValueError:
                 pass
 
-        return success_response("Saved!")
+        response = success_response("Saved!")
+
+        # Append OOB swaps to refresh dashboard balances in-place
+        from dashboard.services import DashboardService
+
+        dashboard_svc = DashboardService(request.user_id, request.tz)
+        dashboard_data = dashboard_svc.get_dashboard()
+        ctx = {"data": dashboard_data}
+        oob_net_worth = render_to_string("dashboard/_net_worth.html", ctx, request)
+        oob_accounts = render_to_string("dashboard/_accounts.html", ctx, request)
+        response.write(
+            f'<div id="dashboard-net-worth" hx-swap-oob="innerHTML">'
+            f"{oob_net_worth}</div>"
+        )
+        response.write(
+            f'<div id="dashboard-accounts" hx-swap-oob="innerHTML">{oob_accounts}</div>'
+        )
+        return response
     except ValueError as e:
         return error_response(str(e))
 

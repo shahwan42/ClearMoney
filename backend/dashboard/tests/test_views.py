@@ -203,3 +203,30 @@ def test_dashboard_empty_user_renders_without_error(client, empty_user):
     assert "Welcome to ClearMoney" in content
     # No institution groups should be present
     assert "Test Bank" not in content
+
+
+# ---------------------------------------------------------------------------
+# Dashboard section IDs for OOB swap targets
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestDashboardSectionIds:
+    """Dashboard sections have OOB-targetable id attributes."""
+
+    def test_net_worth_has_id(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        assert 'id="dashboard-net-worth"' in resp.content.decode()
+
+    def test_accounts_has_id(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        assert 'id="dashboard-accounts"' in resp.content.decode()
+
+    def test_sections_have_aria_live(self, client, dashboard_data):
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        resp = client.get("/", **cookie)
+        content = resp.content.decode()
+        # Both net worth and accounts wrappers should have aria-live
+        assert content.count('aria-live="polite"') >= 2

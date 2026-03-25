@@ -14,7 +14,9 @@
     {% include "dashboard/_health_warnings.html" %}
 
     {# 2. NET WORTH + SUMMARY BREAKDOWN #}
+    <div id="dashboard-net-worth" aria-live="polite">
     {% include "dashboard/_net_worth.html" %}
+    </div>
 
     {# 3. SPENDING — Month-over-Month + Velocity #}
     {% include "dashboard/_spending.html" %}
@@ -29,7 +31,9 @@
     {% include "dashboard/_virtual_accounts.html" %}
 
     {# 8. ACCOUNTS BY INSTITUTION #}
+    <div id="dashboard-accounts" aria-live="polite">
     {% include "dashboard/_accounts.html" %}
+    </div>
 
     {# 9. PEOPLE #}
     {% if data.has_people_activity %}
