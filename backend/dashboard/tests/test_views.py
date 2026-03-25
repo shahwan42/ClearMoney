@@ -7,7 +7,7 @@ from datetime import date, timedelta
 import pytest
 from django.utils import timezone
 
-from conftest import SessionFactory, UserFactory
+from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.middleware import COOKIE_NAME
 from tests.factories import (
     AccountFactory,
@@ -371,4 +371,22 @@ class TestSpendingDateRangeLabel:
 
         assert re.search(
             r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}", content
+        )
+
+
+@pytest.mark.django_db
+class TestMoreMenuDiscoverability:
+    """More menu button in bottom nav has visual indicators of expandability."""
+
+    def test_more_button_has_chevron_indicator(self, client, dashboard_data) -> None:
+        """More menu button includes a visual caret/chevron to hint it opens a sheet."""
+        c = set_auth_cookie(client, dashboard_data["session_token"])
+        resp = c.get("/")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        # The More button area should contain a chevron-up indicator
+        assert (
+            "chevron" in content.lower()
+            or "M5 15l7-7 7 7" in content
+            or "M19 9l-7 7-7-7" in content
         )
