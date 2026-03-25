@@ -12,7 +12,7 @@
 | Models | `backend/core/models.py` — all models, `db_table` convention |
 | Request type | `backend/core/types.py` — `AuthenticatedRequest` |
 | Template filters | `backend/core/templatetags/money.py` |
-| Rules | `.claude/rules/` — production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls |
+| Rules | `.claude/rules/` — production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow |
 
 ## Architecture
 
