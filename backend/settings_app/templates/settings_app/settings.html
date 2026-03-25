@@ -4,14 +4,14 @@
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
-    <h2 class="text-lg font-bold text-slate-800">Settings</h2>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Settings</h2>
 
     {# Dark Mode — client-side only, toggleTheme() in theme.js #}
-    <section class="bg-white rounded-2xl shadow-sm p-5">
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Dark Mode</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Toggle between light and dark theme</p>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Dark Mode</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Toggle between light and dark theme</p>
             </div>
             <button id="settings-theme-toggle"
                     onclick="toggleTheme()"
@@ -56,11 +56,11 @@
     </section>
 
     {# Push Notifications — client-side only, requestNotificationPermission() in push.js #}
-    <section class="bg-white rounded-2xl shadow-sm p-5">
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Push Notifications</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Get reminders for due dates and recurring transactions</p>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Push Notifications</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Get reminders for due dates and recurring transactions</p>
             </div>
             <button onclick="requestNotificationPermission()" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold">
                 Enable
@@ -69,19 +69,19 @@
     </section>
 
     {# Manage Categories #}
-    <section class="bg-white rounded-2xl shadow-sm p-5">
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <a href="/settings/categories" class="flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide">Categories</h3>
-                <p class="text-xs text-gray-400 mt-0.5">Add, edit, or archive your categories</p>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Categories</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Add, edit, or archive your categories</p>
             </div>
-            <span class="text-gray-400 text-lg" aria-hidden="true">&rsaquo;</span>
+            <span class="text-gray-400 dark:text-slate-500 text-lg" aria-hidden="true">&rsaquo;</span>
         </a>
     </section>
 
     {# Quick Links — static navigation to other features #}
-    <section class="bg-white rounded-2xl shadow-sm p-5 space-y-2">
-        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">Quick Links</h3>
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 space-y-2">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2">Quick Links</h3>
         <a href="/budgets" class="block text-sm text-teal-600 hover:text-teal-700">Budgets</a>
         <a href="/investments" class="block text-sm text-teal-600 hover:text-teal-700">Investments</a>
         <a href="/recurring" class="block text-sm text-teal-600 hover:text-teal-700">Recurring Rules</a>

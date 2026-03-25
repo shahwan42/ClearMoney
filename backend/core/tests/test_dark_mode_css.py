@@ -1,7 +1,10 @@
-"""Tests verifying dark mode CSS rules in static/css/app.css.
+"""Tests verifying dark mode CSS rules and template coverage.
 
-These act as regression guards — if a dark mode rule is removed or broken,
+CSS tests act as regression guards — if a dark mode rule is removed or broken,
 the test fails and the developer must fix the CSS, not just the test.
+
+Template tests verify that cards/containers have dark: Tailwind variants so
+they don't render as white boxes on a dark slate background.
 """
 
 import os
@@ -54,3 +57,92 @@ class TestDarkModeFormRules:
         assert "--chart-1" in css
         assert ".dark" in css
         assert "#2dd4bf" in css  # teal-400 dark mode color
+
+
+TEMPLATES_BASE = os.path.join(os.path.dirname(__file__), "../../..")
+
+
+def read_template(rel_path: str) -> str:
+    with open(os.path.join(TEMPLATES_BASE, rel_path)) as f:
+        return f.read()
+
+
+class TestDarkModeCardTemplates:
+    """Card and container templates must have dark: Tailwind variants.
+
+    White bg-white cards without dark:bg-slate-800 appear as glaring white
+    boxes on the dark slate-900 page background — a critical dark mode gap.
+    """
+
+    def test_institution_card_has_dark_bg(self) -> None:
+        """Institution card (accounts list) must have dark background."""
+        html = read_template(
+            "backend/accounts/templates/accounts/_institution_card.html"
+        )
+        assert "dark:bg-slate-800" in html, (
+            "_institution_card.html missing dark:bg-slate-800 — white card on dark bg"
+        )
+
+    def test_institution_card_text_has_dark_variants(self) -> None:
+        """Institution name and type labels need dark text variants."""
+        html = read_template(
+            "backend/accounts/templates/accounts/_institution_card.html"
+        )
+        assert "dark:text-slate-100" in html or "dark:text-slate-200" in html, (
+            "_institution_card.html missing dark text variants for account names"
+        )
+
+    def test_transaction_row_label_has_dark_text(self) -> None:
+        """Transaction description text must be visible in dark mode."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_transaction_row.html"
+        )
+        assert "dark:text-slate-100" in html or "dark:text-slate-200" in html, (
+            "_transaction_row.html missing dark text variant for description label"
+        )
+
+    def test_transaction_row_kebab_menu_has_dark_bg(self) -> None:
+        """Kebab dropdown must have dark background — white dropdown on dark screen is jarring."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_transaction_row.html"
+        )
+        assert "dark:bg-slate-800" in html or "dark:bg-slate-700" in html, (
+            "_transaction_row.html kebab dropdown missing dark background"
+        )
+
+    def test_virtual_accounts_page_cards_have_dark_bg(self) -> None:
+        """Virtual account list cards must have dark background."""
+        html = read_template(
+            "backend/virtual_accounts/templates/virtual_accounts/virtual_accounts.html"
+        )
+        assert "dark:bg-slate-800" in html, (
+            "virtual_accounts.html missing dark:bg-slate-800 on account cards"
+        )
+
+    def test_virtual_accounts_form_section_has_dark_bg(self) -> None:
+        """Create VA form section must have dark background."""
+        html = read_template(
+            "backend/virtual_accounts/templates/virtual_accounts/virtual_accounts.html"
+        )
+        # Count occurrences — need at least 2 (form section + cards)
+        assert html.count("dark:bg-slate-800") >= 2, (
+            "virtual_accounts.html needs dark:bg-slate-800 on both form section and cards"
+        )
+
+    def test_settings_all_sections_have_dark_bg(self) -> None:
+        """All settings page sections must have dark background."""
+        html = read_template(
+            "backend/settings_app/templates/settings_app/settings.html"
+        )
+        # Dark Mode, Export, Push Notifications, Categories, Quick Links sections
+        assert html.count("dark:bg-slate-800") >= 4, (
+            "settings.html needs dark:bg-slate-800 on all 5 sections (Dark Mode, Export already done, "
+            "Push Notifications, Categories, Quick Links)"
+        )
+
+    def test_accounts_page_heading_has_dark_text(self) -> None:
+        """Accounts page heading must be visible in dark mode."""
+        html = read_template("backend/accounts/templates/accounts/accounts.html")
+        assert "dark:text-slate-100" in html or "dark:text-white" in html, (
+            "accounts.html heading missing dark text variant"
+        )

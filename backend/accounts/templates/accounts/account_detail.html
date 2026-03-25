@@ -5,11 +5,11 @@
 {% block content %}
 <div class="space-y-4 py-4">
     <!-- Account header -->
-    <div class="bg-white rounded-2xl shadow-sm p-5">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <div>
-                <h1 class="text-lg font-bold text-slate-800">{{ data.account.name }}</h1>
-                <p class="text-xs text-gray-400">{{ data.institution_name }} &middot; {{ data.account.type|format_account_type }} &middot; {{ data.account.currency }}</p>
+                <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ data.account.name }}</h1>
+                <p class="text-xs text-gray-400 dark:text-slate-500">{{ data.institution_name }} &middot; {{ data.account.type|format_account_type }} &middot; {{ data.account.currency }}</p>
             </div>
             <div class="flex items-center gap-3">
                 <button onclick="openEditAccount()" class="text-sm text-teal-600 hover:text-teal-700 font-medium">Edit</button>
@@ -19,15 +19,15 @@
 
         <div class="flex items-end justify-between">
             <div>
-                <p class="text-xs text-gray-500 mb-0.5">Current Balance</p>
-                <p class="text-2xl font-bold {% if data.account.current_balance < 0 %}text-red-600{% else %}text-teal-700{% endif %}">
+                <p class="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Current Balance</p>
+                <p class="text-2xl font-bold {% if data.account.current_balance < 0 %}text-red-600{% else %}text-teal-700 dark:text-teal-400{% endif %}">
                     {{ data.account.current_balance|format_currency:data.account.currency }}
                 </p>
             </div>
             {% if data.account.is_credit_type %}
             <div class="text-right">
-                <p class="text-xs text-gray-500 mb-0.5">Available Credit</p>
-                <p class="text-sm font-semibold text-slate-700">
+                <p class="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Available Credit</p>
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     {{ data.account.available_credit|format_currency:data.account.currency }}
                 </p>
             </div>
@@ -51,18 +51,18 @@
 
         <!-- 30-day balance sparkline -->
         {% if data.balance_history %}
-        <div class="mt-3 pt-3 border-t border-gray-100">
-            <p class="text-xs text-gray-400 mb-1">30-day trend</p>
+        <div class="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
+            <p class="text-xs text-gray-400 dark:text-slate-500 mb-1">30-day trend</p>
             {% include "components/chart_sparkline.html" with values=data.balance_history color="var(--chart-1)" width=280 height=40 %}
         </div>
         {% endif %}
     </div>
 
     <!-- Dormant toggle -->
-    <div class="flex items-center justify-between bg-white rounded-xl shadow-sm px-4 py-3">
+    <div class="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl shadow-sm px-4 py-3">
         <div>
-            <p class="text-sm font-medium text-slate-700">Dormant Account</p>
-            <p class="text-xs text-gray-400">Dormant accounts are collapsed on the dashboard</p>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Dormant Account</p>
+            <p class="text-xs text-gray-400 dark:text-slate-500">Dormant accounts are collapsed on the dashboard</p>
         </div>
         <button hx-post="/accounts/{{ data.account.id }}/dormant"
                 role="switch"
@@ -76,8 +76,8 @@
     <!-- Credit utilization donut (for credit cards) -->
     {% if data.account.is_credit_type %}
     {% if data.utilization > 0 %}
-    <div class="bg-white rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Credit Utilization</h3>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Credit Utilization</h3>
         <div class="flex items-center gap-4">
             <div class="relative w-20 h-20 flex-shrink-0">
                 <svg viewBox="0 0 36 36" class="w-20 h-20 transform -rotate-90">
@@ -89,20 +89,20 @@
                         stroke-linecap="round"/>
                 </svg>
                 <div class="absolute inset-0 flex items-center justify-center">
-                    <span class="text-sm font-bold text-slate-800">{{ data.utilization|floatformat:0 }}%</span>
+                    <span class="text-sm font-bold text-slate-800 dark:text-slate-100">{{ data.utilization|floatformat:0 }}%</span>
                 </div>
             </div>
             <div>
-                <p class="text-sm text-slate-700">{{ data.account.current_balance|neg|format_currency:data.account.currency }} used</p>
+                <p class="text-sm text-slate-700 dark:text-slate-200">{{ data.account.current_balance|neg|format_currency:data.account.currency }} used</p>
                 {% if data.account.credit_limit %}
-                <p class="text-xs text-gray-400">of {{ data.account.credit_limit|deref_float|format_currency:data.account.currency }} limit</p>
+                <p class="text-xs text-gray-400 dark:text-slate-500">of {{ data.account.credit_limit|deref_float|format_currency:data.account.currency }} limit</p>
                 {% endif %}
             </div>
         </div>
         <!-- Utilization trend sparkline -->
         {% if data.utilization_history %}
-        <div class="mt-3 pt-3 border-t border-gray-100">
-            <p class="text-xs text-gray-400 mb-1">Utilization trend (30 days)</p>
+        <div class="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
+            <p class="text-xs text-gray-400 dark:text-slate-500 mb-1">Utilization trend (30 days)</p>
             {% include "components/chart_sparkline.html" with values=data.utilization_history color="var(--chart-utilization)" width=280 height=30 %}
         </div>
         {% endif %}
@@ -158,18 +158,18 @@
     {% endif %}
 
     <!-- Account Health Config -->
-    <div class="bg-white rounded-xl shadow-sm p-4">
-        <h3 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">Health Rules</h3>
+    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Health Rules</h3>
         <form method="POST" action="/accounts/{{ data.account.id }}/health" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Min Balance</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Min Balance</label>
                     <input type="number" name="min_balance" step="0.01" placeholder="Not set"
                            {% if data.health_config and data.health_config.min_balance %}value="{{ data.health_config.min_balance }}"{% endif %}
                            class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 mb-1">Min Monthly Deposit</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Min Monthly Deposit</label>
                     <input type="number" name="min_monthly_deposit" step="0.01" placeholder="Not set"
                            {% if data.health_config and data.health_config.min_monthly_deposit %}value="{{ data.health_config.min_monthly_deposit }}"{% endif %}
                            class="w-full border rounded-lg px-3 py-2 text-sm">
@@ -192,7 +192,7 @@
 
     <!-- Transaction list for this account -->
     <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-700">Transaction History</h2>
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Transaction History</h2>
     </div>
 
     <div id="transaction-list">

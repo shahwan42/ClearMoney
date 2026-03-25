@@ -6,7 +6,7 @@
 {% block content %}
 <div class="max-w-lg mx-auto py-4">
 
-    <h2 class="text-lg font-bold text-slate-800 mb-4">New Transaction</h2>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">New Transaction</h2>
 
     <div id="transaction-result" aria-live="polite" aria-atomic="true"></div>
 
@@ -15,7 +15,7 @@
         hx-target="#transaction-result"
         hx-swap="innerHTML"
         hx-disabled-elt="find button[type='submit']"
-        class="bg-white rounded-2xl shadow-sm p-5 space-y-4"
+        class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 space-y-4"
     >
         <!-- Type selector -->
         <fieldset class="border-0 p-0 m-0">

@@ -5,14 +5,14 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
 {% endcomment %}
 {% load money %}
 <!-- Single institution card with its accounts. Expandable/collapsible via details/summary. -->
-<div class="bg-white rounded-xl shadow-sm overflow-hidden" id="institution-{{ institution.id }}">
+<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden" id="institution-{{ institution.id }}">
     <details open>
         <summary class="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700">
             <div class="flex items-center gap-3">
                 {% include "components/_institution_icon.html" with icon=institution.icon name=institution.name color=institution.color %}
                 <div>
-                    <h3 class="font-semibold text-slate-800">{{ institution.name|institution_display_name }}</h3>
-                    <span class="text-xs text-gray-400">{{ institution.type }}</span>
+                    <h3 class="font-semibold text-slate-800 dark:text-slate-100">{{ institution.name|institution_display_name }}</h3>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">{{ institution.type }}</span>
                 </div>
             </div>
             <div class="flex items-center gap-1">
@@ -45,26 +45,26 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
             </div>
         </summary>
 
-        <div class="border-t border-gray-100">
+        <div class="border-t border-gray-100 dark:border-slate-700">
             {% if accounts %}
                 {% for account in accounts %}
-                <a href="/accounts/{{ account.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 border-b border-gray-50 last:border-0">
+                <a href="/accounts/{{ account.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 border-b border-gray-50 dark:border-slate-700 last:border-0">
                     <div>
-                        <p class="text-sm font-medium text-slate-700">{{ account.name }}</p>
-                        <p class="text-xs text-gray-400">{{ account.type|format_account_type }} &middot; {{ account.currency }}</p>
+                        <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ account.name }}</p>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">{{ account.type|format_account_type }} &middot; {{ account.currency }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-sm font-semibold {% if account.current_balance < 0 %}text-red-600{% else %}text-slate-800{% endif %}">
+                        <p class="text-sm font-semibold {% if account.current_balance < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-100{% endif %}">
                             {{ account.current_balance|format_currency:account.currency }}
                         </p>
                         {% if account.is_credit_type %}
-                        <p class="text-xs text-gray-400">avail: {{ account.available_credit|format_currency:account.currency }}</p>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">avail: {{ account.available_credit|format_currency:account.currency }}</p>
                         {% endif %}
                     </div>
                 </a>
                 {% endfor %}
             {% else %}
-                <p class="px-4 py-3 text-sm text-gray-400">No accounts yet</p>
+                <p class="px-4 py-3 text-sm text-gray-400 dark:text-slate-500">No accounts yet</p>
             {% endif %}
         </div>
     </details>
