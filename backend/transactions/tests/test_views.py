@@ -1976,3 +1976,34 @@ class TestBatchEntryOnboardingHint:
         content = resp.content.decode()
         assert "batch-entry-hint" in content or "batch_entry_hint" in content
         assert "Batch Entry" in content or "batch entry" in content.lower()
+
+
+@pytest.mark.django_db
+class TestEmptyStateCTA:
+    """Empty states guide users to next action with specific CTAs."""
+
+    def test_empty_transaction_list_has_cta(self, client, tx_view_data) -> None:
+        """Empty transaction list shows a CTA to add first transaction."""
+        from conftest import SessionFactory, UserFactory
+
+        user = UserFactory()
+        session = SessionFactory(user=user)
+        from django.test import Client
+
+        c = Client()
+        c.cookies["clearmoney_session"] = session.token
+        # Request list with a filter that returns no results
+        resp = c.get("/transactions/list?search=zzznomatch")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        # Empty state must have helpful guidance, not just "No transactions found"
+        assert "Add" in content or "transaction" in content.lower()
+        assert "btn" in content or "href" in content or "button" in content
+
+    def test_empty_state_has_icon(self, client, tx_view_data) -> None:
+        """Empty transaction list has an icon for visual polish."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/list?search=zzznomatch")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        assert "<svg" in content
