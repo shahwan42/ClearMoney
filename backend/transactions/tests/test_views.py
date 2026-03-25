@@ -697,8 +697,8 @@ class TestQuickEntryOOBSwaps:
         content = resp.content.decode()
         assert "hx-swap-oob" not in content
 
-    def test_success_toast_still_present(self, client, tx_view_data):
-        """OOB response still contains the success toast."""
+    def test_success_screen_still_present(self, client, tx_view_data):
+        """OOB response still contains the success screen."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
         resp = c.post(
             "/transactions/quick",
@@ -711,7 +711,7 @@ class TestQuickEntryOOBSwaps:
             HTTP_HX_REQUEST="true",
         )
         content = resp.content.decode()
-        assert "Saved!" in content
+        assert "Transaction saved!" in content
 
 
 # ---------------------------------------------------------------------------
@@ -1670,3 +1670,102 @@ class TestCategoryCombobox:
         content = resp.content.decode()
         assert "data-category-combobox" in content
         assert f'data-selected-id="{tx_view_data["cat_id"]}"' in content
+
+
+# ---------------------------------------------------------------------------
+# Plan 20: Transaction submit UX — prevent duplicates
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransactionSubmitUX:
+    """Forms use hx-disabled-elt to prevent double submission + spinner buttons."""
+
+    def test_new_tx_form_has_disabled_elt(self, client, tx_view_data) -> None:
+        """Full transaction form has hx-disabled-elt on <form>."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        assert "hx-disabled-elt" in content
+
+    def test_new_tx_form_has_spinner_button(self, client, tx_view_data) -> None:
+        """Full transaction form submit button has spinner markup."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        assert "btn-spinner" in content
+        assert "btn-label" in content
+
+    def test_quick_entry_has_disabled_elt(self, client, tx_view_data) -> None:
+        """Quick entry form has hx-disabled-elt on <form>."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/quick-form")
+        content = resp.content.decode()
+        assert "hx-disabled-elt" in content
+
+    def test_quick_entry_has_spinner_button(self, client, tx_view_data) -> None:
+        """Quick entry submit button has spinner markup."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/quick-form")
+        content = resp.content.decode()
+        assert "btn-spinner" in content
+
+    def test_transfer_form_has_disabled_elt(self, client, tx_view_data) -> None:
+        """Transfer form has hx-disabled-elt on <form>."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transfers/new")
+        content = resp.content.decode()
+        assert "hx-disabled-elt" in content
+
+    def test_transfer_form_has_spinner_button(self, client, tx_view_data) -> None:
+        """Transfer form submit button has spinner markup."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transfers/new")
+        content = resp.content.decode()
+        assert "btn-spinner" in content
+
+    def test_exchange_form_has_disabled_elt(self, client, tx_view_data) -> None:
+        """Exchange form has hx-disabled-elt on <form>."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/exchange/new")
+        content = resp.content.decode()
+        assert "hx-disabled-elt" in content
+
+    def test_exchange_form_has_spinner_button(self, client, tx_view_data) -> None:
+        """Exchange form submit button has spinner markup."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/exchange/new")
+        content = resp.content.decode()
+        assert "btn-spinner" in content
+
+    def test_batch_form_has_disabled_elt(self, client, tx_view_data) -> None:
+        """Batch entry form has hx-disabled-elt on <form>."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/batch-entry")
+        content = resp.content.decode()
+        assert "hx-disabled-elt" in content
+
+    def test_batch_form_has_spinner_button(self, client, tx_view_data) -> None:
+        """Batch entry submit button has spinner markup."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/batch-entry")
+        content = resp.content.decode()
+        assert "btn-spinner" in content
+
+    def test_quick_entry_success_screen(self, client, tx_view_data) -> None:
+        """Quick entry POST returns success screen with Done/Add Another."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "expense",
+                "amount": "50",
+                "account_id": tx_view_data["egp_id"],
+                "category_id": tx_view_data["cat_id"],
+                "date": "2026-03-25",
+            },
+        )
+        content = resp.content.decode()
+        assert "Transaction saved!" in content
+        assert "Add Another" in content
+        assert "Done" in content

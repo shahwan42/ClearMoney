@@ -1,6 +1,11 @@
 /* ClearMoney custom styles — beyond what Tailwind provides.
    Keep this minimal; prefer Tailwind utility classes in HTML. */
 
+/* Button disabled state — swap label for spinner during HTMX requests */
+button[disabled] .btn-label { display: none; }
+button[disabled] .btn-spinner { display: inline-flex !important; }
+button[disabled] { opacity: 0.7; cursor: not-allowed; }
+
 /* Safe area padding for iOS devices with home indicator / notch */
 .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);

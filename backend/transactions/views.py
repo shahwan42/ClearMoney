@@ -601,7 +601,8 @@ def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
             except ValueError:
                 pass
 
-        response = success_response("Saved!")
+        # Render success screen with Done/Add Another buttons
+        response = render(request, "transactions/_quick_entry_success.html")
 
         # Append OOB swaps to refresh dashboard balances in-place
         from dashboard.services import DashboardService
