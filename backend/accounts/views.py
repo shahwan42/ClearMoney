@@ -321,6 +321,11 @@ def account_add_form(request: AuthenticatedRequest) -> HttpResponse:
             "institution_id": institution_id,
             "preselected_institution": preselected_institution,
             "presets_json": presets_json,
+            "account_type": "current",
+            "account_currency": "EGP",
+            "account_name": "",
+            "account_balance": "",
+            "account_credit_limit": "",
         },
     )
 
@@ -530,6 +535,11 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
                         }
                     ),
                     "error": "Institution name is required",
+                    "account_type": request.POST.get("type", "current"),
+                    "account_currency": request.POST.get("currency", "EGP"),
+                    "account_name": request.POST.get("name", ""),
+                    "account_balance": request.POST.get("initial_balance", ""),
+                    "account_credit_limit": request.POST.get("credit_limit", ""),
                 },
                 status=422,
             )
@@ -555,6 +565,11 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
                         }
                     ),
                     "error": str(e),
+                    "account_type": request.POST.get("type", "current"),
+                    "account_currency": request.POST.get("currency", "EGP"),
+                    "account_name": request.POST.get("name", ""),
+                    "account_balance": request.POST.get("initial_balance", ""),
+                    "account_credit_limit": request.POST.get("credit_limit", ""),
                 },
                 status=422,
             )
@@ -592,6 +607,11 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
                     }
                 ),
                 "error": str(e),
+                "account_type": data.get("type", "current"),
+                "account_currency": data.get("currency", "EGP"),
+                "account_name": data.get("name", ""),
+                "account_balance": data.get("initial_balance", ""),
+                "account_credit_limit": data.get("credit_limit", ""),
             },
             status=422,
         )
