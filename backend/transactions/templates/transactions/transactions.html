@@ -46,6 +46,22 @@
         </div>
     </form>
 
+    {# Batch entry onboarding hint — shown once, dismissed via localStorage #}
+    <div id="batch-entry-hint" class="hidden">
+        <div class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
+                </svg>
+                <p class="text-xs text-teal-800 dark:text-teal-200">
+                    <strong>Tip:</strong> Use <a href="/batch-entry" class="underline font-semibold">Batch Entry</a> to add multiple transactions at once — find it in the <strong>More</strong> menu.
+                </p>
+            </div>
+            <button type="button" id="batch-entry-hint-dismiss" aria-label="Dismiss tip"
+                class="text-teal-400 hover:text-teal-600 dark:text-teal-500 dark:hover:text-teal-300 flex-shrink-0 text-lg leading-none">&times;</button>
+        </div>
+    </div>
+
     {# Swipe-to-delete hint — dismissed via localStorage after first view #}
     <div id="swipe-hint" class="hidden text-xs text-gray-400 dark:text-slate-500 text-center py-1">
         <svg class="inline w-4 h-4 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
@@ -66,6 +82,26 @@
 document.body.addEventListener('closeEditSheet', function() {
     BottomSheet.close('tx-edit');
 });
+
+// Show batch entry onboarding hint once, then remember dismissal
+(function() {
+    var batchHint = document.getElementById('batch-entry-hint');
+    var batchDismiss = document.getElementById('batch-entry-hint-dismiss');
+    if (batchHint && !localStorage.getItem('batch_entry_hint_dismissed')) {
+        batchHint.classList.remove('hidden');
+        if (batchDismiss) {
+            batchDismiss.addEventListener('click', function() {
+                batchHint.classList.add('hidden');
+                localStorage.setItem('batch_entry_hint_dismissed', '1');
+            });
+        }
+        // Auto-dismiss after 30 seconds
+        setTimeout(function() {
+            batchHint.classList.add('hidden');
+            localStorage.setItem('batch_entry_hint_dismissed', '1');
+        }, 30000);
+    }
+})();
 
 // Show swipe hint once, then remember dismissal
 (function() {

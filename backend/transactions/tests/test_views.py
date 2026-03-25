@@ -1962,3 +1962,17 @@ class TestFormFocusAndDarkMode:
         resp = c.get("/transactions/quick-form")
         assert resp.status_code == 200
         assert b"focus:ring-offset-2" in resp.content
+
+
+@pytest.mark.django_db
+class TestBatchEntryOnboardingHint:
+    """Transactions page has batch entry discoverability hint."""
+
+    def test_transactions_page_has_batch_entry_hint(self, client, tx_view_data) -> None:
+        """Transactions page includes a first-time hint about batch entry."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        assert "batch-entry-hint" in content or "batch_entry_hint" in content
+        assert "Batch Entry" in content or "batch entry" in content.lower()
