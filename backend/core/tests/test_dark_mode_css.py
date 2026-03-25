@@ -280,3 +280,52 @@ class TestDarkModeAlertCSS:
         assert "dark:" in html, (
             "_credit_card_info.html missing dark: variants — blue card needs dark override"
         )
+
+
+class TestDarkModeEdgeCases:
+    """Final sweep — remaining white card and heading coverage gaps."""
+
+    def test_exchange_form_has_dark_bg(self) -> None:
+        """Exchange form partial must have dark background."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_exchange_form.html"
+        )
+        assert "dark:bg-slate-800" in html or "dark:bg-slate-900" in html, (
+            "_exchange_form.html missing dark bg — white card on dark page"
+        )
+
+    def test_fawry_form_has_dark_bg(self) -> None:
+        """Fawry cashout form must have dark background."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_fawry_cashout_form.html"
+        )
+        assert "dark:bg-slate-800" in html or "dark:bg-slate-900" in html, (
+            "_fawry_cashout_form.html missing dark bg"
+        )
+
+    def test_quick_transfer_heading_has_dark_text(self) -> None:
+        """Quick transfer heading (slate-800) must be visible in dark mode."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_quick_transfer.html"
+        )
+        assert "dark:text-slate-100" in html or "dark:text-white" in html, (
+            "_quick_transfer.html heading missing dark text"
+        )
+
+    def test_quick_exchange_heading_has_dark_text(self) -> None:
+        """Quick exchange heading (slate-800) must be visible in dark mode."""
+        html = read_template(
+            "backend/transactions/templates/transactions/_quick_exchange.html"
+        )
+        assert "dark:text-slate-100" in html or "dark:text-white" in html, (
+            "_quick_exchange.html heading missing dark text"
+        )
+
+    def test_cc_statement_error_has_dark_bg(self) -> None:
+        """CC statement error page must have dark background."""
+        html = read_template(
+            "backend/accounts/templates/accounts/credit_card_statement_error.html"
+        )
+        assert "dark:bg-slate-800" in html or "dark:bg-slate-900" in html, (
+            "credit_card_statement_error.html missing dark bg"
+        )

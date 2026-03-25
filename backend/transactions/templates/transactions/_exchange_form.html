@@ -1,6 +1,6 @@
 {% load money %}
-<div class="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-    <h2 class="text-base font-bold text-slate-800">Currency Exchange</h2>
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 space-y-4">
+    <h2 class="text-base font-bold text-slate-800 dark:text-slate-100">Currency Exchange</h2>
     <form id="quick-exchange-form" hx-post="/transactions/exchange-submit" hx-target="#exchange-result" hx-swap="innerHTML"
           hx-disabled-elt="find button[type='submit']"
           class="space-y-3">
