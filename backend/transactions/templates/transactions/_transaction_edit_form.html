@@ -11,7 +11,7 @@
         <div>
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-type">Type</label>
             <select name="type" id="edit-tx-type"
-                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="expense" {% if tx.type == "expense" %}selected{% endif %}>Expense</option>
                 <option value="income" {% if tx.type == "income" %}selected{% endif %}>Income</option>
             </select>
@@ -19,7 +19,7 @@
         <div>
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-amount">Amount</label>
             <input type="number" name="amount" id="edit-tx-amount" value="{{ tx.amount }}" step="0.01" min="0.01"
-                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500" required>
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400" required>
         </div>
     </div>
 
@@ -35,13 +35,13 @@
         <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-note">Note (optional)</label>
         <input type="text" name="note" id="edit-tx-note" value="{{ tx.note|default:'' }}"
                placeholder="What was this for?"
-               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
     <div>
         <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-date">Date</label>
         <input type="date" name="date" id="edit-tx-date" value="{{ tx.date|date:'Y-m-d' }}"
-               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
     {% if virtual_accounts %}
@@ -57,7 +57,7 @@
         <div>
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Virtual Account</label>
             <select name="virtual_account_id"
-                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="">No virtual account</option>
                 {% for va in virtual_accounts %}
                 <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}" {% if va.id == selected_va_id %}selected{% endif %}>{{ va.name }}</option>
@@ -99,7 +99,7 @@
 
     <div class="flex gap-2">
         <button type="submit"
-                class="flex-1 bg-teal-600 text-white text-sm py-2 min-h-[44px] rounded-lg font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center">
+                class="relative flex-1 bg-teal-600 text-white text-sm py-2 min-h-[44px] rounded-lg font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
             <span class="btn-label">Save</span>
             <span class="btn-spinner hidden">
                 <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">

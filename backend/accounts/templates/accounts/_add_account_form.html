@@ -66,7 +66,7 @@ Context: institution_id (str), preselected_institution (dict or None),
                            aria-expanded="false"
                            aria-controls="add-acct-preset-list"
                            aria-label="Institution name"
-                           class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                           class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                     <div id="add-acct-preset-list" role="listbox" aria-label="Institution presets"
                          class="hidden absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     </div>
@@ -85,7 +85,7 @@ Context: institution_id (str), preselected_institution (dict or None),
                 <div id="add-acct-type-wrapper">
                     <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-type">Type</label>
                     <select name="type" id="add-acct-type"
-                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                         <option value="current">Current</option>
                         <option value="savings">Savings</option>
                         <option value="prepaid">Prepaid</option>
@@ -97,7 +97,7 @@ Context: institution_id (str), preselected_institution (dict or None),
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-currency">Currency</label>
                     <select name="currency" id="add-acct-currency"
-                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                         <option value="EGP">EGP</option>
                         <option value="USD">USD</option>
                     </select>
@@ -109,26 +109,26 @@ Context: institution_id (str), preselected_institution (dict or None),
                 <div id="add-acct-custom-name-field" class="mt-1">
                     <input type="text" name="name" id="add-acct-custom-name" aria-label="Account name"
                         placeholder="e.g., My Savings"
-                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-balance">Initial Balance</label>
                 <input type="number" name="initial_balance" id="add-acct-balance" step="0.01" value="0" placeholder="0.00"
-                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 
             <div id="add-acct-credit-limit-field" style="display: none;">
                 <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-credit-limit">Credit Limit</label>
                 <input type="number" name="credit_limit" id="add-acct-credit-limit" step="0.01" placeholder="e.g., 500000"
-                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
         </div>
 
         <div class="flex gap-2 mt-4">
             <button type="submit"
-                class="flex-1 bg-teal-600 text-white py-2 min-h-[44px] rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center">
+                class="relative flex-1 bg-teal-600 text-white py-2 min-h-[44px] rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
                 <span class="btn-label">Add Account</span>
                 <span class="btn-spinner hidden">
                     <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">

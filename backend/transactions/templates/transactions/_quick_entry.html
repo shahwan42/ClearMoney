@@ -30,13 +30,15 @@
     </fieldset>
 
     <div>
-        <input type="number" name="amount" step="0.01" min="0.01" required autofocus
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-amount">Amount <span class="text-red-500" aria-hidden="true">*</span></label>
+        <input type="number" name="amount" id="qe-amount" step="0.01" min="0.01" required autofocus
             placeholder="0.00"
             class="w-full text-3xl font-bold text-center border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
             inputmode="decimal">
     </div>
 
     <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-account-select">Account <span class="text-red-500" aria-hidden="true">*</span></label>
         <select name="account_id" required
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
             id="qe-account-select">
@@ -102,7 +104,7 @@
     </div>
 
     <button type="submit"
-        class="w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center">
+        class="relative w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
         <span class="btn-label">Save</span>
         <span class="btn-spinner hidden">
             <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">

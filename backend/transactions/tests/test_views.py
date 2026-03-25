@@ -2007,3 +2007,74 @@ class TestEmptyStateCTA:
         assert resp.status_code == 200
         content = resp.content.decode()
         assert "<svg" in content
+
+
+# ---------------------------------------------------------------------------
+# BATCH 3: Visual Feedback Gaps (Issues 10-15)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestButtonStateTransitions:
+    """Issue 10: Submit button has relative positioning for spinner overlay."""
+
+    def test_submit_button_has_relative_class(self, client, tx_view_data) -> None:
+        """Transaction new form submit button uses relative for absolute spinner."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        # Submit button must have relative so btn-spinner can be positioned absolutely
+        assert 'type="submit"' in content
+        assert "relative" in content
+
+    def test_btn_spinner_has_absolute_positioning(self, client, tx_view_data) -> None:
+        """btn-spinner span uses absolute inset-0 for smooth overlay transition."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        # The btn-spinner must use absolute positioning to overlay label
+        assert "btn-spinner" in content
+        assert "absolute" in content
+
+    def test_quick_entry_submit_button_has_relative(self, client, tx_view_data) -> None:
+        """Quick entry submit button also has relative positioning."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/quick-form")
+        content = resp.content.decode()
+        assert "relative" in content
+        assert "btn-spinner" in content
+
+
+@pytest.mark.django_db
+class TestRequiredFieldMarkers:
+    """Issue 14: Required fields are visually marked with * in form labels."""
+
+    def test_amount_field_marked_required(self, client, tx_view_data) -> None:
+        """Amount label in transaction new form has required marker (*)."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        # Required marker asterisk must appear near Amount label
+        assert "*" in content
+
+    def test_account_field_marked_required(self, client, tx_view_data) -> None:
+        """Account label in transaction new form has required marker (*)."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        assert "required" in content.lower()
+        assert "*" in content
+
+
+@pytest.mark.django_db
+class TestMoreOptionsPanelTransition:
+    """Issue 11: More options panel uses CSS transition class instead of hidden."""
+
+    def test_more_options_panel_has_transition_class(
+        self, client, tx_view_data
+    ) -> None:
+        """More options panel element has more-options-panel class for CSS transitions."""
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.get("/transactions/new")
+        content = resp.content.decode()
+        assert "more-options-panel" in content

@@ -8,7 +8,7 @@
 
     <h2 class="text-lg font-bold text-slate-800 mb-4">New Transaction</h2>
 
-    <div id="transaction-result" aria-live="polite"></div>
+    <div id="transaction-result" aria-live="polite" aria-atomic="true"></div>
 
     <form
         hx-post="/transactions"
@@ -40,7 +40,7 @@
 
         <!-- Amount -->
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Amount</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Amount <span class="text-red-500" aria-hidden="true">*</span></label>
             <input type="number" name="amount" step="0.01" min="0.01" required autofocus
                 placeholder="0.00"
                 {% if prefill %}value="{{ prefill.amount }}"{% endif %}
@@ -50,7 +50,7 @@
 
         <!-- Account -->
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Account</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Account <span class="text-red-500" aria-hidden="true">*</span></label>
             <select name="account_id" required
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="">Select account...</option>
@@ -97,7 +97,7 @@
         </button>
 
         <!-- Optional fields: date, virtual account -->
-        <div id="more-options" class="hidden space-y-4">
+        <div id="more-options" class="more-options-panel space-y-4">
 
             <!-- Date -->
             <div>
@@ -125,7 +125,7 @@
         </div>
 
         <button type="submit"
-            class="w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center">
+            class="relative w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
             <span class="btn-label">Save Transaction</span>
             <span class="btn-spinner hidden">
                 <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -158,7 +158,7 @@
     }
 
     function openMoreOptions() {
-        panel.classList.remove('hidden');
+        panel.classList.add('is-open');
         toggle.setAttribute('aria-expanded', 'true');
         if (chevron) chevron.style.transform = 'rotate(180deg)';
         if (datePicker) datePicker.disabled = false;
@@ -167,7 +167,7 @@
     }
 
     function closeMoreOptions() {
-        panel.classList.add('hidden');
+        panel.classList.remove('is-open');
         toggle.setAttribute('aria-expanded', 'false');
         if (chevron) chevron.style.transform = '';
         if (datePicker) datePicker.disabled = true;

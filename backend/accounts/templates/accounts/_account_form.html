@@ -29,7 +29,7 @@ Context: institution_id, institution_name, error (optional string).
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</label>
                     <select name="type" id="account-type-select"
                         onchange="document.getElementById('credit-limit-field').style.display = (this.value === 'credit_card' || this.value === 'credit_limit') ? 'block' : 'none'"
-                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                         <option value="current">Current</option>
                         <option value="savings">Savings</option>
                         <option value="prepaid">Prepaid</option>
@@ -41,7 +41,7 @@ Context: institution_id, institution_name, error (optional string).
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Currency</label>
                     <select name="currency"
-                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                         <option value="EGP">EGP</option>
                         <option value="USD">USD</option>
                     </select>
@@ -58,21 +58,21 @@ Context: institution_id, institution_name, error (optional string).
                 <div id="custom-name-field" style="display: none;" class="mt-1">
                     <input type="text" name="name" aria-label="Account name"
                         placeholder="e.g., My Savings"
-                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Initial Balance</label>
                 <input type="number" name="initial_balance" step="0.01" value="0" placeholder="0.00"
-                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 
             <!-- Credit limit field — only shown for credit card / credit limit account types -->
             <div id="credit-limit-field" style="display: none;">
                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Credit Limit</label>
                 <input type="number" name="credit_limit" step="0.01" placeholder="e.g., 500000"
-                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
         </div>
 
