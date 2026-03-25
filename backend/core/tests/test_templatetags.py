@@ -8,6 +8,8 @@ from core.templatetags.money import (
     abs_float,
     add_float,
     bar_style,
+    chart_color,
+    conic_gradient,
     deref,
     deref_float,
     format_account_type,
@@ -214,3 +216,51 @@ class TestInstitutionDisplayName:
     def test_custom_name_returns_as_is(self) -> None:
         result = institution_display_name("My Custom Bank")
         assert result == "My Custom Bank"
+
+
+class TestChartColor:
+    """chart_color returns CSS custom-property references for dark mode support."""
+
+    def test_index_zero_returns_var(self) -> None:
+        assert chart_color(0) == "var(--chart-1)"
+
+    def test_index_one_returns_var(self) -> None:
+        assert chart_color(1) == "var(--chart-2)"
+
+    def test_index_seven_returns_var(self) -> None:
+        assert chart_color(7) == "var(--chart-8)"
+
+    def test_wraps_at_eight(self) -> None:
+        # Palette has 8 entries; index 8 wraps back to --chart-1
+        assert chart_color(8) == "var(--chart-1)"
+
+    def test_no_raw_hex(self) -> None:
+        # Should not return raw hex — dark mode relies on CSS variables
+        result = chart_color(0)
+        assert not result.startswith("#"), (
+            "chart_color must return a CSS var, not a hex value"
+        )
+
+
+class TestConicGradient:
+    """conic_gradient uses CSS custom properties for dark-mode-compatible colors."""
+
+    def test_empty_uses_css_var(self) -> None:
+        # Empty segments should use --chart-empty var, not a hardcoded hex
+        result = conic_gradient([])
+        assert "var(--chart-empty)" in result
+
+    def test_segments_use_css_vars(self) -> None:
+        segments = [
+            {"color": "var(--chart-1)", "percentage": 60.0},
+            {"color": "var(--chart-2)", "percentage": 40.0},
+        ]
+        result = conic_gradient(segments)
+        assert "var(--chart-1)" in result
+        assert "var(--chart-2)" in result
+
+    def test_partial_fill_uses_css_var(self) -> None:
+        # When segments don't fill 100%, remainder uses --chart-empty
+        segments = [{"color": "var(--chart-1)", "percentage": 50.0}]
+        result = conic_gradient(segments)
+        assert "var(--chart-empty)" in result

@@ -99,7 +99,8 @@ def test_percentage_zero_total():
 
 
 def test_chart_color_first():
-    assert chart_color(0) == "#0d9488"
+    # chart_color returns CSS custom property references for dark mode support
+    assert chart_color(0) == "var(--chart-1)"
 
 
 def test_chart_color_wraps_around():
@@ -117,7 +118,8 @@ def test_format_date_iso():
 
 def test_conic_gradient_empty():
     result = conic_gradient([])
-    assert "#e2e8f0" in result
+    # Uses CSS var so dark mode can override the empty-state color
+    assert "var(--chart-empty)" in result
 
 
 def test_conic_gradient_single_segment():

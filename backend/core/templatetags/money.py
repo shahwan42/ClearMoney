@@ -20,16 +20,18 @@ from django.utils.safestring import mark_safe
 
 register = template.Library()
 
-# Chart color palette
+# Chart color palette — CSS custom properties so dark mode can override via .dark { --chart-N: ... }
+# Light-mode hex values are defined in static/css/charts.css under :root.
+# Dark mode uses -400 Tailwind variants (lighter) for WCAG AA non-text contrast on dark backgrounds.
 CHART_PALETTE = [
-    "#0d9488",  # teal-600
-    "#dc2626",  # red-600
-    "#2563eb",  # blue-600
-    "#d97706",  # amber-600
-    "#7c3aed",  # violet-600
-    "#059669",  # emerald-600
-    "#db2777",  # pink-600
-    "#4f46e5",  # indigo-600
+    "var(--chart-1)",  # teal
+    "var(--chart-2)",  # red
+    "var(--chart-3)",  # blue
+    "var(--chart-4)",  # amber
+    "var(--chart-5)",  # violet
+    "var(--chart-6)",  # emerald
+    "var(--chart-7)",  # pink
+    "var(--chart-8)",  # indigo
 ]
 
 
@@ -122,9 +124,10 @@ def abs_float(value: object) -> float:
 @register.simple_tag
 def conic_gradient(segments: list[dict[str, Any]]) -> str:
     """Generate CSS conic-gradient from chart segments.
-    segments: list of dicts with 'color' and 'percentage' keys."""
+    segments: list of dicts with 'color' and 'percentage' keys.
+    Uses var(--chart-empty) for empty/remainder so dark mode can override via CSS."""
     if not segments:
-        return "conic-gradient(#e2e8f0 0% 100%)"
+        return "conic-gradient(var(--chart-empty) 0% 100%)"
 
     parts = []
     cumulative = 0.0
@@ -137,7 +140,7 @@ def conic_gradient(segments: list[dict[str, Any]]) -> str:
         cumulative = end
 
     if cumulative < 99.9:
-        parts.append(f"#e2e8f0 {cumulative:.1f}% 100%")
+        parts.append(f"var(--chart-empty) {cumulative:.1f}% 100%")
 
     return f"conic-gradient({', '.join(parts)})"
 

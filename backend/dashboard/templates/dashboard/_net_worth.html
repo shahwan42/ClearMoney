@@ -25,12 +25,12 @@
         {% if data.net_worth_history_by_currency %}
         <div class="flex-shrink-0">
             {% with egp_vals=data.net_worth_history_by_currency.EGP usd_vals=data.net_worth_history_by_currency.USD %}
-            {% include "components/chart_sparkline_dual.html" with values1=egp_vals color1="#0d9488" values2=usd_vals color2="#3b82f6" width=100 height=36 %}
+            {% include "components/chart_sparkline_dual.html" with values1=egp_vals color1="var(--chart-1)" values2=usd_vals color2="var(--chart-3)" width=100 height=36 %}
             {% endwith %}
         </div>
         {% elif data.net_worth_history %}
         <div class="flex-shrink-0">
-            {% include "components/chart_sparkline.html" with values=data.net_worth_history color="#0d9488" width=100 height=36 %}
+            {% include "components/chart_sparkline.html" with values=data.net_worth_history color="var(--chart-1)" width=100 height=36 %}
         </div>
         {% endif %}
     </div>

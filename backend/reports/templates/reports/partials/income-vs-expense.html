@@ -10,36 +10,36 @@
 
     {% with cur=data.filter_currency|default:"EGP" %}
     {# Current Month #}
-    <div class="bg-gray-50 rounded-lg p-3">
-        <p class="text-xs text-gray-500 mb-2">{{ data.current_month.month_name }} {{ data.current_month.year }}</p>
+    <div class="bg-gray-50 dark:bg-slate-800 rounded-lg p-3">
+        <p class="text-xs text-gray-500 dark:text-slate-400 mb-2">{{ data.current_month.month_name }} {{ data.current_month.year }}</p>
         <div class="flex justify-between text-sm">
-            <span class="text-green-600">Income</span>
-            <span class="font-medium text-green-700">{{ data.current_month.income|format_currency:cur }}</span>
+            <span class="text-green-600 dark:text-emerald-400">Income</span>
+            <span class="font-medium text-green-700 dark:text-emerald-400">{{ data.current_month.income|format_currency:cur }}</span>
         </div>
         <div class="flex justify-between text-sm">
-            <span class="text-red-600">Expenses</span>
-            <span class="font-medium text-red-700">{{ data.current_month.expenses|format_currency:cur }}</span>
+            <span class="text-red-600 dark:text-red-400">Expenses</span>
+            <span class="font-medium text-red-700 dark:text-red-400">{{ data.current_month.expenses|format_currency:cur }}</span>
         </div>
-        <div class="flex justify-between text-sm font-bold pt-1 border-t border-gray-200 mt-1">
-            <span class="{% if data.current_month.net < 0 %}text-red-600{% else %}text-teal-700{% endif %}">Net</span>
-            <span class="{% if data.current_month.net < 0 %}text-red-600{% else %}text-teal-700{% endif %}">{{ data.current_month.net|format_currency:cur }}</span>
+        <div class="flex justify-between text-sm font-bold pt-1 border-t border-gray-200 dark:border-slate-700 mt-1">
+            <span class="{% if data.current_month.net < 0 %}text-red-600 dark:text-red-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">Net</span>
+            <span class="{% if data.current_month.net < 0 %}text-red-600 dark:text-red-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">{{ data.current_month.net|format_currency:cur }}</span>
         </div>
     </div>
 
     {# Previous Month #}
-    <div class="bg-gray-50 rounded-lg p-3">
-        <p class="text-xs text-gray-500 mb-2">{{ data.previous_month.month_name }} {{ data.previous_month.year }}</p>
+    <div class="bg-gray-50 dark:bg-slate-800 rounded-lg p-3">
+        <p class="text-xs text-gray-500 dark:text-slate-400 mb-2">{{ data.previous_month.month_name }} {{ data.previous_month.year }}</p>
         <div class="flex justify-between text-sm">
-            <span class="text-green-600">Income</span>
-            <span class="font-medium text-green-700">{{ data.previous_month.income|format_currency:cur }}</span>
+            <span class="text-green-600 dark:text-emerald-400">Income</span>
+            <span class="font-medium text-green-700 dark:text-emerald-400">{{ data.previous_month.income|format_currency:cur }}</span>
         </div>
         <div class="flex justify-between text-sm">
-            <span class="text-red-600">Expenses</span>
-            <span class="font-medium text-red-700">{{ data.previous_month.expenses|format_currency:cur }}</span>
+            <span class="text-red-600 dark:text-red-400">Expenses</span>
+            <span class="font-medium text-red-700 dark:text-red-400">{{ data.previous_month.expenses|format_currency:cur }}</span>
         </div>
-        <div class="flex justify-between text-sm font-bold pt-1 border-t border-gray-200 mt-1">
-            <span class="{% if data.previous_month.net < 0 %}text-red-600{% else %}text-teal-700{% endif %}">Net</span>
-            <span class="{% if data.previous_month.net < 0 %}text-red-600{% else %}text-teal-700{% endif %}">{{ data.previous_month.net|format_currency:cur }}</span>
+        <div class="flex justify-between text-sm font-bold pt-1 border-t border-gray-200 dark:border-slate-700 mt-1">
+            <span class="{% if data.previous_month.net < 0 %}text-red-600 dark:text-red-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">Net</span>
+            <span class="{% if data.previous_month.net < 0 %}text-red-600 dark:text-red-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">{{ data.previous_month.net|format_currency:cur }}</span>
         </div>
     </div>
     {% endwith %}

@@ -6,6 +6,46 @@
    that pair with their respective template partials (chart-donut.html, etc.). */
 
 /* ═══════════════════════════════════════════════════════════
+   CHART COLOR SYSTEM — CSS Custom Properties
+   Light mode: -600 Tailwind variants (WCAG AA on white/light bg).
+   Dark mode: -400 variants (lighter, passes 3:1 non-text contrast on slate-800/900).
+   All chart colors (donut, bars, progress bars, sparklines) reference these vars
+   so a single .dark override switches the entire palette.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+    --chart-1: #0d9488;   /* teal-600 */
+    --chart-2: #dc2626;   /* red-600 */
+    --chart-3: #2563eb;   /* blue-600 */
+    --chart-4: #d97706;   /* amber-600 */
+    --chart-5: #7c3aed;   /* violet-600 */
+    --chart-6: #059669;   /* emerald-600 */
+    --chart-7: #db2777;   /* pink-600 */
+    --chart-8: #4f46e5;   /* indigo-600 */
+    --chart-empty: #e2e8f0;   /* slate-200 — empty donut fill */
+    --chart-income: #059669;  /* emerald-600 */
+    --chart-expenses: #dc2626; /* red-600 */
+    --chart-sparkline-neutral: #94a3b8; /* slate-400 — account mini sparklines */
+    --chart-utilization: #f59e0b; /* amber-500 — CC utilization ring */
+}
+
+.dark {
+    --chart-1: #2dd4bf;   /* teal-400 — 5.0:1 on slate-800 */
+    --chart-2: #f87171;   /* red-400 — 3.6:1 on slate-800 */
+    --chart-3: #60a5fa;   /* blue-400 — 4.9:1 on slate-800 */
+    --chart-4: #fbbf24;   /* amber-400 — 6.3:1 on slate-800 */
+    --chart-5: #a78bfa;   /* violet-400 — 3.8:1 on slate-800 */
+    --chart-6: #34d399;   /* emerald-400 — 5.0:1 on slate-800 */
+    --chart-7: #f472b6;   /* pink-400 — 3.4:1 on slate-800 */
+    --chart-8: #818cf8;   /* indigo-400 — 3.4:1 on slate-800 */
+    --chart-empty: #334155;   /* slate-700 — visible on dark backgrounds */
+    --chart-income: #34d399;  /* emerald-400 */
+    --chart-expenses: #f87171; /* red-400 */
+    --chart-sparkline-neutral: #64748b; /* slate-500 */
+    --chart-utilization: #fbbf24; /* amber-400 */
+}
+
+/* ═══════════════════════════════════════════════════════════
    DONUT CHART
    The donut is a div with conic-gradient background (colored slices)
    plus a white circle on top (the "hole"). The gap between them

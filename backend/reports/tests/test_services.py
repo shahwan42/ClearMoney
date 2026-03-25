@@ -246,7 +246,7 @@ class TestBuildChartSegments:
         segments = _build_chart_segments(spending, 500.0)
         assert len(segments) == 1
         assert segments[0]["percentage"] == 100.0
-        assert segments[0]["color"] == "#0d9488"
+        assert segments[0]["color"] == "var(--chart-1)"
 
     def test_multiple_categories_colors(self) -> None:
         spending: list[dict[str, Any]] = [

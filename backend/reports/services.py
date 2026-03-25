@@ -17,16 +17,17 @@ from core.timing import timed
 
 logger = logging.getLogger(__name__)
 
-# Chart color palette
+# Chart color palette — mirrors core/templatetags/money.py CHART_PALETTE.
+# Uses CSS custom properties so dark mode overrides via .dark { --chart-N: ... } in charts.css.
 CHART_PALETTE = [
-    "#0d9488",  # teal-600
-    "#dc2626",  # red-600
-    "#2563eb",  # blue-600
-    "#d97706",  # amber-600
-    "#7c3aed",  # violet-600
-    "#059669",  # emerald-600
-    "#db2777",  # pink-600
-    "#4f46e5",  # indigo-600
+    "var(--chart-1)",  # teal
+    "var(--chart-2)",  # red
+    "var(--chart-3)",  # blue
+    "var(--chart-4)",  # amber
+    "var(--chart-5)",  # violet
+    "var(--chart-6)",  # emerald
+    "var(--chart-7)",  # pink
+    "var(--chart-8)",  # indigo
 ]
 
 
@@ -225,13 +226,13 @@ def build_bar_chart(
                     {
                         "value": m["income"],
                         "height_pct": income_h,
-                        "color": "#059669",
+                        "color": "var(--chart-income)",
                         "label": "Income",
                     },
                     {
                         "value": m["expenses"],
                         "height_pct": expense_h,
-                        "color": "#dc2626",
+                        "color": "var(--chart-expenses)",
                         "label": "Expenses",
                     },
                 ],
@@ -239,8 +240,8 @@ def build_bar_chart(
         )
 
     legend = [
-        {"label": "Income", "color": "#059669"},
-        {"label": "Expenses", "color": "#dc2626"},
+        {"label": "Income", "color": "var(--chart-income)"},
+        {"label": "Expenses", "color": "var(--chart-expenses)"},
     ]
 
     return groups, legend

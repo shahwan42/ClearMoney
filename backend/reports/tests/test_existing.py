@@ -287,15 +287,15 @@ def test_build_chart_segments_empty():
 
 
 def test_build_chart_segments_assigns_colors():
-    """Each segment gets a color from the palette."""
+    """Each segment gets a color from the palette (CSS custom properties for dark mode)."""
     spending = [
         {"name": "Food", "amount": 60, "percentage": 60},
         {"name": "Transport", "amount": 40, "percentage": 40},
     ]
     segments = _build_chart_segments(spending, 100)
     assert len(segments) == 2
-    assert segments[0]["color"] == "#0d9488"
-    assert segments[1]["color"] == "#dc2626"
+    assert segments[0]["color"] == "var(--chart-1)"
+    assert segments[1]["color"] == "var(--chart-2)"
 
 
 def test_build_bar_chart_empty():

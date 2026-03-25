@@ -44,19 +44,21 @@ class TestChartDarkModeContrast:
         content = resp.content.decode()
         assert "chart-bar-container" in content
 
-    def test_chart_css_includes_dark_filter(self) -> None:
-        """app.css has dark mode brightness filter for chart bars."""
+    def test_chart_css_includes_dark_mode_vars(self) -> None:
+        """charts.css defines dark mode CSS custom properties for WCAG AA contrast."""
         import os
 
         css_path = os.path.join(
             os.path.dirname(__file__),
-            "../../../static/css/app.css",
+            "../../../static/css/charts.css",
         )
         with open(css_path) as f:
             css = f.read()
-        # Dark mode chart filter must be present to improve contrast
-        assert ".dark .chart-bar" in css
-        assert "brightness" in css or "filter" in css
+        # Dark mode chart colors must use CSS custom properties (not brightness filter)
+        assert "--chart-1" in css
+        assert ".dark" in css
+        # Dark mode uses lighter -400 variants (e.g. teal-400 #2dd4bf) for contrast
+        assert "#2dd4bf" in css  # teal-400: 5.0:1 on slate-800
 
 
 @pytest.mark.django_db

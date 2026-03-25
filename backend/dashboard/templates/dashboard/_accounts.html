@@ -29,7 +29,7 @@
                                 {% with sparkline=data.account_sparklines|get_item:acc.id %}
                                 {% if sparkline %}
                                 <div class="flex-shrink-0">
-                                    {% include "components/chart_sparkline.html" with values=sparkline color="#94a3b8" width=48 height=16 %}
+                                    {% include "components/chart_sparkline.html" with values=sparkline color="var(--chart-sparkline-neutral)" width=48 height=16 %}
                                 </div>
                                 {% endif %}
                                 {% endwith %}

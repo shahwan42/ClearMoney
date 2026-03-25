@@ -193,13 +193,6 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
 /* Empty state icons */
 .dark .text-gray-300 { color: #475569 !important; }
 
-/* Chart dark mode contrast — brighten inline-color bars/dots for WCAG AA.
-   Amber (#d97706 → ~4.2:1) and indigo (#4f46e5 → ~3.8:1) fail dark mode AA.
-   filter: brightness(1.4) lifts these to passing ratios without altering values. */
-.dark .chart-bar { filter: brightness(1.4); }
-.dark .chart-legend-dot { filter: brightness(1.4); }
-.dark .chart-donut { filter: brightness(1.15); }
-
 /* Chart legend text — improve contrast from slate-600 to slate-200 in dark mode */
 .dark .chart-legend-item { color: #e2e8f0 !important; } /* slate-200 */
 .dark .chart-bar-label { color: #94a3b8 !important; }    /* slate-400 */
