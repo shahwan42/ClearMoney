@@ -189,3 +189,39 @@ class TestDarkModeButtonTemplates:
         assert ".dark .text-teal-800" in css, (
             "Missing .dark .text-teal-800 override — very dark on dark bg"
         )
+
+
+class TestDarkModeListTemplates:
+    """List and data display templates must have dark: variants."""
+
+    def test_person_detail_sections_have_dark_bg(self) -> None:
+        """Person detail page sections must have dark background."""
+        html = read_template("backend/people/templates/people/person_detail.html")
+        assert html.count("dark:bg-slate-800") >= 2, (
+            "person_detail.html needs dark:bg-slate-800 on person header and history sections"
+        )
+
+    def test_person_detail_transaction_rows_have_dark_text(self) -> None:
+        """Transaction rows in person detail need dark text variants."""
+        html = read_template("backend/people/templates/people/person_detail.html")
+        assert "dark:text-slate-200" in html or "dark:text-slate-300" in html, (
+            "person_detail.html transaction rows missing dark text"
+        )
+
+    def test_credit_card_statement_sections_have_dark_bg(self) -> None:
+        """Credit card statement sections must have dark background."""
+        html = read_template(
+            "backend/accounts/templates/accounts/credit_card_statement.html"
+        )
+        assert html.count("dark:bg-slate-800") >= 3, (
+            "credit_card_statement.html needs dark:bg-slate-800 on at least 3 sections"
+        )
+
+    def test_credit_card_statement_has_dark_text(self) -> None:
+        """Credit card statement headings and labels must be readable in dark mode."""
+        html = read_template(
+            "backend/accounts/templates/accounts/credit_card_statement.html"
+        )
+        assert "dark:text-slate-" in html, (
+            "credit_card_statement.html missing dark text variants"
+        )
