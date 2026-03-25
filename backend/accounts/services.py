@@ -2,9 +2,8 @@
 Accounts & Institutions service layer — business logic and ORM queries.
 
 Like Django's fat-model or service-layer pattern. Uses the Django ORM with
-``Model.objects.for_user(uid)`` for user-scoped queries. Two functions remain
-as raw SQL: ``get_recent_transactions`` (window functions) and
-``get_statement_data`` (complex period queries).
+``Model.objects.for_user(uid)`` for user-scoped queries. One function remains
+as raw SQL: ``get_statement_data`` (complex period queries).
 """
 
 import json
@@ -14,8 +13,8 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import IntegrityError, connection
-from django.db.models import Q, Sum
+from django.db import IntegrityError
+from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
@@ -32,6 +31,7 @@ from core.models import (
     Transaction,
     VirtualAccount,
 )
+from transactions.services.utils import running_balance_annotation
 
 logger = logging.getLogger(__name__)
 
@@ -466,61 +466,42 @@ class AccountService:
     ) -> list[dict[str, Any]]:
         """Recent transactions with running balance for account detail page.
 
-        Uses window function for running balance calculation — kept as raw SQL.
+        Window function computes running balance per account. Filtering by
+        account_id here is safe because the PARTITION key is also account_id —
+        restricting to one account does not change the per-account window scope.
         """
-        # Raw SQL — window function computes running balance by subtracting
-        # cumulative balance_deltas from the account's current_balance
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
-                    sub.category_id, sub.date, sub.note, sub.tags,
-                    sub.balance_delta, sub.created_at,
-                    sub.account_name, sub.category_name, sub.category_icon,
-                    sub.running_balance
-                FROM (
-                    SELECT t.id, t.type, t.amount, t.currency, t.account_id,
-                        t.category_id, t.date, t.note, t.tags,
-                        t.balance_delta, t.created_at,
-                        a.name AS account_name,
-                        c.name AS category_name, c.icon AS category_icon,
-                        a.current_balance - COALESCE(
-                            SUM(t.balance_delta) OVER (
-                                PARTITION BY t.account_id
-                                ORDER BY t.date DESC, t.created_at DESC
-                                ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                            ), 0
-                        ) AS running_balance
-                    FROM transactions t
-                    JOIN accounts a ON a.id = t.account_id
-                    LEFT JOIN categories c ON c.id = t.category_id
-                    WHERE t.user_id = %s AND t.account_id = %s
-                ) sub
-                ORDER BY sub.date DESC, sub.created_at DESC
-                LIMIT %s
-                """,
-                [self.user_id, account_id, limit],
+        qs = (
+            Transaction.objects.filter(user_id=self.user_id, account_id=account_id)
+            .select_related("account", "category")
+            .annotate(
+                account_name=F("account__name"),
+                category_name=F("category__name"),
+                category_icon=F("category__icon"),
+                running_balance=running_balance_annotation(),
             )
-            return [
-                {
-                    "id": str(row[0]),
-                    "type": row[1],
-                    "amount": float(row[2]),
-                    "currency": row[3],
-                    "account_id": str(row[4]),
-                    "category_id": str(row[5]) if row[5] else None,
-                    "date": row[6],
-                    "note": row[7],
-                    "tags": row[8] or [],
-                    "balance_delta": float(row[9]),
-                    "created_at": row[10],
-                    "account_name": row[11],
-                    "category_name": row[12],
-                    "category_icon": row[13],
-                    "running_balance": float(row[14]),
-                }
-                for row in cursor.fetchall()
-            ]
+            .order_by("-date", "-created_at")[:limit]
+        )
+
+        return [
+            {
+                "id": str(t.id),
+                "type": t.type,
+                "amount": float(t.amount),
+                "currency": t.currency,
+                "account_id": str(t.account_id),
+                "category_id": str(t.category_id) if t.category_id else None,
+                "date": t.date,
+                "note": t.note,
+                "tags": t.tags or [],
+                "balance_delta": float(t.balance_delta),
+                "created_at": t.created_at,
+                "account_name": t.account_name,
+                "category_name": t.category_name,
+                "category_icon": t.category_icon,
+                "running_balance": float(t.running_balance),
+            }
+            for t in qs
+        ]
 
     def get_linked_virtual_accounts(self, account_id: str) -> list[dict[str, Any]]:
         """Virtual accounts linked to this bank account (non-archived)."""

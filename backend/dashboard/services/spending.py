@@ -9,8 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from django.db import connection
-from django.db.models import Sum
+from django.db.models import F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 
 from core.models import Transaction
@@ -159,62 +158,66 @@ def _query_top_categories(
 ) -> list[dict[str, Any]]:
     """Query top 3 spending categories with month-over-month change.
 
-    Raw SQL — CTE joins this month's top 3 with last month's totals for the
-    same categories. Cross-period comparison doesn't map cleanly to ORM.
+    Two ORM queries + Python merge replace the original CTE:
+    1. Top 3 categories this month (with icon).
+    2. Last month amounts for those same categories (matched by name).
+    NULL categories are surfaced as 'Uncategorized' via Coalesce.
     """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            WITH this_month AS (
-                SELECT COALESCE(c.name, 'Uncategorized') AS cat_name,
-                    COALESCE(c.icon, '') AS cat_icon,
-                    SUM(t.amount) AS amount
-                FROM transactions t
-                LEFT JOIN categories c ON t.category_id = c.id
-                WHERE t.type = 'expense' AND t.currency = %s
-                    AND t.date >= %s AND t.date < %s
-                    AND t.user_id = %s
-                GROUP BY c.name, c.icon
-                ORDER BY SUM(t.amount) DESC
-                LIMIT 3
-            ),
-            last_month AS (
-                SELECT COALESCE(c.name, 'Uncategorized') AS cat_name,
-                    SUM(t.amount) AS amount
-                FROM transactions t
-                LEFT JOIN categories c ON t.category_id = c.id
-                WHERE t.type = 'expense' AND t.currency = %s
-                    AND t.date >= %s AND t.date < %s
-                    AND t.user_id = %s
-                GROUP BY c.name
-            )
-            SELECT tm.cat_name, tm.cat_icon, tm.amount,
-                COALESCE(lm.amount, 0) AS last_amount
-            FROM this_month tm
-            LEFT JOIN last_month lm ON tm.cat_name = lm.cat_name
-            """,
-            [
-                currency,
-                this_month_start,
-                next_month_start,
-                user_id,
-                currency,
-                last_month_start,
-                this_month_start,
-                user_id,
-            ],
+    # Query 1: top 3 expense categories this month
+    this_month_rows = list(
+        Transaction.objects.filter(
+            user_id=user_id,
+            type="expense",
+            currency=currency,
+            date__gte=this_month_start,
+            date__lt=next_month_start,
         )
-        rows = cursor.fetchall()
+        .values(
+            cat_name=Coalesce(F("category__name"), Value("Uncategorized")),
+            cat_icon=Coalesce(F("category__icon"), Value("")),
+        )
+        .annotate(amount=Sum("amount"))
+        .order_by("-amount")[:3]
+    )
+
+    if not this_month_rows:
+        return []
+
+    top_names = [r["cat_name"] for r in this_month_rows]
+
+    # Query 2: last month amounts for those categories.
+    # 'Uncategorized' maps to NULL category — handle with an OR filter.
+    non_null_names = [n for n in top_names if n != "Uncategorized"]
+    # Q() is falsy — OR-ing with another Q collapses to that Q (Django Q._combine shortcut)
+    last_month_filter = Q(category__name__in=non_null_names) if non_null_names else Q()
+    if "Uncategorized" in top_names:
+        last_month_filter |= Q(category__isnull=True)
+
+    last_month_dict: dict[str, float] = {}
+    if last_month_filter:
+        for row in (
+            Transaction.objects.filter(
+                user_id=user_id,
+                type="expense",
+                currency=currency,
+                date__gte=last_month_start,
+                date__lt=this_month_start,
+            )
+            .filter(last_month_filter)
+            .values(cat_name=Coalesce(F("category__name"), Value("Uncategorized")))
+            .annotate(amount=Sum("amount"))
+        ):
+            last_month_dict[row["cat_name"]] = float(row["amount"])
 
     categories: list[dict[str, Any]] = []
-    for name, icon, this_amt, last_amt in rows:
-        this_f = float(this_amt)
-        last_f = float(last_amt)
+    for row in this_month_rows:
+        this_f = float(row["amount"])
+        last_f = last_month_dict.get(row["cat_name"], 0.0)
         change = ((this_f - last_f) / last_f * 100) if last_f > 0 else 0.0
         categories.append(
             {
-                "name": name,
-                "icon": icon,
+                "name": row["cat_name"],
+                "icon": row["cat_icon"],
                 "amount": this_f,
                 "change": change,
                 "is_up": change > 0,

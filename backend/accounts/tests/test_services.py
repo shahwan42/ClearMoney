@@ -5,7 +5,7 @@ Billing tests are pure (no DB). AccountService/InstitutionService tests need Pos
 """
 
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -20,6 +20,7 @@ from core.billing import (
     interest_free_remaining,
     parse_billing_cycle,
 )
+from core.models import User
 from tests.factories import InstitutionFactory
 
 
@@ -324,3 +325,214 @@ class TestAccountCreateAutoName:
             }
         )
         assert account["name"] == "CIB - Cash"
+
+
+# ---------------------------------------------------------------------------
+# AccountService.get_recent_transactions — window function + field mapping
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def recent_tx_data(db):
+    """User + institution + 2 accounts + category for get_recent_transactions tests."""
+    user = UserFactory()
+    user_id = str(user.id)
+    inst_id = str(uuid.uuid4())
+    account_id = str(uuid.uuid4())
+    other_account_id = str(uuid.uuid4())
+    cat_id = str(uuid.uuid4())
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO institutions (id, user_id, name) VALUES (%s, %s, %s)",
+            [inst_id, user_id, "Test Bank"],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
+            " VALUES (%s, %s, %s, 'My Savings', 'savings', 'EGP', 10000)",
+            [account_id, user_id, inst_id],
+        )
+        cursor.execute(
+            "INSERT INTO accounts (id, user_id, institution_id, name, type, currency, current_balance)"
+            " VALUES (%s, %s, %s, 'Other Account', 'savings', 'EGP', 5000)",
+            [other_account_id, user_id, inst_id],
+        )
+        cursor.execute(
+            "INSERT INTO categories (id, user_id, name, type) VALUES (%s, %s, 'Food', 'expense')",
+            [cat_id, user_id],
+        )
+
+    yield {
+        "user_id": user_id,
+        "account_id": account_id,
+        "other_account_id": other_account_id,
+        "cat_id": cat_id,
+    }
+
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM transactions WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM accounts WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM institutions WHERE user_id = %s", [user_id])
+        cursor.execute("DELETE FROM categories WHERE user_id = %s", [user_id])
+    User.objects.filter(id=user_id).delete()
+
+
+class TestGetRecentTransactions:
+    """AccountService.get_recent_transactions — field mapping, running balance, isolation."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    @pytest.mark.django_db
+    def test_returns_correct_fields(self, recent_tx_data: dict) -> None:
+        # gap: functional — happy path field coverage was zero
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
+                [
+                    str(uuid.uuid4()),
+                    recent_tx_data["user_id"],
+                    recent_tx_data["account_id"],
+                    recent_tx_data["cat_id"],
+                    date.today(),
+                ],
+            )
+        svc = AccountService(recent_tx_data["user_id"], self.tz)
+        txns = svc.get_recent_transactions(recent_tx_data["account_id"])
+        assert len(txns) == 1
+        tx = txns[0]
+        assert tx["type"] == "expense"
+        assert tx["amount"] == 300.0
+        assert tx["currency"] == "EGP"
+        assert tx["account_id"] == recent_tx_data["account_id"]
+        assert tx["account_name"] == "My Savings"
+        assert tx["category_name"] == "Food"
+        assert tx["running_balance"] is not None
+        assert isinstance(tx["tags"], list)
+
+    @pytest.mark.django_db
+    def test_running_balance_accuracy(self, recent_tx_data: dict) -> None:
+        # gap: data — running balance value never verified, only checked for not-None
+        # account current_balance=10000; 3 expenses ordered oldest→newest: -200, -150, -100
+        # Expected running balances newest-first:
+        #   tx3 (today,     delta=-100): 10000 - 0            = 10000
+        #   tx2 (yesterday, delta=-150): 10000 - (-100)       = 10100
+        #   tx1 (2 days ago,delta=-200): 10000 - (-100 + -150)= 10250
+        today = date.today()
+        with connection.cursor() as cursor:
+            for days_ago, delta in [(2, -200), (1, -150), (0, -100)]:
+                cursor.execute(
+                    "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                    " VALUES (%s, %s, %s, 'expense', %s, 'EGP', %s, %s)",
+                    [
+                        str(uuid.uuid4()),
+                        recent_tx_data["user_id"],
+                        recent_tx_data["account_id"],
+                        abs(delta),
+                        today - timedelta(days=days_ago),
+                        delta,
+                    ],
+                )
+        svc = AccountService(recent_tx_data["user_id"], self.tz)
+        txns = svc.get_recent_transactions(recent_tx_data["account_id"])
+        assert len(txns) == 3
+        assert txns[0]["running_balance"] == pytest.approx(10000.0)
+        assert txns[1]["running_balance"] == pytest.approx(10100.0)
+        assert txns[2]["running_balance"] == pytest.approx(10250.0)
+
+    @pytest.mark.django_db
+    def test_account_isolation(self, recent_tx_data: dict) -> None:
+        # gap: data — no test that other accounts' transactions are excluded
+        today = date.today()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
+                [
+                    str(uuid.uuid4()),
+                    recent_tx_data["user_id"],
+                    recent_tx_data["account_id"],
+                    today,
+                ],
+            )
+            # Different account — must not appear
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 999, 'EGP', %s, -999)",
+                [
+                    str(uuid.uuid4()),
+                    recent_tx_data["user_id"],
+                    recent_tx_data["other_account_id"],
+                    today,
+                ],
+            )
+        svc = AccountService(recent_tx_data["user_id"], self.tz)
+        txns = svc.get_recent_transactions(recent_tx_data["account_id"])
+        assert len(txns) == 1
+        assert txns[0]["amount"] == 100.0
+
+    @pytest.mark.django_db
+    def test_limit_respected(self, recent_tx_data: dict) -> None:
+        # gap: functional — limit parameter was never tested
+        today = date.today()
+        with connection.cursor() as cursor:
+            for i in range(7):
+                cursor.execute(
+                    "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                    " VALUES (%s, %s, %s, 'expense', 50, 'EGP', %s, -50)",
+                    [
+                        str(uuid.uuid4()),
+                        recent_tx_data["user_id"],
+                        recent_tx_data["account_id"],
+                        today - timedelta(days=i),
+                    ],
+                )
+        svc = AccountService(recent_tx_data["user_id"], self.tz)
+        txns = svc.get_recent_transactions(recent_tx_data["account_id"], limit=3)
+        assert len(txns) == 3
+
+    @pytest.mark.django_db
+    def test_uncategorized_transaction(self, recent_tx_data: dict) -> None:
+        # gap: data — NULL category_id must map to category_id=None, not raise
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 100, 'EGP', %s, -100)",
+                [
+                    str(uuid.uuid4()),
+                    recent_tx_data["user_id"],
+                    recent_tx_data["account_id"],
+                    date.today(),
+                ],
+            )
+        svc = AccountService(recent_tx_data["user_id"], self.tz)
+        txns = svc.get_recent_transactions(recent_tx_data["account_id"])
+        assert len(txns) == 1
+        assert txns[0]["category_id"] is None
+        assert txns[0]["category_name"] is None
+        assert txns[0]["category_icon"] is None
+        assert txns[0]["tags"] == []
+
+    @pytest.mark.django_db
+    def test_running_balance_income_transaction(self, recent_tx_data: dict) -> None:
+        # gap: data — positive balance_delta (income) never tested in window expression
+        # account current_balance=10000; single income tx, delta=+1000
+        # No preceding rows → running_balance = 10000 - 0 = 10000
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'income', 1000, 'EGP', %s, 1000)",
+                [
+                    str(uuid.uuid4()),
+                    recent_tx_data["user_id"],
+                    recent_tx_data["account_id"],
+                    date.today(),
+                ],
+            )
+        svc = AccountService(recent_tx_data["user_id"], self.tz)
+        txns = svc.get_recent_transactions(recent_tx_data["account_id"])
+        assert len(txns) == 1
+        assert txns[0]["type"] == "income"
+        assert txns[0]["balance_delta"] == pytest.approx(1000.0)
+        # Single tx → no preceding rows → running_balance == current_balance (10000)
+        assert txns[0]["running_balance"] == pytest.approx(10000.0)

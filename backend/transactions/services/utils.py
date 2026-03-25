@@ -1,10 +1,16 @@
-"""Pure utility functions and constants for the transaction service layer.
+"""Utility functions and constants for the transaction service layer.
 
-No database access, no side effects — just validation constants and
-computation helpers used across CRUD, transfer, and helper modules.
+Includes validation constants, computation helpers, and reusable ORM
+expression builders. No direct database access — ORM expressions are
+returned as objects and only execute when evaluated by a queryset.
 """
 
+from decimal import Decimal
 from typing import Any
+
+from django.db.models import DecimalField, F, Sum, Value
+from django.db.models.expressions import RowRange, Window
+from django.db.models.functions import Coalesce
 
 # Valid transaction types — validated in service layer
 VALID_TX_TYPES = {
@@ -18,6 +24,25 @@ VALID_TX_TYPES = {
 }
 
 CREDIT_ACCOUNT_TYPES = {"credit_card", "credit_limit"}
+
+
+def running_balance_annotation() -> "Coalesce":
+    """ORM expression for per-account running balance via window function.
+
+    Subtracts the cumulative sum of balance_deltas (for all preceding rows in
+    reverse-date order, per account) from the account's current_balance.
+    Reuse: .annotate(running_balance=running_balance_annotation())
+    """
+    return F("account__current_balance") - Coalesce(  # type: ignore[return-value]
+        Window(
+            expression=Sum("balance_delta"),
+            partition_by=[F("account_id")],
+            order_by=[F("date").desc(), F("created_at").desc()],
+            frame=RowRange(start=None, end=-1),
+        ),
+        Value(Decimal("0")),
+        output_field=DecimalField(),
+    )
 
 
 def _to_str(value: Any) -> str | None:

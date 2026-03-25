@@ -538,3 +538,493 @@ def test_credit_avail_calculation(svc_data):
     svc._compute_net_worth(data, accounts)
     # CC has balance=-2000, limit=10000 → avail = 10000 + (-2000) = 8000
     assert abs(data.credit_avail - 8000.0) < 0.1
+
+
+# ---------------------------------------------------------------------------
+# Running balance — value accuracy
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_load_recent_transactions_running_balance_value(svc_data):
+    # gap: data — running balance was only checked for not-None, never for correct value
+    # savings account current_balance=10000; expenses oldest→newest: -200, -150, -100
+    # Expected (newest-first):
+    #   today     (delta=-100): 10000 - 0            = 10000
+    #   yesterday (delta=-150): 10000 - (-100)       = 10100
+    #   2 days ago(delta=-200): 10000 - (-100 + -150)= 10250
+    today = date.today()
+    with connection.cursor() as cursor:
+        for days_ago, delta in [(2, -200), (1, -150), (0, -100)]:
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', %s, 'EGP', %s, %s)",
+                [
+                    str(uuid.uuid4()),
+                    svc_data["user_id"],
+                    svc_data["savings_id"],
+                    abs(delta),
+                    today - timedelta(days=days_ago),
+                    delta,
+                ],
+            )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    txns = svc.load_recent_transactions(limit=5)
+    assert len(txns) == 3
+    assert txns[0].running_balance == pytest.approx(10000.0)
+    assert txns[1].running_balance == pytest.approx(10100.0)
+    assert txns[2].running_balance == pytest.approx(10250.0)
+
+
+@pytest.mark.django_db
+def test_load_recent_transactions_multi_account_running_balance(svc_data):
+    # gap: data — per-account window partition: balances must not bleed across accounts
+    # savings current_balance=10000, CC current_balance=-2000
+    today = date.today()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
+            [str(uuid.uuid4()), svc_data["user_id"], svc_data["savings_id"], today],
+        )
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["cc_id"],
+                today - timedelta(days=1),
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    txns = svc.load_recent_transactions(limit=5)
+    assert len(txns) == 2
+    by_account = {t.account_name: t.running_balance for t in txns}
+    # Each account's single transaction has no preceding rows → running_balance == current_balance
+    assert by_account["Savings EGP"] == pytest.approx(10000.0)
+    assert by_account["CC EGP"] == pytest.approx(-2000.0)
+
+
+# ---------------------------------------------------------------------------
+# Budgets — amber / red / currency isolation / zero spending
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_load_budgets_amber_status(svc_data):
+    # gap: functional — only "green" status was tested; amber branch uncovered
+    today = date.today()
+    budget_id = str(uuid.uuid4())
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
+            " VALUES (%s, %s, %s, 1000, 'EGP', true)",
+            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
+        )
+        # 850 EGP spent = 85% → amber
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 850, 'EGP', %s, -850)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                today,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    budgets = svc._load_budgets_with_spending()
+    assert len(budgets) == 1
+    assert budgets[0]["spent"] == pytest.approx(850.0)
+    assert budgets[0]["status"] == "amber"
+
+
+@pytest.mark.django_db
+def test_load_budgets_red_status(svc_data):
+    # gap: functional — red (≥100%) status branch never tested
+    today = date.today()
+    budget_id = str(uuid.uuid4())
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
+            " VALUES (%s, %s, %s, 1000, 'EGP', true)",
+            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
+        )
+        # 1200 EGP spent = 120% → red
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 1200, 'EGP', %s, -1200)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                today,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    budgets = svc._load_budgets_with_spending()
+    assert budgets[0]["status"] == "red"
+    assert budgets[0]["percentage"] == pytest.approx(120.0)
+
+
+@pytest.mark.django_db
+def test_load_budgets_zero_spending(svc_data):
+    # gap: data — budget with no transactions this month; spent=0 never asserted
+    budget_id = str(uuid.uuid4())
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
+            " VALUES (%s, %s, %s, 500, 'EGP', true)",
+            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    budgets = svc._load_budgets_with_spending()
+    assert len(budgets) == 1
+    assert budgets[0]["spent"] == pytest.approx(0.0)
+    assert budgets[0]["percentage"] == pytest.approx(0.0)
+    assert budgets[0]["status"] == "green"
+
+
+@pytest.mark.django_db
+def test_load_budgets_currency_isolation(svc_data):
+    # gap: data — USD budget must not count EGP transactions (OuterRef("currency") match)
+    budget_id = str(uuid.uuid4())
+    today = date.today()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
+            " VALUES (%s, %s, %s, 200, 'USD', true)",
+            [budget_id, svc_data["user_id"], svc_data["cat_id"]],
+        )
+        # EGP expense for same category — must NOT be counted against USD budget
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                today,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    budgets = svc._load_budgets_with_spending()
+    usd_budget = next(b for b in budgets if b["currency"] == "USD")
+    assert usd_budget["spent"] == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# Top categories — direct coverage of _query_top_categories output
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_top_categories_populated(svc_data):
+    # gap: functional — top_categories on CurrencySpending never asserted
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 400, 'EGP', %s, -400)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                this_month_start,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.5
+    svc._compute_spending_comparison(data)
+    assert len(data.spending_by_currency) >= 1
+    egp = data.spending_by_currency[0]
+    assert len(egp.top_categories) == 1
+    cat = egp.top_categories[0]
+    assert cat["name"] == "Food"
+    assert cat["icon"] == "🛒"
+    assert cat["amount"] == pytest.approx(400.0)
+    assert "change" in cat
+    assert "is_up" in cat
+
+
+@pytest.mark.django_db
+def test_top_categories_no_last_month(svc_data):
+    # gap: functional — new category with no last-month data → change=0.0, is_up=False
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                this_month_start,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.5
+    svc._compute_spending_comparison(data)
+    egp = data.spending_by_currency[0]
+    assert egp.top_categories[0]["change"] == pytest.approx(0.0)
+    assert egp.top_categories[0]["is_up"] is False
+
+
+@pytest.mark.django_db
+def test_top_categories_uncategorized(svc_data):
+    # gap: data — NULL category transaction must appear as name="Uncategorized", icon=""
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    with connection.cursor() as cursor:
+        # Expense with NO category
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, 'expense', 250, 'EGP', %s, -250)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                this_month_start,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.5
+    svc._compute_spending_comparison(data)
+    egp = data.spending_by_currency[0]
+    uncategorized = next(
+        (c for c in egp.top_categories if c["name"] == "Uncategorized"), None
+    )
+    assert uncategorized is not None
+    assert uncategorized["icon"] == ""
+    assert uncategorized["amount"] == pytest.approx(250.0)
+
+
+@pytest.mark.django_db
+def test_top_categories_empty_when_no_expenses(svc_data):
+    # gap: data — no expense transactions → top_categories must be [] not crash
+    svc = DashboardService(svc_data["user_id"], TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.5
+    svc._compute_spending_comparison(data)
+    # No spending → no spending_by_currency entries at all
+    assert data.spending_by_currency == []
+
+
+@pytest.mark.django_db
+def test_top_categories_is_up_true(svc_data):
+    # gap: functional — is_up=True (spending increased vs last month) never asserted
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    last_month_start = (
+        date(this_month_start.year - 1, 12, 1)
+        if this_month_start.month == 1
+        else date(this_month_start.year, this_month_start.month - 1, 1)
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                this_month_start,
+            ],
+        )
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                last_month_start,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.5
+    svc._compute_spending_comparison(data)
+    cat = data.spending_by_currency[0].top_categories[0]
+    assert cat["name"] == "Food"
+    assert cat["is_up"] is True
+    assert cat["change"] == pytest.approx((500 - 300) / 300 * 100)
+
+
+@pytest.mark.django_db
+def test_top_categories_spending_decreased(svc_data):
+    # gap: functional — spending decreased (this < last) → change<0, is_up=False
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    last_month_start = (
+        date(this_month_start.year - 1, 12, 1)
+        if this_month_start.month == 1
+        else date(this_month_start.year, this_month_start.month - 1, 1)
+    )
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                this_month_start,
+            ],
+        )
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 500, 'EGP', %s, -500)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                last_month_start,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.5
+    svc._compute_spending_comparison(data)
+    cat = data.spending_by_currency[0].top_categories[0]
+    assert cat["change"] == pytest.approx((200 - 500) / 500 * 100)
+    assert cat["is_up"] is False
+
+
+@pytest.mark.django_db
+def test_load_budgets_inactive_excluded(svc_data):
+    # gap: functional — inactive budget (is_active=False) must not appear in results
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO budgets (id, user_id, category_id, monthly_limit, currency, is_active)"
+            " VALUES (%s, %s, %s, 1000, 'EGP', false)",
+            [str(uuid.uuid4()), svc_data["user_id"], svc_data["cat_id"]],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    budgets = svc._load_budgets_with_spending()
+    assert budgets == []
+
+
+@pytest.mark.django_db
+def test_load_recent_transactions_default_limit(svc_data):
+    # gap: functional — limit parameter never actually cuts off results (all prior tests use limit < row count)
+    today = date.today()
+    with connection.cursor() as cursor:
+        for i in range(15):
+            cursor.execute(
+                "INSERT INTO transactions (id, user_id, account_id, type, amount, currency, date, balance_delta)"
+                " VALUES (%s, %s, %s, 'expense', 50, 'EGP', %s, -50)",
+                [
+                    str(uuid.uuid4()),
+                    svc_data["user_id"],
+                    svc_data["savings_id"],
+                    today - timedelta(days=i),
+                ],
+            )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    txns = svc.load_recent_transactions(limit=10)
+    assert len(txns) == 10
+
+
+@pytest.mark.django_db
+def test_top_categories_multiple_with_last_month(svc_data):
+    # gap: data — only single-category tests; multiple last_month_dict lookups never verified
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    last_month_start = (
+        date(this_month_start.year - 1, 12, 1)
+        if this_month_start.month == 1
+        else date(this_month_start.year, this_month_start.month - 1, 1)
+    )
+    cat2_id = str(uuid.uuid4())
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO categories (id, user_id, name, type) VALUES (%s, %s, 'Transport', 'expense')",
+            [cat2_id, svc_data["user_id"]],
+        )
+        # This month: Food=400, Transport=300
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 400, 'EGP', %s, -400)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                this_month_start,
+            ],
+        )
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 300, 'EGP', %s, -300)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                cat2_id,
+                this_month_start,
+            ],
+        )
+        # Last month: Food=200, Transport=600
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 200, 'EGP', %s, -200)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                svc_data["cat_id"],
+                last_month_start,
+            ],
+        )
+        cursor.execute(
+            "INSERT INTO transactions (id, user_id, account_id, category_id, type, amount, currency, date, balance_delta)"
+            " VALUES (%s, %s, %s, %s, 'expense', 600, 'EGP', %s, -600)",
+            [
+                str(uuid.uuid4()),
+                svc_data["user_id"],
+                svc_data["savings_id"],
+                cat2_id,
+                last_month_start,
+            ],
+        )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.5
+    svc._compute_spending_comparison(data)
+    by_name = {c["name"]: c for c in data.spending_by_currency[0].top_categories}
+    # Food: 400 this / 200 last → +100% increase
+    assert by_name["Food"]["change"] == pytest.approx(100.0)
+    assert by_name["Food"]["is_up"] is True
+    # Transport: 300 this / 600 last → -50% decrease
+    assert by_name["Transport"]["change"] == pytest.approx(-50.0)
+    assert by_name["Transport"]["is_up"] is False

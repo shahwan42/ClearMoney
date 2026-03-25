@@ -7,10 +7,10 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from django.db import connection
-from django.db.models import Count
+from django.db.models import Count, F
 
 from core.models import Person, Transaction
+from transactions.services.utils import running_balance_annotation
 
 if TYPE_CHECKING:
     from . import DashboardData
@@ -145,46 +145,31 @@ def load_streak(user_id: str, tz: ZoneInfo) -> StreakInfo:
 def load_recent_transactions(user_id: str, limit: int = 10) -> list[TransactionRow]:
     """Load recent transactions with running balance.
 
-    Raw SQL — window function subtracts cumulative balance_deltas from
-    current_balance to derive running balance per account.
+    Window function computes running balance per account by subtracting the
+    cumulative sum of balance_deltas (for preceding rows in reverse-date order)
+    from the account's current_balance. No post-window filtering — just ORDER + LIMIT.
     """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT sub.id, sub.type, sub.amount, sub.currency, sub.date,
-                   sub.note, sub.balance_delta, sub.account_name, sub.running_balance
-            FROM (
-                SELECT t.id, t.type, t.amount, t.currency, t.date, t.note,
-                       t.balance_delta, a.name AS account_name,
-                       a.current_balance - COALESCE(
-                           SUM(t.balance_delta) OVER (
-                               PARTITION BY t.account_id
-                               ORDER BY t.date DESC, t.created_at DESC
-                               ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                           ), 0
-                       ) AS running_balance
-                FROM transactions t
-                JOIN accounts a ON a.id = t.account_id
-                WHERE t.user_id = %s
-            ) sub
-            ORDER BY sub.date DESC, sub.id DESC
-            LIMIT %s
-            """,
-            [user_id, limit],
+    qs = (
+        Transaction.objects.filter(user_id=user_id)
+        .select_related("account")
+        .annotate(
+            account_name=F("account__name"),
+            running_balance=running_balance_annotation(),
         )
-        rows = cursor.fetchall()
+        .order_by("-date", "-id")[:limit]
+    )
 
     return [
         TransactionRow(
-            id=str(row[0]),
-            type=row[1],
-            amount=float(row[2]),
-            currency=row[3],
-            date=row[4],
-            note=row[5],
-            balance_delta=float(row[6]),
-            account_name=row[7],
-            running_balance=float(row[8]),
+            id=str(t.id),
+            type=t.type,
+            amount=float(t.amount),
+            currency=t.currency,
+            date=t.date,
+            note=t.note,
+            balance_delta=float(t.balance_delta),
+            account_name=t.account_name,
+            running_balance=float(t.running_balance),
         )
-        for row in rows
+        for t in qs
     ]

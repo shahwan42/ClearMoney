@@ -8,11 +8,10 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import connection
-from django.db.models import F, Sum
+from django.db.models import DecimalField, F, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 
-from core.models import Investment, Transaction, VirtualAccount
+from core.models import Budget, Investment, Transaction, VirtualAccount
 
 from .helpers import _parse_jsonb
 
@@ -89,10 +88,7 @@ def load_health_warnings(
 
 
 def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any]]:
-    """Load budgets with current month's actual spending.
-
-    Raw SQL — LEFT JOIN with cross-table aggregation is cleaner than ORM Subquery.
-    """
+    """Load budgets with current month's actual spending."""
     today = datetime.now(tz).date()
     month_start = today.replace(day=1)
     if today.month == 12:
@@ -100,32 +96,39 @@ def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any
     else:
         month_end = date(today.year, today.month + 1, 1)
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT b.id, b.category_id, b.monthly_limit, b.currency, b.is_active,
-                   c.name AS category_name,
-                   COALESCE(c.icon, '') AS category_icon,
-                   COALESCE(SUM(t.amount), 0) AS spent
-            FROM budgets b
-            JOIN categories c ON b.category_id = c.id
-            LEFT JOIN transactions t ON t.category_id = b.category_id
-                AND t.type = 'expense'
-                AND t.date >= %s AND t.date < %s
-                AND t.currency = b.currency
-                AND t.user_id = b.user_id
-            WHERE b.is_active = true AND b.user_id = %s
-            GROUP BY b.id, c.name, c.icon
-            ORDER BY c.name
-            """,
-            [month_start, month_end, user_id],
+    # Subquery sums expenses for the budget's category+currency+user in the current month.
+    # OuterRef('currency') and OuterRef('user_id') match the cross-column conditions from
+    # the original LEFT JOIN (t.currency = b.currency AND t.user_id = b.user_id).
+    spent_subquery = (
+        Transaction.objects.filter(
+            category_id=OuterRef("category_id"),
+            type="expense",
+            date__gte=month_start,
+            date__lt=month_end,
+            currency=OuterRef("currency"),
+            user_id=OuterRef("user_id"),
         )
-        rows = cursor.fetchall()
+        .values("category_id")
+        .annotate(total=Sum("amount"))
+        .values("total")
+    )
+
+    budget_qs = (
+        Budget.objects.filter(user_id=user_id, is_active=True)
+        .select_related("category")
+        .annotate(
+            spent=Coalesce(
+                Subquery(spent_subquery, output_field=DecimalField()),
+                Value(Decimal("0")),
+            )
+        )
+        .order_by("category__name")
+    )
 
     budgets: list[dict[str, Any]] = []
-    for row in rows:
-        limit_amt = float(row[2])
-        spent = float(row[7])
+    for b in budget_qs:
+        limit_amt = float(b.monthly_limit)
+        spent = float(b.spent)
         pct = (spent / limit_amt * 100) if limit_amt > 0 else 0.0
 
         if pct >= 100:
@@ -137,12 +140,12 @@ def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any
 
         budgets.append(
             {
-                "id": str(row[0]),
-                "category_id": str(row[1]),
+                "id": str(b.id),
+                "category_id": str(b.category_id),
                 "monthly_limit": limit_amt,
-                "currency": row[3],
-                "category_name": row[5],
-                "category_icon": row[6],
+                "currency": b.currency,
+                "category_name": b.category.name,
+                "category_icon": b.category.icon or "",
                 "spent": spent,
                 "percentage": pct,
                 "status": status,
