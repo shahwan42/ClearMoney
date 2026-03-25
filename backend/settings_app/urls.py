@@ -12,5 +12,22 @@ from . import views
 
 urlpatterns = [
     path("settings", views.settings_page, name="settings"),
+    path("settings/categories", views.categories_page, name="categories"),
+    path("settings/categories/add", views.category_add, name="category-add"),
+    path(
+        "settings/categories/<uuid:cat_id>/update",
+        views.category_update,
+        name="category-update",
+    ),
+    path(
+        "settings/categories/<uuid:cat_id>/archive",
+        views.category_archive,
+        name="category-archive",
+    ),
+    path(
+        "settings/categories/<uuid:cat_id>/unarchive",
+        views.category_unarchive,
+        name="category-unarchive",
+    ),
     path("export/transactions", views.export_transactions, name="export-transactions"),
 ]

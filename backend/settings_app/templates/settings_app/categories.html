@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}ClearMoney - Categories{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-4 py-4">
+    <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-800 dark:text-white">Categories</h2>
+        <a href="/settings" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400">Back</a>
+    </div>
+
+    <!-- Add Category Form -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+        <form method="POST" action="{% url 'category-add' %}" class="flex gap-2">
+            {% csrf_token %}
+            <label for="new-cat-icon" class="sr-only">Icon</label>
+            <input type="text" name="icon" id="new-cat-icon" placeholder="Icon" maxlength="4"
+                   aria-label="Category icon (emoji)"
+                   class="w-14 border border-gray-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <label for="new-cat-name" class="sr-only">Category name</label>
+            <input type="text" name="name" id="new-cat-name" placeholder="New category name" required
+                   aria-label="Category name"
+                   class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <button type="submit"
+                    class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700 whitespace-nowrap">
+                Add Category
+            </button>
+        </form>
+    </section>
+
+    <!-- Active Categories -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm divide-y divide-gray-100 dark:divide-slate-700" role="list" aria-label="Active categories">
+        {% for cat in categories %}
+        <div class="px-4 py-3 flex items-center gap-3" role="listitem" data-category-id="{{ cat.id }}">
+            <span class="text-xl w-8 text-center" aria-hidden="true">{{ cat.icon|default:"" }}</span>
+            <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-slate-800 dark:text-white truncate">{{ cat.name }}</div>
+                <div class="text-xs text-gray-400 dark:text-slate-500">{{ cat.usage_count }} txn{{ cat.usage_count|pluralize }}</div>
+            </div>
+            {% if cat.is_system %}
+            <span class="text-xs bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 px-2 py-0.5 rounded-full">System</span>
+            {% else %}
+            <form method="POST" action="{% url 'category-archive' cat.id %}" class="inline">
+                {% csrf_token %}
+                <button type="submit"
+                        class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                        aria-label="Archive {{ cat.name }}">Archive</button>
+            </form>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="px-4 py-6 text-center text-sm text-gray-400 dark:text-slate-500">No categories yet.</div>
+        {% endfor %}
+    </section>
+
+    <!-- Archived Categories -->
+    {% if archived %}
+    <details class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
+        <summary class="px-4 py-3 text-sm font-medium text-gray-500 dark:text-slate-400 cursor-pointer select-none">
+            Archived ({{ archived|length }})
+        </summary>
+        <div class="divide-y divide-gray-100 dark:divide-slate-700" role="list" aria-label="Archived categories">
+            {% for cat in archived %}
+            <div class="px-4 py-3 flex items-center gap-3" role="listitem">
+                <span class="text-xl w-8 text-center opacity-50" aria-hidden="true">{{ cat.icon|default:"" }}</span>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm text-gray-400 dark:text-slate-500 truncate">{{ cat.name }}</div>
+                    <div class="text-xs text-gray-300 dark:text-slate-600">{{ cat.usage_count }} txn{{ cat.usage_count|pluralize }}</div>
+                </div>
+                <form method="POST" action="{% url 'category-unarchive' cat.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400"
+                            aria-label="Restore {{ cat.name }}">Restore</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+</div>
+{% endblock %}

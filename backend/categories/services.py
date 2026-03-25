@@ -11,9 +11,11 @@ import logging
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from django.db.models import Count, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
-from core.models import Category
+from core.models import Category, Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +105,69 @@ class CategoryService:
         if not row:
             return None
         return _row_to_dict(row)
+
+    def _usage_subquery(self) -> Subquery:
+        """Subquery counting transactions per category.
+
+        Needed because Transaction.category has related_name='+' (no reverse).
+        """
+        return Subquery(
+            Transaction.objects.filter(category_id=OuterRef("id"))
+            .values("category_id")
+            .annotate(cnt=Count("id"))
+            .values("cnt")[:1]
+        )
+
+    def get_all_with_usage(self) -> list[dict[str, Any]]:
+        """Active categories with transaction count, sorted by most used."""
+        rows = (
+            self._qs()
+            .filter(is_archived=False)
+            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            .order_by("-usage_count", "name")
+            .values("id", "name", "icon", "is_system", "usage_count")
+        )
+        return [
+            {
+                "id": str(r["id"]),
+                "name": r["name"],
+                "icon": r["icon"],
+                "is_system": r["is_system"],
+                "usage_count": r["usage_count"],
+            }
+            for r in rows
+        ]
+
+    def get_archived_with_usage(self) -> list[dict[str, Any]]:
+        """Archived categories with transaction count."""
+        rows = (
+            self._qs()
+            .filter(is_archived=True)
+            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            .order_by("name")
+            .values("id", "name", "icon", "is_system", "usage_count")
+        )
+        return [
+            {
+                "id": str(r["id"]),
+                "name": r["name"],
+                "icon": r["icon"],
+                "is_system": r["is_system"],
+                "usage_count": r["usage_count"],
+            }
+            for r in rows
+        ]
+
+    def unarchive(self, cat_id: str) -> bool:
+        """Restore an archived category."""
+        updated = (
+            self._qs()
+            .filter(id=cat_id, is_archived=True)
+            .update(is_archived=False, updated_at=django_tz.now())
+        )
+        if updated:
+            logger.info("category.unarchived id=%s user=%s", cat_id, self.user_id)
+        return bool(updated > 0)
 
     def create(
         self,

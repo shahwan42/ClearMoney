@@ -9,8 +9,10 @@ import logging
 from datetime import datetime
 
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_http_methods
 
+from categories.services import CategoryService
 from core.models import Transaction
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
@@ -126,3 +128,95 @@ def export_transactions(request: AuthenticatedRequest) -> HttpResponse:
         request.user_email,
     )
     return response
+
+
+# ---------------------------------------------------------------------------
+# Category Management
+# ---------------------------------------------------------------------------
+
+
+def _cat_svc(request: AuthenticatedRequest) -> CategoryService:
+    """Create a CategoryService scoped to the authenticated user."""
+    return CategoryService(request.user_id, request.tz)
+
+
+@general_rate
+@require_http_methods(["GET"])
+def categories_page(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /settings/categories — category management page."""
+    svc = _cat_svc(request)
+    categories = svc.get_all_with_usage()
+    archived = svc.get_archived_with_usage()
+
+    logger.info("page viewed: categories, user=%s", request.user_email)
+    return render(
+        request,
+        "settings_app/categories.html",
+        {
+            "categories": categories,
+            "archived": archived,
+        },
+    )
+
+
+@general_rate
+@require_http_methods(["POST"])
+def category_add(request: AuthenticatedRequest) -> HttpResponse:
+    """POST /settings/categories/add — create a new custom category."""
+    svc = _cat_svc(request)
+    name = request.POST.get("name", "")
+    icon = request.POST.get("icon", "")
+
+    try:
+        svc.create(name=name, icon=icon or None)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
+
+    return redirect("categories")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def category_update(request: AuthenticatedRequest, cat_id: str) -> HttpResponse:
+    """POST /settings/categories/<id>/update — edit name/icon."""
+    svc = _cat_svc(request)
+    name = request.POST.get("name", "")
+    icon = request.POST.get("icon", "")
+
+    try:
+        result = svc.update(str(cat_id), name=name, icon=icon or None)
+    except ValueError as e:
+        msg = str(e)
+        if "system" in msg:
+            return HttpResponse(msg, status=403)
+        return HttpResponse(msg, status=400)
+
+    if not result:
+        return HttpResponse("Category not found", status=404)
+
+    return redirect("categories")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def category_archive(request: AuthenticatedRequest, cat_id: str) -> HttpResponse:
+    """POST /settings/categories/<id>/archive — soft-delete a category."""
+    svc = _cat_svc(request)
+    try:
+        svc.archive(str(cat_id))
+    except ValueError as e:
+        msg = str(e)
+        if "system" in msg:
+            return HttpResponse(msg, status=403)
+        return HttpResponse(msg, status=400)
+
+    return redirect("categories")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def category_unarchive(request: AuthenticatedRequest, cat_id: str) -> HttpResponse:
+    """POST /settings/categories/<id>/unarchive — restore a category."""
+    svc = _cat_svc(request)
+    svc.unarchive(str(cat_id))
+    return redirect("categories")

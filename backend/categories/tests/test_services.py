@@ -10,7 +10,12 @@ import pytest
 
 from categories.services import CategoryService
 from conftest import SessionFactory, UserFactory
-from tests.factories import CategoryFactory
+from tests.factories import (
+    AccountFactory,
+    CategoryFactory,
+    InstitutionFactory,
+    TransactionFactory,
+)
 
 _TZ = __import__("zoneinfo").ZoneInfo("Africa/Cairo")
 
@@ -168,3 +173,59 @@ class TestCategoryServiceArchive:
         svc, _ = cat_svc
         with pytest.raises(ValueError, match="not found"):
             svc.archive(str(uuid.uuid4()))
+
+
+@pytest.mark.django_db
+class TestCategoryServiceUnarchive:
+    def test_unarchive_restores(self, cat_svc):
+        svc, _ = cat_svc
+        created = svc.create("ToRestore")
+        svc.archive(created["id"])
+        assert svc.unarchive(created["id"]) is True
+        cats = svc.get_all()
+        assert any(c["id"] == created["id"] for c in cats)
+
+    def test_unarchive_non_archived_returns_false(self, cat_svc):
+        svc, _ = cat_svc
+        created = svc.create("Active")
+        assert svc.unarchive(created["id"]) is False
+
+    def test_unarchive_not_found_returns_false(self, cat_svc):
+        svc, _ = cat_svc
+        assert svc.unarchive(str(uuid.uuid4())) is False
+
+
+@pytest.mark.django_db
+class TestCategoryServiceGetAllWithUsage:
+    def test_returns_usage_count(self, cat_svc):
+        svc, user_id = cat_svc
+        cats = svc.get_all_with_usage()
+        assert all("usage_count" in c for c in cats)
+
+    def test_sorted_by_most_used(self, cat_svc):
+        svc, user_id = cat_svc
+        cat1 = svc.create("LessUsed")
+        cat2 = svc.create("MoreUsed")
+        inst = InstitutionFactory(user_id=user_id)
+        acct = AccountFactory(user_id=user_id, institution_id=inst.id)
+        # 1 tx for cat1, 3 for cat2
+        TransactionFactory(user_id=user_id, account_id=acct.id, category_id=cat1["id"])
+        for _ in range(3):
+            TransactionFactory(
+                user_id=user_id, account_id=acct.id, category_id=cat2["id"]
+            )
+        cats = svc.get_all_with_usage()
+        # MoreUsed should come before LessUsed
+        names = [c["name"] for c in cats]
+        assert names.index("MoreUsed") < names.index("LessUsed")
+
+
+@pytest.mark.django_db
+class TestCategoryServiceGetArchivedWithUsage:
+    def test_returns_only_archived(self, cat_svc):
+        svc, _ = cat_svc
+        created = svc.create("WillArchive")
+        svc.archive(created["id"])
+        archived = svc.get_archived_with_usage()
+        assert any(c["name"] == "WillArchive" for c in archived)
+        assert all("usage_count" in c for c in archived)
