@@ -212,6 +212,21 @@ class TestCreate:
                 }
             )
 
+    def test_validation_future_date_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        from datetime import date, timedelta
+
+        future_date = date.today() + timedelta(days=1)
+        with pytest.raises(ValueError, match="cannot be in the future"):
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 100,
+                    "account_id": tx_data["egp_id"],
+                    "date": future_date,
+                }
+            )
+
 
 @pytest.mark.django_db
 class TestUpdate:

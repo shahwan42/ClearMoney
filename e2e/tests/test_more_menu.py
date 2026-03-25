@@ -27,7 +27,7 @@ _MENU_LINKS = [
 ]
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     reset_database()
 

@@ -28,7 +28,7 @@ def _measure(page: Page, selector: str) -> dict:
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     reset_database()
 

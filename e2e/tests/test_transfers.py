@@ -35,7 +35,7 @@ _egp_account_2: str = ""
 _usd_account: str = ""
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     """Reset DB and create test accounts directly via SQL."""
     global _institution_id, _egp_account_1, _egp_account_2, _usd_account

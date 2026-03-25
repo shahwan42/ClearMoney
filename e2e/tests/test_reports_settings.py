@@ -19,7 +19,7 @@ from conftest import (
 _user_id: str = ""
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     """Reset DB and create test institution + account via SQL."""
     global _user_id

@@ -28,7 +28,7 @@ from conftest import (
 )
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     reset_database()
 

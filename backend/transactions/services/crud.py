@@ -190,6 +190,10 @@ class TransactionServiceBase:
         if isinstance(tx_date, str):
             tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
 
+        # Validate transaction date is not in the future
+        if tx_date > date.today():
+            raise ValueError("Transaction date cannot be in the future")
+
         category_id = _to_str(data.get("category_id"))
         note = _to_str(data.get("note"))
         recurring_rule_id = _to_str(data.get("recurring_rule_id"))

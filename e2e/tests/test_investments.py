@@ -18,7 +18,7 @@ from playwright.sync_api import Page, expect
 from conftest import ensure_auth, reset_database
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     reset_database()
 

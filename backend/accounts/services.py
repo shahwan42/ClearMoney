@@ -333,9 +333,11 @@ class AccountService:
         if not institution_id:
             raise ValueError("institution_id is required")
 
-        acc_type = data.get("type", "current")
+        acc_type = data.get("type", "").strip() if data.get("type") else ""
+        if not acc_type:
+            raise ValueError("Please select an account type")
         if acc_type not in VALID_ACCOUNT_TYPES:
-            raise ValueError(f"invalid account type: {acc_type}")
+            raise ValueError(f"Invalid account type: {acc_type}")
 
         # Auto-generate name from institution + type if left blank
         if raw_name:

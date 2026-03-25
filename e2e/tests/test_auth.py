@@ -23,7 +23,7 @@ from conftest import (
 
 # ── Module-level DB reset ─────────────────────────────────────────────────────
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     """Fresh DB for the entire auth test module."""
     reset_database()
