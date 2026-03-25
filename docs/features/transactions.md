@@ -49,16 +49,6 @@ Bottom sheet with smart features:
 
 Enter multiple transactions at once. Each row has amount, account, category, date, note.
 
-### Salary Wizard
-
-**Routes:** `GET /salary` → `POST /salary/step2` → `POST /salary/step3` → `POST /salary/confirm`
-
-Multi-step wizard:
-1. **Step 1:** Enter salary amount in USD, select source account, date
-2. **Step 2:** Enter exchange rate (USD → EGP)
-3. **Step 3:** Allocate EGP across destination accounts
-4. **Step 4:** Confirm and create all transactions atomically
-
 ### Quick Exchange
 
 **Route:** `GET /exchange/quick-form` (HTMX partial)
@@ -67,7 +57,7 @@ Exchange tab in the quick-entry bottom sheet for fast currency swaps.
 
 ## How Transfers Work
 
-**Service:** `backend/transactions/services/` — `create_transfer()`
+**Service:** `backend/transactions/services/transfers.py` — `create_transfer()`
 
 Transfers create **two linked transactions** in a single DB transaction:
 
@@ -80,13 +70,13 @@ Both legs have the same amount (positive) and type. balance_delta differs.
 
 ## How Exchanges Work
 
-**Service:** `backend/transactions/services/` — `create_exchange()`
+**Service:** `backend/transactions/services/transfers.py` — `create_exchange()`
 
 Exchanges are like transfers but across currencies:
 
 - **Input:** Any 2 of (amount, rate, counter_amount) — 3rd is auto-calculated
 - **Rate convention:** User always thinks "EGP per 1 USD" (e.g., 50.5)
-- **Rate inversion:** When source=EGP, the service inverts the rate internally before calculation, then inverts back for storage/display
+- **Rate inversion:** When source=EGP, the service inverts the rate internally before calculation
 
 Example: Exchange 100 USD → EGP at rate 50.5:
 
@@ -104,25 +94,56 @@ Every transaction records its `balance_delta` — the signed impact on the accou
 expected_balance = initial_balance + SUM(balance_delta)
 ```
 
-If `expected_balance ≠ current_balance`, a discrepancy is detected. The `make reconcile` command checks this.
+If `expected_balance ≠ current_balance`, a discrepancy is detected.
 
-## Service
+## Service Architecture
 
 **File:** `backend/transactions/services/`
+
+The TransactionService is composed from a base class and modular mixins for separation of concerns:
+
+### Service Structure
+
+```
+TransactionService
+├── TransactionServiceBase (crud.py)
+│   ├── __init__, private helpers
+│   ├── CRUD: create, update, delete
+│   ├── Query: get_by_id, get_by_id_enriched, get_filtered_enriched
+│   └── Dropdowns: get_accounts, get_categories, get_virtual_accounts
+├── TransferMixin (transfers.py)
+│   ├── create_transfer() — same-currency transfer with optional fee
+│   ├── create_exchange() — cross-currency exchange
+│   └── Helper utilities for rate calculations
+└── HelperMixin (helpers.py)
+    ├── batch_create() — bulk transaction creation
+    ├── get_smart_defaults() — last account, frequent categories
+    ├── suggest_category() — keyword-based category suggestion
+    ├── Virtual account allocation
+    │   ├── allocate_to_virtual_account()
+    │   ├── deallocate_from_virtual_accounts()
+    │   └── get_allocation_for_tx()
+    └── Dropdown queries
+```
 
 ### Key Methods
 
 | Method | Purpose |
 |--------|---------|
 | `create(tx)` | Create single transaction atomically |
-| `create_transfer(...)` | Paired transfer (2 linked records) |
+| `create_transfer(...)` | Paired transfer (2 linked records) with optional fee |
 | `create_exchange(params)` | Currency exchange with rate calculation |
-| `create_instapay_transfer(...)` | Transfer + auto-calculated InstaPay fee |
-| `create_fawry_cashout(...)` | CC to prepaid cash-out with fee |
 | `update(updated)` | Modify + recalculate balance delta |
 | `delete(id)` | Delete + reverse balance (handles linked txs) |
+| `batch_create(items)` | Create multiple transactions; returns (created, failed) |
+| `get_by_id(id)` | Fetch transaction by UUID |
+| `get_by_id_enriched(id)` | Fetch with account/category names |
+| `get_filtered_enriched(filters)` | Query with search, date range, account/category filters |
 | `get_smart_defaults(tx_type)` | Last account, frequent categories, auto-select |
 | `suggest_category(keyword)` | Category suggestion by note keyword |
+| `allocate_to_virtual_account(tx_id, va_id, amount)` | Allocate transaction to virtual account envelope |
+| `deallocate_from_virtual_accounts(tx_id)` | Remove virtual account allocation |
+| `get_allocation_for_tx(tx_id)` | Fetch virtual account ID for transaction |
 
 ### Atomicity Pattern
 
@@ -135,7 +156,50 @@ All write operations use `django.db.transaction.atomic()`:
 
 **File:** `backend/transactions/views.py`
 
-Key routes include transaction CRUD, transfer, exchange, quick-entry, batch-entry, salary wizard, edit/delete inline, category suggestion API, and CSV export.
+### Page Routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/transactions` | GET, POST | Full transaction list; POST creates expense/income |
+| `/transactions/new` | GET | Full transaction form page |
+| `/transactions/quick-form` | GET | Quick-entry bottom sheet (HTMX partial) |
+| `/transactions/quick` | POST | Create quick-entry transaction |
+| `/transactions/quick-transfer` | GET | Transfer tab in quick-entry (HTMX partial) |
+| `/transactions/transfer` | POST | Create transfer with optional fee |
+| `/transactions/exchange-submit` | POST | Create currency exchange |
+| `/transactions/batch` | POST | Create multiple transactions |
+| `/batch-entry` | GET | Batch entry form page |
+| `/transfers/new` | GET | Transfer form page |
+| `/exchange/new` | GET | Exchange form page |
+| `/exchange/quick-form` | GET | Exchange tab in quick-entry (HTMX partial) |
+
+### Detail Routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/transactions/detail/<id>` | GET | Transaction detail bottom sheet (HTMX partial) |
+| `/transactions/edit/<id>` | GET | Inline edit form (HTMX partial) |
+| `/transactions/row/<id>` | GET | Single transaction row (HTMX partial) |
+| `/transactions/<id>` | PUT, DELETE | Update or delete transaction (JSON API) |
+
+### API Routes
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/transactions/suggest-category` | GET | Category suggestion by note keyword |
+| `/api/transactions` | GET, POST | List or create transactions (JSON API) |
+| `/api/transactions/<id>` | GET, PUT, DELETE | Fetch, update, or delete (JSON API) |
+| `/api/transactions/transfer` | POST | Create transfer (JSON API) |
+| `/api/transactions/exchange` | POST | Create exchange (JSON API) |
+
+### Deprecated/Unified Routes
+
+The following routes have been unified into `/transfers/new`:
+- `POST /transactions/instapay-transfer` — redirects to `/transfers/new`
+- `GET /fawry-cashout` — redirects to `/transfers/new`
+- `POST /transactions/fawry-cashout` — redirects to `/transfers/new`
+
+InstaPay and Fawry are now handled as transfers with optional fees via the unified `create_transfer()` method.
 
 ## Templates
 
@@ -159,19 +223,16 @@ Key routes include transaction CRUD, transfer, exchange, quick-entry, batch-entr
 | `backend/transactions/templates/transactions/_transaction_row.html` | Single row with edit/delete buttons |
 | `backend/transactions/templates/transactions/_transaction_list.html` | Container with "load more" |
 | `backend/transactions/templates/transactions/_transaction_edit_form.html` | Inline edit form |
+| `backend/transactions/templates/transactions/_transaction_detail_sheet.html` | Detail bottom sheet |
 | `backend/transactions/templates/transactions/_transaction_success.html` | Green success with new balance |
 
-## Database
+## Virtual Account Allocation
 
-- **Migration 000005:** Creates `transactions` table with UUID PK, all fields, foreign keys, and indexes.
-- **Migration 000012:** Adds `balance_delta NUMERIC(15,2) NOT NULL DEFAULT 0` column.
-- **Migration 000013:** Adds composite index `(account_id, date DESC)` + GIN trigram index on `note` for fast ILIKE search + materialized views.
+Transactions can be allocated to virtual accounts (envelopes) for budget tracking. The service provides three methods:
 
-## Account Name & Running Balance
-
-Transaction rows display the **account name** and **running balance** (account balance after each transaction).
-
-**Running balance computation:** Uses a SQL window function (`SUM(balance_delta) OVER (...)`) to compute the true account balance at each point in time. The computation runs over ALL transactions for the account inside a subquery, then filters are applied on the outer query — so the balance is always accurate regardless of active filters.
+- `allocate_to_virtual_account(tx_id, va_id, amount)` — Allocate transaction to a virtual account envelope. Amount is signed (negative for expenses).
+- `deallocate_from_virtual_accounts(tx_id)` — Remove virtual account allocation, typically when transaction is deleted or reallocated.
+- `get_allocation_for_tx(tx_id)` — Fetch the virtual account ID allocated to a transaction (returns None if unallocated).
 
 ## UX Features
 
@@ -194,8 +255,12 @@ Pre-selects last used account and most frequent categories. If the same category
 | File | Purpose |
 |------|---------|
 | `backend/core/models.py` | Transaction model, types, constants |
-| `backend/transactions/services/` | Business logic, transfers, exchanges, atomicity |
-| `backend/transactions/views.py` | HTML/HTMX views |
+| `backend/transactions/services/crud.py` | CRUD operations, queries, enrichment |
+| `backend/transactions/services/transfers.py` | Transfer, exchange business logic |
+| `backend/transactions/services/helpers.py` | Batch create, smart defaults, VA allocation |
+| `backend/transactions/services/utils.py` | Utilities, fee calculations, validations |
+| `backend/transactions/views.py` | HTTP views, HTMX handlers |
+| `backend/transactions/urls.py` | Route configuration |
 | `backend/transactions/templates/transactions/transaction_new.html` | Transaction form |
 | `backend/transactions/templates/transactions/transactions.html` | Transaction list |
 | `backend/transactions/templates/transactions/_quick_entry.html` | Quick-entry bottom sheet |
@@ -214,6 +279,8 @@ The service layer (`create` and `update`) always overrides the transaction's cur
 - **DB transactions are critical** — never update balances without wrapping in `django.db.transaction.atomic()`.
 - **Exchange rate convention** — always stored as "EGP per 1 USD" regardless of direction.
 - **Tags** exist in the model/DB but are not yet exposed in UI for filtering.
+- **Service composition** — TransactionService uses mixins for modularity. Check `services/__init__.py` to understand the composition pattern.
+- **Virtual accounts** — transactions can be allocated to budgets (envelopes) for tracking. Use the VA allocation methods when creating/updating transactions.
 
 ## Logging
 
@@ -224,7 +291,5 @@ The service layer (`create` and `update`) always overrides the transaction's cur
 - `transaction.deleted` — transaction removed (id)
 - `transaction.transfer_created` — paired transfer between accounts (source, dest)
 - `transaction.exchange_created` — cross-currency exchange (source, dest)
-- `transaction.instapay_created` — InstaPay transfer with auto-calculated fee
-- `transaction.fawry_cashout_created` — credit card to prepaid cash-out with fee
 
-**Page views:** `transactions`, `transaction-new`, `transfer-new`, `exchange-new`, `batch-entry`, `fawry-cashout`
+**Page views:** `transactions`, `transaction-new`, `transfer-new`, `exchange-new`, `batch-entry`

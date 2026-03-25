@@ -40,13 +40,13 @@ Rules are stored with the template transaction as JSONB. The `next_due_date` col
 
 | Function | Purpose |
 |----------|---------|
-| `create_rule(rule)` | Insert with JSONB template_transaction |
-| `get_rule(id)` | Single rule |
-| `get_all_rules()` | All rules ordered by next_due_date ASC |
-| `get_due_rules()` | **Key query:** Active rules where `next_due_date <= CURRENT_DATE` |
-| `update_next_due_date(id, date)` | Advance after execution |
-| `delete_rule(id)` | Remove rule |
-| `delete_by_account_id(account_id)` | Cleanup stale rules when account deleted (uses JSONB `->>'account_id'`) |
+| `create_rule(user_id, rule)` | Insert with JSONB template_transaction |
+| `get_rule(user_id, id)` | Single rule |
+| `get_all_rules(user_id)` | All rules ordered by next_due_date ASC |
+| `get_due_rules(user_id)` | **Key query:** Active rules where `next_due_date <= CURRENT_DATE` |
+| `update_next_due_date(user_id, id, date)` | Advance after execution |
+| `delete_rule(user_id, id)` | Remove rule |
+| `delete_by_account_id(user_id, account_id)` | Cleanup stale rules when account deleted (uses JSONB `->>'account_id'`) |
 
 ### delete_by_account_id
 
@@ -90,13 +90,13 @@ Core logic:
 
 **File:** `backend/recurring/views.py`
 
-| Route | Method | View | Purpose |
-|-------|--------|------|---------|
-| `/recurring` | GET | `recurring` | Page with pending + active rules |
-| `/recurring/add` | POST | `recurring_add` | Create rule |
-| `/recurring/{id}/confirm` | POST | `recurring_confirm` | Confirm pending rule |
-| `/recurring/{id}/skip` | POST | `recurring_skip` | Skip pending rule |
-| `/recurring/{id}` | DELETE | `recurring_delete` | Delete rule |
+| Route | Method | Handler | Purpose |
+|-------|--------|---------|---------|
+| `/recurring` | GET | `recurring_page()` | Page with pending + active rules |
+| `/recurring/add` | POST | `recurring_add()` | Create rule |
+| `/recurring/<id>/confirm` | POST | `recurring_confirm()` | Confirm pending rule |
+| `/recurring/<id>/skip` | POST | `recurring_skip()` | Skip pending rule |
+| `/recurring/<id>` | DELETE | `recurring_delete()` | Delete rule |
 
 ### recurring_add View
 
@@ -110,7 +110,7 @@ Core logic:
 
 ### Page
 
-**File:** `backend/templates/pages/recurring.html`
+**File:** `backend/recurring/templates/recurring/recurring.html`
 
 Sections:
 1. **Pending confirmations** — amber cards with Confirm/Skip buttons
@@ -119,7 +119,7 @@ Sections:
 
 ### Partial
 
-**File:** `backend/templates/partials/recurring-form.html`
+**File:** `backend/recurring/templates/recurring/partials/recurring-form.html`
 
 Form with:
 - Type toggle (Expense/Income)
@@ -141,8 +141,8 @@ Called by the `run_startup_jobs` management command on every app startup. Runs `
 | `backend/core/models.py` | RecurringRule model with JSONB template_transaction |
 | `backend/recurring/services.py` | CRUD, get_due_rules, process_due_rules, execute_rule, confirm_rule, skip_rule |
 | `backend/recurring/views.py` | Recurring views |
-| `backend/templates/pages/recurring.html` | Recurring page |
-| `backend/templates/partials/recurring-form.html` | Create rule form |
+| `backend/recurring/templates/recurring/recurring.html` | Recurring page |
+| `backend/recurring/templates/recurring/partials/recurring-form.html` | Create rule form |
 | `backend/jobs/management/commands/process_recurring.py` | Startup processing |
 
 ## For Newcomers
@@ -150,7 +150,7 @@ Called by the `run_startup_jobs` management command on every app startup. Runs `
 - **JSONB for template** — the transaction template is stored as raw JSON, not separate columns. This keeps the schema simple but means FK constraints on account_id aren't enforced by the DB.
 - **Startup processing** — rules are only processed on app restart, not via a cron job. If the app is down for days, all missed rules will execute on next startup.
 - **Service-to-service dependency** — RecurringService delegates to TransactionService for creating transactions (balance updates, etc.).
-- **Account deletion cleanup** — `DeleteByAccountID` uses JSONB operators to find and remove rules referencing deleted accounts.
+- **Account deletion cleanup** — `delete_by_account_id()` uses JSONB operators to find and remove rules referencing deleted accounts.
 
 ## Logging
 

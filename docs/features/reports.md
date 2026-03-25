@@ -6,7 +6,7 @@ Reports provide financial analytics with monthly spending breakdown by category 
 
 1. **Monthly spending by category** — donut chart breakdown with drill-down per category
 2. **6-month income vs expenses** — bar chart comparison
-3. **Filters** — by account, category, currency, date range (month navigation)
+3. **Filters** — by account and currency (month navigation via query params)
 
 ## Architecture
 
@@ -14,36 +14,49 @@ Reports provide financial analytics with monthly spending breakdown by category 
 
 **File:** `backend/reports/services.py`
 
-Complex report queries are direct raw SQL (not ORM) because they involve multi-table aggregates.
+Report queries use Django ORM with `.values()`, `.annotate()`, and `.aggregate()` for multi-table aggregations.
 
 **Key functions:**
 
 | Function | Purpose |
 |----------|---------|
 | `get_monthly_report(user_id, year, month, filter)` | Main entry point — aggregates all report data |
-| `get_spending_by_category(cursor, user_id, year, month, filter)` | JOINs transactions + categories, groups by category |
-| `get_month_summary(cursor, user_id, year, month)` | Computes income/expenses/net for a month |
-| `get_monthly_history(cursor, user_id, year, month)` | Fetches 6 months of summaries backward |
+| `get_spending_by_category(user_id, year, month, filter)` | Groups transactions by category with SUM aggregation |
+| `get_month_summary(user_id, year, month)` | Computes income/expenses/net for a month |
+| `get_monthly_history(user_id, year, month)` | Fetches 6 months of summaries backward |
 | `build_chart_segments(spending)` | Converts category data to donut chart segments |
 | `build_bar_chart(history)` | Builds bar chart with normalized heights (0-100) |
 
-### SQL Patterns
+### ORM Patterns
 
-Dynamic parameterized queries with optional filters:
+Query construction using Django ORM:
 
 ```python
-query = """
-    SELECT c.id, c.name, c.icon, SUM(t.amount)
-    FROM transactions t JOIN categories c ON t.category_id = c.id
-    WHERE t.user_id = %s AND t.type = 'expense'
-"""
-params = [user_id]
-if filter.account_id:
-    query += " AND t.account_id = %s"
-    params.append(filter.account_id)
+# Get spending by category with aggregation
+report_data = (
+    Transaction.objects
+    .filter(user_id=user_id, type='expense', date__year=year, date__month=month)
+    .values('category__name', 'category__icon')
+    .annotate(spent=Sum('amount'))
+    .order_by('-spent')
+)
 ```
 
-Aggregate functions: `SUM()`, `COALESCE()`, `GROUP BY`, with LEFT JOIN to handle uncategorized transactions.
+Handles optional filters dynamically:
+
+```python
+qs = Transaction.objects.filter(user_id=user_id, type='expense')
+if filter.account_id:
+    qs = qs.filter(account_id=filter.account_id)
+if filter.currency:
+    qs = qs.filter(currency=filter.currency)
+```
+
+Uses `Coalesce()` for NULL handling in aggregate functions:
+
+```python
+total_spent = qs.aggregate(total=Coalesce(Sum('amount'), Decimal('0')))
+```
 
 ## View
 
@@ -54,8 +67,21 @@ Aggregate functions: `SUM()`, `COALESCE()`, `GROUP BY`, with LEFT JOIN to handle
 The `reports_page()` view:
 1. Parses `year` and `month` query params (defaults to current month)
 2. Parses optional `account_id` and `currency` filters
-3. Calls `get_monthly_report()` with filter
-4. Renders `reports/reports.html` template
+3. Calculates previous/next month links for navigation
+4. Calls `get_monthly_report()` with filter
+5. Renders `reports/reports.html` template
+
+### Month Navigation
+
+Uses query parameters for month/year navigation:
+
+```
+/reports?year=2026&month=3  → March 2026
+/reports?year=2026&month=2  → February 2026 (previous link)
+/reports?year=2026&month=4  → April 2026 (next link)
+```
+
+Previous month calculation handles year boundaries (December → January of previous year).
 
 ## Templates
 
@@ -64,6 +90,7 @@ The `reports_page()` view:
 **File:** `backend/reports/templates/reports/reports.html`
 
 - Month selector navigation (prev/next links)
+- Account filter dropdown
 - Currency filter dropdown
 - Donut chart partial
 - Spending by category partial
@@ -114,19 +141,20 @@ Heights are normalized to 0-100 relative to the maximum value across all months.
 
 | File | Purpose |
 |------|---------|
-| `backend/reports/views.py` | Reports page view + SQL aggregation + chart data |
+| `backend/reports/views.py` | Reports page view + ORM aggregation + chart data |
 | `backend/reports/urls.py` | URL routing for /reports |
 | `backend/reports/templates/reports/reports.html` | Reports page template |
 | `backend/reports/templates/reports/partials/` | Donut chart, bar chart, spending-by-category, income-vs-expense |
-| `backend/reports/tests.py` | Integration tests (page rendering, SQL aggregation, chart builders) |
+| `backend/reports/tests.py` | Integration tests (page rendering, ORM aggregation, chart builders) |
 | `backend/core/templatetags/money.py` | Template filters + chart tags (conic_gradient, bar_style, chart_color) |
 | `static/css/charts.css` | Chart CSS (donut, bar, dark mode) |
 
 ## For Newcomers
 
-- Reports use **direct SQL** — aggregate queries don't map to standard ORM patterns.
+- Reports use **Django ORM for aggregation** — `.values()`, `.annotate()`, `.aggregate()` handle multi-table queries.
 - All charts are **CSS-only** — no Chart.js or external libraries. Donut = conic-gradient, bars = flexbox heights.
 - Template filters (`conic_gradient`, `bar_style`, `chart_color`) in `core/templatetags/money.py` handle chart rendering.
+- **Available filters:** account_id (optional) and currency (optional). Category filtering is not implemented.
 - Month navigation uses query params (`?year=2026&month=3`), not routes.
 - The 8-color palette cycles — if there are more than 8 categories, colors repeat.
 

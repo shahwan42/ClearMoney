@@ -1,6 +1,6 @@
 # Dashboard
 
-The dashboard is the home page of ClearMoney, aggregating data from 10+ sources into a single view. It provides a complete financial snapshot at a glance.
+The dashboard is the home page of ClearMoney, aggregating data from 17 distinct sources into a single view. It provides a complete financial snapshot at a glance.
 
 ## What It Shows
 
@@ -119,6 +119,15 @@ total_spending = EGP expenses + (USD expenses × exchange_rate)
 
 If no exchange rate is available, USD amounts are added at face value (better than ignoring them).
 
+### Spending Velocity Labels
+
+Per-currency spending is tracked separately:
+
+```python
+this_month_label = "₩4,000 EGP, $80 USD"
+last_month_label = "₩6,000 EGP, $120 USD"
+```
+
 ### Example
 
 ```
@@ -158,31 +167,51 @@ Day progress = 15 / 31 × 100 = 48%
 ### Data Flow
 
 ```
-10+ queries → get_dashboard_data(user_id) → dashboard_page() view → home.html template
+17 distinct data sources → DashboardService.get_dashboard() → home() view → home.html template
 ```
 
 ### Service
 
-**File:** `backend/dashboard/services/__init__.py` — `get_dashboard_data(user_id)`
+**File:** `backend/dashboard/services/__init__.py` — `DashboardService` (class-based)
 
-The function aggregates data from all sources:
+The service is composed of 6 sub-services, each handling a domain:
 
-1. Loads all institutions and their accounts
-2. Computes net worth, cash/credit breakdown, USD conversion
-3. Fetches exchange rate for multi-currency support
-4. Loads people summary (owed to me / I owe)
-5. Loads investment portfolio total
-6. Loads habit streak (consecutive days + weekly count)
-7. Loads recent transactions
-8. Loads 30-day net worth history (via snapshots) for sparkline
-9. Loads per-account 30-day balance histories for mini sparklines
-10. Calls `_compute_spending_comparison()` for month-over-month data
-11. Loads credit card summaries with utilization and due dates
-12. Loads virtual account balances
-13. Loads budgets with spending progress
-14. Checks account health warnings
+1. **Accounts sub-service** — loads all institutions, accounts, calculates net worth, cash/credit totals, per-currency sums
+2. **Exchange rate sub-service** — fetches latest EGP/USD rate for multi-currency conversion
+3. **People sub-service** — loads loan/debt summaries per currency (owed to me / I owe)
+4. **Investments sub-service** — loads investment portfolio total
+5. **Activity sub-service** — loads habit streak, recent transactions (30 days)
+6. **Snapshots sub-service** — loads 30-day net worth snapshots, per-account balance histories
+
+#### Data Sources (17 total)
+
+1. All institutions + accounts
+2. EGP net worth (raw sum)
+3. USD net worth (raw sum)
+4. Converted net worth (EGP-equivalent)
+5. Cash total (non-credit accounts)
+6. Credit used (credit accounts)
+7. Credit available
+8. Latest exchange rate
+9. People owed to me (EGP)
+10. People owed to me (USD)
+11. People I owe (EGP)
+12. People I owe (USD)
+13. Investment portfolio total
+14. Habit streak (consecutive days)
+15. Recent transactions (30 days)
+16. 30-day net worth sparkline snapshots
+17. Per-account mini sparkline snapshots
 
 All optional data sources degrade gracefully — if data is missing, that section is simply empty.
+
+### Methods
+
+| Method | Purpose | Data Sources |
+|--------|---------|---------------|
+| `get_dashboard(user_id)` | Aggregator — calls all sub-services, returns DashboardData | All 17 |
+| `_compute_spending_comparison(user_id, year, month)` | Month-over-month comparison with velocity | Transactions (EGP + USD) |
+| `_compute_account_health_warnings(accounts)` | Checks min_balance and min_monthly_deposit rules | Accounts + health_config |
 
 ## Views
 
@@ -190,11 +219,12 @@ All optional data sources degrade gracefully — if data is missing, that sectio
 
 ### Routes
 
-| Route | Handler | Purpose |
-|-------|---------|---------|
-| `GET /` | `dashboard_page()` | Full dashboard page |
-| `GET /partials/recent-transactions` | `recent_transactions()` | HTMX partial refresh |
-| `GET /partials/people-summary` | `people_summary()` | HTMX partial refresh |
+| Route | Method | Handler | Purpose |
+|-------|--------|---------|---------|
+| `GET /` | GET | `home()` | Full dashboard page |
+| `GET /partials/recent-transactions` | GET | `recent_transactions_partial()` | HTMX partial refresh |
+| `GET /partials/people-summary` | GET | `people_summary_partial()` | HTMX partial refresh |
+| `GET /dashboard/net-worth/<card_type>` | GET | `net_worth_breakdown_partial()` | Net worth drill-down modal (card_type: egp, usd, raw) |
 
 ## Templates
 
@@ -243,15 +273,16 @@ All charts are CSS-only (no JavaScript charting libraries):
 
 | File | Purpose |
 |------|---------|
-| `backend/dashboard/services/__init__.py` | `get_dashboard_data()` aggregator |
-| `backend/dashboard/views.py` | `dashboard_page()`, `recent_transactions()`, `people_summary()` |
+| `backend/dashboard/services/__init__.py` | `DashboardService` — 6 sub-services, 17 data sources |
+| `backend/dashboard/views.py` | `home()`, `recent_transactions_partial()`, `people_summary_partial()`, `net_worth_breakdown_partial()` |
 | `backend/dashboard/templates/dashboard/home.html` | Main dashboard template |
 
 ## For Newcomers
 
 - The dashboard is **read-only** — it aggregates data, doesn't modify it.
-- HTMX partials (`/partials/recent-transactions`, `/partials/people-summary`) exist for post-action refreshes (e.g., after creating a transaction via quick-entry).
+- HTMX partials (`/partials/recent-transactions`, `/partials/people-summary`, `/dashboard/net-worth/<card_type>`) exist for post-action refreshes (e.g., after creating a transaction via quick-entry).
 - Template filters like `format_egp`, `format_usd`, `sparkline_points`, `chart_color` are in `core/templatetags/money.py`.
+- **Modular service architecture** — 6 sub-services handle distinct domains, making the code testable and maintainable.
 
 ## Logging
 

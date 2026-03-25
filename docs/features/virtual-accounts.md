@@ -56,44 +56,29 @@ Two tables:
 
 | Method | Purpose |
 |--------|---------|
-| `GetAll()` | Non-archived virtual accounts, ordered by display_order |
-| `GetAllIncludingArchived()` | All virtual accounts (for settings) |
-| `GetByID(id)` | Single virtual account |
-| `GetByAccountID(accountID)` | VAs linked to a specific bank account |
-| `GetTotalExcludedBalance()` | Sum of `current_balance` for all excluded, non-archived VAs |
-| `GetExcludedBalanceByAccountID(accountID)` | Sum of excluded VA balances for a specific bank account |
-| `Create(account)` | Insert with RETURNING (includes account_id, exclude_from_net_worth) |
-| `Update(account)` | Update name, target, icon, color, order, account_id, exclude_from_net_worth |
-| `Archive(id)` | Set `is_archived = true` |
-| `Unarchive(id)` | Set `is_archived = false` |
-| `Delete(id)` | Hard delete (only if no allocations) |
+| `get_all(user_id)` | Non-archived virtual accounts, ordered by display_order |
+| `get_all_including_archived(user_id)` | All virtual accounts (for settings) |
+| `get_by_id(user_id, va_id)` | Single virtual account |
+| `get_by_account_id(user_id, account_id)` | VAs linked to a specific bank account |
+| `get_total_excluded_balance(user_id)` | Sum of `current_balance` for all excluded, non-archived VAs |
+| `get_excluded_balance_by_account_id(user_id, account_id)` | Sum of excluded VA balances for a specific bank account |
+| `create(user_id, data)` | Insert with account_id and exclude_from_net_worth |
+| `update(user_id, va_id, data)` | Update name, target, icon, color, order, account_id, exclude_from_net_worth |
+| `archive(user_id, va_id)` | Set `is_archived = true` |
+| `unarchive(user_id, va_id)` | Set `is_archived = false` |
+| `delete(user_id, va_id)` | Hard delete (only if no allocations) |
 
 ### Allocation Operations
 
 | Method | Purpose |
 |--------|---------|
-| `Allocate(alloc)` | **UPSERT** — INSERT or UPDATE on conflict (tx-linked allocations) |
-| `DirectAllocate(alloc)` | INSERT direct allocation (no transaction_id) |
-| `Deallocate(txID, accountID)` | Remove allocation |
-| `RecalculateBalance(accountID)` | Update `current_balance = SUM(amount)` from allocations |
-| `GetAllocationsForAccount(accountID)` | All allocations (direct + tx-linked) via LEFT JOIN |
-| `GetTransactionsForAccount(accountID)` | Full Transaction records allocated to virtual account |
-| `CountAllocationsForAccount(accountID)` | COUNT for pre-delete check |
-
-## Service
-
-**File:** `backend/virtual_accounts/services.py`
-
-| Method | Purpose |
-|--------|---------|
-| `GetAll()` | Non-archived virtual accounts |
-| `GetByAccountID(accountID)` | VAs linked to a bank account |
-| `Create(account)` | Validation (name required, defaults color to #0d9488) |
-| `Update(account)` | Validation (name required) |
-| `Archive(id)` | Soft-delete |
-| `Allocate(txID, vaID, amount)` | Transaction-linked allocation + recalculate balance |
-| `DirectAllocate(vaID, amount, note, date)` | Direct allocation (no transaction) + recalculate balance |
-| `Deallocate(txID, vaID)` | Remove allocation + recalculate balance |
+| `allocate(user_id, tx_id, va_id, amount)` | **UPSERT** — INSERT or UPDATE on conflict (tx-linked allocations) |
+| `direct_allocate(user_id, va_id, amount, note, allocated_at)` | INSERT direct allocation (no transaction_id) |
+| `deallocate(user_id, tx_id, va_id)` | Remove allocation |
+| `recalculate_balance(user_id, va_id)` | Update `current_balance = SUM(amount)` from allocations |
+| `get_allocations_for_account(user_id, va_id)` | All allocations (direct + tx-linked) via LEFT JOIN |
+| `get_transactions_for_account(user_id, va_id)` | Full Transaction records allocated to virtual account |
+| `count_allocations_for_account(user_id, va_id)` | COUNT for pre-delete check |
 
 ## Views
 
@@ -101,14 +86,14 @@ Two tables:
 
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
-| `/virtual-accounts` | GET | `VirtualAccounts()` | List page with create form |
-| `/virtual-accounts/add` | POST | `VirtualAccountAdd()` | Create virtual account (with account_id) |
-| `/virtual-accounts/{id}` | GET | `VirtualAccountDetail()` | Detail page with allocation history |
-| `/virtual-accounts/{id}/archive` | POST | `VirtualAccountArchive()` | Archive virtual account |
-| `/virtual-accounts/{id}/allocate` | POST | `VirtualAccountAllocate()` | Direct allocation (no transaction created) |
-| `/virtual-accounts/{id}/toggle-exclude` | POST | `VirtualAccountToggleExclude()` | Toggle exclude_from_net_worth flag |
-| `/virtual-accounts/{id}/edit-form` | GET | `VirtualAccountEditForm()` | Load edit form partial into bottom sheet |
-| `/virtual-accounts/{id}/edit` | POST | `VirtualAccountUpdate()` | Update virtual account from edit form |
+| `/virtual-accounts` | GET | `virtual_accounts_page()` | List page with create form |
+| `/virtual-accounts/add` | POST | `virtual_account_add()` | Create virtual account (with account_id) |
+| `/virtual-accounts/<id>` | GET | `virtual_account_detail()` | Detail page with allocation history |
+| `/virtual-accounts/<id>/archive` | POST | `virtual_account_archive()` | Archive virtual account |
+| `/virtual-accounts/<id>/allocate` | POST | `virtual_account_allocate()` | Direct allocation (no transaction created) |
+| `/virtual-accounts/<id>/toggle-exclude` | POST | `virtual_account_toggle_exclude()` | Toggle exclude_from_net_worth flag |
+| `/virtual-accounts/<id>/edit-form` | GET | `virtual_account_edit_form()` | Load edit form partial into bottom sheet |
+| `/virtual-accounts/<id>/edit` | POST | `virtual_account_update()` | Update virtual account from edit form |
 
 ### Account linkage validation
 
@@ -116,7 +101,7 @@ When creating a transaction and selecting a VA, the handler validates that the V
 
 ### Cross-link from account detail
 
-The bank account detail page (`/accounts/{id}`) shows a "Virtual Accounts" section listing all VAs linked to that account. Each card links to the VA detail page. This provides bidirectional navigation between accounts and their VAs.
+The bank account detail page (`/accounts/<id>`) shows a "Virtual Accounts" section listing all VAs linked to that account. Each card links to the VA detail page. This provides bidirectional navigation between accounts and their VAs.
 
 ### Over-allocation warnings
 
@@ -125,7 +110,7 @@ The detail page and list page show amber warnings when:
 1. **Single VA exceeds account** — a VA's `current_balance` is greater than the linked bank account's `current_balance`. Shown as an amber banner on the VA detail page.
 2. **Group total exceeds account** — the sum of all VA balances linked to the same bank account exceeds that account's balance. Shown as an amber banner on both the detail page and list page, plus per-card "Exceeds account balance" text on individual VA cards.
 
-Computed in the handlers (`VirtualAccountDetail`, `VirtualAccounts`) by fetching the linked account and sibling VAs. No new database queries — reuses `GetByID` and `GetByAccountID`.
+Computed in the handlers (`virtual_account_detail()`, `virtual_accounts_page()`) by fetching the linked account and sibling VAs. No new database queries — reuses `get_by_id()` and `get_by_account_id()`.
 
 ### Exclude from net worth
 

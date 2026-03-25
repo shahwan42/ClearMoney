@@ -32,52 +32,61 @@ The `Person` model has `net_balance_egp` and `net_balance_usd` as `NUMERIC(15,2)
 
 **File:** `backend/people/services.py`
 
-### RecordLoan
+### Person Operations
 
-Two-table atomic update:
-1. Creates a transaction (loan_out or loan_in) on the account
-2. Updates the person's per-currency balance (EGP or USD based on account currency)
-3. Updates account.current_balance accordingly
-4. All within a single DB transaction
+| Method | Purpose |
+|--------|---------|
+| `get_all(user_id)` | All people, ordered by name |
+| `get_by_id(user_id, person_id)` | Single person |
+| `create(user_id, data)` | Create new person with name |
+| `update(user_id, person_id, data)` | Update person (e.g., name, avatar) |
+| `delete(user_id, person_id)` | Remove person (hard delete) |
 
-### RecordRepayment
+### Loan/Repayment Operations
 
-**Auto-detects direction** based on the current **per-currency** balance:
-- If positive in that currency (they owe you): repayment enters your account (income)
-- If negative in that currency (you owe them): repayment leaves your account (expense)
-
-### GetDebtSummary
-
-Computes a comprehensive debt summary:
-- Loads person + all related transactions (up to 200)
-- Groups transactions by currency to compute per-currency totals
-- Calculates per-currency repayment progress percentage
-- **Projected payoff date:** uses linear model (average repayment rate x remaining) with at least 2 repayments required
-
-### CurrencyDebt
-
-Per-currency breakdown returned by `get_debt_summary`: currency, total_lent, total_borrowed, total_repaid, net_balance, progress_pct (0–100).
+| Method | Purpose |
+|--------|---------|
+| `record_loan(user_id, person_id, account_id, amount, note)` | Create loan_out or loan_in transaction, update person per-currency balance |
+| `record_repayment(user_id, person_id, account_id, amount, note)` | Auto-detect direction, create loan_repayment, update balances |
+| `get_debt_summary(user_id, person_id)` | Comprehensive summary with per-currency breakdown, transaction history, projected payoff date |
 
 ### DebtSummary
 
-Comprehensive summary returned by `get_debt_summary`: person, transactions list, by_currency (list of CurrencyDebt, EGP first then USD), aggregate totals (total_lent, total_borrowed, total_repaid, progress_pct), and projected_payoff date.
+Comprehensive summary returned by `get_debt_summary`:
+- `person` — the person record
+- `transactions` — list of loan/repayment transactions (up to 200)
+- `by_currency` — list of `CurrencyDebt` objects (EGP first then USD), each with:
+  - `currency`, `total_lent`, `total_borrowed`, `total_repaid`, `net_balance`, `progress_pct` (0–100)
+- `aggregate_totals` — across all currencies: `total_lent`, `total_borrowed`, `total_repaid`, `progress_pct`
+- `projected_payoff` — estimated date (requires at least 2 repayments per currency)
 
 ## Views
 
 **File:** `backend/people/views.py`
 
+### HTML Routes
+
 | Route | Method | Handler | Purpose |
 |-------|--------|---------|---------|
-| `/people` | GET | `People()` | People list with cards |
-| `/people/add` | POST | `PeopleAdd()` | Create person |
-| `/people/{id}` | GET | `PersonDetail()` | Detail page with debt summary |
-| `/people/{id}/loan` | POST | `PeopleLoan()` | Record a loan |
-| `/people/{id}/repay` | POST | `PeopleRepay()` | Record a repayment |
-| `/partials/people-summary` | GET | `PeopleSummary()` | Dashboard partial |
+| `/people` | GET | `people_page()` | People list with cards |
+| `/people/add` | POST | `people_add()` | Create person |
+| `/people/<id>` | GET | `person_detail()` | Detail page with debt summary |
+| `/people/<id>/loan` | POST | `people_loan()` | Record a loan |
+| `/people/<id>/repay` | POST | `people_repay()` | Record a repayment |
+| `/partials/people-summary` | GET | `people_summary_partial()` | Dashboard partial |
+
+### JSON API Routes
+
+| Route | Method | Handler | Purpose |
+|-------|--------|---------|---------|
+| `/api/people` | GET | `people_list()` | List all people (JSON) |
+| `/api/people` | POST | `people_create()` | Create person (JSON) |
+| `/api/people/<id>` | GET | `person_detail_json()` | Get person with debt summary (JSON) |
+| `/api/people/<id>` | PUT | `person_update()` | Update person (JSON) |
 
 ### HTMX Pattern
 
-`people_add`, `people_loan`, and `people_repay` all re-render the person cards and return them as an HTMX partial. This updates the list inline without a full page reload.
+`people_add()`, `people_loan()`, and `people_repay()` all re-render the person cards and return them as an HTMX partial. This updates the list inline without a full page reload.
 
 ## Templates
 
@@ -85,16 +94,16 @@ Comprehensive summary returned by `get_debt_summary`: person, transactions list,
 
 | Template | Purpose |
 |----------|---------|
-| `pages/people.html` | People list with add-person form |
-| `pages/person-detail.html` | Per-currency debt summary, progress bars, transaction history |
+| `backend/people/templates/people/people.html` | People list with add-person form |
+| `backend/people/templates/people/person-detail.html` | Per-currency debt summary, progress bars, transaction history |
 
 ### Partials
 
 | Template | Purpose |
 |----------|---------|
-| `partials/person-card.html` | Person card with per-currency balances and loan/repay forms |
-| `partials/people-summary.html` | Dashboard summary with per-currency breakdown |
-| `partials/debt-progress.html` | Contains `debt-progress` (legacy) and `debt-progress-currency` partials |
+| `backend/people/templates/people/partials/person-card.html` | Person card with per-currency balances and loan/repay forms |
+| `backend/people/templates/people/partials/people-summary.html` | Dashboard summary with per-currency breakdown |
+| `backend/people/templates/people/partials/debt-progress.html` | Contains `debt-progress` (legacy) and `debt-progress-currency` partials |
 
 ### Person Card
 
@@ -159,12 +168,12 @@ Dashboard shows per-currency people summary:
 | File | Purpose |
 |------|---------|
 | `backend/core/models.py` | Person model with per-currency balance columns |
-| `backend/people/services.py` | CRUD, atomic balance update, RecordLoan, RecordRepayment, GetDebtSummary |
-| `backend/people/views.py` | People views |
-| `backend/templates/pages/people.html` | People list page |
-| `backend/templates/pages/person-detail.html` | Person detail page with per-currency stats |
-| `backend/templates/partials/person-card.html` | Person card partial with per-currency balances |
-| `backend/templates/partials/people-summary.html` | Dashboard widget with per-currency breakdown |
+| `backend/people/services.py` | CRUD, atomic balance update, record_loan, record_repayment, get_debt_summary |
+| `backend/people/views.py` | People views (HTML and JSON API) |
+| `backend/people/templates/people/people.html` | People list page |
+| `backend/people/templates/people/person-detail.html` | Person detail page with per-currency stats |
+| `backend/people/templates/people/partials/person-card.html` | Person card partial with per-currency balances |
+| `backend/people/templates/people/partials/people-summary.html` | Dashboard widget with per-currency breakdown |
 
 ## For Newcomers
 
@@ -172,13 +181,14 @@ Dashboard shows per-currency people summary:
 - **Legacy net_balance** — kept for backward compatibility, always equals `net_balance_egp + net_balance_usd`. New code should use the per-currency fields.
 - **Auto-detected repayment direction** — the service reads the per-currency balance to determine if money enters or leaves the account. No need for the user to specify.
 - **Payoff projection** — simple linear model. Requires at least 2 repayments to compute.
-- **Two-table atomicity** — RecordLoan/Repayment update both account and person balances in a single DB transaction.
+- **Two-table atomicity** — record_loan/record_repayment update both account and person balances in a single DB transaction.
 
 ## Logging
 
 **Service events:**
 
 - `person.created` — new person added
+- `person.updated` — person details modified
 - `person.loan_recorded` — loan recorded for a person (type, currency)
 - `person.repayment_recorded` — repayment recorded for a person (currency)
 
