@@ -290,3 +290,63 @@ class TestCategoriesPageTouchTargets:
         assert size["h"] >= MIN_TARGET, (
             f"Add Category button height {size['h']}px < {MIN_TARGET}px"
         )
+
+
+class TestSecondaryPageTouchTargets:
+    """Buttons and nav links on secondary feature pages must be at least 44px."""
+
+    def test_budgets_settings_link_min_44px(self, page: Page) -> None:
+        page.goto("/budgets")
+        size = _measure(page, 'a[href="/settings"]')
+        assert size is not None, "Budgets Settings link not found"
+        assert size["h"] >= MIN_TARGET, (
+            f"Budgets Settings link height {size['h']}px < {MIN_TARGET}px"
+        )
+
+    def test_budgets_create_button_min_44px(self, page: Page) -> None:
+        page.goto("/budgets")
+        size = _measure(page, 'button[type="submit"]')
+        assert size is not None, "Budgets Create Budget button not found"
+        assert size["h"] >= MIN_TARGET, (
+            f"Budgets Create Budget button height {size['h']}px < {MIN_TARGET}px"
+        )
+
+    def test_people_add_button_min_44px(self, page: Page) -> None:
+        page.goto("/people")
+        size = _measure(page, 'button[type="submit"]')
+        assert size is not None, "People Add button not found"
+        assert size["h"] >= MIN_TARGET, (
+            f"People Add button height {size['h']}px < {MIN_TARGET}px"
+        )
+
+    def test_investments_add_button_min_44px(self, page: Page) -> None:
+        page.goto("/investments")
+        size = _measure(page, 'button[type="submit"]')
+        assert size is not None, "Investments Add Investment button not found"
+        assert size["h"] >= MIN_TARGET, (
+            f"Investments Add Investment button height {size['h']}px < {MIN_TARGET}px"
+        )
+
+    def test_virtual_accounts_dashboard_link_min_44px(self, page: Page) -> None:
+        page.goto("/virtual-accounts")
+        # Find by text to avoid matching the header logo link (also href="/")
+        size = page.evaluate(
+            """() => {
+                const links = [...document.querySelectorAll('main a[href="/"]')];
+                if (!links.length) return null;
+                const r = links[0].getBoundingClientRect();
+                return { w: Math.round(r.width), h: Math.round(r.height) };
+            }"""
+        )
+        assert size is not None, "Virtual Accounts Dashboard link not found"
+        assert size["h"] >= MIN_TARGET, (
+            f"Virtual Accounts Dashboard link height {size['h']}px < {MIN_TARGET}px"
+        )
+
+    def test_virtual_accounts_create_button_min_44px(self, page: Page) -> None:
+        page.goto("/virtual-accounts")
+        size = _measure(page, 'button[type="submit"]')
+        assert size is not None, "Virtual Accounts Create button not found"
+        assert size["h"] >= MIN_TARGET, (
+            f"Virtual Accounts Create button height {size['h']}px < {MIN_TARGET}px"
+        )
