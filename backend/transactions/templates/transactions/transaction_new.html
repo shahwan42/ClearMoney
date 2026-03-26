@@ -104,7 +104,7 @@
                 <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="date-picker">Date</label>
                 <input type="date" name="date" id="date-picker" disabled max="{{ today|date:'Y-m-d' }}"
                     value="{% if prefill and prefill.date %}{{ prefill.date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"
-                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                    class="w-full min-w-0 max-w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 
             <!-- Virtual account -->
