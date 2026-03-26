@@ -29,8 +29,7 @@
       ];
 
       // Global HTMX error handler — show recovery UI on network failures
-      htmx.on('htmx:responseError', function(evt) {
-        var target = evt.detail.target;
+      function showHTMXErrorUI(target, message) {
         if (!target) return;
         var errorHtml =
           '<div role="alert" aria-live="assertive" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 ' +
@@ -38,12 +37,24 @@
           '<svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">' +
           '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" ' +
           'd="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>' +
-          '<span>Failed to save changes. Check your connection and try again.</span>' +
+          '<span>' + message + '</span>' +
           '<button type="button" onclick="location.reload()" class="ml-2 px-3 py-1 bg-red-200 dark:bg-red-900 hover:bg-red-300 dark:hover:bg-red-800 ' +
           'text-red-700 dark:text-red-300 rounded text-xs font-medium min-h-[44px] flex items-center">Retry</button>' +
           '</div>';
         target.innerHTML = errorHtml;
         target.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      }
+
+      htmx.on('htmx:responseError', function(evt) {
+        showHTMXErrorUI(evt.detail.target, 'Failed to save changes. Check your connection and try again.');
+      });
+
+      htmx.on('htmx:sendError', function(evt) {
+        showHTMXErrorUI(evt.detail.target, 'Network error. Unable to send request. Check your connection and try again.');
+      });
+
+      htmx.on('htmx:timeout', function(evt) {
+        showHTMXErrorUI(evt.detail.target, 'Request timed out. Check your connection and try again.');
       });
     </script>
 
