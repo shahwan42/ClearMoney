@@ -7,7 +7,8 @@
 | What | Where |
 | ---- | ----- |
 | Commands | `Makefile` — `make run`, `make test`, `make lint`, etc. |
-| Config | `backend/pyproject.toml` — deps, pytest, ruff, mypy, coverage |
+| Dependencies | `pyproject.toml` (root) — uv workspace config; `backend/pyproject.toml` and `e2e/pyproject.toml` — per-project deps; `uv.lock` (root) — unified lockfile |
+| Config | `backend/pyproject.toml` — pytest, ruff, mypy, coverage; `e2e/pyproject.toml` — pytest config for Playwright |
 | Env vars | `.env.example` |
 | Models | `backend/core/models.py` — all models, `db_table` convention |
 | Request type | `backend/core/types.py` — `AuthenticatedRequest` |

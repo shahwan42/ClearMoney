@@ -74,8 +74,8 @@ See [research/UX_AUDIT_INDEX.md](research/UX_AUDIT_INDEX.md) for the complete li
 
 ### Prerequisites
 ```bash
-# Install dependencies
-cd backend && pip install -r requirements.txt
+# Install dependencies (uv workspace: backend + e2e)
+uv sync
 
 # Environment setup
 cp .env.example .env
@@ -85,7 +85,7 @@ cp .env.example .env
 make migrate
 
 # Tests
-make test  # 692+ tests should pass
+make test  # 1130+ tests should pass
 ```
 
 ### Development Workflow
@@ -160,7 +160,10 @@ Response (template or JSON)
 
 | File | Purpose |
 |------|---------|
-| `backend/pyproject.toml` | Python dependencies, pytest config, mypy config, ruff rules |
+| `pyproject.toml` (root) | uv workspace config (members: backend, e2e) |
+| `backend/pyproject.toml` | Backend dependencies, pytest config, mypy config, ruff rules |
+| `e2e/pyproject.toml` | E2E dependencies, pytest config for Playwright |
+| `uv.lock` (root) | Unified lockfile for all dependencies |
 | `backend/core/models.py` | All 14 Django models (User, Account, Transaction, etc.) |
 | `backend/core/types.py` | `AuthenticatedRequest` type with user_id, user_email |
 | `backend/core/middleware.py` | `GoSessionAuthMiddleware` for session validation |
