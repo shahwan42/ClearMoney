@@ -6,8 +6,8 @@ services:
     volumes:
       - ..:/workspace:cached
       # Isolate Linux .venv from the macOS host venv — they're incompatible binaries.
-      - devcontainer-backend-venv:/workspace/backend/.venv
-      - devcontainer-e2e-venv:/workspace/e2e/.venv
+      # Unified workspace venv at /workspace/.venv (backend + e2e dependencies merged).
+      - devcontainer-root-venv:/workspace/.venv
     environment:
       # Override Makefile's DB_URL ?= default so all `make` targets hit the container DB.
       DB_URL: postgres://clearmoney:clearmoney@db:5432/clearmoney?sslmode=disable
@@ -38,8 +38,7 @@ services:
 
 volumes:
   pgdata:
-  devcontainer-backend-venv:
-  devcontainer-e2e-venv:
+  devcontainer-root-venv:
 
 networks:
   clearmoney:
