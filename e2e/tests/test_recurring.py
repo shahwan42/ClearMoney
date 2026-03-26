@@ -96,12 +96,14 @@ class TestRecurring:
 
     def test_recurring_list_shows_frequency(self, page: Page) -> None:
         _create_recurring_rule(page)
-        page.goto("/recurring")
+        # List should already have Netflix from the helper, but verify it's there
+        expect(page.locator("#recurring-list")).to_contain_text("Netflix")
         expect(page.locator("#recurring-list")).to_contain_text("monthly")
 
     def test_delete_recurring_rule(self, page: Page) -> None:
         _create_recurring_rule(page)
-        page.goto("/recurring")
+        # Verify rule exists before deleting
+        expect(page.locator("#recurring-list")).to_contain_text("Netflix")
         # Register dialog handler before clicking — hx-confirm fires browser confirm()
         page.on("dialog", lambda d: d.accept())
         with page.expect_response(
