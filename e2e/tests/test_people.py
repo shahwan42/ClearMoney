@@ -95,6 +95,8 @@ class TestPeople:
     def test_record_loan_i_lent(self, page: Page) -> None:
         _add_person(page)
         page.goto("/people")
+        # Wait for page to load and person to appear
+        expect(page.locator("main")).to_contain_text("Ahmed")
         # Click "Record Loan" to toggle the hidden loan form
         page.click('button:has-text("Record Loan")')
         loan_form = page.locator('[id^="loan-form-"]').first
@@ -110,6 +112,8 @@ class TestPeople:
         _add_person(page)
         _record_loan(page)
         page.goto("/people")
+        # Wait for page to load
+        expect(page.locator("main")).to_contain_text("500")
         # "Repayment" button appears when net_balance != 0 (Ahmed owes 500)
         page.click('button:has-text("Repayment")')
         repay_form = page.locator('[id^="repay-form-"]').first
