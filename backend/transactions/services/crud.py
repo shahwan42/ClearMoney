@@ -488,6 +488,10 @@ class TransactionServiceBase:
         if isinstance(tx_date, str) and tx_date:
             tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
 
+        # Validate transaction date is not in the future
+        if tx_date > date.today():
+            raise ValueError("Transaction date cannot be in the future")
+
         now = django_tz.now()
 
         with transaction.atomic():

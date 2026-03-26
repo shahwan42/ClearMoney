@@ -273,6 +273,28 @@ class TestUpdate:
         assert updated["balance_delta"] == 500
         assert _get_balance(tx_data["egp_id"]) == 10500
 
+    def test_validation_future_date_rejected(self, tx_data):
+        from datetime import timedelta
+
+        svc = _svc(tx_data["user_id"])
+        # Create expense with today's date
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+        # Try to update with future date — should fail
+        future_date = date.today() + timedelta(days=1)
+        with pytest.raises(ValueError, match="cannot be in the future"):
+            svc.update(
+                tx["id"],
+                {
+                    "date": future_date,
+                },
+            )
+
 
 @pytest.mark.django_db
 class TestDelete:
