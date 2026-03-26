@@ -13,7 +13,7 @@
     </div>
 
     <!-- Institution list with their accounts -->
-    <div id="institution-list" class="space-y-3">
+    <div id="institution-list" class="space-y-3" aria-live="polite" aria-atomic="true">
         {% if data %}
             {% for group in data %}
                 {% include "accounts/_institution_card.html" with institution=group.institution accounts=group.accounts %}

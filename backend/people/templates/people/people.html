@@ -22,7 +22,7 @@
     </form>
 
     <!-- People list -->
-    <div id="people-list" class="space-y-3">
+    <div id="people-list" class="space-y-3" aria-live="polite" aria-atomic="true">
         {% if data.persons %}
             {% for card in data.persons %}
                 {% include "people/_person_card.html" with person=card.person accounts=card.accounts %}

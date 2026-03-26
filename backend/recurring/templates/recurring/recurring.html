@@ -41,7 +41,7 @@
     {# Active rules list #}
     <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Active Rules</h3>
-        <div id="recurring-list">
+        <div id="recurring-list" aria-live="polite" aria-atomic="true">
             {% include "recurring/_rule_list.html" %}
         </div>
     </section>

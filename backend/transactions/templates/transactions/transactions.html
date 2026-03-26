@@ -86,7 +86,7 @@
         Swipe left on a transaction to delete, or use the menu
     </div>
 
-    <div id="transaction-list">
+    <div id="transaction-list" aria-live="polite" aria-atomic="true">
         {% include "transactions/_transaction_list.html" %}
     </div>
 </div>
