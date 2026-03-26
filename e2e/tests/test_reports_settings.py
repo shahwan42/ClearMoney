@@ -87,6 +87,31 @@ class TestBatchEntry:
         page.goto("/batch-entry")
         expect(page.locator(".batch-row")).to_have_count(1)
 
+    def test_batch_entry_submit_creates_transactions(self, page: Page) -> None:
+        """Fill batch entry rows and submit to create transactions."""
+        page.goto("/batch-entry")
+
+        # Fill the first batch row
+        rows = page.locator(".batch-row")
+        expect(rows).to_have_count(1)
+
+        # Fill amount, category, note in the first row
+        row_first = rows.first
+        row_first.locator('input[name="amount"]').fill("100")
+        row_first.locator('textarea[name="note"]').fill("Test expense")
+
+        # Category uses custom combobox — select via programmatic API
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('1')"
+        )
+
+        # Submit the form
+        with page.expect_response(lambda r: "/transactions/batch" in r.url):
+            page.locator('button[type="submit"]').click()
+
+        # Verify success message or redirect
+        expect(page.locator("#batch-result")).to_contain_text("saved|success", use_regex=True) | expect(page).to_have_url("/batch-entry")
+
 
 class TestSettings:
     def test_settings_page_loads(self, page: Page) -> None:
