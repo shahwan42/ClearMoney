@@ -28,6 +28,18 @@ def auth(db: None, page: Page) -> None:
     ensure_auth(page)
 
 
+def _add_fund(page: Page, fund_name: str = "Vanguard S&P 500", units: str = "10", unit_price: str = "500") -> None:
+    """Add an investment fund via the UI."""
+    page.goto("/investments")
+    page.fill('input[name="fund_name"]', fund_name)
+    page.fill('input[name="units"]', units)
+    page.fill('input[name="unit_price"]', unit_price)
+    with page.expect_response(
+        lambda r: "/investments/add" in r.url and r.request.method == "POST"
+    ):
+        page.click('button[type="submit"]')
+
+
 class TestInvestments:
     def test_empty_state(self, page: Page) -> None:
         page.goto("/investments")
@@ -45,6 +57,7 @@ class TestInvestments:
         expect(page.locator("main")).to_contain_text("Vanguard S&P 500")
 
     def test_update_valuation(self, page: Page) -> None:
+        _add_fund(page)
         page.goto("/investments")
         # Target the per-investment update form (not the add-investment form at the top)
         update_form = page.locator('form[hx-post*="/update"]')
@@ -55,6 +68,7 @@ class TestInvestments:
         expect(page.locator("main")).to_contain_text("6,000")
 
     def test_delete_investment(self, page: Page) -> None:
+        _add_fund(page)
         page.goto("/investments")
         # Del button uses hx-confirm which fires a browser dialog
         page.on("dialog", lambda d: d.accept())

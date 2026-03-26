@@ -55,6 +55,29 @@ def auth(db: None, page: Page) -> None:
     ensure_auth(page)
 
 
+def _add_person(page: Page, name: str = "Ahmed") -> None:
+    """Add a person via the UI."""
+    page.goto("/people")
+    page.fill('input[name="name"]', name)
+    with page.expect_response(
+        lambda r: "/people/add" in r.url and r.request.method == "POST"
+    ):
+        page.click('button[type="submit"]')
+
+
+def _record_loan(page: Page, amount: str = "500") -> None:
+    """Record a loan for the first person."""
+    page.goto("/people")
+    page.click('button:has-text("Record Loan")')
+    loan_form = page.locator('[id^="loan-form-"]').first
+    loan_form.locator('input[name="amount"]').fill(amount)
+    loan_form.locator('select[name="account_id"]').select_option(_account_id)
+    with page.expect_response(
+        lambda r: "/loan" in r.url and r.request.method == "POST"
+    ):
+        loan_form.locator('button[type="submit"]').click()
+
+
 class TestPeople:
     def test_people_page_empty_state(self, page: Page) -> None:
         page.goto("/people")
@@ -70,6 +93,7 @@ class TestPeople:
         expect(page.locator("main")).to_contain_text("Ahmed")
 
     def test_record_loan_i_lent(self, page: Page) -> None:
+        _add_person(page)
         page.goto("/people")
         # Click "Record Loan" to toggle the hidden loan form
         page.click('button:has-text("Record Loan")')
@@ -83,6 +107,8 @@ class TestPeople:
         expect(page.locator("main")).to_contain_text("500")
 
     def test_record_repayment(self, page: Page) -> None:
+        _add_person(page)
+        _record_loan(page)
         page.goto("/people")
         # "Repayment" button appears when net_balance != 0 (Ahmed owes 500)
         page.click('button:has-text("Repayment")')
@@ -97,6 +123,19 @@ class TestPeople:
         expect(page.locator("main")).to_contain_text("300")
 
     def test_people_summary_on_dashboard(self, page: Page) -> None:
+        _add_person(page)
+        _record_loan(page)
+        page.goto("/people")
+        # Record repayment: 500 - 200 = 300
+        page.click('button:has-text("Repayment")')
+        repay_form = page.locator('[id^="repay-form-"]').first
+        repay_form.locator('input[name="amount"]').fill("200")
+        repay_form.locator('select[name="account_id"]').select_option(_account_id)
+        with page.expect_response(
+            lambda r: "/repay" in r.url and r.request.method == "POST"
+        ):
+            repay_form.locator('button[type="submit"]').click()
+        # Navigate to dashboard
         page.goto("/")
         # Dashboard shows aggregate people summary (not individual names)
         # After lending 500 and receiving 200 back, owed_to_me = 300

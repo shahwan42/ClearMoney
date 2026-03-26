@@ -29,6 +29,19 @@ _account_id: str = ""
 _user_id: str = ""
 
 
+def _create_virtual_account(page: Page, account_id: str, name: str = "Emergency Fund",
+                            target_amount: str = "50000") -> None:
+    """Create a virtual account via the UI."""
+    page.goto("/virtual-accounts")
+    page.fill('input[name="name"]', name)
+    page.fill('input[name="target_amount"]', target_amount)
+    page.select_option('select[name="account_id"]', account_id)
+    with page.expect_response(
+        lambda r: "/virtual-accounts" in r.url and r.request.method == "POST"
+    ):
+        page.click('button[type="submit"]')
+
+
 @pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     """Reset DB and create test institution + account directly via SQL."""
@@ -74,12 +87,14 @@ class TestVirtualAccounts:
         expect(page.locator("main")).to_contain_text("Emergency Fund")
 
     def test_detail_page_shows_sections(self, page: Page) -> None:
+        _create_virtual_account(page, _account_id)
         page.goto("/virtual-accounts")
         page.click('a:has-text("Emergency Fund")')
         expect(page.locator("main")).to_contain_text("Allocate Funds")
         expect(page.locator("main")).to_contain_text("History")
 
     def test_allocate_funds(self, page: Page) -> None:
+        _create_virtual_account(page, _account_id)
         page.goto("/virtual-accounts")
         page.click('a:has-text("Emergency Fund")')
         page.select_option('select[name="type"]', "contribution")
@@ -90,6 +105,7 @@ class TestVirtualAccounts:
         expect(page.locator("main")).to_contain_text("5,000")
 
     def test_edit_via_bottom_sheet(self, page: Page) -> None:
+        _create_virtual_account(page, _account_id)
         page.goto("/virtual-accounts")
         page.click('a:has-text("Emergency Fund")')
         # Edit button opens bottom sheet via openEditVirtualAccount() → HTMX loads edit form
@@ -105,6 +121,7 @@ class TestVirtualAccounts:
         expect(page.locator("main")).to_contain_text("Rainy Day Fund")
 
     def test_archive_virtual_account(self, page: Page) -> None:
+        _create_virtual_account(page, _account_id)
         page.goto("/virtual-accounts")
         # Archive button is on the list page (regular POST form, no dialog)
         with page.expect_response(

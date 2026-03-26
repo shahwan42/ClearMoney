@@ -110,11 +110,21 @@ class TestTransactionCRUD:
         expect(page.locator("main")).to_contain_text("14,850")
 
     def test_transactions_list_shows_all_transactions(self, page: Page) -> None:
+        # Create both expense and income transactions
+        expense_cat_id = get_category_id("expense", _user_id)
+        income_cat_id = get_category_id("income", _user_id)
+        create_transaction(page, _account_id, expense_cat_id, "150", "expense", note="Coffee")
+        create_transaction(page, _account_id, income_cat_id, "5000", "income", note="Salary")
         page.goto("/transactions")
         expect(page.locator("main")).to_contain_text("Coffee")
         expect(page.locator("main")).to_contain_text("Salary")
 
     def test_filter_by_type_shows_only_expenses(self, page: Page) -> None:
+        # Create both expense and income transactions
+        expense_cat_id = get_category_id("expense", _user_id)
+        income_cat_id = get_category_id("income", _user_id)
+        create_transaction(page, _account_id, expense_cat_id, "150", "expense", note="Coffee")
+        create_transaction(page, _account_id, income_cat_id, "5000", "income", note="Salary")
         page.goto("/transactions")
         with page.expect_response(lambda r: "/transactions/list" in r.url):
             page.select_option('select[name="type"]', "expense")
@@ -124,6 +134,11 @@ class TestTransactionCRUD:
         expect(tx_list).not_to_contain_text("Salary")  # Salary is the income note
 
     def test_search_by_note_with_debounce(self, page: Page) -> None:
+        # Create both expense and income transactions
+        expense_cat_id = get_category_id("expense", _user_id)
+        income_cat_id = get_category_id("income", _user_id)
+        create_transaction(page, _account_id, expense_cat_id, "150", "expense", note="Coffee")
+        create_transaction(page, _account_id, income_cat_id, "5000", "income", note="Salary")
         page.goto("/transactions")
         # Use keyboard.type() to fire keyup events (needed for 300ms debounce trigger)
         with page.expect_response(lambda r: "/transactions/list" in r.url):
@@ -135,6 +150,9 @@ class TestTransactionCRUD:
         expect(tx_list).not_to_contain_text("Salary")
 
     def test_dashboard_shows_recent_transactions(self, page: Page) -> None:
+        # Create transaction for dashboard to show
+        category_id = get_category_id("expense", _user_id)
+        create_transaction(page, _account_id, category_id, "150", "expense", note="Coffee")
         page.goto("/")
         expect(page.locator("main")).to_contain_text("Coffee")
 

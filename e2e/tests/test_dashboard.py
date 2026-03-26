@@ -39,12 +39,14 @@ class TestDashboard:
         expect(page.locator("main")).to_contain_text("10,000")
 
     def test_summary_cards_visible(self, page: Page) -> None:
+        seed_basic_data(page)
         page.goto("/")
         expect(page.locator("main")).to_contain_text("Liquid Cash")
         expect(page.locator("main")).to_contain_text("Credit Used")
         expect(page.locator("main")).to_contain_text("Credit Available")
 
     def test_institution_accounts_section(self, page: Page) -> None:
+        seed_basic_data(page)
         page.goto("/")
         expect(page.locator("main")).to_contain_text("Test Bank")
 

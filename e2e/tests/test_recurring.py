@@ -56,6 +56,24 @@ def auth(db: None, page: Page) -> None:
     ensure_auth(page)
 
 
+def _create_recurring_rule(page: Page, note: str = "Netflix", amount: str = "200", frequency: str = "monthly") -> None:
+    """Create a recurring rule via the UI."""
+    category_id = get_category_id("expense", _user_id)
+    page.goto("/recurring")
+    page.fill('input[name="amount"]', amount)
+    page.select_option('select[name="account_id"]', _account_id)
+    page.evaluate(
+        f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+    )
+    page.fill('input[name="note"]', note)
+    page.select_option('select[name="frequency"]', frequency)
+    page.fill('input[name="next_due_date"]', "2026-04-01")
+    with page.expect_response(
+        lambda r: "/recurring/add" in r.url and r.request.method == "POST"
+    ):
+        page.click('button[type="submit"]')
+
+
 class TestRecurring:
     def test_create_recurring_rule(self, page: Page) -> None:
         category_id = get_category_id("expense", _user_id)
@@ -77,10 +95,12 @@ class TestRecurring:
         expect(page.locator("#recurring-list")).to_contain_text("Netflix")
 
     def test_recurring_list_shows_frequency(self, page: Page) -> None:
+        _create_recurring_rule(page)
         page.goto("/recurring")
         expect(page.locator("#recurring-list")).to_contain_text("monthly")
 
     def test_delete_recurring_rule(self, page: Page) -> None:
+        _create_recurring_rule(page)
         page.goto("/recurring")
         # Register dialog handler before clicking — hx-confirm fires browser confirm()
         page.on("dialog", lambda d: d.accept())
