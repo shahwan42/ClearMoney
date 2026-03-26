@@ -1,6 +1,6 @@
 # ClearMoney QA Issues — Quick Reference
 
-**Status as of 2026-03-26:** 4 of 5 issues FIXED ✅
+**Status as of 2026-03-26:** ✅ ALL 5 ISSUES FIXED ✅
 
 ## Summary of Fixes
 
@@ -10,7 +10,7 @@
 | #2: Duplicate Transactions     | ✅ FIXED   | f64b514 |
 | #3: No Pagination              | ✅ FIXED   | 8153ea5 |
 | #4: Missing aria-describedby   | ✅ FIXED   | 33e8a8f |
-| #5: Missing aria-live          | PENDING    | —       |
+| #5: Missing aria-live          | ✅ FIXED   | 449c32e |
 
 **Test Results:** 1130 unit tests passing, all linting checks pass
 
@@ -135,12 +135,24 @@
 - **Verification:** All 1130 tests passing, template syntax correct
 - **Commit:** 33e8a8f
 
-### 🟠 #10: Missing aria-live Regions
-- **Where:** Dynamic content updates (HTMX targets)
+### ✅ #10: Missing aria-live Regions — FIXED
+- **Where:** Dynamic content updates (HTMX targets throughout app)
 - **What:** No `aria-live="polite"` on updated elements
 - **Impact:** Accessibility violation; screen readers miss updates
-- **Fix:** Add `aria-live` and `aria-atomic` attributes
-- **Effort:** 2 hours
+- **Fix:** ✅ DONE: Added `aria-live="polite"` and `aria-atomic="true"` to HTMX targets
+- **Files Modified:**
+  - `backend/transactions/templates/transactions/transactions.html` (#transaction-list)
+  - `backend/transactions/templates/transactions/_fawry_cashout_form.html` (#fawry-result)
+  - `backend/accounts/templates/accounts/accounts.html` (#institution-list)
+  - `backend/accounts/templates/accounts/_institution_delete_confirm.html` (#delete-confirm-result) — uses aria-live="assertive"
+  - `backend/people/templates/people/people.html` (#people-list)
+  - `backend/recurring/templates/recurring/recurring.html` (#recurring-list)
+- **Implementation:**
+  - Added `aria-live="polite" aria-atomic="true"` to result containers and lists
+  - Used `aria-live="assertive"` for deletion operations (higher priority)
+  - Screen readers now announce dynamic content updates as they occur
+- **Verification:** All 1130 tests passing, templates render correctly
+- **Commit:** 449c32e
 
 ---
 
