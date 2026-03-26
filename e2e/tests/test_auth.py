@@ -61,11 +61,6 @@ class TestBasicAuth:
         expect(page.locator('input[name="email"]')).to_be_visible()
         expect(page.locator('button[type="submit"]')).to_be_visible()
 
-    def test_register_redirects_to_login(self, page: Page) -> None:
-        page.goto("/register")
-        expect(page).to_have_url(re.compile(r"/login"))
-        expect(page.locator('input[name="email"]')).to_be_visible()
-
     def test_submit_login_shows_check_email(self, page: Page) -> None:
         _submit_auth_form(page, TEST_EMAIL, "login")
         expect(page.locator("main")).to_contain_text("Check your email")
@@ -103,11 +98,6 @@ class TestPageRendering:
     def test_login_page_has_timing_field(self, page: Page) -> None:
         page.goto("/login")
         expect(page.locator('input[name="_rt"]')).to_have_count(1)
-
-    def test_register_redirect_has_honeypot_field(self, page: Page) -> None:
-        page.goto("/register")
-        # /register now redirects to /login
-        expect(page.locator('input[name="website"]')).to_have_count(1)
 
 
 # ── Login flow (from 18-auth.spec.ts describe "Login Flow") ───────────────────

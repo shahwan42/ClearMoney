@@ -48,7 +48,6 @@ PUBLIC_PATHS = [
     "/healthz",
     "/static/",
     "/login",
-    "/register",
     "/auth/verify",
     "/logout",
     "/api/session-status",

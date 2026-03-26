@@ -127,20 +127,6 @@ class TestUnifiedAuthPage:
 
 
 # ---------------------------------------------------------------------------
-# Register Redirect
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestRegisterRedirect:
-    def test_register_redirects_to_login(self, client: Client) -> None:
-        """GET /register → 302 redirect to /login."""
-        response = client.get("/register")
-        assert response.status_code == 302
-        assert response.url == "/login"  # type: ignore[attr-defined]
-
-
-# ---------------------------------------------------------------------------
 # Verify Magic Link
 # ---------------------------------------------------------------------------
 

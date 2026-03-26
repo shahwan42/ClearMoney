@@ -110,37 +110,6 @@ class TestRequestLoginLink:
 
 
 # ---------------------------------------------------------------------------
-# AuthService — Registration
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestRequestRegistrationLink:
-    def test_sends_to_new_email(self, auth_svc: AuthService) -> None:
-        result, err = auth_svc.request_registration_link("newuser@example.com")
-        assert result == SendResult.SENT
-        assert err is None
-        assert AuthToken.objects.filter(
-            email="newuser@example.com", purpose="registration"
-        ).exists()
-        # Cleanup
-        AuthToken.objects.filter(email="newuser@example.com").delete()
-
-    def test_rejects_existing_email(self, auth_svc: AuthService) -> None:
-        user = UserFactory(email="exists@example.com")
-        result, err = auth_svc.request_registration_link("exists@example.com")
-        assert result == SendResult.SKIPPED
-        assert err is not None
-        assert "already exists" in err
-        # Cleanup
-        User.objects.filter(id=user.id).delete()
-
-    def test_empty_email_skipped(self, auth_svc: AuthService) -> None:
-        result, err = auth_svc.request_registration_link("")
-        assert result == SendResult.SKIPPED
-
-
-# ---------------------------------------------------------------------------
 # AuthService — Verify
 # ---------------------------------------------------------------------------
 
