@@ -53,6 +53,16 @@ def auth(db: None, page: Page) -> None:
     ensure_auth(page)
 
 
+def _create_test_transaction(page: Page, amount: str = "250", note: str = "Dinner") -> str:
+    """Create a transaction and return the transaction ID."""
+    category_id = get_category_id("expense", _user_id)
+    create_transaction(page, _account_id, category_id, amount, "expense", note=note)
+    page.goto("/transactions")
+    # Wait for transaction row to appear
+    expect(page.locator("main")).to_contain_text(note)
+    return note
+
+
 def _open_detail_sheet(page: Page) -> None:
     """Click the first transaction row and wait for sheet content to load."""
     page.locator('[role="button"][id^="tx-"]').first.click()
@@ -75,13 +85,13 @@ class TestTransactionDetailSheet:
         expect(content).to_contain_text("Dinner")
 
     def test_detail_sheet_shows_account(self, page: Page) -> None:
-        page.goto("/transactions")
+        _create_test_transaction(page)
         _open_detail_sheet(page)
         content = page.locator("#tx-detail-content")
         expect(content).to_contain_text("Current")
 
     def test_edit_button_closes_sheet_opens_edit_form(self, page: Page) -> None:
-        page.goto("/transactions")
+        _create_test_transaction(page)
         row = page.locator('[role="button"][id^="tx-"]').first
         row.click()
         page.wait_for_selector("#tx-detail-content dl", timeout=5000)
@@ -113,7 +123,7 @@ class TestTransactionDetailSheet:
         expect(page.locator(f"#{row_id}")).to_have_count(0, timeout=5000)
 
     def test_kebab_menu_still_works(self, page: Page) -> None:
-        page.goto("/transactions")
+        _create_test_transaction(page)
         row = page.locator('[role="button"][id^="tx-"]').first
         kebab = row.locator("[data-kebab-trigger]")
         kebab.click()
@@ -124,7 +134,7 @@ class TestTransactionDetailSheet:
         expect(sheet).to_have_attribute("aria-hidden", "true")
 
     def test_sheet_has_aria_attributes(self, page: Page) -> None:
-        page.goto("/transactions")
+        _create_test_transaction(page)
         page.locator('[role="button"][id^="tx-"]').first.click()
         sheet = page.locator("#tx-detail-sheet")
         expect(sheet).to_be_visible()

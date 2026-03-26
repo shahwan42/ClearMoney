@@ -105,9 +105,9 @@ class TestTransactionCRUD:
             page.click('button[type="submit"]')
 
         expect(page.locator("#transaction-result")).to_contain_text("Transaction saved!")
-        # 9,850 + 5,000 = 14,850
+        # 10,000 + 5,000 = 15,000 (each test has a fresh account)
         page.goto(f"/accounts/{_account_id}")
-        expect(page.locator("main")).to_contain_text("14,850")
+        expect(page.locator("main")).to_contain_text("15,000")
 
     def test_transactions_list_shows_all_transactions(self, page: Page) -> None:
         # Create both expense and income transactions

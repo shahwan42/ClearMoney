@@ -51,10 +51,11 @@ class TestDashboard:
         expect(page.locator("main")).to_contain_text("Test Bank")
 
     def test_recent_transactions_empty_then_populated(self, page: Page) -> None:
+        _, account_id = seed_basic_data(page)
+        # After seeding data but no transactions, should show "No transactions yet"
         page.goto("/")
         expect(page.locator("main")).to_contain_text("No transactions yet")
 
-        _, account_id = seed_basic_data(page)
         category_id = get_category_id("expense", _user_id)
         create_transaction(page, account_id, category_id, "250", "expense", note="Lunch")
 
