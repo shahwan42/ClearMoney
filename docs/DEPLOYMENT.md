@@ -76,9 +76,9 @@ POSTGRES_DB=clearmoney
 APP_URL=https://clearmoney.shahwan.me
 RESEND_API_KEY=re_...
 
-# Optional: Web Push (generate with `npx web-push generate-vapid-keys`)
-# VAPID_PUBLIC_KEY=
-# VAPID_PRIVATE_KEY=
+# Push Notifications — generate with: make ensure-vapid-keys
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
 ```
 
 ## 3. Deploy
@@ -93,6 +93,22 @@ docker compose logs -f django
 ```
 
 The app is now running at `https://clearmoney.shahwan.me`. First visit will prompt for email (magic link auth).
+
+## 3a. Generate VAPID Keys (One-Time Setup)
+
+Run once after the initial deploy to generate and store VAPID keys in `.env.prod`:
+
+```bash
+make ensure-vapid-keys
+```
+
+This is idempotent — safe to run on every deploy. If keys are already configured, it prints "already configured" and exits without changing anything. If missing, it generates P-256 keys and appends them to `.env.prod` on the VPS.
+
+Restart Django to pick up the new keys:
+
+```bash
+make deploy
+```
 
 ## 4. HTTPS with Caddy (Containerized)
 

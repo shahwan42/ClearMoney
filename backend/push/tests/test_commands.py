@@ -283,3 +283,93 @@ class TestGenerateVapidKeysCommand(TestCase):
 
             assert stdout_public == file_public
             assert stdout_private == file_private
+
+    def test_if_missing_skips_when_keys_already_present(self):
+        """Test --if-missing skips generation when keys already exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = Path(tmpdir) / "test.env"
+            # Pre-populate with existing keys
+            output_file.write_text("VAPID_PUBLIC_KEY=existingpublickey123\n")
+
+            out = StringIO()
+            call_command(
+                "generate_vapid_keys",
+                output=str(output_file),
+                if_missing=True,
+                stdout=out,
+            )
+
+            content = output_file.read_text()
+            output = out.getvalue()
+
+            # File should not have been modified (still only one public key)
+            assert content.count("VAPID_PUBLIC_KEY=") == 1
+            assert "existingpublickey123" in content
+            # Should print "skipping" message
+            assert "skipping" in output.lower()
+
+    def test_if_missing_generates_when_keys_absent(self):
+        """Test --if-missing generates keys when they're missing from file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = Path(tmpdir) / "test.env"
+            # Create file with content but no VAPID keys
+            output_file.write_text("DATABASE_URL=postgres://localhost\n")
+
+            call_command(
+                "generate_vapid_keys",
+                output=str(output_file),
+                if_missing=True,
+            )
+
+            content = output_file.read_text()
+
+            # Keys should now be present
+            assert "VAPID_PUBLIC_KEY=" in content
+            assert "VAPID_PRIVATE_KEY=" in content
+            # Original content should still be there
+            assert "DATABASE_URL=postgres://localhost" in content
+
+    def test_if_missing_generates_when_keys_empty(self):
+        """Test --if-missing generates when VAPID_PUBLIC_KEY is empty."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = Path(tmpdir) / "test.env"
+            # Create file with empty VAPID keys
+            output_file.write_text(
+                "VAPID_PUBLIC_KEY=\nVAPID_PRIVATE_KEY=\nDATABASE_URL=postgres://\n"
+            )
+
+            call_command(
+                "generate_vapid_keys",
+                output=str(output_file),
+                if_missing=True,
+            )
+
+            content = output_file.read_text()
+            lines = content.split("\n")
+
+            # Should have generated real keys (non-empty)
+            vapid_public_lines = [
+                line
+                for line in lines
+                if line.startswith("VAPID_PUBLIC_KEY=") and line != "VAPID_PUBLIC_KEY="
+            ]
+            assert len(vapid_public_lines) >= 1
+
+    def test_if_missing_creates_file_when_missing(self):
+        """Test --if-missing creates output file if it doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = Path(tmpdir) / "new_keys.env"
+            # File doesn't exist yet
+            assert not output_file.exists()
+
+            call_command(
+                "generate_vapid_keys",
+                output=str(output_file),
+                if_missing=True,
+            )
+
+            # File should now exist with keys
+            assert output_file.exists()
+            content = output_file.read_text()
+            assert "VAPID_PUBLIC_KEY=" in content
+            assert "VAPID_PRIVATE_KEY=" in content

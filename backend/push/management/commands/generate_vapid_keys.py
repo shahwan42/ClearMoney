@@ -16,6 +16,8 @@ No external services or Node.js required — uses Python's cryptography library.
 
 import argparse
 import base64
+import re
+from pathlib import Path
 from typing import Any
 
 from cryptography.hazmat.backends import default_backend
@@ -33,8 +35,27 @@ class Command(BaseCommand):
             default=None,
             help="Optional file to append keys to (e.g., .env or .env.local)",
         )
+        parser.add_argument(
+            "--if-missing",
+            action="store_true",
+            default=False,
+            help="Skip generation if VAPID_PUBLIC_KEY already has a value in the output file",
+        )
 
     def handle(self, *args: Any, **options: Any) -> None:
+        # Idempotency check: if --if-missing and file has non-empty VAPID_PUBLIC_KEY, skip
+        if options["if_missing"] and options["output"]:
+            output_path = Path(options["output"])
+            if output_path.exists():
+                content = output_path.read_text()
+                if re.search(r"^VAPID_PUBLIC_KEY=\S+", content, re.MULTILINE):
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f"✓ VAPID keys already configured in {options['output']}, skipping."
+                        )
+                    )
+                    return
+
         self.stdout.write(
             self.style.SUCCESS("Generating VAPID keys (P-256 elliptic curve)...\n")
         )

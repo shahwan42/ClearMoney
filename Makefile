@@ -3,7 +3,7 @@
 # Usage: make <target>
 #
 # Like: composer scripts, manage.py commands, or package.json scripts.
-.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check
+.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check
 
 DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable
 
@@ -114,3 +114,7 @@ deploy:
 # Stream production logs from the VPS.
 deploy-logs:
 	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && sudo docker compose -f docker-compose.prod.yml logs -f"
+
+# Generate VAPID keys on production if not already configured (idempotent, safe to re-run).
+ensure-vapid-keys:
+	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && sudo docker compose -f docker-compose.prod.yml run --rm --no-deps -v $(DEPLOY_DIR)/.env.prod:/tmp/.env.prod django python manage.py generate_vapid_keys --output /tmp/.env.prod --if-missing"
