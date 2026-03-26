@@ -15,7 +15,7 @@ Context: account (dict with id, name, type, currency, is_credit_type, credit_lim
 
     <div>
         <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Account Name</label>
-        <input type="text" name="name" required value="{{ account.name }}"
+        <input type="text" name="name" required maxlength="100" value="{{ account.name }}"
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
@@ -45,19 +45,19 @@ Context: account (dict with id, name, type, currency, is_credit_type, credit_lim
 
     <div id="edit-credit-limit-field" style="{% if account.is_credit_type %}display: block;{% else %}display: none;{% endif %}">
         <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Credit Limit</label>
-        <input type="number" name="credit_limit" step="0.01" placeholder="e.g., 500000"
+        <input type="number" name="credit_limit" step="0.01" min="0" placeholder="e.g., 500000"
             {% if account.credit_limit %}value="{{ account.credit_limit|deref_float }}"{% endif %}
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
     <div class="flex gap-2 pt-1">
         <button type="submit"
-            class="flex-1 bg-teal-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all">
+            class="flex-1 bg-teal-600 text-white py-2.5 min-h-[44px] rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center">
             Update
         </button>
         <button type="button"
             onclick="closeEditAccount()"
-            class="px-4 py-2.5 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">
+            class="px-4 py-2.5 min-h-[44px] text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 flex items-center justify-center">
             Cancel
         </button>
     </div>
