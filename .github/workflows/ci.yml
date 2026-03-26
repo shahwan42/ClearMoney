@@ -147,4 +147,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
+        # Builds from root context to access workspace pyproject.toml + uv.lock
+        # Dockerfile copies root workspace config + backend config → creates /app/.venv
         run: docker build -t clearmoney:ci -f backend/Dockerfile .

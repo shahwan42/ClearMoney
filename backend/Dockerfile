@@ -3,15 +3,24 @@ FROM python:3.12-slim
 # Install uv from official image
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-WORKDIR /app
+WORKDIR /workspace
 
 # Install deps first (cache layer), then copy source.
-# Build context is project root (not backend/), so paths are prefixed.
-COPY backend/pyproject.toml backend/uv.lock ./
+# Build context is project root. Copy workspace + backend configs + unified lockfile.
+COPY pyproject.toml .
+COPY backend/pyproject.toml backend/
+COPY uv.lock .
+
+# Sync using workspace config — uv knows to install only backend member
+# Creates /workspace/.venv with backend dependencies only
 RUN uv sync --frozen --no-dev
 
-# Copy application code
+# Move venv to /app and copy application code
+WORKDIR /app
 COPY backend/ .
+
+# Copy venv from workspace root to /app
+RUN mv /workspace/.venv /app/.venv
 
 # Copy shared static files (CSS, JS, icons, manifest, service worker).
 # In the container these live at /app/static_src/ — settings.py detects this path.

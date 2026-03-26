@@ -18,6 +18,19 @@
 | Database | PostgreSQL 16 (Alpine, containerized, port 5432 internal) |
 | Env file | `.env.prod` on the VPS (not in git) |
 
+## Architecture Notes
+
+### Python Dependency Management
+
+ClearMoney uses a **unified uv workspace** for both backend and e2e dependencies:
+
+- **Root `pyproject.toml`**: Defines workspace members (`backend`, `e2e`)
+- **Root `uv.lock`**: Single merged lockfile for all dependencies
+- **Docker builds**: Copy root workspace config + backend pyproject + root lockfile → creates `/app/.venv` with backend dependencies only
+- **No e2e dependencies in production**: Production Docker image is minimal and contains only backend requirements
+
+See [CLAUDE.md](../CLAUDE.md) under "Dependencies" for details.
+
 ## Prerequisites
 
 - Ubuntu 22.04+ VPS with SSH access
