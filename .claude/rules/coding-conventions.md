@@ -28,6 +28,13 @@ make lint      # Verify formatting + linting + type checking (read-only check)
 - Before committing: `make lint` to verify zero errors
 - Never manually fix formatting — let ruff handle it
 
+**Important:** If files are already staged and ruff modifies them (e.g., formatting line wraps), **re-stage the formatted files before committing**:
+```bash
+git add <modified-files>    # Re-stage after ruff format
+git commit -m "..."
+```
+If you forget, amend the commit: `git add <files> && git commit --amend --no-edit`
+
 **Ruff rules:**
 - Line length: 88 characters
 - Import sorting: isort-compatible
