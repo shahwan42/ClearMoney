@@ -1,6 +1,6 @@
 # ClearMoney — Backend Architecture
 
-> Complete Django backend with 17 custom apps, 125+ routes, 1129+ tests. Service-oriented architecture with atomic transactions and per-user data isolation.
+> Complete Django backend with 14 Django apps, 125+ routes, 1129+ tests. Service-oriented architecture with atomic transactions and per-user data isolation.
 
 ---
 

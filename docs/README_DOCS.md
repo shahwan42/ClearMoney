@@ -11,7 +11,7 @@ Welcome! This directory contains everything you need to understand and extend Cl
 | Document | Purpose | For Whom |
 |----------|---------|----------|
 | **[FEATURES.md](FEATURES.md)** | Feature overview: Dashboard, Accounts, Transactions, Reports, Budgets, People, Virtual Accounts, Recurring, Investments, Settings, Auth, PWA | Everyone |
-| **[BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md)** | Django backend: 18 models, 17 apps, service layer, patterns, middleware, testing, deployment | Backend developers, architects |
+| **[BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md)** | Django backend: 18 models, 14 Django apps, service layer, patterns, middleware, testing, deployment | Backend developers, architects |
 | **[ROUTES.md](ROUTES.md)** | Complete route inventory: 125+ routes, HTTP methods, query params, request/response examples | Backend developers, API consumers |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System architecture: request flow, design patterns, tech stack, database schema | Architects, DevOps |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Production deployment: Docker, PostgreSQL, Caddy, monitoring, backup, disaster recovery | DevOps, Site Reliability |
@@ -114,7 +114,7 @@ Follow TDD (RED → GREEN → Refactor):
 
 ## 📊 Project Statistics
 
-- **Backend**: 17 custom apps, 18 models, 125+ routes
+- **Backend**: 14 Django apps, 18 models, 125+ routes
 - **Testing**: 1129+ unit/integration tests, 16 Playwright e2e specs
 - **Documentation**: 37+ markdown files covering all features
 - **Code Quality**: 100% type annotations (mypy), linted (ruff)

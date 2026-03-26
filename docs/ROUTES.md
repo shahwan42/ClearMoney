@@ -1,6 +1,6 @@
 # ClearMoney — Complete Route Inventory
 
-> 125+ routes across 13 feature areas. Every endpoint documented with purpose, HTTP method, and use case.
+> 106+ routes across 13 feature areas. Every endpoint documented with purpose, HTTP method, and use case.
 
 ---
 
