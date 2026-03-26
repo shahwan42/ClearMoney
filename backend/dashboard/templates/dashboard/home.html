@@ -68,4 +68,11 @@
 
 {% include "components/bottom_sheet.html" with name="tx-detail" aria_label="Transaction details" %}
 {% include "components/bottom_sheet.html" with name="nw-breakdown" aria_label="Net worth breakdown" %}
+{% include "components/bottom_sheet.html" with name="tx-edit" aria_label="Edit transaction" %}
+
+<script>
+document.body.addEventListener('closeEditSheet', function() {
+    BottomSheet.close('tx-edit');
+});
+</script>
 {% endblock %}
