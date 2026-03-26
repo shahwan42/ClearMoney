@@ -12,7 +12,7 @@
 | Models | `backend/core/models.py` — all models, `db_table` convention |
 | Request type | `backend/core/types.py` — `AuthenticatedRequest` |
 | Template filters | `backend/core/templatetags/money.py` |
-| Rules | `.claude/rules/` — production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA |
+| Rules | `.claude/rules/` — git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA |
 | Workflows | `.claude/rules/batch-execution-pattern.md` — multi-item batch workflows; `docs/reference/WCAG-AA-QUICK-REFERENCE.md` — WCAG 2.1 AA criteria & fixes |
 | Accessibility | `.claude/rules/accessibility.md` — ARIA standards; `.claude/rules/accessibility-qa-protocol.md` — QA verification gates |
 
@@ -64,12 +64,11 @@ HTTP → Caddy → Django (gunicorn) → WhiteNoise → GoSessionAuthMiddleware 
 - Materialized views: `mv_monthly_category_totals`, `mv_daily_tx_counts`
 - Startup jobs (`run_startup_jobs`): cleanup_sessions → process_recurring → reconcile_balances → refresh_views → take_snapshots
 
-## Git Commit Practices
+## Git Workflow
 
-**NEVER use `git add .`** — always stage only the files relevant to the currently implemented feature or fix.
+See `.claude/rules/git-workflow.md` for:
 
-- When implementing a feature, stage only files modified for that feature: `git add backend/app/models.py backend/app/services.py backend/templates/component.html` etc.
-- When fixing a bug, stage only the bug fix — not cleanup of surrounding code, not unrelated refactors.
-- Use `/commit` skill or `git commit` after each feature/fix is complete and tested. **Commit frequently** — do not batch multiple features into a single commit.
-- If you accidentally staged unrelated files, unstage them: `git reset HEAD filename.py` before committing.
-- This keeps git history clean, makes reverting individual changes safe, and prevents mixing unrelated work.
+- Commit practices (never commit without asking, never use `git add .`)
+- Workflow (show changes → ask → wait for approval → commit)
+- Commit message format (conventional commits)
+- Handling unrelated changes
