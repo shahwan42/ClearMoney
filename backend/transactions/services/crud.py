@@ -445,30 +445,68 @@ class TransactionServiceBase:
         transactions = [self._scan_tx_row(row, cols) for row in rows]
         return transactions, has_more
 
-    def get_recent_enriched(self, limit: int = 15) -> list[dict[str, Any]]:
+    def get_recent_enriched(
+        self, limit: int = 15, offset: int = 0
+    ) -> tuple[list[dict[str, Any]], bool]:
         """Fetch recent transactions with account_name & running_balance.
 
         Kept as raw SQL — delegates to get_filtered_enriched (window functions).
+        Returns (transactions, has_more).
         """
         if limit <= 0:
             limit = 15
-        txs, _ = self.get_filtered_enriched({"limit": limit})
-        return txs
+        return self.get_filtered_enriched({"limit": limit, "offset": offset})
 
     def get_by_account_enriched(
-        self, account_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+        self, account_id: str, limit: int = 50, offset: int = 0
+    ) -> tuple[list[dict[str, Any]], bool]:
         """Fetch transactions for a specific account, enriched.
 
         Kept as raw SQL — delegates to get_filtered_enriched (window functions).
+        Returns (transactions, has_more).
         """
-        txs, _ = self.get_filtered_enriched(
+        return self.get_filtered_enriched(
             {
                 "account_id": account_id,
                 "limit": limit,
+                "offset": offset,
             }
         )
-        return txs
+
+    def get_paginated(
+        self, limit: int = 15, offset: int = 0, account_id: str = ""
+    ) -> dict[str, Any]:
+        """Fetch paginated transactions with metadata.
+
+        Returns dict with 'results', 'total_count', 'has_next', 'has_previous'.
+        """
+        if limit <= 0:
+            limit = 15
+        if offset < 0:
+            offset = 0
+
+        if account_id:
+            txs, has_more = self.get_by_account_enriched(account_id, limit, offset)
+        else:
+            txs, has_more = self.get_recent_enriched(limit, offset)
+
+        # Get total count for the filtered set
+        filters = {}
+        if account_id:
+            filters["account_id"] = account_id
+        filters["limit"] = 999999  # Large number to get total
+        filters["offset"] = 0
+        all_txs, _ = self.get_filtered_enriched(filters)
+        total_count = len(all_txs)
+
+        return {
+            "results": txs,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+            "has_next": has_more,
+            "has_previous": offset > 0,
+        }
 
     def update(self, tx_id: str, data: dict[str, Any]) -> tuple[dict[str, Any], str]:
         """Update a transaction and recalculate balance delta.

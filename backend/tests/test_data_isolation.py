@@ -98,8 +98,10 @@ class TestDataIsolation:
         svc_a = TransactionService(uid_a, TZ)
         svc_b = TransactionService(uid_b, TZ)
 
-        assert len(svc_a.get_recent_enriched()) >= 2
-        assert len(svc_b.get_recent_enriched()) == 0
+        txs_a, _ = svc_a.get_recent_enriched()
+        txs_b, _ = svc_b.get_recent_enriched()
+        assert len(txs_a) >= 2
+        assert len(txs_b) == 0
 
     # gap: data
     def test_transaction_by_id_isolated(self, two_users: dict[str, str]) -> None:

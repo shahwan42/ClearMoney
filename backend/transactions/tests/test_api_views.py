@@ -61,7 +61,12 @@ class TestTransactionAPI:
         c = set_auth_cookie(client, tx_api_data["session_token"])
         resp = c.get("/api/transactions")
         assert resp.status_code == 200
-        assert json.loads(resp.content) == []
+        body = json.loads(resp.content)
+        assert isinstance(body, dict)
+        assert body["results"] == []
+        assert body["total_count"] == 0
+        assert body["has_next"] is False
+        assert body["has_previous"] is False
 
     def test_create_returns_tx_and_balance(self, client, tx_api_data):
         from decimal import Decimal
@@ -157,13 +162,15 @@ class TestTransactionAPI:
         # Filter by EGP account
         resp = c.get(f"/api/transactions?account_id={tx_api_data['egp_id']}")
         assert resp.status_code == 200
-        txs = json.loads(resp.content)
-        assert len(txs) >= 1
+        body = json.loads(resp.content)
+        assert isinstance(body, dict)
+        assert len(body["results"]) >= 1
 
         # Filter by USD account (should be empty — no USD transactions yet)
         resp = c.get(f"/api/transactions?account_id={tx_api_data['usd_id']}")
         assert resp.status_code == 200
-        assert json.loads(resp.content) == []
+        body = json.loads(resp.content)
+        assert body["results"] == []
 
     def test_list_with_limit(self, client, tx_api_data):
         c = set_auth_cookie(client, tx_api_data["session_token"])
@@ -185,8 +192,52 @@ class TestTransactionAPI:
 
         resp = c.get("/api/transactions?limit=2")
         assert resp.status_code == 200
-        txs = json.loads(resp.content)
-        assert len(txs) == 2
+        body = json.loads(resp.content)
+        assert len(body["results"]) == 2
+        assert body["has_next"] is True
+
+    def test_list_with_offset_pagination(self, client, tx_api_data):
+        c = set_auth_cookie(client, tx_api_data["session_token"])
+        # Create 5 transactions
+        for i in range(5):
+            c.post(
+                "/api/transactions",
+                data=json.dumps(
+                    {
+                        "type": "expense",
+                        "amount": 10 + i,
+                        "account_id": tx_api_data["egp_id"],
+                        "category_id": tx_api_data["cat_id"],
+                        "date": "2026-03-19",
+                    }
+                ),
+                content_type="application/json",
+            )
+
+        # First page: limit=2, offset=0
+        resp = c.get("/api/transactions?limit=2&offset=0")
+        assert resp.status_code == 200
+        page1 = json.loads(resp.content)
+        assert len(page1["results"]) == 2
+        assert page1["has_next"] is True
+        assert page1["has_previous"] is False
+        assert page1["total_count"] == 5
+        page1_ids = {tx["id"] for tx in page1["results"]}
+
+        # Second page: limit=2, offset=2
+        resp = c.get("/api/transactions?limit=2&offset=2")
+        assert resp.status_code == 200
+        page2 = json.loads(resp.content)
+        assert len(page2["results"]) == 2
+        assert page2["has_next"] is True
+        assert page2["has_previous"] is True
+        assert page2["total_count"] == 5
+        page2_ids = {tx["id"] for tx in page2["results"]}
+
+        # Verify pages have different transactions
+        assert page1_ids != page2_ids, (
+            "Page 1 and page 2 should have different transactions"
+        )
 
     def test_transfer(self, client, tx_api_data):
         from decimal import Decimal

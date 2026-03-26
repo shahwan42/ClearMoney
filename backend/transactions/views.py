@@ -675,7 +675,8 @@ def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
 def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
     """GET/POST /api/transactions — list or create transactions (JSON).
 
-    GET supports ?account_id= and ?limit= (default 15).
+    GET supports ?account_id=, ?limit= (default 15), ?offset= (default 0).
+    Returns paginated response with metadata.
     POST returns {"transaction": {...}, "new_balance": X}.
     """
     svc = _svc(request)
@@ -683,11 +684,9 @@ def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
     if request.method == "GET":
         account_id = request.GET.get("account_id", "")
         limit = int(request.GET.get("limit", "15") or "15")
-        if account_id:
-            transactions = svc.get_by_account(account_id, limit)
-        else:
-            transactions = svc.get_recent(limit)
-        return JsonResponse(transactions, safe=False)
+        offset = int(request.GET.get("offset", "0") or "0")
+        paginated = svc.get_paginated(limit=limit, offset=offset, account_id=account_id)
+        return JsonResponse(paginated)
 
     # POST — create
     body = parse_json_body(request)

@@ -14,6 +14,8 @@
 - **Verification:** All 1128 tests passing
 - **Commit:** Ready to commit
 
+---
+
 ### 🔴 #2: Duplicate Transaction Creation
 - **Where:** All transaction POST endpoints
 - **What:** No idempotency protection; rapid double-click creates duplicates
@@ -21,12 +23,29 @@
 - **Fix:** Add Idempotency-Key header + Redis cache deduplication
 - **Effort:** 6 hours
 
-### 🔴 #3: No Pagination (Scalability)
-- **Where:** `transactions/views/transactions.py`
-- **What:** All transactions loaded at once
-- **Impact:** UI lag >100 items, poor mobile performance
-- **Fix:** Implement offset pagination (limit 50) + HTMX infinite scroll
-- **Effort:** 4 hours
+### ✅ #3: No Pagination (Scalability) — FIXED
+- **Where:** `/api/transactions` endpoint
+- **What:** API endpoint didn't support offset; couldn't paginate through results
+- **Impact:** UI lag with large datasets, poor mobile performance
+- **Fix:** ✅ DONE: Added offset parameter + metadata to API response
+- **Files Modified:**
+  - `backend/transactions/services/crud.py` — Updated `get_recent_enriched()` and `get_by_account_enriched()` to return tuples with `has_more`; added new `get_paginated()` method
+  - `backend/transactions/views.py` — Updated API endpoint to use `offset` parameter and return paginated response with metadata
+  - `backend/transactions/tests/test_api_views.py` — Updated existing tests to use new response format; added `test_list_with_offset_pagination()` test
+  - `backend/tests/test_data_isolation.py` — Updated to unpack tuple from `get_recent_enriched()`
+- **API Response Format:**
+  ```json
+  {
+    "results": [...],
+    "total_count": 5,
+    "limit": 2,
+    "offset": 0,
+    "has_next": true,
+    "has_previous": false
+  }
+  ```
+- **Verification:** All 1129 tests passing, pagination metadata working correctly
+- **Commit:** Ready to commit
 
 ---
 
