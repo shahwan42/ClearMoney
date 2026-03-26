@@ -1,5 +1,21 @@
 # ClearMoney QA Issues — Quick Reference
 
+**Status as of 2026-03-26:** 4 of 5 issues FIXED ✅
+
+## Summary of Fixes
+
+| Issue                          | Status     | Commit  |
+| ------------------------------ | ---------- | ------- |
+| #1: Floating-Point Precision   | ✅ FIXED   | b16bd58 |
+| #2: Duplicate Transactions     | ✅ FIXED   | f64b514 |
+| #3: No Pagination              | ✅ FIXED   | 8153ea5 |
+| #4: Missing aria-describedby   | ✅ FIXED   | 33e8a8f |
+| #5: Missing aria-live          | PENDING    | —       |
+
+**Test Results:** 1130 unit tests passing, all linting checks pass
+
+---
+
 ## Critical Issues (Fix Immediately)
 
 ### ✅ #1: Floating-Point Precision Loss — FIXED
@@ -102,12 +118,22 @@
 - **Fix:** IndexedDB drafts + service worker caching
 - **Effort:** 6 hours
 
-### 🟠 #9: Missing aria-describedby
-- **Where:** All form error messages
+### ✅ #9: Missing aria-describedby — FIXED
+- **Where:** All form error messages (account, institution forms)
 - **What:** Error messages not linked to form fields
 - **Impact:** Accessibility violation; screen readers miss context
-- **Fix:** Add `aria-describedby` + `aria-invalid`
-- **Effort:** 2 hours
+- **Fix:** ✅ DONE: Added `aria-describedby` + `aria-invalid` to error forms
+- **Files Modified:**
+  - `backend/accounts/templates/accounts/_add_account_form.html`
+  - `backend/accounts/templates/accounts/_account_form.html`
+  - `backend/accounts/templates/accounts/_institution_form.html`
+  - `backend/accounts/templates/accounts/_institution_edit_form.html`
+- **Implementation:**
+  - Added `id="field-error"` to error message divs
+  - Added `aria-describedby="field-error"` to forms when error present
+  - Added `aria-invalid="true"` to forms with errors
+- **Verification:** All 1130 tests passing, template syntax correct
+- **Commit:** 33e8a8f
 
 ### 🟠 #10: Missing aria-live Regions
 - **Where:** Dynamic content updates (HTMX targets)
