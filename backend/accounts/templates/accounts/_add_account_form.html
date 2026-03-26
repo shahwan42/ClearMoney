@@ -147,7 +147,7 @@ Context: institution_id (str), preselected_institution (dict or None),
 </div>
 
 <script>
-(function () {
+function initAddAccountForm() {
     var presetsEl = document.getElementById('add-acct-presets');
     if (!presetsEl) return;
     var ALL_PRESETS = JSON.parse(presetsEl.textContent);
@@ -383,5 +383,13 @@ Context: institution_id (str), preselected_institution (dict or None),
             if (show) customNameField.querySelector('input').focus();
         });
     }
-})();
+}
+
+// Initialize on page load and after HTMX swaps the form
+initAddAccountForm();
+htmx.onLoad(function(content) {
+    if (content.querySelector('#add-account-form')) {
+        initAddAccountForm();
+    }
+});
 </script>
