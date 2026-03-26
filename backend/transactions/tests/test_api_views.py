@@ -64,6 +64,8 @@ class TestTransactionAPI:
         assert json.loads(resp.content) == []
 
     def test_create_returns_tx_and_balance(self, client, tx_api_data):
+        from decimal import Decimal
+
         c = set_auth_cookie(client, tx_api_data["session_token"])
         resp = c.post(
             "/api/transactions",
@@ -84,8 +86,8 @@ class TestTransactionAPI:
         assert "new_balance" in body
         tx = body["transaction"]
         assert tx["type"] == "expense"
-        assert tx["amount"] == 250
-        assert body["new_balance"] == 9750  # 10000 - 250
+        assert Decimal(tx["amount"]) == Decimal("250")
+        assert Decimal(body["new_balance"]) == Decimal("9750")  # 10000 - 250
 
     def test_get_by_id(self, client, tx_api_data):
         c = set_auth_cookie(client, tx_api_data["session_token"])
@@ -187,6 +189,8 @@ class TestTransactionAPI:
         assert len(txs) == 2
 
     def test_transfer(self, client, tx_api_data):
+        from decimal import Decimal
+
         c = set_auth_cookie(client, tx_api_data["session_token"])
 
         # Create a second EGP account for same-currency transfer
@@ -216,8 +220,8 @@ class TestTransactionAPI:
         body = json.loads(resp.content)
         assert "debit" in body
         assert "credit" in body
-        assert body["debit"]["balance_delta"] == -1000
-        assert body["credit"]["balance_delta"] == 1000
+        assert Decimal(body["debit"]["balance_delta"]) == Decimal("-1000")
+        assert Decimal(body["credit"]["balance_delta"]) == Decimal("1000")
 
     def test_exchange(self, client, tx_api_data):
         c = set_auth_cookie(client, tx_api_data["session_token"])

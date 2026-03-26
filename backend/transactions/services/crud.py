@@ -28,12 +28,16 @@ logger = logging.getLogger(__name__)
 
 
 def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
-    """Convert a Transaction model instance to the dict format views expect."""
+    """Convert a Transaction model instance to the dict format views expect.
+
+    Monetary values are returned as strings to preserve decimal precision.
+    JavaScript clients parse these with Decimal.js library.
+    """
     return {
         "id": str(tx.id),
         "user_id": str(tx.user_id),
         "type": tx.type,
-        "amount": float(tx.amount),
+        "amount": str(tx.amount),
         "currency": tx.currency,
         "account_id": str(tx.account_id),
         "counter_account_id": str(tx.counter_account_id)
@@ -44,13 +48,13 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         "time": tx.time,
         "note": tx.note,
         "tags": tx.tags or [],
-        "exchange_rate": float(tx.exchange_rate)
+        "exchange_rate": str(tx.exchange_rate)
         if tx.exchange_rate is not None
         else None,
-        "counter_amount": float(tx.counter_amount)
+        "counter_amount": str(tx.counter_amount)
         if tx.counter_amount is not None
         else None,
-        "fee_amount": float(tx.fee_amount) if tx.fee_amount is not None else None,
+        "fee_amount": str(tx.fee_amount) if tx.fee_amount is not None else None,
         "fee_account_id": str(tx.fee_account_id) if tx.fee_account_id else None,
         "person_id": str(tx.person_id) if tx.person_id else None,
         "linked_transaction_id": (
@@ -59,7 +63,7 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         "recurring_rule_id": (
             str(tx.recurring_rule_id) if tx.recurring_rule_id else None
         ),
-        "balance_delta": float(tx.balance_delta),
+        "balance_delta": str(tx.balance_delta),
         "created_at": tx.created_at,
         "updated_at": tx.updated_at,
     }
@@ -78,16 +82,20 @@ class TransactionServiceBase:
     # Private helpers
     # -------------------------------------------------------------------
 
-    def _balance_delta(self, tx_type: str, amount: float) -> float:
+    def _balance_delta(self, tx_type: str, amount: Decimal) -> Decimal:
         """Calculate signed balance impact for a transaction type."""
         if tx_type == "expense":
             return -amount
         if tx_type == "income":
             return amount
-        return 0  # transfers/exchanges handle their own deltas
+        return Decimal(0)  # transfers/exchanges handle their own deltas
 
     def _get_account(self, account_id: str) -> dict[str, Any]:
-        """Fetch account record via ORM. Raises ValueError if not found."""
+        """Fetch account record via ORM. Raises ValueError if not found.
+
+        Returns current_balance and credit_limit as Decimal to preserve precision
+        during calculations.
+        """
         acc = (
             Account.objects.for_user(self.user_id)
             .filter(id=account_id)
@@ -100,14 +108,14 @@ class TransactionServiceBase:
             "id": str(acc["id"]),
             "name": acc["name"],
             "currency": acc["currency"],
-            "current_balance": float(acc["current_balance"]),
+            "current_balance": Decimal(str(acc["current_balance"])),
             "type": acc["type"],
-            "credit_limit": float(acc["credit_limit"])
+            "credit_limit": Decimal(str(acc["credit_limit"]))
             if acc["credit_limit"] is not None
             else None,
         }
 
-    def _validate_basic(self, amount: float, account_id: str, tx_type: str) -> None:
+    def _validate_basic(self, amount: Decimal, account_id: str, tx_type: str) -> None:
         """Validate basic transaction fields."""
         if amount <= 0:
             raise ValueError("Amount must be positive")
@@ -120,6 +128,7 @@ class TransactionServiceBase:
         """Convert a DB row tuple to a transaction dict.
 
         Still needed for the raw SQL enriched methods (window functions).
+        Monetary values are returned as strings to preserve decimal precision.
         """
         d: dict[str, Any] = {}
         for i, col in enumerate(columns):
@@ -148,9 +157,9 @@ class TransactionServiceBase:
                 "current_balance",
                 "credit_limit",
             ):
-                val = float(val) if val is not None else None
+                val = str(val) if val is not None else None
             elif isinstance(val, Decimal):
-                val = float(val)
+                val = str(val)
             d[col] = val
         return d
 
@@ -158,14 +167,18 @@ class TransactionServiceBase:
     # CRUD
     # -------------------------------------------------------------------
 
-    def create(self, data: dict[str, Any]) -> tuple[dict[str, Any], float]:
+    def create(self, data: dict[str, Any]) -> tuple[dict[str, Any], str]:
         """Create a transaction and atomically update the account balance.
 
         CRITICAL: Currency is overridden from the account record.
-        Returns (created_tx_dict, new_balance).
+        Returns (created_tx_dict, new_balance_str).
+        new_balance is returned as a string to preserve decimal precision.
         """
         tx_type = data.get("type", "")
-        amount = float(data.get("amount", 0))
+        amount_raw = data.get("amount", 0)
+        if not amount_raw or amount_raw == "":
+            amount_raw = 0
+        amount = Decimal(str(amount_raw))
         account_id = data.get("account_id", "")
 
         self._validate_basic(amount, account_id, tx_type)
@@ -233,7 +246,7 @@ class TransactionServiceBase:
             account_id,
             self.user_id,
         )
-        return created, new_balance
+        return created, str(new_balance)
 
     def get_by_id(self, tx_id: str) -> dict[str, Any] | None:
         """Fetch a single transaction by ID via ORM."""
@@ -457,24 +470,28 @@ class TransactionServiceBase:
         )
         return txs
 
-    def update(self, tx_id: str, data: dict[str, Any]) -> tuple[dict[str, Any], float]:
+    def update(self, tx_id: str, data: dict[str, Any]) -> tuple[dict[str, Any], str]:
         """Update a transaction and recalculate balance delta.
 
         Balance adjustment = newDelta - oldDelta.
+        Returns new_balance as string to preserve decimal precision.
         """
         old = self.get_by_id(tx_id)
         if not old:
             raise ValueError(f"Transaction not found: {tx_id}")
 
         tx_type = data.get("type", old["type"])
-        amount = float(data.get("amount", old["amount"]))
+        amount_raw = data.get("amount", old["amount"])
+        if not amount_raw or amount_raw == "":
+            amount_raw = old["amount"]
+        amount = Decimal(str(amount_raw))
         self._validate_basic(amount, old["account_id"], tx_type)
 
         # Override currency from account
         acc = self._get_account(old["account_id"])
         currency = acc["currency"]
 
-        old_delta = self._balance_delta(old["type"], float(old["amount"]))
+        old_delta = self._balance_delta(old["type"], Decimal(str(old["amount"])))
         new_delta = self._balance_delta(tx_type, amount)
         balance_adjustment = new_delta - old_delta
 
@@ -529,7 +546,7 @@ class TransactionServiceBase:
         new_balance = acc["current_balance"] + balance_adjustment
 
         logger.info("transaction.updated id=%s user=%s", tx_id, self.user_id)
-        return updated, new_balance
+        return updated, str(new_balance)
 
     def delete(self, tx_id: str) -> None:
         """Delete a transaction and reverse its balance impact.
@@ -549,10 +566,11 @@ class TransactionServiceBase:
 
             if is_linked:
                 # Transfer/exchange: F() atomically reverses the source debit
+                amount_decimal = Decimal(str(tx["amount"]))
                 Account.objects.for_user(self.user_id).filter(
                     id=tx["account_id"]
                 ).update(
-                    current_balance=F("current_balance") + tx["amount"],
+                    current_balance=F("current_balance") + amount_decimal,
                     updated_at=now,
                 )
 
@@ -565,7 +583,7 @@ class TransactionServiceBase:
                     .first()
                 )
                 if linked_obj:
-                    linked_amount = float(linked_obj["amount"])
+                    linked_amount = Decimal(str(linked_obj["amount"]))
                     linked_account_id = str(linked_obj["account_id"])
 
                     Transaction.objects.for_user(self.user_id).filter(
@@ -581,7 +599,9 @@ class TransactionServiceBase:
                     )
             else:
                 # Simple expense/income: F() atomically reverses balance delta
-                reverse_delta = -self._balance_delta(tx["type"], float(tx["amount"]))
+                reverse_delta = -self._balance_delta(
+                    tx["type"], Decimal(str(tx["amount"]))
+                )
                 Account.objects.for_user(self.user_id).filter(
                     id=tx["account_id"]
                 ).update(
