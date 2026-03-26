@@ -13,9 +13,12 @@
 | Models | `backend/core/models.py` — all models, `db_table` convention |
 | Request type | `backend/core/types.py` — `AuthenticatedRequest` |
 | Template filters | `backend/core/templatetags/money.py` |
-| Rules | `.claude/rules/` — git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA |
+| Rules | `.claude/rules/` — git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA, QA guidelines, critical paths |
 | Workflows | `.claude/rules/batch-execution-pattern.md` — multi-item batch workflows; `docs/reference/WCAG-AA-QUICK-REFERENCE.md` — WCAG 2.1 AA criteria & fixes |
 | Accessibility | `.claude/rules/accessibility.md` — ARIA standards; `.claude/rules/accessibility-qa-protocol.md` — QA verification gates |
+| QA Guidelines | `.claude/rules/qa-guidelines.md` — test pyramid, financial data integrity, coverage floors, E2E requirements, form validation standards |
+| Critical Paths | `.claude/rules/critical-paths.md` — 6 critical user journeys that must always pass, regression checkpoints |
+| Test Flows | `docs/qa/TEST-FLOWS.md` — detailed test scenarios for all 14 feature areas, known gaps |
 
 ## Architecture
 
