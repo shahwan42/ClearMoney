@@ -8,7 +8,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
 {% load static %}
 <div class="space-y-3">
     {% if error %}
-    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
+    <div id="inst-error" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
     {% endif %}
 
     <!-- Preset data embedded once for the JS combobox -->
@@ -17,7 +17,8 @@ All preset data is embedded once as JSON — no extra network requests needed fo
     <form hx-post="/institutions/add"
           hx-target="#create-sheet-content"
           hx-swap="innerHTML"
-          id="institution-form">
+          id="institution-form"
+          {% if error %}aria-invalid="true" aria-describedby="inst-error"{% endif %}>
 
         <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">Add Institution</h3>
 

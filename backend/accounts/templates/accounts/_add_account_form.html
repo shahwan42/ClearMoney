@@ -6,7 +6,7 @@ Context: institution_id (str), preselected_institution (dict or None),
 {% load static %}
 <div class="space-y-3">
     {% if error %}
-    <div class="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
+    <div id="add-acct-error" class="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
     {% endif %}
 
     <script id="add-acct-presets" type="application/json">{{ presets_json|safe }}</script>
@@ -15,7 +15,8 @@ Context: institution_id (str), preselected_institution (dict or None),
           hx-target="#create-sheet-content"
           hx-swap="innerHTML"
           hx-disabled-elt="find button[type='submit']"
-          id="add-account-form">
+          id="add-account-form"
+          {% if error %}aria-invalid="true" aria-describedby="add-acct-error"{% endif %}>
 
         <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">Add Account</h3>
 

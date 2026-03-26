@@ -5,12 +5,13 @@ Context: institution (dict: id, name, type), error (optional string).
 {% endcomment %}
 <div class="space-y-3">
     {% if error %}
-    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
+    <div id="inst-edit-error" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
     {% endif %}
 
     <form hx-put="/institutions/{{ institution.id }}/update"
           hx-target="#edit-sheet-content"
-          hx-swap="innerHTML">
+          hx-swap="innerHTML"
+          {% if error %}aria-invalid="true" aria-describedby="inst-edit-error"{% endif %}>
 
         <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">Edit Institution</h3>
 

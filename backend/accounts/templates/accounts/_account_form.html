@@ -5,13 +5,14 @@ Context: institution_id, institution_name, error (optional string).
 {% endcomment %}
 <div class="space-y-3">
     {% if error %}
-    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
+    <div id="acct-error" class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
     {% endif %}
 
     <form
         hx-post="/accounts/add"
         hx-target="#account-sheet-content"
         hx-swap="innerHTML"
+        {% if error %}aria-invalid="true" aria-describedby="acct-error"{% endif %}
     >
         <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">
             Add Account
