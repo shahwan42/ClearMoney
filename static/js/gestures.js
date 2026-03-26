@@ -13,10 +13,12 @@
     // --- Pull-to-Refresh ---
     // Works on any element with [data-pull-refresh] attribute.
     // The attribute value is the URL to refresh (via HTMX).
+    // Guard: re-check scrollY during touchmove to avoid triggering during momentum bounces.
 
     var pullStart = 0;
     var pulling = false;
     var pullIndicator = null;
+    var pullValid = false; // Only true when indicator shown after valid sustained pull
 
     document.addEventListener('touchstart', function(e) {
         var target = e.target.closest('[data-pull-refresh]');
@@ -24,13 +26,16 @@
         if (window.scrollY > 5) return; // Only pull at top of page
         pullStart = e.touches[0].clientY;
         pulling = true;
+        pullValid = false;
     }, { passive: true });
 
     document.addEventListener('touchmove', function(e) {
         if (!pulling) return;
+        if (window.scrollY > 5) { pulling = false; return; } // Cancel if page scrolled away from top
         var distance = e.touches[0].clientY - pullStart;
         if (distance < 0) { pulling = false; return; }
         if (distance > 60 && !pullIndicator) {
+            pullValid = true;
             pullIndicator = document.createElement('div');
             pullIndicator.className = 'fixed top-0 left-0 right-0 flex justify-center py-2 z-50 animate-fade-in';
             pullIndicator.innerHTML = '<div class="bg-teal-500 text-white text-xs px-3 py-1 rounded-full shadow">Release to refresh</div>';
@@ -39,14 +44,17 @@
     }, { passive: true });
 
     document.addEventListener('touchend', function() {
-        if (!pulling) return;
         pulling = false;
         if (pullIndicator) {
             pullIndicator.remove();
             pullIndicator = null;
-            // Reload the page (simple approach — works with HTMX boosted pages)
-            window.location.reload();
+            if (pullValid) {
+                pullValid = false;
+                // Reload the page (simple approach — works with HTMX boosted pages)
+                window.location.reload();
+            }
         }
+        pullValid = false;
     });
 
     // --- Swipe-to-Delete ---
