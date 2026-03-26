@@ -54,7 +54,7 @@ def db() -> None:
 
 
 @pytest.fixture(autouse=True)
-def auth(page: Page) -> None:
+def auth(db: None, page: Page) -> None:
     ensure_auth(page)
 
 

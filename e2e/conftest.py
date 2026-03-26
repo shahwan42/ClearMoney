@@ -193,19 +193,29 @@ def get_category_id(category_type: str, user_id: str) -> str:
             return str(row[0])
 
 
-def ensure_auth(page: Page) -> None:
+def ensure_auth(page: Page, user_id: str | None = None) -> str:
     """Create a 30-day session in DB and inject the cookie into the page context.
+
+    Args:
+        page: Playwright page object
+        user_id: Explicit user ID to create session for (for testing). If None, looks up TEST_EMAIL.
+
+    Returns: The session token
 
     Equivalent to helpers.ts ensureAuth().
     """
+    if user_id is None:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM users WHERE email = %s", (TEST_EMAIL,))
+                row = cur.fetchone()
+                assert row is not None, f"Test user {TEST_EMAIL} not found — call reset_database() first"
+                user_id = str(row[0])
+
+    token = secrets.token_urlsafe(32)
+    expiry = datetime.now(timezone.utc) + timedelta(days=30)
     with _conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE email = %s", (TEST_EMAIL,))
-            row = cur.fetchone()
-            assert row is not None, f"Test user {TEST_EMAIL} not found — call reset_database() first"
-            user_id = str(row[0])
-            token = secrets.token_urlsafe(32)
-            expiry = datetime.now(timezone.utc) + timedelta(days=30)
             cur.execute(
                 "INSERT INTO sessions (token, user_id, expires_at) VALUES (%s, %s, %s)",
                 (token, user_id, expiry),
@@ -217,6 +227,7 @@ def ensure_auth(page: Page) -> None:
         "domain": "localhost",
         "path": "/",
     }])
+    return token
 
 
 def create_auth_token(email: str, purpose: str = "login") -> str:
