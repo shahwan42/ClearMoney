@@ -9,6 +9,7 @@ import json
 import logging
 from datetime import date
 
+from django.core.cache import cache
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, QueryDict
 from django.shortcuts import render
 from django.template.loader import render_to_string
@@ -693,12 +694,27 @@ def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
     if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
 
+    # Idempotency: check for Idempotency-Key header
+    idempotency_key = request.headers.get("Idempotency-Key", "")
+    if idempotency_key:
+        # User ID prefix to avoid key collisions across users
+        cache_key = f"idempotency:{request.user_id}:{idempotency_key}"
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            return JsonResponse(cached_result, status=201)
+
     try:
         tx, new_balance = svc.create(body)
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
-    return JsonResponse({"transaction": tx, "new_balance": new_balance}, status=201)
+    result = {"transaction": tx, "new_balance": new_balance}
+
+    # Cache the result for idempotency (5 minute TTL)
+    if idempotency_key:
+        cache.set(cache_key, result, timeout=300)
+
+    return JsonResponse(result, status=201)
 
 
 @api_rate

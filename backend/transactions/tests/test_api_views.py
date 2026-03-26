@@ -239,6 +239,42 @@ class TestTransactionAPI:
             "Page 1 and page 2 should have different transactions"
         )
 
+    def test_idempotency_prevents_duplicates(self, client, tx_api_data):
+        c = set_auth_cookie(client, tx_api_data["session_token"])
+
+        # First request with idempotency key
+        payload = json.dumps(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_api_data["egp_id"],
+                "category_id": tx_api_data["cat_id"],
+                "date": "2026-03-19",
+            }
+        )
+
+        resp1 = c.post(
+            "/api/transactions",
+            data=payload,
+            content_type="application/json",
+            HTTP_IDEMPOTENCY_KEY="test-key-123",
+        )
+        assert resp1.status_code == 201
+        tx1 = json.loads(resp1.content)["transaction"]
+
+        # Second request with same idempotency key should return same result
+        resp2 = c.post(
+            "/api/transactions",
+            data=payload,
+            content_type="application/json",
+            HTTP_IDEMPOTENCY_KEY="test-key-123",
+        )
+        assert resp2.status_code == 201
+        tx2 = json.loads(resp2.content)["transaction"]
+
+        # Both should have same transaction ID (deduped)
+        assert tx1["id"] == tx2["id"], "Idempotency key should return cached result"
+
     def test_transfer(self, client, tx_api_data):
         from decimal import Decimal
 
