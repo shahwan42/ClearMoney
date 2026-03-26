@@ -23,7 +23,7 @@
     document.addEventListener('touchstart', function(e) {
         var target = e.target.closest('[data-pull-refresh]');
         if (!target) return;
-        if (window.scrollY > 5) return; // Only pull at top of page
+        if (window.scrollY > 0) return; // Strict: only pull when truly at top (scrollY = 0)
         pullStart = e.touches[0].clientY;
         pulling = true;
         pullValid = false;
@@ -31,7 +31,7 @@
 
     document.addEventListener('touchmove', function(e) {
         if (!pulling) return;
-        if (window.scrollY > 5) { pulling = false; return; } // Cancel if page scrolled away from top
+        if (window.scrollY > 0) { pulling = false; return; } // Cancel if page scrolled at all
         var distance = e.touches[0].clientY - pullStart;
         if (distance < 0) { pulling = false; return; }
         if (distance > 60 && !pullIndicator) {
