@@ -40,3 +40,7 @@ qa-screenshots/
 
 # temporary artifacts
 temporary_artifacts/
+
+# Python virtual environments
+.venv
+venv
