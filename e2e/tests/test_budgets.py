@@ -30,6 +30,21 @@ _user_id: str = ""
 _category_id: str = ""
 
 
+def _create_budget(page: Page, category_id: str, limit: str = "2000") -> None:
+    """Create a budget via the UI."""
+    page.goto("/budgets")
+    # Category uses a custom combobox — select via its programmatic API
+    page.evaluate(
+        f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+    )
+    # Use the budget form's specific input ID (page has two monthly_limit inputs)
+    page.fill('input#cat-monthly-limit', limit)
+    with page.expect_response(
+        lambda r: "/budgets" in r.url and r.request.method == "POST"
+    ):
+        page.locator('button:has-text("Create Budget")').click()
+
+
 @pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     """Reset DB and create test institution + account directly via SQL."""
@@ -61,29 +76,21 @@ def auth(db: None, page: Page) -> None:
 
 class TestBudgets:
     def test_create_budget(self, page: Page) -> None:
-        page.goto("/budgets")
-        # Category uses a custom combobox — select via its programmatic API
-        page.evaluate(
-            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{_category_id}')"
-        )
-        # Use the budget form's specific input ID (page has two monthly_limit inputs)
-        page.fill('input#cat-monthly-limit', "2000")
-        with page.expect_response(
-            lambda r: "/budgets" in r.url and r.request.method == "POST"
-        ):
-            page.locator('button:has-text("Create Budget")').click()
+        _create_budget(page, _category_id)
         expect(page.locator("main")).to_contain_text("2,000")
 
     def test_budget_progress_bar_visible(self, page: Page) -> None:
-        page.goto("/budgets")
+        _create_budget(page, _category_id)
         expect(page.locator(".bg-gray-100.rounded-full")).to_be_visible()
 
     def test_budget_shows_remaining_amount(self, page: Page) -> None:
+        _create_budget(page, _category_id)
         create_transaction(page, _account_id, _category_id, "500", "expense")
         page.goto("/budgets")
         expect(page.locator("main")).to_contain_text("remaining")
 
     def test_delete_budget(self, page: Page) -> None:
+        _create_budget(page, _category_id)
         page.goto("/budgets")
         # Use text selector — the create form says "Create Budget", delete says "Delete"
         page.click('button:has-text("Delete")')
