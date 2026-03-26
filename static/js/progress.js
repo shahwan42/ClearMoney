@@ -5,14 +5,21 @@
  * - htmx:beforeRequest → start after 100ms delay
  * - htmx:afterSettle → complete to 100% then fade
  * - htmx:responseError → turn red briefly
+ *
+ * Re-queries #page-progress on each event because hx-boost replaces <body>,
+ * creating a new #page-progress element. A cached reference would become stale.
  */
 (function() {
-    var bar = document.getElementById('page-progress');
-    if (!bar) return;
-
     var timer = null;
 
+    function getBar() {
+        return document.getElementById('page-progress');
+    }
+
     document.addEventListener('htmx:beforeRequest', function() {
+        var bar = getBar();
+        if (!bar) return;
+
         timer = setTimeout(function() {
             bar.style.opacity = '1';
             bar.setAttribute('aria-hidden', 'false');
@@ -24,6 +31,9 @@
 
     function complete() {
         clearTimeout(timer);
+        var bar = getBar();
+        if (!bar) return;
+
         bar.style.width = '100%';
         setTimeout(function() {
             bar.style.opacity = '0';
@@ -35,6 +45,9 @@
     document.addEventListener('htmx:afterSettle', complete);
 
     document.addEventListener('htmx:responseError', function() {
+        var bar = getBar();
+        if (!bar) return;
+
         clearTimeout(timer);
         bar.style.width = '100%';
         bar.className = bar.className.replace('bg-teal-500', 'bg-red-500');
