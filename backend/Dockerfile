@@ -22,6 +22,9 @@ COPY backend/ .
 # Copy venv from workspace root to /app
 RUN mv /workspace/.venv /app/.venv
 
+# Fix shebangs in venv scripts that still point to /workspace
+RUN sed -i 's|#!/workspace/.venv/bin/python|#!/app/.venv/bin/python|g' /app/.venv/bin/* 2>/dev/null || true
+
 # Copy shared static files (CSS, JS, icons, manifest, service worker).
 # In the container these live at /app/static_src/ — settings.py detects this path.
 COPY static/ /app/static_src/
