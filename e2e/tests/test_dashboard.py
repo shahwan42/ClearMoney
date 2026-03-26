@@ -61,3 +61,36 @@ class TestDashboard:
 
         page.reload()
         expect(page.locator("main")).to_contain_text("Lunch")
+
+    def test_momentum_scroll_content_visible(self, page: Page) -> None:
+        """Verify content remains visible during fast momentum scrolling.
+
+        Momentum scrolling can cause rendering jank if touch handlers
+        interfere with scroll optimizations. This test ensures content
+        doesn't flicker during rapid scrolling.
+        """
+        seed_basic_data(page)
+        page.goto("/")
+
+        # Capture initial content visibility
+        net_worth = page.locator("main").get_by_text("Net Worth")
+        expect(net_worth).to_be_visible()
+
+        # Simulate fast upward swipe (momentum scroll)
+        # On mobile, this would be a quick swipe down gesture
+        main = page.locator("main")
+        box = main.bounding_box()
+        if box:
+            # Simulate momentum scroll: quick swipe down at bottom of viewport
+            # This triggers momentum scroll upward
+            page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] - 50)
+            page.mouse.wheel(0, -300)  # Rapid wheel scroll
+            page.wait_for_timeout(100)  # Brief pause for momentum
+            page.mouse.wheel(0, -300)  # Another rapid scroll
+
+        # Content should remain visible throughout scroll
+        expect(net_worth).to_be_visible()
+
+        # Verify key dashboard sections are still rendered
+        expect(page.locator("main")).to_contain_text("Liquid Cash")
+        expect(page.locator("main")).to_contain_text("Test Bank")

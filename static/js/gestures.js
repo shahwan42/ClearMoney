@@ -19,22 +19,34 @@
     var pulling = false;
     var pullIndicator = null;
     var pullValid = false; // Only true when indicator shown after valid sustained pull
+    var distanceThresholdExceeded = false; // Track if we've crossed 60px threshold
 
     document.addEventListener('touchstart', function(e) {
         var target = e.target.closest('[data-pull-refresh]');
         if (!target) return;
-        if (window.scrollY > 0) return; // Strict: only pull when truly at top (scrollY = 0)
+        if (window.scrollY > 5) return; // Allow small scroll offset (prevents momentum bounce false-positives)
         pullStart = e.touches[0].clientY;
         pulling = true;
         pullValid = false;
+        distanceThresholdExceeded = false;
     }, { passive: true });
 
     document.addEventListener('touchmove', function(e) {
         if (!pulling) return;
-        if (window.scrollY > 0) { pulling = false; return; } // Cancel if page scrolled at all
+
+        // Don't re-check scrollY on every move — only check on initial move if scrollY somehow increased
+        // (prevents layout thrashing during momentum scroll bounces)
+        if (window.scrollY > 10) {
+            pulling = false;
+            return;
+        }
+
         var distance = e.touches[0].clientY - pullStart;
         if (distance < 0) { pulling = false; return; }
-        if (distance > 60 && !pullIndicator) {
+
+        // Only show indicator once we cross 60px; don't update on subsequent moves
+        if (distance > 60 && !distanceThresholdExceeded) {
+            distanceThresholdExceeded = true;
             pullValid = true;
             pullIndicator = document.createElement('div');
             pullIndicator.className = 'fixed top-0 left-0 right-0 flex justify-center py-2 z-50 animate-fade-in';

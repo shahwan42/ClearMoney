@@ -267,11 +267,14 @@ textarea {
     min-height: 44px;
 }
 
-/* Hide scrollbar on main content for a cleaner mobile look */
+/* Optimize main scrolling container for momentum scroll performance on iOS.
+   -webkit-overflow-scrolling: touch enables hardware-accelerated momentum scrolling.
+   Hide scrollbar for cleaner mobile look. */
 main::-webkit-scrollbar {
     display: none;
 }
 main {
+    -webkit-overflow-scrolling: touch;
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
