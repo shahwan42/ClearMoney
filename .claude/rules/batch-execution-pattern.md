@@ -56,6 +56,7 @@ make test-e2e  # Run and confirm it PASSES — GREEN ✓
 All must pass before moving to next improvement:
 
 ```bash
+make format                        # Auto-format code
 mcp__django-ai-boost__run_check   # Django check clean
 make lint                          # ruff + mypy zero errors
 make test                          # count >= baseline
@@ -91,6 +92,7 @@ Use `/commit` skill if you prefer interactive staging.
 Once every improvement is committed and QA'd:
 
 ```bash
+make format                 # Auto-format all code
 make test                   # All tests pass
 make test-e2e               # All E2E tests pass
 make lint                   # Zero errors

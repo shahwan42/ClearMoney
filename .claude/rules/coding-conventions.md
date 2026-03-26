@@ -14,11 +14,31 @@ globs: "backend/**/*.py"
 - **Always add type annotations** — every function needs parameter types and return type. Use `AuthenticatedRequest` (from `core.types`) instead of `HttpRequest` in views. Run `uv run mypy .` from `backend/` to verify — zero errors required.
 - **Document on every level**: module-level docstring → class-level for non-obvious classes → inline comments only where logic isn't self-evident.
 
+## Code Formatting
+
+Use `make format` to auto-format all Python code:
+
+```bash
+make format    # Runs ruff format + ruff check --fix (modifies files in-place)
+make lint      # Verify formatting + linting + type checking (read-only check)
+```
+
+**When to use:**
+- After writing code: `make format` to auto-fix style issues
+- Before committing: `make lint` to verify zero errors
+- Never manually fix formatting — let ruff handle it
+
+**Ruff rules:**
+- Line length: 88 characters
+- Import sorting: isort-compatible
+- Python target: 3.12
+
 ## After Completing a Task
 
 Always run tests and do a code review before declaring done:
 
 - `make test` (Django unit tests)
+- `make format` (auto-format code)
 - `make lint` (ruff + mypy — zero errors required)
 - Code review: check all changed files for bugs, edge cases, test gaps
 

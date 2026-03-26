@@ -20,10 +20,11 @@ Before beginning any feature implementation or batch of work, verify the environ
 After completing a feature, follow these steps in order:
 
 1. **Run tests** — `make test` — verify count >= baseline (no tests deleted)
-2. **Run e2e + lint** — `make test-e2e && make lint` — all tests pass, zero lint errors
-3. **Code review** — run `/review` to check for bugs, edge cases, security issues
-4. **QA review** — run `/qa-review` to check for test gaps across functional, state/interaction, data, and cleanup categories
-5. **Update documentation** — `docs/features/` if applicable
-6. **Restart the app** — `make run` so the user can try it at `http://0.0.0.0:8000`
-7. **Show manual test steps** — list the exact UI steps to verify the feature works
-8. **Ask to commit** — once approved, use `/commit` or `git commit`
+2. **Auto-format code** — `make format` — auto-fixes style issues
+3. **Run e2e + lint** — `make test-e2e && make lint` — all tests pass, zero lint errors
+4. **Code review** — run `/review` to check for bugs, edge cases, security issues
+5. **QA review** — run `/qa-review` to check for test gaps across functional, state/interaction, data, and cleanup categories
+6. **Update documentation** — `docs/features/` if applicable
+7. **Restart the app** — `make run` so the user can try it at `http://0.0.0.0:8000`
+8. **Show manual test steps** — list the exact UI steps to verify the feature works
+9. **Ask to commit** — once approved, use `/commit` or `git commit`

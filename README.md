@@ -40,7 +40,8 @@ make run                         # Start Django dev server on :8000
 ```bash
 make test                        # Django tests (needs running DB)
 make test-e2e                    # Playwright browser tests
-make lint                        # ruff + mypy
+make format                      # Auto-format code (ruff)
+make lint                        # Check formatting + linting (ruff + mypy)
 make seed                        # Populate sample data
 make reconcile                   # Check balance consistency
 make logs                        # Stream Docker logs
