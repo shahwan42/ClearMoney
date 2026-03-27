@@ -73,25 +73,6 @@ class AuthToken(models.Model):
         db_table = "auth_tokens"
 
 
-class UserConfig(models.Model):
-    """Legacy single-user config table. Kept for backward compat (brute-force protection)."""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    pin_hash = models.TextField()
-    session_key = models.TextField()
-    failed_attempts = models.IntegerField(default=0, db_default=0)
-    locked_until = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(
-        auto_now_add=True, null=True, blank=True, db_default=Now()
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True, null=True, blank=True, db_default=Now()
-    )
-
-    class Meta:
-        db_table = "user_config"
-
-
 class Institution(models.Model):
     """Groups accounts under a bank/fintech/wallet (e.g., HSBC, Telda, Cash)."""
 
@@ -541,4 +522,5 @@ class AccountSnapshot(models.Model):
 # Import sites continue to work unchanged via `from core.models import X`.
 # ---------------------------------------------------------------------------
 
+from auth_app.models import UserConfig as UserConfig  # noqa: E402
 from exchange_rates.models import ExchangeRateLog as ExchangeRateLog  # noqa: E402
