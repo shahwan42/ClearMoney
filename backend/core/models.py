@@ -14,6 +14,14 @@ from django.db import models
 from django.db.models import Func
 from django.db.models.functions import Now
 
+# ---------------------------------------------------------------------------
+# Early imports of models that have been moved to their own apps but are
+# still referenced inline (as Python classes) by models defined below.
+# These must come BEFORE those models are defined.
+# ---------------------------------------------------------------------------
+from categories.models import (
+    Category as Category,  # noqa: F401 — used in Transaction/Budget FKs + re-export
+)
 from core.managers import UserScopedManager
 
 # SQL-level default for UUID primary keys (gen_random_uuid())
@@ -162,29 +170,6 @@ class Account(models.Model):
     def is_credit_type(self) -> bool:
         """True for credit cards and credit limits."""
         return self.type in ("credit_card", "credit_limit")
-
-
-class Category(models.Model):
-    """Expense or income category. is_system marks auto-seeded categories."""
-
-    objects = UserScopedManager()
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    name = models.CharField(max_length=100)
-    type = models.CharField(max_length=20)  # 'expense' or 'income'
-    icon = models.CharField(max_length=10, null=True, blank=True)
-    is_system = models.BooleanField(default=False, db_default=False)
-    is_archived = models.BooleanField(default=False, db_default=False)
-    display_order = models.IntegerField(default=0, db_default=0)
-    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
-    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
-
-    class Meta:
-        db_table = "categories"
-
-    def __str__(self) -> str:
-        return self.name
 
 
 class Person(models.Model):
