@@ -129,29 +129,6 @@ class Account(models.Model):
         return self.type in ("credit_card", "credit_limit")
 
 
-class RecurringRule(models.Model):
-    """Schedules recurring transactions (salary, Netflix, etc.).
-
-    template_transaction is a JSONB blob parsed into a TransactionTemplate on demand.
-    """
-
-    objects = UserScopedManager()
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    template_transaction = models.JSONField()
-    frequency = models.CharField(max_length=20)  # 'monthly' or 'weekly'
-    day_of_month = models.IntegerField(null=True, blank=True)
-    next_due_date = models.DateField()
-    is_active = models.BooleanField(default=True, db_default=True)
-    auto_confirm = models.BooleanField(default=False, db_default=False)
-    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
-    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
-
-    class Meta:
-        db_table = "recurring_rules"
-
-
 class Transaction(models.Model):
     """Central record for every money movement.
 
@@ -231,7 +208,7 @@ class Transaction(models.Model):
         related_name="+",
     )
     recurring_rule = models.ForeignKey(
-        RecurringRule,
+        "recurring.RecurringRule",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -347,4 +324,5 @@ from budgets.models import TotalBudget as TotalBudget  # noqa: E402
 from exchange_rates.models import ExchangeRateLog as ExchangeRateLog  # noqa: E402
 from investments.models import Investment as Investment  # noqa: E402
 from people.models import Person as Person  # noqa: E402
+from recurring.models import RecurringRule as RecurringRule  # noqa: E402
 from virtual_accounts.models import VirtualAccount as VirtualAccount  # noqa: E402
