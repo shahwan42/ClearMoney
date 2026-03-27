@@ -6,15 +6,17 @@ leaf services (AccountService, BudgetService, load_health_warnings, RecurringSer
 Unit tests, no DB needed.
 """
 
-from datetime import date
+from datetime import date, datetime
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import pytest
 from pytest_mock import MockerFixture
 
-from accounts.types import HealthWarning
+from accounts.types import AccountSummary, HealthWarning
+from budgets.types import BudgetWithSpending
 from push.services import NotificationService
+from recurring.types import RecurringRulePending
 
 TZ = ZoneInfo("Africa/Cairo")
 
@@ -71,13 +73,25 @@ class TestCreditCardDueSoon:
         mock_recurring: MagicMock,
     ) -> None:
         # Setup account data
-        cc_account = {
-            "id": "cc-1",
-            "name": "CIB Visa",
-            "type": "credit_card",
-            "current_balance": -1500.50,
-            "metadata": {"statement_day": 15, "due_day": 20},
-        }
+        cc_account = AccountSummary(
+            id="cc-1",
+            name="CIB Visa",
+            institution_id=None,
+            currency="EGP",
+            type="credit_card",
+            current_balance=-1500.50,
+            initial_balance=0.0,
+            credit_limit=5000.0,
+            is_dormant=False,
+            is_credit_type=True,
+            available_credit=3499.50,
+            role_tags=[],
+            display_order=0,
+            metadata={"statement_day": 15, "due_day": 20},
+            health_config={},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         mock_accounts.return_value.get_all.return_value = [cc_account]
         mock_health_warnings.return_value = []
         mock_budgets.return_value.get_all_with_spending.return_value = []
@@ -107,13 +121,25 @@ class TestCreditCardDueSoon:
         mock_recurring: MagicMock,
     ) -> None:
         # Setup account data
-        cc_account = {
-            "id": "cc-2",
-            "name": "HSBC MC",
-            "type": "credit_card",
-            "current_balance": -2000.0,
-            "metadata": {"statement_day": 15, "due_day": 20},
-        }
+        cc_account = AccountSummary(
+            id="cc-2",
+            name="HSBC MC",
+            institution_id=None,
+            currency="EGP",
+            type="credit_card",
+            current_balance=-2000.0,
+            initial_balance=0.0,
+            credit_limit=10000.0,
+            is_dormant=False,
+            is_credit_type=True,
+            available_credit=8000.0,
+            role_tags=[],
+            display_order=0,
+            metadata={"statement_day": 15, "due_day": 20},
+            health_config={},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         mock_accounts.return_value.get_all.return_value = [cc_account]
         mock_health_warnings.return_value = []
         mock_budgets.return_value.get_all_with_spending.return_value = []
@@ -183,16 +209,18 @@ class TestBudgetThresholds:
         mock_accounts.return_value.get_all.return_value = []
         mock_health_warnings.return_value = []
         mock_budgets.return_value.get_all_with_spending.return_value = [
-            {
-                "id": "b-1",
-                "category_id": "cat-1",
-                "category_name": "Groceries",
-                "category_icon": "🛒",
-                "monthly_limit": 2000.0,
-                "spent": 1700.0,
-                "percentage": 85.0,
-                "currency": "EGP",
-            },
+            BudgetWithSpending(
+                id="b-1",
+                category_id="cat-1",
+                category_name="Groceries",
+                category_icon="🛒",
+                monthly_limit=2000.0,
+                spent=1700.0,
+                percentage=85.0,
+                currency="EGP",
+                remaining=300.0,
+                status="amber",
+            ),
         ]
         mock_recurring.return_value.get_due_pending.return_value = []
 
@@ -217,16 +245,18 @@ class TestBudgetThresholds:
         mock_accounts.return_value.get_all.return_value = []
         mock_health_warnings.return_value = []
         mock_budgets.return_value.get_all_with_spending.return_value = [
-            {
-                "id": "b-2",
-                "category_id": "cat-2",
-                "category_name": "Transport",
-                "category_icon": "",
-                "monthly_limit": 500.0,
-                "spent": 550.0,
-                "percentage": 110.0,
-                "currency": "EGP",
-            },
+            BudgetWithSpending(
+                id="b-2",
+                category_id="cat-2",
+                category_name="Transport",
+                category_icon="",
+                monthly_limit=500.0,
+                spent=550.0,
+                percentage=110.0,
+                currency="EGP",
+                remaining=-50.0,
+                status="red",
+            ),
         ]
         mock_recurring.return_value.get_due_pending.return_value = []
 
@@ -290,12 +320,18 @@ class TestRecurringDue:
         mock_health_warnings.return_value = []
         mock_budgets.return_value.get_all_with_spending.return_value = []
         mock_recurring.return_value.get_due_pending.return_value = [
-            {
-                "id": "rule-1",
-                "frequency": "monthly",
-                "next_due_date": date(2026, 3, 19),
-                "auto_confirm": False,
-            },
+            RecurringRulePending(
+                id="rule-1",
+                user_id="user-1",
+                frequency="monthly",
+                day_of_month=None,
+                next_due_date=date(2026, 3, 19),
+                is_active=True,
+                auto_confirm=False,
+                template_transaction={},
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            ),
         ]
 
         svc = NotificationService("user-1", TZ)
@@ -345,12 +381,18 @@ class TestEdgeCases:
         """If AccountService fails, recurring notifications still work."""
         mock_accounts.return_value.get_all.side_effect = RuntimeError("db down")
         mock_recurring.return_value.get_due_pending.return_value = [
-            {
-                "id": "rule-2",
-                "frequency": "weekly",
-                "next_due_date": date(2026, 3, 19),
-                "auto_confirm": False,
-            },
+            RecurringRulePending(
+                id="rule-2",
+                user_id="user-1",
+                frequency="weekly",
+                day_of_month=None,
+                next_due_date=date(2026, 3, 19),
+                is_active=True,
+                auto_confirm=False,
+                template_transaction={},
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            ),
         ]
 
         svc = NotificationService("user-1", TZ)
@@ -397,36 +439,56 @@ class TestEdgeCases:
         mock_recurring: MagicMock,
     ) -> None:
         """All trigger types can appear in one response."""
-        cc_account = {
-            "id": "cc-1",
-            "name": "Card A",
-            "type": "credit_card",
-            "current_balance": -500.0,
-            "metadata": {"statement_day": 10, "due_day": 15},
-        }
+        cc_account = AccountSummary(
+            id="cc-1",
+            name="First card",
+            institution_id=None,
+            currency="EGP",
+            type="credit_card",
+            current_balance=-500.0,
+            initial_balance=0.0,
+            credit_limit=3000.0,
+            is_dormant=False,
+            is_credit_type=True,
+            available_credit=2500.0,
+            role_tags=[],
+            display_order=0,
+            metadata={"statement_day": 10, "due_day": 15},
+            health_config={},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         mock_accounts.return_value.get_all.return_value = [cc_account]
         mock_health_warnings.return_value = [
             HealthWarning("Savings", "acc-1", "min_balance", "Low balance"),
         ]
         mock_budgets.return_value.get_all_with_spending.return_value = [
-            {
-                "id": "b-1",
-                "category_id": "cat-1",
-                "category_name": "Food",
-                "category_icon": "",
-                "monthly_limit": 1000.0,
-                "spent": 1100.0,
-                "percentage": 110.0,
-                "currency": "EGP",
-            },
+            BudgetWithSpending(
+                id="b-1",
+                category_id="cat-1",
+                category_name="Food",
+                category_icon="",
+                monthly_limit=1000.0,
+                spent=1100.0,
+                percentage=110.0,
+                currency="EGP",
+                remaining=-100.0,
+                status="red",
+            ),
         ]
         mock_recurring.return_value.get_due_pending.return_value = [
-            {
-                "id": "r-1",
-                "frequency": "daily",
-                "next_due_date": date(2026, 3, 19),
-                "auto_confirm": False,
-            },
+            RecurringRulePending(
+                id="r-1",
+                user_id="user-1",
+                frequency="daily",
+                day_of_month=None,
+                next_due_date=date(2026, 3, 19),
+                is_active=True,
+                auto_confirm=False,
+                template_transaction={},
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            ),
         ]
 
         # Setup billing mocks for CC (due in 1 day)

@@ -8,6 +8,7 @@ as raw SQL: ``get_statement_data`` (complex period queries).
 
 import json
 import logging
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -18,7 +19,7 @@ from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
-from accounts.types import HealthWarning
+from accounts.types import AccountDropdownItem, AccountSummary, HealthWarning
 from core.billing import (
     get_billing_cycle_info,
     interest_free_remaining,
@@ -276,43 +277,43 @@ class AccountService:
 
     # --- Read operations ---
 
-    def get_all(self) -> list[dict[str, Any]]:
+    def get_all(self) -> list[AccountSummary]:
         """All accounts ordered by display_order, name."""
         rows = self._qs().order_by("display_order", "name").values(*self._FIELDS)
-        return [self._row_to_dict(row) for row in rows]
+        return [self._row_to_summary(row) for row in rows]
 
     def get_for_dropdown(
         self, *, include_balance: bool = False
-    ) -> list[dict[str, Any]]:
+    ) -> list[AccountDropdownItem]:
         """Active (non-dormant) accounts for form dropdowns.
 
-        Returns lightweight dicts with id, name, currency (and optionally
+        Returns lightweight AccountDropdownItem with id, name, currency (and optionally
         current_balance). Much cheaper than get_all() for dropdown selects.
         """
         qs = self._qs().filter(is_dormant=False).order_by("display_order", "name")
         if include_balance:
             rows = qs.values("id", "name", "currency", "current_balance")
             return [
-                {
-                    "id": str(r["id"]),
-                    "name": r["name"],
-                    "currency": r["currency"],
-                    "current_balance": float(r["current_balance"]),
-                }
+                AccountDropdownItem(
+                    id=str(r["id"]),
+                    name=r["name"],
+                    currency=r["currency"],
+                    current_balance=float(r["current_balance"]),
+                )
                 for r in rows
             ]
         rows = qs.values("id", "name", "currency")
         return [
-            {"id": str(r["id"]), "name": r["name"], "currency": r["currency"]}
+            AccountDropdownItem(id=str(r["id"]), name=r["name"], currency=r["currency"])
             for r in rows
         ]
 
-    def get_by_id(self, account_id: str) -> dict[str, Any] | None:
+    def get_by_id(self, account_id: str) -> AccountSummary | None:
         """Single account by ID. Returns None if not found."""
         row = self._qs().filter(id=account_id).values(*self._FIELDS).first()
-        return self._row_to_dict(row) if row else None
+        return self._row_to_summary(row) if row else None
 
-    def get_by_institution(self, institution_id: str) -> list[dict[str, Any]]:
+    def get_by_institution(self, institution_id: str) -> list[AccountSummary]:
         """Accounts for a specific institution."""
         rows = (
             self._qs()
@@ -320,7 +321,7 @@ class AccountService:
             .order_by("display_order", "name")
             .values(*self._FIELDS)
         )
-        return [self._row_to_dict(row) for row in rows]
+        return [self._row_to_summary(row) for row in rows]
 
     # --- Write operations ---
 
@@ -395,7 +396,7 @@ class AccountService:
             "updated_at": account.updated_at,
         }
 
-    def update(self, account_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
+    def update(self, account_id: str, data: dict[str, Any]) -> AccountSummary | None:
         """Update account fields (not balance). Returns updated record or None."""
         name = _require_trimmed_name(data.get("name", ""), "account name")
         acc_type = data.get("type", "current")
@@ -418,7 +419,7 @@ class AccountService:
             return None
         logger.info("account.updated id=%s user=%s", account_id, self.user_id)
         row = self._qs().filter(id=account_id).values(*self._FIELDS).first()
-        return self._row_to_dict(row) if row else None
+        return self._row_to_summary(row) if row else None
 
     def delete(self, account_id: str) -> str | None:
         """Delete account. Returns error message or None on success.
@@ -587,8 +588,8 @@ class AccountService:
 
     # --- Internal helpers ---
 
-    def _row_to_dict(self, row: dict[str, Any]) -> dict[str, Any]:
-        """Convert a .values() row to an account dict with computed fields."""
+    def _row_to_summary(self, row: dict[str, Any]) -> AccountSummary:
+        """Convert a .values() row to an AccountSummary with computed fields."""
         balance = float(row["current_balance"])
         credit_limit = (
             float(row["credit_limit"]) if row["credit_limit"] is not None else None
@@ -605,26 +606,25 @@ class AccountService:
             available_credit = credit_limit + balance  # balance is negative for CC
 
         inst_id = row["institution_id"]
-        return {
-            "id": str(row["id"]),
-            "institution_id": str(inst_id) if inst_id else None,
-            "name": row["name"],
-            "type": acc_type,
-            "currency": row["currency"],
-            "current_balance": balance,
-            "initial_balance": float(row["initial_balance"]),
-            "credit_limit": credit_limit,
-            "is_dormant": row["is_dormant"],
-            "role_tags": row["role_tags"] or [],
-            "display_order": row["display_order"],
-            "metadata": metadata,
-            "health_config": health_config,
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-            # Computed fields
-            "is_credit_type": is_credit,
-            "available_credit": available_credit,
-        }
+        return AccountSummary(
+            id=str(row["id"]),
+            institution_id=str(inst_id) if inst_id else None,
+            name=row["name"],
+            type=acc_type,
+            currency=row["currency"],
+            current_balance=balance,
+            initial_balance=float(row["initial_balance"]),
+            credit_limit=credit_limit,
+            is_dormant=row["is_dormant"],
+            role_tags=row["role_tags"] or [],
+            display_order=row["display_order"],
+            metadata=metadata,
+            health_config=health_config,
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            is_credit_type=is_credit,
+            available_credit=available_credit,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -633,14 +633,24 @@ class AccountService:
 
 
 def get_statement_data(
-    account: dict[str, Any], user_id: str, tz: ZoneInfo, period_str: str = ""
+    account: AccountSummary | dict[str, Any],
+    user_id: str,
+    tz: ZoneInfo,
+    period_str: str = "",
 ) -> dict[str, Any] | None:
     """Full CC statement: transactions, balances, interest-free period, payment history.
 
     Returns None if no billing cycle configured.
     Kept as raw SQL — complex period queries with multiple aggregations.
     """
-    metadata = account.get("metadata")
+    if isinstance(account, AccountSummary):
+        account_id = account.id
+        metadata = account.metadata
+        current_balance = account.current_balance
+    else:
+        account_id = account["id"]
+        metadata = account.get("metadata")
+        current_balance = account["current_balance"]
     cycle = parse_billing_cycle(metadata)
     if not cycle:
         return None
@@ -675,7 +685,7 @@ def get_statement_data(
         }
         for row in Transaction.objects.for_user(user_id)
         .filter(
-            account_id=account["id"],
+            account_id=account_id,
             date__gte=info.period_start,
             date__lte=info.period_end,
         )
@@ -702,7 +712,7 @@ def get_statement_data(
         else:
             total_payments += tx["balance_delta"]
 
-    closing_balance = account["current_balance"]
+    closing_balance = current_balance
     opening_balance = closing_balance
     for tx in transactions:
         opening_balance -= tx["balance_delta"]
@@ -724,7 +734,7 @@ def get_statement_data(
         }
         for row in Transaction.objects.for_user(user_id)
         .filter(
-            Q(account_id=account["id"]) | Q(counter_account_id=account["id"]),
+            Q(account_id=account_id) | Q(counter_account_id=account_id),
             balance_delta__gt=0,
             type__in=["income", "transfer"],
         )
@@ -763,7 +773,9 @@ def get_statement_data(
 
 
 def load_health_warnings(
-    user_id: str, all_accounts: list[dict[str, Any]], tz: ZoneInfo
+    user_id: str,
+    all_accounts: Sequence[AccountSummary | dict[str, Any]],
+    tz: ZoneInfo,
 ) -> list[HealthWarning]:
     """Check account health constraints.
 
@@ -780,19 +792,31 @@ def load_health_warnings(
         month_end = date(today.year, today.month + 1, 1)
 
     for acc in all_accounts:
-        cfg = _parse_jsonb(acc.get("health_config"))
+        # Support both AccountSummary and dict[str, Any]
+        if isinstance(acc, AccountSummary):
+            acc_name = acc.name
+            acc_id = acc.id
+            current_balance = acc.current_balance
+            health_config: dict[str, Any] | None = acc.health_config
+        else:
+            acc_name = acc["name"]
+            acc_id = acc["id"]
+            current_balance = acc["current_balance"]
+            health_config = acc.get("health_config")
+
+        cfg = _parse_jsonb(health_config)
         if not cfg:
             continue
 
         # Check minimum balance
         min_balance = cfg.get("min_balance")
-        if min_balance is not None and acc["current_balance"] < float(min_balance):
+        if min_balance is not None and current_balance < float(min_balance):
             warnings.append(
                 HealthWarning(
-                    account_name=acc["name"],
-                    account_id=acc["id"],
+                    account_name=acc_name,
+                    account_id=acc_id,
                     rule="min_balance",
-                    message=f"{acc['name']} is below minimum balance",
+                    message=f"{acc_name} is below minimum balance",
                 )
             )
 
@@ -802,7 +826,7 @@ def load_health_warnings(
             has_deposit = (
                 Transaction.objects.for_user(user_id)
                 .filter(
-                    account_id=acc["id"],
+                    account_id=acc_id,
                     type="income",
                     amount__gte=Decimal(str(min_deposit)),
                     date__gte=month_start,
@@ -814,10 +838,10 @@ def load_health_warnings(
             if not has_deposit:
                 warnings.append(
                     HealthWarning(
-                        account_name=acc["name"],
-                        account_id=acc["id"],
+                        account_name=acc_name,
+                        account_id=acc_id,
                         rule="min_monthly_deposit",
-                        message=f"{acc['name']} is missing required monthly deposit",
+                        message=f"{acc_name} is missing required monthly deposit",
                     )
                 )
 

@@ -178,7 +178,7 @@ class TestGetForDropdown:
     def test_excludes_dormant(self, dropdown_data: dict) -> None:
         svc = AccountService(dropdown_data["user_id"], self.tz)
         accounts = svc.get_for_dropdown()
-        ids = [a["id"] for a in accounts]
+        ids = [a.id for a in accounts]
         assert dropdown_data["active_id"] in ids
         assert dropdown_data["dormant_id"] not in ids
 
@@ -187,17 +187,17 @@ class TestGetForDropdown:
         accounts = svc.get_for_dropdown()
         assert len(accounts) >= 1
         acc = accounts[0]
-        assert "id" in acc
-        assert "name" in acc
-        assert "currency" in acc
-        assert "current_balance" not in acc
+        assert acc.id
+        assert acc.name
+        assert acc.currency
+        assert acc.current_balance is None
 
     def test_with_balance(self, dropdown_data: dict) -> None:
         svc = AccountService(dropdown_data["user_id"], self.tz)
         accounts = svc.get_for_dropdown(include_balance=True)
         acc = accounts[0]
-        assert "current_balance" in acc
-        assert isinstance(acc["current_balance"], float)
+        assert acc.current_balance is not None
+        assert isinstance(acc.current_balance, float)
 
 
 # ---------------------------------------------------------------------------

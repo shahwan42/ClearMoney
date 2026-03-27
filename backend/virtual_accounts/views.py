@@ -10,7 +10,6 @@ and HTMX for the edit bottom sheet (edit-form GET + edit POST).
 
 import logging
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from django.http import HttpResponse
@@ -58,11 +57,11 @@ def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
     # Build lookup maps for over-allocation warnings
-    account_balances: dict[str, float] = {}
+    account_balances: dict[str, float | None] = {}
     account_names: dict[str, str] = {}
     for ba in bank_accounts:
-        account_balances[ba["id"]] = ba["current_balance"]
-        account_names[ba["id"]] = ba["name"]
+        account_balances[ba.id] = ba.current_balance
+        account_names[ba.id] = ba.name
 
     # Sum VA balances per linked bank account
     va_group_totals: dict[str, float] = {}
@@ -75,11 +74,12 @@ def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
     # Generate warning messages for over-allocated account groups
     warnings: list[str] = []
     for acct_id, total_va in va_group_totals.items():
-        if acct_id in account_balances and total_va > account_balances[acct_id]:
+        balance = account_balances.get(acct_id)
+        if balance is not None and total_va > balance:
             warnings.append(
                 f"Total virtual account allocations (EGP {total_va:,.2f}) "
                 f"exceed {account_names[acct_id]} balance "
-                f"(EGP {account_balances[acct_id]:,.2f})"
+                f"(EGP {balance:,.2f})"
             )
 
     # Attach per-VA over-allocation info for template rendering
@@ -158,7 +158,9 @@ def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
     allocations = svc.get_allocations(str(va_id), limit=50)
 
     # Over-allocation warnings for linked bank account
-    linked_account: dict[str, Any] | None = None
+    from accounts.types import AccountDropdownItem
+
+    linked_account: AccountDropdownItem | None = None
     over_allocated = False
     account_over_allocated = False
     total_va_balance = 0.0
@@ -168,19 +170,19 @@ def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
             include_balance=True
         )
         for ba in bank_accounts:
-            if ba["id"] == va["account_id"]:
+            if ba.id == va["account_id"]:
                 linked_account = ba
                 break
 
         if linked_account:
-            if va["current_balance"] > linked_account["current_balance"]:
+            if va["current_balance"] > (linked_account.current_balance or 0):
                 over_allocated = True
 
             # Sum all sibling VA balances linked to the same bank account
             sibling_vas = svc.get_by_account_id(va["account_id"])
             for sibling in sibling_vas:
                 total_va_balance += sibling["current_balance"]
-            if total_va_balance > linked_account["current_balance"]:
+            if total_va_balance > (linked_account.current_balance or 0):
                 account_over_allocated = True
 
     return render(

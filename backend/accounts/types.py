@@ -20,3 +20,47 @@ class HealthWarning:
     account_id: str  # UUID of the account
     rule: str  # "min_balance" | "min_monthly_deposit"
     message: str  # Human-readable warning message
+
+
+@dataclass(frozen=True)
+class AccountSummary:
+    """Full account data — used by same-module views and cross-module consumers.
+
+    Returned by AccountService.get_all() and used by:
+    - accounts/views.py (JSON API)
+    - push/services.py (notifications)
+    """
+
+    id: str
+    name: str
+    institution_id: str | None
+    currency: str
+    type: str  # savings | current | prepaid | cash | credit_card | credit_limit
+    current_balance: float
+    initial_balance: float
+    credit_limit: float | None
+    is_dormant: bool
+    is_credit_type: bool
+    available_credit: float | None
+    role_tags: list
+    display_order: int
+    metadata: dict | None
+    health_config: dict | None
+    created_at: object  # datetime
+    updated_at: object  # datetime
+
+
+@dataclass(frozen=True)
+class AccountDropdownItem:
+    """Lightweight account for form dropdowns.
+
+    Returned by AccountService.get_for_dropdown() and used by:
+    - people/views.py
+    - virtual_accounts/views.py
+    - recurring/views.py
+    """
+
+    id: str
+    name: str
+    currency: str
+    current_balance: float | None = None  # present only when include_balance=True

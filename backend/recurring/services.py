@@ -24,6 +24,7 @@ from dateutil.relativedelta import relativedelta
 from django.utils import timezone as django_tz
 
 from core.models import RecurringRule
+from recurring.types import RecurringRulePending
 from transactions.services import TransactionService
 
 logger = logging.getLogger(__name__)
@@ -43,8 +44,8 @@ _FIELDS = (
 )
 
 
-def _row_to_rule(row: dict[str, Any]) -> dict[str, Any]:
-    """Convert a .values() dict to a rule dict.
+def _row_to_rule(row: dict[str, Any]) -> RecurringRulePending:
+    """Convert a .values() dict to a RecurringRulePending.
 
     template_transaction comes back as a Python dict from Django's JSONField,
     but may be a string if manually inserted.
@@ -53,38 +54,38 @@ def _row_to_rule(row: dict[str, Any]) -> dict[str, Any]:
     if isinstance(tmpl, str):
         tmpl = json.loads(tmpl)
 
-    return {
-        "id": str(row["id"]),
-        "user_id": str(row["user_id"]),
-        "template_transaction": tmpl,
-        "frequency": row["frequency"],
-        "day_of_month": row["day_of_month"],
-        "next_due_date": row["next_due_date"],
-        "is_active": row["is_active"],
-        "auto_confirm": row["auto_confirm"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-    }
+    return RecurringRulePending(
+        id=str(row["id"]),
+        user_id=str(row["user_id"]),
+        template_transaction=tmpl,
+        frequency=row["frequency"],
+        day_of_month=row["day_of_month"],
+        next_due_date=row["next_due_date"],
+        is_active=row["is_active"],
+        auto_confirm=row["auto_confirm"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
 
 
-def _instance_to_rule(inst: RecurringRule) -> dict[str, Any]:
-    """Convert a RecurringRule model instance to a rule dict."""
+def _instance_to_rule(inst: RecurringRule) -> RecurringRulePending:
+    """Convert a RecurringRule model instance to a RecurringRulePending dataclass."""
     tmpl = inst.template_transaction
     if isinstance(tmpl, str):
         tmpl = json.loads(tmpl)
 
-    return {
-        "id": str(inst.id),
-        "user_id": str(inst.user_id),
-        "template_transaction": tmpl,
-        "frequency": inst.frequency,
-        "day_of_month": inst.day_of_month,
-        "next_due_date": inst.next_due_date,
-        "is_active": inst.is_active,
-        "auto_confirm": inst.auto_confirm,
-        "created_at": inst.created_at,
-        "updated_at": inst.updated_at,
-    }
+    return RecurringRulePending(
+        id=str(inst.id),
+        user_id=str(inst.user_id),
+        template_transaction=tmpl,
+        frequency=inst.frequency,
+        day_of_month=inst.day_of_month,
+        next_due_date=inst.next_due_date,
+        is_active=inst.is_active,
+        auto_confirm=inst.auto_confirm,
+        created_at=inst.created_at,
+        updated_at=inst.updated_at,
+    )
 
 
 class RecurringService:
@@ -106,28 +107,28 @@ class RecurringService:
     # Read
     # ------------------------------------------------------------------
 
-    def get_all(self) -> list[dict[str, Any]]:
+    def get_all(self) -> list[RecurringRulePending]:
         """All recurring rules ordered by next_due_date ASC."""
         rows = self._qs().order_by("next_due_date").values(*_FIELDS)
         return [_row_to_rule(row) for row in rows]
 
-    def get_by_id(self, rule_id: str) -> dict[str, Any] | None:
+    def get_by_id(self, rule_id: str) -> RecurringRulePending | None:
         """Single rule by ID, scoped to user."""
         row = self._qs().filter(id=rule_id).values(*_FIELDS).first()
         if not row:
             return None
         return _row_to_rule(row)
 
-    def get_due_pending(self) -> list[dict[str, Any]]:
+    def get_due_pending(self) -> list[RecurringRulePending]:
         """Due rules needing user confirmation (auto_confirm=false).
 
         Fetches all due rules then filters to those requiring manual confirmation.
         """
         today = date.today()
         rules = self._get_due(today)
-        return [r for r in rules if not r["auto_confirm"]]
+        return [r for r in rules if not r.auto_confirm]
 
-    def _get_due(self, today: date) -> list[dict[str, Any]]:
+    def _get_due(self, today: date) -> list[RecurringRulePending]:
         """All active rules where next_due_date <= today."""
         rows = (
             self._qs()
@@ -141,7 +142,7 @@ class RecurringService:
     # Write
     # ------------------------------------------------------------------
 
-    def create(self, data: dict[str, Any]) -> dict[str, Any]:
+    def create(self, data: dict[str, Any]) -> RecurringRulePending:
         """Create a new recurring rule.
 
         Validates required fields, inserts JSONB template, returns created rule.
@@ -202,20 +203,20 @@ class RecurringService:
         rules = self._get_due(today)
         created = 0
         for rule in rules:
-            if not rule["auto_confirm"]:
+            if not rule.auto_confirm:
                 continue
             try:
                 self._execute_rule(rule)
                 created += 1
                 logger.info(
                     "recurring.auto_processed id=%s user=%s",
-                    rule["id"],
+                    rule.id,
                     self.user_id,
                 )
             except Exception:
                 logger.exception(
                     "recurring.auto_process_failed id=%s user=%s",
-                    rule["id"],
+                    rule.id,
                     self.user_id,
                 )
         return created
@@ -224,7 +225,7 @@ class RecurringService:
     # Private
     # ------------------------------------------------------------------
 
-    def _execute_rule(self, rule: dict[str, Any]) -> None:
+    def _execute_rule(self, rule: RecurringRulePending) -> None:
         """Create a transaction from the rule template and advance the due date.
 
         Core logic shared by confirm() and process_due_rules().
@@ -234,12 +235,12 @@ class RecurringService:
         3. Build transaction data and delegate to TransactionService.create()
         4. Advance next_due_date and persist
         """
-        tmpl = rule["template_transaction"]
+        tmpl = rule.template_transaction
 
         account_id = tmpl.get("account_id", "")
         if not account_id:
             raise ValueError(
-                f"Recurring rule {rule['id']} has no account_id "
+                f"Recurring rule {rule.id} has no account_id "
                 "— account may have been deleted"
             )
 
@@ -247,8 +248,8 @@ class RecurringService:
             "type": tmpl.get("type", "expense"),
             "amount": tmpl.get("amount", 0),
             "account_id": account_id,
-            "date": rule["next_due_date"],
-            "recurring_rule_id": rule["id"],
+            "date": rule.next_due_date,
+            "recurring_rule_id": rule.id,
         }
         if tmpl.get("category_id"):
             tx_data["category_id"] = tmpl["category_id"]
@@ -261,17 +262,17 @@ class RecurringService:
         tx_svc.create(tx_data)
 
         next_date = self._advance_due_date(rule)
-        self._update_next_due_date(rule["id"], next_date)
+        self._update_next_due_date(rule.id, next_date)
 
-    def _advance_due_date(self, rule: dict[str, Any]) -> date:
+    def _advance_due_date(self, rule: RecurringRulePending) -> date:
         """Calculate next due date based on frequency.
 
         Weekly: +7 days (timedelta).
         Monthly: +1 month (dateutil.relativedelta — clamps month overflow,
         e.g., Jan 31 + 1 month = Feb 28).
         """
-        current: date = rule["next_due_date"]
-        freq: str = rule["frequency"]
+        current: date = rule.next_due_date
+        freq: str = rule.frequency
         if freq == "weekly":
             return current + timedelta(days=7)
         # Default to monthly
@@ -288,17 +289,54 @@ class RecurringService:
     # View helpers
     # ------------------------------------------------------------------
 
-    def rule_to_view(self, rule: dict[str, Any]) -> dict[str, Any]:
-        """Enrich a rule dict with display fields for templates.
+    def rule_to_view(
+        self, rule: RecurringRulePending | dict[str, Any]
+    ) -> dict[str, Any]:
+        """Enrich a rule with display fields for templates.
 
         Extracts note and amount from the JSONB template for display without re-querying.
+        Accepts both RecurringRulePending dataclass and dict for backward compatibility.
         """
-        tmpl = rule["template_transaction"]
+        # Handle both dataclass and dict access patterns
+        if isinstance(rule, dict):
+            tmpl = rule.get("template_transaction", {})
+            rule_id = rule.get("id")
+            user_id = rule.get("user_id")
+            frequency = rule.get("frequency")
+            day_of_month = rule.get("day_of_month")
+            next_due_date = rule.get("next_due_date")
+            is_active = rule.get("is_active")
+            auto_confirm = rule.get("auto_confirm")
+            created_at = rule.get("created_at")
+            updated_at = rule.get("updated_at")
+            template_transaction = tmpl
+        else:
+            tmpl = rule.template_transaction
+            rule_id = rule.id
+            user_id = rule.user_id
+            frequency = rule.frequency
+            day_of_month = rule.day_of_month
+            next_due_date = rule.next_due_date
+            is_active = rule.is_active
+            auto_confirm = rule.auto_confirm
+            created_at = rule.created_at
+            updated_at = rule.updated_at
+            template_transaction = rule.template_transaction
+
         note = tmpl.get("note") or tmpl.get("type", "")
         amount = tmpl.get("amount", 0)
         currency = tmpl.get("currency", "EGP")
         return {
-            **rule,
+            "id": rule_id,
+            "user_id": user_id,
+            "template_transaction": template_transaction,
+            "frequency": frequency,
+            "day_of_month": day_of_month,
+            "next_due_date": next_due_date,
+            "is_active": is_active,
+            "auto_confirm": auto_confirm,
+            "created_at": created_at,
+            "updated_at": updated_at,
             "note": note,
             "amount_display": f"{amount:.2f} {currency}",
         }

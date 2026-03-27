@@ -6,6 +6,7 @@ Tests run against the real database with --reuse-db.
 
 from datetime import date, timedelta
 from typing import Any
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -93,7 +94,7 @@ class TestGetAll:
 
         rules = svc.get_all()
         assert len(rules) == 2
-        assert rules[0]["next_due_date"] <= rules[1]["next_due_date"]
+        assert rules[0].next_due_date <= rules[1].next_due_date
 
 
 # ---------------------------------------------------------------------------
@@ -113,10 +114,10 @@ class TestCreate:
                 "auto_confirm": True,
             }
         )
-        assert result["id"]
-        assert result["frequency"] == "monthly"
-        assert result["auto_confirm"] is True
-        assert result["template_transaction"]["note"] == "Monthly Netflix"
+        assert result.id
+        assert result.frequency == "monthly"
+        assert result.auto_confirm is True
+        assert result.template_transaction["note"] == "Monthly Netflix"
 
     def test_missing_template(self, rec_data):
         svc = _svc(rec_data["user_id"])
@@ -182,7 +183,7 @@ class TestGetDuePending:
 
         pending = svc.get_due_pending()
         assert len(pending) == 1
-        assert pending[0]["template_transaction"]["note"] == "Manual"
+        assert pending[0].template_transaction["note"] == "Manual"
 
     def test_excludes_future_rules(self, rec_data):
         """Rules with next_due_date in the future are not pending."""
@@ -222,15 +223,15 @@ class TestConfirm:
             }
         )
 
-        svc.confirm(rule["id"])
+        svc.confirm(rule.id)
 
         # Date should have advanced by 1 month
-        updated_rule = svc.get_by_id(rule["id"])
+        updated_rule = svc.get_by_id(rule.id)
         assert updated_rule is not None
-        assert updated_rule["next_due_date"] > yesterday
+        assert updated_rule.next_due_date > yesterday
 
         # Transaction should have been created via ORM
-        count = Transaction.objects.filter(recurring_rule_id=rule["id"]).count()
+        count = Transaction.objects.filter(recurring_rule_id=UUID(rule.id)).count()
         assert count == 1
 
     def test_updates_account_balance(self, rec_data):
@@ -248,7 +249,7 @@ class TestConfirm:
             }
         )
 
-        svc.confirm(rule["id"])
+        svc.confirm(rule.id)
 
         balance = float(Account.objects.get(id=rec_data["account_id"]).current_balance)
         assert balance == 49500.0  # 50000 - 500
@@ -274,15 +275,15 @@ class TestSkip:
             }
         )
 
-        svc.skip(rule["id"])
+        svc.skip(rule.id)
 
         # Date should have advanced by 7 days
-        updated = svc.get_by_id(rule["id"])
+        updated = svc.get_by_id(rule.id)
         assert updated is not None
-        assert updated["next_due_date"] == yesterday + timedelta(days=7)
+        assert updated.next_due_date == yesterday + timedelta(days=7)
 
         # No transaction should have been created
-        count = Transaction.objects.filter(recurring_rule_id=rule["id"]).count()
+        count = Transaction.objects.filter(recurring_rule_id=UUID(rule.id)).count()
         assert count == 0
 
 
@@ -303,8 +304,8 @@ class TestDelete:
             }
         )
 
-        svc.delete(rule["id"])
-        assert svc.get_by_id(rule["id"]) is None
+        svc.delete(rule.id)
+        assert svc.get_by_id(rule.id) is None
 
 
 # ---------------------------------------------------------------------------
@@ -315,19 +316,64 @@ class TestDelete:
 @pytest.mark.django_db
 class TestAdvanceDueDate:
     def test_weekly(self, rec_data):
+        from datetime import datetime
+
+        from recurring.types import RecurringRulePending
+
         svc = _svc(rec_data["user_id"])
-        rule = {"next_due_date": date(2026, 3, 15), "frequency": "weekly"}
+        rule = RecurringRulePending(
+            id="test-id",
+            user_id=rec_data["user_id"],
+            next_due_date=date(2026, 3, 15),
+            frequency="weekly",
+            day_of_month=None,
+            is_active=True,
+            auto_confirm=False,
+            template_transaction={},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         assert svc._advance_due_date(rule) == date(2026, 3, 22)
 
     def test_monthly(self, rec_data):
+        from datetime import datetime
+
+        from recurring.types import RecurringRulePending
+
         svc = _svc(rec_data["user_id"])
-        rule = {"next_due_date": date(2026, 3, 15), "frequency": "monthly"}
+        rule = RecurringRulePending(
+            id="test-id",
+            user_id=rec_data["user_id"],
+            next_due_date=date(2026, 3, 15),
+            frequency="monthly",
+            day_of_month=None,
+            is_active=True,
+            auto_confirm=False,
+            template_transaction={},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         assert svc._advance_due_date(rule) == date(2026, 4, 15)
 
     def test_monthly_overflow_clamps(self, rec_data):
         """Jan 31 + 1 month = Feb 28 (dateutil clamps month overflow)."""
+        from datetime import datetime
+
+        from recurring.types import RecurringRulePending
+
         svc = _svc(rec_data["user_id"])
-        rule = {"next_due_date": date(2026, 1, 31), "frequency": "monthly"}
+        rule = RecurringRulePending(
+            id="test-id",
+            user_id=rec_data["user_id"],
+            next_due_date=date(2026, 1, 31),
+            frequency="monthly",
+            day_of_month=None,
+            is_active=True,
+            auto_confirm=False,
+            template_transaction={},
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         assert svc._advance_due_date(rule) == date(2026, 2, 28)
 
 
@@ -366,9 +412,9 @@ class TestProcessDueRules:
         assert count == 1
 
         # Auto rule date advanced
-        updated = svc.get_by_id(auto_rule["id"])
+        updated = svc.get_by_id(auto_rule.id)
         assert updated is not None
-        assert updated["next_due_date"] > yesterday
+        assert updated.next_due_date > yesterday
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +435,7 @@ class TestExecuteRule:
             }
         )
         with pytest.raises(ValueError, match="no account_id"):
-            svc.confirm(rule["id"])
+            svc.confirm(rule.id)
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +470,7 @@ class TestRuleToView:
             }
         )
         # Remove note key to simulate missing note
-        rule["template_transaction"].pop("note", None)
+        rule.template_transaction.pop("note", None)
         view = svc.rule_to_view(rule)
         assert view["note"] == "expense"
 

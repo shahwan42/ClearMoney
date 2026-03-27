@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import DecimalField, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 
+from budgets.types import BudgetWithSpending
 from core.models import Budget, TotalBudget, Transaction
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class BudgetService:
         """Base queryset scoped to the current user."""
         return Budget.objects.for_user(self.user_id)
 
-    def get_all_with_spending(self) -> list[dict[str, Any]]:
+    def get_all_with_spending(self) -> list[BudgetWithSpending]:
         """Return active budgets with current month's actual spending.
 
         Annotates budgets with a Subquery against transactions to compute spent
@@ -78,7 +79,7 @@ class BudgetService:
             .order_by("category__name")
         )
 
-        budgets: list[dict[str, Any]] = []
+        budgets: list[BudgetWithSpending] = []
         for b in rows:
             limit_amt = float(b.monthly_limit)
             spent = float(b.spent_amount)
@@ -93,18 +94,18 @@ class BudgetService:
                 status = "green"
 
             budgets.append(
-                {
-                    "id": str(b.id),
-                    "category_id": str(b.category_id),
-                    "monthly_limit": limit_amt,
-                    "currency": b.currency,
-                    "category_name": b.category.name,
-                    "category_icon": b.category.icon or "",
-                    "spent": spent,
-                    "remaining": remaining,
-                    "percentage": pct,
-                    "status": status,
-                }
+                BudgetWithSpending(
+                    id=str(b.id),
+                    category_id=str(b.category_id),
+                    monthly_limit=limit_amt,
+                    currency=b.currency,
+                    category_name=b.category.name,
+                    category_icon=b.category.icon or "",
+                    spent=spent,
+                    remaining=remaining,
+                    percentage=pct,
+                    status=status,
+                )
             )
         return budgets
 

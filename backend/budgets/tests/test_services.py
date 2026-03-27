@@ -63,12 +63,12 @@ class TestGetAllWithSpending:
 
         assert len(result) == 1
         b = result[0]
-        assert b["category_name"] == "Groceries"
-        assert b["monthly_limit"] == 5000.0
-        assert b["spent"] == 0.0
-        assert b["remaining"] == 5000.0
-        assert b["percentage"] == 0.0
-        assert b["status"] == "green"
+        assert b.category_name == "Groceries"
+        assert b.monthly_limit == 5000.0
+        assert b.spent == 0.0
+        assert b.remaining == 5000.0
+        assert b.percentage == 0.0
+        assert b.status == "green"
 
     def test_with_spending_green(self, budget_data):
         """Under 80% — green status."""
@@ -81,10 +81,10 @@ class TestGetAllWithSpending:
         result = svc.get_all_with_spending()
         assert len(result) == 1
         b = result[0]
-        assert b["spent"] == 500.0
-        assert b["remaining"] == 500.0
-        assert b["percentage"] == 50.0
-        assert b["status"] == "green"
+        assert b.spent == 500.0
+        assert b.remaining == 500.0
+        assert b.percentage == 50.0
+        assert b.status == "green"
 
     def test_with_spending_amber(self, budget_data):
         """Between 80% and 100% — amber status."""
@@ -95,9 +95,9 @@ class TestGetAllWithSpending:
 
         result = svc.get_all_with_spending()
         b = result[0]
-        assert b["spent"] == 850.0
-        assert b["percentage"] == 85.0
-        assert b["status"] == "amber"
+        assert b.spent == 850.0
+        assert b.percentage == 85.0
+        assert b.status == "amber"
 
     def test_with_spending_red(self, budget_data):
         """100% or more — red status."""
@@ -108,10 +108,10 @@ class TestGetAllWithSpending:
 
         result = svc.get_all_with_spending()
         b = result[0]
-        assert b["spent"] == 1200.0
-        assert b["remaining"] == -200.0
-        assert b["percentage"] == 120.0
-        assert b["status"] == "red"
+        assert b.spent == 1200.0
+        assert b.remaining == -200.0
+        assert b.percentage == 120.0
+        assert b.status == "red"
 
     def test_only_counts_current_month(self, budget_data):
         """Transactions from last month should not count."""
@@ -125,7 +125,7 @@ class TestGetAllWithSpending:
         )
 
         result = svc.get_all_with_spending()
-        assert result[0]["spent"] == 0.0
+        assert result[0].spent == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -253,9 +253,9 @@ class TestBudgetEdgeCases:
         assert len(result) == 1
         b = result[0]
         # Income transactions don't count as spending — spent is 0
-        assert b["spent"] == 0.0
-        assert b["percentage"] == 0.0
-        assert b["status"] == "green"
+        assert b.spent == 0.0
+        assert b.percentage == 0.0
+        assert b.status == "green"
 
     def test_zero_limit_budget_percentage(self, budget_data: dict) -> None:
         """Budget with monthly_limit=0 is rejected by create validation."""

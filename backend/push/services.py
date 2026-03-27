@@ -49,13 +49,13 @@ class NotificationService:
             acct_svc = AccountService(self.user_id, self.tz)
             all_accounts = acct_svc.get_all()
             credit_accounts = [
-                a for a in all_accounts if a["type"] in {"credit_card", "credit_limit"}
+                a for a in all_accounts if a.type in {"credit_card", "credit_limit"}
             ]
             today = datetime.now(self.tz).date()
 
             # 1. Credit cards due within 3 days
             for card in credit_accounts:
-                billing = parse_billing_cycle(card.get("metadata"))
+                billing = parse_billing_cycle(card.metadata)
                 if billing:
                     stmt_day, due_day = billing
                     due_date = compute_due_date(stmt_day, due_day, today)
@@ -65,11 +65,11 @@ class NotificationService:
                             {
                                 "title": "Credit Card Due Soon",
                                 "body": (
-                                    f"{card['name']} is due in {days_until} day(s)"
-                                    f" — balance: EGP {-card['current_balance']:.2f}"
+                                    f"{card.name} is due in {days_until} day(s)"
+                                    f" — balance: EGP {-card.current_balance:.2f}"
                                 ),
                                 "url": "/accounts",
-                                "tag": f"cc-due-{card['name']}-{due_date.isoformat()}",
+                                "tag": f"cc-due-{card.name}-{due_date.isoformat()}",
                             }
                         )
 
@@ -87,26 +87,24 @@ class NotificationService:
             # 3. Budget threshold alerts (80% warning, 100% exceeded)
             budget_svc = BudgetService(self.user_id, self.tz)
             for budget in budget_svc.get_all_with_spending():
-                pct = budget["percentage"]
-                display_name = (
-                    f"{budget['category_icon']} {budget['category_name']}".strip()
-                )
+                pct = budget.percentage
+                display_name = f"{budget.category_icon} {budget.category_name}".strip()
 
                 if pct >= 100:
                     notifications.append(
                         {
                             "title": "Budget Exceeded",
                             "body": (
-                                f"{display_name}: spent EGP {budget['spent']:.0f}"
-                                f" of EGP {budget['monthly_limit']:.0f}"
+                                f"{display_name}: spent EGP {budget.spent:.0f}"
+                                f" of EGP {budget.monthly_limit:.0f}"
                                 f" limit ({pct:.0f}%)"
                             ),
                             "url": "/budgets",
-                            "tag": f"budget-exceeded-{budget['category_id']}",
+                            "tag": f"budget-exceeded-{budget.category_id}",
                         }
                     )
                 elif pct >= 80:
-                    remaining = budget["monthly_limit"] - budget["spent"]
+                    remaining = budget.monthly_limit - budget.spent
                     notifications.append(
                         {
                             "title": "Budget Warning",
@@ -115,7 +113,7 @@ class NotificationService:
                                 f" (EGP {remaining:.0f} remaining)"
                             ),
                             "url": "/budgets",
-                            "tag": f"budget-warning-{budget['category_id']}",
+                            "tag": f"budget-warning-{budget.category_id}",
                         }
                     )
 
@@ -128,16 +126,16 @@ class NotificationService:
             pending = recurring_svc.get_due_pending()
 
             for rule in pending:
-                due_date = rule["next_due_date"]
+                due_date = rule.next_due_date
                 notifications.append(
                     {
                         "title": "Recurring Transaction Due",
                         "body": (
-                            f"A recurring {rule['frequency']} transaction"
+                            f"A recurring {rule.frequency} transaction"
                             f" needs confirmation (due {due_date.strftime('%b %-d')})"
                         ),
                         "url": "/recurring",
-                        "tag": f"recurring-{rule['id']}-{due_date.isoformat()}",
+                        "tag": f"recurring-{rule.id}-{due_date.isoformat()}",
                     }
                 )
 

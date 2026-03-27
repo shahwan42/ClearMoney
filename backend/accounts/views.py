@@ -5,6 +5,7 @@ Handles pages, HTMX partials, and mutations.
 Like Laravel's AccountController — thin views that delegate to services.
 """
 
+import dataclasses
 import json
 import logging
 from typing import Any
@@ -89,16 +90,14 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     # Institution name
     inst_svc = InstitutionService(request.user_id, request.tz)
     inst = (
-        inst_svc.get_by_id(account["institution_id"])
-        if account["institution_id"]
-        else None
+        inst_svc.get_by_id(account.institution_id) if account.institution_id else None
     )
     institution_name = inst["name"] if inst else ""
 
     # Billing cycle (credit cards only)
     billing_cycle = None
-    if account["is_credit_type"] and account["metadata"]:
-        cycle = parse_billing_cycle(account["metadata"])
+    if account.is_credit_type and account.metadata:
+        cycle = parse_billing_cycle(account.metadata)
         if cycle:
             from datetime import date
 
@@ -110,13 +109,13 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     # Credit utilization
     utilization = 0.0
     utilization_history: list[float] = []
-    if account["is_credit_type"]:
+    if account.is_credit_type:
         utilization = get_credit_card_utilization(
-            account["current_balance"], account["credit_limit"]
+            account.current_balance, account.credit_limit
         )
-        if account["credit_limit"] and account["credit_limit"] > 0:
+        if account.credit_limit and account.credit_limit > 0:
             utilization_history = acc_svc.get_utilization_history(
-                str(id), account["credit_limit"]
+                str(id), account.credit_limit
             )
 
     # Virtual accounts linked to this account
@@ -124,14 +123,14 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     excluded_va_balance = acc_svc.get_excluded_va_balance(str(id))
 
     # Health config
-    health_config = account.get("health_config") or {}
+    health_config = account.health_config or {}
 
     # Recent transactions
     transactions = acc_svc.get_recent_transactions(str(id), limit=50)
     has_more = len(transactions) >= 50
 
     # Compute "your money" = balance - excluded VA balance
-    your_money = account["current_balance"] - excluded_va_balance
+    your_money = account.current_balance - excluded_va_balance
 
     data = {
         "account": account,
@@ -159,7 +158,7 @@ def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpRespon
     if not account:
         return HttpResponse("Account not found", status=404)
 
-    if not account["is_credit_type"]:
+    if not account.is_credit_type:
         return HttpResponse("Not a credit card account", status=400)
 
     logger.info("page viewed: cc-statement, user=%s", request.user_email)
@@ -181,7 +180,7 @@ def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpRespon
 
     # Utilization for donut chart
     utilization = get_credit_card_utilization(
-        account["current_balance"], account["credit_limit"]
+        account.current_balance, account.credit_limit
     )
 
     # Utilization color segment for donut
@@ -802,9 +801,10 @@ def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
     if request.method == "GET":
         institution_id = request.GET.get("institution_id", "")
         if institution_id:
-            accounts = acc_svc.get_by_institution(institution_id)
+            summaries = acc_svc.get_by_institution(institution_id)
         else:
-            accounts = acc_svc.get_all()
+            summaries = acc_svc.get_all()
+        accounts = [dataclasses.asdict(acc) for acc in summaries]
         for acc in accounts:
             acc["user_id"] = request.user_id
             acc.pop("is_credit_type", None)
@@ -838,10 +838,13 @@ def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpRe
         acc = acc_svc.get_by_id(aid)
         if not acc:
             return JsonResponse({"error": "account not found"}, status=404)
-        acc["user_id"] = request.user_id
-        acc.pop("is_credit_type", None)
-        acc.pop("available_credit", None)
-        return JsonResponse(acc)
+        import dataclasses
+
+        acc_dict = dataclasses.asdict(acc)
+        acc_dict["user_id"] = request.user_id
+        acc_dict.pop("is_credit_type", None)
+        acc_dict.pop("available_credit", None)
+        return JsonResponse(acc_dict)
 
     if request.method == "PUT":
         body = parse_json_body(request)
@@ -854,10 +857,13 @@ def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpRe
             return JsonResponse({"error": str(e)}, status=400)
         if not acc:
             return JsonResponse({"error": "account not found"}, status=404)
-        acc["user_id"] = request.user_id
-        acc.pop("is_credit_type", None)
-        acc.pop("available_credit", None)
-        return JsonResponse(acc)
+        import dataclasses
+
+        acc_dict = dataclasses.asdict(acc)
+        acc_dict["user_id"] = request.user_id
+        acc_dict.pop("is_credit_type", None)
+        acc_dict.pop("available_credit", None)
+        return JsonResponse(acc_dict)
 
     # DELETE
     error = acc_svc.delete(aid)
