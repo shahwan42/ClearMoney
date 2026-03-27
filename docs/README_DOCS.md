@@ -52,21 +52,17 @@ Each feature has a dedicated guide with models, services, views, templates, and 
 
 ---
 
-## 🔍 UX Research & Audits
+## 🔍 QA & Planning
 
-**[research/](research/)** contains detailed UX findings and improvement roadmaps.
+Work tracking has been consolidated into a single AI-managed ticketing system.
 
-| Document | Focus | Status |
-|----------|-------|--------|
-| **UX_AUDIT_INDEX.md** | Master index of all audits | ✅ Complete |
-| **UX_FINDINGS_SUMMARY.md** | 23 identified issues across accessibility, mobile, dark mode, charts | ✅ Complete |
-| **UX_IMPROVEMENT_ROADMAP.md** | Prioritized fixes | ✅ Complete |
-| **UX_CHARTS_VISUALIZATIONS.md** | Chart readability, contrast, colorblindness | ✅ Complete |
-| **UX_ACCESSIBILITY_AUDIT.md** | ARIA, keyboard nav, screen readers | ✅ Complete |
-| **UX_MOBILE_RESPONSIVENESS.md** | Touch targets, responsive layout | ✅ Complete |
-| **UX_SETTINGS_DARK_MODE.md** | Dark mode contrast and theme consistency | ✅ Complete |
+See [`.tickets/`](../.tickets/) for all development tasks:
+- **Done** — completed features, fixes, audits
+- **In Progress** — active work
+- **Pending** — backlog
+- **Rejected** — cancelled or discarded plans
 
-See [research/UX_AUDIT_INDEX.md](research/UX_AUDIT_INDEX.md) for the complete list.
+All historical QA findings and improvements are tracked as tickets in `.tickets/done/` and automatically indexed in [`.tickets/INDEX.md`](./.tickets/INDEX.md).
 
 ---
 
