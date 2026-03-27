@@ -84,3 +84,31 @@ def net_worth_breakdown_partial(
             "card_type": card_type,
         },
     )
+
+
+@general_rate
+@require_http_methods(["GET"])
+def net_worth_partial(request: AuthenticatedRequest) -> HttpResponse:
+    """HTMX partial: net worth panel. GET /dashboard/partials/net-worth
+
+    Returns HTML fragment for the dashboard net worth section.
+    Used by quick-entry to refresh balance in-place after transaction.
+    """
+    logger.info("partial loaded: net-worth, user=%s", request.user_email)
+    svc = DashboardService(request.user_id, request.tz)
+    data = svc.get_dashboard()
+    return render(request, "dashboard/_net_worth.html", {"data": data})
+
+
+@general_rate
+@require_http_methods(["GET"])
+def accounts_partial(request: AuthenticatedRequest) -> HttpResponse:
+    """HTMX partial: accounts panel. GET /dashboard/partials/accounts
+
+    Returns HTML fragment for the dashboard accounts section.
+    Used by quick-entry to refresh accounts in-place after transaction.
+    """
+    logger.info("partial loaded: accounts, user=%s", request.user_email)
+    svc = DashboardService(request.user_id, request.tz)
+    data = svc.get_dashboard()
+    return render(request, "dashboard/_accounts.html", {"data": data})

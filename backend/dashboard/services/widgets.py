@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -11,80 +10,9 @@ from zoneinfo import ZoneInfo
 from django.db.models import DecimalField, F, OuterRef, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 
+from accounts.services import load_health_warnings  # noqa: F401
+from accounts.types import HealthWarning  # noqa: F401
 from core.models import Budget, Investment, Transaction, VirtualAccount
-
-from .helpers import _parse_jsonb
-
-
-@dataclass
-class HealthWarning:
-    """Violated health constraint on an account."""
-
-    account_name: str
-    account_id: str
-    rule: str  # "min_balance" or "min_monthly_deposit"
-    message: str
-
-
-def load_health_warnings(
-    user_id: str, all_accounts: list[dict[str, Any]], tz: ZoneInfo
-) -> list[HealthWarning]:
-    """Check account health constraints.
-
-    Parses health_config JSONB and checks min_balance / min_monthly_deposit.
-    """
-    warnings: list[HealthWarning] = []
-    now = datetime.now(tz)
-    today = now.date()
-    month_start = today.replace(day=1)
-    if today.month == 12:
-        month_end = date(today.year + 1, 1, 1)
-    else:
-        month_end = date(today.year, today.month + 1, 1)
-
-    for acc in all_accounts:
-        cfg = _parse_jsonb(acc.get("health_config"))
-        if not cfg:
-            continue
-
-        # Check minimum balance
-        min_balance = cfg.get("min_balance")
-        if min_balance is not None and acc["current_balance"] < float(min_balance):
-            warnings.append(
-                HealthWarning(
-                    account_name=acc["name"],
-                    account_id=acc["id"],
-                    rule="min_balance",
-                    message=f"{acc['name']} is below minimum balance",
-                )
-            )
-
-        # Check minimum monthly deposit
-        min_deposit = cfg.get("min_monthly_deposit")
-        if min_deposit is not None:
-            has_deposit = (
-                Transaction.objects.for_user(user_id)
-                .filter(
-                    account_id=acc["id"],
-                    type="income",
-                    amount__gte=Decimal(str(min_deposit)),
-                    date__gte=month_start,
-                    date__lt=month_end,
-                )
-                .exists()
-            )
-
-            if not has_deposit:
-                warnings.append(
-                    HealthWarning(
-                        account_name=acc["name"],
-                        account_id=acc["id"],
-                        rule="min_monthly_deposit",
-                        message=f"{acc['name']} is missing required monthly deposit",
-                    )
-                )
-
-    return warnings
 
 
 def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any]]:

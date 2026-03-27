@@ -491,7 +491,7 @@ class TransactionServiceBase:
             txs, has_more = self.get_recent_enriched(limit, offset)
 
         # Get total count for the filtered set
-        filters = {}
+        filters: dict[str, Any] = {}
         if account_id:
             filters["account_id"] = account_id
         filters["limit"] = 999999  # Large number to get total

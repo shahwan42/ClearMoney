@@ -24,11 +24,12 @@ format:
 	cd backend && uv run ruff format .
 	cd backend && uv run ruff check --fix .
 
-# Run linting (ruff + ruff format check + mypy).
+# Run linting (ruff + ruff format check + mypy + import-linter).
 lint:
 	cd backend && uv run ruff check .
 	cd backend && uv run ruff format --check .
 	cd backend && DATABASE_URL="$(DB_URL)" uv run mypy .
+	cd backend && uv run lint-imports
 
 # Run end-to-end tests using Playwright.
 test-e2e:

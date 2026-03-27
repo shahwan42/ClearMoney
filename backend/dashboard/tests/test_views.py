@@ -390,3 +390,57 @@ class TestMoreMenuDiscoverability:
             or "M5 15l7-7 7 7" in content
             or "M19 9l-7 7-7-7" in content
         )
+
+
+# ---------------------------------------------------------------------------
+# GET /dashboard/partials/net-worth and /dashboard/partials/accounts
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestDashboardPartials:
+    """Dashboard partial endpoints for lazy-load OOB swaps (quick-entry)."""
+
+    def test_net_worth_partial_returns_200_for_authenticated(
+        self, client, dashboard_data
+    ):
+        """GET /partials/net-worth returns 200 for authenticated user."""
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        response = client.get("/partials/net-worth", **cookie)
+        assert response.status_code == 200
+
+    def test_accounts_partial_returns_200_for_authenticated(
+        self, client, dashboard_data
+    ):
+        """GET /partials/accounts returns 200 for authenticated user."""
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        response = client.get("/partials/accounts", **cookie)
+        assert response.status_code == 200
+
+    def test_net_worth_partial_redirects_unauthenticated(self, client):
+        """GET /partials/net-worth redirects to /login when unauthenticated."""
+        response = client.get("/partials/net-worth")
+        assert response.status_code == 302
+        assert response.url == "/login"
+
+    def test_accounts_partial_redirects_unauthenticated(self, client):
+        """GET /partials/accounts redirects to /login when unauthenticated."""
+        response = client.get("/partials/accounts")
+        assert response.status_code == 302
+        assert response.url == "/login"
+
+    def test_net_worth_partial_contains_data(self, client, dashboard_data):
+        """Net worth partial contains balance information."""
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        response = client.get("/dashboard/partials/net-worth", **cookie)
+        content = response.content.decode()
+        # Should contain some net worth content (balance, sparkline, etc)
+        assert len(content) > 100  # Verify it's not empty
+
+    def test_accounts_partial_contains_data(self, client, dashboard_data):
+        """Accounts partial contains account information."""
+        cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+        response = client.get("/partials/accounts", **cookie)
+        content = response.content.decode()
+        # Should contain account name from fixture
+        assert "Main Savings" in content

@@ -613,7 +613,7 @@ class TestQuickEntryViews:
 
 @pytest.mark.django_db
 class TestQuickEntryOOBSwaps:
-    """Quick entry response includes OOB swaps for dashboard balances."""
+    """Quick entry response includes lazy-load OOB swaps for dashboard balances."""
 
     def test_response_contains_oob_net_worth(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -628,8 +628,10 @@ class TestQuickEntryOOBSwaps:
             HTTP_HX_REQUEST="true",
         )
         content = resp.content.decode()
-        assert "hx-swap-oob" in content
         assert 'id="dashboard-net-worth"' in content
+        assert 'hx-get="/partials/net-worth"' in content
+        assert 'hx-trigger="load"' in content
+        assert 'hx-swap="innerHTML"' in content
 
     def test_response_contains_oob_accounts(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -645,8 +647,9 @@ class TestQuickEntryOOBSwaps:
         )
         content = resp.content.decode()
         assert 'id="dashboard-accounts"' in content
+        assert 'hx-get="/partials/accounts"' in content
 
-    def test_oob_reflects_new_balance(self, client, tx_view_data):
+    def test_oob_net_worth_loads_on_page(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
         resp = c.post(
             "/transactions/quick",
@@ -659,7 +662,8 @@ class TestQuickEntryOOBSwaps:
             HTTP_HX_REQUEST="true",
         )
         content = resp.content.decode()
-        assert "9,500" in content
+        # Verify the lazy-load target has hx-trigger="load"
+        assert 'hx-trigger="load"' in content
 
     def test_income_also_triggers_oob(self, client, tx_view_data):
         cat = CategoryFactory(
@@ -677,7 +681,10 @@ class TestQuickEntryOOBSwaps:
             HTTP_HX_REQUEST="true",
         )
         content = resp.content.decode()
-        assert "hx-swap-oob" in content
+        # Verify both OOB lazy-load swaps are present for income
+        assert 'id="dashboard-net-worth"' in content
+        assert 'id="dashboard-accounts"' in content
+        assert 'hx-trigger="load"' in content
 
     def test_error_response_has_no_oob(self, client, tx_view_data):
         """Failed quick entry should not include OOB swaps."""

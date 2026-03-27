@@ -8,7 +8,7 @@ as raw SQL: ``get_statement_data`` (complex period queries).
 
 import json
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -18,6 +18,7 @@ from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
+from accounts.types import HealthWarning
 from core.billing import (
     get_billing_cycle_info,
     interest_free_remaining,
@@ -754,3 +755,70 @@ def get_statement_data(
         "interest_free_urgent": is_urgent,
         "payment_history": payment_history,
     }
+
+
+# ============================================================================
+# Cross-module functions (used by push notifications, dashboard, etc.)
+# ============================================================================
+
+
+def load_health_warnings(
+    user_id: str, all_accounts: list[dict[str, Any]], tz: ZoneInfo
+) -> list[HealthWarning]:
+    """Check account health constraints.
+
+    Parses health_config JSONB and checks min_balance / min_monthly_deposit.
+    Extracted from dashboard/services/widgets.py for reuse by push notifications.
+    """
+    warnings: list[HealthWarning] = []
+    now = datetime.now(tz)
+    today = now.date()
+    month_start = today.replace(day=1)
+    if today.month == 12:
+        month_end = date(today.year + 1, 1, 1)
+    else:
+        month_end = date(today.year, today.month + 1, 1)
+
+    for acc in all_accounts:
+        cfg = _parse_jsonb(acc.get("health_config"))
+        if not cfg:
+            continue
+
+        # Check minimum balance
+        min_balance = cfg.get("min_balance")
+        if min_balance is not None and acc["current_balance"] < float(min_balance):
+            warnings.append(
+                HealthWarning(
+                    account_name=acc["name"],
+                    account_id=acc["id"],
+                    rule="min_balance",
+                    message=f"{acc['name']} is below minimum balance",
+                )
+            )
+
+        # Check minimum monthly deposit
+        min_deposit = cfg.get("min_monthly_deposit")
+        if min_deposit is not None:
+            has_deposit = (
+                Transaction.objects.for_user(user_id)
+                .filter(
+                    account_id=acc["id"],
+                    type="income",
+                    amount__gte=Decimal(str(min_deposit)),
+                    date__gte=month_start,
+                    date__lt=month_end,
+                )
+                .exists()
+            )
+
+            if not has_deposit:
+                warnings.append(
+                    HealthWarning(
+                        account_name=acc["name"],
+                        account_id=acc["id"],
+                        rule="min_monthly_deposit",
+                        message=f"{acc['name']} is missing required monthly deposit",
+                    )
+                )
+
+    return warnings

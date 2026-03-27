@@ -765,6 +765,172 @@ class TestGetLinkedVirtualAccounts:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# load_health_warnings — account health constraint checking
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestLoadHealthWarnings:
+    """load_health_warnings checks min_balance and min_monthly_deposit constraints."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_min_balance_warning_fires_when_below_threshold(self) -> None:
+        """Account below min_balance threshold returns HealthWarning."""
+        from accounts.services import load_health_warnings
+
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Savings",
+            current_balance=500,
+            health_config={"min_balance": 1000},
+        )
+
+        all_accounts = [
+            {
+                "id": str(account.id),
+                "name": account.name,
+                "current_balance": 500,
+                "health_config": {"min_balance": 1000},
+            }
+        ]
+
+        warnings = load_health_warnings(str(user.id), all_accounts, self.tz)
+
+        assert len(warnings) == 1
+        assert warnings[0].account_name == "Savings"
+        assert warnings[0].account_id == str(account.id)
+        assert warnings[0].rule == "min_balance"
+        assert "below minimum" in warnings[0].message
+
+    def test_min_balance_no_warning_when_above_threshold(self) -> None:
+        """Account above min_balance threshold returns empty list."""
+        from accounts.services import load_health_warnings
+
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Savings",
+            current_balance=2000,
+            health_config={"min_balance": 1000},
+        )
+
+        all_accounts = [
+            {
+                "id": str(account.id),
+                "name": account.name,
+                "current_balance": 2000,
+                "health_config": {"min_balance": 1000},
+            }
+        ]
+
+        warnings = load_health_warnings(str(user.id), all_accounts, self.tz)
+
+        assert len(warnings) == 0
+
+    def test_min_monthly_deposit_warning_fires_when_no_deposit(self) -> None:
+        """Account without required monthly deposit returns HealthWarning."""
+        from accounts.services import load_health_warnings
+
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Checking",
+            current_balance=1000,
+            health_config={"min_monthly_deposit": 5000},
+        )
+
+        all_accounts = [
+            {
+                "id": str(account.id),
+                "name": account.name,
+                "current_balance": 1000,
+                "health_config": {"min_monthly_deposit": 5000},
+            }
+        ]
+
+        warnings = load_health_warnings(str(user.id), all_accounts, self.tz)
+
+        assert len(warnings) == 1
+        assert warnings[0].account_name == "Checking"
+        assert warnings[0].account_id == str(account.id)
+        assert warnings[0].rule == "min_monthly_deposit"
+        assert "missing required monthly deposit" in warnings[0].message
+
+    def test_min_monthly_deposit_no_warning_when_deposit_exists(self) -> None:
+        """Account with required deposit in current month returns empty list."""
+        from accounts.services import load_health_warnings
+
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Checking",
+            current_balance=10000,
+            health_config={"min_monthly_deposit": 5000},
+        )
+
+        today = date.today()
+        TransactionFactory(
+            user_id=user.id,
+            account_id=account.id,
+            type="income",
+            amount=5000,
+            currency="EGP",
+            date=today,
+            balance_delta=5000,
+        )
+
+        all_accounts = [
+            {
+                "id": str(account.id),
+                "name": account.name,
+                "current_balance": 10000,
+                "health_config": {"min_monthly_deposit": 5000},
+            }
+        ]
+
+        warnings = load_health_warnings(str(user.id), all_accounts, self.tz)
+
+        assert len(warnings) == 0
+
+    def test_returns_empty_for_accounts_without_health_config(self) -> None:
+        """Account with no health_config returns empty list."""
+        from accounts.services import load_health_warnings
+
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Savings",
+            current_balance=500,
+            health_config=None,
+        )
+
+        all_accounts = [
+            {
+                "id": str(account.id),
+                "name": account.name,
+                "current_balance": 500,
+                "health_config": None,
+            }
+        ]
+
+        warnings = load_health_warnings(str(user.id), all_accounts, self.tz)
+
+        assert len(warnings) == 0
+
+
 @pytest.mark.django_db
 class TestInstitutionServiceGetOrCreate:
     """InstitutionService.get_or_create() deduplicates by name+type."""

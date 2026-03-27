@@ -39,6 +39,10 @@ jobs:
         working-directory: backend
         run: uv run mypy .
 
+      - name: Check import boundaries
+        working-directory: backend
+        run: uv run lint-imports
+
   test:
     runs-on: ubuntu-latest
 

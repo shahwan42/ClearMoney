@@ -19,6 +19,16 @@ urlpatterns = [
         name="people-summary",
     ),
     path(
+        "partials/net-worth",
+        views.net_worth_partial,
+        name="net-worth-partial",
+    ),
+    path(
+        "partials/accounts",
+        views.accounts_partial,
+        name="accounts-partial",
+    ),
+    path(
         "dashboard/net-worth/<str:card_type>",
         views.net_worth_breakdown_partial,
         name="net-worth-breakdown",

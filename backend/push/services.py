@@ -10,20 +10,22 @@ the browser handles delivery.
 """
 
 import logging
-from typing import Any
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from dashboard.services import DashboardService
+from accounts.services import AccountService, load_health_warnings
+from budgets.services import BudgetService
+from core.billing import compute_due_date, parse_billing_cycle
 from recurring.services import RecurringService
 
 logger = logging.getLogger(__name__)
 
 
 class NotificationService:
-    """Aggregates notification triggers from dashboard and recurring services.
+    """Aggregates notification triggers from leaf services.
 
-    Constructor takes user_id and timezone (same pattern as DashboardService
-    and RecurringService). Both dependencies are created internally.
+    Constructor takes user_id and timezone (same pattern as AccountService,
+    BudgetService, RecurringService). Dependencies are created internally.
 
     Each trigger source is wrapped in try/except — one failing source
     doesn't block others.
@@ -41,28 +43,38 @@ class NotificationService:
         """
         notifications: list[dict[str, str]] = []
 
-        # 1-3. Dashboard-based triggers: CC due, health, budgets
+        # 1-3. Leaf-service-based triggers: CC due, health, budgets
         try:
-            dashboard_svc = DashboardService(self.user_id, self.tz)
-            data: dict[str, Any] = dashboard_svc.get_dashboard()
+            # Get all accounts for CC due date checks and health warnings
+            acct_svc = AccountService(self.user_id, self.tz)
+            all_accounts = acct_svc.get_all()
+            credit_accounts = [
+                a for a in all_accounts if a["type"] in {"credit_card", "credit_limit"}
+            ]
+            today = datetime.now(self.tz).date()
 
             # 1. Credit cards due within 3 days
-            for card in data.get("due_soon_cards", []):
-                if card.days_until_due <= 3:
-                    notifications.append(
-                        {
-                            "title": "Credit Card Due Soon",
-                            "body": (
-                                f"{card.account_name} is due in {card.days_until_due} day(s)"
-                                f" — balance: EGP {-card.balance:.2f}"
-                            ),
-                            "url": "/accounts",
-                            "tag": f"cc-due-{card.account_name}-{card.due_date.isoformat()}",
-                        }
-                    )
+            for card in credit_accounts:
+                billing = parse_billing_cycle(card.get("metadata"))
+                if billing:
+                    stmt_day, due_day = billing
+                    due_date = compute_due_date(stmt_day, due_day, today)
+                    days_until = (due_date - today).days
+                    if 0 <= days_until <= 3:
+                        notifications.append(
+                            {
+                                "title": "Credit Card Due Soon",
+                                "body": (
+                                    f"{card['name']} is due in {days_until} day(s)"
+                                    f" — balance: EGP {-card['current_balance']:.2f}"
+                                ),
+                                "url": "/accounts",
+                                "tag": f"cc-due-{card['name']}-{due_date.isoformat()}",
+                            }
+                        )
 
             # 2. Account health warnings
-            for warning in data.get("health_warnings", []):
+            for warning in load_health_warnings(self.user_id, all_accounts, self.tz):
                 notifications.append(
                     {
                         "title": "Account Health Warning",
@@ -73,7 +85,8 @@ class NotificationService:
                 )
 
             # 3. Budget threshold alerts (80% warning, 100% exceeded)
-            for budget in data.get("budgets", []):
+            budget_svc = BudgetService(self.user_id, self.tz)
+            for budget in budget_svc.get_all_with_spending():
                 pct = budget["percentage"]
                 display_name = (
                     f"{budget['category_icon']} {budget['category_name']}".strip()
@@ -107,7 +120,7 @@ class NotificationService:
                     )
 
         except Exception:
-            logger.exception("push: failed to load dashboard notifications")
+            logger.exception("push: failed to load account/health/budget notifications")
 
         # 4. Recurring transactions due (needing confirmation)
         try:

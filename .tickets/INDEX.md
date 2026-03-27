@@ -14,6 +14,7 @@ Last updated: 2026-03-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [004](done/004-phase-1-fix-import-violations.md) | Phase 1: Fix dashboard import violations + enforce boundaries | improvement | high | 2026-03-27 |
 | [003](done/003-qa-audit-fixes-complete.md) | QA audit fixes complete | chore | high | 2026-03-27 |
 | [001](done/001-setup-ai-ticketing-system.md) | Setup AI-first ticketing system | chore | medium | 2026-03-27 |
 
