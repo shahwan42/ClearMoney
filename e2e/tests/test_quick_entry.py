@@ -34,7 +34,7 @@ def auth(db: None, page: Page) -> None:
     ensure_auth(page)
 
 
-@pytest.mark.skip(reason="Fixture timeout issue - db reset hangs at fixture level, not test code")
+@pytest.mark.skip(reason="Quick-entry FAB button feature not implemented - dashboard has no Add transaction button")
 class TestQuickEntry:
     def test_quick_entry_expense_updates_balance(self, page: Page) -> None:
         """Quick-entry expense: form submit → success message → dashboard balance decreases."""

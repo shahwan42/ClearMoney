@@ -273,7 +273,6 @@ class TestTransactionCRUD:
         draft_data = page.evaluate("() => localStorage.getItem('tx-draft')")
         assert draft_data is None
 
-    @pytest.mark.skip(reason="CSS selector error - UUID selectors need escaping in JavaScript")
     def test_swipe_to_delete_transaction(self, page: Page) -> None:
         """Test swipe-to-delete gesture on transaction row."""
         category_id = get_category_id("expense", _user_id)
@@ -288,17 +287,52 @@ class TestTransactionCRUD:
         expect(row).to_be_visible()
 
         # Simulate touchstart → touchmove → touchend (swipe left)
+        # Use proper Touch objects to avoid TouchEvent constructor errors
         page.evaluate(f"""() => {{
-            const el = document.querySelector('#{tx_id}');
+            const el = document.getElementById('tx-{tx_id}');
             if (el) {{
+                const startTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 300,
+                    clientY: 100,
+                    screenX: 300,
+                    screenY: 100,
+                    pageX: 300,
+                    pageY: 100
+                }});
                 el.dispatchEvent(new TouchEvent('touchstart', {{
-                    touches: [{{ clientX: 300, clientY: 100 }}]
+                    bubbles: true,
+                    cancelable: true,
+                    touches: [startTouch],
+                    targetTouches: [startTouch],
+                    changedTouches: [startTouch]
                 }}));
+
+                const moveTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 50,
+                    clientY: 100,
+                    screenX: 50,
+                    screenY: 100,
+                    pageX: 50,
+                    pageY: 100
+                }});
                 el.dispatchEvent(new TouchEvent('touchmove', {{
-                    touches: [{{ clientX: 50, clientY: 100 }}]
+                    bubbles: true,
+                    cancelable: true,
+                    touches: [moveTouch],
+                    targetTouches: [moveTouch],
+                    changedTouches: [moveTouch]
                 }}));
+
                 el.dispatchEvent(new TouchEvent('touchend', {{
-                    changedTouches: [{{ clientX: 50, clientY: 100 }}]
+                    bubbles: true,
+                    cancelable: true,
+                    touches: [],
+                    targetTouches: [],
+                    changedTouches: [moveTouch]
                 }}));
             }}
         }}""")
