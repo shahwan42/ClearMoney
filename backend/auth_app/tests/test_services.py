@@ -9,8 +9,9 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
+from auth_app.models import AuthToken, Session, User
 from auth_app.services import AuthService, EmailService, SendResult
-from core.models import AuthToken, Category, Session, User
+from categories.models import Category
 from tests.factories import AuthTokenFactory, UserFactory
 
 

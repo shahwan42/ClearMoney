@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 
-from core.models import Transaction
+from transactions.models import Transaction
 
 if TYPE_CHECKING:
     from . import DashboardData

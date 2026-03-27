@@ -11,8 +11,8 @@ from datetime import date
 
 import pytest
 
+from accounts.models import Account
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Account, Transaction, VirtualAccount, VirtualAccountAllocation
 from tests.factories import (
     AccountFactory,
     CategoryFactory,
@@ -22,6 +22,8 @@ from tests.factories import (
     VirtualAccountAllocationFactory,
     VirtualAccountFactory,
 )
+from transactions.models import Transaction, VirtualAccountAllocation
+from virtual_accounts.models import VirtualAccount
 
 
 @pytest.fixture

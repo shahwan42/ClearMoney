@@ -22,7 +22,9 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone as django_tz
 
-from core.models import Account, Person, Transaction
+from accounts.models import Account
+from people.models import Person
+from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 

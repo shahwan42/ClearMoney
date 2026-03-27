@@ -4,7 +4,7 @@ import importlib
 
 import pytest
 
-from core.models import Category
+from categories.models import Category
 from tests.factories import (
     AccountFactory,
     CategoryFactory,

@@ -23,7 +23,7 @@ from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
 from django.utils import timezone as django_tz
 
-from core.models import RecurringRule
+from recurring.models import RecurringRule
 from recurring.types import RecurringRulePending
 from transactions.services import TransactionService
 

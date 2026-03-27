@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from accounts.models import Institution
 from accounts.services import AccountService, InstitutionService
 from conftest import SessionFactory, UserFactory
 from core.billing import (
@@ -943,8 +944,6 @@ class TestInstitutionServiceGetOrCreate:
         result = svc.get_or_create("CIB", "bank", icon="cib.svg")
         assert result["name"] == "CIB"
         assert result["type"] == "bank"
-        from core.models import Institution
-
         assert Institution.objects.filter(user_id=user.id, name="CIB").count() == 1
 
     def test_reuses_existing_same_name_and_type(self) -> None:
@@ -953,8 +952,6 @@ class TestInstitutionServiceGetOrCreate:
         svc = InstitutionService(str(user.id), self.tz)
         result = svc.get_or_create("CIB", "bank")
         assert result["id"] == str(inst.id)
-        from core.models import Institution
-
         assert (
             Institution.objects.filter(user_id=user.id, name__iexact="CIB").count() == 1
         )
@@ -971,8 +968,6 @@ class TestInstitutionServiceGetOrCreate:
         InstitutionFactory(user_id=user.id, name="Vodafone", type="fintech")
         svc = InstitutionService(str(user.id), self.tz)
         svc.get_or_create("Vodafone", "wallet")
-        from core.models import Institution
-
         assert Institution.objects.filter(user_id=user.id, name="Vodafone").count() == 2
 
     def test_empty_name_raises(self) -> None:
@@ -994,6 +989,4 @@ class TestInstitutionServiceGetOrCreate:
         InstitutionFactory(user_id=user_a.id, name="CIB", type="bank")
         svc_b = InstitutionService(str(user_b.id), self.tz)
         svc_b.get_or_create("CIB", "bank")
-        from core.models import Institution
-
         assert Institution.objects.filter(name="CIB").count() == 2

@@ -12,8 +12,8 @@ from typing import Any
 from django.db.models import Q, Sum
 from django.db.models.functions import Coalesce
 
-from core.models import Transaction
 from core.timing import timed
+from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 

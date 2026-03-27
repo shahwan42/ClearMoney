@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from core.models import AccountSnapshot, DailySnapshot
+from accounts.models import AccountSnapshot
+from auth_app.models import DailySnapshot
 
 if TYPE_CHECKING:
     from . import DashboardData

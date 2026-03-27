@@ -20,25 +20,16 @@ from decimal import Decimal
 import factory
 from django.utils import timezone
 
-from core.models import (
-    Account,
-    AccountSnapshot,
-    AuthToken,
-    Budget,
-    Category,
-    DailySnapshot,
-    ExchangeRateLog,
-    Institution,
-    Investment,
-    Person,
-    RecurringRule,
-    Session,
-    Transaction,
-    User,
-    UserConfig,
-    VirtualAccount,
-    VirtualAccountAllocation,
-)
+from accounts.models import Account, AccountSnapshot, Institution
+from auth_app.models import AuthToken, DailySnapshot, Session, User, UserConfig
+from budgets.models import Budget
+from categories.models import Category
+from exchange_rates.models import ExchangeRateLog
+from investments.models import Investment
+from people.models import Person
+from recurring.models import RecurringRule
+from transactions.models import Transaction, VirtualAccountAllocation
+from virtual_accounts.models import VirtualAccount
 
 
 class UserFactory(factory.django.DjangoModelFactory):

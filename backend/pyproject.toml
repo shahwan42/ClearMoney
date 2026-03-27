@@ -126,23 +126,17 @@ root_packages = [
     "settings_app", "transactions", "virtual_accounts",
 ]
 
-# Phase 3 Cleanup TODO: re-enable contracts after removing core.models re-export shims
-# During Phase 3 (model migration), import-linter contracts are disabled to allow
-# core.models to contain re-export shims. Once all 47 import sites are updated to
-# import directly from their owning apps, these contracts should be re-enabled.
-# See: .claude/rules/modular-monolith-architecture.md Phase 3.
+[[tool.importlinter.contracts]]
+name = "Leaf modules must not import from aggregators"
+type = "forbidden"
+source_modules = [
+    "accounts", "auth_app", "budgets", "categories",
+    "exchange_rates", "investments", "people",
+    "recurring", "transactions", "virtual_accounts",
+]
+forbidden_modules = ["dashboard", "reports", "push", "jobs", "settings_app"]
 
-# [[tool.importlinter.contracts]]
-# name = "Leaf modules must not import from aggregators"
-# type = "forbidden"
-# source_modules = [
-#     "accounts", "auth_app", "budgets", "categories",
-#     "exchange_rates", "investments", "people",
-#     "recurring", "transactions", "virtual_accounts",
-# ]
-# forbidden_modules = ["dashboard", "reports", "push", "jobs", "settings_app"]
-#
-# [[tool.importlinter.contracts]]
-# name = "Aggregators must not import from each other"
-# type = "independence"
-# modules = ["dashboard", "reports", "push", "jobs", "settings_app"]
+[[tool.importlinter.contracts]]
+name = "Aggregators must not import from each other"
+type = "independence"
+modules = ["dashboard", "reports", "push", "jobs", "settings_app"]

@@ -20,7 +20,8 @@ from typing import NamedTuple
 from django.db.models import DecimalField, F, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce, Now
 
-from core.models import Account, Transaction
+from accounts.models import Account
+from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 

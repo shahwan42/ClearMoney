@@ -10,8 +10,9 @@ from datetime import date, timedelta
 import pytest
 
 from conftest import SessionFactory, UserFactory
-from core.models import VirtualAccount, VirtualAccountAllocation
 from tests.factories import AccountFactory, InstitutionFactory, TransactionFactory
+from transactions.models import VirtualAccountAllocation
+from virtual_accounts.models import VirtualAccount
 from virtual_accounts.services import VirtualAccountService
 
 

@@ -22,7 +22,8 @@ from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
-from core.models import VirtualAccount, VirtualAccountAllocation
+from transactions.models import VirtualAccountAllocation
+from virtual_accounts.models import VirtualAccount
 
 logger = logging.getLogger(__name__)
 

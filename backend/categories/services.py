@@ -15,7 +15,8 @@ from django.db.models import Count, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
-from core.models import Category, Transaction
+from categories.models import Category
+from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 

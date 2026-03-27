@@ -9,13 +9,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from accounts.models import Account
 from conftest import SessionFactory, UserFactory
-from core.models import (
-    Account,
-    ExchangeRateLog,
-    VirtualAccount,
-    VirtualAccountAllocation,
-)
+from exchange_rates.models import ExchangeRateLog
 from tests.factories import (
     AccountFactory,
     CategoryFactory,
@@ -23,11 +19,13 @@ from tests.factories import (
     VirtualAccountAllocationFactory,
     VirtualAccountFactory,
 )
+from transactions.models import Transaction, VirtualAccountAllocation
 from transactions.services import (
     TransactionService,
     calculate_instapay_fee,
     resolve_exchange_fields,
 )
+from virtual_accounts.models import VirtualAccount
 
 TZ = ZoneInfo("Africa/Cairo")
 
@@ -531,8 +529,6 @@ class TestTransferWithFee:
         assert _get_balance(str(dest.id)) == 6000
 
     def test_fee_creates_separate_transaction(self, tx_data):
-        from core.models import Transaction
-
         svc = _svc(tx_data["user_id"])
         dest = AccountFactory(
             user_id=tx_data["user_id"],
@@ -558,8 +554,6 @@ class TestTransferWithFee:
         assert float(fee_tx.amount) == 15.0
 
     def test_fee_categorized_as_fees_and_charges(self, tx_data):
-        from core.models import Transaction
-
         svc = _svc(tx_data["user_id"])
         dest = AccountFactory(
             user_id=tx_data["user_id"],
@@ -586,8 +580,6 @@ class TestTransferWithFee:
         assert "fee" in fee_tx.category.name.lower()
 
     def test_zero_fee_no_extra_transaction(self, tx_data):
-        from core.models import Transaction
-
         svc = _svc(tx_data["user_id"])
         dest = AccountFactory(
             user_id=tx_data["user_id"],

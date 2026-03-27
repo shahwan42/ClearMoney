@@ -11,10 +11,10 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.test import Client
 
+from auth_app.models import Session, User
 from budgets.services import BudgetService
 from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.middleware import COOKIE_NAME
-from core.models import Session, User
 from tests.factories import CategoryFactory
 
 

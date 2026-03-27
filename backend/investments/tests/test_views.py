@@ -11,7 +11,7 @@ import pytest
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Investment
+from investments.models import Investment
 
 
 @pytest.fixture

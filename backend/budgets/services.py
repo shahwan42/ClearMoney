@@ -18,8 +18,9 @@ from zoneinfo import ZoneInfo
 from django.db.models import DecimalField, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 
+from budgets.models import Budget, TotalBudget
 from budgets.types import BudgetWithSpending
-from core.models import Budget, TotalBudget, Transaction
+from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 

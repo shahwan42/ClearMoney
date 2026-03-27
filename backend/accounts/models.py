@@ -1,6 +1,8 @@
 """Accounts models — moved from core.models (Phase 3 migration).
 
 Institution moved in batch 4. Account (depends on Institution) moved in batch 10.
+AccountSnapshot moved from jobs app (Phase 3 Cleanup) — per-account snapshot data
+belongs in the accounts domain.
 """
 
 import uuid
@@ -96,3 +98,36 @@ class Account(models.Model):
     def is_credit_type(self) -> bool:
         """True for credit cards and credit limits."""
         return self.type in ("credit_card", "credit_limit")
+
+
+class AccountSnapshot(models.Model):
+    """Per-account daily balance. Append-only — one row per (user, date, account).
+
+    Powers per-account sparklines on the accounts page and dashboard.
+    Moved from jobs app (Phase 3 Cleanup) since this is accounts domain data.
+    """
+
+    objects = UserScopedManager()
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
+    user = models.ForeignKey(
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id"
+    )
+    date = models.DateField()
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.CASCADE,
+        db_column="account_id",
+        related_name="+",
+    )
+    balance = models.DecimalField(max_digits=15, decimal_places=2, db_default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+
+    class Meta:
+        db_table = "account_snapshots"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "date", "account"],
+                name="account_snapshots_user_date_account_unique",
+            ),
+        ]

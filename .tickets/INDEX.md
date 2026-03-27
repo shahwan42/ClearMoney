@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-03-27
+Last updated: 2026-03-28
 
 ## In Progress
 
@@ -14,6 +14,8 @@ Last updated: 2026-03-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [007](done/007-phase-3-cleanup-update-import-sites.md) | Phase 3 Cleanup — update import sites and remove shims | chore | medium | 2026-03-28 |
+| [006](done/006-phase-3-split-core-models.md) | Phase 3 — split core/models.py into module-owned models | refactor | high | 2026-03-27 |
 | [001](done/001-setup-ai-ticketing-system.md) | Setup AI-first ticketing system | chore | medium | 2026-03-27 |
 | [003](done/003-qa-audit-fixes-complete.md) | QA audit fixes complete | chore | high | 2026-03-27 |
 | [005](done/005-phase-2-typed-module-boundaries.md) | Phase 2 — Typed contracts at module boundaries | improvement | medium | 2026-03-27 |

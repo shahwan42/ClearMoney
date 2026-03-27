@@ -18,13 +18,13 @@ from django.utils import timezone as django_tz
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from auth_app.models import Session
 from auth_app.services import (
     SESSION_COOKIE_NAME,
     SESSION_MAX_AGE_SECONDS,
     SendResult,
     auth_service,
 )
-from core.models import Session
 from core.ratelimit import login_rate
 
 logger = logging.getLogger(__name__)

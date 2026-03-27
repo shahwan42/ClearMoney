@@ -14,7 +14,10 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone as django_tz
 
-from core.models import Account, ExchangeRateLog, Transaction
+from accounts.models import Account
+from categories.models import Category
+from exchange_rates.models import ExchangeRateLog
+from transactions.models import Transaction
 
 from .utils import calculate_instapay_fee, resolve_exchange_fields
 
@@ -106,8 +109,6 @@ class TransferMixin:
             # Optional fee transaction
             effective_fee = fee_amount if fee_amount and fee_amount > 0 else 0
             if effective_fee > 0:
-                from core.models import Category
-
                 fees_cat = (
                     Category.objects.for_user(uid).filter(name="Fees & Charges").first()
                 )

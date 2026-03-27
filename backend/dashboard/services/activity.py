@@ -9,7 +9,8 @@ from zoneinfo import ZoneInfo
 
 from django.db.models import Count, F
 
-from core.models import Person, Transaction
+from people.models import Person
+from transactions.models import Transaction
 from transactions.services.utils import running_balance_annotation
 
 if TYPE_CHECKING:

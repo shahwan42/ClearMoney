@@ -11,8 +11,9 @@ import pytest
 from django.test import Client
 from django.utils import timezone
 
+from auth_app.models import AuthToken, Session, User
 from auth_app.services import SESSION_COOKIE_NAME
-from core.models import AuthToken, Category, Session, User
+from categories.models import Category
 from tests.factories import AuthTokenFactory, SessionFactory, UserFactory
 
 # ---------------------------------------------------------------------------

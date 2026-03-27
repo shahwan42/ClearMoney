@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from core.models import User
+from auth_app.models import User
 from recurring.services import RecurringService
 
 

@@ -18,10 +18,10 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from budgets.services import BudgetService
-from core.models import Category
-from core.models import Transaction as TransactionModel
+from categories.models import Category
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
+from transactions.models import Transaction as TransactionModel
 
 logger = logging.getLogger(__name__)
 

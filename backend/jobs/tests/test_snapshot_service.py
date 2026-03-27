@@ -10,7 +10,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from core.models import AccountSnapshot, DailySnapshot, ExchangeRateLog
+from accounts.models import AccountSnapshot
+from auth_app.models import DailySnapshot
+from exchange_rates.models import ExchangeRateLog
 from jobs.services.snapshot import SnapshotService
 from tests.factories import (
     AccountFactory,

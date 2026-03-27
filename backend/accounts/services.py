@@ -19,21 +19,17 @@ from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
+from accounts.models import Account, AccountSnapshot, Institution
 from accounts.types import AccountDropdownItem, AccountSummary, HealthWarning
 from core.billing import (
     get_billing_cycle_info,
     interest_free_remaining,
     parse_billing_cycle,
 )
-from core.models import (
-    Account,
-    AccountSnapshot,
-    Institution,
-    RecurringRule,
-    Transaction,
-    VirtualAccount,
-)
+from recurring.models import RecurringRule
+from transactions.models import Transaction
 from transactions.services.utils import running_balance_annotation
+from virtual_accounts.models import VirtualAccount
 
 logger = logging.getLogger(__name__)
 

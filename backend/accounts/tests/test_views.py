@@ -9,14 +9,15 @@ from datetime import date
 
 import pytest
 
+from accounts.models import Account, Institution
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import Account, Institution, Transaction
 from tests.factories import (
     AccountFactory,
     CategoryFactory,
     InstitutionFactory,
     TransactionFactory,
 )
+from transactions.models import Transaction
 
 
 @pytest.fixture

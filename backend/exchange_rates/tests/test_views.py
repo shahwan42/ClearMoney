@@ -12,7 +12,7 @@ import pytest
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import ExchangeRateLog
+from exchange_rates.models import ExchangeRateLog
 from tests.factories import ExchangeRateLogFactory
 
 

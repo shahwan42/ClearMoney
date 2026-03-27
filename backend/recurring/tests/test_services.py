@@ -11,10 +11,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from accounts.models import Account
 from conftest import SessionFactory, UserFactory
-from core.models import Transaction
 from recurring.services import RecurringService
 from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
+from transactions.models import Transaction
 
 TZ = ZoneInfo("Africa/Cairo")
 
@@ -236,8 +237,6 @@ class TestConfirm:
 
     def test_updates_account_balance(self, rec_data):
         """Confirm should deduct from account balance (expense)."""
-        from core.models import Account
-
         svc = _svc(rec_data["user_id"])
 
         rule = svc.create(

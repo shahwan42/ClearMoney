@@ -16,7 +16,8 @@ from enum import IntEnum
 
 from django.utils import timezone
 
-from core.models import AuthToken, Category, Session, User
+from auth_app.models import AuthToken, Session, User
+from categories.models import Category
 
 logger = logging.getLogger(__name__)
 

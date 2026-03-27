@@ -10,8 +10,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from accounts.models import Account
+from auth_app.models import User
 from conftest import UserFactory
-from core.models import Account, User
 from dashboard.services import (
     DashboardService,
     _compute_due_date,

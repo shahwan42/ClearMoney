@@ -20,11 +20,13 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
+from accounts.models import Account
 from accounts.services import AccountService
-from core.models import Account, Category, Transaction
+from categories.models import Category
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from recurring.services import RecurringService
+from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 

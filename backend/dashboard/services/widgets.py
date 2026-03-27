@@ -12,7 +12,10 @@ from django.db.models.functions import Coalesce
 
 from accounts.services import load_health_warnings  # noqa: F401
 from accounts.types import HealthWarning  # noqa: F401
-from core.models import Budget, Investment, Transaction, VirtualAccount
+from budgets.models import Budget
+from investments.models import Investment
+from transactions.models import Transaction
+from virtual_accounts.models import VirtualAccount
 
 
 def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any]]:

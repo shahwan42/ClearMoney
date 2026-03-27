@@ -12,7 +12,7 @@ import pytest
 from django.core.management import call_command
 from pytest_mock import MockerFixture
 
-from core.models import DailySnapshot
+from auth_app.models import DailySnapshot
 from tests.factories import (
     AccountFactory,
     InstitutionFactory,

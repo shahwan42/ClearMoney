@@ -7,8 +7,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from accounts.models import Account
 from conftest import SessionFactory, UserFactory
-from core.models import Account, Person
+from people.models import Person
 from people.services import PersonService
 from tests.factories import AccountFactory, InstitutionFactory
 

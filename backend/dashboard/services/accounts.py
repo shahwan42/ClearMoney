@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from core.models import Account, ExchangeRateLog, Institution
+from accounts.models import Account, Institution
+from exchange_rates.models import ExchangeRateLog
 
 if TYPE_CHECKING:
     from . import DashboardData

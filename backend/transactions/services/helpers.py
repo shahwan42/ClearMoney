@@ -13,13 +13,10 @@ from django.db.models import Count, F, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
-from core.models import (
-    Account,
-    Category,
-    Transaction,
-    VirtualAccount,
-    VirtualAccountAllocation,
-)
+from accounts.models import Account
+from categories.models import Category
+from transactions.models import Transaction, VirtualAccountAllocation
+from virtual_accounts.models import VirtualAccount
 
 logger = logging.getLogger(__name__)
 

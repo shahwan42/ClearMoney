@@ -18,7 +18,7 @@ from typing import cast
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.utils import timezone as django_tz
 
-from core.models import Session
+from auth_app.models import Session
 from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)

@@ -24,15 +24,11 @@ from zoneinfo import ZoneInfo
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
-from core.models import (
-    Account,
-    AccountSnapshot,
-    DailySnapshot,
-    ExchangeRateLog,
-    Transaction,
-    User,
-    VirtualAccount,
-)
+from accounts.models import Account, AccountSnapshot
+from auth_app.models import DailySnapshot, User
+from exchange_rates.models import ExchangeRateLog
+from transactions.models import Transaction
+from virtual_accounts.models import VirtualAccount
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ import logging
 
 from django.utils import timezone as django_tz
 
-from core.models import AuthToken, Session
+from auth_app.models import AuthToken, Session
 
 logger = logging.getLogger(__name__)
 

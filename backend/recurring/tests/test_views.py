@@ -11,8 +11,9 @@ import pytest
 from django.test import Client
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from core.models import RecurringRule, Transaction
+from recurring.models import RecurringRule
 from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
+from transactions.models import Transaction
 
 
 @pytest.fixture

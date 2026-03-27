@@ -15,11 +15,13 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from accounts.models import Account
 from core.htmx import error_response, render_htmx_result, success_response
-from core.models import Account, Person, VirtualAccountAllocation
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
+from people.models import Person
+from transactions.models import VirtualAccountAllocation
 
 from .services import TransactionService
 

@@ -7,7 +7,7 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from core.models import AuthToken, Session
+from auth_app.models import AuthToken, Session
 from jobs.services.cleanup import CleanupService
 from tests.factories import SessionFactory, UserFactory
 

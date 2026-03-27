@@ -11,7 +11,7 @@ import logging
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from core.models import ExchangeRateLog
+from exchange_rates.models import ExchangeRateLog
 
 logger = logging.getLogger(__name__)
 

@@ -20,7 +20,8 @@ from django.db import connection, transaction
 from django.db.models import F
 from django.utils import timezone as django_tz
 
-from core.models import Account, Transaction
+from accounts.models import Account
+from transactions.models import Transaction
 
 from .utils import CREDIT_ACCOUNT_TYPES, VALID_TX_TYPES, _parse_tags, _to_str
 
