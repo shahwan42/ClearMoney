@@ -4,7 +4,9 @@ Last updated: 2026-03-28
 
 ## In Progress
 
-(none)
+| ID | Title | Type | Priority | Updated |
+| --- | --- | --- | --- | --- |
+| [008](wip/008-e2e-test-isolation-flakiness.md) | E2E test isolation flakiness — fix database connection handling under load | chore | medium | 2026-03-28 |
 
 ## Pending
 
