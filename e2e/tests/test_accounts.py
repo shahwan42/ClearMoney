@@ -167,14 +167,18 @@ class TestAccounts:
 
     def test_account_reordering_via_drag(self, page: Page) -> None:
         """Test dragging an account card to reorder."""
-        # Create two accounts to reorder
+        # Set up basic data with an institution
+        institution_id, account_id = seed_basic_data(page)
+
+        # Create second account to reorder
         page.goto("/accounts")
-        page.click('button:has-text("+ Account")')
+        # Click the "+ Account" button on the existing institution card
+        page.locator(f'button[aria-label="Add account to Test Bank"]').click()
         sheet_content = page.locator("#create-sheet-content")
         sheet_content.locator('select[name="type"]').wait_for(timeout=5000)
         sheet_content.locator('select[name="type"]').select_option("savings")
-        sheet_content.locator('input[name="name"]').fill("First Account")
-        sheet_content.locator('input[name="initial_balance"]').fill("1000")
+        sheet_content.locator('input[name="name"]').fill("Savings Account")
+        sheet_content.locator('input[name="initial_balance"]').fill("5000")
         with page.expect_response(lambda r: "/accounts/add" in r.url):
             sheet_content.locator('button[type="submit"]').click()
 
@@ -182,15 +186,10 @@ class TestAccounts:
         page.reload()  # Reload to show newly created account
 
         # Verify both accounts exist
-        accounts = page.locator("main [data-account-card]")
-        account_count = accounts.count()
-        expect(accounts).to_have_count(account_count)
+        accounts = page.locator('main a[href*="/accounts/"]')
+        expect(accounts).to_have_count(2)
 
-        # Get initial order of account names (if reordering UI exists)
-        account_names_before = page.locator(
-            "main [data-account-card] [data-account-name]"
-        ).all_text_contents()
-
-        # For now, just verify the accounts page displays multiple accounts
+        # For now, just verify the accounts page displays both accounts
         # (Full drag-and-drop test would require implementing reorder drag handlers)
-        expect(page.locator("main")).to_contain_text("First Account")
+        expect(page.locator("main")).to_contain_text("Current")
+        expect(page.locator("main")).to_contain_text("Savings Account")
