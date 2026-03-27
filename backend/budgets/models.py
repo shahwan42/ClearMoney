@@ -19,7 +19,7 @@ class Budget(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
-        "core.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
     category = models.ForeignKey(
         "categories.Category",
@@ -50,7 +50,7 @@ class TotalBudget(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
-        "core.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
     monthly_limit = models.DecimalField(max_digits=15, decimal_places=2)
     currency = models.CharField(max_length=3, db_default="EGP")

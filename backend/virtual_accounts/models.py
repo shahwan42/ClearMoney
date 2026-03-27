@@ -22,7 +22,9 @@ class VirtualAccount(models.Model):
     objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey("core.User", on_delete=models.CASCADE, db_column="user_id")
+    user = models.ForeignKey(
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id"
+    )
     name = models.CharField(max_length=100)
     target_amount = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True

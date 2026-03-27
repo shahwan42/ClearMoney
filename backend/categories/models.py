@@ -18,7 +18,9 @@ class Category(models.Model):
     objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey("core.User", on_delete=models.CASCADE, db_column="user_id")
+    user = models.ForeignKey(
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id"
+    )
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=20)  # 'expense' or 'income'
     icon = models.CharField(max_length=10, null=True, blank=True)

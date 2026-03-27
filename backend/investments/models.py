@@ -18,7 +18,9 @@ class Investment(models.Model):
     objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey("core.User", on_delete=models.CASCADE, db_column="user_id")
+    user = models.ForeignKey(
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id"
+    )
     platform = models.CharField(max_length=100, db_default="Thndr")
     fund_name = models.CharField(max_length=100)
     units = models.DecimalField(max_digits=15, decimal_places=4, db_default=0)

@@ -23,7 +23,7 @@ class Transaction(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
-        "core.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
     type = models.CharField(
         max_length=30

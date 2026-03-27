@@ -1,7 +1,7 @@
 """Auth app models — moved from core.models (Phase 3 migration).
 
-Note: User, Session, and AuthToken will be moved here in batch 13.
-UserConfig is moved first as it has no dependencies on other models.
+User, Session, AuthToken are the core auth models.
+UserConfig is the legacy single-user config table.
 """
 
 import uuid
@@ -12,6 +12,51 @@ from django.db.models.functions import Now
 
 # SQL-level default for UUID primary keys (gen_random_uuid())
 GEN_UUID = Func(function="gen_random_uuid")
+
+
+class User(models.Model):
+    """The users table — magic link auth, no password."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
+    email = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
+
+    class Meta:
+        db_table = "users"
+
+    def __str__(self) -> str:
+        return self.email
+
+
+class Session(models.Model):
+    """Server-side sessions — validated by GoSessionAuthMiddleware."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
+    token = models.CharField(max_length=255, unique=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+
+    class Meta:
+        db_table = "sessions"
+
+
+class AuthToken(models.Model):
+    """Short-lived, single-use magic link tokens. Like Laravel's password_resets table."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
+    email = models.CharField(max_length=255)
+    token = models.CharField(max_length=255, unique=True)
+    purpose = models.CharField(
+        max_length=20, default="login", db_default="login"
+    )  # 'login' or 'registration'
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False, db_default=False)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+
+    class Meta:
+        db_table = "auth_tokens"
 
 
 class UserConfig(models.Model):

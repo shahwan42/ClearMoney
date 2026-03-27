@@ -19,7 +19,7 @@ class DailySnapshot(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     user = models.ForeignKey(
-        "core.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
     date = models.DateField(db_index=True)
     net_worth_egp = models.DecimalField(max_digits=15, decimal_places=2, db_default=0)
@@ -49,7 +49,9 @@ class AccountSnapshot(models.Model):
     objects = UserScopedManager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey("core.User", on_delete=models.CASCADE, db_column="user_id")
+    user = models.ForeignKey(
+        "auth_app.User", on_delete=models.CASCADE, db_column="user_id"
+    )
     date = models.DateField()
     account = models.ForeignKey(
         "accounts.Account",
