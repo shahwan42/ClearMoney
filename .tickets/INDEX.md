@@ -18,4 +18,6 @@ Last updated: 2026-03-27
 
 ## Rejected
 
-(none)
+| ID | Title | Type | Priority | Updated |
+| --- | --- | --- | --- | --- |
+| [002](rejected/002-unified-transaction-form.md) | Unified transaction form | feature | high | 2026-03-27 |
