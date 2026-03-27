@@ -7,15 +7,15 @@ Like Laravel's Eloquent models with $table, or Django's standard models
 with explicit db_table to match the existing schema naming convention.
 
 Phase 3 migration complete: all models have been moved to their respective
-app-specific models.py files. This file now only contains re-export shims
-so existing import sites continue to work unchanged.
+app-specific models.py files. This file contains re-export shims for backward
+compatibility during the gradual import site migration (Phase 3 Cleanup).
+All 47 import sites should eventually be updated to import directly from
+their owning apps, after which these shims can be removed.
+
+Note: import-linter will report violations until cleanup is complete.
 """
 
-# ---------------------------------------------------------------------------
 # Re-export shims — models moved to their own apps (Phase 3 migration).
-# Import sites continue to work unchanged via `from core.models import X`.
-# ---------------------------------------------------------------------------
-
 from accounts.models import Account as Account  # noqa: F401
 from accounts.models import Institution as Institution  # noqa: F401
 from auth_app.models import AuthToken as AuthToken  # noqa: F401
