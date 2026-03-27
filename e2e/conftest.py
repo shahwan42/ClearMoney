@@ -6,6 +6,7 @@ Design notes:
 - All DB ops use psycopg directly (no execSync psql shelling like the old JS helpers).
 - API helpers use page.request so auth cookies are included automatically.
 """
+import json
 import os
 import secrets
 import subprocess
@@ -278,7 +279,12 @@ def create_expired_session(user_id: str) -> str:
 
 def create_institution(page: Page, name: str, inst_type: str = "bank") -> str:
     """POST /api/institutions and return the new institution ID."""
-    resp = page.request.post("/api/institutions", data={"name": name, "type": inst_type})
+    payload = {"name": name, "type": inst_type}
+    resp = page.request.post(
+        "/api/institutions",
+        data=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
     assert resp.ok, f"create_institution failed: {resp.status} {resp.text()}"
     return str(resp.json()["id"])
 
@@ -302,7 +308,11 @@ def create_account(
     }
     if credit_limit is not None:
         payload["credit_limit"] = credit_limit
-    resp = page.request.post("/api/accounts", data=payload)
+    resp = page.request.post(
+        "/api/accounts",
+        data=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
     assert resp.ok, f"create_account failed: {resp.status} {resp.text()}"
     return str(resp.json()["id"])
 
@@ -327,7 +337,11 @@ def create_transaction(
         payload["note"] = note
     if date:
         payload["date"] = date
-    resp = page.request.post("/api/transactions", data=payload)
+    resp = page.request.post(
+        "/api/transactions",
+        data=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
     assert resp.ok, f"create_transaction failed: {resp.status} {resp.text()}"
     # POST /api/transactions returns {"transaction": {...}, "new_balance": X}
     return str(resp.json()["transaction"]["id"])
