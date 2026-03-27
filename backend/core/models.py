@@ -73,30 +73,6 @@ class AuthToken(models.Model):
         db_table = "auth_tokens"
 
 
-class Institution(models.Model):
-    """Groups accounts under a bank/fintech/wallet (e.g., HSBC, Telda, Cash)."""
-
-    objects = UserScopedManager()
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    name = models.CharField(max_length=255)
-    type = models.CharField(
-        max_length=20, db_default="bank"
-    )  # 'bank', 'fintech', 'wallet'
-    color = models.CharField(max_length=20, null=True, blank=True)
-    icon = models.CharField(max_length=255, null=True, blank=True)
-    display_order = models.IntegerField(default=0, db_default=0)
-    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
-    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
-
-    class Meta:
-        db_table = "institutions"
-
-    def __str__(self) -> str:
-        return self.name
-
-
 class Account(models.Model):
     """One financial account (bank account, credit card, cash wallet).
 
@@ -110,7 +86,7 @@ class Account(models.Model):
         User, on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
     institution = models.ForeignKey(
-        Institution,
+        "accounts.Institution",
         on_delete=models.CASCADE,
         db_column="institution_id",
         db_index=True,
@@ -522,5 +498,6 @@ class AccountSnapshot(models.Model):
 # Import sites continue to work unchanged via `from core.models import X`.
 # ---------------------------------------------------------------------------
 
+from accounts.models import Institution as Institution  # noqa: E402
 from auth_app.models import UserConfig as UserConfig  # noqa: E402
 from exchange_rates.models import ExchangeRateLog as ExchangeRateLog  # noqa: E402
