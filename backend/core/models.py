@@ -358,59 +358,6 @@ class VirtualAccountAllocation(models.Model):
         db_table = "virtual_account_allocations"
 
 
-class Budget(models.Model):
-    """Monthly spending limit per category. is_active toggles without deleting."""
-
-    objects = UserScopedManager()
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
-    )
-    category = models.ForeignKey(
-        Category, on_delete=models.CASCADE, db_column="category_id", related_name="+"
-    )
-    monthly_limit = models.DecimalField(max_digits=15, decimal_places=2)
-    currency = models.CharField(max_length=3, db_default="EGP")
-    is_active = models.BooleanField(default=True, db_default=True)
-    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
-    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
-
-    class Meta:
-        db_table = "budgets"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "category", "currency"],
-                name="budgets_user_category_currency_unique",
-            ),
-        ]
-
-
-class TotalBudget(models.Model):
-    """Overall monthly spending cap per currency. One per user per currency."""
-
-    objects = UserScopedManager()
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
-    )
-    monthly_limit = models.DecimalField(max_digits=15, decimal_places=2)
-    currency = models.CharField(max_length=3, db_default="EGP")
-    is_active = models.BooleanField(default=True, db_default=True)
-    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
-    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
-
-    class Meta:
-        db_table = "total_budgets"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "currency"],
-                name="uq_total_budget_user_currency",
-            ),
-        ]
-
-
 class DailySnapshot(models.Model):
     """Append-only daily financial state. Used for sparklines and MoM comparisons."""
 
@@ -473,5 +420,7 @@ class AccountSnapshot(models.Model):
 
 from accounts.models import Institution as Institution  # noqa: E402
 from auth_app.models import UserConfig as UserConfig  # noqa: E402
+from budgets.models import Budget as Budget  # noqa: E402
+from budgets.models import TotalBudget as TotalBudget  # noqa: E402
 from exchange_rates.models import ExchangeRateLog as ExchangeRateLog  # noqa: E402
 from investments.models import Investment as Investment  # noqa: E402

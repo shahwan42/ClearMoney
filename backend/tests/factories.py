@@ -174,7 +174,7 @@ class TotalBudgetFactory(factory.django.DjangoModelFactory):
     """
 
     class Meta:
-        model = "core.TotalBudget"
+        model = "budgets.TotalBudget"
 
     id = factory.LazyFunction(uuid.uuid4)
     user_id = factory.LazyFunction(uuid.uuid4)
