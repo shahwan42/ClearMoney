@@ -129,37 +129,6 @@ class Account(models.Model):
         return self.type in ("credit_card", "credit_limit")
 
 
-class Person(models.Model):
-    """Tracks someone you lend money to or borrow from.
-
-    net_balance_egp / net_balance_usd are cached running totals (denormalized).
-    """
-
-    objects = UserScopedManager()
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
-    name = models.CharField(max_length=100)
-    note = models.TextField(null=True, blank=True)
-    net_balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )  # legacy
-    net_balance_egp = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )
-    net_balance_usd = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )
-    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
-    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
-
-    class Meta:
-        db_table = "persons"
-
-    def __str__(self) -> str:
-        return self.name
-
-
 class RecurringRule(models.Model):
     """Schedules recurring transactions (salary, Netflix, etc.).
 
@@ -246,7 +215,7 @@ class Transaction(models.Model):
         related_name="+",
     )
     person = models.ForeignKey(
-        Person,
+        "people.Person",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -424,3 +393,4 @@ from budgets.models import Budget as Budget  # noqa: E402
 from budgets.models import TotalBudget as TotalBudget  # noqa: E402
 from exchange_rates.models import ExchangeRateLog as ExchangeRateLog  # noqa: E402
 from investments.models import Investment as Investment  # noqa: E402
+from people.models import Person as Person  # noqa: E402
