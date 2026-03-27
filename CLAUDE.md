@@ -13,8 +13,8 @@
 | Models | `backend/core/models.py` — all models, `db_table` convention |
 | Request type | `backend/core/types.py` — `AuthenticatedRequest` |
 | Template filters | `backend/core/templatetags/money.py` |
-| Rules | `.claude/rules/` — git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA, QA guidelines, critical paths, ticketing workflow |
-| Ticketing | `.tickets/` + `.claude/rules/ticketing-workflow.md` — AI-managed development tickets, auto-created/updated by Claude |
+| Rules | `.claude/rules/` — ticket-first, git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA, QA guidelines, critical paths, ticketing workflow |
+| Ticketing | `.tickets/` + `.claude/rules/ticketing-workflow.md` (mechanics) + `.claude/rules/ticket-first-workflow.md` (mandatory pre-code gate) — AI-managed development tickets, auto-created/updated by Claude |
 | Workflows | `.claude/rules/batch-execution-pattern.md` — multi-item batch workflows; `docs/reference/WCAG-AA-QUICK-REFERENCE.md` — WCAG 2.1 AA criteria & fixes |
 | Accessibility | `.claude/rules/accessibility.md` — ARIA standards; `.claude/rules/accessibility-qa-protocol.md` — QA verification gates |
 | QA Guidelines | `.claude/rules/qa-guidelines.md` — test pyramid, financial data integrity, coverage floors, E2E requirements, form validation standards |
