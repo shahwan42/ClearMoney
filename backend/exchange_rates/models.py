@@ -1,4 +1,4 @@
-"""Exchange rate models — global historical rate tracking."""
+"""Exchange rates models — moved from core.models (Phase 3 migration)."""
 
 import uuid
 
