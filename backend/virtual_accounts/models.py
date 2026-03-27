@@ -40,7 +40,7 @@ class VirtualAccount(models.Model):
     exclude_from_net_worth = models.BooleanField(default=False, db_default=False)
     display_order = models.IntegerField(default=0, db_default=0)
     account = models.ForeignKey(
-        "core.Account",
+        "accounts.Account",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

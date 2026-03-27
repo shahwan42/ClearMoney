@@ -73,62 +73,6 @@ class AuthToken(models.Model):
         db_table = "auth_tokens"
 
 
-class Account(models.Model):
-    """One financial account (bank account, credit card, cash wallet).
-
-    current_balance is cached and updated atomically on every transaction.
-    """
-
-    objects = UserScopedManager()
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, db_column="user_id", db_index=True
-    )
-    institution = models.ForeignKey(
-        "accounts.Institution",
-        on_delete=models.CASCADE,
-        db_column="institution_id",
-        db_index=True,
-        related_name="accounts",
-    )
-    name = models.CharField(max_length=100)
-    type = models.CharField(
-        max_length=20
-    )  # 'savings', 'current', 'prepaid', 'credit_card', 'credit_limit', 'cash'
-    currency = models.CharField(max_length=3, db_default="EGP")  # 'EGP' or 'USD'
-    current_balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )
-    initial_balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )
-    credit_limit = models.DecimalField(
-        max_digits=15, decimal_places=2, null=True, blank=True
-    )
-    is_dormant = models.BooleanField(default=False, db_default=False)
-    role_tags = ArrayField(
-        models.CharField(max_length=100), default=list, blank=True, null=True
-    )
-    display_order = models.IntegerField(default=0, db_default=0)
-    metadata = models.JSONField(null=True, blank=True)  # JSONB: billing cycle, etc.
-    health_config = models.JSONField(
-        null=True, blank=True
-    )  # JSONB: min_balance, min_monthly_deposit
-    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
-    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
-
-    class Meta:
-        db_table = "accounts"
-
-    def __str__(self) -> str:
-        return self.name
-
-    def is_credit_type(self) -> bool:
-        """True for credit cards and credit limits."""
-        return self.type in ("credit_card", "credit_limit")
-
-
 class Transaction(models.Model):
     """Central record for every money movement.
 
@@ -147,14 +91,14 @@ class Transaction(models.Model):
     amount = models.DecimalField(max_digits=15, decimal_places=2)  # always positive
     currency = models.CharField(max_length=3)
     account = models.ForeignKey(
-        Account,
+        "accounts.Account",
         on_delete=models.CASCADE,
         db_column="account_id",
         db_index=True,
         related_name="transactions",
     )
     counter_account = models.ForeignKey(
-        Account,
+        "accounts.Account",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -184,7 +128,7 @@ class Transaction(models.Model):
         max_digits=15, decimal_places=2, null=True, blank=True
     )
     fee_account = models.ForeignKey(
-        Account,
+        "accounts.Account",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -297,7 +241,10 @@ class AccountSnapshot(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, db_column="user_id")
     date = models.DateField()
     account = models.ForeignKey(
-        Account, on_delete=models.CASCADE, db_column="account_id", related_name="+"
+        "accounts.Account",
+        on_delete=models.CASCADE,
+        db_column="account_id",
+        related_name="+",
     )
     balance = models.DecimalField(max_digits=15, decimal_places=2, db_default=0)
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
@@ -317,6 +264,7 @@ class AccountSnapshot(models.Model):
 # Import sites continue to work unchanged via `from core.models import X`.
 # ---------------------------------------------------------------------------
 
+from accounts.models import Account as Account  # noqa: E402
 from accounts.models import Institution as Institution  # noqa: E402
 from auth_app.models import UserConfig as UserConfig  # noqa: E402
 from budgets.models import Budget as Budget  # noqa: E402
