@@ -13,7 +13,7 @@ completed: 2026-03-27
 
 Fix two import violations where leaf/aggregator modules import from the `dashboard`
 aggregator. Add `import-linter` to CI and `make lint` to prevent future violations.
-Detailed design: `temporary_artifacts/PLAN-23-modular-monolith-architecture.md`.
+Detailed design: [Modular Monolith Architecture](../../docs/designs/modular-monolith-architecture.md).
 
 ## Acceptance Criteria
 
