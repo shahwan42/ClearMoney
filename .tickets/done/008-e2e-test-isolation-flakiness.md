@@ -5,7 +5,7 @@ type: chore
 priority: medium
 status: done
 created: 2026-03-28
-updated: 2026-03-28
+updated: 2026-03-29
 ---
 
 ## Description
@@ -37,11 +37,12 @@ Test isolation failures stem from database connection management issues when tes
 
 ## Acceptance Criteria
 
-- [ ] All 5 previously-failing tests pass in full e2e suite
-- [ ] No test flakiness or intermittent failures
-- [ ] Investigate and fix `reset_database()` connection termination logic
-- [ ] Consider adding explicit connection closure between test modules
-- [ ] All 145 e2e tests passing consistently (not just in isolation)
+- [x] All 5 previously-failing tests pass in full e2e suite
+- [x] No test flakiness or intermittent failures
+- [x] Investigate and fix `reset_database()` connection termination logic
+- [x] Consider adding explicit connection closure between test modules — resolved via `conn_health_checks=True`
+- [x] All E2E tests passing consistently (154 passed, 0 failed)
+- [x] Fix stale `test_quick_entry_tabs_min_44px_height` selector after unified Move Money tab merge
 
 ## Investigation Notes
 
@@ -64,3 +65,4 @@ Test isolation failures stem from database connection management issues when tes
 
 - 2026-03-28: Started — Investigated E2E test failures, identified test isolation as root cause of 5 remaining failures. Main JSON encoding issue already fixed in prior commit. Created this ticket to track infrastructure-level test flakiness.
 - 2026-03-28: Completed — Fixed via DB connection health checks (commit 572ee8b), then unskipped quick-entry and batch-entry E2E tests (commit c86e1f1).
+- 2026-03-29: Updated stale touch target test — `tab-exchange`/`tab-transfer` → `tab-move` after unified Move Money tab merge (cbb7464). All 154 E2E tests passing.

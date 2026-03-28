@@ -92,7 +92,7 @@ class TestQuickEntryTabTouchTargets:
         page.click('button[aria-label="Add transaction"]')
         page.wait_for_selector("#quick-entry-sheet:not(.translate-y-full)", timeout=3000)
 
-        for tab_id in ("tab-transaction", "tab-exchange", "tab-transfer"):
+        for tab_id in ("tab-transaction", "tab-move"):
             size = _measure(page, f"#{tab_id}")
             assert size is not None, f"Tab #{tab_id} not found"
             assert size["h"] >= MIN_TARGET, (
