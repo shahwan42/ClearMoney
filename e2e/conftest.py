@@ -89,7 +89,17 @@ def django_server() -> Generator[None, None, None]:
                 yield
                 return
     except OSError:
-        pass  # Not running or unhealthy — start one below
+        # Not running or unhealthy — kill any stale process holding the port
+        # before starting a new one, otherwise the new server can't bind.
+        result = subprocess.run(
+            ["lsof", "-ti", ":8765"],
+            capture_output=True,
+            text=True,
+        )
+        if result.stdout.strip():
+            for pid in result.stdout.strip().split("\n"):
+                subprocess.run(["kill", "-9", pid], capture_output=True)
+            time.sleep(1)  # Let the port release
 
     env = {
         **os.environ,
