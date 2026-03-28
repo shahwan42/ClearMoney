@@ -16,6 +16,7 @@ Last updated: 2026-03-28
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [019](done/019-budget-detail-contributing-transactions.md) | Show contributing transactions on budget click | feature | medium | 2026-03-28 |
 | [018](done/018-enter-key-submits-parent-form-in-category-combobox.md) | Enter key in new-category form submits parent form | bug | high | 2026-03-28 |
 | [016](done/016-update-fee-unnecessary-float-roundtrip.md) | update_fee_for_transaction unnecessary Decimal→float→Decimal round-trip | improvement | low | 2026-03-28 |
 | [015](done/015-quick-entry-date-missing-max-constraint.md) | Quick-entry date picker allows future dates | bug | low | 2026-03-28 |
