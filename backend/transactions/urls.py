@@ -1,8 +1,8 @@
 """
 Transactions URL configuration.
 
-Handles all /transactions/*, /transfers/*, /exchange/*, /batch-entry,
-/fawry-cashout, and /sync/transactions routes.
+Handles all /transactions/*, /transfers/*, /exchange/*, /move-money/*,
+/batch-entry, /fawry-cashout, and /sync/transactions routes.
 
 Static paths MUST come before <uuid:id> to avoid being swallowed.
 """
@@ -56,9 +56,16 @@ urlpatterns = [
     path(
         "transactions/<uuid:tx_id>", views.transaction_detail, name="transaction-detail"
     ),
-    # --- Transfer pages ---
+    # --- Move Money (unified transfer/exchange) ---
+    path("move-money/new", views.move_money_new, name="move-money-new"),
+    path(
+        "transactions/quick-move",
+        views.quick_move_money_form,
+        name="quick-move-form",
+    ),
+    # --- Transfer pages (legacy — redirect to move money) ---
     path("transfers/new", views.transfer_new, name="transfer-new"),
-    # --- Exchange pages ---
+    # --- Exchange pages (legacy — redirect to move money) ---
     path("exchange/new", views.exchange_new, name="exchange-new"),
     path("exchange/quick-form", views.quick_exchange_form, name="quick-exchange-form"),
     # --- Fawry ---

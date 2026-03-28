@@ -1,6 +1,6 @@
 """
-Transaction views — all /transactions/*, /transfers/*, /exchange/*, /batch-entry,
-/fawry-cashout, and /sync/transactions routes.
+Transaction views — all /transactions/*, /transfers/*, /exchange/*, /move-money/*,
+/batch-entry, /fawry-cashout, and /sync/transactions routes.
 
 Like Laravel's TransactionController — thin views that delegate to services.
 """
@@ -351,24 +351,52 @@ def transaction_row(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
 
 
 # ---------------------------------------------------------------------------
-# Transfer Views
+# Move Money Views (unified transfer/exchange)
+# ---------------------------------------------------------------------------
+
+
+@general_rate
+@require_http_methods(["GET"])
+def move_money_new(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /move-money/new — unified move money form page."""
+    svc = _svc(request)
+    logger.info("page viewed: move-money, user=%s", request.user_email)
+    return render(
+        request,
+        "transactions/move_money.html",
+        {
+            "accounts": svc.get_accounts(),
+            "today": date.today(),
+        },
+    )
+
+
+@general_rate
+@require_http_methods(["GET"])
+def quick_move_money_form(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /transactions/quick-move — quick move money partial for bottom sheet."""
+    svc = _svc(request)
+    logger.info("partial loaded: quick-move-money, user=%s", request.user_email)
+    return render(
+        request,
+        "transactions/_quick_move_money.html",
+        {
+            "accounts": svc.get_accounts(),
+            "today": date.today(),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Transfer Views (legacy — redirects to move money)
 # ---------------------------------------------------------------------------
 
 
 @general_rate
 @require_http_methods(["GET"])
 def transfer_new(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /transfers/new — transfer form page."""
-    svc = _svc(request)
-    logger.info("page viewed: transfer, user=%s", request.user_email)
-    return render(
-        request,
-        "transactions/transfer.html",
-        {
-            "accounts": svc.get_accounts(),
-            "today": date.today(),
-        },
-    )
+    """GET /transfers/new — redirect to unified move money page."""
+    return HttpResponseRedirect("/move-money/new")
 
 
 @general_rate
@@ -397,29 +425,20 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
 
 @require_http_methods(["POST"])
 def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /transactions/instapay-transfer — deprecated, redirect to unified transfer."""
-    return HttpResponseRedirect("/transfers/new")
+    """POST /transactions/instapay-transfer — deprecated, redirect to move money."""
+    return HttpResponseRedirect("/move-money/new")
 
 
 # ---------------------------------------------------------------------------
-# Exchange Views
+# Exchange Views (legacy — redirects to move money)
 # ---------------------------------------------------------------------------
 
 
 @general_rate
 @require_http_methods(["GET"])
 def exchange_new(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /exchange/new — exchange form page."""
-    svc = _svc(request)
-    logger.info("page viewed: exchange, user=%s", request.user_email)
-    return render(
-        request,
-        "transactions/exchange.html",
-        {
-            "accounts": svc.get_accounts(),
-            "today": date.today(),
-        },
-    )
+    """GET /exchange/new — redirect to unified move money page."""
+    return HttpResponseRedirect("/move-money/new")
 
 
 @general_rate
@@ -451,8 +470,8 @@ def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
 
 
 def fawry_cashout(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /fawry-cashout — deprecated, redirect to unified transfer."""
-    return HttpResponseRedirect("/transfers/new")
+    """GET /fawry-cashout — deprecated, redirect to move money."""
+    return HttpResponseRedirect("/move-money/new")
 
 
 def fawry_cashout_create(request: AuthenticatedRequest) -> HttpResponse:

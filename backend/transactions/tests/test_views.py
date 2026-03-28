@@ -414,11 +414,11 @@ class TestTransactionCRUD:
 
 @pytest.mark.django_db
 class TestTransferViews:
-    def test_transfer_new_page(self, client, tx_view_data):
+    def test_transfer_new_redirects_to_move_money(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get("/transfers/new")
-        assert response.status_code == 200
-        assert b"Transfer Between Accounts" in response.content
+        assert response.status_code == 302
+        assert "/move-money/new" in response.url  # type: ignore[attr-defined]
 
     def test_transfer_create(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -470,24 +470,24 @@ class TestTransferViews:
         assert response.status_code == 200
         assert b"Transfer completed!" in response.content
 
-    def test_transfer_form_has_fee_field(self, client, tx_view_data):
+    def test_move_money_form_has_fee_field(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
-        response = c.get("/transfers/new")
+        response = c.get("/move-money/new")
         content = response.content.decode()
         assert 'name="fee_amount"' in content
 
-    def test_transfer_form_no_instapay_toggle(self, client, tx_view_data):
+    def test_move_money_form_no_instapay_toggle(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
-        response = c.get("/transfers/new")
+        response = c.get("/move-money/new")
         content = response.content.decode()
         assert "instapay-toggle" not in content
         assert "InstaPay" not in content
 
-    def test_fawry_route_redirects_to_transfers(self, client, tx_view_data):
+    def test_fawry_route_redirects_to_move_money(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get("/fawry-cashout")
         assert response.status_code == 302
-        assert "/transfers/new" in response.url  # type: ignore[attr-defined]
+        assert "/move-money/new" in response.url  # type: ignore[attr-defined]
 
     def test_instapay_route_redirects_to_transfers(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -506,11 +506,46 @@ class TestTransferViews:
 
 @pytest.mark.django_db
 class TestExchangeViews:
-    def test_exchange_new_page(self, client, tx_view_data):
+    def test_exchange_new_redirects_to_move_money(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get("/exchange/new")
+        assert response.status_code == 302
+        assert "/move-money/new" in response.url  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# Move Money (unified transfer/exchange)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestMoveMoneyViews:
+    def test_move_money_page_renders(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/move-money/new")
         assert response.status_code == 200
-        assert b"Currency Exchange" in response.content
+        assert b"Move Money" in response.content
+
+    def test_move_money_has_account_selects(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/move-money/new")
+        content = response.content.decode()
+        assert 'id="move-src"' in content
+        assert 'id="move-dst"' in content
+
+    def test_move_money_has_exchange_fields(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/move-money/new")
+        content = response.content.decode()
+        assert 'name="rate"' in content
+        assert 'name="counter_amount"' in content
+        assert 'name="fee_amount"' in content
+
+    def test_quick_move_money_form(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-move", HTTP_HX_REQUEST="true")
+        assert response.status_code == 200
+        assert b"Move Money" in response.content
 
 
 # ---------------------------------------------------------------------------
@@ -535,11 +570,11 @@ class TestBatchViews:
 @pytest.mark.django_db
 class TestFawryViews:
     def test_fawry_cashout_redirects(self, client, tx_view_data):
-        """Fawry page now redirects to unified transfer form."""
+        """Fawry page now redirects to unified move money form."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get("/fawry-cashout")
         assert response.status_code == 302
-        assert "/transfers/new" in response.url  # type: ignore[attr-defined]
+        assert "/move-money/new" in response.url  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -606,6 +641,12 @@ class TestQuickEntryViews:
         response = c.get("/exchange/quick-form", HTTP_HX_REQUEST="true")
         assert response.status_code == 200
         assert b"Quick Exchange" in response.content
+
+    def test_quick_move_money_form(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-move", HTTP_HX_REQUEST="true")
+        assert response.status_code == 200
+        assert b"Move Money" in response.content
 
 
 # ---------------------------------------------------------------------------
@@ -1712,31 +1753,31 @@ class TestTransactionSubmitUX:
         content = resp.content.decode()
         assert "btn-spinner" in content
 
-    def test_transfer_form_has_disabled_elt(self, client, tx_view_data) -> None:
-        """Transfer form has hx-disabled-elt on <form>."""
+    def test_move_money_form_has_disabled_elt(self, client, tx_view_data) -> None:
+        """Move money form has hx-disabled-elt on <form>."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
-        resp = c.get("/transfers/new")
+        resp = c.get("/move-money/new")
         content = resp.content.decode()
         assert "hx-disabled-elt" in content
 
-    def test_transfer_form_has_spinner_button(self, client, tx_view_data) -> None:
-        """Transfer form submit button has spinner markup."""
+    def test_move_money_form_has_spinner_button(self, client, tx_view_data) -> None:
+        """Move money form submit button has spinner markup."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
-        resp = c.get("/transfers/new")
+        resp = c.get("/move-money/new")
         content = resp.content.decode()
         assert "btn-spinner" in content
 
     def test_exchange_form_has_disabled_elt(self, client, tx_view_data) -> None:
-        """Exchange form has hx-disabled-elt on <form>."""
+        """Exchange form (via move money) has hx-disabled-elt on <form>."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
-        resp = c.get("/exchange/new")
+        resp = c.get("/move-money/new")
         content = resp.content.decode()
         assert "hx-disabled-elt" in content
 
     def test_exchange_form_has_spinner_button(self, client, tx_view_data) -> None:
-        """Exchange form submit button has spinner markup."""
+        """Exchange form (via move money) submit button has spinner markup."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
-        resp = c.get("/exchange/new")
+        resp = c.get("/move-money/new")
         content = resp.content.decode()
         assert "btn-spinner" in content
 

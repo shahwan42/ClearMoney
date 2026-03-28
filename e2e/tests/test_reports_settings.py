@@ -68,18 +68,10 @@ class TestReports:
 
 
 class TestFawryCashout:
-    def test_fawry_page_loads(self, page: Page) -> None:
-        # /fawry-cashout redirects to /transfers/new
+    def test_fawry_page_redirects_to_move_money(self, page: Page) -> None:
+        # /fawry-cashout → /transfers/new → /move-money/new (chain redirect)
         page.goto("/fawry-cashout")
-        expect(page.locator("#transfer-amount")).to_be_visible()
-
-    def test_transfer_fee_total_display(self, page: Page) -> None:
-        page.goto("/transfers/new")
-        page.fill("#transfer-amount", "1000")
-        page.fill("#transfer-fee", "10")
-        page.wait_for_timeout(300)
-        # Fee > 0 shows the total display
-        expect(page.locator("#transfer-total-display")).to_be_visible()
+        expect(page.locator("#move-amount")).to_be_visible()
 
 
 class TestBatchEntry:
