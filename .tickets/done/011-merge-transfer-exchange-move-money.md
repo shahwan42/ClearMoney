@@ -14,15 +14,15 @@ Merge the separate Transfer and Exchange tabs in the quick-entry bottom sheet in
 
 ## Acceptance Criteria
 
-- [ ] Single "Move Money" tab replaces Exchange + Transfer tabs in bottom sheet
-- [ ] Auto-detects transfer vs exchange mode from account currencies
-- [ ] Transfer fields (fee) shown for same-currency accounts
-- [ ] Exchange fields (rate, counter amount) shown for different-currency accounts
-- [ ] Existing POST endpoints unchanged (/transactions/transfer, /transactions/exchange-submit)
-- [ ] Old URLs (/transfers/new, /exchange/new) redirect to /move-money/new
-- [ ] All unit tests pass
-- [ ] All E2E tests pass
-- [ ] Full page /move-money/new works
+- [x] Single "Move Money" tab replaces Exchange + Transfer tabs in bottom sheet
+- [x] Auto-detects transfer vs exchange mode from account currencies
+- [x] Transfer fields (fee) shown for same-currency accounts
+- [x] Exchange fields (rate, counter amount) shown for different-currency accounts
+- [x] Existing POST endpoints unchanged (/transactions/transfer, /transactions/exchange-submit)
+- [x] Old URLs (/transfers/new, /exchange/new) redirect to /move-money/new
+- [x] All unit tests pass (1184 passed)
+- [x] All E2E tests pass (154 passed)
+- [x] Full page /move-money/new works
 
 ## Progress Notes
 
