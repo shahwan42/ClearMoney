@@ -1,6 +1,13 @@
 /* ClearMoney custom styles — beyond what Tailwind provides.
    Keep this minimal; prefer Tailwind utility classes in HTML. */
 
+/* Disable native browser pull-to-refresh so our custom gesture (gestures.js)
+   is the sole handler. Without this, iOS elastic-bounce and Android Chrome's
+   native PTR fight with our code and cause spurious reloads. */
+html, body {
+    overscroll-behavior-y: none;
+}
+
 /* Button loading state — smooth crossfade between label and spinner.
    Spinner is positioned absolutely so button width stays constant. */
 .btn-label {

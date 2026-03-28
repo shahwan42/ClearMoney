@@ -21,10 +21,21 @@
     var pullValid = false; // Only true when indicator shown after valid sustained pull
     var distanceThresholdExceeded = false; // Track if we've crossed 60px threshold
 
+    // Track the last time the page scrolled so we can ignore touchstart events
+    // that arrive while momentum is still carrying the page to the top.
+    var lastScrollTime = 0;
+    document.addEventListener('scroll', function() {
+        lastScrollTime = Date.now();
+    }, { passive: true });
+
     document.addEventListener('touchstart', function(e) {
         var target = e.target.closest('[data-pull-refresh]');
         if (!target) return;
-        if (window.scrollY > 5) return; // Allow small scroll offset (prevents momentum bounce false-positives)
+        // Must be exactly at the top — scrollY > 0 means content is still scrolling.
+        if (window.scrollY > 0) return;
+        // Ignore if the page was scrolling within the last 400 ms (momentum arrival).
+        // This prevents a fast scroll-to-top from arming pull-to-refresh.
+        if (Date.now() - lastScrollTime < 400) return;
         pullStart = e.touches[0].clientY;
         pulling = true;
         pullValid = false;
@@ -34,9 +45,8 @@
     document.addEventListener('touchmove', function(e) {
         if (!pulling) return;
 
-        // Don't re-check scrollY on every move — only check on initial move if scrollY somehow increased
-        // (prevents layout thrashing during momentum scroll bounces)
-        if (window.scrollY > 10) {
+        // Cancel if the page somehow gained scroll offset during the gesture.
+        if (window.scrollY > 0) {
             pulling = false;
             return;
         }
