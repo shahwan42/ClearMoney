@@ -12,6 +12,7 @@ from tests.factories import (
     CategoryFactory,
     InstitutionFactory,
     TransactionFactory,
+    UserFactory,
 )
 
 
@@ -117,6 +118,47 @@ class TestExportTransactions:
         assert response.status_code == 200
         content = response.content.decode()
         assert "None" not in content  # note must not stringify as "None"
+
+    def test_cannot_export_other_users_transactions(
+        self, auth_user: tuple[str, str, str], auth_client: Client
+    ) -> None:
+        """User A's CSV export must not include user B's transactions."""
+        user_a_id, _, _ = auth_user
+
+        # User A's transaction
+        inst_a = InstitutionFactory(user_id=user_a_id)
+        acct_a = AccountFactory(user_id=user_a_id, institution_id=inst_a.id)
+        TransactionFactory(
+            user_id=user_a_id,
+            account_id=acct_a.id,
+            type="expense",
+            amount=Decimal("100"),
+            currency="EGP",
+            date=datetime.date(2026, 3, 15),
+            note="user_a_tx",
+        )
+
+        # User B's transaction (same date range)
+        user_b = UserFactory()
+        inst_b = InstitutionFactory(user_id=str(user_b.id))
+        acct_b = AccountFactory(user_id=str(user_b.id), institution_id=inst_b.id)
+        TransactionFactory(
+            user_id=str(user_b.id),
+            account_id=acct_b.id,
+            type="expense",
+            amount=Decimal("999"),
+            currency="EGP",
+            date=datetime.date(2026, 3, 15),
+            note="user_b_secret",
+        )
+
+        response = auth_client.get("/export/transactions?from=2026-03-01&to=2026-03-31")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "user_a_tx" in content
+        assert "user_b_secret" not in content
+        lines = content.strip().split("\n")
+        assert len(lines) == 2  # header + 1 row (user A's only)
 
     def test_unauthenticated_redirects(self) -> None:
         client = Client()
