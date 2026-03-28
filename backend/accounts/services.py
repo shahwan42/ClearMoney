@@ -20,7 +20,12 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
 from accounts.models import Account, AccountSnapshot, Institution
-from accounts.types import AccountDropdownItem, AccountSummary, HealthWarning
+from accounts.types import (
+    AccountDropdownItem,
+    AccountSummary,
+    HealthWarning,
+    NetWorthSummary,
+)
 from core.billing import (
     get_billing_cycle_info,
     interest_free_remaining,
@@ -842,3 +847,36 @@ def load_health_warnings(
                 )
 
     return warnings
+
+
+# Credit account types (shared with dashboard)
+CREDIT_ACCOUNT_TYPES = {"credit_card", "credit_limit"}
+
+
+def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
+    """Compute net worth breakdown from account balances.
+
+    Pure function — no DB access. Sums balances and splits by currency/type.
+    Extracted from dashboard/services/accounts.py for reuse.
+    """
+    summary = NetWorthSummary()
+
+    for acc in all_accounts:
+        balance = acc["current_balance"]
+        summary.net_worth += balance
+
+        if acc["currency"] == "USD":
+            summary.usd_total += balance
+        elif acc["currency"] == "EGP":
+            summary.egp_total += balance
+
+        if acc["type"] in CREDIT_ACCOUNT_TYPES:
+            summary.credit_used += balance  # negative for CCs (display negates)
+            limit = acc["credit_limit"]
+            if limit is not None and limit > 0:
+                # available = limit + balance (balance is negative, so this subtracts debt)
+                summary.credit_avail += limit + balance
+        else:
+            summary.cash_total += balance
+
+    return summary

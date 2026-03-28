@@ -12,10 +12,10 @@
 
 | Phase | Status | Start | End | Notes |
 | --- | --- | --- | --- | --- |
-| **Phase 1** — Fix violations + import-linter | ⏳ TODO | — | — | Fix push→dashboard, transactions→dashboard, add enforcement |
-| **Phase 2** — Type boundaries | ⏳ TODO | — | — | Create AccountSummary, BudgetWithSpending, RecurringRulePending types |
-| **Phase 3** — Split models | ⏳ TODO | — | — | Move 18 models from core → owning apps (high risk, defer) |
-| **Phase 4** — Extract domain logic | ⏳ TODO | — | — | Move health warnings, due dates, net worth, etc. to leaf services |
+| **Phase 1** — Fix violations + import-linter | ✅ DONE | 2026-03-27 | 2026-03-27 | Ticket #004 |
+| **Phase 2** — Type boundaries | ✅ DONE | 2026-03-27 | 2026-03-27 | Ticket #005 |
+| **Phase 3** — Split models | ✅ DONE | 2026-03-27 | 2026-03-28 | Tickets #006, #007 |
+| **Phase 4** — Extract domain logic | ✅ DONE | 2026-03-28 | 2026-03-28 | Ticket #009 — net worth, budgets, recent txns, streak extracted |
 
 **Legend:** ⏳ TODO | ⚡ IN PROGRESS | ✅ DONE | ⛔ BLOCKED
 

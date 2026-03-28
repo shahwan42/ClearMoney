@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from accounts.models import Account, Institution
+from accounts.services import compute_net_worth as _compute_net_worth_impl
 from exchange_rates.models import ExchangeRateLog
 
 if TYPE_CHECKING:
@@ -107,24 +108,18 @@ def load_exchange_rate() -> float:
 
 
 def compute_net_worth(data: DashboardData, all_accounts: list[dict[str, Any]]) -> None:
-    """Compute net worth totals from loaded accounts."""
-    for acc in all_accounts:
-        balance = acc["current_balance"]
-        data.net_worth += balance
+    """Compute net worth totals from loaded accounts.
 
-        if acc["currency"] == "USD":
-            data.usd_total += balance
-        elif acc["currency"] == "EGP":
-            data.egp_total += balance
-
-        if acc["type"] in CREDIT_TYPES:
-            data.credit_used += balance  # negative for CCs (display negates)
-            limit = acc["credit_limit"]
-            if limit is not None and limit > 0:
-                # available = limit + balance (balance is negative, so this subtracts debt)
-                data.credit_avail += limit + balance
-        else:
-            data.cash_total += balance
+    Delegates to accounts.services.compute_net_worth() for the core computation,
+    then applies institution-level exchange rate recalculation.
+    """
+    summary = _compute_net_worth_impl(all_accounts)
+    data.net_worth = summary.net_worth
+    data.egp_total = summary.egp_total
+    data.usd_total = summary.usd_total
+    data.cash_total = summary.cash_total
+    data.credit_used = summary.credit_used
+    data.credit_avail = summary.credit_avail
 
     # Recalculate institution totals now that exchange rate is loaded
     if data.exchange_rate > 0:

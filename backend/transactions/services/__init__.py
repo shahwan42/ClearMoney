@@ -12,6 +12,7 @@ CRITICAL INVARIANTS:
 - Amount is always positive; BalanceDelta holds the signed impact.
 """
 
+from .activity import StreakInfo, TransactionRow, load_recent_transactions, load_streak
 from .crud import TransactionServiceBase
 from .helpers import HelperMixin
 from .transfers import TransferMixin
@@ -42,4 +43,9 @@ __all__ = [
     "CREDIT_ACCOUNT_TYPES",
     "calculate_instapay_fee",
     "resolve_exchange_fields",
+    # Activity (extracted from dashboard)
+    "TransactionRow",
+    "StreakInfo",
+    "load_recent_transactions",
+    "load_streak",
 ]

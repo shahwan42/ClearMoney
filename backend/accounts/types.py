@@ -50,6 +50,21 @@ class AccountSummary:
     updated_at: object  # datetime
 
 
+@dataclass
+class NetWorthSummary:
+    """Net worth breakdown from account balances.
+
+    Used by dashboard and any module that needs net worth computation.
+    """
+
+    net_worth: float = 0.0
+    egp_total: float = 0.0
+    usd_total: float = 0.0
+    cash_total: float = 0.0
+    credit_used: float = 0.0
+    credit_avail: float = 0.0
+
+
 @dataclass(frozen=True)
 class AccountDropdownItem:
     """Lightweight account for form dropdowns.

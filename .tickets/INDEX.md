@@ -16,6 +16,7 @@ Last updated: 2026-03-28
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [009](done/009-phase-4-extract-domain-logic.md) | Phase 4: Extract domain logic from dashboard to leaf services | improvement | medium | 2026-03-28 |
 | [007](done/007-phase-3-cleanup-update-import-sites.md) | Phase 3 Cleanup — update import sites and remove shims | chore | medium | 2026-03-28 |
 | [006](done/006-phase-3-split-core-models.md) | Phase 3 — split core/models.py into module-owned models | refactor | high | 2026-03-27 |
 | [001](done/001-setup-ai-ticketing-system.md) | Setup AI-first ticketing system | chore | medium | 2026-03-27 |

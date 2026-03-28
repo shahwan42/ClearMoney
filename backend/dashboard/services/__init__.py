@@ -30,7 +30,7 @@ from .activity import (
     load_people_summary,
     load_recent_transactions,
     load_streak,
-)
+)  # StreakInfo, TransactionRow, load_recent_transactions, load_streak re-exported from transactions.services
 from .credit_cards import (
     CreditCardSummary,
     DueSoonCard,
