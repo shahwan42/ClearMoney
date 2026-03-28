@@ -3,6 +3,7 @@
 Converts: 10-reports-settings.spec.ts
 Covers: reports month navigation, Fawry cashout, batch entry, settings page.
 """
+
 import sys
 import os
 
@@ -87,7 +88,6 @@ class TestBatchEntry:
         page.goto("/batch-entry")
         expect(page.locator(".batch-row")).to_have_count(1)
 
-    @pytest.mark.skip(reason="Batch entry form not fully implemented - selectors and form state need update")
     def test_batch_entry_submit_creates_transactions(self, page: Page) -> None:
         """Fill batch entry rows and submit to create transactions."""
         page.goto("/batch-entry")
@@ -96,22 +96,22 @@ class TestBatchEntry:
         rows = page.locator(".batch-row")
         expect(rows).to_have_count(1)
 
-        # Fill amount, category, note in the first row
         row_first = rows.first
-        row_first.locator('input[name="amount"]').fill("100")
-        row_first.locator('textarea[name="note"]').fill("Test expense")
-
-        # Category uses custom combobox — select via programmatic API
-        page.evaluate(
-            f"document.querySelector('[data-category-combobox]')._combobox.selectById('1')"
-        )
+        # Type defaults to "expense" — leave as is
+        row_first.locator('input[name="amount[]"]').fill("100")
+        # Account — select the first available account
+        row_first.locator('select[name="account_id[]"]').select_option(index=0)
+        # Category — standard select, pick first non-empty option
+        row_first.locator('select[name="category_id[]"]').select_option(index=1)
+        # Note
+        row_first.locator('input[name="note[]"]').fill("Test expense")
 
         # Submit the form
         with page.expect_response(lambda r: "/transactions/batch" in r.url):
             page.locator('button[type="submit"]').click()
 
-        # Verify success message or redirect
-        expect(page.locator("#batch-result")).to_contain_text("saved|success", use_regex=True) | expect(page).to_have_url("/batch-entry")
+        # Verify success message
+        expect(page.locator("#batch-result")).to_contain_text("Created 1 transaction")
 
 
 class TestSettings:

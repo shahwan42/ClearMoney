@@ -3,6 +3,7 @@
 Verifies that submitting quick-entry transactions updates dashboard balances
 via lazy-load OOB swaps.
 """
+
 import sys
 import os
 
@@ -34,95 +35,107 @@ def auth(db: None, page: Page) -> None:
     ensure_auth(page)
 
 
-@pytest.mark.skip(reason="Quick-entry FAB button feature not implemented - dashboard has no Add transaction button")
+def _open_quick_entry(page: Page) -> None:
+    """Open the quick-entry bottom sheet and wait for the form to load."""
+    page.goto("/", wait_until="domcontentloaded")
+    page.click("button.fab-button", timeout=10000)
+    # Wait for the HTMX-loaded form content inside the sheet
+    page.wait_for_selector("#qe-amount", timeout=10000)
+
+
+def _fill_quick_entry(
+    page: Page,
+    *,
+    tx_type: str = "expense",
+    amount: str,
+    note: str = "",
+) -> None:
+    """Fill in the quick-entry form fields."""
+    # Select transaction type via radio button label click
+    page.click(f"input[name='type'][value='{tx_type}']", force=True)
+
+    # Fill amount
+    page.fill("#qe-amount", amount)
+
+    # Select the first real account option (index 0 is placeholder "Select account...")
+    page.locator("#qe-account-select").select_option(index=1)
+
+    # Category — use the combobox JS API
+    category_type = "income" if tx_type == "income" else "expense"
+    category_id = get_category_id(category_type, _user_id)
+    page.evaluate(
+        f"document.getElementById('qe-category-combobox')._combobox.selectById('{category_id}')"
+    )
+
+    # Note
+    if note:
+        page.fill("#qe-note-input", note)
+
+
 class TestQuickEntry:
     def test_quick_entry_expense_updates_balance(self, page: Page) -> None:
-        """Quick-entry expense: form submit → success message → dashboard balance decreases."""
+        """Quick-entry expense: form submit -> success message -> dashboard balance decreases."""
         global _user_id
         seed_basic_data(page)
-        page.goto("/", wait_until="domcontentloaded")
+        _open_quick_entry(page)
 
-        # Get initial balance from dashboard
+        # Verify initial balance on dashboard
         expect(page.locator("#dashboard-net-worth")).to_contain_text("10,000")
 
-        # Open quick-entry sheet (FAB button with aria-label="Add transaction")
-        page.click('button[aria-label="Add transaction"]', timeout=10000)
-        page.wait_for_selector("#quick-entry-sheet", timeout=10000)
-
-        # Fill in quick-entry form
-        expense_category_id = get_category_id("expense", _user_id)
-        page.select_option('select[name="type"]', "expense")
-        page.fill('input[name="amount"]', "500")
-        page.select_option('select[name="category_id"]', expense_category_id)
-        page.fill('input[name="note"]', "Lunch")
+        _fill_quick_entry(page, tx_type="expense", amount="500", note="Lunch")
 
         # Submit form (HTMX)
-        page.click("button:has-text('Save')")
+        page.click("#quick-entry-form button[type='submit']")
 
         # Verify success message
-        expect(page.locator("#quick-entry-result")).to_contain_text("saved")
+        expect(page.locator("#quick-entry-result")).to_contain_text(
+            "Transaction saved!", timeout=10000
+        )
 
-        # Wait for dashboard to update via lazy-load OOB
-        page.wait_for_timeout(1500)
-
-        # Verify balance decreased by 500
+        # Navigate to dashboard to verify updated balance
+        page.goto("/", wait_until="domcontentloaded")
         expect(page.locator("#dashboard-net-worth")).to_contain_text("9,500")
 
     def test_quick_entry_income_updates_balance(self, page: Page) -> None:
-        """Quick-entry income: form submit → success message → dashboard balance increases."""
+        """Quick-entry income: form submit -> success message -> dashboard balance increases."""
         seed_basic_data(page)
-        page.goto("/", wait_until="domcontentloaded")
+        _open_quick_entry(page)
 
-        # Get initial balance from dashboard
+        # Verify initial balance
         expect(page.locator("#dashboard-net-worth")).to_contain_text("10,000")
 
-        # Open quick-entry sheet (FAB button with aria-label="Add transaction")
-        page.click('button[aria-label="Add transaction"]', timeout=10000)
-        page.wait_for_selector("#quick-entry-sheet", timeout=10000)
-
-        # Fill in quick-entry form for income
-        income_category_id = get_category_id("income", _user_id)
-        page.select_option('select[name="type"]', "income")
-        page.fill('input[name="amount"]', "2000")
-        page.select_option('select[name="category_id"]', income_category_id)
-        page.fill('input[name="note"]', "Bonus")
+        _fill_quick_entry(page, tx_type="income", amount="2000", note="Bonus")
 
         # Submit form (HTMX)
-        page.click("button:has-text('Add Transaction')")
+        page.click("#quick-entry-form button[type='submit']")
 
         # Verify success message
-        expect(page.locator("#result")).to_contain_text("saved")
+        expect(page.locator("#quick-entry-result")).to_contain_text(
+            "Transaction saved!", timeout=10000
+        )
 
-        # Wait for dashboard to update via lazy-load OOB
-        page.wait_for_timeout(1500)
-
-        # Verify balance increased by 2000
+        # Navigate to dashboard to verify updated balance
+        page.goto("/", wait_until="domcontentloaded")
         expect(page.locator("#dashboard-net-worth")).to_contain_text("12,000")
 
     def test_quick_entry_zero_amount_rejected(self, page: Page) -> None:
-        """Quick-entry with zero amount: validation error shown, no balance change."""
+        """Quick-entry with zero amount: HTML5 validation prevents submit (min=0.01)."""
         seed_basic_data(page)
-        page.goto("/", wait_until="domcontentloaded")
+        _open_quick_entry(page)
 
-        # Get initial balance from dashboard
+        # Verify initial balance
         expect(page.locator("#dashboard-net-worth")).to_contain_text("10,000")
 
-        # Open quick-entry sheet (FAB button with aria-label="Add transaction")
-        page.click('button[aria-label="Add transaction"]', timeout=10000)
-        page.wait_for_selector("#quick-entry-sheet", timeout=10000)
+        # The amount field has min="0.01", so filling "0" and submitting
+        # should be blocked by HTML5 validation — the form should not submit.
+        page.fill("#qe-amount", "0")
 
-        # Fill in quick-entry form with zero amount
-        expense_category_id = get_category_id("expense", _user_id)
-        page.select_option('select[name="type"]', "expense")
-        page.fill('input[name="amount"]', "0")
-        page.select_option('select[name="category_id"]', expense_category_id)
+        # Click submit — HTML5 validation should block it
+        page.click("#quick-entry-form button[type='submit']")
 
-        # Submit form (HTMX)
-        page.click("button:has-text('Save')")
-
-        # Verify error message (validation error shown in quick-entry-result)
-        expect(page.locator("#quick-entry-result")).not_to_be_empty()
-
-        # Verify balance unchanged
+        # The result area should remain empty (form didn't submit)
         page.wait_for_timeout(500)
+        expect(page.locator("#quick-entry-result")).to_be_empty()
+
+        # Balance unchanged
         expect(page.locator("#dashboard-net-worth")).to_contain_text("10,000")
