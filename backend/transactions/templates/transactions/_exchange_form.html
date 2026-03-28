@@ -3,7 +3,7 @@
     <h2 class="text-base font-bold text-slate-800 dark:text-slate-100">Currency Exchange</h2>
     <form id="quick-exchange-form" hx-post="/transactions/exchange-submit" hx-target="#exchange-result" hx-swap="innerHTML"
           hx-disabled-elt="find button[type='submit']"
-          class="space-y-3">
+          class="space-y-3 overflow-hidden">
         <div>
             <label class="block text-xs text-gray-500 mb-1">From Account (source currency)</label>
             <select name="source_account_id" required id="exchange-src"

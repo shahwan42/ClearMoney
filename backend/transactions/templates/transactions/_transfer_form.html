@@ -3,7 +3,7 @@
     <h2 class="text-base font-bold text-slate-800 dark:text-white">Transfer Between Accounts</h2>
     <form hx-post="/transactions/transfer" hx-target="#transfer-result" hx-swap="innerHTML"
           hx-disabled-elt="find button[type='submit']"
-          class="space-y-3" id="transfer-form">
+          class="space-y-3 overflow-hidden" id="transfer-form">
         <div>
             <label for="source_account_id" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">From Account</label>
             <select name="source_account_id" id="source_account_id" required

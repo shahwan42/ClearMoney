@@ -3,7 +3,7 @@
     <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">Fawry Cash-Out</h3>
     <p class="text-xs text-gray-500">Charge your credit card and load funds to a Fawry prepaid account.</p>
 
-    <form hx-post="/transactions/fawry-cashout" hx-target="#fawry-result" hx-swap="innerHTML" class="space-y-3">
+    <form hx-post="/transactions/fawry-cashout" hx-target="#fawry-result" hx-swap="innerHTML" class="space-y-3 overflow-hidden">
         <div>
             <label class="block text-xs text-gray-500 mb-1">Credit Card</label>
             <select name="credit_card_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
