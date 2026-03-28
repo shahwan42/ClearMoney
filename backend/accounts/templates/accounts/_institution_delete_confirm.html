@@ -21,29 +21,19 @@ Context: institution_id, institution_name, account_count.
         </p>
     </div>
 
-    <!-- Confirmation input -->
-    <div>
-        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">
-            Type <strong class="text-slate-800 dark:text-slate-200">{{ institution_name }}</strong> to confirm
-        </label>
-        <input type="text" id="delete-confirm-input"
-            placeholder="{{ institution_name }}"
-            autocomplete="off"
-            class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-            oninput="checkDeleteConfirm()">
-    </div>
-
     <!-- Result area for success/error messages after delete -->
     <div id="delete-confirm-result" aria-live="assertive" aria-atomic="true"></div>
 
-    <!-- Delete button (disabled until name matches) -->
-    <button id="delete-confirm-btn" type="button" disabled
-        hx-delete="/institutions/{{ institution_id }}/delete"
-        hx-target="#delete-confirm-result"
-        hx-swap="innerHTML"
-        class="w-full bg-red-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-700 active:scale-[0.98] transition-all">
-        Delete Institution
-    </button>
+    <!-- Two-step delete button -->
+    <div aria-live="assertive">
+        <button id="delete-confirm-btn" type="button"
+            hx-delete="/institutions/{{ institution_id }}/delete"
+            hx-target="#delete-confirm-result"
+            hx-swap="innerHTML"
+            class="w-full bg-red-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-red-700 active:scale-[0.98] transition-all">
+            Delete Institution
+        </button>
+    </div>
 
     <!-- Cancel button -->
     <button type="button" onclick="closeDeleteSheet()"
@@ -53,13 +43,33 @@ Context: institution_id, institution_name, account_count.
 </div>
 
 <script>
-var expectedDeleteName = "{{ institution_name|escapejs }}";
+// Two-step confirmation for institution delete
+var instDeleteArmed = false;
+var instDeleteResetTimer = null;
 
-function checkDeleteConfirm() {
-    var input = document.getElementById('delete-confirm-input');
+function resetInstDeleteButton() {
     var btn = document.getElementById('delete-confirm-btn');
-    if (input && btn) {
-        btn.disabled = (input.value.trim().toLowerCase() !== expectedDeleteName.toLowerCase());
+    if (btn) {
+        instDeleteArmed = false;
+        btn.textContent = 'Delete Institution';
+        btn.classList.remove('bg-red-700', 'animate-pulse');
+        btn.classList.add('bg-red-600');
     }
+    if (instDeleteResetTimer) { clearTimeout(instDeleteResetTimer); instDeleteResetTimer = null; }
 }
+
+document.addEventListener('click', function(e) {
+    var btn = document.getElementById('delete-confirm-btn');
+    if (!btn || e.target !== btn) return;
+    if (!instDeleteArmed) {
+        e.preventDefault();
+        e.stopPropagation();
+        instDeleteArmed = true;
+        btn.textContent = 'Tap again to confirm';
+        btn.classList.remove('bg-red-600');
+        btn.classList.add('bg-red-700', 'animate-pulse');
+        instDeleteResetTimer = setTimeout(resetInstDeleteButton, 3000);
+    }
+    // If armed, let HTMX handle the click
+}, true);
 </script>

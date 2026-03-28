@@ -8,8 +8,7 @@ UI notes (verified against actual templates):
   (loaded via HTMX on sheet open — wait for the form to appear before interacting)
 - Add Account: header button "+ Account" opens unified institution+account form in create-sheet
 - Institution card "+ Account" opens same form but with institution pre-selected
-- Delete institution: trash icon button → opens delete-sheet, confirm via #delete-confirm-btn
-- Delete confirm input: id="delete-confirm-input" (not name="confirm_name")
+- Delete institution: trash icon button → opens delete-sheet, two-step confirm via #delete-confirm-btn
 - Institution picker: #add-acct-inst-search combobox, options rendered with data-name attribute
 - Credit limit field: id="add-acct-credit-limit-field"
 """
@@ -62,7 +61,7 @@ class TestInstitutions:
 
         expect(page.locator("main")).to_contain_text("HSBC")
 
-    def test_delete_institution_requires_name_confirmation(self, page: Page) -> None:
+    def test_delete_institution_requires_double_confirm(self, page: Page) -> None:
         # Create a unique institution for this test to avoid ambiguity with other
         # institutions created in the same module run.
         inst_id = create_institution(page, "Delete Bank")
@@ -70,13 +69,13 @@ class TestInstitutions:
         # Scope to the specific institution card to avoid strict-mode ambiguity
         page.locator(f'#institution-{inst_id}').locator('[title="Delete institution"]').click()
         content = page.locator("#delete-sheet-content")
-        content.locator('#delete-confirm-input').wait_for(timeout=10000)
         delete_btn = content.locator('#delete-confirm-btn')
-        expect(delete_btn).to_be_disabled()
+        delete_btn.wait_for(timeout=10000)
 
-        content.locator('#delete-confirm-input').fill("Delete Bank")
-        content.locator('#delete-confirm-input').dispatch_event("input")
-        expect(delete_btn).to_be_enabled()
+        # First click arms the button — text changes to confirmation prompt
+        expect(delete_btn).to_have_text("Delete Institution")
+        delete_btn.click()
+        expect(delete_btn).to_have_text("Tap again to confirm")
 
     def test_dismiss_sheet_via_cancel(self, page: Page) -> None:
         page.goto("/accounts")

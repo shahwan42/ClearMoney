@@ -235,7 +235,7 @@ document.body.addEventListener('closeEditSheet', function() {
 <!-- Delete confirmation bottom sheet -->
 <div id="delete-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeDeleteSheet()"></div>
 <div id="delete-sheet" class="fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out"
-     data-bottom-sheet="delete" data-bottom-sheet-persist data-account-name="{{ data.account.name|escapejs }}">
+     data-bottom-sheet="delete" data-bottom-sheet-persist>
     <div id="delete-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
     </div>
@@ -252,27 +252,18 @@ document.body.addEventListener('closeEditSheet', function() {
                 This will permanently delete <strong class="text-slate-700 dark:text-slate-200">{{ data.account.name }}</strong> and all its transactions. This action cannot be undone.
             </p>
         </div>
-        <!-- Confirmation input -->
-        <div class="mb-4">
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">
-                Type <strong class="text-slate-700 dark:text-slate-200">{{ data.account.name }}</strong> to confirm
-            </label>
-            <input type="text" id="delete-confirm-input"
-                   class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                   placeholder="Account name" autocomplete="off"
-                   oninput="checkDeleteConfirmation()">
-        </div>
         <!-- Error display area (for FK constraint errors) -->
-        <div id="delete-error" class="mb-4 hidden"></div>
-        <!-- Action buttons -->
-        <button id="delete-confirm-btn"
-                class="w-full bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition"
-                disabled
-                hx-delete="/accounts/{{ data.account.id }}/delete"
-                hx-target="#delete-error"
-                hx-swap="innerHTML">
-            Delete Account
-        </button>
+        <div id="delete-error" class="mb-4 hidden" aria-live="assertive" aria-atomic="true"></div>
+        <!-- Two-step delete button -->
+        <div aria-live="assertive">
+            <button id="delete-confirm-btn"
+                    class="w-full bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold transition-all"
+                    hx-delete="/accounts/{{ data.account.id }}/delete"
+                    hx-target="#delete-error"
+                    hx-swap="innerHTML">
+                Delete Account
+            </button>
+        </div>
         <button onclick="closeDeleteSheet()"
                 class="w-full mt-2 text-gray-600 dark:text-slate-400 py-2 min-h-[44px] text-sm font-medium flex items-center justify-center">
             Cancel
@@ -287,26 +278,48 @@ function openEditAccount() {
 }
 function closeEditAccount() { BottomSheet.close('edit-account'); }
 
-// Delete account — uses shared BottomSheet open/close + feature-specific validation
+// Delete account — two-step confirmation (tap once to arm, tap again to delete)
+var deleteArmed = false;
+var deleteResetTimer = null;
+
+function resetDeleteButton() {
+    var btn = document.getElementById('delete-confirm-btn');
+    if (btn) {
+        deleteArmed = false;
+        btn.textContent = 'Delete Account';
+        btn.classList.remove('bg-red-700', 'animate-pulse');
+        btn.classList.add('bg-red-600');
+    }
+    if (deleteResetTimer) { clearTimeout(deleteResetTimer); deleteResetTimer = null; }
+}
+
 function openDeleteSheet() {
     BottomSheet.open('delete', {onOpen: function() {
-        var input = document.getElementById('delete-confirm-input');
-        var btn = document.getElementById('delete-confirm-btn');
+        resetDeleteButton();
         var errorDiv = document.getElementById('delete-error');
-        input.value = '';
-        btn.disabled = true;
         errorDiv.innerHTML = '';
         errorDiv.classList.add('hidden');
     }});
 }
-function closeDeleteSheet() { BottomSheet.close('delete'); }
-
-function checkDeleteConfirmation() {
-    var sheet = document.getElementById('delete-sheet');
-    var input = document.getElementById('delete-confirm-input');
-    var btn = document.getElementById('delete-confirm-btn');
-    btn.disabled = input.value.trim().toLowerCase() !== sheet.dataset.accountName.toLowerCase();
+function closeDeleteSheet() {
+    resetDeleteButton();
+    BottomSheet.close('delete');
 }
+
+document.addEventListener('click', function(e) {
+    var btn = document.getElementById('delete-confirm-btn');
+    if (!btn || e.target !== btn) return;
+    if (!deleteArmed) {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteArmed = true;
+        btn.textContent = 'Tap again to confirm';
+        btn.classList.remove('bg-red-600');
+        btn.classList.add('bg-red-700', 'animate-pulse');
+        deleteResetTimer = setTimeout(resetDeleteButton, 3000);
+    }
+    // If armed, let HTMX handle the click
+}, true);
 
 // Show error container when HTMX swaps content into it
 document.body.addEventListener('htmx:afterSwap', function(e) {
