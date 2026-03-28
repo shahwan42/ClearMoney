@@ -21,7 +21,7 @@ from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
 from people.models import Person
-from transactions.models import VirtualAccountAllocation
+from transactions.models import Transaction, VirtualAccountAllocation
 
 from .services import TransactionService
 
@@ -175,6 +175,17 @@ def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
         }
         tx, new_balance = svc.create(data)
 
+        # Optional fee → separate linked expense transaction
+        fee_raw = request.POST.get("fee_amount", "")
+        if fee_raw:
+            fee = parse_float_or_none(fee_raw)
+            if fee and fee > 0:
+                svc.create_fee_for_transaction(
+                    parent_tx=tx,
+                    fee_amount=fee,
+                    tx_date=data.get("date") or None,
+                )
+
         # Virtual account allocation
         va_id = request.POST.get("virtual_account_id", "")
         if va_id:
@@ -212,6 +223,13 @@ def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResp
     virtual_accounts = svc.get_virtual_accounts()
     selected_va_id = svc.get_allocation_for_tx(str(tx_id))
 
+    # Look up existing linked fee transaction
+    fee_tx = (
+        Transaction.objects.for_user(request.user_id)
+        .filter(linked_transaction_id=str(tx_id), note="Transaction fee")
+        .first()
+    )
+
     logger.info("partial loaded: transaction-edit-form, user=%s", request.user_email)
     return render(
         request,
@@ -222,6 +240,7 @@ def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResp
             "selected_category_id": tx.get("category_id", ""),
             "virtual_accounts": virtual_accounts,
             "selected_va_id": selected_va_id or "",
+            "existing_fee_amount": fee_tx.amount if fee_tx else "",
         },
     )
 
@@ -297,6 +316,13 @@ def transaction_update(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
             "date": put_data.get("date", ""),
         }
         svc.update(str(tx_id), data)
+
+        # Handle fee changes
+        fee_raw = put_data.get("fee_amount", "")
+        fee = parse_float_or_none(fee_raw) if fee_raw else None
+        svc.update_fee_for_transaction(
+            str(tx_id), fee, tx_date=data.get("date") or None
+        )
 
         # Handle VA reallocation
         old_va_id = svc.get_allocation_for_tx(str(tx_id))
@@ -619,6 +645,17 @@ def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
             "date": request.POST.get("date", ""),
         }
         tx, new_balance = svc.create(data)
+
+        # Optional fee → separate linked expense transaction
+        fee_raw = request.POST.get("fee_amount", "")
+        if fee_raw:
+            fee = parse_float_or_none(fee_raw)
+            if fee and fee > 0:
+                svc.create_fee_for_transaction(
+                    parent_tx=tx,
+                    fee_amount=fee,
+                    tx_date=data.get("date") or None,
+                )
 
         va_id = request.POST.get("virtual_account_id", "")
         if va_id:

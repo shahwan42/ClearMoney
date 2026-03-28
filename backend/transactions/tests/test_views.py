@@ -247,6 +247,58 @@ class TestTransactionCRUD:
         )
         assert response.status_code == 400
 
+    def test_create_with_fee_creates_linked_fee_transaction(self, client, tx_view_data):
+        from decimal import Decimal
+
+        CategoryFactory(
+            user_id=tx_view_data["user_id"],
+            name="Fees & Charges",
+            type="expense",
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            "/transactions",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": tx_view_data["egp_id"],
+                "fee_amount": "25",
+                "date": "2026-03-15",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        assert b"Transaction saved!" in response.content
+        # Verify fee transaction was created
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_view_data["user_id"], note="Transaction fee"
+        ).first()
+        assert fee_tx is not None
+        assert Decimal(str(fee_tx.amount)) == Decimal("25")
+        assert fee_tx.type == "expense"
+        # Balance: 10000 - 500 - 25 = 9475
+        bal = Account.objects.get(id=tx_view_data["egp_id"]).current_balance
+        assert Decimal(str(bal)) == Decimal("9475")
+
+    def test_create_without_fee_no_fee_transaction(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            "/transactions",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": tx_view_data["egp_id"],
+                "date": "2026-03-15",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        # No fee transaction created
+        fee_count = Transaction.objects.filter(
+            user_id=tx_view_data["user_id"], note="Transaction fee"
+        ).count()
+        assert fee_count == 0
+
     def test_edit_form(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
         tx = TransactionFactory(
@@ -284,8 +336,10 @@ class TestTransactionCRUD:
         assert "edit-more-options" in content
         assert 'aria-expanded="false"' in content
 
-    def test_edit_form_no_toggle_without_virtual_accounts(self, client, tx_view_data):
-        """No More options toggle when the user has no virtual accounts."""
+    def test_edit_form_no_va_dropdown_without_virtual_accounts(
+        self, client, tx_view_data
+    ):
+        """More options shows fee field but no VA dropdown when user has no virtual accounts."""
         tx = TransactionFactory(
             user_id=tx_view_data["user_id"],
             account_id=tx_view_data["egp_id"],
@@ -297,8 +351,10 @@ class TestTransactionCRUD:
         )
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
-        assert b"edit-more-options" not in response.content
-        assert b"More options" not in response.content
+        content = response.content.decode()
+        assert "More options" in content
+        assert 'name="fee_amount"' in content
+        assert 'name="virtual_account_id"' not in content
 
     def test_edit_form_auto_expands_when_va_selected(self, client, tx_view_data):
         """JS openEditMore() is called when the transaction has a VA allocation."""
@@ -324,6 +380,35 @@ class TestTransactionCRUD:
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
         assert b"openEditMore();" in response.content
+
+    def test_edit_form_auto_expands_when_fee_exists(self, client, tx_view_data):
+        """JS openEditMore() is called when the transaction has a linked fee."""
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="expense",
+            amount=200,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-200,
+        )
+        # Create a linked fee transaction
+        TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="expense",
+            amount=10,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-10,
+            note="Transaction fee",
+            linked_transaction_id=tx.id,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert b"openEditMore();" in response.content
+        assert 'value="10' in content  # fee pre-filled
 
     def test_edit_form_no_auto_expand_without_va(self, client, tx_view_data):
         """openEditMore() is not called when no VA is allocated."""
@@ -647,6 +732,144 @@ class TestQuickEntryViews:
         response = c.get("/transactions/quick-move", HTTP_HX_REQUEST="true")
         assert response.status_code == 200
         assert b"Move Money" in response.content
+
+    def test_quick_entry_with_fee_creates_linked_fee_transaction(
+        self, client, tx_view_data
+    ):
+        from decimal import Decimal
+
+        CategoryFactory(
+            user_id=tx_view_data["user_id"],
+            name="Fees & Charges",
+            type="expense",
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            "/transactions/quick",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": tx_view_data["egp_id"],
+                "fee_amount": "25",
+                "date": "2026-03-15",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        # Verify fee transaction
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_view_data["user_id"], note="Transaction fee"
+        ).first()
+        assert fee_tx is not None
+        assert Decimal(str(fee_tx.amount)) == Decimal("25")
+        # Balance: 10000 - 500 - 25 = 9475
+        bal = Account.objects.get(id=tx_view_data["egp_id"]).current_balance
+        assert Decimal(str(bal)) == Decimal("9475")
+
+    def test_quick_entry_form_has_fee_field(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert 'name="fee_amount"' in content
+        assert 'id="qe-fee-input"' in content
+
+
+@pytest.mark.django_db
+class TestTransactionEditFee:
+    """Tests for fee handling in the edit form."""
+
+    def test_edit_form_has_fee_field(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="expense",
+            amount=200,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-200,
+        )
+        response = c.get(f"/transactions/edit/{tx.id}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert 'name="fee_amount"' in content
+
+    def test_edit_with_fee_creates_fee_transaction(self, client, tx_view_data):
+        from decimal import Decimal
+
+        CategoryFactory(
+            user_id=tx_view_data["user_id"],
+            name="Fees & Charges",
+            type="expense",
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="expense",
+            amount=500,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-500,
+        )
+        # Account balance was manually set, adjust it
+        Account.objects.filter(id=tx_view_data["egp_id"]).update(current_balance=9500)
+        response = c.put(
+            f"/transactions/{tx.id}",
+            data="type=expense&amount=500&note=&date=2026-03-15&fee_amount=30",
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_view_data["user_id"], note="Transaction fee"
+        ).first()
+        assert fee_tx is not None
+        assert Decimal(str(fee_tx.amount)) == Decimal("30")
+
+    def test_edit_removes_fee_when_cleared(self, client, tx_view_data):
+        CategoryFactory(
+            user_id=tx_view_data["user_id"],
+            name="Fees & Charges",
+            type="expense",
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="expense",
+            amount=500,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-500,
+        )
+        Account.objects.filter(id=tx_view_data["egp_id"]).update(current_balance=9500)
+        # Create a fee transaction manually
+        TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="expense",
+            amount=25,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-25,
+            note="Transaction fee",
+            linked_transaction_id=tx.id,
+        )
+        Account.objects.filter(id=tx_view_data["egp_id"]).update(current_balance=9475)
+        # Edit with empty fee → should remove fee
+        response = c.put(
+            f"/transactions/{tx.id}",
+            data="type=expense&amount=500&note=&date=2026-03-15&fee_amount=",
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_view_data["user_id"], note="Transaction fee"
+            ).count()
+            == 0
+        )
 
 
 # ---------------------------------------------------------------------------

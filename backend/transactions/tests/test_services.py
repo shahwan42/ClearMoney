@@ -231,6 +231,116 @@ class TestCreate:
 
 
 @pytest.mark.django_db
+class TestCreateWithFee:
+    """Tests for creating transactions with an optional linked fee."""
+
+    def test_expense_with_fee_creates_linked_fee_transaction(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+                "category_id": tx_data["cat_expense_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        fee_tx = svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=25.0, tx_date=date(2026, 3, 15)
+        )
+        # Fee is a separate expense transaction
+        assert fee_tx["type"] == "expense"
+        assert Decimal(fee_tx["amount"]) == Decimal("25")
+        assert Decimal(fee_tx["balance_delta"]) == Decimal("-25")
+        assert fee_tx["linked_transaction_id"] == tx["id"]
+        assert fee_tx["category_id"] == tx_data["fees_cat_id"]
+        assert fee_tx["note"] == "Transaction fee"
+
+    def test_expense_with_fee_updates_balance_correctly(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=25.0, tx_date=date(2026, 3, 15)
+        )
+        # Balance should be 10000 - 500 (expense) - 25 (fee) = 9475
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("9475")
+
+    def test_income_with_fee_creates_fee_expense(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "income",
+                "amount": 2000,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        fee_tx = svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=10.0, tx_date=date(2026, 3, 15)
+        )
+        # Fee still deducts from account even on income
+        assert fee_tx["type"] == "expense"
+        assert Decimal(fee_tx["balance_delta"]) == Decimal("-10")
+        # Balance: 10000 + 2000 (income) - 10 (fee) = 11990
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("11990")
+
+    def test_zero_fee_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+        with pytest.raises(ValueError, match="greater than zero"):
+            svc.create_fee_for_transaction(
+                parent_tx=tx, fee_amount=0, tx_date=date(2026, 3, 15)
+            )
+
+    def test_negative_fee_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+        with pytest.raises(ValueError, match="greater than zero"):
+            svc.create_fee_for_transaction(
+                parent_tx=tx, fee_amount=-5, tx_date=date(2026, 3, 15)
+            )
+
+    def test_fee_uses_parent_currency(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 50,
+                "account_id": tx_data["usd_id"],
+            }
+        )
+        fee_tx = svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=2.0, tx_date=date(2026, 3, 15)
+        )
+        assert fee_tx["currency"] == "USD"
+
+
+@pytest.mark.django_db
 class TestUpdate:
     def test_recalculates_balance_delta(self, tx_data):
         from decimal import Decimal
@@ -348,6 +458,175 @@ class TestDelete:
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="not found"):
             svc.delete(str(uuid.uuid4()))
+
+    def test_delete_parent_also_deletes_linked_fee(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=25.0, tx_date=date(2026, 3, 15)
+        )
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("9475")
+
+        svc.delete(tx["id"])
+        # Both parent and fee reversed: 10000
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("10000")
+        # Fee transaction should be gone
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], note="Transaction fee"
+            ).count()
+            == 0
+        )
+
+    def test_delete_transfer_with_fee_cleans_up_fee(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest Account",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        dest_id = str(dest.id)
+        debit, credit = svc.create_transfer(
+            tx_data["egp_id"],
+            dest_id,
+            1000,
+            None,
+            None,
+            date(2026, 3, 15),
+            fee_amount=50,
+        )
+        # Source: 10000 - 1000 - 50 = 8950, Dest: 5000 + 1000 = 6000
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("8950")
+        assert Decimal(str(_get_balance(dest_id))) == Decimal("6000")
+
+        svc.delete(debit["id"])
+        # Fully reversed: source 10000, dest 5000
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("10000")
+        assert Decimal(str(_get_balance(dest_id))) == Decimal("5000")
+        # Fee transaction should be gone (transfer fee has note "Transfer fee")
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], note="Transfer fee"
+            ).count()
+            == 0
+        )
+
+
+@pytest.mark.django_db
+class TestUpdateFee:
+    """Tests for update_fee_for_transaction() — add, change, remove fees."""
+
+    def test_update_fee_creates_new_fee(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        # No fee initially, add one via update
+        svc.update_fee_for_transaction(tx["id"], 25.0, tx_date=date(2026, 3, 15))
+        # Balance: 10000 - 500 - 25 = 9475
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("9475")
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"],
+            linked_transaction_id=tx["id"],
+            note="Transaction fee",
+        ).first()
+        assert fee_tx is not None
+        assert Decimal(str(fee_tx.amount)) == Decimal("25")
+
+    def test_update_fee_removes_old_fee(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=25.0, tx_date=date(2026, 3, 15)
+        )
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("9475")
+
+        # Remove fee by passing None
+        svc.update_fee_for_transaction(tx["id"], None, tx_date=date(2026, 3, 15))
+        # Balance: 10000 - 500 = 9500 (fee reversed)
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("9500")
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], note="Transaction fee"
+            ).count()
+            == 0
+        )
+
+    def test_update_fee_changes_amount(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=25.0, tx_date=date(2026, 3, 15)
+        )
+        # Change fee from 25 to 50
+        svc.update_fee_for_transaction(tx["id"], 50.0, tx_date=date(2026, 3, 15))
+        # Balance: 10000 - 500 - 50 = 9450
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("9450")
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"],
+            linked_transaction_id=tx["id"],
+            note="Transaction fee",
+        ).first()
+        assert fee_tx is not None
+        assert Decimal(str(fee_tx.amount)) == Decimal("50")
+
+    def test_update_fee_noop_when_no_change(self, tx_data):
+        """No fee exists, no new fee requested → no-op."""
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 500,
+                "account_id": tx_data["egp_id"],
+            }
+        )
+        svc.update_fee_for_transaction(tx["id"], None, tx_date=None)
+        assert _get_balance(tx_data["egp_id"]) == 9500
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], note="Transaction fee"
+            ).count()
+            == 0
+        )
 
 
 @pytest.mark.django_db

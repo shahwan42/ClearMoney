@@ -4,11 +4,18 @@ Last updated: 2026-03-28
 
 ## In Progress
 
-(none)
+| ID | Title | Type | Priority | Updated |
+| --- | --- | --- | --- | --- |
+| [012](wip/012-add-fee-to-transactions.md) | Add optional fee to expense/income transactions | feature | medium | 2026-03-28 |
 
 ## Pending
 
-(none)
+| ID | Title | Type | Priority | Updated |
+| --- | --- | --- | --- | --- |
+| [016](pending/016-update-fee-unnecessary-float-roundtrip.md) | update_fee_for_transaction unnecessary Decimal→float→Decimal round-trip | improvement | low | 2026-03-28 |
+| [015](pending/015-quick-entry-date-missing-max-constraint.md) | Quick-entry date picker allows future dates | bug | low | 2026-03-28 |
+| [014](pending/014-edit-form-note-missing-maxlength.md) | Edit form note input missing maxlength | bug | low | 2026-03-28 |
+| [013](pending/013-quick-entry-note-missing-maxlength.md) | Quick-entry note input missing maxlength | bug | low | 2026-03-28 |
 
 ## Done
 

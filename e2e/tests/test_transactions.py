@@ -342,3 +342,30 @@ class TestTransactionCRUD:
         # After swipe, delete confirmation should appear (or transaction slides left)
         # For this test, we'll verify the delete button appears if exposed by swipe
         expect(page.locator(f"#tx-{tx_id}")).to_be_visible()
+
+    def test_create_expense_with_fee(self, page: Page) -> None:
+        """Fee field in More Options creates a linked fee transaction."""
+        category_id = get_category_id("expense", _user_id)
+        page.goto("/transactions/new")
+        page.select_option('select[name="account_id"]', _account_id)
+        page.click('#type-expense-label')
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+        )
+        page.fill('input[name="amount"]', "500")
+        page.fill('input[name="note"]', "Groceries")
+
+        # Open More Options and fill fee
+        page.click('#more-options-toggle')
+        expect(page.locator('#fee-input')).to_be_visible()
+        page.fill('#fee-input', "25")
+
+        with page.expect_response(
+            lambda r: "/transactions" in r.url and r.request.method == "POST"
+        ):
+            page.click('button[type="submit"]')
+
+        expect(page.locator("#transaction-result")).to_contain_text("Transaction saved!")
+        # 10,000 - 500 (expense) - 25 (fee) = 9,475
+        page.goto(f"/accounts/{_account_id}")
+        expect(page.locator("main")).to_contain_text("9,475")

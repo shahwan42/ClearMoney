@@ -21,6 +21,7 @@ from django.db.models import F
 from django.utils import timezone as django_tz
 
 from accounts.models import Account
+from categories.models import Category
 from transactions.models import Transaction
 
 from .utils import CREDIT_ACCOUNT_TYPES, VALID_TX_TYPES, _parse_tags, _to_str
@@ -248,6 +249,127 @@ class TransactionServiceBase:
             self.user_id,
         )
         return created, str(new_balance)
+
+    def create_fee_for_transaction(
+        self,
+        parent_tx: dict[str, Any],
+        fee_amount: float,
+        tx_date: date | str | None,
+    ) -> dict[str, Any]:
+        """Create a linked fee transaction (expense) for a regular transaction.
+
+        Follows the same pattern as transfer fees (transfers.py): creates a
+        separate expense auto-categorized as "Fees & Charges", linked to the
+        parent transaction via linked_transaction_id.
+        """
+        fee = Decimal(str(fee_amount))
+        if fee <= 0:
+            raise ValueError("Fee must be greater than zero")
+
+        account_id = parent_tx["account_id"]
+        currency = parent_tx["currency"]
+
+        fees_cat = (
+            Category.objects.for_user(self.user_id)
+            .filter(name="Fees & Charges")
+            .first()
+        )
+
+        resolved_date = tx_date or date.today()
+        if isinstance(resolved_date, str):
+            resolved_date = datetime.strptime(
+                resolved_date.split("T")[0], "%Y-%m-%d"
+            ).date()
+
+        with transaction.atomic():
+            fee_tx = Transaction.objects.create(
+                id=uuid.uuid4(),
+                user_id=self.user_id,
+                type="expense",
+                amount=fee,
+                currency=currency,
+                account_id=account_id,
+                category_id=fees_cat.id if fees_cat else None,
+                note="Transaction fee",
+                date=resolved_date,
+                balance_delta=-fee,
+                linked_transaction_id=parent_tx["id"],
+            )
+            Account.objects.for_user(self.user_id).filter(id=account_id).update(
+                current_balance=F("current_balance") - fee,
+                updated_at=django_tz.now(),
+            )
+
+        logger.info(
+            "transaction.fee_created parent=%s fee=%s user=%s",
+            parent_tx["id"],
+            fee,
+            self.user_id,
+        )
+        return _tx_instance_to_dict(fee_tx)
+
+    def update_fee_for_transaction(
+        self,
+        tx_id: str,
+        fee_amount: float | None,
+        tx_date: date | str | None,
+    ) -> None:
+        """Add, change, or remove the fee linked to a transaction.
+
+        Logic:
+        - No old fee + no new fee → no-op
+        - No old fee + new fee > 0 → create fee
+        - Old fee + new fee is None/0 → delete old fee, reverse balance
+        - Old fee + new fee > 0 and different → delete old, create new
+        - Old fee + same amount → no-op
+        """
+        existing_fee = (
+            Transaction.objects.for_user(self.user_id)
+            .filter(linked_transaction_id=tx_id, note="Transaction fee")
+            .first()
+        )
+
+        new_fee = Decimal(str(fee_amount)) if fee_amount else None
+        if new_fee is not None and new_fee <= 0:
+            new_fee = None
+
+        old_fee = Decimal(str(existing_fee.amount)) if existing_fee else None
+
+        # No-op cases
+        if old_fee is None and new_fee is None:
+            return
+        if old_fee == new_fee:
+            return
+
+        # Remove old fee if it exists
+        if existing_fee:
+            now = django_tz.now()
+            with transaction.atomic():
+                Account.objects.for_user(self.user_id).filter(
+                    id=existing_fee.account_id
+                ).update(
+                    current_balance=F("current_balance")
+                    + Decimal(str(existing_fee.amount)),
+                    updated_at=now,
+                )
+                existing_fee.delete()
+            logger.info(
+                "transaction.fee_removed parent=%s old_fee=%s user=%s",
+                tx_id,
+                old_fee,
+                self.user_id,
+            )
+
+        # Create new fee if requested
+        if new_fee:
+            parent_tx = self.get_by_id(tx_id)
+            if not parent_tx:
+                raise ValueError("Parent transaction not found")
+            self.create_fee_for_transaction(
+                parent_tx=parent_tx,
+                fee_amount=float(new_fee),
+                tx_date=tx_date,
+            )
 
     def get_by_id(self, tx_id: str) -> dict[str, Any] | None:
         """Fetch a single transaction by ID via ORM."""
@@ -599,6 +721,20 @@ class TransactionServiceBase:
         is_linked = tx["linked_transaction_id"] is not None
         now = django_tz.now()
 
+        # Collect linked fee transactions BEFORE any deletions
+        # (FK is SET_NULL on cascade, so fees lose their link after parent delete)
+        fee_parent_ids = [tx_id]
+        if is_linked and tx.get("linked_transaction_id"):
+            fee_parent_ids.append(tx["linked_transaction_id"])
+        fee_txs = list(
+            Transaction.objects.for_user(self.user_id)
+            .filter(
+                linked_transaction_id__in=fee_parent_ids,
+                note__in=["Transaction fee", "Transfer fee"],
+            )
+            .values("id", "amount", "account_id")
+        )
+
         with transaction.atomic():
             # Delete this transaction
             Transaction.objects.for_user(self.user_id).filter(id=tx_id).delete()
@@ -647,5 +783,19 @@ class TransactionServiceBase:
                     current_balance=F("current_balance") + reverse_delta,
                     updated_at=now,
                 )
+
+            # Delete fee transactions and reverse their balance impact
+            for fee in fee_txs:
+                fee_amount = Decimal(str(fee["amount"]))
+                Account.objects.for_user(self.user_id).filter(
+                    id=fee["account_id"]
+                ).update(
+                    current_balance=F("current_balance") + fee_amount,
+                    updated_at=now,
+                )
+            if fee_txs:
+                Transaction.objects.for_user(self.user_id).filter(
+                    id__in=[f["id"] for f in fee_txs]
+                ).delete()
 
         logger.info("transaction.deleted id=%s user=%s", tx_id, self.user_id)
