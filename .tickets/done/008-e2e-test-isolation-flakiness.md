@@ -3,7 +3,7 @@ id: "008"
 title: "E2E test isolation flakiness — fix database connection handling under load"
 type: chore
 priority: medium
-status: wip
+status: done
 created: 2026-03-28
 updated: 2026-03-28
 ---
@@ -63,3 +63,4 @@ Test isolation failures stem from database connection management issues when tes
 ## Progress Notes
 
 - 2026-03-28: Started — Investigated E2E test failures, identified test isolation as root cause of 5 remaining failures. Main JSON encoding issue already fixed in prior commit. Created this ticket to track infrastructure-level test flakiness.
+- 2026-03-28: Completed — Fixed via DB connection health checks (commit 572ee8b), then unskipped quick-entry and batch-entry E2E tests (commit c86e1f1).

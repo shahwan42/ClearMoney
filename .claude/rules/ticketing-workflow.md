@@ -42,9 +42,11 @@ When Claude begins work on a non-trivial task (features, bug fixes, refactors, i
   - Example: `- 2026-03-27: Added E2E test for happy path, all 3 criteria passing`
 - Do not update frontmatter fields (`id`, `created`, `status`) — only Claude updates those
 
-### 3. On Task Completion
+### 3. On Task Completion — Atomic with Commit
 
-When a feature, fix, or improvement is done (post-commit or when declaring success):
+**CRITICAL: Ticket closure MUST be part of the same commit as the feature/fix.** Never defer ticket closure to a separate step — if context fills or the session ends between the commit and ticket cleanup, WIP goes stale.
+
+**Workflow: close ticket → stage ticket files → stage code → commit together.**
 
 1. **Move ticket from `wip/` to `done/`**:
    - Rename file: `.tickets/wip/<id>-<slug>.md` → `.tickets/done/<id>-<slug>.md`
@@ -53,12 +55,19 @@ When a feature, fix, or improvement is done (post-commit or when declaring succe
      - `updated`: today's date
    - Add final progress note: `- 2026-03-27: Completed — [what was delivered, key commits, or summary]`
 
-2. **Regenerate INDEX.md**:
-   - Read all `.tickets/*/*.md` files
-   - Parse YAML frontmatter
-   - Group by status (In Progress, Pending, Done, Rejected)
-   - Sort each group by `updated` (most recent first)
-   - Rebuild `.tickets/INDEX.md` with markdown tables + links
+2. **Regenerate INDEX.md**
+
+3. **Stage ticket files alongside code changes**:
+   ```bash
+   git add .tickets/done/<id>-<slug>.md .tickets/INDEX.md
+   # Also stage the deletion of the old wip/ file
+   git add .tickets/wip/<id>-<slug>.md
+   # Then stage the feature/fix code files
+   git add backend/app/file.py ...
+   git commit -m "feat: description"
+   ```
+
+**Why:** The ticket move and the code change are one logical unit. Including both in the same commit guarantees they stay in sync — no orphaned WIP tickets.
 
 ### 4. On Rejection / Cancellation
 
@@ -186,13 +195,16 @@ Last updated: 2026-03-27
 5. (Don't regenerate INDEX unless status changed)
 ```
 
-### Close Ticket (Move to Done)
+### Close Ticket (Move to Done) — MUST be atomic with feature commit
 ```
 1. Read ticket from wip/
 2. Update: status → done, updated → today
 3. Add progress note: "- YYYY-MM-DD: Completed — [summary]"
 4. Write to done/<id>-<slug>.md
-5. Regenerate INDEX.md
+5. Delete from wip/
+6. Regenerate INDEX.md
+7. Stage ticket files (done/ + deleted wip/ + INDEX.md) alongside code
+8. Commit everything together — never in a separate commit
 ```
 
 ### Reject Ticket (Move to Rejected)

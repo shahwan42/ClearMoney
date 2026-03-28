@@ -3,7 +3,7 @@ id: "010"
 title: "Simplify account & institution deletion UX"
 type: improvement
 priority: medium
-status: wip
+status: done
 created: 2026-03-28
 updated: 2026-03-28
 ---
@@ -25,3 +25,4 @@ Replace the type-to-confirm deletion pattern with a simpler two-step button conf
 ## Progress Notes
 
 - 2026-03-28: Started — replacing type-to-confirm with two-step button pattern
+- 2026-03-28: Completed — Two-step confirm button implemented for both accounts and institutions (commit b4af94a).
