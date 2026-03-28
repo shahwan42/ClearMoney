@@ -4,9 +4,7 @@ Last updated: 2026-03-28
 
 ## In Progress
 
-| ID | Title | Type | Priority | Updated |
-| --- | --- | --- | --- | --- |
-| [012](wip/012-add-fee-to-transactions.md) | Add optional fee to expense/income transactions | feature | medium | 2026-03-28 |
+(none)
 
 ## Pending
 
@@ -21,6 +19,7 @@ Last updated: 2026-03-28
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [012](done/012-add-fee-to-transactions.md) | Add optional fee to expense/income transactions | feature | medium | 2026-03-28 |
 | [011](done/011-merge-transfer-exchange-move-money.md) | Merge transfer & exchange into Move Money tab | feature | medium | 2026-03-28 |
 | [010](done/010-simplify-account-deletion-ux.md) | Simplify account & institution deletion UX | improvement | medium | 2026-03-28 |
 | [009](done/009-phase-4-extract-domain-logic.md) | Phase 4: Extract domain logic from dashboard to leaf services | improvement | medium | 2026-03-28 |
