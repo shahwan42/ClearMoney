@@ -3,7 +3,7 @@ id: "015"
 title: "Quick-entry date picker allows future dates"
 type: bug
 priority: low
-status: pending
+status: done
 created: 2026-03-28
 updated: 2026-03-28
 ---
@@ -14,8 +14,10 @@ The date picker in `_quick_entry.html` (line 92) is missing `max="{{ today|date:
 
 ## Acceptance Criteria
 
-- [ ] `_quick_entry.html` date picker has `max="{{ today|date:'Y-m-d' }}"`
+- [x] `_quick_entry.html` date picker has `max="{{ today|date:'Y-m-d' }}"`
 
 ## Progress Notes
 
 - 2026-03-28: Created — found during QA of Ticket #012
+- 2026-03-28: Started — implementing fix
+- 2026-03-28: Completed — added max="{{ today|date:'Y-m-d' }}" to quick-entry date input
