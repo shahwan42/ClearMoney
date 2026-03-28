@@ -253,7 +253,7 @@ class TransactionServiceBase:
     def create_fee_for_transaction(
         self,
         parent_tx: dict[str, Any],
-        fee_amount: float,
+        fee_amount: Decimal | float,
         tx_date: date | str | None,
     ) -> dict[str, Any]:
         """Create a linked fee transaction (expense) for a regular transaction.
@@ -367,7 +367,7 @@ class TransactionServiceBase:
                 raise ValueError("Parent transaction not found")
             self.create_fee_for_transaction(
                 parent_tx=parent_tx,
-                fee_amount=float(new_fee),
+                fee_amount=new_fee,
                 tx_date=tx_date,
             )
 

@@ -8,14 +8,13 @@ Last updated: 2026-03-28
 
 ## Pending
 
-| ID | Title | Type | Priority | Updated |
-| --- | --- | --- | --- | --- |
-| [016](pending/016-update-fee-unnecessary-float-roundtrip.md) | update_fee_for_transaction unnecessary Decimal→float→Decimal round-trip | improvement | low | 2026-03-28 |
+(none)
 
 ## Done
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [016](done/016-update-fee-unnecessary-float-roundtrip.md) | update_fee_for_transaction unnecessary Decimal→float→Decimal round-trip | improvement | low | 2026-03-28 |
 | [015](done/015-quick-entry-date-missing-max-constraint.md) | Quick-entry date picker allows future dates | bug | low | 2026-03-28 |
 | [014](done/014-edit-form-note-missing-maxlength.md) | Edit form note input missing maxlength | bug | low | 2026-03-28 |
 | [013](done/013-quick-entry-note-missing-maxlength.md) | Quick-entry note input missing maxlength | bug | low | 2026-03-28 |

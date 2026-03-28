@@ -3,7 +3,7 @@ id: "016"
 title: "update_fee_for_transaction unnecessary Decimal→float→Decimal round-trip"
 type: improvement
 priority: low
-status: pending
+status: done
 created: 2026-03-28
 updated: 2026-03-28
 ---
@@ -14,9 +14,10 @@ In `crud.py` `update_fee_for_transaction()`, when creating a new fee it calls `c
 
 ## Acceptance Criteria
 
-- [ ] `update_fee_for_transaction` passes Decimal directly without float conversion
-- [ ] `create_fee_for_transaction` signature accepts `Decimal | float` or just `Decimal`
+- [x] `update_fee_for_transaction` passes Decimal directly without float conversion
+- [x] `create_fee_for_transaction` signature accepts `Decimal | float` or just `Decimal`
 
 ## Progress Notes
 
 - 2026-03-28: Created — found during QA of Ticket #012
+- 2026-03-28: Completed — removed float() wrapper, updated signature to Decimal | float
