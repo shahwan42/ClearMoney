@@ -383,6 +383,19 @@ var CategoryCombobox = (function() {
             });
         });
 
+        // Prevent Enter from submitting the parent form — save category instead
+        function handleAddFormKeydown(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveBtn.click();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                self._closeDropdown();
+            }
+        }
+        nameInput.addEventListener('keydown', handleAddFormKeydown);
+        iconInput.addEventListener('keydown', handleAddFormKeydown);
+
         row.appendChild(iconInput);
         row.appendChild(nameInput);
         row.appendChild(saveBtn);
