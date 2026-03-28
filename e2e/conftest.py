@@ -133,8 +133,8 @@ def reset_database() -> str:
     Returns the test user's UUID string.
     Equivalent to helpers.ts resetDatabase().
     """
-    # Terminate idle connections before truncating to avoid lock contention
-    # Only terminate idle connections from other test sessions (not the Django server)
+    # Terminate idle connections to avoid lock contention during TRUNCATE.
+    # Django reconnects automatically via CONN_HEALTH_CHECKS.
     with _conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -143,8 +143,6 @@ def reset_database() -> str:
                 WHERE datname = current_database()
                   AND pid <> pg_backend_pid()
                   AND state = 'idle'
-                  AND state_change < NOW() - INTERVAL '5 seconds'
-                  AND application_name NOT IN ('gunicorn', 'manage.py runserver')
             """)
         conn.commit()
 

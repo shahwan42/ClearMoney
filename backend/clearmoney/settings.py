@@ -117,6 +117,7 @@ DATABASES = {
     "default": dj_database_url.config(
         default="postgres://clearmoney:clearmoney@localhost:5433/clearmoney",
         conn_max_age=600,
+        conn_health_checks=True,
     ),
 }
 
