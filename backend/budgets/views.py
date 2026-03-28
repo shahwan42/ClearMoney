@@ -66,6 +66,25 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
 
 
 @general_rate
+@require_http_methods(["GET"])
+def budget_detail(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
+    """GET /budgets/<id>/ — budget detail with contributing transactions."""
+    svc = _svc(request)
+    try:
+        budget = svc.get_budget_with_transactions(str(budget_id))
+    except Exception:
+        from django.http import Http404
+
+        raise Http404
+
+    return render(
+        request,
+        "budgets/budget_detail.html",
+        {"budget": budget, "active_tab": "more"},
+    )
+
+
+@general_rate
 @require_http_methods(["POST"])
 def budget_add(request: AuthenticatedRequest) -> HttpResponse:
     """POST /budgets/add — create a new budget from form data.
@@ -91,6 +110,30 @@ def budget_add(request: AuthenticatedRequest) -> HttpResponse:
         return HttpResponse(
             "A budget already exists for this category and currency", status=400
         )
+
+    return redirect("budgets")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def budget_edit(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
+    """POST /budgets/{id}/edit — update a budget's monthly limit."""
+    svc = _svc(request)
+    monthly_limit_str = request.POST.get("monthly_limit", "")
+
+    try:
+        monthly_limit = float(monthly_limit_str) if monthly_limit_str else 0.0
+    except ValueError:
+        return HttpResponse("Invalid monthly limit", status=400)
+
+    try:
+        with transaction.atomic():
+            svc.update(str(budget_id), monthly_limit)
+    except ValueError as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            return HttpResponse(error_msg, status=404)
+        return HttpResponse(error_msg, status=400)
 
     return redirect("budgets")
 

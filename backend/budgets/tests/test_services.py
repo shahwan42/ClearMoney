@@ -211,6 +211,52 @@ class TestBudgetDelete:
 
 
 # ---------------------------------------------------------------------------
+# update
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestBudgetUpdate:
+    def test_updates_monthly_limit(self, budget_data):
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 1000.0, "EGP")
+        result = svc.update(budget["id"], 2000.0)
+
+        assert result["monthly_limit"] == 2000.0
+        assert result["id"] == budget["id"]
+
+        # Verify persisted
+        budgets = svc.get_all_with_spending()
+        assert len(budgets) == 1
+        assert budgets[0].monthly_limit == 2000.0
+
+    def test_zero_limit_raises(self, budget_data):
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 1000.0, "EGP")
+        with pytest.raises(ValueError, match="Monthly limit must be positive"):
+            svc.update(budget["id"], 0.0)
+
+    def test_negative_limit_raises(self, budget_data):
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 1000.0, "EGP")
+        with pytest.raises(ValueError, match="Monthly limit must be positive"):
+            svc.update(budget["id"], -500.0)
+
+    def test_nonexistent_budget_raises(self, budget_data):
+        svc = _svc(budget_data["user_id"])
+        with pytest.raises(ValueError, match="Budget not found"):
+            svc.update(str(uuid.uuid4()), 1000.0)
+
+    def test_cannot_update_other_users_budget(self, budget_data):
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 1000.0, "EGP")
+
+        other_svc = _svc(str(uuid.uuid4()))
+        with pytest.raises(ValueError, match="Budget not found"):
+            other_svc.update(budget["id"], 999.0)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -263,6 +309,113 @@ class TestBudgetEdgeCases:
         # The service rejects monthly_limit <= 0, so zero-limit cannot be created
         with pytest.raises(ValueError, match="Monthly limit must be positive"):
             svc.create(budget_data["cat1_id"], 0.0, "EGP")
+
+
+# ---------------------------------------------------------------------------
+# get_budget_with_transactions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestGetBudgetWithTransactions:
+    """Budget detail: returns budget info + contributing transactions."""
+
+    def test_returns_budget_and_transactions(self, budget_data: dict) -> None:
+        """Happy path: budget with 2 expense transactions returns both."""
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 5000.0, "EGP")
+        _create_expense(budget_data["user_id"], budget_data["cat1_id"], 300.0)
+        _create_expense(budget_data["user_id"], budget_data["cat1_id"], 700.0)
+
+        result = svc.get_budget_with_transactions(budget["id"])
+        assert result["category_name"] == "Groceries"
+        assert result["monthly_limit"] == 5000.0
+        assert result["spent"] == 1000.0
+        assert len(result["transactions"]) == 2
+
+    def test_empty_transactions(self, budget_data: dict) -> None:
+        """Budget with no transactions returns empty list."""
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 5000.0, "EGP")
+
+        result = svc.get_budget_with_transactions(budget["id"])
+        assert result["transactions"] == []
+        assert result["spent"] == 0.0
+
+    def test_excludes_previous_month(self, budget_data: dict) -> None:
+        """Transactions from last month are excluded."""
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 5000.0, "EGP")
+        last_month = date.today().replace(day=1) - timedelta(days=1)
+        _create_expense(
+            budget_data["user_id"], budget_data["cat1_id"], 999.0, tx_date=last_month
+        )
+        _create_expense(budget_data["user_id"], budget_data["cat1_id"], 200.0)
+
+        result = svc.get_budget_with_transactions(budget["id"])
+        assert len(result["transactions"]) == 1
+        assert result["spent"] == 200.0
+
+    def test_excludes_income_transactions(self, budget_data: dict) -> None:
+        """Income transactions in the same category are excluded."""
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 5000.0, "EGP")
+        _create_expense(budget_data["user_id"], budget_data["cat1_id"], 500.0)
+        # Create an income transaction in the same category
+        inst = InstitutionFactory(
+            user_id=budget_data["user_id"], name="TestInst", type="bank"
+        )
+        acct = AccountFactory(
+            user_id=budget_data["user_id"],
+            institution_id=inst.id,
+            name="Test",
+            type="savings",
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        TransactionFactory(
+            user_id=budget_data["user_id"],
+            account_id=acct.id,
+            category_id=budget_data["cat1_id"],
+            type="income",
+            amount=1000.0,
+            currency="EGP",
+            date=date.today(),
+            balance_delta=1000.0,
+        )
+
+        result = svc.get_budget_with_transactions(budget["id"])
+        assert len(result["transactions"]) == 1
+        assert result["spent"] == 500.0
+
+    def test_other_users_budget_raises(self, budget_data: dict) -> None:
+        """Accessing another user's budget raises DoesNotExist."""
+        from budgets.models import Budget
+
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 5000.0, "EGP")
+
+        other_svc = _svc(str(uuid.uuid4()))
+        with pytest.raises(Budget.DoesNotExist):
+            other_svc.get_budget_with_transactions(budget["id"])
+
+    def test_transactions_sorted_newest_first(self, budget_data: dict) -> None:
+        """Transactions are returned sorted by date descending."""
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 5000.0, "EGP")
+        today = date.today()
+        earlier = today.replace(day=1)
+        _create_expense(
+            budget_data["user_id"], budget_data["cat1_id"], 100.0, tx_date=earlier
+        )
+        _create_expense(
+            budget_data["user_id"], budget_data["cat1_id"], 200.0, tx_date=today
+        )
+
+        result = svc.get_budget_with_transactions(budget["id"])
+        dates = [tx["date"] for tx in result["transactions"]]
+        assert dates == sorted(dates, reverse=True)
 
 
 # ---------------------------------------------------------------------------

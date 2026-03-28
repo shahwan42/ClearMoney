@@ -117,6 +117,7 @@
                     <button type="submit" class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400">Delete</button>
                 </form>
             </div>
+            <a href="{% url 'budget-detail' budget.id %}" class="block group" aria-label="View {{ budget.category_name }} budget transactions">
             <div class="flex justify-between text-sm mb-1.5">
                 <span class="text-slate-600 dark:text-slate-300">{{ budget.spent|format_currency:budget.currency }} spent</span>
                 <span class="text-slate-500 dark:text-slate-400">of {{ budget.monthly_limit|format_currency:budget.currency }}</span>
@@ -128,6 +129,20 @@
             <p class="text-xs mt-1 {% if budget.status == 'red' %}text-red-500{% elif budget.status == 'amber' %}text-amber-500{% else %}text-gray-400 dark:text-slate-500{% endif %}">
                 {% if budget.remaining < 0 %}Over budget by {{ budget.remaining|abs_float|format_currency:budget.currency }}{% else %}{{ budget.remaining|format_currency:budget.currency }} remaining{% endif %}
             </p>
+            <p class="text-xs mt-1 text-teal-600 dark:text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity">View transactions</p>
+            </a>
+            <form method="POST" action="{% url 'budget-edit' budget.id %}" class="mt-3 flex gap-2">
+                {% csrf_token %}
+                <label for="limit-{{ budget.id }}" class="sr-only">Monthly limit for {{ budget.category_name }}</label>
+                <input type="number" name="monthly_limit" id="limit-{{ budget.id }}"
+                       step="0.01" min="0.01" required
+                       value="{{ budget.monthly_limit|floatformat:'2' }}"
+                       class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
+                <button type="submit"
+                        class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700">
+                    Update
+                </button>
+            </form>
         </div>
         {% endfor %}
     </section>

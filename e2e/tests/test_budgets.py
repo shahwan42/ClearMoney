@@ -89,6 +89,39 @@ class TestBudgets:
         page.goto("/budgets")
         expect(page.locator("main")).to_contain_text("remaining")
 
+    def test_update_budget_limit(self, page: Page) -> None:
+        _create_budget(page, _category_id, "2000")
+        page.goto("/budgets")
+        # The inline edit input shows current value
+        edit_input = page.locator('input[name="monthly_limit"][value="2000.00"]')
+        expect(edit_input).to_be_visible()
+        edit_input.fill("3500")
+        # Click the Update button on the budget card (not the total budget one)
+        edit_input.locator("..").locator('button:has-text("Update")').click()
+        page.wait_for_load_state()
+        expect(page.locator("main")).to_contain_text("3,500")
+
+    def test_budget_detail_shows_transactions(self, page: Page) -> None:
+        _create_budget(page, _category_id, "5000")
+        create_transaction(page, _account_id, _category_id, "750", "expense")
+        page.goto("/budgets")
+        # Click the budget spending area (the link wrapping the progress bar)
+        page.locator('a[href*="/budgets/"]').first.click()
+        page.wait_for_load_state()
+        # Should show budget detail with the transaction
+        expect(page.locator("main")).to_contain_text("Transactions this month")
+        expect(page.locator("main")).to_contain_text("750")
+
+    def test_budget_detail_back_navigation(self, page: Page) -> None:
+        _create_budget(page, _category_id, "5000")
+        page.goto("/budgets")
+        page.locator('a[href*="/budgets/"]').first.click()
+        page.wait_for_load_state()
+        # Click back link
+        page.locator('a[aria-label="Back to budgets"]').click()
+        page.wait_for_load_state()
+        expect(page).to_have_url("/budgets")
+
     def test_delete_budget(self, page: Page) -> None:
         _create_budget(page, _category_id)
         page.goto("/budgets")

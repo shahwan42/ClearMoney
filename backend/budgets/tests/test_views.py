@@ -236,6 +236,80 @@ class TestBudgetDelete:
 
 
 # ---------------------------------------------------------------------------
+# Edit budget
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestBudgetEdit:
+    def _create_budget(self, c, cat_id):
+        """Create a budget and return its ID from the page."""
+        c.post(
+            "/budgets/add",
+            {"category_id": cat_id, "monthly_limit": "1000", "currency": "EGP"},
+        )
+        page = c.get("/budgets")
+        content = page.content.decode()
+        import re
+
+        match = re.search(r"/budgets/([0-9a-f-]+)/delete", content)
+        assert match is not None, "Budget not found on page"
+        return match.group(1)
+
+    def test_updates_and_redirects(self, client, budget_view_data):
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        budget_id = self._create_budget(c, budget_view_data["cat1_id"])
+
+        response = c.post(f"/budgets/{budget_id}/edit", {"monthly_limit": "3000"})
+        assert response.status_code == 302
+        assert response.url == "/budgets"  # type: ignore[attr-defined]
+
+        # Verify updated limit on page
+        page = c.get("/budgets")
+        assert b"3,000" in page.content
+
+    def test_invalid_limit_returns_400(self, client, budget_view_data):
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        budget_id = self._create_budget(c, budget_view_data["cat1_id"])
+
+        response = c.post(f"/budgets/{budget_id}/edit", {"monthly_limit": "abc"})
+        assert response.status_code == 400
+
+    def test_zero_limit_returns_400(self, client, budget_view_data):
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        budget_id = self._create_budget(c, budget_view_data["cat1_id"])
+
+        response = c.post(f"/budgets/{budget_id}/edit", {"monthly_limit": "0"})
+        assert response.status_code == 400
+
+    def test_nonexistent_budget_returns_404(self, client, budget_view_data):
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        fake_id = str(uuid.uuid4())
+        response = c.post(f"/budgets/{fake_id}/edit", {"monthly_limit": "1000"})
+        assert response.status_code == 404
+
+    def test_cannot_edit_other_users_budget(self, client, budget_view_data):
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        budget_id = self._create_budget(c, budget_view_data["cat1_id"])
+
+        # Create another user and try to edit
+        user2 = UserFactory()
+        session2 = SessionFactory(user=user2)
+        c2 = Client()
+        c2.cookies[COOKIE_NAME] = session2.token
+        response = c2.post(f"/budgets/{budget_id}/edit", {"monthly_limit": "9999"})
+        assert response.status_code == 404
+
+        # Original budget unchanged
+        page = c.get("/budgets")
+        assert b"1,000" in page.content
+
+        # Cleanup
+        Session.objects.filter(user=user2).delete()
+        User.objects.filter(id=user2.id).delete()
+
+
+# ---------------------------------------------------------------------------
 # Total budget views
 # ---------------------------------------------------------------------------
 
@@ -314,3 +388,76 @@ class TestTotalBudgetViews:
         resp = c.get("/budgets")
         content = resp.content.decode()
         assert 'role="progressbar"' in content
+
+
+# ---------------------------------------------------------------------------
+# Budget detail
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestBudgetDetail:
+    """GET /budgets/<id>/ — budget detail with contributing transactions."""
+
+    def test_200_with_transactions(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        # Create budget
+        c.post(
+            "/budgets/add",
+            {
+                "category_id": budget_view_data["cat1_id"],
+                "monthly_limit": "5000",
+                "currency": "EGP",
+            },
+        )
+        # Get budget ID from page
+        import re
+
+        page = c.get("/budgets")
+        match = re.search(r"/budgets/([0-9a-f-]+)/delete", page.content.decode())
+        assert match is not None
+        budget_id = match.group(1)
+
+        resp = c.get(f"/budgets/{budget_id}/")
+        assert resp.status_code == 200
+        assert b"Groceries" in resp.content
+
+    def test_unauthenticated_redirects(self, client: Client) -> None:
+        fake_id = str(uuid.uuid4())
+        resp = client.get(f"/budgets/{fake_id}/")
+        assert resp.status_code == 302
+        assert "/login" in resp.url  # type: ignore[attr-defined]
+
+    def test_404_for_other_users_budget(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        # Create budget
+        c.post(
+            "/budgets/add",
+            {
+                "category_id": budget_view_data["cat1_id"],
+                "monthly_limit": "5000",
+                "currency": "EGP",
+            },
+        )
+        import re
+
+        page = c.get("/budgets")
+        match = re.search(r"/budgets/([0-9a-f-]+)/delete", page.content.decode())
+        assert match is not None
+        budget_id = match.group(1)
+
+        # Other user tries to access
+        user2 = UserFactory()
+        session2 = SessionFactory(user=user2)
+        c2 = Client()
+        c2.cookies[COOKIE_NAME] = session2.token
+        resp = c2.get(f"/budgets/{budget_id}/")
+        assert resp.status_code == 404
+
+        # Cleanup
+        Session.objects.filter(user=user2).delete()
+        User.objects.filter(id=user2.id).delete()

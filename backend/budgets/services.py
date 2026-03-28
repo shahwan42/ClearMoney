@@ -110,6 +110,66 @@ class BudgetService:
             )
         return budgets
 
+    def get_budget_with_transactions(self, budget_id: str) -> dict[str, Any]:
+        """Return a budget with its contributing transactions for the current month.
+
+        Fetches the budget (scoped to user), then queries expense transactions
+        matching the budget's category and currency in the current month.
+
+        Raises Budget.DoesNotExist if the budget is not found or not owned by user.
+        """
+        budget = self._qs().select_related("category").get(id=budget_id)
+
+        month_start, month_end = self._month_range()
+
+        transactions = (
+            Transaction.objects.filter(
+                category_id=budget.category_id,
+                user_id=self.user_id,
+                type="expense",
+                currency=budget.currency,
+                date__gte=month_start,
+                date__lt=month_end,
+            )
+            .select_related("account")
+            .order_by("-date", "-created_at")
+        )
+
+        limit_amt = float(budget.monthly_limit)
+        spent = sum(float(tx.amount) for tx in transactions)
+        pct = (spent / limit_amt * 100) if limit_amt > 0 else 0.0
+        remaining = limit_amt - spent
+
+        if pct >= 100:
+            status = "red"
+        elif pct >= 80:
+            status = "amber"
+        else:
+            status = "green"
+
+        return {
+            "id": str(budget.id),
+            "category_id": str(budget.category_id),
+            "category_name": budget.category.name,
+            "category_icon": budget.category.icon or "",
+            "monthly_limit": limit_amt,
+            "currency": budget.currency,
+            "spent": spent,
+            "remaining": remaining,
+            "percentage": pct,
+            "status": status,
+            "transactions": [
+                {
+                    "id": str(tx.id),
+                    "date": tx.date,
+                    "note": tx.note or "",
+                    "amount": float(tx.amount),
+                    "account_name": tx.account.name if tx.account else "",
+                }
+                for tx in transactions
+            ],
+        }
+
     def create(
         self,
         category_id: str,
@@ -143,6 +203,38 @@ class BudgetService:
             "budget.created currency=%s category_id=%s user=%s",
             currency,
             category_id,
+            self.user_id,
+        )
+        return {
+            "id": str(budget.id),
+            "category_id": str(budget.category_id),
+            "monthly_limit": float(budget.monthly_limit),
+            "currency": budget.currency,
+            "is_active": budget.is_active,
+            "created_at": budget.created_at,
+            "updated_at": budget.updated_at,
+        }
+
+    def update(self, budget_id: str, monthly_limit: float) -> dict[str, Any]:
+        """Update a budget's monthly limit.
+
+        Only updates budgets belonging to the authenticated user.
+
+        Raises:
+            ValueError: If monthly_limit <= 0 or budget not found.
+        """
+        if monthly_limit <= 0:
+            raise ValueError("Monthly limit must be positive")
+
+        count = self._qs().filter(id=budget_id).update(monthly_limit=monthly_limit)
+        if count == 0:
+            raise ValueError("Budget not found")
+
+        budget = self._qs().get(id=budget_id)
+        logger.info(
+            "budget.updated id=%s limit=%s user=%s",
+            budget_id,
+            monthly_limit,
             self.user_id,
         )
         return {
