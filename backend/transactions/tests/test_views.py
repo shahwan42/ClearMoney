@@ -682,6 +682,12 @@ class TestQuickEntryViews:
         assert 'for="qe-note-input"' in content
         assert 'id="qe-note-input"' in content
 
+    def test_quick_form_note_has_maxlength(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert 'maxlength="500"' in content
+
     def test_quick_form_hidden_date_has_today(self, client, tx_view_data):
         """The hidden date input specifically holds today's date."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
