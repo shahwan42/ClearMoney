@@ -14,13 +14,13 @@ Replace the type-to-confirm deletion pattern with a simpler two-step button conf
 
 ## Acceptance Criteria
 
-- [ ] Account delete bottom sheet uses two-step button instead of text input
-- [ ] Institution delete confirmation uses two-step button instead of text input
-- [ ] Button shows "Tap again to confirm" with visual feedback after first click
-- [ ] Auto-resets to initial state after 3 seconds if not confirmed
-- [ ] Screen readers announce the state change (aria-live)
-- [ ] All existing unit and E2E tests updated and passing
-- [ ] No backend changes needed
+- [x] Account delete bottom sheet uses two-step button instead of text input
+- [x] Institution delete confirmation uses two-step button instead of text input
+- [x] Button shows "Tap again to confirm" with visual feedback after first click
+- [x] Auto-resets to initial state after 3 seconds if not confirmed
+- [x] Screen readers announce the state change (aria-live)
+- [x] All existing unit and E2E tests updated and passing
+- [x] No backend changes needed
 
 ## Progress Notes
 
