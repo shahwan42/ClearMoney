@@ -901,6 +901,7 @@ class TestQuickEntryOOBSwaps:
         )
         content = resp.content.decode()
         assert 'id="dashboard-net-worth"' in content
+        assert 'hx-swap-oob="true"' in content
         assert 'hx-get="/partials/net-worth"' in content
         assert 'hx-trigger="load"' in content
         assert 'hx-swap="innerHTML"' in content
@@ -919,6 +920,7 @@ class TestQuickEntryOOBSwaps:
         )
         content = resp.content.decode()
         assert 'id="dashboard-accounts"' in content
+        assert 'hx-swap-oob="true"' in content
         assert 'hx-get="/partials/accounts"' in content
 
     def test_oob_net_worth_loads_on_page(self, client, tx_view_data):
@@ -934,7 +936,8 @@ class TestQuickEntryOOBSwaps:
             HTTP_HX_REQUEST="true",
         )
         content = resp.content.decode()
-        # Verify the lazy-load target has hx-trigger="load"
+        # Verify the OOB swap target has hx-trigger="load"
+        assert 'hx-swap-oob="true"' in content
         assert 'hx-trigger="load"' in content
 
     def test_income_also_triggers_oob(self, client, tx_view_data):
@@ -953,9 +956,10 @@ class TestQuickEntryOOBSwaps:
             HTTP_HX_REQUEST="true",
         )
         content = resp.content.decode()
-        # Verify both OOB lazy-load swaps are present for income
+        # Verify both OOB swaps are present for income
         assert 'id="dashboard-net-worth"' in content
         assert 'id="dashboard-accounts"' in content
+        assert 'hx-swap-oob="true"' in content
         assert 'hx-trigger="load"' in content
 
     def test_error_response_has_no_oob(self, client, tx_view_data):
