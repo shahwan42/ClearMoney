@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from accounts.models import Account, Institution
 from accounts.services import compute_net_worth as _compute_net_worth_impl
 from exchange_rates.models import ExchangeRateLog
+from people.models import Person
 
 if TYPE_CHECKING:
     from . import DashboardData
@@ -120,6 +121,7 @@ def compute_net_worth(data: DashboardData, all_accounts: list[dict[str, Any]]) -
     data.cash_total = summary.cash_total
     data.credit_used = summary.credit_used
     data.credit_avail = summary.credit_avail
+    data.debt_total = summary.debt_total
 
     # Recalculate institution totals now that exchange rate is loaded
     if data.exchange_rate > 0:
@@ -195,6 +197,37 @@ def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
             # All accounts with negative balance
             if bal < 0:
                 result_accounts.append(row)
+
+    # Add people I owe to debt breakdown
+    if card_type == "debt":
+        people_rows = (
+            Person.objects.for_user(user_id)
+            .filter(net_balance__lt=0)
+            .order_by("name")
+            .values_list("name", "net_balance", "net_balance_egp", "net_balance_usd")
+        )
+        for name, net_bal, nb_egp, nb_usd in people_rows:
+            # Add per-currency rows for people with debt in each currency
+            if nb_egp < 0:
+                result_accounts.append(
+                    {
+                        "name": name,
+                        "balance": float(nb_egp),
+                        "currency": "EGP",
+                        "institution_name": "People",
+                        "institution_icon": "👤",
+                    }
+                )
+            if nb_usd < 0:
+                result_accounts.append(
+                    {
+                        "name": name,
+                        "balance": float(nb_usd),
+                        "currency": "USD",
+                        "institution_name": "People",
+                        "institution_icon": "👤",
+                    }
+                )
 
     # Sort: highest first for assets, most negative first for debt
     if card_type == "credit_available":
