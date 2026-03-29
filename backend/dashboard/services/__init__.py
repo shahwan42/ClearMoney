@@ -202,6 +202,10 @@ class DashboardService:
         except Exception:
             logger.warning("dashboard: failed to load people")
 
+        # 7b. Finalize debt total: accounts debt (from step 3) + people I owe (from step 7)
+        if data.people_i_owe < 0:
+            data.debt_total += abs(data.people_i_owe)
+
         # 8. Virtual accounts
         try:
             data.virtual_accounts = self._load_virtual_accounts()
