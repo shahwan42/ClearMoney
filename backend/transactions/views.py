@@ -670,14 +670,15 @@ def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
         # Render success screen with Done/Add Another buttons
         response = render(request, "transactions/_quick_entry_success.html")
 
-        # Append lazy-load OOB swaps to refresh dashboard balances in-place
-        # Browser will fetch these partials on page load via hx-trigger="load"
+        # OOB swaps: refresh dashboard balances without rendering inline
         response.write(
-            '<div id="dashboard-net-worth" hx-get="/partials/net-worth"'
+            '<div id="dashboard-net-worth" hx-swap-oob="true"'
+            ' hx-get="/partials/net-worth"'
             ' hx-trigger="load" hx-swap="innerHTML"></div>'
         )
         response.write(
-            '<div id="dashboard-accounts" hx-get="/partials/accounts"'
+            '<div id="dashboard-accounts" hx-swap-oob="true"'
+            ' hx-get="/partials/accounts"'
             ' hx-trigger="load" hx-swap="innerHTML"></div>'
         )
         return response
