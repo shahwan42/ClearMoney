@@ -4,6 +4,9 @@
 
 Before beginning any feature implementation or batch of work, verify the environment is ready:
 
+0. **Remote environment?** — If running in Claude Code remote (SessionStart hook runs automatically):
+   - Hook starts PostgreSQL and exports `DB_URL` with port 5432
+   - If hook didn't run, see `.claude/rules/remote-environment.md` for manual steps
 1. **Run tests** — `make test` — record baseline test count (e.g. "692 passed"). Store this number.
 2. **Run lint** — `make lint` — zero errors required
 3. **Django system check** — `mcp__django-ai-boost__run_check` — must pass clean
