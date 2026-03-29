@@ -16,6 +16,7 @@ Last updated: 2026-03-29
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [022](done/022-configure-claude-setup-script.md) | Configure Claude Code session start hook | chore | medium | 2026-03-29 |
 | [021](done/021-net-worth-debt-calculation.md) | Net worth debt calculation | feature | medium | 2026-03-29 |
 | [019](done/019-budget-detail-contributing-transactions.md) | Show contributing transactions on budget click | feature | medium | 2026-03-28 |
 | [017](done/017-allow-updating-budgets.md) | Allow updating budgets | feature | medium | 2026-03-28 |

@@ -5,5 +5,19 @@
       "Edit(/.claude/skills/deploy/**)",
       "Edit(/.claude/skills/qa-review/**)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/claude-setup.sh",
+            "timeout": 120,
+            "statusMessage": "Setting up ClearMoney dev environment..."
+          }
+        ]
+      }
+    ]
   }
 }
