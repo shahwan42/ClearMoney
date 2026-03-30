@@ -158,16 +158,51 @@ def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
     currency = _lookup_account_currency(request.user_id, account_id)
 
     # Build template_transaction JSONB
-    template: dict[str, Any] = {
-        "type": tx_type,
-        "amount": amount,
-        "currency": currency,
-        "account_id": account_id,
-    }
-    if category_id:
-        template["category_id"] = category_id
-    if note:
-        template["note"] = note
+    if tx_type == "transfer":
+        counter_account_id = request.POST.get("counter_account_id", "")
+        if not counter_account_id:
+            return HttpResponse(
+                '<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
+                "Destination account is required for transfers</div>",
+                status=400,
+            )
+        if counter_account_id == account_id:
+            return HttpResponse(
+                '<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
+                "Source and destination accounts must be different</div>",
+                status=400,
+            )
+
+        template: dict[str, Any] = {
+            "type": "transfer",
+            "amount": amount,
+            "currency": currency,
+            "account_id": account_id,
+            "counter_account_id": counter_account_id,
+        }
+        if note:
+            template["note"] = note
+
+        # Parse optional fee
+        fee_str = request.POST.get("fee_amount", "")
+        if fee_str:
+            try:
+                fee_amount = float(fee_str)
+                if fee_amount > 0:
+                    template["fee_amount"] = fee_amount
+            except (ValueError, TypeError):
+                pass
+    else:
+        template = {
+            "type": tx_type,
+            "amount": amount,
+            "currency": currency,
+            "account_id": account_id,
+        }
+        if category_id:
+            template["category_id"] = category_id
+        if note:
+            template["note"] = note
 
     # Parse next_due_date
     next_due = None

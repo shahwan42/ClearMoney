@@ -25,13 +25,14 @@ from conftest import (
 )
 
 _account_id: str = ""
+_account_id_2: str = ""
 _user_id: str = ""
 
 
 @pytest.fixture(scope="function", autouse=True)
 def db() -> None:
-    """Reset DB and create test institution + account directly via SQL."""
-    global _account_id, _user_id
+    """Reset DB and create test institution + two accounts directly via SQL."""
+    global _account_id, _account_id_2, _user_id
     _user_id = reset_database()
     with _conn() as conn:
         with conn.cursor() as cur:
@@ -48,6 +49,13 @@ def db() -> None:
                 (_user_id, inst_id),
             )
             _account_id = str(cur.fetchone()[0])  # type: ignore[index]
+            cur.execute(
+                "INSERT INTO accounts"
+                " (user_id, institution_id, name, type, currency, current_balance, initial_balance, display_order)"
+                " VALUES (%s, %s, 'Savings', 'savings', 'EGP', 5000, 5000, 1) RETURNING id",
+                (_user_id, inst_id),
+            )
+            _account_id_2 = str(cur.fetchone()[0])  # type: ignore[index]
         conn.commit()
 
 
@@ -111,3 +119,49 @@ class TestRecurring:
         ):
             page.click('button:has-text("Del")')
         expect(page.locator("#recurring-list")).not_to_contain_text("Netflix")
+
+
+class TestRecurringTransfer:
+    def test_create_transfer_rule(self, page: Page) -> None:
+        """Create a transfer recurring rule with fee via UI."""
+        page.goto("/recurring")
+        # Select "Transfer" type
+        page.click('input[name="type"][value="transfer"]', force=True)
+        # Verify transfer fields are visible
+        expect(page.locator("#recurring-dest-account")).to_be_visible()
+        expect(page.locator("#recurring-fee")).to_be_visible()
+        # Category should be hidden
+        expect(page.locator("#recurring-category")).to_be_hidden()
+        # Fill form
+        page.fill('input[name="amount"]', "1000")
+        page.select_option('select[name="account_id"]', _account_id)
+        page.select_option('select[name="counter_account_id"]', _account_id_2)
+        page.fill('input[name="fee_amount"]', "10")
+        page.fill('input[name="note"]', "Monthly rent")
+        page.select_option('select[name="frequency"]', "monthly")
+        page.fill('input[name="next_due_date"]', "2026-04-01")
+        with page.expect_response(
+            lambda r: "/recurring/add" in r.url and r.request.method == "POST"
+        ):
+            page.click('button[type="submit"]')
+        expect(page.locator("#recurring-list")).to_contain_text("Monthly rent")
+        # Verify transfer-specific display
+        expect(page.locator("#recurring-list")).to_contain_text("→")
+
+    def test_transfer_toggle_shows_hides_fields(self, page: Page) -> None:
+        """Toggling between types shows/hides appropriate fields."""
+        page.goto("/recurring")
+        # Initially expense — no dest account, no fee, category visible
+        expect(page.locator("#recurring-dest-account")).to_be_hidden()
+        expect(page.locator("#recurring-fee")).to_be_hidden()
+        expect(page.locator("#recurring-category")).to_be_visible()
+        # Switch to transfer
+        page.click('input[name="type"][value="transfer"]', force=True)
+        expect(page.locator("#recurring-dest-account")).to_be_visible()
+        expect(page.locator("#recurring-fee")).to_be_visible()
+        expect(page.locator("#recurring-category")).to_be_hidden()
+        # Switch back to expense
+        page.click('input[name="type"][value="expense"]', force=True)
+        expect(page.locator("#recurring-dest-account")).to_be_hidden()
+        expect(page.locator("#recurring-fee")).to_be_hidden()
+        expect(page.locator("#recurring-category")).to_be_visible()

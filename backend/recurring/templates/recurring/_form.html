@@ -10,17 +10,27 @@
             <legend class="sr-only">Transaction type</legend>
             <div class="flex gap-2">
                 <label class="flex-1">
-                    <input type="radio" name="type" value="expense" class="sr-only peer" checked>
+                    <input type="radio" name="type" value="expense" class="sr-only peer" checked
+                           onchange="toggleRecurringType()">
                     <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-300 dark:peer-checked:border-red-700 peer-checked:text-red-700 dark:peer-checked:text-red-400">
                         Expense
                     </div>
                 </label>
                 <label class="flex-1">
-                    <input type="radio" name="type" value="income" class="sr-only peer">
+                    <input type="radio" name="type" value="income" class="sr-only peer"
+                           onchange="toggleRecurringType()">
                     <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/20 peer-checked:border-green-300 dark:peer-checked:border-green-700 peer-checked:text-green-700 dark:peer-checked:text-green-400">
                         Income
+                    </div>
+                </label>
+                <label class="flex-1">
+                    <input type="radio" name="type" value="transfer" class="sr-only peer"
+                           onchange="toggleRecurringType()">
+                    <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                                peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 peer-checked:border-blue-300 dark:peer-checked:border-blue-700 peer-checked:text-blue-700 dark:peer-checked:text-blue-400">
+                        Transfer
                     </div>
                 </label>
             </div>
@@ -34,9 +44,9 @@
                    class="w-full text-lg font-bold text-center border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400 bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
-        {# Account #}
+        {# Account (source for transfers) #}
         <div>
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Account</label>
+            <label id="recurring-account-label" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Account</label>
             <select name="account_id" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
@@ -44,8 +54,26 @@
             </select>
         </div>
 
-        {# Category #}
-        <div>
+        {# Destination account (transfer only) #}
+        <div id="recurring-dest-account" class="hidden">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">To Account</label>
+            <select name="counter_account_id" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+                <option value="">Select destination...</option>
+                {% for acc in accounts %}
+                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# Fee (transfer only) #}
+        <div id="recurring-fee" class="hidden">
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Fee (optional)</label>
+            <input type="number" name="fee_amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal"
+                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+        </div>
+
+        {# Category (expense/income only) #}
+        <div id="recurring-category">
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Category</label>
             <div data-category-combobox
                  data-categories='{{ categories|categories_json }}'
@@ -92,3 +120,20 @@
         </button>
     </form>
 </div>
+
+<script>
+function toggleRecurringType() {
+    const type = document.querySelector('input[name="type"]:checked')?.value;
+    const isTransfer = type === 'transfer';
+
+    const destSection = document.getElementById('recurring-dest-account');
+    const feeSection = document.getElementById('recurring-fee');
+    const categorySection = document.getElementById('recurring-category');
+    const accountLabel = document.getElementById('recurring-account-label');
+
+    if (destSection) destSection.classList.toggle('hidden', !isTransfer);
+    if (feeSection) feeSection.classList.toggle('hidden', !isTransfer);
+    if (categorySection) categorySection.classList.toggle('hidden', isTransfer);
+    if (accountLabel) accountLabel.textContent = isTransfer ? 'From Account' : 'Account';
+}
+</script>

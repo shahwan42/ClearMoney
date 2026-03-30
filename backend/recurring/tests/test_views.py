@@ -306,3 +306,162 @@ class TestRecurringDelete:
 
         response = client.delete(f"/recurring/{uuid.uuid4()}")
         assert response.status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# Add Transfer Rule
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def transfer_view_data(db):
+    """User + session + two same-currency accounts for transfer view tests."""
+    user = UserFactory()
+    session = SessionFactory(user=user)
+    user_id = str(user.id)
+
+    inst = InstitutionFactory(user_id=user.id)
+    source = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Source",
+        currency="EGP",
+        current_balance=20000,
+        initial_balance=20000,
+    )
+    dest = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Destination",
+        currency="EGP",
+        current_balance=5000,
+        initial_balance=5000,
+    )
+    CategoryFactory(user_id=user.id, name="Fees & Charges", type="expense")
+
+    yield {
+        "user_id": user_id,
+        "session_token": session.token,
+        "source_id": str(source.id),
+        "dest_id": str(dest.id),
+    }
+
+
+@pytest.mark.django_db
+class TestRecurringAddTransfer:
+    def test_creates_transfer_rule(self, client, transfer_view_data):
+        """POST with type=transfer creates a rule with counter_account_id."""
+        c = set_auth_cookie(client, transfer_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "transfer",
+                "amount": "1000",
+                "account_id": transfer_view_data["source_id"],
+                "counter_account_id": transfer_view_data["dest_id"],
+                "note": "Monthly rent",
+                "frequency": "monthly",
+                "next_due_date": "2026-04-01",
+            },
+        )
+        assert response.status_code == 200
+        assert b"Monthly rent" in response.content
+
+        rule = RecurringRule.objects.filter(
+            user_id=transfer_view_data["user_id"]
+        ).first()
+        assert rule is not None
+        tmpl = rule.template_transaction
+        assert tmpl["type"] == "transfer"
+        assert tmpl["counter_account_id"] == transfer_view_data["dest_id"]
+
+    def test_creates_transfer_rule_with_fee(self, client, transfer_view_data):
+        """POST with fee_amount stores fee in template_transaction."""
+        c = set_auth_cookie(client, transfer_view_data["session_token"])
+        c.post(
+            "/recurring/add",
+            {
+                "type": "transfer",
+                "amount": "500",
+                "account_id": transfer_view_data["source_id"],
+                "counter_account_id": transfer_view_data["dest_id"],
+                "fee_amount": "10",
+                "note": "With fee",
+                "frequency": "weekly",
+                "next_due_date": "2026-04-01",
+            },
+        )
+
+        rule = RecurringRule.objects.filter(
+            user_id=transfer_view_data["user_id"]
+        ).first()
+        assert rule is not None
+        assert rule.template_transaction["fee_amount"] == 10.0
+
+    def test_missing_destination_400(self, client, transfer_view_data):
+        """Transfer without counter_account_id returns 400."""
+        c = set_auth_cookie(client, transfer_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "transfer",
+                "amount": "500",
+                "account_id": transfer_view_data["source_id"],
+                "counter_account_id": "",
+                "frequency": "monthly",
+                "next_due_date": "2026-04-01",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_same_account_400(self, client, transfer_view_data):
+        """Transfer to the same account returns 400."""
+        c = set_auth_cookie(client, transfer_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "transfer",
+                "amount": "500",
+                "account_id": transfer_view_data["source_id"],
+                "counter_account_id": transfer_view_data["source_id"],
+                "frequency": "monthly",
+                "next_due_date": "2026-04-01",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_confirm_transfer_rule_updates_balances(self, client, transfer_view_data):
+        """Confirming a transfer rule updates both account balances."""
+        c = set_auth_cookie(client, transfer_view_data["session_token"])
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        c.post(
+            "/recurring/add",
+            {
+                "type": "transfer",
+                "amount": "3000",
+                "account_id": transfer_view_data["source_id"],
+                "counter_account_id": transfer_view_data["dest_id"],
+                "note": "Confirm transfer",
+                "frequency": "monthly",
+                "next_due_date": yesterday,
+            },
+        )
+
+        rule = RecurringRule.objects.filter(
+            user_id=transfer_view_data["user_id"]
+        ).first()
+        assert rule is not None
+
+        response = c.post(f"/recurring/{rule.id}/confirm")
+        assert response.status_code == 200
+
+        from accounts.models import Account
+
+        source_bal = float(
+            Account.objects.get(id=transfer_view_data["source_id"]).current_balance
+        )
+        dest_bal = float(
+            Account.objects.get(id=transfer_view_data["dest_id"]).current_balance
+        )
+        assert source_bal == 17000.0  # 20000 - 3000
+        assert dest_bal == 8000.0  # 5000 + 3000

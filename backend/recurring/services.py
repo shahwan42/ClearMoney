@@ -232,7 +232,7 @@ class RecurringService:
 
         1. Parse template_transaction (already a dict from JSONB)
         2. Guard: check account_id is not empty
-        3. Build transaction data and delegate to TransactionService.create()
+        3. Route to create_transfer() for transfers, or create() for expense/income
         4. Advance next_due_date and persist
         """
         tmpl = rule.template_transaction
@@ -244,22 +244,37 @@ class RecurringService:
                 "— account may have been deleted"
             )
 
-        tx_data: dict[str, Any] = {
-            "type": tmpl.get("type", "expense"),
-            "amount": tmpl.get("amount", 0),
-            "account_id": account_id,
-            "date": rule.next_due_date,
-            "recurring_rule_id": rule.id,
-        }
-        if tmpl.get("category_id"):
-            tx_data["category_id"] = tmpl["category_id"]
-        if tmpl.get("note"):
-            tx_data["note"] = tmpl["note"]
-
-        # Delegate to TransactionService — handles currency override,
-        # atomic balance update, and all validation.
         tx_svc = TransactionService(self.user_id, self.tz)
-        tx_svc.create(tx_data)
+
+        if tmpl.get("type") == "transfer":
+            counter_account_id = tmpl.get("counter_account_id", "")
+            if not counter_account_id:
+                raise ValueError(
+                    f"Recurring rule {rule.id} has no counter_account_id "
+                    "— destination account may have been deleted"
+                )
+            tx_svc.create_transfer(
+                source_id=account_id,
+                dest_id=counter_account_id,
+                amount=tmpl.get("amount", 0),
+                currency=None,
+                note=tmpl.get("note"),
+                tx_date=rule.next_due_date,
+                fee_amount=tmpl.get("fee_amount"),
+            )
+        else:
+            tx_data: dict[str, Any] = {
+                "type": tmpl.get("type", "expense"),
+                "amount": tmpl.get("amount", 0),
+                "account_id": account_id,
+                "date": rule.next_due_date,
+                "recurring_rule_id": rule.id,
+            }
+            if tmpl.get("category_id"):
+                tx_data["category_id"] = tmpl["category_id"]
+            if tmpl.get("note"):
+                tx_data["note"] = tmpl["note"]
+            tx_svc.create(tx_data)
 
         next_date = self._advance_due_date(rule)
         self._update_next_due_date(rule.id, next_date)
@@ -326,7 +341,9 @@ class RecurringService:
         note = tmpl.get("note") or tmpl.get("type", "")
         amount = tmpl.get("amount", 0)
         currency = tmpl.get("currency", "EGP")
-        return {
+        is_transfer = tmpl.get("type") == "transfer"
+
+        result: dict[str, Any] = {
             "id": rule_id,
             "user_id": user_id,
             "template_transaction": template_transaction,
@@ -339,4 +356,28 @@ class RecurringService:
             "updated_at": updated_at,
             "note": note,
             "amount_display": f"{amount:.2f} {currency}",
+            "is_transfer": is_transfer,
         }
+
+        if is_transfer:
+            from accounts.models import Account
+
+            source_name = (
+                Account.objects.filter(id=tmpl.get("account_id"))
+                .values_list("name", flat=True)
+                .first()
+                or "Unknown"
+            )
+            counter_name = (
+                Account.objects.filter(id=tmpl.get("counter_account_id"))
+                .values_list("name", flat=True)
+                .first()
+                or "Unknown"
+            )
+            result["source_account_name"] = source_name
+            result["counter_account_name"] = counter_name
+            fee = tmpl.get("fee_amount")
+            if fee and float(fee) > 0:
+                result["fee_display"] = f"{float(fee):.2f} {currency}"
+
+        return result
