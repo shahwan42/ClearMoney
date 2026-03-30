@@ -29,6 +29,19 @@ Last updated: 2026-03-30
 | [038](pending/038-category-name-jsonb.md) | Category name → JSONB migration | feature | high | 2026-03-30 |
 | [039](pending/039-bilingual-category-seeding.md) | Bilingual category seeding | feature | medium | 2026-03-30 |
 | [040](pending/040-settings-language-toggle.md) | Settings page — language toggle | feature | medium | 2026-03-30 |
+| [041](pending/041-extract-month-range-utilities.md) | Extract shared month-range utilities to core/dates.py | refactor | medium | 2026-03-30 |
+| [042](pending/042-extract-status-threshold-computation.md) | Extract status/threshold computation to core/status.py | refactor | low | 2026-03-30 |
+| [043](pending/043-extract-serialization-helpers.md) | Extract serialization helpers to core/serializers.py | refactor | medium | 2026-03-30 |
+| [044](pending/044-decompose-get-statement-data.md) | Decompose get_statement_data (133 lines) | refactor | medium | 2026-03-30 |
+| [045](pending/045-decompose-get-net-worth-breakdown.md) | Decompose get_net_worth_breakdown (100 lines) | refactor | medium | 2026-03-30 |
+| [046](pending/046-decompose-get-debt-summary.md) | Decompose get_debt_summary (100+ lines) | refactor | medium | 2026-03-30 |
+| [047](pending/047-decompose-get-dashboard.md) | Decompose get_dashboard (125 lines) | refactor | medium | 2026-03-30 |
+| [048](pending/048-decompose-rule-to-view.md) | Decompose rule_to_view (84 lines) | refactor | low | 2026-03-30 |
+| [049](pending/049-standardize-htmx-error-responses.md) | Standardize HTMX error response helpers | refactor | medium | 2026-03-30 |
+| [050](pending/050-move-template-display-logic-to-services.md) | Move template display logic to services | refactor | low | 2026-03-30 |
+| [051](pending/051-extract-service-factory-decorator.md) | Extract service factory decorator from views | refactor | low | 2026-03-30 |
+| [052](pending/052-break-down-large-views.md) | Break down large views (account_add, recurring_add) | refactor | medium | 2026-03-30 |
+| [053](pending/053-standardize-service-error-handling.md) | Standardize error handling conventions across services | refactor | low | 2026-03-30 |
 
 ## Done
 
