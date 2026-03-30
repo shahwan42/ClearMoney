@@ -1,7 +1,7 @@
 {% load money %}
-<div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 space-y-4">
+<div id="transfer-content" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 space-y-4">
     <h2 class="text-base font-bold text-slate-800 dark:text-white">Transfer Between Accounts</h2>
-    <form hx-post="/transactions/transfer" hx-target="#transfer-result" hx-swap="innerHTML"
+    <form hx-post="/transactions/transfer" hx-target="#transfer-content" hx-swap="innerHTML"
           hx-disabled-elt="find button[type='submit']"
           class="space-y-3 overflow-hidden" id="transfer-form">
         <div>
@@ -67,7 +67,6 @@
             </span>
         </button>
     </form>
-    <div id="transfer-result" aria-live="polite"></div>
 </div>
 
 <script>

@@ -1,7 +1,7 @@
 {% load money %}
-<div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 space-y-4">
+<div id="move-money-content" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 space-y-4">
     <h2 class="text-base font-bold text-slate-800 dark:text-white">Move Money</h2>
-    <form id="move-money-form" hx-post="/transactions/transfer" hx-target="#move-money-result" hx-swap="innerHTML"
+    <form id="move-money-form" hx-post="/transactions/transfer" hx-target="#move-money-content" hx-swap="innerHTML"
           hx-disabled-elt="find button[type='submit']"
           class="space-y-3 overflow-hidden">
         <div>
@@ -92,6 +92,5 @@
             </span>
         </button>
     </form>
-    <div id="move-money-result" aria-live="polite"></div>
 </div>
 <script src="/static/js/move-money.js"></script>

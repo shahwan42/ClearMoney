@@ -16,7 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from accounts.models import Account
-from core.htmx import error_response, render_htmx_result, success_response
+from core.htmx import error_response, render_htmx_result
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
@@ -444,7 +444,11 @@ def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
             tx_date=request.POST.get("date") or None,
             fee_amount=fee,
         )
-        return success_response("Transfer completed!")
+        return render(
+            request,
+            "transactions/_transfer_success.html",
+            {"message": "Transfer completed!"},
+        )
     except ValueError as e:
         return error_response(str(e))
 
@@ -482,10 +486,11 @@ def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
             note=request.POST.get("note") or None,
             tx_date=request.POST.get("date") or None,
         )
-        from_sheet = request.POST.get("from_sheet") == "1"
-        if from_sheet:
-            return success_response("Exchange completed!")
-        return success_response("Exchange completed!")
+        return render(
+            request,
+            "transactions/_transfer_success.html",
+            {"message": "Exchange completed!"},
+        )
     except ValueError as e:
         return error_response(str(e))
 
