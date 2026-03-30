@@ -1,12 +1,10 @@
 # ClearMoney Tickets
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30
 
 ## In Progress
 
-| ID | Title | Type | Priority | Updated |
-| --- | --- | --- | --- | --- |
-| [020](wip/020-fix-transaction-recording-dashboard-inline.md) | Fix dashboard rendering inline after quick entry | bug | high | 2026-03-29 |
+(none)
 
 ## Pending
 
@@ -16,6 +14,7 @@ Last updated: 2026-03-29
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [020](done/020-recurring-rules-money-movement-fee.md) | Recurring rules money movement + fee | feature | medium | 2026-03-30 |
 | [021](done/021-net-worth-debt-calculation.md) | Net worth debt calculation | feature | medium | 2026-03-29 |
 | [019](done/019-budget-detail-contributing-transactions.md) | Show contributing transactions on budget click | feature | medium | 2026-03-28 |
 | [017](done/017-allow-updating-budgets.md) | Allow updating budgets | feature | medium | 2026-03-28 |

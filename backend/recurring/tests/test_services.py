@@ -520,3 +520,240 @@ class TestRuleToViewEdgeCases:
         # No note, no type → note falls back to empty string from .get("type", "")
         assert view["note"] == ""
         assert view["amount_display"] == "0.00 EGP"
+
+
+# ---------------------------------------------------------------------------
+# execute transfer rules
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def transfer_data(db):
+    """User + institution + two same-currency accounts for transfer rule tests."""
+    user = UserFactory()
+    SessionFactory(user=user)
+    user_id = str(user.id)
+
+    inst = InstitutionFactory(user_id=user.id)
+    source = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Source Account",
+        currency="EGP",
+        current_balance=20000,
+        initial_balance=20000,
+    )
+    dest = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="Dest Account",
+        currency="EGP",
+        current_balance=5000,
+        initial_balance=5000,
+    )
+    # Fees & Charges category needed for fee transactions
+    cat = CategoryFactory(user_id=user.id, name="Fees & Charges", type="expense")
+
+    yield {
+        "user_id": user_id,
+        "source_id": str(source.id),
+        "dest_id": str(dest.id),
+        "category_id": str(cat.id),
+    }
+
+
+def _make_transfer_template(transfer_data: dict, **overrides) -> dict:
+    """Build a transfer template_transaction dict for tests."""
+    tmpl = {
+        "type": "transfer",
+        "amount": 1000.0,
+        "currency": "EGP",
+        "account_id": transfer_data["source_id"],
+        "counter_account_id": transfer_data["dest_id"],
+        "note": "Monthly rent",
+    }
+    tmpl.update(overrides)
+    return tmpl
+
+
+@pytest.mark.django_db
+class TestExecuteTransferRule:
+    def test_creates_linked_transactions(self, transfer_data):
+        """Confirming a transfer rule creates debit + credit transactions."""
+        svc = _svc(transfer_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_transfer_template(transfer_data),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id)
+
+        # Should have 2 linked transfer transactions (debit + credit)
+        txs = list(
+            Transaction.objects.filter(type="transfer").order_by("balance_delta")
+        )
+        assert len(txs) == 2
+        assert float(txs[0].balance_delta) == -1000.0
+        assert float(txs[1].balance_delta) == 1000.0
+
+    def test_updates_both_balances(self, transfer_data):
+        """Transfer rule updates source and destination balances."""
+        svc = _svc(transfer_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_transfer_template(
+                    transfer_data, amount=5000.0
+                ),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id)
+
+        source_balance = float(
+            Account.objects.get(id=transfer_data["source_id"]).current_balance
+        )
+        dest_balance = float(
+            Account.objects.get(id=transfer_data["dest_id"]).current_balance
+        )
+        assert source_balance == 15000.0  # 20000 - 5000
+        assert dest_balance == 10000.0  # 5000 + 5000
+
+    def test_with_fee(self, transfer_data):
+        """Transfer rule with fee deducts amount + fee from source."""
+        svc = _svc(transfer_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_transfer_template(
+                    transfer_data, amount=1000.0, fee_amount=25.0
+                ),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id)
+
+        source_balance = float(
+            Account.objects.get(id=transfer_data["source_id"]).current_balance
+        )
+        dest_balance = float(
+            Account.objects.get(id=transfer_data["dest_id"]).current_balance
+        )
+        # Source loses amount + fee
+        assert source_balance == 18975.0  # 20000 - 1000 - 25
+        # Dest gains amount only
+        assert dest_balance == 6000.0  # 5000 + 1000
+
+    def test_missing_counter_account_raises(self, transfer_data):
+        """Transfer rule with no counter_account_id raises ValueError."""
+        svc = _svc(transfer_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_transfer_template(
+                    transfer_data, counter_account_id=""
+                ),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        with pytest.raises(ValueError, match="no counter_account_id"):
+            svc.confirm(rule.id)
+
+    def test_advances_due_date(self, transfer_data):
+        """Confirming a transfer rule advances the due date."""
+        svc = _svc(transfer_data["user_id"])
+        today = date.today()
+        rule = svc.create(
+            {
+                "template_transaction": _make_transfer_template(transfer_data),
+                "frequency": "weekly",
+                "next_due_date": today,
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id)
+
+        updated = svc.get_by_id(rule.id)
+        assert updated is not None
+        assert updated.next_due_date == today + timedelta(days=7)
+
+    def test_auto_process_transfer(self, transfer_data):
+        """Auto-confirm transfer rules are processed by process_due_rules."""
+        svc = _svc(transfer_data["user_id"])
+        svc.create(
+            {
+                "template_transaction": _make_transfer_template(transfer_data),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": True,
+            }
+        )
+
+        count = svc.process_due_rules()
+        assert count == 1
+
+        # Balances updated
+        source_balance = float(
+            Account.objects.get(id=transfer_data["source_id"]).current_balance
+        )
+        assert source_balance == 19000.0  # 20000 - 1000
+
+
+@pytest.mark.django_db
+class TestRuleToViewTransfer:
+    def test_transfer_shows_counter_account_name(self, transfer_data):
+        """rule_to_view exposes is_transfer and counter_account_name."""
+        svc = _svc(transfer_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_transfer_template(transfer_data),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+            }
+        )
+
+        view = svc.rule_to_view(rule)
+        assert view["is_transfer"] is True
+        assert view["source_account_name"] == "Source Account"
+        assert view["counter_account_name"] == "Dest Account"
+
+    def test_transfer_with_fee_display(self, transfer_data):
+        """rule_to_view shows fee_display for transfer rules with fee."""
+        svc = _svc(transfer_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_transfer_template(
+                    transfer_data, fee_amount=15.0
+                ),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+            }
+        )
+
+        view = svc.rule_to_view(rule)
+        assert view["fee_display"] == "15.00 EGP"
+
+    def test_non_transfer_has_no_transfer_fields(self, rec_data):
+        """Non-transfer rules have is_transfer=False and no counter fields."""
+        svc = _svc(rec_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+            }
+        )
+
+        view = svc.rule_to_view(rule)
+        assert view["is_transfer"] is False
