@@ -475,6 +475,52 @@ class TestTransactionCRUD:
         response = c.delete(f"/transactions/{tx.id}", HTTP_HX_REQUEST="true")
         assert response.status_code == 200
         assert response.content == b""
+        assert not response.has_header("X-Related-Deleted")
+
+    def test_delete_transfer_returns_oob_for_linked_row(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        dest = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="Dest Account",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        # Create transfer: two linked transactions
+        debit = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="transfer",
+            amount=1000,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-1000,
+            counter_account_id=str(dest.id),
+        )
+        credit = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=str(dest.id),
+            type="transfer",
+            amount=1000,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=1000,
+            linked_transaction=debit,
+            counter_account_id=tx_view_data["egp_id"],
+        )
+        debit.linked_transaction = credit
+        debit.save()
+        Account.objects.filter(id=tx_view_data["egp_id"]).update(current_balance=9000)
+        Account.objects.filter(id=dest.id).update(current_balance=6000)
+
+        response = c.delete(f"/transactions/{debit.id}", HTTP_HX_REQUEST="true")
+        assert response.status_code == 200
+        # OOB swap element for the linked transaction
+        assert f'id="tx-{credit.id}"'.encode() in response.content
+        assert b'hx-swap-oob="delete"' in response.content
+        # Header for swipe-to-delete path
+        assert response["X-Related-Deleted"] == str(credit.id)
 
     def test_row_partial(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])

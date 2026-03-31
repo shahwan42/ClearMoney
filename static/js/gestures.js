@@ -120,11 +120,24 @@
             var url = swipeEl.getAttribute('data-swipe-delete');
             if (url && confirm('Delete this transaction?')) {
                 fetch(url, { method: 'DELETE', headers: { 'HX-Request': 'true' } })
-                    .then(function() {
+                    .then(function(resp) {
                         swipeEl.style.transition = 'all 0.3s ease';
                         swipeEl.style.transform = 'translateX(-100%)';
                         swipeEl.style.opacity = '0';
                         setTimeout(function() { swipeEl.remove(); }, 300);
+                        // Remove related transaction rows (linked transfers/exchanges, fees)
+                        var related = resp.headers.get('X-Related-Deleted');
+                        if (related) {
+                            related.split(',').forEach(function(rid) {
+                                var el = document.getElementById('tx-' + rid);
+                                if (el) {
+                                    el.style.transition = 'all 0.3s ease';
+                                    el.style.opacity = '0';
+                                    el.style.maxHeight = '0';
+                                    setTimeout(function() { el.remove(); }, 300);
+                                }
+                            });
+                        }
                     });
             } else {
                 swipeEl.style.transition = 'transform 0.2s ease';
