@@ -48,6 +48,21 @@ Last updated: 2026-03-31
 | [057](pending/057-data-isolation-recurring-investments.md) | Data isolation tests: recurring + investments | test | medium | 2026-03-31 |
 | [058](pending/058-transfer-variants-tests.md) | Transfer variant tests: Fawry + InstaPay | test | medium | 2026-03-31 |
 | [059](pending/059-dashboard-service-edge-cases.md) | Dashboard service edge case tests | test | low | 2026-03-31 |
+| [060](pending/060-bank-statement-csv-import.md) | Bank statement CSV import | feature | high | 2026-03-31 |
+| [061](pending/061-global-search.md) | Global search | feature | high | 2026-03-31 |
+| [062](pending/062-savings-goals-auto-allocation.md) | Savings goals with auto-allocation | feature | medium | 2026-03-31 |
+| [063](pending/063-spending-insights-trends.md) | Spending insights and trends | feature | high | 2026-03-31 |
+| [064](pending/064-transaction-tags.md) | Transaction tags | feature | medium | 2026-03-31 |
+| [065](pending/065-budget-templates-rollover.md) | Budget templates and rollover | feature | medium | 2026-03-31 |
+| [066](pending/066-recurring-rule-improvements.md) | Recurring rule improvements | improvement | medium | 2026-03-31 |
+| [067](pending/067-account-reconciliation.md) | Account reconciliation | feature | medium | 2026-03-31 |
+| [068](pending/068-financial-calendar.md) | Financial calendar | feature | medium | 2026-03-31 |
+| [069](pending/069-pdf-reports.md) | PDF report export | feature | low | 2026-03-31 |
+| [070](pending/070-transaction-attachments.md) | Transaction attachments (receipt photos) | feature | low | 2026-03-31 |
+| [071](pending/071-spending-alerts.md) | Smart spending alerts | feature | medium | 2026-03-31 |
+| [072](pending/072-net-worth-projection.md) | Net worth projection | feature | low | 2026-03-31 |
+| [073](pending/073-shared-expense-splitting.md) | Shared expense splitting | feature | low | 2026-03-31 |
+| [074](pending/074-dashboard-customization.md) | Dashboard customization | feature | low | 2026-03-31 |
 
 ## Done
 
