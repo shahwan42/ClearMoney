@@ -48,6 +48,52 @@ Last updated: 2026-03-31
 | [057](pending/057-data-isolation-recurring-investments.md) | Data isolation tests: recurring + investments | test | medium | 2026-03-31 |
 | [058](pending/058-transfer-variants-tests.md) | Transfer variant tests: Fawry + InstaPay | test | medium | 2026-03-31 |
 | [059](pending/059-dashboard-service-edge-cases.md) | Dashboard service edge case tests | test | low | 2026-03-31 |
+| [060](pending/060-bank-statement-csv-import.md) | Bank statement CSV import | feature | high | 2026-03-31 |
+| [061](pending/061-global-search.md) | Global search | feature | high | 2026-03-31 |
+| [062](pending/062-savings-goals-auto-allocation.md) | Savings goals with auto-allocation | feature | medium | 2026-03-31 |
+| [063](pending/063-spending-insights-trends.md) | Spending insights and trends | feature | high | 2026-03-31 |
+| [064](pending/064-transaction-tags.md) | Transaction tags | feature | medium | 2026-03-31 |
+| [065](pending/065-budget-templates-rollover.md) | Budget templates and rollover | feature | medium | 2026-03-31 |
+| [066](pending/066-recurring-rule-improvements.md) | Recurring rule improvements | improvement | medium | 2026-03-31 |
+| [067](pending/067-account-reconciliation.md) | Account reconciliation | feature | medium | 2026-03-31 |
+| [068](pending/068-financial-calendar.md) | Financial calendar | feature | medium | 2026-03-31 |
+| [069](pending/069-pdf-reports.md) | PDF report export | feature | low | 2026-03-31 |
+| [070](pending/070-transaction-attachments.md) | Transaction attachments (receipt photos) | feature | low | 2026-03-31 |
+| [071](pending/071-spending-alerts.md) | Smart spending alerts | feature | medium | 2026-03-31 |
+| [072](pending/072-net-worth-projection.md) | Net worth projection | feature | low | 2026-03-31 |
+| [073](pending/073-shared-expense-splitting.md) | Shared expense splitting | feature | low | 2026-03-31 |
+| [074](pending/074-dashboard-customization.md) | Dashboard customization | feature | low | 2026-03-31 |
+| [075](pending/075-subscription-detector.md) | Subscription detector | feature | high | 2026-03-31 |
+| [076](pending/076-spending-velocity-projections.md) | Spending velocity projections | feature | high | 2026-03-31 |
+| [077](pending/077-fee-analytics.md) | Fee analytics | feature | medium | 2026-03-31 |
+| [078](pending/078-debt-payoff-timeline.md) | Debt payoff timeline visualizer | feature | medium | 2026-03-31 |
+| [079](pending/079-recurring-vs-onetime-split.md) | Recurring vs one-time spending split | feature | medium | 2026-03-31 |
+| [080](pending/080-year-over-year-comparison.md) | Year-over-year comparison | feature | medium | 2026-03-31 |
+| [081](pending/081-auto-categorization-rules.md) | Auto-categorization rules | feature | high | 2026-03-31 |
+| [082](pending/082-credit-card-payment-widget.md) | Credit card payment widget | feature | medium | 2026-03-31 |
+| [083](pending/083-cash-flow-forecast.md) | Cash flow forecast | feature | high | 2026-03-31 |
+| [084](pending/084-transaction-templates.md) | Transaction templates / favorites | feature | medium | 2026-03-31 |
+| [085](pending/085-bulk-edit-transactions.md) | Bulk edit transactions | feature | medium | 2026-03-31 |
+| [086](pending/086-weekly-email-digest.md) | Weekly email digest | feature | low | 2026-03-31 |
+| [087](pending/087-account-grouping.md) | Account grouping / portfolios | feature | low | 2026-03-31 |
+| [088](pending/088-installment-tracker.md) | Installment tracker | feature | medium | 2026-03-31 |
+| [089](pending/089-streak-gamification.md) | Streak gamification and milestones | feature | low | 2026-03-31 |
+| [090](pending/090-onboarding-wizard.md) | Onboarding wizard for new users | feature | high | 2026-03-31 |
+| [091](pending/091-reorder-collapse-dashboard.md) | Reorder and collapse dashboard panels | improvement | high | 2026-03-31 |
+| [092](pending/092-inline-form-validation.md) | Inline form validation | improvement | high | 2026-03-31 |
+| [093](pending/093-interactive-report-charts.md) | Interactive report charts with drill-down | improvement | high | 2026-03-31 |
+| [094](pending/094-consolidated-credit-card-view.md) | Consolidated credit card view | improvement | high | 2026-03-31 |
+| [095](pending/095-loading-skeletons.md) | Loading skeletons for HTMX content | improvement | medium | 2026-03-31 |
+| [096](pending/096-quick-entry-preload.md) | Quick-entry sheet pre-load form | improvement | medium | 2026-03-31 |
+| [097](pending/097-bottom-sheet-close-button.md) | Bottom sheet visible close button | improvement | medium | 2026-03-31 |
+| [098](pending/098-contextual-feature-hints.md) | Contextual feature hints | improvement | medium | 2026-03-31 |
+| [099](pending/099-budget-save-feedback.md) | Budget save feedback | improvement | medium | 2026-03-31 |
+| [100](pending/100-smarter-more-menu.md) | Smarter More menu organization | improvement | medium | 2026-03-31 |
+| [101](pending/101-account-custom-name-visible.md) | Account custom name always visible | improvement | low | 2026-03-31 |
+| [102](pending/102-transaction-detail-enhancements.md) | Transaction detail enhancements | improvement | low | 2026-03-31 |
+| [103](pending/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-03-31 |
+| [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
+| [105](pending/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-03-31 |
 
 ## Done
 
