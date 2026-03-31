@@ -63,6 +63,21 @@ Last updated: 2026-03-31
 | [072](pending/072-net-worth-projection.md) | Net worth projection | feature | low | 2026-03-31 |
 | [073](pending/073-shared-expense-splitting.md) | Shared expense splitting | feature | low | 2026-03-31 |
 | [074](pending/074-dashboard-customization.md) | Dashboard customization | feature | low | 2026-03-31 |
+| [075](pending/075-subscription-detector.md) | Subscription detector | feature | high | 2026-03-31 |
+| [076](pending/076-spending-velocity-projections.md) | Spending velocity projections | feature | high | 2026-03-31 |
+| [077](pending/077-fee-analytics.md) | Fee analytics | feature | medium | 2026-03-31 |
+| [078](pending/078-debt-payoff-timeline.md) | Debt payoff timeline visualizer | feature | medium | 2026-03-31 |
+| [079](pending/079-recurring-vs-onetime-split.md) | Recurring vs one-time spending split | feature | medium | 2026-03-31 |
+| [080](pending/080-year-over-year-comparison.md) | Year-over-year comparison | feature | medium | 2026-03-31 |
+| [081](pending/081-auto-categorization-rules.md) | Auto-categorization rules | feature | high | 2026-03-31 |
+| [082](pending/082-credit-card-payment-widget.md) | Credit card payment widget | feature | medium | 2026-03-31 |
+| [083](pending/083-cash-flow-forecast.md) | Cash flow forecast | feature | high | 2026-03-31 |
+| [084](pending/084-transaction-templates.md) | Transaction templates / favorites | feature | medium | 2026-03-31 |
+| [085](pending/085-bulk-edit-transactions.md) | Bulk edit transactions | feature | medium | 2026-03-31 |
+| [086](pending/086-weekly-email-digest.md) | Weekly email digest | feature | low | 2026-03-31 |
+| [087](pending/087-account-grouping.md) | Account grouping / portfolios | feature | low | 2026-03-31 |
+| [088](pending/088-installment-tracker.md) | Installment tracker | feature | medium | 2026-03-31 |
+| [089](pending/089-streak-gamification.md) | Streak gamification and milestones | feature | low | 2026-03-31 |
 
 ## Done
 
