@@ -78,6 +78,22 @@ Last updated: 2026-03-31
 | [087](pending/087-account-grouping.md) | Account grouping / portfolios | feature | low | 2026-03-31 |
 | [088](pending/088-installment-tracker.md) | Installment tracker | feature | medium | 2026-03-31 |
 | [089](pending/089-streak-gamification.md) | Streak gamification and milestones | feature | low | 2026-03-31 |
+| [090](pending/090-onboarding-wizard.md) | Onboarding wizard for new users | feature | high | 2026-03-31 |
+| [091](pending/091-reorder-collapse-dashboard.md) | Reorder and collapse dashboard panels | improvement | high | 2026-03-31 |
+| [092](pending/092-inline-form-validation.md) | Inline form validation | improvement | high | 2026-03-31 |
+| [093](pending/093-interactive-report-charts.md) | Interactive report charts with drill-down | improvement | high | 2026-03-31 |
+| [094](pending/094-consolidated-credit-card-view.md) | Consolidated credit card view | improvement | high | 2026-03-31 |
+| [095](pending/095-loading-skeletons.md) | Loading skeletons for HTMX content | improvement | medium | 2026-03-31 |
+| [096](pending/096-quick-entry-preload.md) | Quick-entry sheet pre-load form | improvement | medium | 2026-03-31 |
+| [097](pending/097-bottom-sheet-close-button.md) | Bottom sheet visible close button | improvement | medium | 2026-03-31 |
+| [098](pending/098-contextual-feature-hints.md) | Contextual feature hints | improvement | medium | 2026-03-31 |
+| [099](pending/099-budget-save-feedback.md) | Budget save feedback | improvement | medium | 2026-03-31 |
+| [100](pending/100-smarter-more-menu.md) | Smarter More menu organization | improvement | medium | 2026-03-31 |
+| [101](pending/101-account-custom-name-visible.md) | Account custom name always visible | improvement | low | 2026-03-31 |
+| [102](pending/102-transaction-detail-enhancements.md) | Transaction detail enhancements | improvement | low | 2026-03-31 |
+| [103](pending/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-03-31 |
+| [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
+| [105](pending/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-03-31 |
 
 ## Done
 
