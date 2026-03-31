@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-03-30
+Last updated: 2026-03-31
 
 ## In Progress
 
@@ -42,6 +42,12 @@ Last updated: 2026-03-30
 | [051](pending/051-extract-service-factory-decorator.md) | Extract service factory decorator from views | refactor | low | 2026-03-30 |
 | [052](pending/052-break-down-large-views.md) | Break down large views (account_add, recurring_add) | refactor | medium | 2026-03-30 |
 | [053](pending/053-standardize-service-error-handling.md) | Standardize error handling conventions across services | refactor | low | 2026-03-30 |
+| [054](pending/054-auth-rate-limiting-tests.md) | Auth rate limiting tests | test | high | 2026-03-31 |
+| [055](pending/055-transaction-helpers-coverage.md) | Transaction helpers test coverage | test | medium | 2026-03-31 |
+| [056](pending/056-people-debt-summary-tests.md) | People debt summary + repayment tests | test | medium | 2026-03-31 |
+| [057](pending/057-data-isolation-recurring-investments.md) | Data isolation tests: recurring + investments | test | medium | 2026-03-31 |
+| [058](pending/058-transfer-variants-tests.md) | Transfer variant tests: Fawry + InstaPay | test | medium | 2026-03-31 |
+| [059](pending/059-dashboard-service-edge-cases.md) | Dashboard service edge case tests | test | low | 2026-03-31 |
 
 ## Done
 
