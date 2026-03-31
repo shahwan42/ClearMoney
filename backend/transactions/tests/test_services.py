@@ -424,8 +424,9 @@ class TestDelete:
             }
         )
         assert _get_balance(tx_data["egp_id"]) == 9500
-        svc.delete(tx["id"])
+        related_ids = svc.delete(tx["id"])
         assert _get_balance(tx_data["egp_id"]) == 10000
+        assert related_ids == []
 
     def test_linked_reverses_both_accounts(self, tx_data):
         svc = _svc(tx_data["user_id"])
@@ -450,9 +451,10 @@ class TestDelete:
         assert _get_balance(tx_data["egp_id"]) == 9000
         assert _get_balance(dest_id) == 6000
 
-        svc.delete(debit["id"])
+        related_ids = svc.delete(debit["id"])
         assert _get_balance(tx_data["egp_id"]) == 10000
         assert _get_balance(dest_id) == 5000
+        assert str(credit["id"]) in related_ids
 
     def test_not_found(self, tx_data):
         svc = _svc(tx_data["user_id"])
@@ -476,7 +478,7 @@ class TestDelete:
         )
         assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("9475")
 
-        svc.delete(tx["id"])
+        related_ids = svc.delete(tx["id"])
         # Both parent and fee reversed: 10000
         assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("10000")
         # Fee transaction should be gone
@@ -486,6 +488,8 @@ class TestDelete:
             ).count()
             == 0
         )
+        # Related IDs should contain the fee transaction ID
+        assert len(related_ids) == 1
 
     def test_delete_transfer_with_fee_cleans_up_fee(self, tx_data):
         from decimal import Decimal
@@ -513,7 +517,7 @@ class TestDelete:
         assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("8950")
         assert Decimal(str(_get_balance(dest_id))) == Decimal("6000")
 
-        svc.delete(debit["id"])
+        related_ids = svc.delete(debit["id"])
         # Fully reversed: source 10000, dest 5000
         assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("10000")
         assert Decimal(str(_get_balance(dest_id))) == Decimal("5000")
@@ -524,6 +528,9 @@ class TestDelete:
             ).count()
             == 0
         )
+        # Related IDs should contain linked transaction + fee
+        assert str(credit["id"]) in related_ids
+        assert len(related_ids) == 2  # linked tx + fee
 
 
 @pytest.mark.django_db

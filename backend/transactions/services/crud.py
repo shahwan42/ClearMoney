@@ -709,10 +709,11 @@ class TransactionServiceBase:
         logger.info("transaction.updated id=%s user=%s", tx_id, self.user_id)
         return updated, str(new_balance)
 
-    def delete(self, tx_id: str) -> None:
+    def delete(self, tx_id: str) -> list[str]:
         """Delete a transaction and reverse its balance impact.
 
         For linked transactions (transfers/exchanges), deletes both legs.
+        Returns IDs of additional transactions deleted (linked + fees).
         """
         tx = self.get_by_id(tx_id)
         if not tx:
@@ -799,3 +800,10 @@ class TransactionServiceBase:
                 ).delete()
 
         logger.info("transaction.deleted id=%s user=%s", tx_id, self.user_id)
+
+        # Return IDs of additional transactions that were deleted
+        related_ids: list[str] = []
+        if is_linked and tx.get("linked_transaction_id"):
+            related_ids.append(str(tx["linked_transaction_id"]))
+        related_ids.extend(str(f["id"]) for f in fee_txs)
+        return related_ids

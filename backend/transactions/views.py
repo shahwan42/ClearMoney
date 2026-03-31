@@ -359,8 +359,17 @@ def transaction_delete(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
     svc = _svc(request)
     try:
         svc.deallocate_from_virtual_accounts(str(tx_id))
-        svc.delete(str(tx_id))
-        return HttpResponse("")
+        related_ids = svc.delete(str(tx_id))
+
+        # Build OOB delete elements so HTMX removes related rows (linked + fees)
+        oob_html = "".join(
+            f'<div id="tx-{rid}" hx-swap-oob="delete"></div>' for rid in related_ids
+        )
+        response = HttpResponse(oob_html)
+        # Header for swipe-to-delete path (raw fetch, not HTMX)
+        if related_ids:
+            response["X-Related-Deleted"] = ",".join(related_ids)
+        return response
     except ValueError as e:
         return error_response(str(e))
 

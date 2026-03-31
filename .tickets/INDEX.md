@@ -99,6 +99,7 @@ Last updated: 2026-03-31
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [106](done/106-fix-transaction-deletion-ui.md) | Fix transaction deletion UI for related transactions | bug | medium | 2026-03-31 |
 | [020](done/020-recurring-rules-money-movement-fee.md) | Recurring rules money movement + fee | feature | medium | 2026-03-30 |
 | [021](done/021-net-worth-debt-calculation.md) | Net worth debt calculation | feature | medium | 2026-03-29 |
 | [019](done/019-budget-detail-contributing-transactions.md) | Show contributing transactions on budget click | feature | medium | 2026-03-28 |
