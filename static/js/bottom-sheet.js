@@ -93,6 +93,7 @@ var BottomSheet = (function() {
         previousFocus = document.activeElement;
 
         s.overlay.classList.remove('hidden');
+        s.sheet.classList.remove('invisible');
         s.sheet.offsetHeight; // Force reflow so transition fires
         s.sheet.classList.remove('translate-y-full');
         s.sheet.classList.add('translate-y-0');
@@ -149,6 +150,9 @@ var BottomSheet = (function() {
             previousFocus.focus();
             previousFocus = null;
         }
+
+        // Hide sheet from view after close animation completes
+        setTimeout(function() { s.sheet.classList.add('invisible'); }, 300);
 
         // Clear content after animation unless marked as persistent
         if (s.content && !s.sheet.hasAttribute('data-bottom-sheet-persist')) {
