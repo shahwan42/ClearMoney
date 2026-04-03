@@ -93,7 +93,8 @@ var BottomSheet = (function() {
         previousFocus = document.activeElement;
 
         s.overlay.classList.remove('hidden');
-        s.sheet.classList.remove('invisible');
+        s.sheet.classList.remove('hidden');
+        s.sheet.classList.add('translate-y-full');
         s.sheet.offsetHeight; // Force reflow so transition fires
         s.sheet.classList.remove('translate-y-full');
         s.sheet.classList.add('translate-y-0');
@@ -152,14 +153,13 @@ var BottomSheet = (function() {
         }
 
         // Hide sheet from view after close animation completes
-        setTimeout(function() { s.sheet.classList.add('invisible'); }, 300);
-
-        // Clear content after animation unless marked as persistent
-        if (s.content && !s.sheet.hasAttribute('data-bottom-sheet-persist')) {
-            setTimeout(function() {
+        setTimeout(function() {
+            s.sheet.classList.add('hidden');
+            // Clear content unless marked as persistent
+            if (s.content && !s.sheet.hasAttribute('data-bottom-sheet-persist')) {
                 s.content.innerHTML = '';
-            }, 300);
-        }
+            }
+        }, 300);
     }
 
     function init() {
