@@ -346,7 +346,7 @@ def test_load_health_warnings(svc_data):
     warnings = svc._load_health_warnings(accounts)
     assert len(warnings) >= 1
     assert warnings[0].rule == "min_balance"
-    assert "below minimum balance" in warnings[0].message
+    assert "below minimum" in warnings[0].message
 
 
 # ---------------------------------------------------------------------------

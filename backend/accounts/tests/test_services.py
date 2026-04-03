@@ -807,6 +807,8 @@ class TestLoadHealthWarnings:
         assert warnings[0].account_id == str(account.id)
         assert warnings[0].rule == "min_balance"
         assert "below minimum" in warnings[0].message
+        assert "500.00" in warnings[0].message
+        assert "1,000.00" in warnings[0].message
 
     def test_min_balance_no_warning_when_above_threshold(self) -> None:
         """Account above min_balance threshold returns empty list."""
@@ -865,6 +867,7 @@ class TestLoadHealthWarnings:
         assert warnings[0].account_id == str(account.id)
         assert warnings[0].rule == "min_monthly_deposit"
         assert "missing required monthly deposit" in warnings[0].message
+        assert "5,000.00" in warnings[0].message
 
     def test_min_monthly_deposit_no_warning_when_deposit_exists(self) -> None:
         """Account with required deposit in current month returns empty list."""
