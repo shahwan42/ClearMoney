@@ -1,10 +1,18 @@
 # ClearMoney Tickets
 
-Last updated: 2026-03-31
+Last updated: 2026-04-04
 
 ## In Progress
 
-(none)
+| ID | Title | Type | Priority | Updated |
+| --- | --- | --- | --- | --- |
+| [107](wip/107-notification-model-and-migration.md) | Notification model and migration | feature | high | 2026-04-04 |
+| [108](wip/108-notification-generation-pipeline.md) | Notification generation pipeline | feature | high | 2026-04-04 |
+| [109](wip/109-bell-icon-unread-badge-header.md) | Bell icon with unread badge in header | feature | high | 2026-04-04 |
+| [110](wip/110-notifications-list-page.md) | Notifications list page | feature | high | 2026-04-04 |
+| [111](wip/111-mark-read-mark-all-read.md) | Mark as read + mark all as read | feature | high | 2026-04-04 |
+| [112](wip/112-e2e-tests-notification-center.md) | E2E tests for notification center | test | medium | 2026-04-04 |
+| [040](wip/040-account-health-notification-improvements.md) | Account health notification improvements | improvement | medium | 2026-04-03 |
 
 ## Pending
 
