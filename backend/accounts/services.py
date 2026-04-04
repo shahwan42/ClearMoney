@@ -811,13 +811,18 @@ def load_health_warnings(
 
         # Check minimum balance
         min_balance = cfg.get("min_balance")
-        if min_balance is not None and current_balance < float(min_balance):
+        if min_balance is not None and Decimal(str(current_balance)) < Decimal(
+            str(min_balance)
+        ):
             warnings.append(
                 HealthWarning(
                     account_name=acc_name,
                     account_id=acc_id,
                     rule="min_balance",
-                    message=f"{acc_name} is below minimum balance",
+                    message=(
+                        f"{acc_name} balance ({Decimal(str(current_balance)):,.2f})"
+                        f" is below minimum ({Decimal(str(min_balance)):,.2f})"
+                    ),
                 )
             )
 
@@ -842,7 +847,10 @@ def load_health_warnings(
                         account_name=acc_name,
                         account_id=acc_id,
                         rule="min_monthly_deposit",
-                        message=f"{acc_name} is missing required monthly deposit",
+                        message=(
+                            f"{acc_name} is missing required monthly deposit"
+                            f" ({Decimal(str(min_deposit)):,.2f})"
+                        ),
                     )
                 )
 
