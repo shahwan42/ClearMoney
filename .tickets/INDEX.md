@@ -6,6 +6,7 @@ Last updated: 2026-04-04
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [113](wip/113-django-admin-setup.md) | Django Admin setup for monitoring and management | feature | high | 2026-04-04 |
 | [107](wip/107-notification-model-and-migration.md) | Notification model and migration | feature | high | 2026-04-04 |
 | [108](wip/108-notification-generation-pipeline.md) | Notification generation pipeline | feature | high | 2026-04-04 |
 | [109](wip/109-bell-icon-unread-badge-header.md) | Bell icon with unread badge in header | feature | high | 2026-04-04 |
