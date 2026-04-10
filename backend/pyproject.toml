@@ -29,6 +29,7 @@ dev = [
     "types-python-dateutil>=2.9.0",
     "django-ai-boost>=0.8.0",
     "import-linter>=2.11",
+    "basedpyright>=1.0.0",
 ]
 
 [tool.pytest.ini_options]

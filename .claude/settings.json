@@ -6,6 +6,9 @@
       "Edit(/.claude/skills/qa-review/**)"
     ]
   },
+  "env": {
+    "ENABLE_LSP_TOOL": "1"
+  },
   "hooks": {
     "SessionStart": [
       {
