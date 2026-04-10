@@ -1,13 +1,15 @@
-"""Tests for TimezoneMiddleware and context processors."""
+"""Tests for TimezoneMiddleware, LanguageMiddleware and context processors."""
 
 import zoneinfo
 
 import pytest
 from django.http import HttpResponse
 from django.test import RequestFactory
+from django.utils import translation
 
 from core.context_processors import active_tab
-from core.middleware import TimezoneMiddleware
+from core.middleware import LanguageMiddleware, TimezoneMiddleware
+from tests.factories import UserFactory
 
 
 class TestTimezoneMiddleware:
@@ -61,3 +63,75 @@ class TestActiveTab:
         request = factory.get("/some-random-path")
         result = active_tab(request)
         assert result["active_tab"] == ""
+
+
+class TestLanguageMiddleware:
+    """LanguageMiddleware activates user language preference during request processing."""
+
+    @pytest.mark.django_db
+    def test_authenticated_user_gets_their_language(self) -> None:
+        user = UserFactory(language="ar")
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user_id = str(user.id)  # type: ignore[attr-defined]
+
+        def get_response(req: object) -> HttpResponse:
+            assert translation.get_language() == "ar"
+            return HttpResponse("ok")
+
+        middleware = LanguageMiddleware(get_response)
+        response = middleware(request)
+        assert response.status_code == 200
+
+    @pytest.mark.django_db
+    def test_authenticated_user_default_english(self) -> None:
+        user = UserFactory(language="en")
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user_id = str(user.id)  # type: ignore[attr-defined]
+
+        def get_response(req: object) -> HttpResponse:
+            assert translation.get_language() == "en"
+            return HttpResponse("ok")
+
+        middleware = LanguageMiddleware(get_response)
+        response = middleware(request)
+        assert response.status_code == 200
+
+    def test_anonymous_falls_back_to_accept_language(self) -> None:
+        factory = RequestFactory()
+        request = factory.get("/", HTTP_ACCEPT_LANGUAGE="ar,en-US;q=0.9,en;q=0.8")
+
+        def get_response(req: object) -> HttpResponse:
+            assert translation.get_language() == "ar"
+            return HttpResponse("ok")
+
+        middleware = LanguageMiddleware(get_response)
+        response = middleware(request)
+        assert response.status_code == 200
+
+    def test_anonymous_falls_back_to_english(self) -> None:
+        factory = RequestFactory()
+        request = factory.get("/")
+
+        def get_response(req: object) -> HttpResponse:
+            assert translation.get_language() == "en"
+            return HttpResponse("ok")
+
+        middleware = LanguageMiddleware(get_response)
+        response = middleware(request)
+        assert response.status_code == 200
+
+    def test_anonymous_no_ar_in_accept_language(self) -> None:
+        factory = RequestFactory()
+        request = factory.get("/", HTTP_ACCEPT_LANGUAGE="fr,de")
+
+        def get_response(req: object) -> HttpResponse:
+            assert translation.get_language() == "en"
+            return HttpResponse("ok")
+
+        middleware = LanguageMiddleware(get_response)
+        response = middleware(request)
+        assert response.status_code == 200

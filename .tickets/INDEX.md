@@ -19,7 +19,6 @@ Last updated: 2026-04-10
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [023](pending/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-03-30 |
 | [024](pending/024-base-html-rtl-config.md) | base.html — dynamic lang/dir + RTL Tailwind config | feature | high | 2026-03-30 |
 | [025](pending/025-rtl-shared-components.md) | RTL — shared components + base layout | feature | medium | 2026-03-30 |
 | [026](pending/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-03-30 |
@@ -107,6 +106,7 @@ Last updated: 2026-04-10
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [023](done/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-04-10 |
 | [022](done/022-i18n-infrastructure.md) | i18n infrastructure — settings, middleware, locale dirs | feature | high | 2026-04-10 |
 | [106](done/106-fix-transaction-deletion-ui.md) | Fix transaction deletion UI for related transactions | bug | medium | 2026-03-31 |
 | [020](done/020-recurring-rules-money-movement-fee.md) | Recurring rules money movement + fee | feature | medium | 2026-03-30 |

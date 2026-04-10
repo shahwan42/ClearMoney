@@ -17,8 +17,9 @@ from typing import cast
 
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.utils import timezone as django_tz
+from django.utils import translation
 
-from auth_app.models import Session
+from auth_app.models import Session, User
 from core.types import AuthenticatedRequest
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,55 @@ class GoSessionAuthMiddleware:
         auth_request.user_email = session.user.email
 
         return self.get_response(auth_request)
+
+
+class LanguageMiddleware:
+    """Activates user language preference from User.language.
+
+    Runs after GoSessionAuthMiddleware — reads user's language preference
+    from the database and activates it via Django's translation module.
+    For unauthenticated requests: falls back to Accept-Language header or English.
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        user_id = getattr(request, "user_id", None)
+
+        if user_id:
+            user = (
+                User.objects.filter(id=user_id)
+                .values_list("language", flat=True)
+                .first()
+            )
+            if user:
+                translation.activate(user)
+            else:
+                self._activate_fallback(request)
+        else:
+            self._activate_fallback(request)
+
+        response = self.get_response(request)
+        translation.deactivate()
+        return response
+
+    def _activate_fallback(self, request: HttpRequest) -> None:
+        accept_language = request.META.get("HTTP_ACCEPT_LANGUAGE", "")
+        if not accept_language:
+            translation.activate("en")
+            return
+
+        langs = []
+        for lang in accept_language.split(","):
+            lang = lang.split(";")[0].strip()
+            if lang:
+                langs.append(lang.split("-")[0])
+
+        if "ar" in langs:
+            translation.activate("ar")
+        else:
+            translation.activate("en")
 
 
 class ExceptionLoggingMiddleware:

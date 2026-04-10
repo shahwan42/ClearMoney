@@ -79,8 +79,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",  # CSRF protection — HTMX sends token via hx-headers
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
-    "django.middleware.locale.LocaleMiddleware",  # i18n: activates user language preference
     "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from the sessions table
+    "core.middleware.LanguageMiddleware",  # Activates user language preference from User.language
     "django.middleware.clickjacking.XFrameOptionsMiddleware",  # X-Frame-Options: DENY
     "core.middleware.ExceptionLoggingMiddleware",  # Log unhandled 500s with request context
     "core.middleware.TimezoneMiddleware",  # Sets request.tz from APP_TIMEZONE env var

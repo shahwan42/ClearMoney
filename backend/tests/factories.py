@@ -40,6 +40,7 @@ class UserFactory(factory.django.DjangoModelFactory):
 
     id = factory.LazyFunction(uuid.uuid4)
     email = factory.LazyFunction(lambda: f"pytest-{uuid.uuid4().hex[:8]}@example.com")
+    language = "en"
 
 
 class SessionFactory(factory.django.DjangoModelFactory):

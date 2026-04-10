@@ -21,8 +21,11 @@ GEN_UUID = Func(function="gen_random_uuid")
 class User(models.Model):
     """The users table — magic link auth, no password."""
 
+    LANGUAGE_CHOICES = [("en", "English"), ("ar", "Arabic")]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, db_default=GEN_UUID)
     email = models.CharField(max_length=255, unique=True)
+    language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default="en")
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
     updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
