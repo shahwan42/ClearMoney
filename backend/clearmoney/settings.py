@@ -79,6 +79,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",  # CSRF protection — HTMX sends token via hx-headers
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
+    "django.middleware.locale.LocaleMiddleware",  # i18n: activates user language preference
     "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from the sessions table
     "django.middleware.clickjacking.XFrameOptionsMiddleware",  # X-Frame-Options: DENY
     "core.middleware.ExceptionLoggingMiddleware",  # Log unhandled 500s with request context
@@ -100,6 +101,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.template.context_processors.i18n",
                 "core.context_processors.active_tab",
             ],
         },
@@ -129,6 +131,8 @@ TIME_ZONE = os.environ.get("APP_TIMEZONE", "Africa/Cairo")
 USE_I18N = True
 USE_TZ = True
 LANGUAGE_CODE = "en-us"
+LANGUAGES = [("en", "English"), ("ar", "العربية")]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 
 # --- Static files ---
 # CSS, JS, manifest, service worker served by whitenoise in production.

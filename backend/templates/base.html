@@ -1,3 +1,4 @@
+{% load i18n %}
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-50">
 <!-- Dark mode: theme.js adds "dark" class to <html> before paint -->
@@ -7,7 +8,7 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>{% block title %}ClearMoney{% endblock %}</title>
+    <title>{% block title %}{% trans "ClearMoney" %}{% endblock %}</title>
     <link rel="icon" href="data:,">
 
     <!-- Tailwind CSS via CDN -->

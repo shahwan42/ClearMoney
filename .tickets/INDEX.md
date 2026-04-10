@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-04
+Last updated: 2026-04-10
 
 ## In Progress
 
@@ -19,7 +19,6 @@ Last updated: 2026-04-04
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [022](pending/022-i18n-infrastructure.md) | i18n infrastructure — settings, middleware, locale dirs | feature | high | 2026-03-30 |
 | [023](pending/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-03-30 |
 | [024](pending/024-base-html-rtl-config.md) | base.html — dynamic lang/dir + RTL Tailwind config | feature | high | 2026-03-30 |
 | [025](pending/025-rtl-shared-components.md) | RTL — shared components + base layout | feature | medium | 2026-03-30 |
@@ -108,6 +107,7 @@ Last updated: 2026-04-04
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [022](done/022-i18n-infrastructure.md) | i18n infrastructure — settings, middleware, locale dirs | feature | high | 2026-04-10 |
 | [106](done/106-fix-transaction-deletion-ui.md) | Fix transaction deletion UI for related transactions | bug | medium | 2026-03-31 |
 | [020](done/020-recurring-rules-money-movement-fee.md) | Recurring rules money movement + fee | feature | medium | 2026-03-30 |
 | [021](done/021-net-worth-debt-calculation.md) | Net worth debt calculation | feature | medium | 2026-03-29 |

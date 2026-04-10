@@ -3,7 +3,7 @@
 # Usage: make <target>
 #
 # Like: composer scripts, manage.py commands, or package.json scripts.
-.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check
+.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check messages compile-messages
 
 DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable
 
@@ -43,8 +43,17 @@ coverage:
 coverage-check:
 	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest --cov --cov-fail-under=60
 
+# Extract translatable strings into .po files.
+messages:
+	cd backend && uv run manage.py makemessages -l ar --ignore=static_src --ignore=static
+
+# Compile .po files to .mo for runtime use.
+compile-messages:
+	cd backend && uv run manage.py compilemessages
+
 # Remove build artifacts.
 clean:
+	rm -rf backend/staticfiles/ backend/locale/*/LC_MESSAGES/*.mo
 	rm -rf backend/staticfiles/
 
 # Start all Docker services in detached mode.
