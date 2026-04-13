@@ -1,5 +1,5 @@
 <!-- Bottom navigation — fixed mobile tab bar -->
-<nav class="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-700 h-16 flex items-center justify-around px-4 safe-area-bottom" aria-label="Main navigation">
+<nav class="fixed bottom-0 start-0 end-0 z-50 bg-white dark:bg-slate-900 border-t border-gray-200 dark:border-slate-700 h-16 flex items-center justify-around px-4 safe-area-bottom" aria-label="Main navigation">
     <a href="/" {% if active_tab == 'home' %}aria-current="page"{% endif %} class="flex flex-col items-center justify-center gap-0.5 text-xs min-h-[44px] min-w-[44px] {% if active_tab == 'home' %}text-teal-600{% else %}text-gray-500 hover:text-gray-700{% endif %}">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/>
@@ -34,7 +34,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            <svg class="absolute -top-1.5 -right-1.5 w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <svg class="absolute -top-1.5 -end-1.5 w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/>
             </svg>
         </div>
@@ -45,7 +45,7 @@
 <!-- Quick-entry bottom sheet overlay -->
 <div id="quick-entry-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeQuickEntry()"></div>
 
-<div id="quick-entry-sheet" class="hidden fixed bottom-16 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto overflow-x-hidden scroll-shadow"
+<div id="quick-entry-sheet" class="hidden fixed bottom-16 start-0 end-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto overflow-x-hidden scroll-shadow"
      data-bottom-sheet="quick-entry" role="dialog" aria-modal="true" aria-label="Quick entry" aria-hidden="true">
     <div id="quick-entry-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
@@ -77,7 +77,7 @@
 <!-- More menu bottom sheet overlay -->
 <div id="more-menu-overlay" class="fixed inset-0 z-[60] bg-black/40 hidden" onclick="closeMoreMenu()"></div>
 
-<div id="more-menu-sheet" class="hidden fixed bottom-16 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[70vh] overflow-y-auto scroll-shadow"
+<div id="more-menu-sheet" class="hidden fixed bottom-16 start-0 end-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[70vh] overflow-y-auto scroll-shadow"
      data-bottom-sheet="more-menu" data-bottom-sheet-persist role="dialog" aria-modal="true" aria-label="More menu" aria-hidden="true">
     <div class="flex justify-center pt-3 pb-1 cursor-grab">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>

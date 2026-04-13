@@ -266,6 +266,22 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
     background-size: 100% 40px, 100% 40px, 100% 8px, 100% 8px;
 }
 
+/* RTL scroll-shadow — flip gradient positions for inline axis */
+[dir="rtl"] .scroll-shadow {
+    background:
+        linear-gradient(to left, white 30%, transparent) 0 0,
+        linear-gradient(to left, transparent, white 70%) 0 100%,
+        radial-gradient(farthest-side at 100% 0%, rgba(0,0,0,.10), transparent) 0 0,
+        radial-gradient(farthest-side at 100% 100%, rgba(0,0,0,.10), transparent) 0 100%;
+}
+[dir="rtl"] .dark .scroll-shadow {
+    background:
+        linear-gradient(to left, #0f172a 30%, transparent) 0 0,
+        linear-gradient(to left, transparent, #0f172a 70%) 0 100%,
+        radial-gradient(farthest-side at 100% 0%, rgba(0,0,0,.20), transparent) 0 0,
+        radial-gradient(farthest-side at 100% 100%, rgba(0,0,0,.20), transparent) 0 100%;
+}
+
 /* Touch target compliance — WCAG 2.5.5 AAA: all form controls must be at least 44px tall.
    Excludes radio/checkbox (custom-styled with peer-checked pattern) and range sliders. */
 input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not([type="range"]),

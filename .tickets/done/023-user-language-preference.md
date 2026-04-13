@@ -3,7 +3,7 @@ id: "023"
 title: "User language preference — model + middleware + migration"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-03-30
 updated: 2026-03-30
 ---

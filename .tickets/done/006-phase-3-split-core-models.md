@@ -3,7 +3,7 @@ id: "006"
 title: "Phase 3 — split core/models.py into module-owned models"
 type: refactor
 priority: high
-status: wip
+status: done
 created: 2026-03-28
 updated: 2026-03-28
 ---

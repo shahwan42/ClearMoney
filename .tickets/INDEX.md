@@ -1,26 +1,15 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-10
+Last updated: 2026-04-13
 
 ## In Progress
 
-| ID | Title | Type | Priority | Updated |
-| --- | --- | --- | --- | --- |
-| [113](wip/113-django-admin-setup.md) | Django Admin setup for monitoring and management | feature | high | 2026-04-04 |
-| [107](wip/107-notification-model-and-migration.md) | Notification model and migration | feature | high | 2026-04-04 |
-| [108](wip/108-notification-generation-pipeline.md) | Notification generation pipeline | feature | high | 2026-04-04 |
-| [109](wip/109-bell-icon-unread-badge-header.md) | Bell icon with unread badge in header | feature | high | 2026-04-04 |
-| [110](wip/110-notifications-list-page.md) | Notifications list page | feature | high | 2026-04-04 |
-| [111](wip/111-mark-read-mark-all-read.md) | Mark as read + mark all as read | feature | high | 2026-04-04 |
-| [112](wip/112-e2e-tests-notification-center.md) | E2E tests for notification center | test | medium | 2026-04-04 |
-| [040](wip/040-account-health-notification-improvements.md) | Account health notification improvements | improvement | medium | 2026-04-03 |
+_Nothing in progress._
 
 ## Pending
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [024](done/024-base-html-rtl-config.md) | base.html — dynamic lang/dir + RTL Tailwind config | feature | high | 2026-04-13 |
-| [025](pending/025-rtl-shared-components.md) | RTL — shared components + base layout | feature | medium | 2026-03-30 |
 | [026](pending/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-03-30 |
 | [027](pending/027-rtl-remaining-templates.md) | RTL — transactions + remaining app templates | feature | medium | 2026-03-30 |
 | [028](pending/028-i18n-auth-templates.md) | i18n strings — auth templates | feature | medium | 2026-03-30 |
@@ -35,6 +24,7 @@ Last updated: 2026-04-10
 | [037](pending/037-i18n-push-notifications-email.md) | i18n — push notifications + email template | feature | medium | 2026-03-30 |
 | [038](pending/038-category-name-jsonb.md) | Category name → JSONB migration | feature | high | 2026-03-30 |
 | [039](pending/039-bilingual-category-seeding.md) | Bilingual category seeding | feature | medium | 2026-03-30 |
+| [040](pending/040-account-health-notification-improvements.md) | Account health notification improvements | improvement | medium | 2026-03-30 |
 | [040](pending/040-settings-language-toggle.md) | Settings page — language toggle | feature | medium | 2026-03-30 |
 | [041](pending/041-extract-month-range-utilities.md) | Extract shared month-range utilities to core/dates.py | refactor | medium | 2026-03-30 |
 | [042](pending/042-extract-status-threshold-computation.md) | Extract status/threshold computation to core/status.py | refactor | low | 2026-03-30 |
@@ -101,34 +91,43 @@ Last updated: 2026-04-10
 | [103](pending/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-03-31 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [105](pending/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-03-31 |
+| [107](pending/107-notification-model-and-migration.md) | Notification model and migration | feature | high | 2026-04-04 |
+| [108](pending/108-notification-generation-pipeline.md) | Notification generation pipeline | feature | high | 2026-04-04 |
+| [109](pending/109-bell-icon-unread-badge-header.md) | Bell icon with unread badge in header | feature | high | 2026-04-04 |
+| [110](pending/110-notifications-list-page.md) | Notifications list page | feature | high | 2026-04-04 |
+| [111](pending/111-mark-read-mark-all-read.md) | Mark as read + mark all as read | feature | high | 2026-04-04 |
+| [112](pending/112-e2e-tests-notification-center.md) | E2E tests for notification center | test | medium | 2026-04-04 |
+| [113](pending/113-django-admin-setup.md) | Django Admin setup for monitoring and management | feature | high | 2026-04-04 |
 
 ## Done
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [023](done/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-04-10 |
-| [022](done/022-i18n-infrastructure.md) | i18n infrastructure — settings, middleware, locale dirs | feature | high | 2026-04-10 |
-| [106](done/106-fix-transaction-deletion-ui.md) | Fix transaction deletion UI for related transactions | bug | medium | 2026-03-31 |
-| [020](done/020-recurring-rules-money-movement-fee.md) | Recurring rules money movement + fee | feature | medium | 2026-03-30 |
-| [021](done/021-net-worth-debt-calculation.md) | Net worth debt calculation | feature | medium | 2026-03-29 |
-| [019](done/019-budget-detail-contributing-transactions.md) | Show contributing transactions on budget click | feature | medium | 2026-03-28 |
+| [025](done/025-rtl-shared-components.md) | RTL — shared components + base layout | feature | medium | 2026-04-13 |
+| [001](done/001-setup-ai-ticketing-system.md) | Setup AI-first ticketing system | chore | medium | 2026-03-27 |
+| [003](done/003-qa-audit-fixes-complete.md) | QA audit fixes complete | chore | high | 2026-03-27 |
+| [004](done/004-phase-1-fix-import-violations.md) | Phase 1: Fix dashboard import violations + enforce boundaries | improvement | high | 2026-03-27 |
+| [005](done/005-phase-2-typed-module-boundaries.md) | Phase 2 — Typed contracts at module boundaries | improvement | medium | 2026-03-27 |
+| [006](done/006-phase-3-split-core-models.md) | Phase 3 — split core/models.py into module-owned models | refactor | high | 2026-03-28 |
+| [007](done/007-phase-3-cleanup-update-import-sites.md) | Phase 3 Cleanup — update import sites and remove shims | chore | medium | 2026-03-28 |
+| [008](done/008-e2e-test-isolation-flakiness.md) | E2E test isolation flakiness — fix database connection handling under load | chore | medium | 2026-03-29 |
+| [009](done/009-phase-4-extract-domain-logic.md) | Phase 4: Extract domain logic from dashboard to leaf services | improvement | medium | 2026-03-28 |
+| [010](done/010-simplify-account-deletion-ux.md) | Simplify account & institution deletion UX | improvement | medium | 2026-03-28 |
+| [011](done/011-merge-transfer-exchange-move-money.md) | Merge transfer & exchange into Move Money tab | feature | medium | 2026-03-28 |
+| [012](done/012-add-fee-to-transactions.md) | Add optional fee to expense/income transactions | feature | medium | 2026-03-28 |
+| [013](done/013-quick-entry-note-missing-maxlength.md) | Quick-entry note input missing maxlength | bug | low | 2026-03-28 |
+| [014](done/014-edit-form-note-missing-maxlength.md) | Edit form note input missing maxlength | bug | low | 2026-03-28 |
+| [015](done/015-quick-entry-date-missing-max-constraint.md) | Quick-entry date picker allows future dates | bug | low | 2026-03-28 |
+| [016](done/016-update-fee-unnecessary-float-roundtrip.md) | update_fee_for_transaction unnecessary Decimal→float→Decimal round-trip | improvement | low | 2026-03-28 |
 | [017](done/017-allow-updating-budgets.md) | Allow updating budgets | feature | medium | 2026-03-28 |
 | [018](done/018-enter-key-submits-parent-form-in-category-combobox.md) | Enter key in new-category form submits parent form | bug | high | 2026-03-28 |
-| [016](done/016-update-fee-unnecessary-float-roundtrip.md) | update_fee_for_transaction unnecessary Decimal→float→Decimal round-trip | improvement | low | 2026-03-28 |
-| [015](done/015-quick-entry-date-missing-max-constraint.md) | Quick-entry date picker allows future dates | bug | low | 2026-03-28 |
-| [014](done/014-edit-form-note-missing-maxlength.md) | Edit form note input missing maxlength | bug | low | 2026-03-28 |
-| [013](done/013-quick-entry-note-missing-maxlength.md) | Quick-entry note input missing maxlength | bug | low | 2026-03-28 |
-| [012](done/012-add-fee-to-transactions.md) | Add optional fee to expense/income transactions | feature | medium | 2026-03-28 |
-| [011](done/011-merge-transfer-exchange-move-money.md) | Merge transfer & exchange into Move Money tab | feature | medium | 2026-03-28 |
-| [010](done/010-simplify-account-deletion-ux.md) | Simplify account & institution deletion UX | improvement | medium | 2026-03-28 |
-| [009](done/009-phase-4-extract-domain-logic.md) | Phase 4: Extract domain logic from dashboard to leaf services | improvement | medium | 2026-03-28 |
-| [008](done/008-e2e-test-isolation-flakiness.md) | E2E test isolation flakiness — fix database connection handling under load | chore | medium | 2026-03-28 |
-| [007](done/007-phase-3-cleanup-update-import-sites.md) | Phase 3 Cleanup — update import sites and remove shims | chore | medium | 2026-03-28 |
-| [006](done/006-phase-3-split-core-models.md) | Phase 3 — split core/models.py into module-owned models | refactor | high | 2026-03-27 |
-| [005](done/005-phase-2-typed-module-boundaries.md) | Phase 2 — Typed contracts at module boundaries | improvement | medium | 2026-03-27 |
-| [004](done/004-phase-1-fix-import-violations.md) | Phase 1: Fix dashboard import violations + enforce boundaries | improvement | high | 2026-03-27 |
-| [003](done/003-qa-audit-fixes-complete.md) | QA audit fixes complete | chore | high | 2026-03-27 |
-| [001](done/001-setup-ai-ticketing-system.md) | Setup AI-first ticketing system | chore | medium | 2026-03-27 |
+| [019](done/019-budget-detail-contributing-transactions.md) | Show contributing transactions on budget click | feature | medium | 2026-03-28 |
+| [020](done/020-recurring-rules-money-movement-fee.md) | Recurring rules money movement + fee | feature | medium | 2026-03-30 |
+| [021](done/021-net-worth-debt-calculation.md) | Net worth debt calculation | feature | medium | 2026-03-29 |
+| [022](done/022-i18n-infrastructure.md) | i18n infrastructure — settings, middleware, locale dirs | feature | high | 2026-04-10 |
+| [023](done/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-03-30 |
+| [024](done/024-base-html-rtl-config.md) | base.html — dynamic lang/dir + RTL Tailwind config | feature | high | 2026-04-13 |
+| [106](done/106-fix-transaction-deletion-ui.md) | Fix transaction deletion UI for related transactions | bug | medium | 2026-03-31 |
 
 ## Rejected
 
