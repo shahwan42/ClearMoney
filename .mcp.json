@@ -14,6 +14,27 @@
         "DJANGO_SETTINGS_MODULE": "clearmoney.settings",
         "DATABASE_URL": "postgres://clearmoney:clearmoney@localhost:5433/clearmoney"
       }
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
     }
   }
 }

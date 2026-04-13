@@ -15,6 +15,7 @@ Welcome! This directory contains everything you need to understand and extend Cl
 | **[ROUTES.md](ROUTES.md)** | Complete route inventory: 125+ routes, HTTP methods, query params, request/response examples | Backend developers, API consumers |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System architecture: request flow, design patterns, tech stack, database schema | Architects, DevOps |
 | **[DEPLOYMENT.md](DEPLOYMENT.md)** | Production deployment: Docker, PostgreSQL, Caddy, monitoring, backup, disaster recovery | DevOps, Site Reliability |
+| **[DEVELOPMENT.md](DEVELOPMENT.md)** | Local dev setup: prerequisites, Python/Node deps, DB, MCP servers, tests | All developers |
 
 ---
 
@@ -68,32 +69,14 @@ All historical QA findings and improvements are tracked as tickets in `.tickets/
 
 ## 🚀 Quick Start for Developers
 
-### Prerequisites
-```bash
-# Install dependencies (uv workspace: backend + e2e)
-uv sync
+See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for the complete local environment setup guide, including:
 
-# Environment setup
-cp .env.example .env
-# Edit .env with your database URL, API keys, etc.
-
-# Database
-make migrate
-
-# Tests
-make test  # 1130+ tests should pass
-```
-
-### Development Workflow
-```bash
-# Start server (rate limiting disabled for testing)
-DISABLE_RATE_LIMIT=true make run
-
-# Run tests
-make test
-make test-e2e
-make lint
-```
+- Prerequisites (Python, Node.js, PostgreSQL, Chrome)
+- Python dependencies (`uv sync`)
+- Database setup (Docker or bare metal)
+- MCP server setup (django-ai-boost, context7, playwright, chrome-devtools)
+- Running the app and tests
+- Common development tasks
 
 ### Adding a New Feature
 Follow TDD (RED → GREEN → Refactor):
