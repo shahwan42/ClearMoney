@@ -1,16 +1,12 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-13
+Last updated: 2026-04-14
 
 ## In Progress
 
 _Nothing in progress._
 
 ## Pending
-
-| ID | Title | Type | Priority | Updated |
-| --- | --- | --- | --- | --- |
-| [028](pending/028-i18n-auth-templates.md) | i18n strings — auth templates | feature | medium | 2026-03-30 |
 | [029](pending/029-i18n-shared-components.md) | i18n strings — shared components + error pages | feature | medium | 2026-03-30 |
 | [030](pending/030-i18n-dashboard-templates.md) | i18n strings — dashboard templates | feature | medium | 2026-03-30 |
 | [031](pending/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-03-30 |
@@ -101,6 +97,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [028](done/028-i18n-auth-templates.md) | i18n strings — auth templates | feature | medium | 2026-04-14 |
 | [025](done/025-rtl-shared-components.md) | RTL — shared components + base layout | feature | medium | 2026-04-13 |
 | [026](done/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-04-13 |
 | [027](done/027-rtl-remaining-templates.md) | RTL — transactions + remaining app templates | feature | medium | 2026-04-13 |

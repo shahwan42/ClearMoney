@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: ClearMoney\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-04-10 06:00+0200\n"
-"PO-Revision-Date: 2026-04-10 06:00+0200\n"
+"PO-Revision-Date: 2026-04-14 00:00+0200\n"
 "Last-Translator: \n"
 "Language-Team: Arabic\n"
 "Language: ar\n"
@@ -18,5 +18,74 @@ msgstr ""
 "&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
 
 #: templates/base.html:11
+#: auth_app/templates/auth_app/auth.html:8
 msgid "ClearMoney"
 msgstr "كلير ماني"
+
+#: auth_app/templates/auth_app/auth.html:9
+msgid "Enter your email to sign in or create an account"
+msgstr "أدخل بريدك الإلكتروني لتسجيل الدخول أو إنشاء حساب"
+
+#: auth_app/templates/auth_app/auth.html:29
+msgid "Email address"
+msgstr "البريد الإلكتروني"
+
+#: auth_app/templates/auth_app/auth.html:34
+msgid "you@example.com"
+msgstr "you@example.com"
+
+#: auth_app/templates/auth_app/auth.html:44
+msgid "Continue with email"
+msgstr "متابعة عبر البريد الإلكتروني"
+
+#: auth_app/templates/auth_app/check_email.html:3
+msgid "ClearMoney - Check Your Email"
+msgstr "كلير ماني - تحقق من بريدك الإلكتروني"
+
+#: auth_app/templates/auth_app/check_email.html:14
+msgid "Welcome to ClearMoney!"
+msgstr "مرحباً بك في كير ماني!"
+
+#: auth_app/templates/auth_app/check_email.html:16
+msgid "We sent a link to %(user_email)s. Click it to activate your account."
+msgstr "أرسلنا رابطاً إلى %(user_email)s. انقر عليه لتفعيل حسابك."
+
+#: auth_app/templates/auth_app/check_email.html:16
+msgid "your email"
+msgstr "بريدك الإلكتروني"
+
+#: auth_app/templates/auth_app/check_email.html:21
+msgid "Check your email"
+msgstr "تحقق من بريدك الإلكتروني"
+
+#: auth_app/templates/auth_app/check_email.html:23
+msgid "We sent a sign-in link to %(user_email)s. Click the link to sign in."
+msgstr "أرسلنا رابط تسجيل الدخول إلى %(user_email)s. انقر على الرابط لتسجيل الدخول."
+
+#: auth_app/templates/auth_app/check_email.html:31
+msgid "The link expires in 15 minutes. Check your spam folder if you don't see it."
+msgstr "الرابط صالح لمدة 15 دقيقة. تحقق من مجلد البريد العشوائي إذا لم تجده."
+
+#: auth_app/templates/auth_app/check_email.html:35
+msgid "Already requested a link? Check your inbox — a previously sent link may still be valid."
+msgstr "طلبت رابطاً بالفعل؟ تحقق من صندوق الوارد — قد يكون رابط أرسل سابقاً لا يزال صالحاً."
+
+#: auth_app/templates/auth_app/check_email.html:42
+msgid "Back to sign in"
+msgstr "العودة لتسجيل الدخول"
+
+#: auth_app/templates/auth_app/link_expired.html:3
+msgid "ClearMoney - Link Expired"
+msgstr "كلير ماني - الرابط منتهي الصلاحية"
+
+#: auth_app/templates/auth_app/link_expired.html:13
+msgid "Link expired"
+msgstr "الرابط منتهي الصلاحية"
+
+#: auth_app/templates/auth_app/link_expired.html:15
+msgid "This sign-in link is no longer valid. It may have expired or already been used."
+msgstr "رابط تسجيل الدخول هذا لم يعد صالحاً. قد يكون منتهي الصلاحية أو تم استخدامه بالفعل."
+
+#: auth_app/templates/auth_app/link_expired.html:21
+msgid "Request a new link"
+msgstr "طلب رابط جديد"

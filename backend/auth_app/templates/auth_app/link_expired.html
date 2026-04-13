@@ -1,6 +1,7 @@
 {% extends "auth_app/bare.html" %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Link Expired{% endblock %}
+{% block title %}{% blocktrans %}ClearMoney - Link Expired{% endblocktrans %}{% endblock %}
 
 {% block content %}
 <div class="max-w-sm mx-auto py-20 px-4 text-center">
@@ -10,15 +11,15 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
         </div>
-        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Link expired</h1>
+        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">{% trans "Link expired" %}</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-            This sign-in link is no longer valid. It may have expired or already been used.
+            {% trans "This sign-in link is no longer valid. It may have expired or already been used." %}
         </p>
     </div>
 
     <a href="/login"
         class="inline-block w-full bg-teal-600 text-white py-3 rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all text-center">
-        Request a new link
+        {% trans "Request a new link" %}
     </a>
 </div>
 {% endblock %}

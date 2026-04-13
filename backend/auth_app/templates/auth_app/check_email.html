@@ -1,6 +1,7 @@
 {% extends "auth_app/bare.html" %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Check Your Email{% endblock %}
+{% block title %}{% blocktrans %}ClearMoney - Check Your Email{% endblocktrans %}{% endblock %}
 
 {% block content %}
 <div class="max-w-sm mx-auto py-20 px-4 text-center">
@@ -11,35 +12,31 @@
             </svg>
         </div>
         {% if is_new_user %}
-        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Welcome to ClearMoney!</h1>
+        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">{% trans "Welcome to ClearMoney!" %}</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-            We sent a link to
-            {% if email %}<span class="font-medium text-slate-700 dark:text-slate-300">{{ email }}</span>{% else %}your email{% endif %}.
-            Click it to activate your account.
+            {% blocktrans with email|default:_("your email") as user_email %}We sent a link to {{ user_email }}. Click it to activate your account.{% endblocktrans %}
         </p>
         {% else %}
-        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Check your email</h1>
+        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">{% trans "Check your email" %}</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-            We sent a sign-in link to
-            {% if email %}<span class="font-medium text-slate-700 dark:text-slate-300">{{ email }}</span>{% else %}your email{% endif %}.
-            Click the link to sign in.
+            {% blocktrans with email|default:_("your email") as user_email %}We sent a sign-in link to {{ user_email }}. Click the link to sign in.{% endblocktrans %}
         </p>
         {% endif %}
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 space-y-3">
         <p class="text-xs text-gray-400 dark:text-gray-500">
-            The link expires in 15 minutes. Check your spam folder if you don't see it.
+            {% trans "The link expires in 15 minutes. Check your spam folder if you don't see it." %}
         </p>
         {% if hint %}
         <p class="text-xs text-amber-600 dark:text-amber-400 mt-2">
-            Already requested a link? Check your inbox — a previously sent link may still be valid.
+            {% trans "Already requested a link? Check your inbox — a previously sent link may still be valid." %}
         </p>
         {% endif %}
     </div>
 
     <p class="text-sm text-gray-500 dark:text-gray-400 mt-6">
-        <a href="/login" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">Back to sign in</a>
+        <a href="/login" class="text-teal-600 dark:text-teal-400 font-medium hover:underline">{% trans "Back to sign in" %}</a>
     </p>
 </div>
 {% endblock %}
