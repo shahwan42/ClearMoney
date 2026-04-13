@@ -12,7 +12,7 @@
                     {% if person.note %}<p class="text-xs text-gray-400 dark:text-slate-500">{{ person.note }}</p>{% endif %}
                 </div>
             </div>
-            <div class="text-right space-y-0.5">
+            <div class="text-end space-y-0.5">
                 {% if person.net_balance_egp != 0 or person.net_balance_usd != 0 %}
                     {% if person.net_balance_egp != 0 %}
                     <p class="text-sm font-semibold {% if person.net_balance_egp > 0 %}text-green-600{% else %}text-red-600{% endif %}">

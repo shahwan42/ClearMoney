@@ -44,7 +44,7 @@
                         <p class="text-sm font-medium text-slate-800 dark:text-white truncate">{{ tx.note|default:"No note" }}</p>
                         <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{{ tx.date|format_date }} &middot; {{ tx.account_name }}</p>
                     </div>
-                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 ml-3 whitespace-nowrap">{{ tx.amount|format_currency:budget.currency }}</span>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 ms-3 whitespace-nowrap">{{ tx.amount|format_currency:budget.currency }}</span>
                 </div>
             </li>
             {% endfor %}

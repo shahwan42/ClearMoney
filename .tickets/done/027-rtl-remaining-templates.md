@@ -3,9 +3,9 @@ id: "027"
 title: "RTL — transactions + remaining app templates"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-13
 ---
 
 ## Description
@@ -14,11 +14,11 @@ Convert physical Tailwind directional classes to logical equivalents in all rema
 
 ## Acceptance Criteria
 
-- [ ] All physical directional classes replaced with logical equivalents across ~43 templates
-- [ ] Transaction list, forms, transfer/exchange flows render correctly in RTL
-- [ ] Budget progress bars, people/loan lists render correctly in RTL
-- [ ] Reports charts and settings page render correctly in RTL
-- [ ] No visual regressions in LTR mode
+- [x] All physical directional classes replaced with logical equivalents across ~43 templates
+- [x] Transaction list, forms, transfer/exchange flows render correctly in RTL
+- [x] Budget progress bars, people/loan lists render correctly in RTL
+- [x] Reports charts and settings page render correctly in RTL
+- [x] No visual regressions in LTR mode
 
 ## Dependencies
 
@@ -39,3 +39,4 @@ Convert physical Tailwind directional classes to logical equivalents in all rema
 ## Progress Notes
 
 - 2026-03-30: Created — RTL for remaining app templates
+- 2026-04-13: Completed — Replaced all physical directional classes (mr-1→me-1, ml-3→ms-3, ml-4→ms-4, text-right→text-end, text-left→text-start, right-0→end-0); fixed chart_trend.html shared component; 1252 tests pass, lint clean

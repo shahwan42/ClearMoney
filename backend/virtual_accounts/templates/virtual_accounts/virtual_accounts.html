@@ -95,7 +95,7 @@
                     <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2">
                         <div class="h-2 rounded-full" style="width: {% if va.progress_pct > 100 %}100{% else %}{{ va.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ va.color }}"></div>
                     </div>
-                    <p class="text-xs text-gray-400 dark:text-slate-500 text-right mt-0.5">{{ va.progress_pct|floatformat:"0" }}%</p>
+                    <p class="text-xs text-gray-400 dark:text-slate-500 text-end mt-0.5">{{ va.progress_pct|floatformat:"0" }}%</p>
                 </div>
                 {% endif %}
             </div>
