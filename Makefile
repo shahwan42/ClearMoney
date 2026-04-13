@@ -128,3 +128,14 @@ deploy-logs:
 # Generate VAPID keys on production if not already configured (idempotent, safe to re-run).
 ensure-vapid-keys:
 	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && sudo docker compose -f docker-compose.prod.yml run --rm --no-deps -v $(DEPLOY_DIR)/.env.prod:/tmp/.env.prod django python manage.py generate_vapid_keys --output /tmp/.env.prod --if-missing"
+
+# Backup production database to local backups/ directory.
+backup-prod:
+	@date_str=$$(date +%Y-%m-%d); \
+	base="backups/clearmoney_backup_$$date_str"; \
+	count=1; \
+	while [ -f "$$base$$( [ $$count -gt 1 ] && echo _$$count || echo ).dump" ]; do \
+		count=$$((count + 1)); \
+	done; \
+	filename="$$base$$( [ $$count -gt 1 ] && echo _$$count || echo ).dump"; \
+	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && docker compose -f docker-compose.prod.yml exec -T db pg_dump -U clearmoney -Fc clearmoney" > "$$filename"
