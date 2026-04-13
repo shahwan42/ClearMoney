@@ -30,6 +30,7 @@ dev = [
     "django-ai-boost>=0.8.0",
     "import-linter>=2.11",
     "basedpyright>=1.0.0",
+    "lsp>=0.1.0",
 ]
 
 [tool.pytest.ini_options]

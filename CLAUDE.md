@@ -65,6 +65,35 @@ HTTP → Caddy → Django (gunicorn) → WhiteNoise → GoSessionAuthMiddleware 
 | Static files | whitenoise in production |
 | Monetary values | `NUMERIC(15,2)` in DB, `Decimal` in Python |
 
+### LSP Features
+
+The agent uses `basedpyright-langserver` for code intelligence via a singleton
+LSP client (`core.lsp_client`):
+
+```python
+from core.lsp_client import basedpyright
+
+# Jump to definition (0-indexed line/col)
+loc = basedpyright.goto_definition("core/models.py", line=10, col=0)
+
+# Get hover info (type hints, docstrings)
+hover = basedpyright.hover("core/models.py", line=10, col=0)
+
+# Find all references to a symbol
+refs = basedpyright.find_references("core/models.py", line=10, col=0)
+
+# Get diagnostics (errors/warnings) for a file
+diags = basedpyright.diagnostics("core/models.py")
+
+# Get document symbols (classes, functions, etc.)
+symbols = basedpyright.document_symbols("core/models.py")
+```
+
+- All line/column parameters are **0-indexed**
+- Returns `None` when not found (consistent with codebase patterns)
+- Uses `--stdio` transport via `lsp` package (sans-IO LSP implementation)
+- Thread-safe singleton — one langserver process reused across all requests
+
 ### Database Notes
 
 - Materialized views: `mv_monthly_category_totals`, `mv_daily_tx_counts`
