@@ -1,6 +1,6 @@
 {% load i18n %}
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-50">
+<html lang="{{ LANGUAGE_CODE }}" dir="{% if LANGUAGE_CODE == 'ar' %}rtl{% else %}ltr{% endif %}" class="h-full bg-gray-50">
 <!-- Dark mode: theme.js adds "dark" class to <html> before paint -->
 <head>
     <meta charset="UTF-8">
@@ -14,8 +14,20 @@
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      tailwind.config = { darkMode: 'class' }
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['IBM Plex Sans Arabic', 'Noto Sans Arabic', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            }
+          }
+        }
+      }
     </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Apply dark mode before first paint to prevent flash -->
     <script src="/static/js/theme.js"></script>

@@ -19,7 +19,7 @@ Last updated: 2026-04-10
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [024](pending/024-base-html-rtl-config.md) | base.html — dynamic lang/dir + RTL Tailwind config | feature | high | 2026-03-30 |
+| [024](done/024-base-html-rtl-config.md) | base.html — dynamic lang/dir + RTL Tailwind config | feature | high | 2026-04-13 |
 | [025](pending/025-rtl-shared-components.md) | RTL — shared components + base layout | feature | medium | 2026-03-30 |
 | [026](pending/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-03-30 |
 | [027](pending/027-rtl-remaining-templates.md) | RTL — transactions + remaining app templates | feature | medium | 2026-03-30 |
