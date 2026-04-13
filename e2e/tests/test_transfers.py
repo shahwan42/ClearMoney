@@ -11,9 +11,10 @@ UI notes:
 - Transfer mode: posts via HTMX to /transactions/transfer
 - Exchange mode: posts via HTMX to /transactions/exchange-submit
 - Account selects: source_account_id / dest_account_id with data-currency
-- Results in #move-money-result
+- Results replace #move-money-content
 - Exchange JS: calcMoveExchange fires oninput; EGP→USD uses amount / rate
 """
+
 import re
 import sys
 import os
@@ -87,10 +88,9 @@ class TestTransfers:
             lambda r: "/transactions/transfer" in r.url and r.request.method == "POST"
         ):
             page.click('button[type="submit"]')
-        expect(page.locator("#move-money-result")).to_contain_text(
+        expect(page.locator("#move-money-content")).to_contain_text(
             "Transfer completed!"
         )
-        # Net worth unchanged: 20,000 split 15,000 + 5,000
         page.goto("/")
         expect(page.locator("main")).to_contain_text("20,000")
 
@@ -115,7 +115,7 @@ class TestTransfers:
             lambda r: "/transactions/transfer" in r.url and r.request.method == "POST"
         ):
             page.click('button[type="submit"]')
-        expect(page.locator("#move-money-result")).to_contain_text(
+        expect(page.locator("#move-money-content")).to_contain_text(
             "Transfer completed!"
         )
         page.goto("/transactions")
@@ -127,9 +127,7 @@ class TestTransfers:
 
 
 class TestExchange:
-    def test_exchange_fields_visible_for_different_currencies(
-        self, page: Page
-    ) -> None:
+    def test_exchange_fields_visible_for_different_currencies(self, page: Page) -> None:
         page.goto("/move-money/new")
         # Select different-currency accounts to trigger exchange mode
         page.select_option("#move-src", _egp_account_1)
@@ -144,9 +142,7 @@ class TestExchange:
         page.select_option("#move-dst", _usd_account)
         page.fill("#move-amount", "5000")
         # Submit without rate — server returns error, HTMX never navigates
-        with page.expect_response(
-            lambda r: "/transactions/exchange-submit" in r.url
-        ):
+        with page.expect_response(lambda r: "/transactions/exchange-submit" in r.url):
             page.click('button[type="submit"]')
         expect(page).to_have_url(re.compile(r"move-money"))
 
@@ -158,11 +154,9 @@ class TestExchange:
         page.fill("#move-rate", "50")
         # JS calculates: 5000 / 50 = 100.00 USD
         expect(page.locator("#move-counter")).to_have_value("100.00")
-        with page.expect_response(
-            lambda r: "/transactions/exchange-submit" in r.url
-        ):
+        with page.expect_response(lambda r: "/transactions/exchange-submit" in r.url):
             page.click('button[type="submit"]')
-        expect(page.locator("#move-money-result")).to_contain_text(
+        expect(page.locator("#move-money-content")).to_contain_text(
             "Exchange completed!"
         )
         page.goto(f"/accounts/{_usd_account}")

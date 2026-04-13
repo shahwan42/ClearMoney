@@ -6,6 +6,7 @@ Design notes:
 - All DB ops use psycopg directly (no execSync psql shelling like the old JS helpers).
 - API helpers use page.request so auth cookies are included automatically.
 """
+
 import json
 import os
 import secrets
@@ -30,6 +31,7 @@ _BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # ── Browser configuration (replaces playwright.config.ts project settings) ───
+
 
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args: dict) -> dict:
@@ -74,6 +76,7 @@ def _disable_animations(page: Page) -> None:
 
 
 # ── Django dev server (replaces playwright.config.ts webServer) ───────────────
+
 
 @pytest.fixture(scope="session", autouse=True)
 def django_server() -> Generator[None, None, None]:
@@ -132,6 +135,7 @@ def django_server() -> Generator[None, None, None]:
 
 # ── Database helpers (replaces execSync('psql ...') in helpers.ts) ────────────
 
+
 def _conn() -> psycopg.Connection:
     """Open a new psycopg connection. Caller is responsible for closing."""
     return psycopg.connect(DB_URL)
@@ -172,7 +176,7 @@ def reset_database() -> str:
             cur.execute("TRUNCATE TABLE exchange_rate_log RESTART IDENTITY CASCADE")
 
             cur.execute(
-                "INSERT INTO users (email, created_at) VALUES (%s, NOW()) RETURNING id",
+                "INSERT INTO users (email, language, created_at) VALUES (%s, 'en', NOW()) RETURNING id",
                 (TEST_EMAIL,),
             )
             row = cur.fetchone()
@@ -180,15 +184,33 @@ def reset_database() -> str:
             user_id: str = str(row[0])
 
             expense_categories = [
-                "Food & Dining", "Transportation", "Shopping", "Entertainment",
-                "Health & Fitness", "Bills & Utilities", "Travel", "Education",
-                "Personal Care", "Home", "Gifts & Donations", "Business",
-                "Fees & Charges", "Taxes", "Other Expenses",
+                "Food & Dining",
+                "Transportation",
+                "Shopping",
+                "Entertainment",
+                "Health & Fitness",
+                "Bills & Utilities",
+                "Travel",
+                "Education",
+                "Personal Care",
+                "Home",
+                "Gifts & Donations",
+                "Business",
+                "Fees & Charges",
+                "Taxes",
+                "Other Expenses",
             ]
             income_categories = [
-                "Salary", "Freelance", "Investments", "Rental Income",
-                "Gifts", "Refunds", "Business Income", "Other Income",
-                "Cashback", "Bonus",
+                "Salary",
+                "Freelance",
+                "Investments",
+                "Rental Income",
+                "Gifts",
+                "Refunds",
+                "Business Income",
+                "Other Income",
+                "Cashback",
+                "Bonus",
             ]
             for name in expense_categories:
                 cur.execute(
@@ -213,7 +235,9 @@ def get_category_id(category_type: str, user_id: str) -> str:
                 (category_type, user_id),
             )
             row = cur.fetchone()
-            assert row is not None, f"No {category_type} category found for user {user_id}"
+            assert row is not None, (
+                f"No {category_type} category found for user {user_id}"
+            )
             return str(row[0])
 
 
@@ -233,7 +257,9 @@ def ensure_auth(page: Page, user_id: str | None = None) -> str:
             with conn.cursor() as cur:
                 cur.execute("SELECT id FROM users WHERE email = %s", (TEST_EMAIL,))
                 row = cur.fetchone()
-                assert row is not None, f"Test user {TEST_EMAIL} not found — call reset_database() first"
+                assert row is not None, (
+                    f"Test user {TEST_EMAIL} not found — call reset_database() first"
+                )
                 user_id = str(row[0])
 
     token = secrets.token_urlsafe(32)
@@ -245,12 +271,16 @@ def ensure_auth(page: Page, user_id: str | None = None) -> str:
                 (token, user_id, expiry),
             )
         conn.commit()
-    page.context.add_cookies([{
-        "name": "clearmoney_session",
-        "value": token,
-        "domain": "localhost",
-        "path": "/",
-    }])
+    page.context.add_cookies(
+        [
+            {
+                "name": "clearmoney_session",
+                "value": token,
+                "domain": "localhost",
+                "path": "/",
+            }
+        ]
+    )
     return token
 
 
@@ -284,6 +314,7 @@ def create_expired_session(user_id: str) -> str:
 
 
 # ── API helpers (replaces page.request.post wrappers in helpers.ts) ───────────
+
 
 def create_institution(page: Page, name: str, inst_type: str = "bank") -> str:
     """POST /api/institutions and return the new institution ID."""

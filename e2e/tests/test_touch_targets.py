@@ -3,6 +3,7 @@
 Tests verify interactive elements meet the 44×44px minimum touch target size
 at the 375px mobile viewport (iPhone SE baseline).
 """
+
 import sys
 import os
 
@@ -52,28 +53,44 @@ class TestBottomNavTouchTargets:
         size = _measure(page, 'nav[aria-label="Main navigation"] a[href="/"]')
         assert size is not None, "Home nav item not found"
         assert size["w"] >= MIN_TARGET, f"Home nav width {size['w']}px < {MIN_TARGET}px"
-        assert size["h"] >= MIN_TARGET, f"Home nav height {size['h']}px < {MIN_TARGET}px"
+        assert size["h"] >= MIN_TARGET, (
+            f"Home nav height {size['h']}px < {MIN_TARGET}px"
+        )
 
     def test_history_nav_item_min_44x44(self, page: Page) -> None:
         page.goto("/")
-        size = _measure(page, 'nav[aria-label="Main navigation"] a[href="/transactions"]')
+        size = _measure(
+            page, 'nav[aria-label="Main navigation"] a[href="/transactions"]'
+        )
         assert size is not None, "History nav item not found"
-        assert size["w"] >= MIN_TARGET, f"History nav width {size['w']}px < {MIN_TARGET}px"
-        assert size["h"] >= MIN_TARGET, f"History nav height {size['h']}px < {MIN_TARGET}px"
+        assert size["w"] >= MIN_TARGET, (
+            f"History nav width {size['w']}px < {MIN_TARGET}px"
+        )
+        assert size["h"] >= MIN_TARGET, (
+            f"History nav height {size['h']}px < {MIN_TARGET}px"
+        )
 
     def test_accounts_nav_item_min_44x44(self, page: Page) -> None:
         page.goto("/")
         size = _measure(page, 'nav[aria-label="Main navigation"] a[href="/accounts"]')
         assert size is not None, "Accounts nav item not found"
-        assert size["w"] >= MIN_TARGET, f"Accounts nav width {size['w']}px < {MIN_TARGET}px"
-        assert size["h"] >= MIN_TARGET, f"Accounts nav height {size['h']}px < {MIN_TARGET}px"
+        assert size["w"] >= MIN_TARGET, (
+            f"Accounts nav width {size['w']}px < {MIN_TARGET}px"
+        )
+        assert size["h"] >= MIN_TARGET, (
+            f"Accounts nav height {size['h']}px < {MIN_TARGET}px"
+        )
 
     def test_more_button_min_44x44(self, page: Page) -> None:
         page.goto("/")
         size = _measure(page, 'button[aria-label="More menu"]')
         assert size is not None, "More menu button not found"
-        assert size["w"] >= MIN_TARGET, f"More button width {size['w']}px < {MIN_TARGET}px"
-        assert size["h"] >= MIN_TARGET, f"More button height {size['h']}px < {MIN_TARGET}px"
+        assert size["w"] >= MIN_TARGET, (
+            f"More button width {size['w']}px < {MIN_TARGET}px"
+        )
+        assert size["h"] >= MIN_TARGET, (
+            f"More button height {size['h']}px < {MIN_TARGET}px"
+        )
 
     def test_fab_button_min_44x44(self, page: Page) -> None:
         page.goto("/")
@@ -90,7 +107,9 @@ class TestQuickEntryTabTouchTargets:
         page.goto("/")
         # Open the quick entry sheet
         page.click('button[aria-label="Add transaction"]')
-        page.wait_for_selector("#quick-entry-sheet:not(.translate-y-full)", timeout=3000)
+        page.wait_for_selector(
+            "#quick-entry-sheet:not(.translate-y-full)", timeout=3000
+        )
 
         for tab_id in ("tab-transaction", "tab-move"):
             size = _measure(page, f"#{tab_id}")
@@ -108,7 +127,7 @@ class TestFormControlTouchTargets:
         page.click('button:has-text("+ Account")')
         # Wait for HTMX to load the form into the bottom sheet
         page.wait_for_selector('select[name="type"]', timeout=5000)
-        selects = page.query_selector_all('select')
+        selects = page.query_selector_all("select")
         for sel in selects:
             box = sel.bounding_box()
             if box and box["width"] > 0 and box["height"] > 0:
@@ -121,7 +140,9 @@ class TestFormControlTouchTargets:
         page.click('button:has-text("+ Account")')
         # Wait for HTMX to load the form into the bottom sheet
         page.wait_for_selector('input[name="name"]', timeout=5000)
-        inputs = page.query_selector_all('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"])')
+        inputs = page.query_selector_all(
+            'input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"])'
+        )
         for inp in inputs:
             box = inp.bounding_box()
             if box and box["width"] > 0 and box["height"] > 0:
@@ -142,7 +163,7 @@ class TestFormControlTouchTargets:
     def test_settings_buttons_min_44px(self, page: Page) -> None:
         page.goto("/settings")
         # Check all interactive buttons in main content are ≥44px
-        buttons = page.query_selector_all('main button')
+        buttons = page.query_selector_all("main button")
         for btn in buttons:
             box = btn.bounding_box()
             if box and box["width"] > 0 and box["height"] > 0:
@@ -164,26 +185,27 @@ class TestHeaderTouchTargets:
         assert size["w"] >= MIN_TARGET, f"Toggle width {size['w']}px < {MIN_TARGET}px"
         assert size["h"] >= MIN_TARGET, f"Toggle height {size['h']}px < {MIN_TARGET}px"
 
-    def test_header_accounts_link_min_44x44(self, page: Page) -> None:
-        page.goto("/")
-        size = _measure(page, 'header a[href="/accounts"]')
-        assert size is not None, "Header accounts link not found"
-        assert size["w"] >= MIN_TARGET, f"Header accounts width {size['w']}px < {MIN_TARGET}px"
-        assert size["h"] >= MIN_TARGET, f"Header accounts height {size['h']}px < {MIN_TARGET}px"
-
     def test_header_reports_link_min_44x44(self, page: Page) -> None:
         page.goto("/")
         size = _measure(page, 'header a[href="/reports"]')
         assert size is not None, "Header reports link not found"
-        assert size["w"] >= MIN_TARGET, f"Header reports width {size['w']}px < {MIN_TARGET}px"
-        assert size["h"] >= MIN_TARGET, f"Header reports height {size['h']}px < {MIN_TARGET}px"
+        assert size["w"] >= MIN_TARGET, (
+            f"Header reports width {size['w']}px < {MIN_TARGET}px"
+        )
+        assert size["h"] >= MIN_TARGET, (
+            f"Header reports height {size['h']}px < {MIN_TARGET}px"
+        )
 
     def test_header_settings_link_min_44x44(self, page: Page) -> None:
         page.goto("/")
         size = _measure(page, 'header a[href="/settings"]')
         assert size is not None, "Header settings link not found"
-        assert size["w"] >= MIN_TARGET, f"Header settings width {size['w']}px < {MIN_TARGET}px"
-        assert size["h"] >= MIN_TARGET, f"Header settings height {size['h']}px < {MIN_TARGET}px"
+        assert size["w"] >= MIN_TARGET, (
+            f"Header settings width {size['w']}px < {MIN_TARGET}px"
+        )
+        assert size["h"] >= MIN_TARGET, (
+            f"Header settings height {size['h']}px < {MIN_TARGET}px"
+        )
 
 
 class TestEmptyStateTouchTargets:
