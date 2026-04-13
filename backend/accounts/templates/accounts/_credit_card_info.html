@@ -23,7 +23,7 @@ Context: billing_cycle (dict with statement_day, period_start, period_end, due_d
         <span class="font-medium {% if billing_cycle.is_due_soon %}text-red-600{% else %}text-blue-800{% endif %}">
             {{ billing_cycle.due_date|format_date }}
             {% if billing_cycle.is_due_soon %}
-            <span class="ml-1 text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5">{{ billing_cycle.days_until_due }} days</span>
+            <span class="ms-1 text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5">{{ billing_cycle.days_until_due }} days</span>
             {% endif %}
         </span>
     </div>

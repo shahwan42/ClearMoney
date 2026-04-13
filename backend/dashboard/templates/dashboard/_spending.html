@@ -19,7 +19,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <span class="text-xs text-gray-400 dark:text-slate-500">{{ cs.this_month_label|default:"This month" }}</span>
-                    <span class="text-xl font-bold text-slate-900 dark:text-slate-100 ml-2">{{ cs.this_month|format_currency:cs.currency }}</span>
+                    <span class="text-xl font-bold text-slate-900 dark:text-slate-100 ms-2">{{ cs.this_month|format_currency:cs.currency }}</span>
                 </div>
                 {% if cs.change != 0 %}
                 {% include "components/chart_trend.html" with change=cs.change label="" is_good=cs.change_is_good %}
@@ -28,7 +28,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <span class="text-xs text-gray-400 dark:text-slate-500">{{ cs.last_month_label|default:"Last month" }}</span>
-                    <span class="text-sm font-medium text-gray-500 dark:text-slate-400 ml-2">{{ cs.last_month|format_currency:cs.currency }}</span>
+                    <span class="text-sm font-medium text-gray-500 dark:text-slate-400 ms-2">{{ cs.last_month|format_currency:cs.currency }}</span>
                 </div>
             </div>
         </div>

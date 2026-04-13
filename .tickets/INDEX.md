@@ -10,7 +10,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [026](pending/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-03-30 |
+| [026](done/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-04-13 |
 | [027](pending/027-rtl-remaining-templates.md) | RTL — transactions + remaining app templates | feature | medium | 2026-03-30 |
 | [028](pending/028-i18n-auth-templates.md) | i18n strings — auth templates | feature | medium | 2026-03-30 |
 | [029](pending/029-i18n-shared-components.md) | i18n strings — shared components + error pages | feature | medium | 2026-03-30 |
@@ -104,6 +104,7 @@ _Nothing in progress._
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
 | [025](done/025-rtl-shared-components.md) | RTL — shared components + base layout | feature | medium | 2026-04-13 |
+| [026](done/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-04-13 |
 | [001](done/001-setup-ai-ticketing-system.md) | Setup AI-first ticketing system | chore | medium | 2026-03-27 |
 | [003](done/003-qa-audit-fixes-complete.md) | QA audit fixes complete | chore | high | 2026-03-27 |
 | [004](done/004-phase-1-fix-import-violations.md) | Phase 1: Fix dashboard import violations + enforce boundaries | improvement | high | 2026-03-27 |

@@ -17,7 +17,7 @@
                 <div class="text-sm font-medium text-slate-800 dark:text-white truncate">{{ acc.name }}</div>
                 <div class="text-xs text-gray-400 dark:text-slate-500">{{ acc.institution_name }}</div>
             </div>
-            <div class="text-right">
+            <div class="text-end">
                 {% if card_type == "credit_available" %}
                 <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">{{ acc.available|format_currency:acc.currency }}</span>
                 <div class="text-xs text-gray-400 dark:text-slate-500">of {{ acc.credit_limit|format_currency:acc.currency }}</div>
