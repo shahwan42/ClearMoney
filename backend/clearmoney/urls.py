@@ -4,6 +4,7 @@ ClearMoney URL configuration.
 Routes migrated features to their Django apps.
 """
 
+from django.contrib import admin
 from django.http import HttpRequest, HttpResponse
 from django.urls import include, path
 
@@ -20,6 +21,7 @@ def healthz(request: HttpRequest) -> HttpResponse:
 
 urlpatterns = [
     path("healthz", healthz, name="healthz"),
+    path("admin/", admin.site.urls),
     path("", include("dashboard.urls")),
     path("", include("settings_app.urls")),
     path("", include("reports.urls")),

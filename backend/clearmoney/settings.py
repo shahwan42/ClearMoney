@@ -6,9 +6,9 @@ Personal finance tracker — Django backend with PostgreSQL, HTMX, Tailwind CSS.
 Like Laravel's config/ directory or Django's standard settings.py.
 
 Key differences from a standard Django project:
-- No django.contrib.admin/auth/sessions (custom magic link auth)
 - Custom middleware reads session cookie from shared sessions table
 - Static files served by whitenoise in production
+- Admin uses Django's built-in auth (separate auth_user table) alongside magic link auth
 """
 
 import os
@@ -47,6 +47,11 @@ ALLOWED_HOSTS = os.environ.get(
 # django-htmx provides HtmxMiddleware and HTMX response classes.
 
 INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",  # PostgreSQL-specific fields (ArrayField, JSONField, etc.)
     "django_htmx",  # HTMX integration: request.htmx, HttpResponseClientRedirect
@@ -76,14 +81,17 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "core.correlation.CorrelationIdMiddleware",  # Request correlation IDs for log tracing
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files in production
+    "django.contrib.sessions.middleware.SessionMiddleware",  # Django's session backend (admin uses this)
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",  # CSRF protection — HTMX sends token via hx-headers
+    "django.contrib.auth.middleware.AuthenticationMiddleware",  # Django auth (admin uses this)
     "django_htmx.middleware.HtmxMiddleware",  # Adds request.htmx (bool + helpers)
     "core.middleware.GoSessionAuthMiddleware",  # Reads session cookie from the sessions table
     "core.middleware.LanguageMiddleware",  # Activates user language preference from User.language
     "django.middleware.clickjacking.XFrameOptionsMiddleware",  # X-Frame-Options: DENY
     "core.middleware.ExceptionLoggingMiddleware",  # Log unhandled 500s with request context
     "core.middleware.TimezoneMiddleware",  # Sets request.tz from APP_TIMEZONE env var
+    "django.contrib.messages.middleware.MessageMiddleware",  # Admin flash messages
 ]
 
 ROOT_URLCONF = "clearmoney.urls"
@@ -102,6 +110,8 @@ TEMPLATES = [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.template.context_processors.i18n",
+                "django.contrib.messages.context_processors.messages",
+                "django.contrib.auth.context_processors.auth",
                 "core.context_processors.active_tab",
             ],
         },

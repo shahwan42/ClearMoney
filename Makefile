@@ -3,7 +3,7 @@
 # Usage: make <target>
 #
 # Like: composer scripts, manage.py commands, or package.json scripts.
-.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check messages compile-messages
+.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check messages compile-messages createsuperuser
 
 DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable
 
@@ -50,6 +50,10 @@ messages:
 # Compile .po files to .mo for runtime use.
 compile-messages:
 	cd backend && uv run manage.py compilemessages
+
+# Create a Django admin superuser. Requires DJANGO_SUPERUSER_EMAIL and DJANGO_SUPERUSER_PASSWORD env vars.
+createsuperuser:
+	cd backend && DJANGO_SUPERUSER_EMAIL="$(DJANGO_SUPERUSER_EMAIL)" DJANGO_SUPERUSER_PASSWORD="$(DJANGO_SUPERUSER_PASSWORD)" uv run manage.py create_superuser
 
 # Remove build artifacts.
 clean:

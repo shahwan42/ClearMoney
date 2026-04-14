@@ -52,6 +52,7 @@ PUBLIC_PATHS = [
     "/auth/verify",
     "/logout",
     "/api/session-status",
+    "/admin",  # Django admin uses its own auth
 ]
 
 
