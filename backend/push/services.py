@@ -13,6 +13,8 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from django.utils.translation import gettext as _
+
 from accounts.services import AccountService, load_health_warnings
 from budgets.services import BudgetService
 from core.billing import compute_due_date, parse_billing_cycle
@@ -63,7 +65,7 @@ class NotificationService:
                     if 0 <= days_until <= 3:
                         notifications.append(
                             {
-                                "title": "Credit Card Due Soon",
+                                "title": _("Credit Card Due Soon"),
                                 "body": (
                                     f"{card.name} is due in {days_until} day(s)"
                                     f" — balance: EGP {-card.current_balance:.2f}"
@@ -77,7 +79,7 @@ class NotificationService:
             for warning in load_health_warnings(self.user_id, all_accounts, self.tz):
                 notifications.append(
                     {
-                        "title": "Account Health Warning",
+                        "title": _("Account Health Warning"),
                         "body": warning.message,
                         "url": f"/accounts/{warning.account_id}",
                         "tag": f"health-{warning.rule}-{warning.account_id}",
@@ -93,7 +95,7 @@ class NotificationService:
                 if pct >= 100:
                     notifications.append(
                         {
-                            "title": "Budget Exceeded",
+                            "title": _("Budget Exceeded"),
                             "body": (
                                 f"{display_name}: spent EGP {budget.spent:.0f}"
                                 f" of EGP {budget.monthly_limit:.0f}"
@@ -107,7 +109,7 @@ class NotificationService:
                     remaining = budget.monthly_limit - budget.spent
                     notifications.append(
                         {
-                            "title": "Budget Warning",
+                            "title": _("Budget Warning"),
                             "body": (
                                 f"{display_name}: {pct:.0f}% of budget used"
                                 f" (EGP {remaining:.0f} remaining)"
@@ -129,7 +131,7 @@ class NotificationService:
                 due_date = rule.next_due_date
                 notifications.append(
                     {
-                        "title": "Recurring Transaction Due",
+                        "title": _("Recurring Transaction Due"),
                         "body": (
                             f"A recurring {rule.frequency} transaction"
                             f" needs confirmation (due {due_date.strftime('%b %-d')})"

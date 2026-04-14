@@ -79,7 +79,9 @@ def _auth_submit(request: HttpRequest) -> HttpResponse:
             },
         )
 
-    result, _error, is_new_user = auth_service.request_access_link(email)
+    result, _error, is_new_user = auth_service.request_access_link(
+        email, accept_language=request.META.get("HTTP_ACCEPT_LANGUAGE")
+    )
 
     hint = result != SendResult.SENT
     return render(

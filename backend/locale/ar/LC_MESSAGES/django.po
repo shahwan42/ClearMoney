@@ -2220,3 +2220,53 @@ msgstr "يتجاوز رصيد الحساب (%(va_balance)s)"
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:105
 msgid "No virtual accounts yet. Create one above!"
 msgstr "لا توجد حسابات افتراضية بعد. أنشئ واحدة أعلاه!"
+
+#: push/services.py
+msgid "Credit Card Due Soon"
+msgstr "بطاقة الائتمان مستحقة قريباً"
+
+#: push/services.py
+msgid "Account Health Warning"
+msgstr "تحذير صحة الحساب"
+
+#: push/services.py
+msgid "Budget Exceeded"
+msgstr "تم تجاوز الميزانية"
+
+#: push/services.py
+msgid "Budget Warning"
+msgstr "تحذير الميزانية"
+
+#: push/services.py
+msgid "Recurring Transaction Due"
+msgstr "معاملة متكررة مستحقة"
+
+#: auth_app/services.py
+msgid "Sign in to ClearMoney"
+msgstr "تسجيل الدخول إلى ClearMoney"
+
+#: auth_app/services.py
+msgid "ClearMoney"
+msgstr "ClearMoney"
+
+#: auth_app/services.py
+msgid ""
+"Click the button below to sign in to your account. "
+"This link expires in 15 minutes."
+msgstr ""
+"انقر على الزر أدناه لتسجيل الدخول إلى حسابك. "
+"ينتهي هذا الرابط خلال 15 دقيقة."
+
+#: auth_app/services.py
+msgid ""
+"If you didn't request this link, you can safely ignore "
+"this email."
+msgstr ""
+"إذا لم تطلب هذا الرابط، يمكنك تجاهل هذه الرسالة بأمان."
+
+#: auth_app/services.py
+msgid ""
+"If the button doesn't work, copy and paste this URL into "
+"your browser:"
+msgstr ""
+"إذا لم يعمل الزر، انسخ والصق هذا الرابط في متصفحك:"

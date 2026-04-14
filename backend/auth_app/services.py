@@ -15,6 +15,8 @@ from datetime import timedelta
 from enum import IntEnum
 
 from django.utils import timezone
+from django.utils.translation import gettext as _g
+from django.utils.translation import gettext_lazy as _
 
 from auth_app.models import AuthToken, Session, User
 from categories.models import Category
@@ -63,6 +65,25 @@ def rate_limit_message(result: SendResult) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _detect_language_from_header(accept_language: str | None) -> str:
+    """Detect language code from an Accept-Language header value."""
+    if not accept_language:
+        return "en"
+    langs = []
+    for lang in accept_language.split(","):
+        lang = lang.split(";")[0].strip()
+        if lang:
+            langs.append(lang.split("-")[0])
+    if "ar" in langs:
+        return "ar"
+    return "en"
+
+
+# ---------------------------------------------------------------------------
 # EmailService
 # ---------------------------------------------------------------------------
 
@@ -95,31 +116,57 @@ class EmailService:
         """Return the full magic link URL for a given token."""
         return f"{self.app_url}/auth/verify?token={token}"
 
-    def send_magic_link(self, to: str, token: str) -> None:
+    def send_magic_link(
+        self,
+        to: str,
+        token: str,
+        user_language: str | None = None,
+        accept_language: str | None = None,
+    ) -> None:
         """Send a magic link email to the given address."""
         link = self.link_url(token)
 
-        subject = "Sign in to ClearMoney"
-        html = (
-            '<div style="font-family: -apple-system, BlinkMacSystemFont, '
-            "'Segoe UI', Roboto, sans-serif; max-width: 480px; "
-            'margin: 0 auto; padding: 40px 20px;">'
-            '<h2 style="color: #0d9488; margin-bottom: 24px;">ClearMoney</h2>'
-            '<p style="color: #334155; font-size: 16px; line-height: 1.5;">'
+        if user_language:
+            lang = user_language
+        else:
+            lang = _detect_language_from_header(accept_language)
+
+        is_rtl = lang == "ar"
+
+        subject = _g("Sign in to ClearMoney")
+        body_heading = _g("ClearMoney")
+        body_text = _g(
             "Click the button below to sign in to your account. "
-            "This link expires in 15 minutes.</p>"
+            "This link expires in 15 minutes."
+        )
+        button_text = _g("Sign in to ClearMoney")
+        ignore_text = _g(
+            "If you didn't request this link, you can safely ignore this email."
+        )
+        fallback_text = _g(
+            "If the button doesn't work, copy and paste this URL into your browser:"
+        )
+
+        dir_attr = 'dir="rtl"' if is_rtl else ""
+        rtl_style = "text-align: right;" if is_rtl else ""
+
+        html = (
+            f'<div {dir_attr} style="font-family: -apple-system, BlinkMacSystemFont, '
+            "Segoe UI', Roboto, sans-serif; max-width: 480px; "
+            'margin: 0 auto; padding: 40px 20px;">'
+            f'<h2 style="color: #0d9488; margin-bottom: 24px; {rtl_style}">{body_heading}</h2>'
+            f'<p style="color: #334155; font-size: 16px; line-height: 1.5; {rtl_style}">'
+            f"{body_text}</p>"
             '<div style="margin: 32px 0;">'
             f'<a href="{link}" style="background-color: #0d9488; '
             "color: white; padding: 14px 32px; text-decoration: none; "
             "border-radius: 8px; font-size: 16px; font-weight: 600; "
-            'display: inline-block;">Sign in to ClearMoney</a>'
+            f'display: inline-block;">{button_text}</a>'
             "</div>"
-            '<p style="color: #94a3b8; font-size: 14px; line-height: 1.5;">'
-            "If you didn't request this link, you can safely ignore "
-            "this email.</p>"
-            '<p style="color: #cbd5e1; font-size: 12px; margin-top: 32px;">'
-            "If the button doesn't work, copy and paste this URL into "
-            f"your browser:<br>{link}</p>"
+            f'<p style="color: #94a3b8; font-size: 14px; line-height: 1.5; {rtl_style}">'
+            f"{ignore_text}</p>"
+            f'<p style="color: #cbd5e1; font-size: 12px; margin-top: 32px; {rtl_style}">'
+            f"{fallback_text}<br>{link}</p>"
             "</div>"
         )
 
@@ -163,7 +210,9 @@ class AuthService:
         self.email_svc = email_service
         self.max_daily_emails = max_daily_emails if max_daily_emails > 0 else 50
 
-    def request_login_link(self, email: str) -> tuple[SendResult, str | None]:
+    def request_login_link(
+        self, email: str, accept_language: str | None = None
+    ) -> tuple[SendResult, str | None]:
         """Send a magic link to an existing user's email.
 
         Returns (SendResult, error_message). Non-SENT results are not errors —
@@ -171,7 +220,7 @@ class AuthService:
         """
         email = email.strip().lower()
         if not email:
-            return SendResult.SKIPPED, "Email is required"
+            return SendResult.SKIPPED, str(_("Email is required"))
 
         # Only send to existing users (prevent enumeration)
         if not User.objects.filter(email__iexact=email).exists():
@@ -181,9 +230,11 @@ class AuthService:
             )
             return SendResult.SKIPPED, None
 
-        return self._send_magic_link(email, "login")
+        return self._send_magic_link(email, "login", accept_language=accept_language)
 
-    def request_access_link(self, email: str) -> tuple[SendResult, str | None, bool]:
+    def request_access_link(
+        self, email: str, accept_language: str | None = None
+    ) -> tuple[SendResult, str | None, bool]:
         """Unified entry point: log in existing users, register new ones.
 
         Returns (result, error_msg, is_new_user).
@@ -195,14 +246,21 @@ class AuthService:
         user_exists = User.objects.filter(email__iexact=email).exists()
 
         if user_exists:
-            result, error = self._send_magic_link(email, "login")
+            result, error = self._send_magic_link(
+                email, "login", accept_language=accept_language
+            )
             return result, error, False
         else:
-            result, error = self._send_magic_link(email, "registration")
+            result, error = self._send_magic_link(
+                email, "registration", accept_language=accept_language
+            )
             return result, error, True
 
     def _send_magic_link(
-        self, email: str, purpose: str
+        self,
+        email: str,
+        purpose: str,
+        accept_language: str | None = None,
     ) -> tuple[SendResult, str | None]:
         """Shared logic for login + registration link requests."""
         now = timezone.now()
@@ -265,6 +323,24 @@ class AuthService:
             )
             return SendResult.GLOBAL_CAP, None
 
+        # Determine language for email
+        # For login: user already exists, prefer their stored language
+        # For registration: use Accept-Language header or default to English
+        if purpose == "login":
+            stored_lang = (
+                User.objects.filter(email__iexact=email)
+                .values_list("language", flat=True)
+                .first()
+            )
+            if stored_lang:
+                email_lang = stored_lang
+            elif accept_language:
+                email_lang = _detect_language_from_header(accept_language)
+            else:
+                email_lang = "en"
+        else:
+            email_lang = _detect_language_from_header(accept_language)
+
         # Generate token
         token = secrets.token_urlsafe(32)
 
@@ -277,7 +353,7 @@ class AuthService:
         )
 
         # Send email
-        self.email_svc.send_magic_link(email, token)
+        self.email_svc.send_magic_link(email, token, user_language=email_lang)
 
         logger.info("auth.magic_link_sent email=%s purpose=%s", email, purpose)
         return SendResult.SENT, None
