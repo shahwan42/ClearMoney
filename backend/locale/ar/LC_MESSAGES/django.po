@@ -957,3 +957,510 @@ msgstr "اسحب لليسار على معاملة لحذفها، أو استخد
 #: transactions/templates/transactions/transfer.html:3
 msgid "ClearMoney - Transfer"
 msgstr "كلير ماني - لوحة التحكم"
+
+#: accounts/templates/accounts/accounts.html:4
+msgid "ClearMoney - Accounts"
+msgstr "كلير ماني - الحسابات"
+
+#: accounts/templates/accounts/accounts.html:8
+#: accounts/templates/accounts/_institution_card.html:54
+msgid "Accounts"
+msgstr "الحسابات"
+
+#: accounts/templates/accounts/accounts.html:11
+#: accounts/templates/accounts/_institution_card.html:24
+msgid "+ Account"
+msgstr "+ حساب"
+
+#: accounts/templates/accounts/accounts.html:23
+msgid "No accounts yet. Tap + Account above to get started."
+msgstr "لا توجد حسابات بعد. انقر على + حساب أعلاه للبدء."
+
+#: accounts/templates/accounts/_account_form.html:18
+msgid "Add Account"
+msgstr "إضافة حساب"
+
+#: accounts/templates/accounts/_account_form.html:20
+#, python-format
+msgid "to {{ name }}"
+msgstr "إلى {{ name }}"
+
+#: accounts/templates/accounts/_account_form.html:30
+#: accounts/templates/accounts/_account_edit_form.html:24
+#: accounts/templates/accounts/_add_account_form.html:87
+#: accounts/templates/accounts/_institution_form.html:28
+#: accounts/templates/accounts/_institution_edit_form.html:27
+msgid "Type"
+msgstr "النوع"
+
+#: accounts/templates/accounts/_account_form.html:34
+#: accounts/templates/accounts/_account_edit_form.html:28
+#: accounts/templates/accounts/_add_account_form.html:90
+msgid "Current"
+msgstr "حالي"
+
+#: accounts/templates/accounts/_account_form.html:35
+#: accounts/templates/accounts/_account_edit_form.html:29
+#: accounts/templates/accounts/_add_account_form.html:91
+msgid "Savings"
+msgstr "توفير"
+
+#: accounts/templates/accounts/_account_form.html:36
+#: accounts/templates/accounts/_account_edit_form.html:30
+#: accounts/templates/accounts/_add_account_form.html:92
+msgid "Prepaid"
+msgstr "مسبق الدفع"
+
+#: accounts/templates/accounts/_account_form.html:37
+#: accounts/templates/accounts/_account_edit_form.html:31
+#: accounts/templates/accounts/_add_account_form.html:93
+msgid "Cash"
+msgstr "نقدي"
+
+#: accounts/templates/accounts/_account_form.html:38
+#: accounts/templates/accounts/_account_edit_form.html:32
+#: accounts/templates/accounts/_add_account_form.html:94
+msgid "Credit Card"
+msgstr "بطاقة الائتمان"
+
+#: accounts/templates/accounts/_account_form.html:39
+#: accounts/templates/accounts/_account_edit_form.html:33
+#: accounts/templates/accounts/_add_account_form.html:95
+msgid "Credit Limit"
+msgstr "الحد الائتماني"
+
+#: accounts/templates/accounts/_account_form.html:43
+#: accounts/templates/accounts/_account_edit_form.html:37
+#: accounts/templates/accounts/_add_account_form.html:99
+#: transactions/templates/transactions/_fawry_cashout_form.html:50
+msgid "Currency"
+msgstr "العملة"
+
+#: accounts/templates/accounts/_account_form.html:56
+#: accounts/templates/accounts/_add_account_form.html:109
+msgid "Custom name"
+msgstr "اسم مخصص"
+
+#: accounts/templates/accounts/_account_form.html:61
+#: accounts/templates/accounts/_add_account_form.html:114
+msgid "Account name"
+msgstr "اسم الحساب"
+
+#: accounts/templates/accounts/_account_form.html:61
+#: accounts/templates/accounts/_add_account_form.html:114
+msgid "e.g., My Savings"
+msgstr "مثال: حسابي للتوفير"
+
+#: accounts/templates/accounts/_account_form.html:67
+#: accounts/templates/accounts/_add_account_form.html:119
+msgid "Initial Balance"
+msgstr "الرصيد الأولي"
+
+#: accounts/templates/accounts/_account_form.html:75
+#: accounts/templates/accounts/_account_edit_form.html:47
+#: accounts/templates/accounts/_add_account_form.html:125
+msgid "Credit Limit"
+msgstr "الحد الائتماني"
+
+#: accounts/templates/accounts/_account_form.html:75
+#: accounts/templates/accounts/_account_edit_form.html:48
+#: accounts/templates/accounts/_add_account_form.html:126
+msgid "e.g., 500000"
+msgstr "مثال: 500000"
+
+#: accounts/templates/accounts/_account_form.html:83
+#: accounts/templates/accounts/_add_account_form.html:134
+msgid "Cancel"
+msgstr "إلغاء"
+
+#: accounts/templates/accounts/_account_edit_form.html:7
+msgid "Edit Account"
+msgstr "تعديل الحساب"
+
+#: accounts/templates/accounts/_account_edit_form.html:17
+msgid "Account Name"
+msgstr "اسم الحساب"
+
+#: accounts/templates/accounts/_account_edit_form.html:56
+msgid "Update"
+msgstr "تحديث"
+
+#: accounts/templates/accounts/_add_account_form.html:21
+#: accounts/templates/accounts/_add_account_form.html:134
+msgid "Add Account"
+msgstr "إضافة حساب"
+
+#: accounts/templates/accounts/_add_account_form.html:59
+msgid "Institution Name"
+msgstr "اسم المؤسسة"
+
+#: accounts/templates/accounts/_add_account_form.html:40
+#: accounts/templates/accounts/_add_account_form.html:46
+#: accounts/templates/accounts/_add_account_form.html:52
+msgid "Bank"
+msgstr "بنك"
+
+#: accounts/templates/accounts/_add_account_form.html:46
+msgid "Finance App"
+msgstr "تطبيق مالي"
+
+#: accounts/templates/accounts/_add_account_form.html:52
+msgid "Wallet"
+msgstr "محفظة"
+
+#: accounts/templates/accounts/_add_account_form.html:63
+msgid "Search or type name..."
+msgstr "ابحث أو اكتب الاسم..."
+
+#: accounts/templates/accounts/_add_account_form.html:69
+msgid "Institution name"
+msgstr "اسم المؤسسة"
+
+#: accounts/templates/accounts/_add_account_form.html:109
+msgid "(optional)"
+msgstr "(اختياري)"
+
+#: accounts/templates/accounts/_institution_card.html:22
+#, python-format
+msgid "Add account to {{ name }}"
+msgstr "إضافة حساب إلى {{ name }}"
+
+#: accounts/templates/accounts/_institution_card.html:29
+msgid "Edit institution"
+msgstr "تعديل المؤسسة"
+
+#: accounts/templates/accounts/_institution_card.html:36
+msgid "Delete institution"
+msgstr "حذف المؤسسة"
+
+#: accounts/templates/accounts/_institution_card.html:61
+msgid "avail:"
+msgstr "متاح:"
+
+#: accounts/templates/accounts/_institution_card.html:67
+msgid "No accounts yet"
+msgstr "لا توجد حسابات بعد"
+
+#: accounts/templates/accounts/_institution_form.html:23
+#: accounts/templates/accounts/_institution_form.html:68
+msgid "Add Institution"
+msgstr "إضافة مؤسسة"
+
+#: accounts/templates/accounts/_institution_form.html:32
+msgid "Finance App (ValU, Fawry…)"
+msgstr "تطبيق مالي (ValU، فوري…)"
+
+#: accounts/templates/accounts/_institution_form.html:39
+#: accounts/templates/accounts/_institution_edit_form.html:20
+msgid "Name"
+msgstr "الاسم"
+
+#: accounts/templates/accounts/_institution_form.html:44
+#: accounts/templates/accounts/_institution_edit_form.html:22
+msgid "Search or type name…"
+msgstr "ابحث أو اكتب الاسم…"
+
+#: accounts/templates/accounts/_institution_edit_form.html:16
+msgid "Edit Institution"
+msgstr "تعديل المؤسسة"
+
+#: accounts/templates/accounts/_institution_edit_form.html:22
+msgid "e.g., HSBC, CIB, Telda"
+msgstr "مثال: HSBC، CIB، Telda"
+
+#: accounts/templates/accounts/_institution_edit_form.html:32
+msgid "Fintech"
+msgstr "تقنية مالية"
+
+#: accounts/templates/accounts/_institution_delete_confirm.html:14
+#: accounts/templates/accounts/_institution_delete_confirm.html:34
+#: accounts/templates/accounts/_institution_delete_confirm.html:37
+msgid "Delete Institution"
+msgstr "حذف المؤسسة"
+
+#: accounts/templates/accounts/_institution_delete_confirm.html:20
+#, python-format
+msgid "This will permanently delete <strong>{{ name }}</strong> and its <strong>{{ count }}</strong> account including all their transactions. This action cannot be undone."
+msgid_plural "This will permanently delete <strong>{{ name }}</strong> and its <strong>{{ count }}</strong> accounts including all their transactions. This action cannot be undone."
+msgstr[0] "سيؤدي هذا إلى حذف <strong>{{ name }}</strong> وحسابه الوحيد وجميع معاملاته نهائياً. لا يمكن التراجع عن هذا الإجراء."
+msgstr[1] "سيؤدي هذا إلى حذف <strong>{{ name }}</strong> وحسابه وجميع معاملاته نهائياً. لا يمكن التراجع عن هذا الإجراء."
+msgstr[2] "سيؤدي هذا إلى حذف <strong>{{ name }}</strong> وحسبيه وجميع معاملاته نهائياً. لا يمكن التراجع عن هذا الإجراء."
+msgstr[3] "سيؤدي هذا إلى حذف <strong>{{ name }}</strong> و<strong>{{ count }}</strong> من حساباته وجميع معاملاتها نهائياً. لا يمكن التراجع عن هذا الإجراء."
+msgstr[4] "سيؤدي هذا إلى حذف <strong>{{ name }}</strong> و<strong>{{ count }}</strong> من حساباته وجميع معاملاتها نهائياً. لا يمكن التراجع عن هذا الإجراء."
+msgstr[5] "سيؤدي هذا إلى حذف <strong>{{ name }}</strong> و<strong>{{ count }}</strong> من حساباته وجميع معاملاتها نهائياً. لا يمكن التراجع عن هذا الإجراء."
+
+#: accounts/templates/accounts/_institution_delete_confirm.html:20
+#, python-format
+msgid "This will permanently delete <strong>{{ name }}</strong>. This action cannot be undone."
+msgstr "سيؤدي هذا إلى حذف <strong>{{ name }}</strong> نهائياً. لا يمكن التراجع عن هذا الإجراء."
+
+#: accounts/templates/accounts/_institution_delete_confirm.html:37
+msgid "Tap again to confirm"
+msgstr "انقر مرة أخرى للتأكيد"
+
+#: accounts/templates/accounts/_institution_list.html:12
+msgid "No institutions yet. Tap + Institution above to get started."
+msgstr "لا توجد مؤسسات بعد. انقر على + مؤسسة أعلاه للبدء."
+
+#: accounts/templates/accounts/account_detail.html:4
+msgid "ClearMoney - Account Detail"
+msgstr "كلير ماني - تفاصيل الحساب"
+
+#: accounts/templates/accounts/account_detail.html:15
+msgid "Edit"
+msgstr "تعديل"
+
+#: accounts/templates/accounts/account_detail.html:16
+msgid "All Accounts"
+msgstr "جميع الحسابات"
+
+#: accounts/templates/accounts/account_detail.html:22
+msgid "Current Balance"
+msgstr "الرصيد الحالي"
+
+#: accounts/templates/accounts/account_detail.html:29
+msgid "Available Credit"
+msgstr "الرصيد المتاح"
+
+#: accounts/templates/accounts/account_detail.html:40
+msgid "Holding for others"
+msgstr "محتجز للآخرين"
+
+#: accounts/templates/accounts/account_detail.html:44
+msgid "Your money"
+msgstr "أموالك"
+
+#: accounts/templates/accounts/account_detail.html:55
+msgid "30-day trend"
+msgstr "الاتجاه خلال 30 يوماً"
+
+#: accounts/templates/accounts/account_detail.html:64
+msgid "Dormant Account"
+msgstr "حساب خامل"
+
+#: accounts/templates/accounts/account_detail.html:65
+msgid "Dormant accounts are collapsed on the dashboard"
+msgstr "الحسابات الخاملة تكون مطوية في لوحة التحكم"
+
+#: accounts/templates/accounts/account_detail.html:70
+msgid "Mark account as dormant"
+msgstr "تعيين الحساب كخامل"
+
+#: accounts/templates/accounts/account_detail.html:72
+msgid "Active"
+msgstr "نشط"
+
+#: accounts/templates/accounts/account_detail.html:72
+msgid "Dormant"
+msgstr "خامل"
+
+#: accounts/templates/accounts/account_detail.html:80
+msgid "Credit Utilization"
+msgstr "استخدام الرصيد"
+
+#: accounts/templates/accounts/account_detail.html:96
+#, python-format
+msgid "{{ balance }} used"
+msgstr "{{ balance }} مستخدم"
+
+#: accounts/templates/accounts/account_detail.html:98
+#, python-format
+msgid "of {{ limit }} limit"
+msgstr "من حد {{ limit }}"
+
+#: accounts/templates/accounts/account_detail.html:105
+msgid "Utilization trend (30 days)"
+msgstr "اتجاه الاستخدام (30 يوماً)"
+
+#: accounts/templates/accounts/account_detail.html:120
+msgid "View Statement"
+msgstr "عرض الكشف"
+
+#: accounts/templates/accounts/account_detail.html:129
+msgid "Virtual Accounts"
+msgstr "الحسابات الافتراضية"
+
+#: accounts/templates/accounts/account_detail.html:130
+msgid "View All"
+msgstr "عرض الكل"
+
+#: accounts/templates/accounts/account_detail.html:143
+#, python-format
+msgid "of {{ target }}"
+msgstr "من {{ target }}"
+
+#: accounts/templates/accounts/account_detail.html:162
+msgid "Health Rules"
+msgstr "قواعد صحة الحساب"
+
+#: accounts/templates/accounts/account_detail.html:166
+msgid "Min Balance"
+msgstr "الحد الأدنى للرصيد"
+
+#: accounts/templates/accounts/account_detail.html:168
+#: accounts/templates/accounts/account_detail.html:173
+msgid "Not set"
+msgstr "غير محدد"
+
+#: accounts/templates/accounts/account_detail.html:172
+msgid "Min Monthly Deposit"
+msgstr "الحد الأدنى للإيداع الشهري"
+
+#: accounts/templates/accounts/account_detail.html:180
+msgid "Save Health Rules"
+msgstr "حفظ قواعد الصحة"
+
+#: accounts/templates/accounts/account_detail.html:189
+#: accounts/templates/accounts/account_detail.html:264
+#: accounts/templates/accounts/account_detail.html:267
+#: accounts/templates/accounts/account_detail.html:277
+msgid "Delete Account"
+msgstr "حذف الحساب"
+
+#: accounts/templates/accounts/account_detail.html:195
+msgid "Transaction History"
+msgstr "سجل المعاملات"
+
+#: accounts/templates/accounts/account_detail.html:216
+msgid "No transactions found"
+msgstr "لا توجد معاملات"
+
+#: accounts/templates/accounts/account_detail.html:210
+msgid "Load more..."
+msgstr "تحميل المزيد..."
+
+#: accounts/templates/accounts/account_detail.html:252
+#, python-format
+msgid "This will permanently delete <strong class=\"text-slate-700 dark:text-slate-200\">{{ name }}</strong> and all its transactions. This action cannot be undone."
+msgstr "سيؤدي هذا إلى حذف <strong class=\"text-slate-700 dark:text-slate-200\">{{ name }}</strong> وجميع معاملاته نهائياً. لا يمكن التراجع عن هذا الإجراء."
+
+#: accounts/templates/accounts/account_detail.html:267
+msgid "Tap again to confirm"
+msgstr "انقر مرة أخرى للتأكيد"
+
+#: accounts/templates/accounts/credit_card_statement.html:4
+#, python-format
+msgid "Statement - {{ name }}"
+msgstr "كشف حساب - {{ name }}"
+
+#: accounts/templates/accounts/credit_card_statement.html:11
+#, python-format
+msgid "Back to {{ name }}"
+msgstr "العودة إلى {{ name }}"
+
+#: accounts/templates/accounts/credit_card_statement.html:16
+msgid "Credit Card Statement"
+msgstr "كشف بطاقة الائتمان"
+
+#: accounts/templates/accounts/credit_card_statement.html:24
+msgid "Opening Balance"
+msgstr "الرصيد الافتتاحي"
+
+#: accounts/templates/accounts/credit_card_statement.html:28
+msgid "Closing Balance"
+msgstr "الرصيد الختامي"
+
+#: accounts/templates/accounts/credit_card_statement.html:32
+msgid "Total Spending"
+msgstr "إجمالي الإنفاق"
+
+#: accounts/templates/accounts/credit_card_statement.html:36
+msgid "Total Payments"
+msgstr "إجمالي المدفوعات"
+
+#: accounts/templates/accounts/credit_card_statement.html:45
+msgid "Credit Utilization"
+msgstr "استخدام الرصيد"
+
+#: accounts/templates/accounts/credit_card_statement.html:58
+msgid "of credit limit used"
+msgstr "من الحد الائتماني المستخدم"
+
+#: accounts/templates/accounts/credit_card_statement.html:60
+#, python-format
+msgid "Limit: {{ limit }}"
+msgstr "الحد: {{ limit }}"
+
+#: accounts/templates/accounts/credit_card_statement.html:72
+msgid "Interest-Free Period"
+msgstr "فترة بدون فائدة"
+
+#: accounts/templates/accounts/credit_card_statement.html:75
+#, python-format
+msgid "{{ days }} days from statement date"
+msgstr "{{ days }} يوم من تاريخ الكشف"
+
+#: accounts/templates/accounts/credit_card_statement.html:77
+#, python-format
+msgid "{{ remain }} days remaining"
+msgstr "{{ remain }} يوم متبقي"
+
+#: accounts/templates/accounts/credit_card_statement.html:81
+msgid "Expired"
+msgstr "منتهي"
+
+#: accounts/templates/accounts/credit_card_statement.html:97
+#, python-format
+msgid "Pay {{ amount }} by {{ due }} to avoid interest charges."
+msgstr "ادفع {{ amount }} بحلول {{ due }} لتجنب فوائد التأخير."
+
+#: accounts/templates/accounts/credit_card_statement.html:100
+#, python-format
+msgid "{{ days }} days until due date"
+msgstr "{{ days }} يوم حتى تاريخ الاستحقاق"
+
+#: accounts/templates/accounts/credit_card_statement.html:107
+msgid "Transactions"
+msgstr "المعاملات"
+
+#: accounts/templates/accounts/credit_card_statement.html:125
+msgid "No transactions in this period."
+msgstr "لا توجد معاملات في هذه الفترة."
+
+#: accounts/templates/accounts/credit_card_statement.html:132
+msgid "Payment History"
+msgstr "سجل المدفوعات"
+
+#: accounts/templates/accounts/credit_card_statement.html:138
+msgid "Payment"
+msgstr "دفعة"
+
+#: accounts/templates/accounts/credit_card_statement_error.html:4
+#, python-format
+msgid "Statement Error - {{ name }}"
+msgstr "خطأ في الكشف - {{ name }}"
+
+#: accounts/templates/accounts/credit_card_statement_error.html:11
+#, python-format
+msgid "Back to {{ name }}"
+msgstr "العودة إلى {{ name }}"
+
+#: accounts/templates/accounts/credit_card_statement_error.html:20
+msgid "Statement Unavailable"
+msgstr "الكشف غير متاح"
+
+#: accounts/templates/accounts/_credit_card_info.html:9
+msgid "Billing Cycle"
+msgstr "دورة الفوترة"
+
+#: accounts/templates/accounts/_credit_card_info.html:12
+msgid "Statement closes"
+msgstr "إغلاق الكشف"
+
+#: accounts/templates/accounts/_credit_card_info.html:13
+#, python-format
+msgid "Day {{ day }}"
+msgstr "يوم {{ day }}"
+
+#: accounts/templates/accounts/_credit_card_info.html:17
+msgid "Current period"
+msgstr "الفترة الحالية"
+
+#: accounts/templates/accounts/_credit_card_info.html:22
+msgid "Due date"
+msgstr "تاريخ الاستحقاق"
+
+#: accounts/templates/accounts/_credit_card_info.html:26
+#, python-format
+msgid "{{ days }} days"
+msgstr "{{ days }} أيام"

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% load money %}
-{% block title %}ClearMoney - Account Detail{% endblock %}
+{% load money %}{% load i18n %}
+{% block title %}{% trans "ClearMoney - Account Detail" %}{% endblock %}
 
 {% block content %}
 <div class="space-y-4 py-4">
@@ -12,21 +12,21 @@
                 <p class="text-xs text-gray-400 dark:text-slate-500">{{ data.institution_name }} &middot; {{ data.account.type|format_account_type }} &middot; {{ data.account.currency }}</p>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="openEditAccount()" class="text-sm text-teal-600 hover:text-teal-700 font-medium">Edit</button>
-                <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">All Accounts</a>
+                <button onclick="openEditAccount()" class="text-sm text-teal-600 hover:text-teal-700 font-medium">{% trans "Edit" %}</button>
+                <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">{% trans "All Accounts" %}</a>
             </div>
         </div>
 
         <div class="flex items-end justify-between">
             <div>
-                <p class="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Current Balance</p>
+                <p class="text-xs text-gray-500 dark:text-slate-400 mb-0.5">{% trans "Current Balance" %}</p>
                 <p class="text-2xl font-bold {% if data.account.current_balance < 0 %}text-red-600{% else %}text-teal-700 dark:text-teal-400{% endif %}">
                     {{ data.account.current_balance|format_currency:data.account.currency }}
                 </p>
             </div>
             {% if data.account.is_credit_type %}
             <div class="text-end">
-                <p class="text-xs text-gray-500 dark:text-slate-400 mb-0.5">Available Credit</p>
+                <p class="text-xs text-gray-500 dark:text-slate-400 mb-0.5">{% trans "Available Credit" %}</p>
                 <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     {{ data.account.available_credit|format_currency:data.account.currency }}
                 </p>
@@ -37,11 +37,11 @@
         {% if data.excluded_va_balance > 0 %}
         <div class="mt-2 pt-2 border-t border-gray-100 dark:border-slate-700">
             <div class="flex items-center justify-between">
-                <p class="text-xs text-gray-400">Holding for others</p>
+                <p class="text-xs text-gray-400">{% trans "Holding for others" %}</p>
                 <p class="text-xs text-amber-600 dark:text-amber-400 font-medium">{{ data.excluded_va_balance|format_currency:data.account.currency }}</p>
             </div>
             <div class="flex items-center justify-between mt-0.5">
-                <p class="text-xs text-gray-400">Your money</p>
+                <p class="text-xs text-gray-400">{% trans "Your money" %}</p>
                 <p class="text-sm font-bold {% if data.your_money < 0 %}text-red-600{% else %}text-teal-600{% endif %}">
                     {{ data.your_money|format_currency:data.account.currency }}
                 </p>
@@ -52,7 +52,7 @@
         <!-- 30-day balance sparkline -->
         {% if data.balance_history %}
         <div class="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
-            <p class="text-xs text-gray-400 dark:text-slate-500 mb-1">30-day trend</p>
+            <p class="text-xs text-gray-400 dark:text-slate-500 mb-1">{% trans "30-day trend" %}</p>
             {% include "components/chart_sparkline.html" with values=data.balance_history color="var(--chart-1)" width=280 height=40 %}
         </div>
         {% endif %}
@@ -61,15 +61,15 @@
     <!-- Dormant toggle -->
     <div class="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl shadow-sm px-4 py-3">
         <div>
-            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Dormant Account</p>
-            <p class="text-xs text-gray-400 dark:text-slate-500">Dormant accounts are collapsed on the dashboard</p>
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{% trans "Dormant Account" %}</p>
+            <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "Dormant accounts are collapsed on the dashboard" %}</p>
         </div>
         <button hx-post="/accounts/{{ data.account.id }}/dormant"
                 role="switch"
                 aria-checked="{% if data.account.is_dormant %}true{% else %}false{% endif %}"
-                aria-label="Mark account as dormant"
+                aria-label="{% trans "Mark account as dormant" %}"
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold {% if data.account.is_dormant %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400{% else %}bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300{% endif %}">
-            {% if data.account.is_dormant %}Active{% else %}Dormant{% endif %}
+            {% if data.account.is_dormant %}{% trans "Active" %}{% else %}{% trans "Dormant" %}{% endif %}
         </button>
     </div>
 
@@ -77,7 +77,7 @@
     {% if data.account.is_credit_type %}
     {% if data.utilization > 0 %}
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Credit Utilization</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Credit Utilization" %}</h3>
         <div class="flex items-center gap-4">
             <div class="relative w-20 h-20 flex-shrink-0">
                 <svg viewBox="0 0 36 36" class="w-20 h-20 transform -rotate-90">
@@ -93,16 +93,16 @@
                 </div>
             </div>
             <div>
-                <p class="text-sm text-slate-700 dark:text-slate-200">{{ data.account.current_balance|neg|format_currency:data.account.currency }} used</p>
+                <p class="text-sm text-slate-700 dark:text-slate-200">{% blocktrans with balance=data.account.current_balance|neg|format_currency:data.account.currency %}{{ balance }} used{% endblocktrans %}</p>
                 {% if data.account.credit_limit %}
-                <p class="text-xs text-gray-400 dark:text-slate-500">of {{ data.account.credit_limit|deref_float|format_currency:data.account.currency }} limit</p>
+                <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with limit=data.account.credit_limit|deref_float|format_currency:data.account.currency %}of {{ limit }} limit{% endblocktrans %}</p>
                 {% endif %}
             </div>
         </div>
         <!-- Utilization trend sparkline -->
         {% if data.utilization_history %}
-        <div class="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
-            <p class="text-xs text-gray-400 dark:text-slate-500 mb-1">Utilization trend (30 days)</p>
+            <div class="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
+            <p class="text-xs text-gray-400 dark:text-slate-500 mb-1">{% trans "Utilization trend (30 days)" %}</p>
             {% include "components/chart_sparkline.html" with values=data.utilization_history color="var(--chart-utilization)" width=280 height=30 %}
         </div>
         {% endif %}
@@ -117,7 +117,7 @@
     <div class="px-1">
         <a href="/accounts/{{ data.account.id }}/statement"
            class="block text-center bg-teal-50 text-teal-600 text-sm font-medium py-2.5 rounded-xl hover:bg-teal-100 dark:hover:bg-teal-900/30 transition">
-            View Statement
+            {% trans "View Statement" %}
         </a>
     </div>
     {% endif %}
@@ -126,8 +126,8 @@
     {% if data.virtual_accounts %}
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Virtual Accounts</h3>
-            <a href="/virtual-accounts" class="text-xs text-teal-600 hover:text-teal-700">View All</a>
+            <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Virtual Accounts" %}</h3>
+            <a href="/virtual-accounts" class="text-xs text-teal-600 hover:text-teal-700">{% trans "View All" %}</a>
         </div>
         <div class="space-y-3">
             {% for va in data.virtual_accounts %}
@@ -140,7 +140,7 @@
                     <div class="text-end flex-shrink-0 ms-3">
                         <p class="text-sm font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_egp }}</p>
                         {% if va.target_amount %}
-                        <p class="text-xs text-gray-400 dark:text-slate-500">of {{ va.target_amount|deref_float|format_egp }}</p>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with target=va.target_amount|deref_float|format_egp %}of {{ target }}{% endblocktrans %}</p>
                         {% endif %}
                     </div>
                 </div>
@@ -159,25 +159,25 @@
 
     <!-- Account Health Config -->
     <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Health Rules</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Health Rules" %}</h3>
         <form method="POST" action="/accounts/{{ data.account.id }}/health" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Min Balance</label>
-                    <input type="number" name="min_balance" step="0.01" placeholder="Not set"
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Min Balance" %}</label>
+                    <input type="number" name="min_balance" step="0.01" placeholder="{% trans "Not set" %}"
                            {% if data.health_config and data.health_config.min_balance %}value="{{ data.health_config.min_balance }}"{% endif %}
                            class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Min Monthly Deposit</label>
-                    <input type="number" name="min_monthly_deposit" step="0.01" placeholder="Not set"
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Min Monthly Deposit" %}</label>
+                    <input type="number" name="min_monthly_deposit" step="0.01" placeholder="{% trans "Not set" %}"
                            {% if data.health_config and data.health_config.min_monthly_deposit %}value="{{ data.health_config.min_monthly_deposit }}"{% endif %}
                            class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
             </div>
             <button type="submit"
                     class="w-full bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-slate-600 transition">
-                Save Health Rules
+                {% trans "Save Health Rules" %}
             </button>
         </form>
     </div>
@@ -186,13 +186,13 @@
     <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
         <button onclick="openDeleteSheet()"
                 class="w-full text-red-600 dark:text-red-400 py-2 rounded-lg text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 transition">
-            Delete Account
+            {% trans "Delete Account" %}
         </button>
     </div>
 
     <!-- Transaction list for this account -->
     <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Transaction History</h2>
+        <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">{% trans "Transaction History" %}</h2>
     </div>
 
     <div id="transaction-list">
@@ -207,13 +207,13 @@
             <button hx-get="/transactions/list?offset={{ data.next_offset }}&account_id={{ data.account.id }}"
                     hx-target="#transaction-list" hx-swap="innerHTML"
                     class="text-sm text-teal-600 font-medium py-2">
-                Load more...
+                {% trans "Load more..." %}
             </button>
         </div>
         {% endif %}
         {% else %}
         <div class="text-center py-12 text-gray-400">
-            <p class="text-sm">No transactions found</p>
+            <p class="text-sm">{% trans "No transactions found" %}</p>
         </div>
         {% endif %}
     </div>
@@ -247,9 +247,9 @@ document.body.addEventListener('closeEditSheet', function() {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                 </svg>
             </div>
-            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">Delete Account</h3>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Delete Account" %}</h3>
             <p class="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                This will permanently delete <strong class="text-slate-700 dark:text-slate-200">{{ data.account.name }}</strong> and all its transactions. This action cannot be undone.
+                {% blocktrans with name=data.account.name %}This will permanently delete <strong class="text-slate-700 dark:text-slate-200">{{ name }}</strong> and all its transactions. This action cannot be undone.{% endblocktrans %}
             </p>
         </div>
         <!-- Error display area (for FK constraint errors) -->
@@ -258,15 +258,17 @@ document.body.addEventListener('closeEditSheet', function() {
         <div aria-live="assertive">
             <button id="delete-confirm-btn"
                     class="w-full bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold transition-all"
+                    data-delete-text="{% trans "Delete Account" %}"
+                    data-armed-text="{% trans "Tap again to confirm" %}"
                     hx-delete="/accounts/{{ data.account.id }}/delete"
                     hx-target="#delete-error"
                     hx-swap="innerHTML">
-                Delete Account
+                {% trans "Delete Account" %}
             </button>
         </div>
         <button onclick="closeDeleteSheet()"
                 class="w-full mt-2 text-gray-600 dark:text-slate-400 py-2 min-h-[44px] text-sm font-medium flex items-center justify-center">
-            Cancel
+            {% trans "Cancel" %}
         </button>
     </div>
 </div>
@@ -286,7 +288,7 @@ function resetDeleteButton() {
     var btn = document.getElementById('delete-confirm-btn');
     if (btn) {
         deleteArmed = false;
-        btn.textContent = 'Delete Account';
+        btn.textContent = btn.getAttribute('data-delete-text') || 'Delete Account';
         btn.classList.remove('bg-red-700', 'animate-pulse');
         btn.classList.add('bg-red-600');
     }
@@ -313,7 +315,7 @@ document.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
         deleteArmed = true;
-        btn.textContent = 'Tap again to confirm';
+        btn.textContent = btn.getAttribute('data-armed-text') || 'Tap again to confirm';
         btn.classList.remove('bg-red-600');
         btn.classList.add('bg-red-700', 'animate-pulse');
         deleteResetTimer = setTimeout(resetDeleteButton, 3000);

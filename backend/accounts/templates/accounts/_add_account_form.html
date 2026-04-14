@@ -3,7 +3,7 @@ Unified add-account form — institution picker + account fields in one step.
 Context: institution_id (str), preselected_institution (dict or None),
          presets_json (JSON string), error (optional string).
 {% endcomment %}
-{% load static %}
+{% load static %}{% load i18n %}
 <div class="space-y-3">
     {% if error %}
     <div id="add-acct-error" class="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-lg text-sm" role="alert">{{ error }}</div>
@@ -18,7 +18,7 @@ Context: institution_id (str), preselected_institution (dict or None),
           id="add-account-form"
           {% if error %}aria-invalid="true" aria-describedby="add-acct-error"{% endif %}>
 
-        <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">Add Account</h3>
+        <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">{% trans "Add Account" %}</h3>
 
         {% if preselected_institution %}
         {# --- Pre-selected institution (read-only label) --- #}
@@ -37,36 +37,36 @@ Context: institution_id (str), preselected_institution (dict or None),
                     <label class="flex-1">
                         <input type="radio" name="institution_type" value="bank" checked class="peer hidden">
                         <div class="peer-checked:bg-teal-50 dark:peer-checked:bg-teal-900/30 peer-checked:border-teal-400 peer-checked:text-teal-700 dark:peer-checked:text-teal-300 border-2 border-gray-200 dark:border-slate-600 rounded-xl py-2.5 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
-                            Bank
+                            {% trans "Bank" %}
                         </div>
                     </label>
                     <label class="flex-1">
                         <input type="radio" name="institution_type" value="fintech" class="peer hidden">
                         <div class="peer-checked:bg-teal-50 dark:peer-checked:bg-teal-900/30 peer-checked:border-teal-400 peer-checked:text-teal-700 dark:peer-checked:text-teal-300 border-2 border-gray-200 dark:border-slate-600 rounded-xl py-2.5 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
-                            Finance App
+                            {% trans "Finance App" %}
                         </div>
                     </label>
                     <label class="flex-1">
                         <input type="radio" name="institution_type" value="wallet" class="peer hidden">
                         <div class="peer-checked:bg-teal-50 dark:peer-checked:bg-teal-900/30 peer-checked:border-teal-400 peer-checked:text-teal-700 dark:peer-checked:text-teal-300 border-2 border-gray-200 dark:border-slate-600 rounded-xl py-2.5 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
-                            Wallet
+                            {% trans "Wallet" %}
                         </div>
                     </label>
                 </div>
             </fieldset>
 
             <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-inst-search">Institution Name</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-inst-search">{% trans "Institution Name" %}</label>
                 <div class="relative" id="add-acct-combobox">
                     <input type="text"
                            id="add-acct-inst-search"
-                           placeholder="Search or type name..."
+                           placeholder="{% trans "Search or type name..." %}"
                            autocomplete="off"
                            role="combobox"
                            aria-haspopup="listbox"
                            aria-expanded="false"
                            aria-controls="add-acct-preset-list"
-                           aria-label="Institution name"
+                           aria-label="{% trans "Institution name" %}"
                            class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                     <div id="add-acct-preset-list" role="listbox" aria-label="Institution presets"
                          class="hidden absolute z-50 start-0 end-0 top-full mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -84,19 +84,19 @@ Context: institution_id (str), preselected_institution (dict or None),
         <div class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div id="add-acct-type-wrapper">
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-type">Type</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-type">{% trans "Type" %}</label>
                     <select name="type" id="add-acct-type"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-                        <option value="current" {% if account_type == 'current' %}selected{% endif %}>Current</option>
-                        <option value="savings" {% if account_type == 'savings' %}selected{% endif %}>Savings</option>
-                        <option value="prepaid" {% if account_type == 'prepaid' %}selected{% endif %}>Prepaid</option>
-                        <option value="cash" {% if account_type == 'cash' %}selected{% endif %}>Cash</option>
-                        <option value="credit_card" {% if account_type == 'credit_card' %}selected{% endif %}>Credit Card</option>
-                        <option value="credit_limit" {% if account_type == 'credit_limit' %}selected{% endif %}>Credit Limit</option>
+                        <option value="current" {% if account_type == 'current' %}selected{% endif %}>{% trans "Current" %}</option>
+                        <option value="savings" {% if account_type == 'savings' %}selected{% endif %}>{% trans "Savings" %}</option>
+                        <option value="prepaid" {% if account_type == 'prepaid' %}selected{% endif %}>{% trans "Prepaid" %}</option>
+                        <option value="cash" {% if account_type == 'cash' %}selected{% endif %}>{% trans "Cash" %}</option>
+                        <option value="credit_card" {% if account_type == 'credit_card' %}selected{% endif %}>{% trans "Credit Card" %}</option>
+                        <option value="credit_limit" {% if account_type == 'credit_limit' %}selected{% endif %}>{% trans "Credit Limit" %}</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-currency">Currency</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-currency">{% trans "Currency" %}</label>
                     <select name="currency" id="add-acct-currency"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                         <option value="EGP" {% if account_currency == 'EGP' %}selected{% endif %}>EGP</option>
@@ -106,24 +106,24 @@ Context: institution_id (str), preselected_institution (dict or None),
             </div>
 
             <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-custom-name">Custom name <span class="text-gray-400">(optional)</span></label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-custom-name">{% trans "Custom name" %} <span class="text-gray-400">{% trans "(optional)" %}</span></label>
                 <div id="add-acct-custom-name-field" class="mt-1">
-                    <input type="text" name="name" id="add-acct-custom-name" aria-label="Account name" maxlength="100"
-                        placeholder="e.g., My Savings"
+                    <input type="text" name="name" id="add-acct-custom-name" aria-label="{% trans "Account name" %}" maxlength="100"
+                        placeholder="{% trans "e.g., My Savings" %}"
                         value="{% if account_name %}{{ account_name }}{% endif %}"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 </div>
             </div>
 
             <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-balance">Initial Balance</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-balance">{% trans "Initial Balance" %}</label>
                 <input type="number" name="initial_balance" id="add-acct-balance" step="0.01" min="0" value="{% if account_balance %}{{ account_balance }}{% else %}0{% endif %}" placeholder="0.00"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 
             <div id="add-acct-credit-limit-field" style="display: none;">
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-credit-limit">Credit Limit</label>
-                <input type="number" name="credit_limit" id="add-acct-credit-limit" step="0.01" min="0" value="{% if account_credit_limit %}{{ account_credit_limit }}{% endif %}" placeholder="e.g., 500000"
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="add-acct-credit-limit">{% trans "Credit Limit" %}</label>
+                <input type="number" name="credit_limit" id="add-acct-credit-limit" step="0.01" min="0" value="{% if account_credit_limit %}{{ account_credit_limit }}{% endif %}" placeholder="{% trans "e.g., 500000" %}"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
         </div>
@@ -131,7 +131,7 @@ Context: institution_id (str), preselected_institution (dict or None),
         <div class="flex gap-2 mt-4">
             <button type="submit"
                 class="relative flex-1 bg-teal-600 text-white py-3 min-h-[44px] rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
-                <span class="btn-label">Add Account</span>
+                <span class="btn-label">{% trans "Add Account" %}</span>
                 <span class="btn-spinner hidden">
                     <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -141,7 +141,7 @@ Context: institution_id (str), preselected_institution (dict or None),
             </button>
             <button type="button" onclick="BottomSheet.close('create-sheet')"
                 class="flex-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 py-3 min-h-[44px] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-slate-600 flex items-center justify-center">
-                Cancel
+                {% trans "Cancel" %}
             </button>
         </div>
     </form>

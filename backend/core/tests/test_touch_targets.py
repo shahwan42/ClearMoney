@@ -39,7 +39,7 @@ class TestTouchTargets:
             / "accounts"
             / "_institution_card.html"
         ).read_text()
-        assert 'aria-label="Edit institution"' in html
+        assert 'aria-label="{% trans "Edit institution" %}' in html
 
     def test_institution_delete_button_has_aria_label(self) -> None:
         """Institution delete icon button must have aria-label."""
@@ -50,7 +50,7 @@ class TestTouchTargets:
             / "accounts"
             / "_institution_card.html"
         ).read_text()
-        assert 'aria-label="Delete institution"' in html
+        assert 'aria-label="{% trans "Delete institution" %}' in html
 
     def test_transaction_kebab_has_touch_target(self) -> None:
         """Transaction kebab menu button must have 44px minimum touch target."""

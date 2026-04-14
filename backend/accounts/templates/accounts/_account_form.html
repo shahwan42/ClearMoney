@@ -1,3 +1,4 @@
+{% load i18n %}
 {% comment %}
 Account create form — rendered inside the account bottom sheet.
 Port of Go's partials/account-form.html.
@@ -15,9 +16,9 @@ Context: institution_id, institution_name, error (optional string).
         {% if error %}aria-invalid="true" aria-describedby="acct-error"{% endif %}
     >
         <h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-3">
-            Add Account
+            {% trans "Add Account" %}
             {% if institution_name %}
-                <span class="text-gray-400 font-normal">to {{ institution_name }}</span>
+                <span class="text-gray-400 font-normal">{% blocktrans with name=institution_name %}to {{ name }}{% endblocktrans %}</span>
             {% endif %}
         </h3>
 
@@ -27,20 +28,20 @@ Context: institution_id, institution_name, error (optional string).
         <div class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</label>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Type" %}</label>
                     <select name="type" id="account-type-select"
                         onchange="document.getElementById('credit-limit-field').style.display = (this.value === 'credit_card' || this.value === 'credit_limit') ? 'block' : 'none'"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-                        <option value="current">Current</option>
-                        <option value="savings">Savings</option>
-                        <option value="prepaid">Prepaid</option>
-                        <option value="cash">Cash</option>
-                        <option value="credit_card">Credit Card</option>
-                        <option value="credit_limit">Credit Limit</option>
+                        <option value="current">{% trans "Current" %}</option>
+                        <option value="savings">{% trans "Savings" %}</option>
+                        <option value="prepaid">{% trans "Prepaid" %}</option>
+                        <option value="cash">{% trans "Cash" %}</option>
+                        <option value="credit_card">{% trans "Credit Card" %}</option>
+                        <option value="credit_limit">{% trans "Credit Limit" %}</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Currency</label>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Currency" %}</label>
                     <select name="currency"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                         <option value="EGP">EGP</option>
@@ -50,29 +51,29 @@ Context: institution_id, institution_name, error (optional string).
             </div>
 
             <div>
-                <button type="button" aria-expanded="false"
-                    onclick="var f=document.getElementById('custom-name-field'); var show=f.style.display==='none'; f.style.display=show?'block':'none'; this.setAttribute('aria-expanded',show); this.querySelector('.chevron').style.transform=show?'rotate(90deg)':''; if(show)f.querySelector('input').focus();"
-                    class="text-xs text-teal-600 dark:text-teal-400 hover:underline inline-flex items-center gap-1">
-                    Custom name
+                    <button type="button" aria-expanded="false"
+                        onclick="var f=document.getElementById('custom-name-field'); var show=f.style.display==='none'; f.style.display=show?'block':'none'; this.setAttribute('aria-expanded',show); this.querySelector('.chevron').style.transform=show?'rotate(90deg)':''; if(show)f.querySelector('input').focus();"
+                        class="text-xs text-teal-600 dark:text-teal-400 hover:underline inline-flex items-center gap-1">
+                    {% trans "Custom name" %}
                     <svg class="chevron w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>
                 </button>
                 <div id="custom-name-field" style="display: none;" class="mt-1">
-                    <input type="text" name="name" aria-label="Account name"
-                        placeholder="e.g., My Savings"
+                    <input type="text" name="name" aria-label="{% trans "Account name" %}"
+                        placeholder="{% trans "e.g., My Savings" %}"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 </div>
             </div>
 
             <div>
-                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Initial Balance</label>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Initial Balance" %}</label>
                 <input type="number" name="initial_balance" step="0.01" value="0" placeholder="0.00"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 
             <!-- Credit limit field — only shown for credit card / credit limit account types -->
             <div id="credit-limit-field" style="display: none;">
-                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Credit Limit</label>
-                <input type="number" name="credit_limit" step="0.01" placeholder="e.g., 500000"
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Credit Limit" %}</label>
+                <input type="number" name="credit_limit" step="0.01" placeholder="{% trans "e.g., 500000" %}"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
         </div>
@@ -80,11 +81,11 @@ Context: institution_id, institution_name, error (optional string).
         <div class="flex gap-2 mt-4">
             <button type="submit"
                 class="flex-1 bg-teal-600 text-white py-3 min-h-[44px] rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center">
-                Add Account
+                {% trans "Add Account" %}
             </button>
             <button type="button" onclick="closeAccountSheet()"
                 class="flex-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 py-3 min-h-[44px] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-slate-600 flex items-center justify-center">
-                Cancel
+                {% trans "Cancel" %}
             </button>
         </div>
     </form>

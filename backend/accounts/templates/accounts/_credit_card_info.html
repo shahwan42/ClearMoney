@@ -3,27 +3,27 @@ Credit card billing cycle info card.
 Port of Go's partials/credit-card-info.html.
 Context: billing_cycle (dict with statement_day, period_start, period_end, due_date, is_due_soon, days_until_due).
 {% endcomment %}
-{% load money %}
+{% load money %}{% load i18n %}
 {% if billing_cycle %}
 <div class="bg-blue-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-2">
-    <h3 class="text-xs font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">Billing Cycle</h3>
+    <h3 class="text-xs font-medium text-blue-700 dark:text-blue-400 uppercase tracking-wide">{% trans "Billing Cycle" %}</h3>
 
     <div class="flex justify-between text-sm">
-        <span class="text-blue-600">Statement closes</span>
-        <span class="font-medium text-blue-800">Day {{ billing_cycle.statement_day }}</span>
+        <span class="text-blue-600">{% trans "Statement closes" %}</span>
+        <span class="font-medium text-blue-800">{% blocktrans with day=billing_cycle.statement_day %}Day {{ day }}{% endblocktrans %}</span>
     </div>
 
     <div class="flex justify-between text-sm">
-        <span class="text-blue-600">Current period</span>
+        <span class="text-blue-600">{% trans "Current period" %}</span>
         <span class="font-medium text-blue-800">{{ billing_cycle.period_start|format_date_short }} - {{ billing_cycle.period_end|format_date_short }}</span>
     </div>
 
     <div class="flex justify-between text-sm">
-        <span class="text-blue-600">Due date</span>
+        <span class="text-blue-600">{% trans "Due date" %}</span>
         <span class="font-medium {% if billing_cycle.is_due_soon %}text-red-600{% else %}text-blue-800{% endif %}">
             {{ billing_cycle.due_date|format_date }}
             {% if billing_cycle.is_due_soon %}
-            <span class="ms-1 text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5">{{ billing_cycle.days_until_due }} days</span>
+            <span class="ms-1 text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5">{% blocktrans with days=billing_cycle.days_until_due %}{{ days }} days{% endblocktrans %}</span>
             {% endif %}
         </span>
     </div>

@@ -3,12 +3,13 @@ Institution list partial — renders all institution cards.
 Used for OOB swaps after create/edit/delete operations.
 Context: data (list of group dicts, each with institution and accounts).
 {% endcomment %}
+{% load i18n %}
 {% if data %}
     {% for group in data %}
         {% include "accounts/_institution_card.html" with institution=group.institution accounts=group.accounts %}
     {% endfor %}
 {% else %}
     <div class="bg-white rounded-xl shadow-sm p-6 text-center">
-        <p class="text-gray-400 text-sm">No institutions yet. Tap + Institution above to get started.</p>
+        <p class="text-gray-400 text-sm">{% trans "No institutions yet. Tap + Institution above to get started." %}</p>
     </div>
 {% endif %}

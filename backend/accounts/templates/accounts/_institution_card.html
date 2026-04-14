@@ -3,7 +3,7 @@ Institution card partial — single institution with its accounts, expandable vi
 Port of Go's partials/institution-card.html.
 Context: institution (dict: id, name, type), accounts (list of account dicts).
 {% endcomment %}
-{% load money %}
+{% load money %}{% load i18n %}
 <!-- Single institution card with its accounts. Expandable/collapsible via details/summary. -->
 <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden" id="institution-{{ institution.id }}">
     <details open>
@@ -19,14 +19,14 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
                 <button
                     class="text-xs text-teal-600 hover:text-teal-700 px-2 py-1"
                     onclick="event.stopPropagation(); openCreateSheet('/accounts/add-form?institution_id={{ institution.id }}')"
-                    title="Add account to {{ institution.name }}"
-                    aria-label="Add account to {{ institution.name }}"
-                >+ Account</button>
+                    title="{% blocktrans with name=institution.name %}Add account to {{ name }}{% endblocktrans %}"
+                    aria-label="{% blocktrans with name=institution.name %}Add account to {{ name }}{% endblocktrans %}"
+                >{% trans "+ Account" %}</button>
                 <button
                     class="text-xs text-gray-400 hover:text-teal-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
                     onclick="event.stopPropagation(); openEditSheet('{{ institution.id }}')"
-                    aria-label="Edit institution"
-                    title="Edit institution"
+                    aria-label="{% trans "Edit institution" %}"
+                    title="{% trans "Edit institution" %}"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
@@ -35,8 +35,8 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
                 <button
                     class="text-xs text-red-400 hover:text-red-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
                     onclick="event.stopPropagation(); openDeleteSheet('{{ institution.id }}')"
-                    aria-label="Delete institution"
-                    title="Delete institution"
+                    aria-label="{% trans "Delete institution" %}"
+                    title="{% trans "Delete institution" %}"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -58,13 +58,13 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
                             {{ account.current_balance|format_currency:account.currency }}
                         </p>
                         {% if account.is_credit_type %}
-                        <p class="text-xs text-gray-400 dark:text-slate-500">avail: {{ account.available_credit|format_currency:account.currency }}</p>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "avail:" %} {{ account.available_credit|format_currency:account.currency }}</p>
                         {% endif %}
                     </div>
                 </a>
                 {% endfor %}
             {% else %}
-                <p class="px-4 py-3 text-sm text-gray-400 dark:text-slate-500">No accounts yet</p>
+                <p class="px-4 py-3 text-sm text-gray-400 dark:text-slate-500">{% trans "No accounts yet" %}</p>
             {% endif %}
         </div>
     </details>

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Statement Error - {{ data.account.name }}{% endblock %}
+{% load i18n %}
+{% block title %}{% blocktrans with name=data.account.name %}Statement Error - {{ name }}{% endblocktrans %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-6 py-4">
@@ -7,7 +8,7 @@
     <!-- Back link -->
     <a href="/accounts/{{ data.account.id }}" class="inline-flex items-center text-sm text-teal-600 hover:text-teal-700">
         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        Back to {{ data.account.name }}
+        {% blocktrans with name=data.account.name %}Back to {{ name }}{% endblocktrans %}
     </a>
 
     <!-- Error message -->
@@ -17,7 +18,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
             </svg>
         </div>
-        <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">Statement Unavailable</h1>
+        <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">{% trans "Statement Unavailable" %}</h1>
         <p class="text-sm text-gray-500 dark:text-slate-400">{{ data.message }}</p>
     </div>
 

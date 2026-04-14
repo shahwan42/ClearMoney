@@ -1,14 +1,15 @@
 {% extends "base.html" %}
-{% block title %}ClearMoney - Accounts{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "ClearMoney - Accounts" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
 
     <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Accounts</h2>
+        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Accounts" %}</h2>
         <button onclick="openCreateSheet()"
             class="bg-teal-600 text-white text-sm px-4 py-2 min-h-[44px] rounded-xl font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center">
-            + Account
+            {% trans "+ Account" %}
         </button>
     </div>
 
@@ -20,7 +21,7 @@
             {% endfor %}
         {% else %}
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 text-center">
-                <p class="text-gray-400 dark:text-slate-500 text-sm">No accounts yet. Tap + Account above to get started.</p>
+                <p class="text-gray-400 dark:text-slate-500 text-sm">{% trans "No accounts yet. Tap + Account above to get started." %}</p>
             </div>
         {% endif %}
     </div>
