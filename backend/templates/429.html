@@ -1,14 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Too Many Requests{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "Too Many Requests" %}{% endblock %}
 {% block content %}
 <div class="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
     <div class="text-6xl mb-4">429</div>
-    <h1 class="text-xl font-semibold mb-2">Too many requests</h1>
+    <h1 class="text-xl font-semibold mb-2">{% trans "Too many requests" %}</h1>
     <p class="text-gray-500 dark:text-gray-400 mb-6">
-        Please slow down and try again in a few seconds.
+        {% trans "Please slow down and try again in a few seconds." %}
     </p>
     <a href="/" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">
-        Go to Dashboard
+        {% trans "Go to Dashboard" %}
     </a>
 </div>
 {% endblock %}

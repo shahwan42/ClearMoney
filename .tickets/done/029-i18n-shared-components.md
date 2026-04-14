@@ -3,9 +3,9 @@ id: "029"
 title: "i18n strings — shared components + error pages"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-14
 ---
 
 ## Description
@@ -39,3 +39,4 @@ Wrap all hardcoded English strings in shared components (header, nav, bottom she
 ## Progress Notes
 
 - 2026-03-30: Created — i18n for shared components and error pages
+- 2026-04-14: Completed — added {% load i18n %} to all templates, wrapped ~30 hardcoded strings with {% trans %}, added Arabic translations, updated HTMX error handlers in base.html to use translated JS strings, all 1252 tests pass.
