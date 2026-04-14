@@ -52,7 +52,7 @@ class TestFormatAccountType:
         assert format_account_type("credit_card") == "Credit Card"
 
     def test_credit_limit(self) -> None:
-        assert format_account_type("credit_limit") == "Credit Line"
+        assert format_account_type("credit_limit") == "Credit Limit"
 
     def test_current(self) -> None:
         assert format_account_type("current") == "Current"

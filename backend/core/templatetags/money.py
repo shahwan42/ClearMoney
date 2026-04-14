@@ -192,7 +192,7 @@ def format_account_type(value: object) -> str:
         "current": _("Current"),
         "prepaid": _("Prepaid"),
         "credit_card": _("Credit Card"),
-        "credit_limit": _("Credit Line"),
+        "credit_limit": _("Credit Limit"),
         "cash": _("Cash"),
     }
     key = str(value)

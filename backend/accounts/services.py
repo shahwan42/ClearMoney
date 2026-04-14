@@ -18,6 +18,7 @@ from django.db import IntegrityError
 from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
+from django.utils.translation import gettext_lazy as _
 
 from accounts.models import Account, AccountSnapshot, Institution
 from accounts.types import (
@@ -52,13 +53,13 @@ VALID_INSTITUTION_TYPES = {"bank", "fintech", "wallet"}
 VALID_CURRENCIES = {"EGP", "USD"}
 
 # Human-readable labels for auto-generated account names
-ACCOUNT_TYPE_LABELS: dict[str, str] = {
-    "savings": "Savings",
-    "current": "Current",
-    "prepaid": "Prepaid",
-    "cash": "Cash",
-    "credit_card": "Credit Card",
-    "credit_limit": "Credit Limit",
+ACCOUNT_TYPE_LABELS: dict[str, Any] = {
+    "savings": _("Savings"),
+    "current": _("Current"),
+    "prepaid": _("Prepaid"),
+    "cash": _("Cash"),
+    "credit_card": _("Credit Card"),
+    "credit_limit": _("Credit Limit"),
 }
 
 

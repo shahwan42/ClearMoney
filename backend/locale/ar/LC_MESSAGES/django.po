@@ -43,28 +43,28 @@ msgstr ""
 #: accounts/templates/accounts/_add_account_form.html:90
 #: core/templatetags/money.py:192
 msgid "Current"
-msgstr ""
+msgstr "حساب جاري"
 
 #: accounts/templates/accounts/_account_edit_form.html:29
 #: accounts/templates/accounts/_account_form.html:36
 #: accounts/templates/accounts/_add_account_form.html:91
 #: core/templatetags/money.py:191
 msgid "Savings"
-msgstr ""
+msgstr "ادخار"
 
 #: accounts/templates/accounts/_account_edit_form.html:30
 #: accounts/templates/accounts/_account_form.html:37
 #: accounts/templates/accounts/_add_account_form.html:92
 #: core/templatetags/money.py:193
 msgid "Prepaid"
-msgstr ""
+msgstr "مسبقة الدفع"
 
 #: accounts/templates/accounts/_account_edit_form.html:31
 #: accounts/templates/accounts/_account_form.html:38
 #: accounts/templates/accounts/_add_account_form.html:93
 #: core/templatetags/money.py:196
 msgid "Cash"
-msgstr ""
+msgstr "نقدي"
 
 #: accounts/templates/accounts/_account_edit_form.html:32
 #: accounts/templates/accounts/_account_form.html:39
@@ -800,8 +800,8 @@ msgid "No budgets set. Create one above!"
 msgstr "لا توجد ميزانيات محددة. أنشئ واحدة أعلاه!"
 
 #: core/templatetags/money.py:195
-msgid "Credit Line"
-msgstr ""
+msgid "Credit Limit"
+msgstr "حد ائتماني"
 
 #: core/templatetags/money.py:208 recurring/templates/recurring/_form.html:18
 #: transactions/templates/transactions/_quick_entry.html:21
@@ -810,7 +810,7 @@ msgstr ""
 #: transactions/templates/transactions/transaction_new.html:29
 #: transactions/templates/transactions/transactions.html:36
 msgid "Expense"
-msgstr ""
+msgstr "مصروف"
 
 #: core/templatetags/money.py:209 recurring/templates/recurring/_form.html:26
 #: reports/templates/reports/partials/income-vs-expense.html:17
@@ -821,29 +821,29 @@ msgstr ""
 #: transactions/templates/transactions/transaction_new.html:36
 #: transactions/templates/transactions/transactions.html:37
 msgid "Income"
-msgstr ""
+msgstr "دخل"
 
 #: core/templatetags/money.py:210 recurring/templates/recurring/_form.html:34
 #: transactions/templates/transactions/_transfer_form.html:62
 msgid "Transfer"
-msgstr ""
+msgstr "تحويل"
 
 #: core/templatetags/money.py:211
 #: transactions/templates/transactions/_exchange_form.html:65
 msgid "Exchange"
-msgstr ""
+msgstr "صرف"
 
 #: core/templatetags/money.py:212
 msgid "Loan Given"
-msgstr ""
+msgstr "قرض مقدم"
 
 #: core/templatetags/money.py:213
 msgid "Loan Received"
-msgstr ""
+msgstr "قرض مستلم"
 
 #: core/templatetags/money.py:214
 msgid "Loan Repayment"
-msgstr ""
+msgstr "سداد قرض"
 
 #: dashboard/templates/dashboard/_accounts.html:6
 #: dashboard/templates/dashboard/_budgets.html:7
