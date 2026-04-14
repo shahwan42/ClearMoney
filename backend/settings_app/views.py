@@ -12,6 +12,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
+from auth_app.models import User
 from categories.services import CategoryService
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
@@ -32,6 +33,31 @@ def settings_page(request: AuthenticatedRequest) -> HttpResponse:
     """
     logger.info("page viewed: settings, user=%s", request.user_email)
     return render(request, "settings_app/settings.html")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def set_language(request: AuthenticatedRequest) -> HttpResponse:
+    """
+    Update the authenticated user's language preference.
+
+    POST /settings/language — expects 'language' in POST data ("en" or "ar").
+    After updating, redirects back to /settings to trigger a full page reload
+    so the LanguageMiddleware applies the new lang/dir on the next request.
+    """
+    lang = request.POST.get("language", "en")
+    if lang not in ("en", "ar"):
+        logger.warning(
+            "set_language: invalid language=%s, user=%s", lang, request.user_email
+        )
+        return HttpResponse("Invalid language", status=400)
+
+    updated = User.objects.filter(id=request.user_id).update(language=lang)
+    if not updated:
+        return HttpResponse("User not found", status=404)
+
+    logger.info("set_language: user=%s language=%s", request.user_email, lang)
+    return redirect("settings")
 
 
 @general_rate

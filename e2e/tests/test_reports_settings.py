@@ -122,3 +122,19 @@ class TestSettings:
     def test_logout_button_visible_in_settings(self, page: Page) -> None:
         page.goto("/settings")
         expect(page.locator('button:has-text("Log Out")').first).to_be_visible()
+
+    def test_language_toggle_switches_language(self, page: Page) -> None:
+        """Click language toggle → user language updates in DB → page reloads in other language."""
+        page.goto("/settings")
+
+        lang_section = page.locator("section").filter(has_text="Language")
+        expect(lang_section).to_be_visible()
+
+        btn = lang_section.locator('button[type="submit"]')
+        expect(btn).to_be_visible()
+
+        btn.click()
+        page.wait_for_url("/settings")
+        page.wait_for_load_state("load")
+
+        expect(page.locator("html")).to_have_attribute("lang", "ar")

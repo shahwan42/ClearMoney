@@ -3,6 +3,7 @@ Settings URL configuration.
 
 Routes:
 - /settings — settings page (dark mode, export, notifications, quick links)
+- /settings/language — update user's language preference
 - /export/transactions — CSV transaction export download
 """
 
@@ -12,6 +13,7 @@ from . import views
 
 urlpatterns = [
     path("settings", views.settings_page, name="settings"),
+    path("settings/language", views.set_language, name="set-language"),
     path("settings/categories", views.categories_page, name="categories"),
     path("settings/categories/add", views.category_add, name="category-add"),
     path(

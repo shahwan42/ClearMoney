@@ -25,6 +25,28 @@
         </div>
     </section>
 
+    {# Language — HTMX POST to update user's language, full page reload on success #}
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Language" %}</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Switch between English and Arabic" %}</p>
+            </div>
+            <form hx-post="/settings/language"
+                  hx-target="body"
+                  hx-sync="this:replace"
+                  onsubmit="window.location.reload()">
+                {% csrf_token %}
+                <input type="hidden" name="language" value="{% if LANGUAGE_CODE == 'ar' %}en{% else %}ar{% endif %}">
+                <button type="submit"
+                        class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg text-sm font-semibold min-h-[44px] transition-colors">
+                    <span aria-hidden="true">{% if LANGUAGE_CODE == 'ar' %}EN{% else %}العربية{% endif %}</span>
+                    <span class="text-xs opacity-60">{% if LANGUAGE_CODE == 'ar' %}English{% else %}العربية{% endif %}</span>
+                </button>
+            </form>
+        </div>
+    </section>
+
     {# Export — standard GET form (not HTMX), hx-boost="false" for browser download #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Export Transactions" %}</h3>
