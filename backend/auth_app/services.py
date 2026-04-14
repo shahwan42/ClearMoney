@@ -15,8 +15,7 @@ from datetime import timedelta
 from enum import IntEnum
 
 from django.utils import timezone
-from django.utils.translation import gettext as _g
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
 
 from auth_app.models import AuthToken, Session, User
 from categories.models import Category
@@ -47,21 +46,21 @@ class SendResult(IntEnum):
 def rate_limit_message(result: SendResult) -> str:
     """Return a user-facing message for a non-sent result."""
     messages = {
-        SendResult.REUSED: (
+        SendResult.REUSED: _(
             "A sign-in link was already sent. Please check your inbox."
         ),
-        SendResult.COOLDOWN: (
+        SendResult.COOLDOWN: _(
             "Please wait a few minutes before requesting another link."
         ),
-        SendResult.DAILY_LIMIT: (
+        SendResult.DAILY_LIMIT: _(
             "You've reached the daily limit for sign-in links. "
             "Please try again tomorrow."
         ),
-        SendResult.GLOBAL_CAP: (
+        SendResult.GLOBAL_CAP: _(
             "Our email system is temporarily at capacity. Please try again later."
         ),
     }
-    return messages.get(result, "Please try again later.")
+    return messages.get(result, _("Please try again later."))
 
 
 # ---------------------------------------------------------------------------
@@ -133,17 +132,17 @@ class EmailService:
 
         is_rtl = lang == "ar"
 
-        subject = _g("Sign in to ClearMoney")
-        body_heading = _g("ClearMoney")
-        body_text = _g(
+        subject = _("Sign in to ClearMoney")
+        body_heading = _("ClearMoney")
+        body_text = _(
             "Click the button below to sign in to your account. "
             "This link expires in 15 minutes."
         )
-        button_text = _g("Sign in to ClearMoney")
-        ignore_text = _g(
+        button_text = _("Sign in to ClearMoney")
+        ignore_text = _(
             "If you didn't request this link, you can safely ignore this email."
         )
-        fallback_text = _g(
+        fallback_text = _(
             "If the button doesn't work, copy and paste this URL into your browser:"
         )
 
@@ -368,21 +367,21 @@ class AuthService:
         """
         token = token.strip()
         if not token:
-            return None, "Token is required"
+            return None, str(_("Token is required"))
 
         # Look up token
         try:
             at = AuthToken.objects.get(token=token)
         except AuthToken.DoesNotExist:
-            return None, "Invalid or expired link"
+            return None, str(_("Invalid or expired link"))
 
         # Check if already used
         if at.used:
-            return None, "This link has already been used"
+            return None, str(_("This link has already been used"))
 
         # Check expiry
         if timezone.now() > at.expires_at:
-            return None, "This link has expired"
+            return None, str(_("This link has expired"))
 
         # Mark as used immediately (single-use)
         AuthToken.objects.filter(id=at.id).update(used=True)
@@ -394,7 +393,7 @@ class AuthService:
             try:
                 user = User.objects.get(email__iexact=at.email)
             except User.DoesNotExist:
-                return None, "User not found"
+                return None, str(_("User not found"))
             user_id = str(user.id)
 
         elif at.purpose == "registration":
@@ -407,7 +406,9 @@ class AuthService:
             logger.info("auth.user_registered email=%s", at.email)
 
         else:
-            return None, f"Unknown token purpose: {at.purpose}"
+            return None, str(
+                _("Unknown token purpose: %(purpose)s") % {"purpose": at.purpose}
+            )
 
         # Create session
         session_token = secrets.token_urlsafe(32)

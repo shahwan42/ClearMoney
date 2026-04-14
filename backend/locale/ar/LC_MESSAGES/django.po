@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-14 15:42+0200\n"
+"POT-Creation-Date: 2026-04-14 22:37+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,6 +18,109 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+#: accounts/services.py:58
+#: accounts/templates/accounts/_account_edit_form.html:29
+#: accounts/templates/accounts/_account_form.html:36
+#: accounts/templates/accounts/_add_account_form.html:91
+#: core/templatetags/money.py:191
+msgid "Savings"
+msgstr "ادخار"
+
+#: accounts/services.py:59
+#: accounts/templates/accounts/_account_edit_form.html:28
+#: accounts/templates/accounts/_account_form.html:35
+#: accounts/templates/accounts/_add_account_form.html:90
+#: core/templatetags/money.py:192
+msgid "Current"
+msgstr "حساب جاري"
+
+#: accounts/services.py:60
+#: accounts/templates/accounts/_account_edit_form.html:30
+#: accounts/templates/accounts/_account_form.html:37
+#: accounts/templates/accounts/_add_account_form.html:92
+#: core/templatetags/money.py:193
+msgid "Prepaid"
+msgstr "مسبقة الدفع"
+
+#: accounts/services.py:61
+#: accounts/templates/accounts/_account_edit_form.html:31
+#: accounts/templates/accounts/_account_form.html:38
+#: accounts/templates/accounts/_add_account_form.html:93
+#: core/templatetags/money.py:196
+msgid "Cash"
+msgstr "نقدي"
+
+#: accounts/services.py:62
+#: accounts/templates/accounts/_account_edit_form.html:32
+#: accounts/templates/accounts/_account_form.html:39
+#: accounts/templates/accounts/_add_account_form.html:94
+#: core/templatetags/money.py:194
+#: transactions/templates/transactions/_fawry_cashout_form.html:9
+msgid "Credit Card"
+msgstr "بطاقة ائتمانية"
+
+#: accounts/services.py:63
+#: accounts/templates/accounts/_account_edit_form.html:33
+#: accounts/templates/accounts/_account_edit_form.html:47
+#: accounts/templates/accounts/_account_form.html:40
+#: accounts/templates/accounts/_account_form.html:75
+#: accounts/templates/accounts/_add_account_form.html:95
+#: accounts/templates/accounts/_add_account_form.html:125
+#: core/templatetags/money.py:195
+msgid "Credit Limit"
+msgstr "حد ائتماني"
+
+#: accounts/services.py:90
+#, python-format
+msgid "%(field_name)s is required"
+msgstr "%(field_name)s مطلوب"
+
+#: accounts/services.py:163 accounts/services.py:228
+#, python-format
+msgid "invalid institution type: %(type)s"
+msgstr "نوع المؤسسة غير صالح: %(type)s"
+
+#: accounts/services.py:343
+msgid "institution_id is required"
+msgstr "معرف المؤسسة مطلوب"
+
+#: accounts/services.py:347
+msgid "Please select an account type"
+msgstr "يرجى اختيار نوع الحساب"
+
+#: accounts/services.py:349
+#, python-format
+msgid "Invalid account type: %(type)s"
+msgstr "نوع حساب غير صالح: %(type)s"
+
+#: accounts/services.py:362
+#, python-format
+msgid "invalid currency: %(currency)s"
+msgstr "عملة غير صالحة: %(currency)s"
+
+#: accounts/services.py:368
+#, python-format
+msgid "credit_limit is required for %(type)s accounts"
+msgstr "الحد الائتماني مطلوب لحسابات %(type)s"
+
+#: accounts/services.py:372
+msgid "cash accounts cannot have a credit limit"
+msgstr "لا يمكن أن تحتوي حسابات النقد على حد ائتماني"
+
+#: accounts/services.py:449
+msgid "account not found"
+msgstr "الحساب غير موجود"
+
+#: accounts/services.py:834
+#, python-format
+msgid "%(name)s balance (%(balance)s) is below minimum (%(min)s)"
+msgstr "رصيد %(name)s (%(balance)s) أقل من الحد الأدنى (%(min)s)"
+
+#: accounts/services.py:866
+#, python-format
+msgid "%(name)s is missing required monthly deposit (%(min)s)"
+msgstr "%(name)s يفتقر إلى الإيداع الشهري المطلوب (%(min)s)"
 
 #: accounts/templates/accounts/_account_edit_form.html:7
 msgid "Edit Account"
@@ -36,51 +139,6 @@ msgstr ""
 #: transactions/templates/transactions/batch_entry.html:16
 #: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:63
 msgid "Type"
-msgstr ""
-
-#: accounts/templates/accounts/_account_edit_form.html:28
-#: accounts/templates/accounts/_account_form.html:35
-#: accounts/templates/accounts/_add_account_form.html:90
-#: core/templatetags/money.py:192
-msgid "Current"
-msgstr "حساب جاري"
-
-#: accounts/templates/accounts/_account_edit_form.html:29
-#: accounts/templates/accounts/_account_form.html:36
-#: accounts/templates/accounts/_add_account_form.html:91
-#: core/templatetags/money.py:191
-msgid "Savings"
-msgstr "ادخار"
-
-#: accounts/templates/accounts/_account_edit_form.html:30
-#: accounts/templates/accounts/_account_form.html:37
-#: accounts/templates/accounts/_add_account_form.html:92
-#: core/templatetags/money.py:193
-msgid "Prepaid"
-msgstr "مسبقة الدفع"
-
-#: accounts/templates/accounts/_account_edit_form.html:31
-#: accounts/templates/accounts/_account_form.html:38
-#: accounts/templates/accounts/_add_account_form.html:93
-#: core/templatetags/money.py:196
-msgid "Cash"
-msgstr "نقدي"
-
-#: accounts/templates/accounts/_account_edit_form.html:32
-#: accounts/templates/accounts/_account_form.html:39
-#: accounts/templates/accounts/_add_account_form.html:94
-#: core/templatetags/money.py:194
-#: transactions/templates/transactions/_fawry_cashout_form.html:9
-msgid "Credit Card"
-msgstr ""
-
-#: accounts/templates/accounts/_account_edit_form.html:33
-#: accounts/templates/accounts/_account_edit_form.html:47
-#: accounts/templates/accounts/_account_form.html:40
-#: accounts/templates/accounts/_account_form.html:75
-#: accounts/templates/accounts/_add_account_form.html:95
-#: accounts/templates/accounts/_add_account_form.html:125
-msgid "Credit Limit"
 msgstr ""
 
 #: accounts/templates/accounts/_account_edit_form.html:37
@@ -563,11 +621,80 @@ msgstr ""
 msgid "Statement Unavailable"
 msgstr ""
 
-#: auth_app/templates/auth_app/auth.html:4
+#: auth_app/services.py:50
+msgid "A sign-in link was already sent. Please check your inbox."
+msgstr "تم إرسال رابط تسجيل الدخول مسبقًا. يرجى التحقق من بريدك الوارد."
+
+#: auth_app/services.py:53
+msgid "Please wait a few minutes before requesting another link."
+msgstr "يرجى الانتظار بضع دقائق قبل طلب رابط آخر."
+
+#: auth_app/services.py:56
+msgid ""
+"You've reached the daily limit for sign-in links. Please try again tomorrow."
+msgstr "لقد وصلت إلى الحد اليومي لروابط تسجيل الدخول. يرجى المحاولة غدًا."
+
+#: auth_app/services.py:60
+msgid "Our email system is temporarily at capacity. Please try again later."
+msgstr "نظام البريد الإلكتروني ممتلئ مؤقتًا. يرجى المحاولة لاحقًا."
+
+#: auth_app/services.py:63
+msgid "Please try again later."
+msgstr "يرجى المحاولة لاحقًا."
+
+#: auth_app/services.py:135 auth_app/services.py:141
+msgid "Sign in to ClearMoney"
+msgstr "تسجيل الدخول إلى ClearMoney"
+
+#: auth_app/services.py:136 auth_app/templates/auth_app/auth.html:4
 #: auth_app/templates/auth_app/auth.html:9 templates/base.html:15
 #: templates/components/header.html:4
 msgid "ClearMoney"
+msgstr "ClearMoney"
+
+#: auth_app/services.py:138
+msgid ""
+"Click the button below to sign in to your account. This link expires in 15 "
+"minutes."
 msgstr ""
+"انقر على الزر أدناه لتسجيل الدخول إلى حسابك. ينتهي هذا الرابط خلال 15 دقيقة."
+
+#: auth_app/services.py:143
+msgid "If you didn't request this link, you can safely ignore this email."
+msgstr "إذا لم تطلب هذا الرابط، يمكنك تجاهل هذه الرسالة بأمان."
+
+#: auth_app/services.py:146
+msgid "If the button doesn't work, copy and paste this URL into your browser:"
+msgstr "إذا لم يعمل الزر، انسخ والصق هذا الرابط في متصفحك:"
+
+#: auth_app/services.py:222
+msgid "Email is required"
+msgstr "البريد الإلكتروني مطلوب"
+
+#: auth_app/services.py:370
+msgid "Token is required"
+msgstr "الرمز مطلوب"
+
+#: auth_app/services.py:376
+msgid "Invalid or expired link"
+msgstr "رابط غير صالح أو منتهي الصلاحية"
+
+#: auth_app/services.py:380
+msgid "This link has already been used"
+msgstr "تم استخدام هذا الرابط مسبقًا"
+
+#: auth_app/services.py:384
+msgid "This link has expired"
+msgstr "انتهت صلاحية هذا الرابط"
+
+#: auth_app/services.py:396
+msgid "User not found"
+msgstr "المستخدم غير موجود"
+
+#: auth_app/services.py:410
+#, python-format
+msgid "Unknown token purpose: %(purpose)s"
+msgstr "غرض رمز غير معروف: %(purpose)s"
 
 #: auth_app/templates/auth_app/auth.html:10
 msgid "Enter your email to sign in or create an account"
@@ -799,9 +926,25 @@ msgstr "الحد الشهري لـ %(name)s"
 msgid "No budgets set. Create one above!"
 msgstr "لا توجد ميزانيات محددة. أنشئ واحدة أعلاه!"
 
-#: core/templatetags/money.py:195
-msgid "Credit Limit"
-msgstr "حد ائتماني"
+#: categories/services.py:189 categories/services.py:218
+msgid "category name is required"
+msgstr "اسم الفئة مطلوب"
+
+#: categories/services.py:193
+msgid "A category with this name already exists"
+msgstr "فئة بهذا الاسم موجودة بالفعل"
+
+#: categories/services.py:214
+msgid "system categories cannot be modified"
+msgstr "لا يمكن تعديل فئات النظام"
+
+#: categories/services.py:237
+msgid "category not found"
+msgstr "الفئة غير موجودة"
+
+#: categories/services.py:239
+msgid "system categories cannot be archived"
+msgstr "لا يمكن أرشفة فئات النظام"
 
 #: core/templatetags/money.py:208 recurring/templates/recurring/_form.html:18
 #: transactions/templates/transactions/_quick_entry.html:21
@@ -1244,6 +1387,26 @@ msgstr "تم السداد"
 #, python-format
 msgid "Payoff Progress (%(currency)s)"
 msgstr "تقدم السداد (%(currency)s)"
+
+#: push/services.py:68
+msgid "Credit Card Due Soon"
+msgstr "بطاقة الائتمان مستحقة قريباً"
+
+#: push/services.py:82
+msgid "Account Health Warning"
+msgstr "تحذير صحة الحساب"
+
+#: push/services.py:98
+msgid "Budget Exceeded"
+msgstr "تم تجاوز الميزانية"
+
+#: push/services.py:112
+msgid "Budget Warning"
+msgstr "تحذير الميزانية"
+
+#: push/services.py:134
+msgid "Recurring Transaction Due"
+msgstr "معاملة متكررة مستحقة"
 
 #: recurring/templates/recurring/_form.html:4
 msgid "New Recurring Rule"
@@ -1782,6 +1945,47 @@ msgstr ""
 msgid "Balance trend"
 msgstr ""
 
+#: transactions/services/crud.py:109
+#, python-format
+msgid "Account not found: %(id)s"
+msgstr "الحساب غير موجود: %(id)s"
+
+#: transactions/services/crud.py:124
+msgid "Amount must be positive"
+msgstr "يجب أن يكون المبلغ موجبًا"
+
+#: transactions/services/crud.py:126
+msgid "account_id is required"
+msgstr "معرف الحساب مطلوب"
+
+#: transactions/services/crud.py:129
+#, python-format
+msgid "Invalid transaction type: %(type)s"
+msgstr "نوع معاملة غير صالح: %(type)s"
+
+#: transactions/services/crud.py:203
+#, python-format
+msgid "Would exceed credit limit (available: %(available)s)"
+msgstr "سيتجاوز الحد الائتماني (المتاح: %(available)s)"
+
+#: transactions/services/crud.py:214 transactions/services/crud.py:675
+msgid "Transaction date cannot be in the future"
+msgstr "لا يمكن أن يكون تاريخ المعاملة في المستقبل"
+
+#: transactions/services/crud.py:271
+msgid "Fee must be greater than zero"
+msgstr "يجب أن تكون الرسوم أكبر من صفر"
+
+#: transactions/services/crud.py:371
+msgid "Parent transaction not found"
+msgstr "المعاملة الأصل غير موجودة"
+
+#: transactions/services/crud.py:646 transactions/services/crud.py:696
+#: transactions/services/crud.py:724
+#, python-format
+msgid "Transaction not found: %(id)s"
+msgstr "المعاملة غير موجودة: %(id)s"
+
 #: transactions/templates/transactions/_exchange_form.html:4
 msgid "Currency Exchange"
 msgstr ""
@@ -2220,53 +2424,3 @@ msgstr "يتجاوز رصيد الحساب (%(va_balance)s)"
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:105
 msgid "No virtual accounts yet. Create one above!"
 msgstr "لا توجد حسابات افتراضية بعد. أنشئ واحدة أعلاه!"
-
-#: push/services.py
-msgid "Credit Card Due Soon"
-msgstr "بطاقة الائتمان مستحقة قريباً"
-
-#: push/services.py
-msgid "Account Health Warning"
-msgstr "تحذير صحة الحساب"
-
-#: push/services.py
-msgid "Budget Exceeded"
-msgstr "تم تجاوز الميزانية"
-
-#: push/services.py
-msgid "Budget Warning"
-msgstr "تحذير الميزانية"
-
-#: push/services.py
-msgid "Recurring Transaction Due"
-msgstr "معاملة متكررة مستحقة"
-
-#: auth_app/services.py
-msgid "Sign in to ClearMoney"
-msgstr "تسجيل الدخول إلى ClearMoney"
-
-#: auth_app/services.py
-msgid "ClearMoney"
-msgstr "ClearMoney"
-
-#: auth_app/services.py
-msgid ""
-"Click the button below to sign in to your account. "
-"This link expires in 15 minutes."
-msgstr ""
-"انقر على الزر أدناه لتسجيل الدخول إلى حسابك. "
-"ينتهي هذا الرابط خلال 15 دقيقة."
-
-#: auth_app/services.py
-msgid ""
-"If you didn't request this link, you can safely ignore "
-"this email."
-msgstr ""
-"إذا لم تطلب هذا الرابط، يمكنك تجاهل هذه الرسالة بأمان."
-
-#: auth_app/services.py
-msgid ""
-"If the button doesn't work, copy and paste this URL into "
-"your browser:"
-msgstr ""
-"إذا لم يعمل الزر، انسخ والصق هذا الرابط في متصفحك:"

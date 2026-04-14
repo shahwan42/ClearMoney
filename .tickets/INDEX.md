@@ -7,7 +7,6 @@ Last updated: 2026-04-14
 _Nothing in progress._
 
 ## Pending
-| [036](pending/036-i18n-validation-errors.md) | i18n — auth + validation error messages | feature | medium | 2026-03-30 |
 | [037](pending/037-i18n-push-notifications-email.md) | i18n — push notifications + email template | feature | medium | 2026-03-30 |
 | [038](pending/038-category-name-jsonb.md) | Category name → JSONB migration | feature | high | 2026-03-30 |
 | [039](pending/039-bilingual-category-seeding.md) | Bilingual category seeding | feature | medium | 2026-03-30 |
@@ -90,6 +89,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [036](done/036-i18n-validation-errors.md) | i18n — auth + validation error messages | feature | medium | 2026-04-14 |
 | [035](done/035-i18n-template-tag-labels.md) | i18n — template tags (account type + transaction type labels) | feature | medium | 2026-04-14 |
 | [034](done/034-i18n-remaining-templates.md) | i18n strings — recurring + investments + reports + settings + exchange rates | feature | medium | 2026-04-14 |
 | [033](done/033-i18n-budgets-people-virtual.md) | i18n strings — budgets + people + virtual accounts | feature | medium | 2026-04-14 |

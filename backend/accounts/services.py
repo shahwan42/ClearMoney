@@ -18,7 +18,8 @@ from django.db import IntegrityError
 from django.db.models import F, Q, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 
 from accounts.models import Account, AccountSnapshot, Institution
 from accounts.types import (
@@ -54,12 +55,12 @@ VALID_CURRENCIES = {"EGP", "USD"}
 
 # Human-readable labels for auto-generated account names
 ACCOUNT_TYPE_LABELS: dict[str, Any] = {
-    "savings": _("Savings"),
-    "current": _("Current"),
-    "prepaid": _("Prepaid"),
-    "cash": _("Cash"),
-    "credit_card": _("Credit Card"),
-    "credit_limit": _("Credit Limit"),
+    "savings": gettext_lazy("Savings"),
+    "current": gettext_lazy("Current"),
+    "prepaid": gettext_lazy("Prepaid"),
+    "cash": gettext_lazy("Cash"),
+    "credit_card": gettext_lazy("Credit Card"),
+    "credit_limit": gettext_lazy("Credit Limit"),
 }
 
 
@@ -86,7 +87,7 @@ def _require_trimmed_name(value: str, field_name: str) -> str:
     """Trim whitespace, raise ValueError if empty."""
     trimmed = value.strip() if value else ""
     if not trimmed:
-        raise ValueError(f"{field_name} is required")
+        raise ValueError(_("%(field_name)s is required") % {"field_name": field_name})
     return trimmed
 
 
@@ -158,7 +159,9 @@ class InstitutionService:
         if not inst_type:
             inst_type = "bank"
         if inst_type not in VALID_INSTITUTION_TYPES:
-            raise ValueError(f"invalid institution type: {inst_type}")
+            raise ValueError(
+                _("invalid institution type: %(type)s") % {"type": inst_type}
+            )
 
         inst = Institution.objects.create(
             user_id=self.user_id,
@@ -221,7 +224,9 @@ class InstitutionService:
         """
         name = _require_trimmed_name(name, "institution name")
         if inst_type not in VALID_INSTITUTION_TYPES:
-            raise ValueError(f"invalid institution type: {inst_type}")
+            raise ValueError(
+                _("invalid institution type: %(type)s") % {"type": inst_type}
+            )
         row = (
             self._qs()
             .filter(name__iexact=name, type=inst_type)
@@ -335,13 +340,13 @@ class AccountService:
         raw_name = (data.get("name", "") or "").strip()
         institution_id = data.get("institution_id", "")
         if not institution_id:
-            raise ValueError("institution_id is required")
+            raise ValueError(_("institution_id is required"))
 
         acc_type = data.get("type", "").strip() if data.get("type") else ""
         if not acc_type:
-            raise ValueError("Please select an account type")
+            raise ValueError(_("Please select an account type"))
         if acc_type not in VALID_ACCOUNT_TYPES:
-            raise ValueError(f"Invalid account type: {acc_type}")
+            raise ValueError(_("Invalid account type: %(type)s") % {"type": acc_type})
 
         # Auto-generate name from institution + type if left blank
         if raw_name:
@@ -353,13 +358,17 @@ class AccountService:
 
         currency = data.get("currency", "EGP")
         if currency not in VALID_CURRENCIES:
-            raise ValueError(f"invalid currency: {currency}")
+            raise ValueError(
+                _("invalid currency: %(currency)s") % {"currency": currency}
+            )
 
         credit_limit = data.get("credit_limit")
         if acc_type in CREDIT_ACCOUNT_TYPES and credit_limit is None:
-            raise ValueError(f"credit_limit is required for {acc_type} accounts")
+            raise ValueError(
+                _("credit_limit is required for %(type)s accounts") % {"type": acc_type}
+            )
         if acc_type == "cash" and credit_limit is not None:
-            raise ValueError("cash accounts cannot have a credit limit")
+            raise ValueError(_("cash accounts cannot have a credit limit"))
 
         initial_balance = data.get("initial_balance", 0.0)
 
@@ -436,7 +445,7 @@ class AccountService:
             # Delete the account (CASCADE to transactions, snapshots, etc.)
             count, _ = self._qs().filter(id=account_id).delete()
             if count == 0:
-                return "account not found"
+                return str(_("account not found"))
             logger.info("account.deleted id=%s user=%s", account_id, self.user_id)
             return None
         except IntegrityError:
@@ -820,10 +829,14 @@ def load_health_warnings(
                     account_name=acc_name,
                     account_id=acc_id,
                     rule="min_balance",
-                    message=(
-                        f"{acc_name} balance ({Decimal(str(current_balance)):,.2f})"
-                        f" is below minimum ({Decimal(str(min_balance)):,.2f})"
-                    ),
+                    message=_(
+                        "%(name)s balance (%(balance)s) is below minimum (%(min)s)"
+                    )
+                    % {
+                        "name": acc_name,
+                        "balance": f"{Decimal(str(current_balance)):,.2f}",
+                        "min": f"{Decimal(str(min_balance)):,.2f}",
+                    },
                 )
             )
 
@@ -848,10 +861,13 @@ def load_health_warnings(
                         account_name=acc_name,
                         account_id=acc_id,
                         rule="min_monthly_deposit",
-                        message=(
-                            f"{acc_name} is missing required monthly deposit"
-                            f" ({Decimal(str(min_deposit)):,.2f})"
-                        ),
+                        message=_(
+                            "%(name)s is missing required monthly deposit (%(min)s)"
+                        )
+                        % {
+                            "name": acc_name,
+                            "min": f"{Decimal(str(min_deposit)):,.2f}",
+                        },
                     )
                 )
 

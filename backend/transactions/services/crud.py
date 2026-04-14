@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 from django.db import connection, transaction
 from django.db.models import F
 from django.utils import timezone as django_tz
+from django.utils.translation import gettext as _
 
 from accounts.models import Account
 from categories.models import Category
@@ -105,7 +106,7 @@ class TransactionServiceBase:
             .first()
         )
         if not acc:
-            raise ValueError(f"Account not found: {account_id}")
+            raise ValueError(_("Account not found: %(id)s") % {"id": account_id})
         return {
             "id": str(acc["id"]),
             "name": acc["name"],
@@ -120,11 +121,13 @@ class TransactionServiceBase:
     def _validate_basic(self, amount: Decimal, account_id: str, tx_type: str) -> None:
         """Validate basic transaction fields."""
         if amount <= 0:
-            raise ValueError("Amount must be positive")
+            raise ValueError(_("Amount must be positive"))
         if not account_id:
-            raise ValueError("account_id is required")
+            raise ValueError(_("account_id is required"))
         if tx_type not in VALID_TX_TYPES:
-            raise ValueError(f"Invalid transaction type: {tx_type}")
+            raise ValueError(
+                _("Invalid transaction type: %(type)s") % {"type": tx_type}
+            )
 
     def _scan_tx_row(self, row: tuple[Any, ...], columns: list[str]) -> dict[str, Any]:
         """Convert a DB row tuple to a transaction dict.
@@ -197,7 +200,8 @@ class TransactionServiceBase:
             if new_balance < -acc["credit_limit"]:
                 available = acc["credit_limit"] + acc["current_balance"]
                 raise ValueError(
-                    f"Would exceed credit limit (available: {available:.2f})"
+                    _("Would exceed credit limit (available: %(available)s)")
+                    % {"available": f"{available:.2f}"}
                 )
 
         tx_id = uuid.uuid4()
@@ -207,7 +211,7 @@ class TransactionServiceBase:
 
         # Validate transaction date is not in the future
         if tx_date > date.today():
-            raise ValueError("Transaction date cannot be in the future")
+            raise ValueError(_("Transaction date cannot be in the future"))
 
         category_id = _to_str(data.get("category_id"))
         note = _to_str(data.get("note"))
@@ -264,7 +268,7 @@ class TransactionServiceBase:
         """
         fee = Decimal(str(fee_amount))
         if fee <= 0:
-            raise ValueError("Fee must be greater than zero")
+            raise ValueError(_("Fee must be greater than zero"))
 
         account_id = parent_tx["account_id"]
         currency = parent_tx["currency"]
@@ -364,7 +368,7 @@ class TransactionServiceBase:
         if new_fee:
             parent_tx = self.get_by_id(tx_id)
             if not parent_tx:
-                raise ValueError("Parent transaction not found")
+                raise ValueError(_("Parent transaction not found"))
             self.create_fee_for_transaction(
                 parent_tx=parent_tx,
                 fee_amount=new_fee,
@@ -639,7 +643,7 @@ class TransactionServiceBase:
         """
         old = self.get_by_id(tx_id)
         if not old:
-            raise ValueError(f"Transaction not found: {tx_id}")
+            raise ValueError(_("Transaction not found: %(id)s") % {"id": tx_id})
 
         tx_type = data.get("type", old["type"])
         amount_raw = data.get("amount", old["amount"])
@@ -668,7 +672,7 @@ class TransactionServiceBase:
 
         # Validate transaction date is not in the future
         if tx_date > date.today():
-            raise ValueError("Transaction date cannot be in the future")
+            raise ValueError(_("Transaction date cannot be in the future"))
 
         now = django_tz.now()
 
@@ -689,7 +693,7 @@ class TransactionServiceBase:
                 )
             )
             if updated_count == 0:
-                raise ValueError(f"Transaction not found: {tx_id}")
+                raise ValueError(_("Transaction not found: %(id)s") % {"id": tx_id})
 
             # Atomic F() update — only adjusts by the difference (newDelta - oldDelta)
             if balance_adjustment != 0:
@@ -717,7 +721,7 @@ class TransactionServiceBase:
         """
         tx = self.get_by_id(tx_id)
         if not tx:
-            raise ValueError(f"Transaction not found: {tx_id}")
+            raise ValueError(_("Transaction not found: %(id)s") % {"id": tx_id})
 
         is_linked = tx["linked_transaction_id"] is not None
         now = django_tz.now()

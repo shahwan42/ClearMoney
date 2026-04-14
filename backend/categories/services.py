@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Count, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
+from django.utils.translation import gettext as _
 
 from categories.models import Category
 from transactions.models import Transaction
@@ -185,11 +186,11 @@ class CategoryService:
         """
         name = name.strip() if name else ""
         if not name:
-            raise ValueError("category name is required")
+            raise ValueError(_("category name is required"))
 
         # Reject duplicate names (case-insensitive) for this user
         if self._qs().filter(name__iexact=name, is_archived=False).exists():
-            raise ValueError("A category with this name already exists")
+            raise ValueError(_("A category with this name already exists"))
 
         cat = Category.objects.create(
             user_id=self.user_id,
@@ -210,11 +211,11 @@ class CategoryService:
         if not existing:
             return None
         if existing["is_system"]:
-            raise ValueError("system categories cannot be modified")
+            raise ValueError(_("system categories cannot be modified"))
 
         name = name.strip() if name else ""
         if not name:
-            raise ValueError("category name is required")
+            raise ValueError(_("category name is required"))
 
         updated = (
             self._qs()
@@ -233,9 +234,9 @@ class CategoryService:
         """
         existing = self.get_by_id(cat_id)
         if not existing:
-            raise ValueError("category not found")
+            raise ValueError(_("category not found"))
         if existing["is_system"]:
-            raise ValueError("system categories cannot be archived")
+            raise ValueError(_("system categories cannot be archived"))
 
         deleted = (
             self._qs()
