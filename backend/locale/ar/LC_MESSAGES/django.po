@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ClearMoney\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-10 06:00+0200\n"
+"POT-Creation-Date: 2026-04-14 12:36+0200\n"
 "PO-Revision-Date: 2026-04-14 00:00+0200\n"
 "Last-Translator: \n"
 "Language-Team: Arabic\n"
@@ -17,256 +17,425 @@ msgstr ""
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
 
-#: templates/base.html:11
-#: auth_app/templates/auth_app/auth.html:8
+#: auth_app/templates/auth_app/auth.html:4
+#: auth_app/templates/auth_app/auth.html:9 templates/base.html:15
+#: templates/components/header.html:4
 msgid "ClearMoney"
 msgstr "كلير ماني"
 
-#: auth_app/templates/auth_app/auth.html:9
+#: auth_app/templates/auth_app/auth.html:10
 msgid "Enter your email to sign in or create an account"
 msgstr "أدخل بريدك الإلكتروني لتسجيل الدخول أو إنشاء حساب"
 
 #: auth_app/templates/auth_app/auth.html:29
+#: auth_app/templates/auth_app/auth.html:34
 msgid "Email address"
 msgstr "البريد الإلكتروني"
 
-#: auth_app/templates/auth_app/auth.html:34
+#: auth_app/templates/auth_app/auth.html:33
 msgid "you@example.com"
 msgstr "you@example.com"
 
-#: auth_app/templates/auth_app/auth.html:44
+#: auth_app/templates/auth_app/auth.html:43
 msgid "Continue with email"
 msgstr "متابعة عبر البريد الإلكتروني"
 
-#: auth_app/templates/auth_app/check_email.html:3
+#: auth_app/templates/auth_app/check_email.html:4
 msgid "ClearMoney - Check Your Email"
 msgstr "كلير ماني - تحقق من بريدك الإلكتروني"
 
-#: auth_app/templates/auth_app/check_email.html:14
+#: auth_app/templates/auth_app/check_email.html:15
 msgid "Welcome to ClearMoney!"
 msgstr "مرحباً بك في كير ماني!"
 
-#: auth_app/templates/auth_app/check_email.html:16
-msgid "We sent a link to %(user_email)s. Click it to activate your account."
-msgstr "أرسلنا رابطاً إلى %(user_email)s. انقر عليه لتفعيل حسابك."
-
-#: auth_app/templates/auth_app/check_email.html:16
+#: auth_app/templates/auth_app/check_email.html:17
+#: auth_app/templates/auth_app/check_email.html:22
 msgid "your email"
 msgstr "بريدك الإلكتروني"
 
-#: auth_app/templates/auth_app/check_email.html:21
+#: auth_app/templates/auth_app/check_email.html:17
+#, python-format
+msgid "We sent a link to %(user_email)s. Click it to activate your account."
+msgstr "أرسلنا رابطاً إلى %(user_email)s. انقر عليه لتفعيل حسابك."
+
+#: auth_app/templates/auth_app/check_email.html:20
 msgid "Check your email"
 msgstr "تحقق من بريدك الإلكتروني"
 
-#: auth_app/templates/auth_app/check_email.html:23
+#: auth_app/templates/auth_app/check_email.html:22
+#, python-format
 msgid "We sent a sign-in link to %(user_email)s. Click the link to sign in."
-msgstr "أرسلنا رابط تسجيل الدخول إلى %(user_email)s. انقر على الرابط لتسجيل الدخول."
+msgstr ""
+"أرسلنا رابط تسجيل الدخول إلى %(user_email)s. انقر على الرابط لتسجيل الدخول."
 
-#: auth_app/templates/auth_app/check_email.html:31
-msgid "The link expires in 15 minutes. Check your spam folder if you don't see it."
+#: auth_app/templates/auth_app/check_email.html:29
+msgid ""
+"The link expires in 15 minutes. Check your spam folder if you don't see it."
 msgstr "الرابط صالح لمدة 15 دقيقة. تحقق من مجلد البريد العشوائي إذا لم تجده."
 
-#: auth_app/templates/auth_app/check_email.html:35
-msgid "Already requested a link? Check your inbox — a previously sent link may still be valid."
-msgstr "طلبت رابطاً بالفعل؟ تحقق من صندوق الوارد — قد يكون رابط أرسل سابقاً لا يزال صالحاً."
+#: auth_app/templates/auth_app/check_email.html:33
+msgid ""
+"Already requested a link? Check your inbox — a previously sent link may "
+"still be valid."
+msgstr ""
+"طلبت رابطاً بالفعل؟ تحقق من صندوق الوارد — قد يكون رابط أرسل سابقاً لا يزال "
+"صالحاً."
 
-#: auth_app/templates/auth_app/check_email.html:42
+#: auth_app/templates/auth_app/check_email.html:39
 msgid "Back to sign in"
 msgstr "العودة لتسجيل الدخول"
 
-#: auth_app/templates/auth_app/link_expired.html:3
+#: auth_app/templates/auth_app/link_expired.html:4
 msgid "ClearMoney - Link Expired"
 msgstr "كلير ماني - الرابط منتهي الصلاحية"
 
-#: auth_app/templates/auth_app/link_expired.html:13
+#: auth_app/templates/auth_app/link_expired.html:14
 msgid "Link expired"
 msgstr "الرابط منتهي الصلاحية"
 
-#: auth_app/templates/auth_app/link_expired.html:15
-msgid "This sign-in link is no longer valid. It may have expired or already been used."
-msgstr "رابط تسجيل الدخول هذا لم يعد صالحاً. قد يكون منتهي الصلاحية أو تم استخدامه بالفعل."
+#: auth_app/templates/auth_app/link_expired.html:16
+msgid ""
+"This sign-in link is no longer valid. It may have expired or already been "
+"used."
+msgstr ""
+"رابط تسجيل الدخول هذا لم يعد صالحاً. قد يكون منتهي الصلاحية أو تم استخدامه "
+"بالفعل."
 
-#: auth_app/templates/auth_app/link_expired.html:21
+#: auth_app/templates/auth_app/link_expired.html:22
 msgid "Request a new link"
 msgstr "طلب رابط جديد"
 
-#: templates/components/header.html
-msgid "Toggle dark mode"
-msgstr "تبديل الوضع المظلم"
-
-#: templates/components/header.html
-msgid "Reports"
-msgstr "التقارير"
-
-#: templates/components/header.html
-msgid "Settings"
-msgstr "الإعدادات"
-
-#: templates/components/bottom-nav.html
-msgid "Main navigation"
-msgstr "التنقل الرئيسي"
-
-#: templates/components/bottom-nav.html
-msgid "Home"
-msgstr "الرئيسية"
-
-#: templates/components/bottom-nav.html
-msgid "History"
-msgstr "السجل"
-
-#: templates/components/bottom-nav.html
-msgid "Add transaction"
-msgstr "إضافة معاملة"
-
-#: templates/components/bottom-nav.html
+#: dashboard/templates/dashboard/_accounts.html:5
+#: templates/components/bottom-nav.html:29
 msgid "Accounts"
 msgstr "الحسابات"
 
-#: templates/components/bottom-nav.html
-msgid "More menu"
-msgstr "المزيد"
+#: dashboard/templates/dashboard/_accounts.html:6
+#: dashboard/templates/dashboard/_budgets.html:7
+#: dashboard/templates/dashboard/_people_summary.html:6
+#: dashboard/templates/dashboard/_virtual_accounts.html:7
+msgid "Manage"
+msgstr "إدارة"
 
-#: templates/components/bottom-nav.html
-msgid "More"
-msgstr "المزيد"
+#: dashboard/templates/dashboard/_accounts.html:49
+msgid ""
+"No accounts yet. <a href=\"/accounts\" class=\"text-teal-600 underline\">Add "
+"your first account</a>"
+msgstr ""
+"لا توجد حسابات بعد. <a href=\"/accounts\" class=\"text-teal-600 underline\">أضف "
+"حسابك الأول</a>"
 
-#: templates/components/bottom-nav.html
-msgid "Quick entry"
-msgstr "إدخال سريع"
-
-#: templates/components/bottom-nav.html
-msgid "Transaction"
-msgstr "معاملة"
-
-#: templates/components/bottom-nav.html
-msgid "Move Money"
-msgstr "تحويل الأموال"
-
-#: templates/components/bottom-nav.html
-msgid "Money Management"
-msgstr "إدارة المال"
-
-#: templates/components/bottom-nav.html
-msgid "People"
-msgstr "الأشخاص"
-
-#: templates/components/bottom-nav.html
-msgid "Track loans and debts"
-msgstr "تتبع القروض والديون"
-
-#: templates/components/bottom-nav.html
+#: dashboard/templates/dashboard/_budgets.html:6
+#: templates/components/bottom-nav.html:104
 msgid "Budgets"
 msgstr "الميزانيات"
 
-#: templates/components/bottom-nav.html
-msgid "Monthly spending limits"
-msgstr "حدود الإنفاق الشهرية"
+#: dashboard/templates/dashboard/_credit_cards.html:5
+msgid "Credit Cards"
+msgstr "بطاقات الائتمان"
 
-#: templates/components/bottom-nav.html
-msgid "Virtual Accounts"
-msgstr "الحسابات الافتراضية"
+#: dashboard/templates/dashboard/_credit_cards.html:28
+#: dashboard/templates/dashboard/_due_date_warning.html:13
+msgid "Due"
+msgstr "مستحق"
 
-#: templates/components/bottom-nav.html
-msgid "Envelope budgeting"
-msgstr "الميزنة بالمظاريف"
+#: dashboard/templates/dashboard/_credit_cards.html:29
+msgid "d"
+msgstr "ي"
 
-#: templates/components/bottom-nav.html
+#: dashboard/templates/dashboard/_credit_cards.html:43
+#, python-format
+msgid "Record payment for %(name)s"
+msgstr "تسجيل دفعة لـ %(name)s"
+
+#: dashboard/templates/dashboard/_credit_cards.html:44
+msgid "Pay"
+msgstr "ادفع"
+
+#: dashboard/templates/dashboard/_credit_cards.html:48
+msgid "Statement"
+msgstr "كشف حساب"
+
+#: dashboard/templates/dashboard/_due_date_warning.html:12
+#, python-format
+msgid "%(name)s due in %(days)s days"
+msgstr "%(name)s مستحق خلال %(days)s يوم"
+
+#: dashboard/templates/dashboard/_due_date_warning.html:13
+msgid "Balance:"
+msgstr "الرصيد:"
+
+#: dashboard/templates/dashboard/_empty_state.html:6
+msgid "Welcome to ClearMoney"
+msgstr "مرحباً بك في كير ماني"
+
+#: dashboard/templates/dashboard/_empty_state.html:7
+msgid "Start by adding your bank accounts to track your finances."
+msgstr "ابدأ بإضافة حساباتك البنكية لتتبع أموالك."
+
+#: dashboard/templates/dashboard/_empty_state.html:9
+msgid "Add Your First Account"
+msgstr "أضف حسابك الأول"
+
+#: dashboard/templates/dashboard/_investments.html:5
+#: templates/components/bottom-nav.html:122
 msgid "Investments"
 msgstr "الاستثمارات"
 
-#: templates/components/bottom-nav.html
-msgid "Track portfolio value"
-msgstr "تتبع قيمة المحفظة"
+#: dashboard/templates/dashboard/_net_worth.html:4
+msgid "Net Worth"
+msgstr "صافي الثروة"
 
-#: templates/components/bottom-nav.html
-msgid "Automation"
-msgstr "الأتمتة"
+#: dashboard/templates/dashboard/_net_worth.html:45
+msgid "Liquid Cash"
+msgstr "النقد السائل"
 
-#: templates/components/bottom-nav.html
-msgid "Recurring Rules"
-msgstr "القواعد المتكررة"
+#: dashboard/templates/dashboard/_net_worth.html:52
+msgid "Credit Used"
+msgstr "الرصيد المستخدم"
 
-#: templates/components/bottom-nav.html
-msgid "Auto-create transactions"
-msgstr "إنشاء معاملات تلقائياً"
+#: dashboard/templates/dashboard/_net_worth.html:61
+msgid "Credit Available"
+msgstr "الرصيد المتاح"
 
-#: templates/components/bottom-nav.html
-msgid "Batch Entry"
-msgstr "الإدخال الجماعي"
+#: dashboard/templates/dashboard/_net_worth.html:68
+msgid "Debt"
+msgstr "الديون"
 
-#: templates/components/bottom-nav.html
-msgid "Add multiple transactions"
-msgstr "إضافة معاملات متعددة"
+#: dashboard/templates/dashboard/_net_worth_breakdown.html:37
+msgid "No accounts contribute to this total."
+msgstr "لا توجد حسابات تساهم في هذا الإجمالي."
 
-#: templates/components/bottom-nav.html
-#: templates/404.html
-#: templates/429.html
-#: templates/500.html
-msgid "Reports"
-msgstr "التقارير"
+#: dashboard/templates/dashboard/_people_summary.html:5
+#: templates/components/bottom-nav.html:95
+msgid "People"
+msgstr "الأشخاص"
 
-#: templates/components/bottom-nav.html
-#: templates/components/header.html
-#: templates/404.html
-#: templates/429.html
-#: templates/500.html
-msgid "Settings"
-msgstr "الإعدادات"
+#: dashboard/templates/dashboard/_people_summary.html:12
+#, python-format
+msgid "Owed to me (%(currency)s)"
+msgstr "مستحق لي (%(currency)s)"
 
-#: templates/components/chart_sparkline.html
-msgid "Balance trend"
-msgstr "اتجاه الرصيد"
+#: dashboard/templates/dashboard/_people_summary.html:16
+#, python-format
+msgid "I owe (%(currency)s)"
+msgstr "أدفع (%(currency)s)"
 
-#: templates/base.html
-msgid "Failed to save changes. Check your connection and try again."
-msgstr "فشل حفظ التغييرات. تحقق من اتصالك وحاول مرة أخرى."
+#: dashboard/templates/dashboard/_people_summary.html:24
+msgid "Owed to me"
+msgstr "مستحق لي"
 
-#: templates/base.html
-msgid "Network error. Unable to send request. Check your connection and try again."
-msgstr "خطأ في الشبكة. تعذر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى."
+#: dashboard/templates/dashboard/_people_summary.html:28
+msgid "I owe"
+msgstr "أدفع"
 
-#: templates/base.html
-msgid "Request timed out. Check your connection and try again."
-msgstr "انتهت مهلة الطلب. تحقق من اتصالك وحاول مرة أخرى."
+#: dashboard/templates/dashboard/_recent_transactions.html:13
+msgid "No transactions yet."
+msgstr "لا توجد معاملات بعد."
 
-#: templates/base.html
-msgid "Retry"
-msgstr "إعادة المحاولة"
+#: dashboard/templates/dashboard/_recent_transactions.html:14
+msgid "Tap + to record your first transaction."
+msgstr "انقر على + لتسجيل أول معاملة."
 
-#: templates/404.html
+#: dashboard/templates/dashboard/_spending.html:6
+msgid "This Month vs Last"
+msgstr "هذا الشهر مقابل الشهر الماضي"
+
+#: dashboard/templates/dashboard/_spending.html:22
+msgid "This month"
+msgstr "هذا الشهر"
+
+#: dashboard/templates/dashboard/_spending.html:31
+msgid "Last month"
+msgstr "الشهر الماضي"
+
+#: dashboard/templates/dashboard/_spending.html:58
+msgid "Spending Pace"
+msgstr "معدل الإنفاق"
+
+#: dashboard/templates/dashboard/_spending.html:60
+msgid "of last month"
+msgstr "من الشهر الماضي"
+
+#: dashboard/templates/dashboard/_spending.html:61
+#, python-format
+msgid "%(days)s d left"
+msgstr "%(days)s يوم متبقي"
+
+#: dashboard/templates/dashboard/_streak.html:6
+#, python-format
+msgid "%(days)s-day streak"
+msgstr "سلسلة %(days)s يوم"
+
+#: dashboard/templates/dashboard/_streak.html:8
+#, python-format
+msgid "%(count)s this week"
+msgstr "%(count)s هذا الأسبوع"
+
+#: dashboard/templates/dashboard/_streak.html:11
+msgid "Log today to keep it!"
+msgstr "سجّل اليوم للحفاظ عليها!"
+
+#: dashboard/templates/dashboard/_virtual_accounts.html:6
+#: templates/components/bottom-nav.html:113
+msgid "Virtual Accounts"
+msgstr "الحسابات الافتراضية"
+
+#: dashboard/templates/dashboard/home.html:5
+msgid "ClearMoney - Dashboard"
+msgstr "كلير ماني - لوحة التحكم"
+
+#: dashboard/templates/dashboard/home.html:53
+msgid "Recent Transactions"
+msgstr "المعاملات الأخيرة"
+
+#: dashboard/templates/dashboard/home.html:54
+msgid "View All"
+msgstr "عرض الكل"
+
+#: templates/404.html:3
 msgid "Page Not Found"
 msgstr "الصفحة غير موجودة"
 
-#: templates/404.html
+#: templates/404.html:7
 msgid "Page not found"
 msgstr "الصفحة غير موجودة"
 
-#: templates/404.html
+#: templates/404.html:9
 msgid "The page you're looking for doesn't exist or has been moved."
 msgstr "الصفحة التي تبحث عنها غير موجودة أو تم نقلها."
 
-#: templates/429.html
+#: templates/404.html:12 templates/429.html:12 templates/500.html:18
+msgid "Go to Dashboard"
+msgstr "الذهاب إلى لوحة التحكم"
+
+#: templates/429.html:3
 msgid "Too Many Requests"
 msgstr "طلبات كثيرة جداً"
 
-#: templates/429.html
+#: templates/429.html:7
 msgid "Too many requests"
 msgstr "طلبات كثيرة جداً"
 
-#: templates/429.html
+#: templates/429.html:9
 msgid "Please slow down and try again in a few seconds."
 msgstr "يرجى الإبطاء والمحاولة مرة أخرى خلال بضع ثوان."
 
-#: templates/500.html
+#: templates/500.html:7 templates/500.html:13
 msgid "Something went wrong"
 msgstr "حدث خطأ ما"
 
-#: templates/500.html
+#: templates/500.html:15
 msgid "We're working on fixing this. Please try again in a moment."
 msgstr "نحن نعمل على إصلاح هذا. يرجى المحاولة مرة أخرى قريباً."
 
-#: templates/404.html
-#: templates/429.html
-#: templates/500.html
-msgid "Go to Dashboard"
-msgstr "الذهاب إلى لوحة التحكم"
+#: templates/base.html:2
+msgid "Failed to save changes. Check your connection and try again."
+msgstr "فشل حفظ التغييرات. تحقق من اتصالك وحاول مرة أخرى."
+
+#: templates/base.html:3
+msgid ""
+"Network error. Unable to send request. Check your connection and try again."
+msgstr "خطأ في الشبكة. تعذر إرسال الطلب. تحقق من اتصالك وحاول مرة أخرى."
+
+#: templates/base.html:4
+msgid "Request timed out. Check your connection and try again."
+msgstr "انتهت مهلة الطلب. تحقق من اتصالك وحاول مرة أخرى."
+
+#: templates/base.html:5
+msgid "Retry"
+msgstr "إعادة المحاولة"
+
+#: templates/components/bottom-nav.html:3
+msgid "Main navigation"
+msgstr "التنقل الرئيسي"
+
+#: templates/components/bottom-nav.html:8
+msgid "Home"
+msgstr "الرئيسية"
+
+#: templates/components/bottom-nav.html:15
+msgid "History"
+msgstr "السجل"
+
+#: templates/components/bottom-nav.html:19
+msgid "Add transaction"
+msgstr "إضافة معاملة"
+
+#: templates/components/bottom-nav.html:33
+#: templates/components/bottom-nav.html:82
+msgid "More menu"
+msgstr "المزيد"
+
+#: templates/components/bottom-nav.html:42
+msgid "More"
+msgstr "المزيد"
+
+#: templates/components/bottom-nav.html:50
+msgid "Quick entry"
+msgstr "إدخال سريع"
+
+#: templates/components/bottom-nav.html:62
+msgid "Transaction"
+msgstr "معاملة"
+
+#: templates/components/bottom-nav.html:71
+msgid "Move Money"
+msgstr "تحويل الأموال"
+
+#: templates/components/bottom-nav.html:88
+msgid "Money Management"
+msgstr "إدارة المال"
+
+#: templates/components/bottom-nav.html:96
+msgid "Track loans and debts"
+msgstr "تتبع القروض والديون"
+
+#: templates/components/bottom-nav.html:105
+msgid "Monthly spending limits"
+msgstr "حدود الإنفاق الشهرية"
+
+#: templates/components/bottom-nav.html:114
+msgid "Envelope budgeting"
+msgstr "الميزنة بالمظاريف"
+
+#: templates/components/bottom-nav.html:123
+msgid "Track portfolio value"
+msgstr "تتبع قيمة المحفظة"
+
+#: templates/components/bottom-nav.html:129
+msgid "Automation"
+msgstr "الأتمتة"
+
+#: templates/components/bottom-nav.html:136
+msgid "Recurring Rules"
+msgstr "القواعد المتكررة"
+
+#: templates/components/bottom-nav.html:137
+msgid "Auto-create transactions"
+msgstr "إنشاء معاملات تلقائياً"
+
+#: templates/components/bottom-nav.html:145
+msgid "Batch Entry"
+msgstr "الإدخال الجماعي"
+
+#: templates/components/bottom-nav.html:146
+msgid "Add multiple transactions"
+msgstr "إضافة معاملات متعددة"
+
+#: templates/components/bottom-nav.html:157 templates/components/header.html:7
+msgid "Reports"
+msgstr "التقارير"
+
+#: templates/components/bottom-nav.html:164 templates/components/header.html:12
+msgid "Settings"
+msgstr "الإعدادات"
+
+#: templates/components/chart_sparkline.html:3
+#: templates/components/chart_sparkline.html:4
+msgid "Balance trend"
+msgstr "اتجاه الرصيد"
+
+#: templates/components/header.html:6
+msgid "Toggle dark mode"
+msgstr "تبديل الوضع المظلم"

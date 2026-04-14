@@ -1,13 +1,14 @@
+{% load i18n %}
 {% if data.streak.consecutive_days > 0 %}
 <div class="flex items-center justify-between px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
     <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-slate-400">
         <span aria-hidden="true">🔥</span>
-        <span class="font-medium">{{ data.streak.consecutive_days }}-day streak</span>
+        <span class="font-medium">{% blocktrans with days=data.streak.consecutive_days %}{{ days }}-day streak{% endblocktrans %}</span>
         <span class="text-gray-400 dark:text-slate-600" aria-hidden="true">&middot;</span>
-        <span>{{ data.streak.weekly_count }} this week</span>
+        <span>{% blocktrans with count=data.streak.weekly_count %}{{ count }} this week{% endblocktrans %}</span>
     </div>
     {% if not data.streak.active_today %}
-    <span class="text-xs text-amber-600 dark:text-amber-400">Log today to keep it!</span>
+    <span class="text-xs text-amber-600 dark:text-amber-400">{% trans "Log today to keep it!" %}</span>
     {% endif %}
 </div>
 {% endif %}

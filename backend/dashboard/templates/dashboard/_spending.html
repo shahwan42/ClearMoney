@@ -1,8 +1,9 @@
 {% load money %}
+{% load i18n %}
 {% if data.spending_by_currency %}
 <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">This Month vs Last</h2>
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "This Month vs Last" %}</h2>
         {% if data.spending_by_currency|length > 1 %}
         <select id="spending-currency-select"
             onchange="switchSpendingTab(this.value)"
@@ -18,7 +19,7 @@
         <div class="space-y-2 mb-3">
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs text-gray-400 dark:text-slate-500">{{ cs.this_month_label|default:"This month" }}</span>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">{% if cs.this_month_label %}{{ cs.this_month_label }}{% else %}{% trans "This month" %}{% endif %}</span>
                     <span class="text-xl font-bold text-slate-900 dark:text-slate-100 ms-2">{{ cs.this_month|format_currency:cs.currency }}</span>
                 </div>
                 {% if cs.change != 0 %}
@@ -27,7 +28,7 @@
             </div>
             <div class="flex items-center justify-between">
                 <div>
-                    <span class="text-xs text-gray-400 dark:text-slate-500">{{ cs.last_month_label|default:"Last month" }}</span>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">{% if cs.last_month_label %}{{ cs.last_month_label }}{% else %}{% trans "Last month" %}{% endif %}</span>
                     <span class="text-sm font-medium text-gray-500 dark:text-slate-400 ms-2">{{ cs.last_month|format_currency:cs.currency }}</span>
                 </div>
             </div>
@@ -54,10 +55,10 @@
     {% if data.spending_velocity.days_total > 0 %}
     <div class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
         <div class="flex items-center justify-between mb-1.5">
-            <span class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Spending Pace</span>
+            <span class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Spending Pace" %}</span>
             <div class="flex items-center gap-3">
-                <span class="text-xs text-slate-600 dark:text-slate-300">{{ data.spending_velocity.percentage|floatformat:"0" }}% of last month</span>
-                <span class="text-xs text-gray-400 dark:text-gray-500">{{ data.spending_velocity.days_left }}d left</span>
+                <span class="text-xs text-slate-600 dark:text-slate-300">{{ data.spending_velocity.percentage|floatformat:"0" }}% {% trans "of last month" %}</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500">{% blocktrans with days=data.spending_velocity.days_left %}{{ days }} d left{% endblocktrans %}</span>
             </div>
         </div>
         <div class="relative w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2">

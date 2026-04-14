@@ -1,6 +1,7 @@
 {% load money %}
+{% load i18n %}
 <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
-    <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Net Worth</h2>
+    <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Net Worth" %}</h2>
 
     <div class="flex items-baseline gap-4 mt-3">
         <p class="text-xl font-bold {% if data.egp_total < 0 %}text-red-600{% else %}text-teal-600{% endif %}">
@@ -41,14 +42,14 @@
              class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
              onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/liquid_cash'})"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-            <p class="text-xs text-gray-500 dark:text-slate-400">Liquid Cash</p>
+            <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Liquid Cash" %}</p>
             <p class="text-lg font-semibold text-teal-700 dark:text-teal-400">{{ data.cash_total|format_egp }}</p>
         </div>
         <div role="button" tabindex="0" aria-label="View Credit Used breakdown"
              class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
              onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/credit_used'})"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-            <p class="text-xs text-gray-500 dark:text-slate-400">Credit Used</p>
+            <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Credit Used" %}</p>
             <p class="text-lg font-semibold {% if data.credit_used < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">
                 {{ data.credit_used|neg|format_egp }}
             </p>
@@ -57,14 +58,14 @@
              class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
              onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/credit_available'})"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-            <p class="text-xs text-gray-500 dark:text-slate-400">Credit Available</p>
+            <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Credit Available" %}</p>
             <p class="text-lg font-semibold text-blue-600 dark:text-blue-400">{{ data.credit_avail|format_egp }}</p>
         </div>
         <div role="button" tabindex="0" aria-label="View Debt breakdown"
              class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
              onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/debt'})"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-            <p class="text-xs text-gray-500 dark:text-slate-400">Debt</p>
+            <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Debt" %}</p>
             <p class="text-lg font-semibold text-slate-800 dark:text-slate-200">{{ data.debt_total|format_egp }}</p>
         </div>
     </div>

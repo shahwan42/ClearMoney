@@ -1,10 +1,11 @@
+{% load i18n %}
 <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-8 text-center">
     <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-slate-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
-    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">Welcome to ClearMoney</h2>
-    <p class="text-sm text-gray-400 dark:text-slate-500 mb-4">Start by adding your bank accounts to track your finances.</p>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-1">{% trans "Welcome to ClearMoney" %}</h2>
+    <p class="text-sm text-gray-400 dark:text-slate-500 mb-4">{% trans "Start by adding your bank accounts to track your finances." %}</p>
     <a href="/accounts" class="inline-flex items-center justify-center bg-teal-600 text-white text-sm px-5 rounded-xl font-medium hover:bg-teal-700 transition min-h-[44px]">
-        Add Your First Account
+        {% trans "Add Your First Account" %}
     </a>
 </section>

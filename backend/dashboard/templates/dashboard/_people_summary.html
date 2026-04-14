@@ -1,18 +1,19 @@
 {% load money %}
+{% load i18n %}
 <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4" id="people-summary">
     <div class="flex items-center justify-between mb-2">
-        <h3 class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">People</h3>
-        <a href="/people" class="text-xs text-teal-600 hover:text-teal-700">Manage</a>
+        <h3 class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "People" %}</h3>
+        <a href="/people" class="text-xs text-teal-600 hover:text-teal-700">{% trans "Manage" %}</a>
     </div>
     {% if data.people_by_currency %}
         {% for pcs in data.people_by_currency %}
         <div class="flex justify-between {% if pcs.currency != 'EGP' %}mt-2 pt-2 border-t border-gray-100 dark:border-slate-700{% endif %}">
             <div>
-                <p class="text-xs text-gray-400 dark:text-slate-500">Owed to me ({{ pcs.currency }})</p>
+                <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=pcs.currency %}Owed to me ({{ currency }}){% endblocktrans %}</p>
                 <p class="text-sm font-semibold text-green-600 dark:text-green-400">{{ pcs.owed_to_me|format_currency:pcs.currency }}</p>
             </div>
             <div class="text-end">
-                <p class="text-xs text-gray-400 dark:text-slate-500">I owe ({{ pcs.currency }})</p>
+                <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=pcs.currency %}I owe ({{ currency }}){% endblocktrans %}</p>
                 <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ pcs.i_owe|format_currency:pcs.currency }}</p>
             </div>
         </div>
@@ -20,11 +21,11 @@
     {% else %}
     <div class="flex justify-between">
         <div>
-            <p class="text-xs text-gray-400 dark:text-slate-500">Owed to me</p>
+            <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "Owed to me" %}</p>
             <p class="text-sm font-semibold text-green-600 dark:text-green-400">{{ data.people_owed_to_me|format_egp }}</p>
         </div>
         <div class="text-end">
-            <p class="text-xs text-gray-400 dark:text-slate-500">I owe</p>
+            <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "I owe" %}</p>
             <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ data.people_i_owe|format_egp }}</p>
         </div>
     </div>

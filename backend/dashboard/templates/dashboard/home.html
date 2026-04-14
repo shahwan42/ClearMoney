@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Dashboard{% endblock %}
+{% block title %}{% trans "ClearMoney - Dashboard" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-6 py-4" data-pull-refresh="true">
@@ -49,8 +50,8 @@
     {# 12. RECENT TRANSACTIONS #}
     <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Recent Transactions</h2>
-            <a href="/transactions" class="text-sm text-teal-600 hover:text-teal-700">View All</a>
+            <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Recent Transactions" %}</h2>
+            <a href="/transactions" class="text-sm text-teal-600 hover:text-teal-700">{% trans "View All" %}</a>
         </div>
         <div id="recent-transactions">
             {% include "dashboard/_recent_transactions.html" with transactions=data.recent_transactions %}

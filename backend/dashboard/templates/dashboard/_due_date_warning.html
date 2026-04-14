@@ -1,4 +1,5 @@
 {% load money %}
+{% load i18n %}
 {% if data.due_soon_cards %}
 {% for card in data.due_soon_cards %}
 <div class="bg-red-50 border border-red-200 dark:border-red-800 rounded-xl p-3 flex items-center gap-3">
@@ -8,8 +9,8 @@
         </svg>
     </div>
     <div class="flex-1">
-        <p class="text-sm font-medium text-red-800">{{ card.account_name }} due in {{ card.days_until_due }} days</p>
-        <p class="text-xs text-red-600">Due {{ card.due_date|format_date }} &middot; Balance: {{ card.balance|format_egp }}</p>
+        <p class="text-sm font-medium text-red-800">{% blocktrans with name=card.account_name days=card.days_until_due %}{{ name }} due in {{ days }} days{% endblocktrans %}</p>
+        <p class="text-xs text-red-600">{% trans "Due" %} {{ card.due_date|format_date }} &middot; {% trans "Balance:" %} {{ card.balance|format_egp }}</p>
     </div>
 </div>
 {% endfor %}

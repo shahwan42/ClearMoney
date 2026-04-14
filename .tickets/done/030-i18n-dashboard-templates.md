@@ -3,9 +3,9 @@ id: "030"
 title: "i18n strings — dashboard templates"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-14
 ---
 
 ## Description
@@ -14,11 +14,11 @@ Wrap all hardcoded English strings in dashboard templates with Django translatio
 
 ## Acceptance Criteria
 
-- [ ] `{% load i18n %}` added to all 15 dashboard templates
-- [ ] ~40 strings extracted: "Net Worth", "Liquid Cash", "Credit Used", "Recent Transactions", "View All", empty state text, panel headings
-- [ ] Arabic translations added to `.po` file
-- [ ] Dashboard renders correctly in both languages with all panels
-- [ ] `make test` and `make test-e2e` pass
+- [x] `{% load i18n %}` added to all 15 dashboard templates
+- [x] ~40 strings extracted: "Net Worth", "Liquid Cash", "Credit Used", "Recent Transactions", "View All", empty state text, panel headings
+- [x] Arabic translations added to `.po` file
+- [x] Dashboard renders correctly in both languages with all panels
+- [x] `make test` and `make test-e2e` pass
 
 ## Dependencies
 
@@ -32,3 +32,4 @@ Wrap all hardcoded English strings in dashboard templates with Django translatio
 ## Progress Notes
 
 - 2026-03-30: Created — i18n for dashboard templates
+- 2026-04-14: Completed — all 15 templates updated with i18n tags, Arabic translations added, 1252 unit tests + 158 e2e tests pass

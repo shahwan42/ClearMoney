@@ -1,8 +1,9 @@
 {% load money %}
+{% load i18n %}
 <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Accounts</h2>
-        <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">Manage</a>
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Accounts" %}</h2>
+        <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">{% trans "Manage" %}</a>
     </div>
 
     {% if data.institutions %}
@@ -45,6 +46,6 @@
         {% endfor %}
         </div>
     {% else %}
-        <p class="text-sm text-gray-400 dark:text-slate-500">No accounts yet. <a href="/accounts" class="text-teal-600 underline">Add your first account</a></p>
+        <p class="text-sm text-gray-400 dark:text-slate-500">{% blocktrans %}No accounts yet. <a href="/accounts" class="text-teal-600 underline">Add your first account</a>{% endblocktrans %}</p>
     {% endif %}
 </section>

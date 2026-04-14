@@ -1,7 +1,8 @@
 {% load money %}
+{% load i18n %}
 {% if data.credit_cards %}
 <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
-    <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Credit Cards</h2>
+    <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Credit Cards" %}</h2>
     <div class="space-y-3">
         {% for cc in data.credit_cards %}
         <div class="flex items-center justify-between">
@@ -24,8 +25,8 @@
                     <a href="/accounts/{{ cc.account_id }}" class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-teal-600">{{ cc.account_name }}</a>
                     {% if cc.has_billing_cycle %}
                     <p class="text-xs text-gray-400 dark:text-slate-500">
-                        Due {{ cc.due_date|format_date_short }}
-                        {% if cc.is_due_soon %}<span class="text-red-500 font-medium">({{ cc.days_until_due }}d)</span>{% endif %}
+                        {% trans "Due" %} {{ cc.due_date|format_date_short }}
+                        {% if cc.is_due_soon %}<span class="text-red-500 font-medium">({{ cc.days_until_due }}{% trans "d" %})</span>{% endif %}
                     </p>
                     {% endif %}
                 </div>
@@ -39,12 +40,12 @@
                     <button type="button"
                             onclick="openQuickEntry(); setQuickEntryTab('transfer'); setTimeout(function(){ var s=document.querySelector('#quick-entry-content [name=dest_account_id]'); if(s){s.value='{{ cc.account_id }}';} },500);"
                             class="text-[10px] font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
-                            aria-label="Record payment for {{ cc.account_name }}">
-                        Pay
+                            aria-label="{% blocktrans with name=cc.account_name %}Record payment for {{ name }}{% endblocktrans %}">
+                        {% trans "Pay" %}
                     </button>
                     {% endif %}
                     {% if cc.has_billing_cycle %}
-                    <a href="/accounts/{{ cc.account_id }}/statement" class="text-[10px] text-teal-600 hover:text-teal-700">Statement</a>
+                    <a href="/accounts/{{ cc.account_id }}/statement" class="text-[10px] text-teal-600 hover:text-teal-700">{% trans "Statement" %}</a>
                     {% endif %}
                 </div>
             </div>
