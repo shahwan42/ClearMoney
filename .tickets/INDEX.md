@@ -10,7 +10,6 @@ _Nothing in progress._
 | [037](pending/037-i18n-push-notifications-email.md) | i18n — push notifications + email template | feature | medium | 2026-03-30 |
 | [038](pending/038-category-name-jsonb.md) | Category name → JSONB migration | feature | high | 2026-03-30 |
 | [039](pending/039-bilingual-category-seeding.md) | Bilingual category seeding | feature | medium | 2026-03-30 |
-| [040](pending/040-account-health-notification-improvements.md) | Account health notification improvements | improvement | medium | 2026-03-30 |
 | [040](pending/040-settings-language-toggle.md) | Settings page — language toggle | feature | medium | 2026-03-30 |
 | [041](pending/041-extract-month-range-utilities.md) | Extract shared month-range utilities to core/dates.py | refactor | medium | 2026-03-30 |
 | [042](pending/042-extract-status-threshold-computation.md) | Extract status/threshold computation to core/status.py | refactor | low | 2026-03-30 |
@@ -89,6 +88,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [040](done/040-account-health-notification-improvements.md) | Account health notification improvements | improvement | medium | 2026-04-15 |
 | [036](done/036-i18n-validation-errors.md) | i18n — auth + validation error messages | feature | medium | 2026-04-14 |
 | [035](done/035-i18n-template-tag-labels.md) | i18n — template tags (account type + transaction type labels) | feature | medium | 2026-04-14 |
 | [034](done/034-i18n-remaining-templates.md) | i18n strings — recurring + investments + reports + settings + exchange rates | feature | medium | 2026-04-14 |
