@@ -1,9 +1,7 @@
 ---
-id: "039"
-title: "Bilingual category seeding"
-type: feature
-priority: medium
-status: pending
+id: "039-done"
+title: "Bilingual category seeding [DONE]"
+status: done
 created: 2026-03-30
 updated: 2026-03-30
 ---
