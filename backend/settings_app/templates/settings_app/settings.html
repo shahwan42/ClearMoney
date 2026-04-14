@@ -1,45 +1,46 @@
 {% extends "base.html" %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Settings{% endblock %}
+{% block title %}{% trans "ClearMoney - Settings" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
-    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Settings</h2>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Settings" %}</h2>
 
     {# Dark Mode — client-side only, toggleTheme() in theme.js #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Dark Mode</h3>
-                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Toggle between light and dark theme</p>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Dark Mode" %}</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Toggle between light and dark theme" %}</p>
             </div>
             <button id="settings-theme-toggle"
                     onclick="toggleTheme()"
                     class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg text-sm font-semibold min-h-[44px] transition-colors"
                     aria-pressed="false"
-                    aria-label="Toggle dark mode">
+                    aria-label="{% trans "Toggle dark mode" %}">
                 <span id="settings-theme-icon" aria-hidden="true">🌙</span>
-                <span id="settings-theme-label">Enable Dark Mode</span>
+                <span id="settings-theme-label">{% trans "Enable Dark Mode" %}</span>
             </button>
         </div>
     </section>
 
     {# Export — standard GET form (not HTMX), hx-boost="false" for browser download #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Export Transactions</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Export Transactions" %}</h3>
         <form action="/export/transactions" method="GET" hx-boost="false" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">From</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "From" %}</label>
                     <input type="date" name="from" required id="export-from" class="w-full min-w-0 max-w-full border dark:border-slate-600 rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">To</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "To" %}</label>
                     <input type="date" name="to" required id="export-to" class="w-full min-w-0 max-w-full border dark:border-slate-600 rounded-lg px-3 py-2 text-sm">
                 </div>
             </div>
             <button type="submit" class="w-full bg-teal-600 text-white py-2 min-h-[44px] rounded-lg text-sm font-semibold">
-                Download CSV
+                {% trans "Download CSV" %}
             </button>
         </form>
         <script>
@@ -59,11 +60,11 @@
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between">
             <div>
-                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Push Notifications</h3>
-                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Get reminders for due dates and recurring transactions</p>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Push Notifications" %}</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Get reminders for due dates and recurring transactions" %}</p>
             </div>
             <button onclick="requestNotificationPermission()" class="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-4 py-2 min-h-[44px] min-w-[44px] rounded-lg text-sm font-semibold">
-                Enable
+                {% trans "Enable" %}
             </button>
         </div>
     </section>
@@ -72,8 +73,8 @@
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <a href="/settings/categories" class="flex items-center justify-between min-h-[44px]">
             <div>
-                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">Categories</h3>
-                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Add, edit, or archive your categories</p>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Categories" %}</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Add, edit, or archive your categories" %}</p>
             </div>
             <span class="text-gray-400 dark:text-slate-500 text-lg" aria-hidden="true">&rsaquo;</span>
         </a>
@@ -81,14 +82,14 @@
 
     {# Quick Links — static navigation to other features #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 space-y-2">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2">Quick Links</h3>
-        <a href="/budgets" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">Budgets</a>
-        <a href="/investments" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">Investments</a>
-        <a href="/recurring" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">Recurring Rules</a>
-        <a href="/virtual-accounts" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">Virtual Accounts</a>
-        <a href="/batch-entry" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">Batch Entry</a>
-        <a href="/salary" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">Salary Distribution</a>
-        <a href="/fawry-cashout" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">Fawry Cash-Out</a>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2">{% trans "Quick Links" %}</h3>
+        <a href="/budgets" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">{% trans "Budgets" %}</a>
+        <a href="/investments" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">{% trans "Investments" %}</a>
+        <a href="/recurring" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">{% trans "Recurring Rules" %}</a>
+        <a href="/virtual-accounts" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">{% trans "Virtual Accounts" %}</a>
+        <a href="/batch-entry" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">{% trans "Batch Entry" %}</a>
+        <a href="/salary" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">{% trans "Salary Distribution" %}</a>
+        <a href="/fawry-cashout" class="flex items-center min-h-[44px] text-sm text-teal-600 hover:text-teal-700">{% trans "Fawry Cash-Out" %}</a>
     </section>
 
     {# Logout — button triggers confirmation dialog before POSTing #}
@@ -96,7 +97,7 @@
         <button type="button"
                 onclick="var d=document.getElementById('logout-confirm-dialog'); d.classList.remove('hidden'); d.classList.add('flex'); d.focus();"
                 class="w-full bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 py-2.5 min-h-[44px] rounded-lg text-sm font-semibold">
-            Log Out
+            {% trans "Log Out" %}
         </button>
     </div>
 
@@ -108,18 +109,18 @@
          tabindex="-1"
          class="hidden fixed inset-0 z-[80] items-center justify-center bg-black/50 px-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h2 id="logout-dialog-title" class="text-base font-semibold text-slate-800 dark:text-slate-100 mb-2">Log out?</h2>
-            <p class="text-sm text-gray-500 dark:text-slate-400 mb-5">You'll need your magic link to sign back in.</p>
+            <h2 id="logout-dialog-title" class="text-base font-semibold text-slate-800 dark:text-slate-100 mb-2">{% trans "Log out?" %}</h2>
+            <p class="text-sm text-gray-500 dark:text-slate-400 mb-5">{% trans "You'll need your magic link to sign back in." %}</p>
             <div class="flex gap-3">
                 <button type="button"
                         onclick="var d=document.getElementById('logout-confirm-dialog'); d.classList.add('hidden'); d.classList.remove('flex');"
                         class="flex-1 py-2.5 rounded-lg text-sm font-semibold border border-gray-200 dark:border-slate-600 text-slate-700 dark:text-slate-300">
-                    Cancel
+                    {% trans "Cancel" %}
                 </button>
                 <form method="POST" action="/logout" class="flex-1">
                     {% csrf_token %}
                     <button type="submit" class="w-full bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold">
-                        Log Out
+                        {% trans "Log Out" %}
                     </button>
                 </form>
             </div>

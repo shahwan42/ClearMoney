@@ -1,26 +1,27 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Recurring Rules{% endblock %}
+{% block title %}{% trans "ClearMoney - Recurring Rules" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
-    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200">Recurring Transactions</h2>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200">{% trans "Recurring Transactions" %}</h2>
 
     {# Pending confirmations — rules due but needing user action #}
     {% if pending_rules %}
     <section class="space-y-2">
-        <h3 class="text-sm font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">Pending Confirmation</h3>
+        <h3 class="text-sm font-medium text-amber-700 dark:text-amber-400 uppercase tracking-wide">{% trans "Pending Confirmation" %}</h3>
         {% for rule in pending_rules %}
         <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
             <div class="flex items-center justify-between mb-2">
                 <div>
                     <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ rule.note }}</p>
                     <p class="text-xs text-gray-400">
-                        Due {{ rule.next_due_date|date:"M j, Y" }} &middot; {{ rule.frequency }}
+                        {% trans "Due" %} {{ rule.next_due_date|date:"M j, Y" }} &middot; {% trans rule.frequency %}
                         {% if rule.is_transfer %}
                             &middot; {{ rule.source_account_name }} &rarr; {{ rule.counter_account_name }}
-                            {% if rule.fee_display %}&middot; Fee: {{ rule.fee_display }}{% endif %}
+                            {% if rule.fee_display %}&middot; {% trans "Fee" %}: {{ rule.fee_display }}{% endif %}
                         {% endif %}
                     </p>
                 </div>
@@ -29,11 +30,11 @@
             <div class="flex gap-2">
                 <button hx-post="/recurring/{{ rule.id }}/confirm" hx-target="#recurring-list" hx-swap="innerHTML"
                         class="flex-1 bg-teal-600 text-white py-1.5 rounded-lg text-xs font-semibold">
-                    Confirm
+                    {% trans "Confirm" %}
                 </button>
                 <button hx-post="/recurring/{{ rule.id }}/skip" hx-target="#recurring-list" hx-swap="innerHTML"
                         class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 py-1.5 rounded-lg text-xs font-semibold">
-                    Skip
+                    {% trans "Skip" %}
                 </button>
             </div>
         </div>
@@ -46,7 +47,7 @@
 
     {# Active rules list #}
     <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Active Rules</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">{% trans "Active Rules" %}</h3>
         <div id="recurring-list" aria-live="polite" aria-atomic="true">
             {% include "recurring/_rule_list.html" %}
         </div>

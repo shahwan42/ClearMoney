@@ -1,12 +1,13 @@
 {% load money %}
+{% load i18n %}
 
-<div class="chart-donut-wrap" role="img" aria-label="Spending breakdown: {{ data.total_spending|format_currency:data.filter_currency|default:'EGP' }} total across {{ data.spending_by_category|length }} categories">
+<div class="chart-donut-wrap" role="img" aria-label="{% trans "Spending breakdown" %}: {{ data.total_spending|format_currency:data.filter_currency|default:'EGP' }} {% trans "total across" %} {{ data.spending_by_category|length }} {% trans "categories" %}">
     <div class="chart-donut" style="background: {% conic_gradient data.chart_segments %}">
         <div class="chart-donut-hole">
             {% with cur=data.filter_currency|default:"EGP" %}
             <span class="chart-donut-value">{{ data.total_spending|format_currency:cur }}</span>
             {% endwith %}
-            <span class="chart-donut-sublabel">total</span>
+            <span class="chart-donut-sublabel">{% trans "total" %}</span>
         </div>
     </div>
 </div>

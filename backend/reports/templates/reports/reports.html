@@ -1,36 +1,37 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Reports{% endblock %}
+{% block title %}{% trans "ClearMoney - Reports" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
-    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Reports</h2>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Reports" %}</h2>
 
     {% if data %}
     {# Month Selector — prev/next navigation links #}
     <div class="flex items-center justify-center gap-4">
         <a href="/reports?year={{ data.previous_month.year }}&month={{ data.previous_month.month }}"
-           class="flex items-center min-h-[44px] px-1 text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 text-sm font-medium">&larr; Prev</a>
+           class="flex items-center min-h-[44px] px-1 text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 text-sm font-medium">&larr; {% trans "Prev" %}</a>
         <span class="text-base font-bold text-slate-800 dark:text-slate-100">{{ data.month_name }} {{ data.year }}</span>
         <a href="/reports?year={{ data.next_month.year }}&month={{ data.next_month.month }}"
-           class="flex items-center min-h-[44px] px-1 text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 text-sm font-medium">Next &rarr;</a>
+           class="flex items-center min-h-[44px] px-1 text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 text-sm font-medium">{% trans "Next" %} &rarr;</a>
     </div>
 
     {# Currency filter dropdown #}
     <div class="flex gap-2">
         <select onchange="location.href='/reports?year={{ data.year }}&month={{ data.month }}&currency='+this.value"
                 class="flex-1 border dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm dark:bg-slate-700 dark:text-slate-200">
-            <option value="">All currencies</option>
+            <option value="">{% trans "All currencies" %}</option>
             <option value="EGP" {% if data.filter_currency == "EGP" %}selected{% endif %}>EGP</option>
             <option value="USD" {% if data.filter_currency == "USD" %}selected{% endif %}>USD</option>
         </select>
-        <a href="/exchange-rates" class="flex items-center min-h-[44px] px-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">Rate History</a>
+        <a href="/exchange-rates" class="flex items-center min-h-[44px] px-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">{% trans "Rate History" %}</a>
     </div>
 
     {# Spending by Category with Donut Chart #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Spending by Category</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Spending by Category" %}</h3>
         {% if data.chart_segments %}
         <div class="mb-4">
             {% include "reports/partials/chart-donut.html" %}
@@ -41,13 +42,13 @@
 
     {# Income vs Expenses with Bar Chart #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Income vs Expenses</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Income vs Expenses" %}</h3>
         {% include "reports/partials/income-vs-expense.html" %}
     </section>
 
     {% else %}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 text-center">
-        <p class="text-gray-400 dark:text-slate-500 text-sm">No data available.</p>
+        <p class="text-gray-400 dark:text-slate-500 text-sm">{% trans "No data available." %}</p>
     </section>
     {% endif %}
 </div>

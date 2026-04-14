@@ -1,56 +1,57 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Investments{% endblock %}
+{% block title %}{% trans "ClearMoney - Investments" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
-    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200">Investment Portfolio</h2>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200">{% trans "Investment Portfolio" %}</h2>
 
     {# Total portfolio value — gradient header #}
     <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-5 text-white">
-        <p class="text-xs uppercase tracking-wide opacity-80">Total Portfolio Value</p>
+        <p class="text-xs uppercase tracking-wide opacity-80">{% trans "Total Portfolio Value" %}</p>
         <p class="text-2xl font-bold mt-1">{{ total_valuation|format_egp }}</p>
     </div>
 
     {# Add investment form #}
     <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Add Investment</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">{% trans "Add Investment" %}</h3>
         <form hx-post="/investments/add" class="space-y-3">
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Platform</label>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Platform" %}</label>
                     <input type="text" name="platform" value="Thndr"
                            class="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-200">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Fund Name</label>
-                    <input type="text" name="fund_name" required placeholder="e.g. AZG"
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Fund Name" %}</label>
+                    <input type="text" name="fund_name" required placeholder="{% trans "e.g. AZG" %}"
                            class="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-200">
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Units</label>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Units" %}</label>
                     <input type="number" name="units" step="0.0001" required
                            class="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-200">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Unit Price</label>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Unit Price" %}</label>
                     <input type="number" name="unit_price" step="0.0001" required
                            class="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-200">
                 </div>
             </div>
             <input type="hidden" name="currency" value="EGP">
             <button type="submit" class="w-full bg-indigo-600 text-white rounded-lg text-sm font-semibold min-h-[44px]">
-                Add Investment
+                {% trans "Add Investment" %}
             </button>
         </form>
     </section>
 
     {# Holdings list #}
     <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Holdings</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">{% trans "Holdings" %}</h3>
         {% if investments %}
         <div class="divide-y divide-gray-100 dark:divide-gray-700">
             {% for inv in investments %}
@@ -58,30 +59,30 @@
                 <div class="flex items-center justify-between mb-2">
                     <div>
                         <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ inv.fund_name }}</p>
-                        <p class="text-xs text-gray-400">{{ inv.platform }} &middot; {{ inv.units }} units</p>
+                        <p class="text-xs text-gray-400">{{ inv.platform }} &middot; {{ inv.units }} {% trans "units" %}</p>
                     </div>
                     <div class="text-end">
                         <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ inv.valuation|format_egp }}</p>
-                        <p class="text-xs text-gray-400">@ {{ inv.last_unit_price|floatformat:4 }}/unit</p>
+                        <p class="text-xs text-gray-400">@ {{ inv.last_unit_price|floatformat:4 }}/{% trans "unit" %}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <form hx-post="/investments/{{ inv.id }}/update" class="flex-1 flex gap-2">
-                        <input type="number" name="unit_price" step="0.0001" placeholder="New price"
+                        <input type="number" name="unit_price" step="0.0001" placeholder="{% trans "New price" %}"
                                class="flex-1 border dark:border-gray-600 rounded-lg px-2 py-1 text-xs bg-white dark:bg-gray-700 dark:text-gray-200">
                         <button type="submit" class="bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-lg text-xs font-semibold">
-                            Update
+                            {% trans "Update" %}
                         </button>
                     </form>
-                    <button hx-delete="/investments/{{ inv.id }}/delete" hx-confirm="Delete this investment?"
-                            class="text-red-400 hover:text-red-600 text-xs">Del</button>
+                    <button hx-delete="/investments/{{ inv.id }}/delete" hx-confirm="{% trans "Delete this investment?" %}"
+                            class="text-red-400 hover:text-red-600 text-xs">{% trans "Del" %}</button>
                 </div>
-                <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Updated: {{ inv.last_updated|format_date }}</p>
+                <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">{% trans "Updated" %}: {{ inv.last_updated|format_date }}</p>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-sm text-gray-400 text-center">No investments yet.</p>
+        <p class="text-sm text-gray-400 text-center">{% trans "No investments yet." %}</p>
         {% endif %}
     </section>
 </div>

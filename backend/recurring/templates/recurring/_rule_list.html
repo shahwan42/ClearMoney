@@ -1,3 +1,4 @@
+{% load i18n %}
 {% if rules %}
 <div class="divide-y divide-gray-100 dark:divide-gray-700">
     {% for rule in rules %}
@@ -7,22 +8,22 @@
             <p class="text-xs text-gray-400">
                 {% if rule.is_transfer %}
                     {{ rule.source_account_name }} &rarr; {{ rule.counter_account_name }}
-                    {% if rule.fee_display %}&middot; Fee: {{ rule.fee_display }}{% endif %}
+                    {% if rule.fee_display %}&middot; {% trans "Fee" %}: {{ rule.fee_display }}{% endif %}
                     &middot;
                 {% endif %}
-                {{ rule.frequency }} &middot; Next: {{ rule.next_due_date|date:"M j, Y" }}
-                {% if rule.auto_confirm %}<span class="text-teal-600 dark:text-teal-400">auto</span>{% endif %}
+                {% trans rule.frequency %} &middot; {% trans "Next" %}: {{ rule.next_due_date|date:"M j, Y" }}
+                {% if rule.auto_confirm %}<span class="text-teal-600 dark:text-teal-400">{% trans "auto" %}</span>{% endif %}
             </p>
         </div>
         <div class="flex items-center gap-2">
             <span class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ rule.amount_display }}</span>
             <button hx-delete="/recurring/{{ rule.id }}" hx-target="#recurring-list" hx-swap="innerHTML"
-                    hx-confirm="Delete this rule?"
-                    class="text-red-400 hover:text-red-600 text-xs">Del</button>
+                    hx-confirm="{% trans 'Delete this rule?' %}"
+                    class="text-red-400 hover:text-red-600 text-xs">{% trans "Del" %}</button>
         </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
-<p class="text-sm text-gray-400 text-center">No recurring rules yet.</p>
+<p class="text-sm text-gray-400 text-center">{% trans "No recurring rules yet." %}</p>
 {% endif %}

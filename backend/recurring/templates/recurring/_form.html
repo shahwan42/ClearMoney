@@ -1,20 +1,21 @@
 {% load money %}
+{% load i18n %}
 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 space-y-3">
-    <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">New Recurring Rule</h3>
+    <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">{% trans "New Recurring Rule" %}</h3>
 
     <form hx-post="/recurring/add" hx-target="#recurring-list" hx-swap="innerHTML" class="space-y-3">
         {% csrf_token %}
 
         {# Transaction type radio #}
         <fieldset class="border-0 p-0 m-0">
-            <legend class="sr-only">Transaction type</legend>
+            <legend class="sr-only">{% trans "Transaction type" %}</legend>
             <div class="flex gap-2">
                 <label class="flex-1">
                     <input type="radio" name="type" value="expense" class="sr-only peer" checked
                            onchange="toggleRecurringType()">
                     <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-300 dark:peer-checked:border-red-700 peer-checked:text-red-700 dark:peer-checked:text-red-400">
-                        Expense
+                        {% trans "Expense" %}
                     </div>
                 </label>
                 <label class="flex-1">
@@ -22,7 +23,7 @@
                            onchange="toggleRecurringType()">
                     <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/20 peer-checked:border-green-300 dark:peer-checked:border-green-700 peer-checked:text-green-700 dark:peer-checked:text-green-400">
-                        Income
+                        {% trans "Income" %}
                     </div>
                 </label>
                 <label class="flex-1">
@@ -30,7 +31,7 @@
                            onchange="toggleRecurringType()">
                     <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 peer-checked:border-blue-300 dark:peer-checked:border-blue-700 peer-checked:text-blue-700 dark:peer-checked:text-blue-400">
-                        Transfer
+                        {% trans "Transfer" %}
                     </div>
                 </label>
             </div>
@@ -38,7 +39,7 @@
 
         {# Amount #}
         <div>
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Amount</label>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Amount" %}</label>
             <input type="number" name="amount" step="0.01" min="0.01" required
                    placeholder="0.00" inputmode="decimal"
                    class="w-full text-lg font-bold text-center border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400 bg-white dark:bg-gray-700 dark:text-white">
@@ -46,7 +47,10 @@
 
         {# Account (source for transfers) #}
         <div>
-            <label id="recurring-account-label" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Account</label>
+            <label id="recurring-account-label"
+                   data-account-label="{% trans "Account" %}"
+                   data-from-account-label="{% trans "From Account" %}"
+                   class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Account" %}</label>
             <select name="account_id" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
@@ -56,9 +60,9 @@
 
         {# Destination account (transfer only) #}
         <div id="recurring-dest-account" class="hidden">
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">To Account</label>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "To Account" %}</label>
             <select name="counter_account_id" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
-                <option value="">Select destination...</option>
+                <option value="">{% trans "Select destination..." %}</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
@@ -67,40 +71,40 @@
 
         {# Fee (transfer only) #}
         <div id="recurring-fee" class="hidden">
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Fee (optional)</label>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Fee (optional)" %}</label>
             <input type="number" name="fee_amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal"
                    class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
         {# Category (expense/income only) #}
         <div id="recurring-category">
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Category</label>
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Category" %}</label>
             <div data-category-combobox
                  data-categories='{{ categories|categories_json }}'
                  data-name="category_id"
-                 data-placeholder="Search categories..."
+                 data-placeholder="{% trans "Search categories..." %}"
                  data-allow-empty="true">
             </div>
         </div>
 
         {# Note #}
         <div>
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Note</label>
-            <input type="text" name="note" placeholder="e.g., Monthly insurance"
+            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Note" %}</label>
+            <input type="text" name="note" placeholder="{% trans "e.g., Monthly insurance" %}"
                    class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
         {# Frequency + Next Due Date #}
         <div class="grid grid-cols-2 gap-2">
             <div>
-                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Frequency</label>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Frequency" %}</label>
                 <select name="frequency" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
-                    <option value="monthly">Monthly</option>
-                    <option value="weekly">Weekly</option>
+                    <option value="monthly">{% trans "Monthly" %}</option>
+                    <option value="weekly">{% trans "Weekly" %}</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Next Due</label>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Next Due" %}</label>
                 <input type="date" name="next_due_date" value="{{ today|date:'Y-m-d' }}" required
                        class="w-full min-w-0 max-w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
             </div>
@@ -110,13 +114,13 @@
         <div>
             <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                 <input type="checkbox" name="auto_confirm" value="true" class="rounded">
-                Auto-create (no confirmation needed)
+                {% trans "Auto-create (no confirmation needed)" %}
             </label>
         </div>
 
         <button type="submit"
                 class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
-            Create Rule
+            {% trans "Create Rule" %}
         </button>
     </form>
 </div>
@@ -134,6 +138,9 @@ function toggleRecurringType() {
     if (destSection) destSection.classList.toggle('hidden', !isTransfer);
     if (feeSection) feeSection.classList.toggle('hidden', !isTransfer);
     if (categorySection) categorySection.classList.toggle('hidden', isTransfer);
-    if (accountLabel) accountLabel.textContent = isTransfer ? 'From Account' : 'Account';
+    if (accountLabel) {
+        const label = isTransfer ? accountLabel.dataset.fromAccountLabel : accountLabel.dataset.accountLabel;
+        if (label) accountLabel.textContent = label;
+    }
 }
 </script>
