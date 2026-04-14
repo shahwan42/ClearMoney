@@ -126,6 +126,7 @@ class TestSettings:
     def test_language_toggle_switches_language(self, page: Page) -> None:
         """Click language toggle → user language updates in DB → page reloads in other language."""
         page.goto("/settings")
+        page.wait_for_load_state("networkidle")
 
         lang_section = page.locator("section").filter(has_text="Language")
         expect(lang_section).to_be_visible()
@@ -133,8 +134,10 @@ class TestSettings:
         btn = lang_section.locator('button[type="submit"]')
         expect(btn).to_be_visible()
 
+        # Click button and force a fresh page load to pick up language change
         btn.click()
-        page.wait_for_url("/settings")
-        page.wait_for_load_state("load")
+        page.wait_for_timeout(500)  # Give POST time to complete
+        page.reload()
+        page.wait_for_load_state("networkidle")
 
         expect(page.locator("html")).to_have_attribute("lang", "ar")

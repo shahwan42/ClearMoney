@@ -12,8 +12,10 @@ UI notes (verified against actual templates):
 - Institution picker: #add-acct-inst-search combobox, options rendered with data-name attribute
 - Credit limit field: id="add-acct-credit-limit-field"
 """
+
 import re
 import sys, os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import pytest
@@ -51,7 +53,7 @@ class TestInstitutions:
         # Wait for HTMX to load the unified add-account form into the sheet.
         # Type in the institution combobox to filter presets, then click the option.
         content = page.locator("#create-sheet-content")
-        search = content.locator('#add-acct-inst-search')
+        search = content.locator("#add-acct-inst-search")
         search.wait_for(timeout=5000)  # Ensure HTMX has loaded
         search.fill("HSBC")  # Triggers JS renderList — options rendered with data-name
         # Click the preset option rendered by JS (data-name = preset.name)
@@ -67,9 +69,11 @@ class TestInstitutions:
         inst_id = create_institution(page, "Delete Bank")
         page.goto("/accounts")
         # Scope to the specific institution card to avoid strict-mode ambiguity
-        page.locator(f'#institution-{inst_id}').locator('[title="Delete institution"]').click()
+        page.locator(f"#institution-{inst_id}").locator(
+            '[title="Delete institution"]'
+        ).click()
         content = page.locator("#delete-sheet-content")
-        delete_btn = content.locator('#delete-confirm-btn')
+        delete_btn = content.locator("#delete-confirm-btn")
         delete_btn.wait_for(timeout=10000)
 
         # First click arms the button — text changes to confirmation prompt
@@ -83,7 +87,9 @@ class TestInstitutions:
         sheet = page.locator('[data-bottom-sheet="create-sheet"]')
         expect(sheet).not_to_have_class(re.compile(r"translate-y-full"))
 
-        page.locator("#create-sheet-content").locator('button:has-text("Cancel")').click()
+        page.locator("#create-sheet-content").locator(
+            'button:has-text("Cancel")'
+        ).click()
         expect(sheet).to_have_class(re.compile(r"translate-y-full"))
 
 

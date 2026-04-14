@@ -215,12 +215,12 @@ def reset_database() -> str:
             for name in expense_categories:
                 cur.execute(
                     "INSERT INTO categories (user_id, name, type) VALUES (%s, %s, 'expense')",
-                    (user_id, name),
+                    (user_id, json.dumps({"en": name})),
                 )
             for name in income_categories:
                 cur.execute(
                     "INSERT INTO categories (user_id, name, type) VALUES (%s, %s, 'income')",
-                    (user_id, name),
+                    (user_id, json.dumps({"en": name})),
                 )
         conn.commit()
     return user_id
