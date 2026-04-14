@@ -1,4 +1,5 @@
-<h3 class="text-center font-semibold text-slate-800 dark:text-slate-200 text-sm mb-2">Edit Virtual Account</h3>
+{% load i18n %}
+<h3 class="text-center font-semibold text-slate-800 dark:text-slate-200 text-sm mb-2">{% trans "Edit Virtual Account" %}</h3>
 <form
     hx-post="/virtual-accounts/{{ account.id }}/edit"
     hx-target="#edit-va-result"
@@ -9,30 +10,30 @@
     <div id="edit-va-result" aria-live="polite"></div>
 
     <div>
-        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Name</label>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name" %}</label>
         <input type="text" name="name" required value="{{ account.name }}"
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
     <div class="grid grid-cols-2 gap-3">
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Target Amount (optional)</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Target Amount (optional)" %}</label>
             <input type="number" name="target_amount" step="0.01" min="0" placeholder="0.00"
                 {% if account.target_amount %}value="{{ account.target_amount }}"{% endif %}
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Color</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Color" %}</label>
             <input type="color" name="color" value="{{ account.color }}"
                 class="w-full h-10 border border-gray-300 dark:border-slate-600 rounded-lg cursor-pointer">
         </div>
     </div>
 
     <div>
-        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Linked Account</label>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Linked Account" %}</label>
         <select name="account_id" required
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-            <option value="">Select account...</option>
+            <option value="">{% trans "Select account..." %}</option>
             {% for ba in bank_accounts %}
             <option value="{{ ba.id }}" {% if account.account_id == ba.id %}selected{% endif %}>{{ ba.name }} ({{ ba.currency }})</option>
             {% endfor %}
@@ -40,7 +41,7 @@
     </div>
 
     <div>
-        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Icon (emoji)</label>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Icon (emoji)" %}</label>
         <input type="text" name="icon" value="{{ account.icon }}" placeholder="" maxlength="10"
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
@@ -48,18 +49,18 @@
     <label class="flex items-center gap-2 py-1">
         <input type="checkbox" name="exclude_from_net_worth" {% if account.exclude_from_net_worth %}checked{% endif %}
             class="rounded border-gray-300 dark:border-slate-600">
-        <span class="text-xs text-gray-500 dark:text-slate-400">Not my money (exclude from net worth)</span>
+        <span class="text-xs text-gray-500 dark:text-slate-400">{% trans "Not my money (exclude from net worth)" %}</span>
     </label>
 
     <div class="flex gap-2 pt-1">
         <button type="submit"
             class="flex-1 bg-teal-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all">
-            Update
+            {% trans "Update" %}
         </button>
         <button type="button"
             onclick="closeEditVirtualAccount()"
             class="px-4 py-2.5 text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200">
-            Cancel
+            {% trans "Cancel" %}
         </button>
     </div>
 </form>

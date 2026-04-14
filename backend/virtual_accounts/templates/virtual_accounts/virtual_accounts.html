@@ -1,70 +1,68 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Virtual Accounts{% endblock %}
+{% block title %}ClearMoney - {% trans "Virtual Accounts" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
     <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Virtual Accounts</h2>
-        <a href="/" class="flex items-center min-h-[44px] px-1 text-sm text-teal-600 hover:text-teal-700">Dashboard</a>
+        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Virtual Accounts" %}</h2>
+        <a href="/" class="flex items-center min-h-[44px] px-1 text-sm text-teal-600 hover:text-teal-700">{% trans "Dashboard" %}</a>
     </div>
 
-    <!-- Create New Virtual Account Form -->
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">New Virtual Account</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "New Virtual Account" %}</h3>
         <form method="POST" action="{% url 'va-add' %}" class="space-y-3">
             {% csrf_token %}
             <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Name</label>
-                <input type="text" name="name" required placeholder="e.g. Emergency Fund"
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name" %}</label>
+                <input type="text" name="name" required placeholder="{% trans "e.g. Emergency Fund" %}"
                        class="w-full border rounded-lg px-3 py-2 text-sm">
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Target Amount (optional)</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Target Amount (optional)" %}</label>
                     <input type="number" name="target_amount" step="0.01" min="0" placeholder="0.00"
                            class="w-full border rounded-lg px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Color</label>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Color" %}</label>
                     <input type="color" name="color" value="#0d9488"
                            class="w-full h-10 border rounded-lg cursor-pointer">
                 </div>
             </div>
             <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Linked Account</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Linked Account" %}</label>
                 <select name="account_id" required class="w-full border rounded-lg px-3 py-2 text-sm">
-                    <option value="">Select account...</option>
+                    <option value="">{% trans "Select account..." %}</option>
                     {% for ba in bank_accounts %}
                     <option value="{{ ba.id }}">{{ ba.name }} ({{ ba.currency }})</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Icon (emoji)</label>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Icon (emoji)" %}</label>
                 <input type="text" name="icon" placeholder="" maxlength="10"
                        class="w-full border rounded-lg px-3 py-2 text-sm">
             </div>
             <label class="flex items-center gap-2 py-1">
                 <input type="checkbox" name="exclude_from_net_worth" class="rounded border-gray-300">
-                <span class="text-xs text-gray-500 dark:text-slate-400">Not my money (exclude from net worth)</span>
+                <span class="text-xs text-gray-500 dark:text-slate-400">{% trans "Not my money (exclude from net worth)" %}</span>
             </label>
             <button type="submit"
                     class="w-full bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition min-h-[44px]">
-                Create
+                {% trans "Create" %}
             </button>
         </form>
     </section>
 
-    <!-- Over-allocation warnings -->
     {% for warning in warnings %}
     <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
         <p class="text-sm font-medium text-amber-700 dark:text-amber-400">{{ warning }}</p>
     </section>
     {% endfor %}
 
-    <!-- Active Virtual Accounts -->
     {% if accounts %}
     <section class="space-y-3">
         {% for va in accounts %}
@@ -73,21 +71,21 @@
                 <div class="flex items-center gap-2">
                     {% if va.icon %}<span class="text-lg">{{ va.icon }}</span>{% endif %}
                     <a href="{% url 'va-detail' va.id %}" class="font-semibold text-slate-800 dark:text-slate-100 hover:text-teal-600">{{ va.name }}</a>
-                    {% if va.exclude_from_net_worth %}<span class="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">held</span>{% endif %}
+                    {% if va.exclude_from_net_worth %}<span class="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">{% trans "held" %}</span>{% endif %}
                 </div>
                 <form method="POST" action="{% url 'va-archive' va.id %}">
                     {% csrf_token %}
-                    <button type="submit" class="text-xs text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400">Archive</button>
+                    <button type="submit" class="text-xs text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400">{% trans "Archive" %}</button>
                 </form>
             </div>
             <div class="flex items-end justify-between">
                 <div>
                     <p class="text-xl font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_egp }}</p>
                     {% if va.target_amount %}
-                    <p class="text-xs text-gray-400 dark:text-slate-500">of {{ va.target_amount|format_egp }} target</p>
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with target=va.target_amount|format_egp %}of {{ target }} target{% endblocktrans %}</p>
                     {% endif %}
                     {% if va.exceeds_account_balance %}
-                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Exceeds account balance ({{ va.account_balance_display|format_egp }})</p>
+                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{% blocktrans with va_balance=va.account_balance_display|format_egp %}Exceeds account balance ({{ va_balance }}){% endblocktrans %}</p>
                     {% endif %}
                 </div>
                 {% if va.target_amount %}
@@ -104,7 +102,7 @@
     </section>
     {% else %}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 text-center">
-        <p class="text-gray-400 dark:text-slate-500 text-sm">No virtual accounts yet. Create one above!</p>
+        <p class="text-gray-400 dark:text-slate-500 text-sm">{% trans "No virtual accounts yet. Create one above!" %}</p>
     </section>
     {% endif %}
 </div>

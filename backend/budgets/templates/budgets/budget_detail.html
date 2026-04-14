@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - {{ budget.category_name }} Budget{% endblock %}
+{% block title %}ClearMoney - {{ budget.category_name }} {% trans "Budget" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
     <div class="flex items-center gap-3">
-        <a href="/budgets" class="text-teal-600 hover:text-teal-700 dark:text-teal-400 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Back to budgets">
+        <a href="/budgets" class="text-teal-600 hover:text-teal-700 dark:text-teal-400 min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="{% trans "Back to budgets" %}">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </a>
         <h2 class="text-lg font-bold text-slate-800 dark:text-white">
@@ -14,34 +15,32 @@
         </h2>
     </div>
 
-    <!-- Budget Summary -->
     <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
         <div class="flex justify-between text-sm mb-1.5">
-            <span class="text-slate-600 dark:text-slate-300">{{ budget.spent|format_currency:budget.currency }} spent</span>
-            <span class="text-slate-500 dark:text-slate-400">of {{ budget.monthly_limit|format_currency:budget.currency }}</span>
+            <span class="text-slate-600 dark:text-slate-300">{% blocktrans with spent=budget.spent|format_currency:budget.currency %}{{ spent }} spent{% endblocktrans %}</span>
+            <span class="text-slate-500 dark:text-slate-400">{% blocktrans with limit=budget.monthly_limit|format_currency:budget.currency %}{{ limit }} of total{% endblocktrans %}</span>
         </div>
         <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-3" role="progressbar"
              aria-valuenow="{{ budget.percentage|floatformat:'0' }}"
              aria-valuemin="0" aria-valuemax="100"
-             aria-label="Budget progress: {{ budget.percentage|floatformat:'0' }}% spent">
+             aria-label="{% blocktrans with pct=budget.percentage|floatformat:'0' %}{{ pct }}% spent{% endblocktrans %}">
             <div class="h-3 rounded-full transition-all {% if budget.status == 'red' %}bg-red-500{% elif budget.status == 'amber' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
                  style="width: {% if budget.percentage > 100 %}100{% else %}{{ budget.percentage|floatformat:'0' }}{% endif %}%"></div>
         </div>
         <p class="text-xs mt-1.5 {% if budget.status == 'red' %}text-red-500{% elif budget.status == 'amber' %}text-amber-500{% else %}text-gray-400 dark:text-slate-500{% endif %}">
-            {% if budget.remaining < 0 %}Over budget by {{ budget.remaining|abs_float|format_currency:budget.currency }}{% else %}{{ budget.remaining|format_currency:budget.currency }} remaining{% endif %}
+            {% if budget.remaining < 0 %}{% blocktrans with amount=budget.remaining|abs_float|format_currency:budget.currency %}Over budget by {{ amount }}{% endblocktrans %}{% else %}{% blocktrans with amount=budget.remaining|format_currency:budget.currency %}{{ amount }} remaining{% endblocktrans %}{% endif %}
         </p>
     </section>
 
-    <!-- Transactions -->
     <section>
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Transactions this month</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Transactions this month" %}</h3>
         {% if budget.transactions %}
         <ul class="space-y-2">
             {% for tx in budget.transactions %}
             <li class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4">
                 <div class="flex items-center justify-between">
                     <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-slate-800 dark:text-white truncate">{{ tx.note|default:"No note" }}</p>
+                        <p class="text-sm font-medium text-slate-800 dark:text-white truncate">{% if tx.note %}{{ tx.note }}{% else %}{% trans "No note" %}{% endif %}</p>
                         <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{{ tx.date|format_date }} &middot; {{ tx.account_name }}</p>
                     </div>
                     <span class="text-sm font-semibold text-slate-700 dark:text-slate-200 ms-3 whitespace-nowrap">{{ tx.amount|format_currency:budget.currency }}</span>
@@ -51,7 +50,7 @@
         </ul>
         {% else %}
         <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 text-center">
-            <p class="text-gray-400 dark:text-slate-500 text-sm">No transactions this month</p>
+            <p class="text-gray-400 dark:text-slate-500 text-sm">{% trans "No transactions this month" %}</p>
         </div>
         {% endif %}
     </section>

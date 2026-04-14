@@ -1,11 +1,9 @@
 {% load money %}
-<!-- Per-currency debt payoff progress bar.
-     Receives a currency_debt dict with: currency, total_lent, total_borrowed,
-     total_repaid, progress_pct. -->
+{% load i18n %}
 <div>
     <div class="flex justify-between text-sm mb-1">
-        <span class="text-slate-600">{{ currency_debt.progress_pct|floatformat:0 }}% repaid</span>
-        <span class="text-xs text-gray-400">{{ currency_debt.total_repaid|format_currency:currency_debt.currency }} of {{ currency_debt.total_lent|add_float:currency_debt.total_borrowed|format_currency:currency_debt.currency }}</span>
+        <span class="text-slate-600">{% blocktrans with pct=currency_debt.progress_pct|floatformat:0 %}{{ pct }}% repaid{% endblocktrans %}</span>
+        <span class="text-xs text-gray-400">{% blocktrans with repaid=currency_debt.total_repaid|format_currency:currency_debt.currency total=currency_debt.total_lent|add_float:currency_debt.total_borrowed|format_currency:currency_debt.currency %}{{ repaid }} of {{ total }}{% endblocktrans %}</span>
     </div>
     <div class="w-full bg-gray-100 rounded-full h-3">
         {% if currency_debt.progress_pct >= 100 %}

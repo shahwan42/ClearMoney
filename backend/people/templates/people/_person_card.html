@@ -1,5 +1,5 @@
 {% load money %}
-<!-- Single person card showing name, net balance, and loan/repayment actions. -->
+{% load i18n %}
 <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden" id="person-{{ person.id }}">
     <div class="p-4">
         <div class="flex items-center justify-between">
@@ -25,77 +25,74 @@
                     </p>
                     {% endif %}
                 {% else %}
-                <p class="text-sm font-semibold text-gray-400 dark:text-slate-500">Settled</p>
+                <p class="text-sm font-semibold text-gray-400 dark:text-slate-500">{% trans "Settled" %}</p>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Loan/repayment actions -->
         <div class="mt-3 flex gap-2">
             <button onclick="toggleLoanForm('{{ person.id }}')"
                     class="flex-1 text-xs text-teal-600 border border-teal-200 rounded-lg py-1.5 hover:bg-teal-50">
-                Record Loan
+                {% trans "Record Loan" %}
             </button>
             {% if person.net_balance_egp != 0 or person.net_balance_usd != 0 %}
             <button onclick="toggleRepayForm('{{ person.id }}')"
                     class="flex-1 text-xs text-amber-600 border border-amber-200 rounded-lg py-1.5 hover:bg-amber-50">
-                Repayment
+                {% trans "Repayment" %}
             </button>
             {% endif %}
         </div>
     </div>
 
-    <!-- Loan form (hidden by default) -->
     <div id="loan-form-{{ person.id }}" class="hidden border-t border-gray-100 dark:border-slate-700 p-4 bg-gray-50 dark:bg-slate-700/50">
         <form hx-post="/people/{{ person.id }}/loan" hx-target="#people-list" hx-swap="innerHTML" class="space-y-2">
             <fieldset class="border-0 p-0 m-0">
-                <legend class="sr-only">Loan type</legend>
+                <legend class="sr-only">{% trans "Loan type" %}</legend>
                 <div class="flex gap-2">
                     <label class="flex-1">
                         <input type="radio" name="loan_type" value="loan_out" checked class="peer hidden">
                         <div class="peer-checked:bg-green-50 peer-checked:border-green-400 peer-checked:text-green-700 border border-gray-200 rounded-lg py-1.5 text-center text-xs font-medium cursor-pointer">
-                            I Lent
+                            {% trans "I Lent" %}
                         </div>
                     </label>
                     <label class="flex-1">
                         <input type="radio" name="loan_type" value="loan_in" class="peer hidden">
                         <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border border-gray-200 rounded-lg py-1.5 text-center text-xs font-medium cursor-pointer">
-                            I Borrowed
+                            {% trans "I Borrowed" %}
                         </div>
                     </label>
                 </div>
             </fieldset>
-            <input type="number" name="amount" step="0.01" min="0.01" required placeholder="Amount"
+            <input type="number" name="amount" step="0.01" min="0.01" required placeholder="{% trans "Amount" %}"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
             <select name="account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                <option value="">Select account...</option>
+                <option value="">{% trans "Select account..." %}</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
             </select>
-            <input type="text" name="note" placeholder="Note (optional)"
+            <input type="text" name="note" placeholder="{% trans "Note (optional)" %}"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
             <button type="submit" class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-teal-700">
-                Save
+                {% trans "Save" %}
             </button>
         </form>
     </div>
 
-    <!-- Repayment form (hidden by default) -->
     <div id="repay-form-{{ person.id }}" class="hidden border-t border-gray-100 dark:border-slate-700 p-4 bg-gray-50 dark:bg-slate-700/50">
         <form hx-post="/people/{{ person.id }}/repay" hx-target="#people-list" hx-swap="innerHTML" class="space-y-2">
-            <input type="number" name="amount" step="0.01" min="0.01" required placeholder="Repayment amount"
+            <input type="number" name="amount" step="0.01" min="0.01" required placeholder="{% trans "Repayment amount" %}"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
             <select name="account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                <option value="">Select account...</option>
+                <option value="">{% trans "Select account..." %}</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
             </select>
-            <input type="text" name="note" placeholder="Note (optional)"
+            <input type="text" name="note" placeholder="{% trans "Note (optional)" %}"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
             <button type="submit" class="w-full bg-amber-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-700">
-                Record Repayment
+                {% trans "Record Repayment" %}
             </button>
         </form>
     </div>

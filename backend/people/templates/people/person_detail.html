@@ -1,18 +1,17 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
 {% block title %}{{ data.summary.person.name }} - ClearMoney{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-6 py-4">
 
-    <!-- Back link -->
     <a href="/people" class="inline-flex items-center text-sm text-teal-600 hover:text-teal-700">
         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        Back to People
+        {% trans "Back to People" %}
     </a>
 
-    <!-- Person Header -->
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center gap-3 mb-4">
             <div class="w-12 h-12 rounded-full bg-slate-800 dark:bg-slate-600 flex items-center justify-center text-white text-lg font-bold">
@@ -23,41 +22,40 @@
                 <div class="space-y-0.5">
                     {% if data.summary.person.net_balance_egp != 0 %}
                     <p class="text-sm {% if data.summary.person.net_balance_egp > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
-                        {% if data.summary.person.net_balance_egp > 0 %}They owe you {{ data.summary.person.net_balance_egp|format_currency:"EGP" }}{% else %}You owe them {{ data.summary.person.net_balance_egp|neg|format_currency:"EGP" }}{% endif %}
+                        {% if data.summary.person.net_balance_egp > 0 %}{% blocktrans with amount=data.summary.person.net_balance_egp|format_currency:"EGP" %}They owe you {{ amount }}{% endblocktrans %}{% else %}{% blocktrans with amount=data.summary.person.net_balance_egp|neg|format_currency:"EGP" %}You owe them {{ amount }}{% endblocktrans %}{% endif %}
                     </p>
                     {% endif %}
                     {% if data.summary.person.net_balance_usd != 0 %}
                     <p class="text-sm {% if data.summary.person.net_balance_usd > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
-                        {% if data.summary.person.net_balance_usd > 0 %}They owe you {{ data.summary.person.net_balance_usd|format_currency:"USD" }}{% else %}You owe them {{ data.summary.person.net_balance_usd|neg|format_currency:"USD" }}{% endif %}
+                        {% if data.summary.person.net_balance_usd > 0 %}{% blocktrans with amount=data.summary.person.net_balance_usd|format_currency:"USD" %}They owe you {{ amount }}{% endblocktrans %}{% else %}{% blocktrans with amount=data.summary.person.net_balance_usd|neg|format_currency:"USD" %}You owe them {{ amount }}{% endblocktrans %}{% endif %}
                     </p>
                     {% endif %}
                     {% if data.summary.person.net_balance_egp == 0 and data.summary.person.net_balance_usd == 0 %}
-                    <p class="text-sm text-gray-400 dark:text-slate-500">Settled up</p>
+                    <p class="text-sm text-gray-400 dark:text-slate-500">{% trans "Settled up" %}</p>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- Per-currency loan stats -->
         {% for cd in data.summary.by_currency %}
         <div class="{% if cd.currency != 'EGP' %}mt-3 pt-3 border-t border-gray-100 dark:border-slate-700{% endif %}">
             <p class="text-xs text-gray-400 dark:text-slate-500 font-medium mb-2">{{ cd.currency }}</p>
             <div class="grid grid-cols-3 gap-3 text-center">
                 {% if cd.total_lent > 0 %}
                 <div class="bg-emerald-50 rounded-lg p-2">
-                    <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Lent</p>
+                    <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{% trans "Lent" %}</p>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ cd.total_lent|format_currency:cd.currency }}</p>
                 </div>
                 {% endif %}
                 {% if cd.total_borrowed > 0 %}
                 <div class="bg-blue-50 rounded-lg p-2">
-                    <p class="text-xs text-blue-600 font-medium">Borrowed</p>
+                    <p class="text-xs text-blue-600 font-medium">{% trans "Borrowed" %}</p>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ cd.total_borrowed|format_currency:cd.currency }}</p>
                 </div>
                 {% endif %}
                 {% if cd.total_repaid > 0 %}
                 <div class="bg-amber-50 rounded-lg p-2">
-                    <p class="text-xs text-amber-600 font-medium">Repaid</p>
+                    <p class="text-xs text-amber-600 font-medium">{% trans "Repaid" %}</p>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ cd.total_repaid|format_currency:cd.currency }}</p>
                 </div>
                 {% endif %}
@@ -66,28 +64,26 @@
         {% endfor %}
     </section>
 
-    <!-- Payoff Progress — per currency -->
     {% for cd in data.summary.by_currency %}
     {% if cd.progress_pct > 0 %}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Payoff Progress ({{ cd.currency }})</h2>
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% blocktrans with currency=cd.currency %}Payoff Progress ({{ currency }}){% endblocktrans %}</h2>
         {% include "people/_debt_progress.html" with currency_debt=cd %}
     </section>
     {% endif %}
     {% endfor %}
 
-    <!-- Transaction History -->
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">Transaction History</h2>
+        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Transaction History" %}</h2>
         {% if data.summary.transactions %}
         <div class="space-y-2">
             {% for tx in data.summary.transactions %}
             <div class="flex items-center justify-between py-2 border-b border-gray-50 dark:border-slate-700 last:border-0">
                 <div>
                     <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        {% if tx.type == "loan_out" %}Lent
-                        {% elif tx.type == "loan_in" %}Borrowed
-                        {% elif tx.type == "loan_repayment" %}Repayment
+                        {% if tx.type == "loan_out" %}{% trans "Lent" %}
+                        {% elif tx.type == "loan_in" %}{% trans "Borrowed" %}
+                        {% elif tx.type == "loan_repayment" %}{% trans "Repayment" %}
                         {% else %}{{ tx.type }}{% endif %}
                     </p>
                     <p class="text-xs text-gray-400 dark:text-slate-500">{{ tx.date|format_date_short }}</p>
@@ -100,7 +96,7 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-sm text-gray-400 dark:text-slate-500 text-center py-4">No transactions yet.</p>
+        <p class="text-sm text-gray-400 dark:text-slate-500 text-center py-4">{% trans "No transactions yet." %}</p>
         {% endif %}
     </section>
 

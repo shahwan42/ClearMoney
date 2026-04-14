@@ -7,7 +7,6 @@ Last updated: 2026-04-15
 _Nothing in progress._
 
 ## Pending
-| [033](pending/033-i18n-budgets-people-virtual.md) | i18n strings — budgets + people + virtual accounts | feature | medium | 2026-03-30 |
 | [034](pending/034-i18n-remaining-templates.md) | i18n strings — recurring + investments + reports + settings + exchange rates | feature | medium | 2026-03-30 |
 | [035](pending/035-i18n-template-tag-labels.md) | i18n — template tags (account type + transaction type labels) | feature | medium | 2026-03-30 |
 | [036](pending/036-i18n-validation-errors.md) | i18n — auth + validation error messages | feature | medium | 2026-03-30 |
@@ -93,6 +92,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [033](done/033-i18n-budgets-people-virtual.md) | i18n strings — budgets + people + virtual accounts | feature | medium | 2026-04-14 |
 | [032](done/032-i18n-accounts-templates.md) | i18n strings — accounts templates | feature | medium | 2026-04-14 |
 | [031](done/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-04-14 |
 | [030](done/030-i18n-dashboard-templates.md) | i18n strings — dashboard templates | feature | medium | 2026-04-14 |

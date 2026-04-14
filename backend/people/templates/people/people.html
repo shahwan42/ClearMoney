@@ -1,27 +1,26 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - People{% endblock %}
+{% block title %}ClearMoney - {% trans "People" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
 
     <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">People</h2>
+        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "People" %}</h2>
     </div>
 
-    <!-- Add person form -->
     <form hx-post="/people/add" hx-target="#people-list" hx-swap="innerHTML"
           class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 flex gap-2">
-        <input type="text" name="name" placeholder="Person name..." required
+        <input type="text" name="name" placeholder="{% trans "Person name..." %}" required
                class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         <button type="submit"
                 class="bg-teal-600 text-white text-sm px-4 py-2 rounded-lg font-medium hover:bg-teal-700">
-            Add
+            {% trans "Add" %}
         </button>
     </form>
 
-    <!-- People list -->
     <div id="people-list" class="space-y-3" aria-live="polite" aria-atomic="true">
         {% if data.persons %}
             {% for card in data.persons %}
@@ -29,7 +28,7 @@
             {% endfor %}
         {% else %}
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 text-center">
-                <p class="text-gray-400 dark:text-slate-500 text-sm">No people yet. Add someone above.</p>
+                <p class="text-gray-400 dark:text-slate-500 text-sm">{% trans "No people yet. Add someone above." %}</p>
             </div>
         {% endif %}
     </div>
