@@ -158,7 +158,7 @@ def test_dashboard_includes_tx_detail_bottom_sheet(client, dashboard_data):
 def test_recent_transactions_shows_category_name(client, dashboard_data):
     # gap: data — dashboard rows show category name when category is set
     category = CategoryFactory(
-        user_id=dashboard_data["user_id"], name="Transport", type="expense"
+        user_id=dashboard_data["user_id"], name={"en": "Transport"}, type="expense"
     )
     TransactionFactory(
         user_id=dashboard_data["user_id"],

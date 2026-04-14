@@ -12,8 +12,10 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.db.models import Count, OuterRef, Subquery, Value
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
+from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 
 from categories.models import Category
@@ -23,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 VALID_CATEGORY_TYPES = {"expense", "income"}
 
-# Fields returned in category dicts
 _FIELDS = (
     "id",
     "user_id",
@@ -38,12 +39,27 @@ _FIELDS = (
 )
 
 
+def _resolve_name(name_value: Any) -> str:
+    """Resolve a JSONB name dict to a display string for the current language."""
+    if isinstance(name_value, str):
+        return name_value
+    if isinstance(name_value, dict):
+        lang = (get_language() or "en").split("-")[0]
+        if lang in name_value:
+            return str(name_value[lang])
+        if "en" in name_value:
+            return str(name_value["en"])
+        if name_value:
+            return str(next(iter(name_value.values())))
+    return str(name_value) if name_value else ""
+
+
 def _instance_to_dict(cat: Category) -> dict[str, Any]:
     """Convert a Category model instance to a dict."""
     return {
         "id": str(cat.id),
         "user_id": str(cat.user_id),
-        "name": cat.name,
+        "name": cat.get_display_name(),
         "type": cat.type,
         "icon": cat.icon,
         "is_system": cat.is_system,
@@ -55,11 +71,11 @@ def _instance_to_dict(cat: Category) -> dict[str, Any]:
 
 
 def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
-    """Convert a .values() dict — stringify UUIDs."""
+    """Convert a .values() dict — stringify UUIDs, resolve name."""
     return {
         "id": str(row["id"]),
         "user_id": str(row["user_id"]),
-        "name": row["name"],
+        "name": _resolve_name(row["name"]),
         "type": row["type"],
         "icon": row["icon"],
         "is_system": row["is_system"],
@@ -68,6 +84,11 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
+
+
+def _annotate_name_en(qs: Any) -> Any:
+    """Annotate queryset with name_en extracted from JSONB name->>'en'."""
+    return qs.annotate(name_en=KeyTextTransform("en", "name"))
 
 
 class CategoryService:
@@ -84,10 +105,12 @@ class CategoryService:
     def get_all(self) -> list[dict[str, Any]]:
         """All non-archived categories, sorted by usage count then name."""
         rows = (
-            self._qs()
-            .filter(is_archived=False)
-            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
-            .order_by("-usage_count", "name")
+            _annotate_name_en(
+                self._qs()
+                .filter(is_archived=False)
+                .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            )
+            .order_by("-usage_count", "name_en")
             .values(*_FIELDS)
         )
         return [_row_to_dict(row) for row in rows]
@@ -95,10 +118,12 @@ class CategoryService:
     def get_by_type(self, cat_type: str) -> list[dict[str, Any]]:
         """Non-archived categories filtered by type, sorted by usage then name."""
         rows = (
-            self._qs()
-            .filter(type=cat_type, is_archived=False)
-            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
-            .order_by("-usage_count", "name")
+            _annotate_name_en(
+                self._qs()
+                .filter(type=cat_type, is_archived=False)
+                .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            )
+            .order_by("-usage_count", "name_en")
             .values(*_FIELDS)
         )
         return [_row_to_dict(row) for row in rows]
@@ -125,16 +150,18 @@ class CategoryService:
     def get_all_with_usage(self) -> list[dict[str, Any]]:
         """Active categories with transaction count, sorted by most used."""
         rows = (
-            self._qs()
-            .filter(is_archived=False)
-            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
-            .order_by("-usage_count", "name")
+            _annotate_name_en(
+                self._qs()
+                .filter(is_archived=False)
+                .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            )
+            .order_by("-usage_count", "name_en")
             .values("id", "name", "icon", "is_system", "usage_count")
         )
         return [
             {
                 "id": str(r["id"]),
-                "name": r["name"],
+                "name": _resolve_name(r["name"]),
                 "icon": r["icon"],
                 "is_system": r["is_system"],
                 "usage_count": r["usage_count"],
@@ -145,16 +172,18 @@ class CategoryService:
     def get_archived_with_usage(self) -> list[dict[str, Any]]:
         """Archived categories with transaction count."""
         rows = (
-            self._qs()
-            .filter(is_archived=True)
-            .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
-            .order_by("name")
+            _annotate_name_en(
+                self._qs()
+                .filter(is_archived=True)
+                .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
+            )
+            .order_by("name_en")
             .values("id", "name", "icon", "is_system", "usage_count")
         )
         return [
             {
                 "id": str(r["id"]),
-                "name": r["name"],
+                "name": _resolve_name(r["name"]),
                 "icon": r["icon"],
                 "is_system": r["is_system"],
                 "usage_count": r["usage_count"],
@@ -188,13 +217,16 @@ class CategoryService:
         if not name:
             raise ValueError(_("category name is required"))
 
-        # Reject duplicate names (case-insensitive) for this user
-        if self._qs().filter(name__iexact=name, is_archived=False).exists():
+        if (
+            _annotate_name_en(self._qs())
+            .filter(name_en__iexact=name, is_archived=False)
+            .exists()
+        ):
             raise ValueError(_("A category with this name already exists"))
 
         cat = Category.objects.create(
             user_id=self.user_id,
-            name=name,
+            name=Category.make_name(en=name),
             type="expense",
             icon=icon,
             is_system=False,
@@ -220,7 +252,11 @@ class CategoryService:
         updated = (
             self._qs()
             .filter(id=cat_id)
-            .update(name=name, icon=icon, updated_at=django_tz.now())
+            .update(
+                name=Category.make_name(en=name),
+                icon=icon,
+                updated_at=django_tz.now(),
+            )
         )
         if not updated:
             return None

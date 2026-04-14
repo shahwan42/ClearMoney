@@ -16,6 +16,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.db.models import DecimalField, OuterRef, Subquery, Sum
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
 from budgets.models import Budget, TotalBudget
@@ -76,8 +77,11 @@ class BudgetService:
             self._qs()
             .filter(is_active=True)
             .select_related("category")
-            .annotate(spent_amount=Coalesce(spending_subquery, Decimal(0)))
-            .order_by("category__name")
+            .annotate(
+                spent_amount=Coalesce(spending_subquery, Decimal(0)),
+                category_name_en=KeyTextTransform("en", "category__name"),
+            )
+            .order_by("category_name_en")
         )
 
         budgets: list[BudgetWithSpending] = []
@@ -100,7 +104,7 @@ class BudgetService:
                     category_id=str(b.category_id),
                     monthly_limit=limit_amt,
                     currency=b.currency,
-                    category_name=b.category.name,
+                    category_name=b.category.get_display_name(),
                     category_icon=b.category.icon or "",
                     spent=spent,
                     remaining=remaining,
@@ -150,7 +154,7 @@ class BudgetService:
         return {
             "id": str(budget.id),
             "category_id": str(budget.category_id),
-            "category_name": budget.category.name,
+            "category_name": budget.category.get_display_name(),
             "category_icon": budget.category.icon or "",
             "monthly_limit": limit_amt,
             "currency": budget.currency,

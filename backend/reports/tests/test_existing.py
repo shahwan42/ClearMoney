@@ -55,7 +55,7 @@ def reports_data(db):
         currency="EGP",
         current_balance=10000,
     )
-    cat = CategoryFactory(user_id=user.id, name="Food", type="expense")
+    cat = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
 
     for i in range(3):
         amount = 100 + i * 50
@@ -108,7 +108,7 @@ def spending_data(db):
         currency="EGP",
         current_balance=0,
     )
-    cat = CategoryFactory(user_id=user.id, name="Food", type="expense")
+    cat = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
 
     for i in range(3):
         amount = 100 + i * 50

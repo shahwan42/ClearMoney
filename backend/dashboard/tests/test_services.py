@@ -61,7 +61,9 @@ def svc_data(db):
         credit_limit=10000,
     )
     ExchangeRateLogFactory(date=date.today(), rate=50.5)
-    cat = CategoryFactory(user_id=user.id, name="Food", type="expense", icon="🛒")
+    cat = CategoryFactory(
+        user_id=user.id, name={"en": "Food"}, type="expense", icon="🛒"
+    )
 
     yield {
         "user": user,
@@ -927,7 +929,7 @@ def test_top_categories_multiple_with_last_month(svc_data):
         else date(this_month_start.year, this_month_start.month - 1, 1)
     )
     cat2 = CategoryFactory(
-        user_id=svc_data["user"].id, name="Transport", type="expense"
+        user_id=svc_data["user"].id, name={"en": "Transport"}, type="expense"
     )
     # This month: Food=400, Transport=300
     TransactionFactory(

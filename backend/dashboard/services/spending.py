@@ -9,7 +9,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from django.db.models import F, Q, Sum, Value
+from django.db.models import CharField, F, Q, Sum, Value
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
 from transactions.models import Transaction
@@ -195,7 +196,11 @@ def _query_top_categories(
             date__lt=next_month_start,
         )
         .values(
-            cat_name=Coalesce(F("category__name"), Value("Uncategorized")),
+            cat_name=Coalesce(
+                KeyTextTransform("en", "category__name"),
+                Value("Uncategorized"),
+                output_field=CharField(),
+            ),
             cat_icon=Coalesce(F("category__icon"), Value("")),
         )
         .annotate(amount=Sum("amount"))
@@ -211,7 +216,9 @@ def _query_top_categories(
     # 'Uncategorized' maps to NULL category — handle with an OR filter.
     non_null_names = [n for n in top_names if n != "Uncategorized"]
     # Q() is falsy — OR-ing with another Q collapses to that Q (Django Q._combine shortcut)
-    last_month_filter = Q(category__name__in=non_null_names) if non_null_names else Q()
+    last_month_filter = (
+        Q(category__name__en__in=non_null_names) if non_null_names else Q()
+    )
     if "Uncategorized" in top_names:
         last_month_filter |= Q(category__isnull=True)
 
@@ -226,7 +233,13 @@ def _query_top_categories(
                 date__lt=this_month_start,
             )
             .filter(last_month_filter)
-            .values(cat_name=Coalesce(F("category__name"), Value("Uncategorized")))
+            .values(
+                cat_name=Coalesce(
+                    KeyTextTransform("en", "category__name"),
+                    Value("Uncategorized"),
+                    output_field=CharField(),
+                )
+            )
             .annotate(amount=Sum("amount"))
         ):
             last_month_dict[row["cat_name"]] = float(row["amount"])

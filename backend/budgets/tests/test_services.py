@@ -30,8 +30,8 @@ def budget_data(db):
     user = UserFactory()
     SessionFactory(user=user)
     user_id = str(user.id)
-    cat1 = CategoryFactory(user_id=user.id, name="Groceries", type="expense")
-    cat2 = CategoryFactory(user_id=user.id, name="Transport", type="expense")
+    cat1 = CategoryFactory(user_id=user.id, name={"en": "Groceries"}, type="expense")
+    cat2 = CategoryFactory(user_id=user.id, name={"en": "Transport"}, type="expense")
 
     yield {
         "user_id": user_id,
@@ -478,7 +478,7 @@ def user_with_expenses(db):
         current_balance=0,
         initial_balance=0,
     )
-    cat = CategoryFactory(user_id=user.id, name="General", type="expense")
+    cat = CategoryFactory(user_id=user.id, name={"en": "General"}, type="expense")
     today = date.today().replace(day=1)
     for amount in [3000, 2500, 1500, 1000]:
         TransactionFactory(
@@ -537,8 +537,8 @@ class TestTotalBudgetService:
         uid = user_with_expenses["user_id"]
         svc = _svc(uid)
         svc.set_total_budget(Decimal("10000"), "EGP")
-        cat1 = CategoryFactory(user_id=uid, name="Cat1", type="expense")
-        cat2 = CategoryFactory(user_id=uid, name="Cat2", type="expense")
+        cat1 = CategoryFactory(user_id=uid, name={"en": "Cat1"}, type="expense")
+        cat2 = CategoryFactory(user_id=uid, name={"en": "Cat2"}, type="expense")
         BudgetFactory(user_id=uid, category_id=cat1.id, monthly_limit=Decimal("7000"))
         BudgetFactory(user_id=uid, category_id=cat2.id, monthly_limit=Decimal("5000"))
         result = svc.get_total_budget("EGP")

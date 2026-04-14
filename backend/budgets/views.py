@@ -12,6 +12,7 @@ import logging
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, OuterRef, Subquery, Value
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -48,8 +49,11 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
         Category.objects.filter(
             user_id=request.user_id, type="expense", is_archived=False
         )
-        .annotate(usage_count=Coalesce(usage_sq, Value(0)))
-        .order_by("-usage_count", "name")
+        .annotate(
+            usage_count=Coalesce(usage_sq, Value(0)),
+            name_en=KeyTextTransform("en", "name"),
+        )
+        .order_by("-usage_count", "name_en")
     )
     total_budget = svc.get_total_budget("EGP")
 

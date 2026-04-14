@@ -24,8 +24,8 @@ def budget_view_data(db):
     user = UserFactory()
     session = SessionFactory(user=user)
     user_id = str(user.id)
-    cat1 = CategoryFactory(user_id=user.id, name="Groceries", type="expense")
-    cat2 = CategoryFactory(user_id=user.id, name="Transport", type="expense")
+    cat1 = CategoryFactory(user_id=user.id, name={"en": "Groceries"}, type="expense")
+    cat2 = CategoryFactory(user_id=user.id, name={"en": "Transport"}, type="expense")
 
     yield {
         "user_id": user_id,

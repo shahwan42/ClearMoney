@@ -208,7 +208,7 @@ class TestCategoriesPage:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        CategoryFactory(user_id=user_id, name="Food", is_system=True)
+        CategoryFactory(user_id=user_id, name={"en": "Food"}, is_system=True)
         response = auth_client.get("/settings/categories")
         assert response.status_code == 200
         assert b"Food" in response.content
@@ -217,7 +217,7 @@ class TestCategoriesPage:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        cat = CategoryFactory(user_id=user_id, name="Groceries")
+        cat = CategoryFactory(user_id=user_id, name={"en": "Groceries"})
         inst = InstitutionFactory(user_id=user_id)
         acct = AccountFactory(user_id=user_id, institution_id=inst.id)
         TransactionFactory(
@@ -234,7 +234,7 @@ class TestCategoriesPage:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        CategoryFactory(user_id=user_id, name="OldCat", is_archived=True)
+        CategoryFactory(user_id=user_id, name={"en": "OldCat"}, is_archived=True)
         response = auth_client.get("/settings/categories")
         assert response.status_code == 200
         assert b"Archived" in response.content
@@ -270,7 +270,7 @@ class TestCategoryAdd:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        CategoryFactory(user_id=user_id, name="Existing")
+        CategoryFactory(user_id=user_id, name={"en": "Existing"})
         response = auth_client.post(
             "/settings/categories/add",
             {"name": "existing", "icon": ""},
@@ -284,7 +284,9 @@ class TestCategoryArchive:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        cat = CategoryFactory(user_id=user_id, name="ToArchive", is_system=False)
+        cat = CategoryFactory(
+            user_id=user_id, name={"en": "ToArchive"}, is_system=False
+        )
         response = auth_client.post(f"/settings/categories/{cat.id}/archive")
         assert response.status_code == 302
 
@@ -292,7 +294,7 @@ class TestCategoryArchive:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        cat = CategoryFactory(user_id=user_id, name="System", is_system=True)
+        cat = CategoryFactory(user_id=user_id, name={"en": "System"}, is_system=True)
         response = auth_client.post(f"/settings/categories/{cat.id}/archive")
         assert response.status_code == 403
 
@@ -303,7 +305,9 @@ class TestCategoryUnarchive:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        cat = CategoryFactory(user_id=user_id, name="Archived", is_archived=True)
+        cat = CategoryFactory(
+            user_id=user_id, name={"en": "Archived"}, is_archived=True
+        )
         response = auth_client.post(f"/settings/categories/{cat.id}/unarchive")
         assert response.status_code == 302
 
@@ -314,7 +318,7 @@ class TestCategoryUpdate:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        cat = CategoryFactory(user_id=user_id, name="OldName", is_system=False)
+        cat = CategoryFactory(user_id=user_id, name={"en": "OldName"}, is_system=False)
         response = auth_client.post(
             f"/settings/categories/{cat.id}/update",
             {"name": "NewName", "icon": "✏️"},
@@ -325,7 +329,7 @@ class TestCategoryUpdate:
         self, auth_user: tuple[str, str, str], auth_client: Client
     ) -> None:
         user_id, _, _ = auth_user
-        cat = CategoryFactory(user_id=user_id, name="SysCat", is_system=True)
+        cat = CategoryFactory(user_id=user_id, name={"en": "SysCat"}, is_system=True)
         response = auth_client.post(
             f"/settings/categories/{cat.id}/update",
             {"name": "Hacked", "icon": ""},

@@ -15,6 +15,7 @@ from typing import Any
 from uuid import UUID
 
 from django.db.models import Count, OuterRef, Subquery, Value
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -50,14 +51,19 @@ def _get_categories(request: AuthenticatedRequest) -> list[dict[str, Any]]:
     qs = (
         Category.objects.for_user(request.user_id)
         .filter(is_archived=False)
-        .annotate(usage_count=Coalesce(usage_sq, Value(0)))
-        .order_by("-usage_count", "name")
+        .annotate(
+            usage_count=Coalesce(usage_sq, Value(0)),
+            name_en=KeyTextTransform("en", "name"),
+        )
+        .order_by("-usage_count", "name_en")
         .values("id", "name", "type", "icon")
     )
     return [
         {
             "id": str(row["id"]),
-            "name": row["name"],
+            "name": row["name"].get("en", "")
+            if isinstance(row["name"], dict)
+            else row["name"],
             "type": row["type"],
             "icon": row["icon"],
         }

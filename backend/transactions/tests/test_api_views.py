@@ -40,7 +40,7 @@ def tx_api_data(db):
     )
     category = CategoryFactory(
         user_id=user.id,
-        name="Groceries",
+        name={"en": "Groceries"},
         type="expense",
         is_system=True,
         display_order=1,

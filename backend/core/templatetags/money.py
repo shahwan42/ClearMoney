@@ -305,15 +305,47 @@ def categories_json(categories: Any) -> str:
     items = []
     for cat in categories:
         if hasattr(cat, "id"):
-            # Model instance
-            items.append({"id": str(cat.id), "name": cat.name, "icon": cat.icon or ""})
+            # Model instance — resolve JSONB name to display string
+            display_name = (
+                cat.get_display_name() if hasattr(cat, "get_display_name") else cat.name
+            )
+            items.append(
+                {"id": str(cat.id), "name": display_name, "icon": cat.icon or ""}
+            )
         elif isinstance(cat, dict):
             # Dict from .values() or service layer
+            raw_name = cat.get("name", "")
+            resolved = (
+                raw_name.get("en", "") if isinstance(raw_name, dict) else raw_name
+            )
             items.append(
                 {
                     "id": str(cat.get("id", "")),
-                    "name": cat.get("name", ""),
+                    "name": resolved,
                     "icon": cat.get("icon", "") or "",
                 }
             )
     return mark_safe(json.dumps(items, ensure_ascii=False))
+
+
+@register.filter
+def category_name(value: Any) -> str:
+    """Resolve a JSONB category name to a display string.
+
+    Handles both model instances (with get_display_name) and raw dicts.
+    Usage: {{ cat.name|category_name }} or {{ cat|category_name }}
+    """
+    if hasattr(value, "get_display_name"):
+        return str(value.get_display_name())
+    if isinstance(value, dict):
+        raw = value.get("name", value)
+        if isinstance(raw, dict):
+            if "ar" in raw:
+                from django.utils.translation import get_language
+
+                lang = (get_language() or "en").split("-")[0]
+                if lang in raw:
+                    return str(raw[lang])
+            return str(raw.get("en", ""))
+        return str(raw)
+    return str(value) if value else ""

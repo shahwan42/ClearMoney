@@ -348,7 +348,7 @@ def recent_tx_data(db):
         currency="EGP",
         current_balance=5000,
     )
-    category = CategoryFactory(user_id=user.id, name="Food", type="expense")
+    category = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
     yield {
         "user_id": str(user.id),
         "account_id": str(account.id),

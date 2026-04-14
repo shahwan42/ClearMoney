@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.db.models import Q, Sum
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
 from core.timing import timed
@@ -104,7 +105,8 @@ def get_spending_by_category(
 
     # LEFT JOIN via category FK — NULL category becomes "Uncategorized"
     rows = (
-        qs.values("category_id", "category__name", "category__icon")
+        qs.annotate(category_name_en=KeyTextTransform("en", "category__name"))
+        .values("category_id", "category_name_en", "category__icon")
         .annotate(total=Sum("amount"))
         .order_by("-total")
     )
@@ -117,7 +119,7 @@ def get_spending_by_category(
         spending.append(
             {
                 "category_id": str(row["category_id"]) if row["category_id"] else "",
-                "name": row["category__name"] or "Uncategorized",
+                "name": row["category_name_en"] or "Uncategorized",
                 "icon": row["category__icon"] or "",
                 "amount": amount,
                 "percentage": 0.0,

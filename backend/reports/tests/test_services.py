@@ -59,7 +59,7 @@ class TestGetSpendingByCategory:
         spending, total = _get_spending_by_category(str(user.id), 2026, 3)
         assert len(spending) == 1
         assert total == 500.0
-        assert spending[0]["name"] == category.name
+        assert spending[0]["name"] == category.get_display_name()
 
     def test_multiple_categories(self) -> None:
         user = UserFactory()
@@ -67,8 +67,10 @@ class TestGetSpendingByCategory:
         account = AccountFactory(
             user_id=user.id, institution_id=inst.id, currency="EGP"
         )
-        cat1 = CategoryFactory(user_id=user.id, name="Food", type="expense")
-        cat2 = CategoryFactory(user_id=user.id, name="Transport", type="expense")
+        cat1 = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
+        cat2 = CategoryFactory(
+            user_id=user.id, name={"en": "Transport"}, type="expense"
+        )
         TransactionFactory(
             user_id=user.id,
             account_id=account.id,

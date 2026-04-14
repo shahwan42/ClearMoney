@@ -149,7 +149,7 @@ class TestAccountDetail:
         """Account detail transaction rows display category icon and name."""
         user_id = accounts_data["user_id"]
         cat = CategoryFactory(
-            user_id=user_id, name="Groceries", type="expense", icon="🍕"
+            user_id=user_id, name={"en": "Groceries"}, type="expense", icon="🍕"
         )
         Transaction.objects.filter(user_id=user_id).update(category_id=cat.id)
         c = set_auth_cookie(client, accounts_data["session_token"])

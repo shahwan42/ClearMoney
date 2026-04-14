@@ -10,6 +10,7 @@ from typing import Any
 
 from django.db import transaction
 from django.db.models import Count, F, OuterRef, Subquery, Value
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
@@ -237,14 +238,19 @@ class HelperMixin:
         if cat_type:
             qs = qs.filter(type=cat_type)
         rows = (
-            qs.annotate(usage_count=Coalesce(usage_sq, Value(0)))
-            .order_by("-usage_count", "name")
+            qs.annotate(
+                usage_count=Coalesce(usage_sq, Value(0)),
+                name_en=KeyTextTransform("en", "name"),
+            )
+            .order_by("-usage_count", "name_en")
             .values("id", "name", "type", "icon")
         )
         return [
             {
                 "id": str(r["id"]),
-                "name": r["name"],
+                "name": r["name"].get("en", "")
+                if isinstance(r["name"], dict)
+                else r["name"],
                 "type": r["type"],
                 "icon": r["icon"],
             }
@@ -278,7 +284,7 @@ class HelperMixin:
         uid = self.user_id  # type: ignore[attr-defined]
         result = (
             Category.objects.for_user(uid)
-            .filter(name="Fees & Charges")
+            .filter(name__en="Fees & Charges")
             .values_list("id", flat=True)
             .first()
         )

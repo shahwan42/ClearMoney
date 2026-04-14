@@ -275,7 +275,7 @@ class TransactionServiceBase:
 
         fees_cat = (
             Category.objects.for_user(self.user_id)
-            .filter(name="Fees & Charges")
+            .filter(name__en="Fees & Charges")
             .first()
         )
 
@@ -398,7 +398,7 @@ class TransactionServiceBase:
                         t.fee_account_id, t.person_id, t.linked_transaction_id,
                         t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
                         a.name AS account_name,
-                        c.name AS category_name,
+                        c.name->>'en' AS category_name,
                         c.icon AS category_icon,
                         a.current_balance - COALESCE(
                             SUM(t.balance_delta) OVER (
@@ -472,7 +472,7 @@ class TransactionServiceBase:
                     t.fee_account_id, t.person_id, t.linked_transaction_id,
                     t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
                     a.name AS account_name,
-                    c.name AS category_name,
+                    c.name->>'en' AS category_name,
                     c.icon AS category_icon,
                     a.current_balance - COALESCE(
                         SUM(t.balance_delta) OVER (

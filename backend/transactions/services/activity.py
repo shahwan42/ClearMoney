@@ -71,7 +71,7 @@ def load_recent_transactions(user_id: str, limit: int = 10) -> list[TransactionR
             balance_delta=float(t.balance_delta),
             account_name=t.account_name,
             running_balance=float(t.running_balance),
-            category_name=t.category.name if t.category else None,
+            category_name=t.category.get_display_name() if t.category else None,
             category_icon=t.category.icon if t.category else None,
         )
         for t in qs

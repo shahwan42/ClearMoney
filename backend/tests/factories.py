@@ -119,7 +119,7 @@ class CategoryFactory(factory.django.DjangoModelFactory):
 
     id = factory.LazyFunction(uuid.uuid4)
     user_id = factory.LazyFunction(uuid.uuid4)  # override with real user_id in tests
-    name = factory.Sequence(lambda n: f"Category {n}")
+    name = factory.Sequence(lambda n: {"en": f"Category {n}"})
     type = "expense"
 
 

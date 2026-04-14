@@ -30,7 +30,7 @@ def cat_svc(db):
     # Seed a system category + a custom category
     CategoryFactory(
         user_id=user.id,
-        name="Groceries",
+        name={"en": "Groceries"},
         type="expense",
         icon="🛒",
         is_system=True,
@@ -38,7 +38,7 @@ def cat_svc(db):
     )
     CategoryFactory(
         user_id=user.id,
-        name="Salary",
+        name={"en": "Salary"},
         type="income",
         icon="💵",
         is_system=True,
@@ -61,8 +61,8 @@ class TestCategoryServiceGetAll:
         """Categories ordered by usage count descending, then name alphabetically."""
         svc, user_id = cat_svc
         # "Zzz" is alphabetically last but should come first due to usage
-        cat_used = CategoryFactory(user_id=user_id, name="Zzz Used")
-        CategoryFactory(user_id=user_id, name="Aaa Unused")
+        cat_used = CategoryFactory(user_id=user_id, name={"en": "Zzz Used"})
+        CategoryFactory(user_id=user_id, name={"en": "Aaa Unused"})
         inst = InstitutionFactory(user_id=user_id)
         acct = AccountFactory(user_id=user_id, institution_id=inst.id)
         for _ in range(3):
@@ -77,8 +77,8 @@ class TestCategoryServiceGetAll:
     def test_zero_usage_alphabetical(self, cat_svc):
         """Categories with zero usage sorted alphabetically."""
         svc, user_id = cat_svc
-        CategoryFactory(user_id=user_id, name="Zebra")
-        CategoryFactory(user_id=user_id, name="Alpha")
+        CategoryFactory(user_id=user_id, name={"en": "Zebra"})
+        CategoryFactory(user_id=user_id, name={"en": "Alpha"})
         cats = svc.get_all()
         names = [c["name"] for c in cats]
         assert names.index("Alpha") < names.index("Zebra")

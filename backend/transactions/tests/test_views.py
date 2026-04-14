@@ -41,7 +41,7 @@ def tx_view_data(db):
         initial_balance=10000,
         type="savings",
     )
-    cat = CategoryFactory(user_id=user.id, name="Food", type="expense")
+    cat = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
 
     yield {
         "user_id": str(user.id),
@@ -252,7 +252,7 @@ class TestTransactionCRUD:
 
         CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Fees & Charges",
+            name={"en": "Fees & Charges"},
             type="expense",
         )
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -792,7 +792,7 @@ class TestQuickEntryViews:
 
         CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Fees & Charges",
+            name={"en": "Fees & Charges"},
             type="expense",
         )
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -850,7 +850,7 @@ class TestTransactionEditFee:
 
         CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Fees & Charges",
+            name={"en": "Fees & Charges"},
             type="expense",
         )
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -881,7 +881,7 @@ class TestTransactionEditFee:
     def test_edit_removes_fee_when_cleared(self, client, tx_view_data):
         CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Fees & Charges",
+            name={"en": "Fees & Charges"},
             type="expense",
         )
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -988,7 +988,7 @@ class TestQuickEntryOOBSwaps:
 
     def test_income_also_triggers_oob(self, client, tx_view_data):
         cat = CategoryFactory(
-            user_id=tx_view_data["user_id"], name="Salary", type="income"
+            user_id=tx_view_data["user_id"], name={"en": "Salary"}, type="income"
         )
         c = set_auth_cookie(client, tx_view_data["session_token"])
         resp = c.post(
@@ -1086,7 +1086,7 @@ class TestTransactionListShowsCategory:
         """Row HTML includes the category icon and name when a category is set."""
         cat = CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Groceries",
+            name={"en": "Groceries"},
             type="expense",
             icon="🍕",
         )
@@ -1110,7 +1110,7 @@ class TestTransactionListShowsCategory:
         """Row shows 'Category · Note' when both are present."""
         cat = CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Groceries",
+            name={"en": "Groceries"},
             type="expense",
             icon="🍕",
         )
@@ -1155,7 +1155,7 @@ class TestTransactionListShowsCategory:
         """Category with NULL icon shows just the name — no leading space or placeholder."""
         cat = CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Transport",
+            name={"en": "Transport"},
             type="expense",
             icon=None,
         )
@@ -1217,7 +1217,7 @@ class TestTransactionListShowsCategory:
         """Empty-string note is treated as absent — category icon+name is shown instead."""
         cat = CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Transport",
+            name={"en": "Transport"},
             type="expense",
             icon="🚗",
         )
@@ -1245,7 +1245,7 @@ class TestTransactionListShowsCategory:
         """Category with NULL icon + note renders as 'Category · Note' (no icon prefix)."""
         cat = CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Transport",
+            name={"en": "Transport"},
             type="expense",
             icon=None,
         )
@@ -1298,7 +1298,7 @@ class TestTransactionEditResponseShowsCategory:
         # gap: functional — edit response row
         cat = CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Dining",
+            name={"en": "Dining"},
             type="expense",
             icon="🍽️",
         )
@@ -1392,7 +1392,7 @@ class TestTransactionDetailSheet:
     def test_shows_category_name_and_icon(self, client, tx_view_data):
         cat = CategoryFactory(
             user_id=tx_view_data["user_id"],
-            name="Dining",
+            name={"en": "Dining"},
             type="expense",
             icon="🍽️",
         )

@@ -125,7 +125,7 @@ class TestDataIsolation:
         uid_a = two_users["user_a_id"]
         uid_b = two_users["user_b_id"]
 
-        cat = CategoryFactory(user_id=uid_a, name="Food", type="expense")
+        cat = CategoryFactory(user_id=uid_a, name={"en": "Food"}, type="expense")
         BudgetFactory(user_id=uid_a, category_id=cat.id)
 
         svc_a = BudgetService(uid_a, TZ)
@@ -198,8 +198,8 @@ class TestDataIsolation:
         uid_a = two_users["user_a_id"]
         uid_b = two_users["user_b_id"]
 
-        CategoryFactory(user_id=uid_a, name="Custom Cat A", type="expense")
-        CategoryFactory(user_id=uid_a, name="Custom Cat B", type="income")
+        CategoryFactory(user_id=uid_a, name={"en": "Custom Cat A"}, type="expense")
+        CategoryFactory(user_id=uid_a, name={"en": "Custom Cat B"}, type="income")
 
         svc_a = CategoryService(uid_a, TZ)
         svc_b = CategoryService(uid_b, TZ)

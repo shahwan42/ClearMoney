@@ -62,9 +62,11 @@ def tx_data(db):
         initial_balance=0,
         credit_limit=5000,
     )
-    cat_expense = CategoryFactory(user_id=user.id, name="Food", type="expense")
-    cat_income = CategoryFactory(user_id=user.id, name="Salary", type="income")
-    fees_cat = CategoryFactory(user_id=user.id, name="Fees & Charges", type="expense")
+    cat_expense = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
+    cat_income = CategoryFactory(user_id=user.id, name={"en": "Salary"}, type="income")
+    fees_cat = CategoryFactory(
+        user_id=user.id, name={"en": "Fees & Charges"}, type="expense"
+    )
     yield {
         "user_id": str(user.id),
         "inst_id": str(institution.id),
@@ -863,7 +865,7 @@ class TestTransferWithFee:
         ).first()
         assert fee_tx is not None
         assert fee_tx.category is not None
-        assert "fee" in fee_tx.category.name.lower()
+        assert "fee" in fee_tx.category.get_display_name().lower()
 
     def test_zero_fee_no_extra_transaction(self, tx_data):
         svc = _svc(tx_data["user_id"])
@@ -1183,7 +1185,7 @@ class TestTransactionListIncludesCategory:
     def test_list_includes_category_fields(self, tx_data: dict) -> None:
         """Transactions with a category expose category_name and category_icon."""
         cat = CategoryFactory(
-            user_id=tx_data["user_id"], name="Food", type="expense", icon="🍕"
+            user_id=tx_data["user_id"], name={"en": "Food"}, type="expense", icon="🍕"
         )
         cat_id = str(cat.id)
         svc = _svc(tx_data["user_id"])

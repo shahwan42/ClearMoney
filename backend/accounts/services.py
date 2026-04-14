@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 from django.db import IntegrityError
 from django.db.models import F, Q, Sum
+from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 from django.utils.translation import gettext as _
@@ -515,7 +516,7 @@ class AccountService:
             .select_related("account", "category")
             .annotate(
                 account_name=F("account__name"),
-                category_name=F("category__name"),
+                category_name=KeyTextTransform("en", "category__name"),
                 category_icon=F("category__icon"),
                 running_balance=running_balance_annotation(),
             )

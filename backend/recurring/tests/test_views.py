@@ -32,7 +32,7 @@ def rec_view_data(db):
         current_balance=50000,
         initial_balance=50000,
     )
-    cat = CategoryFactory(user_id=user.id, name="Bills", type="expense")
+    cat = CategoryFactory(user_id=user.id, name={"en": "Bills"}, type="expense")
 
     yield {
         "user_id": user_id,
@@ -104,7 +104,7 @@ class TestRecurringPage:
         """Archived categories must not appear in the recurring rule form dropdown."""  # gap: functional
         CategoryFactory(
             user_id=rec_view_data["user_id"],
-            name="Archived Cat",
+            name={"en": "Archived Cat"},
             type="expense",
             is_archived=True,
         )
@@ -337,7 +337,7 @@ def transfer_view_data(db):
         current_balance=5000,
         initial_balance=5000,
     )
-    CategoryFactory(user_id=user.id, name="Fees & Charges", type="expense")
+    CategoryFactory(user_id=user.id, name={"en": "Fees & Charges"}, type="expense")
 
     yield {
         "user_id": user_id,

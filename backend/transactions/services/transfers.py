@@ -110,7 +110,9 @@ class TransferMixin:
             effective_fee = fee_amount if fee_amount and fee_amount > 0 else 0
             if effective_fee > 0:
                 fees_cat = (
-                    Category.objects.for_user(uid).filter(name="Fees & Charges").first()
+                    Category.objects.for_user(uid)
+                    .filter(name__en="Fees & Charges")
+                    .first()
                 )
                 fee_tx_id = str(uuid.uuid4())
                 Transaction.objects.create(

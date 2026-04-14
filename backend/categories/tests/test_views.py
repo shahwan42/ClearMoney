@@ -20,7 +20,7 @@ def cat_api_data(db):
 
     CategoryFactory(
         user_id=user.id,
-        name="Groceries",
+        name={"en": "Groceries"},
         type="expense",
         icon="🛒",
         is_system=True,
@@ -28,7 +28,7 @@ def cat_api_data(db):
     )
     CategoryFactory(
         user_id=user.id,
-        name="Salary",
+        name={"en": "Salary"},
         type="income",
         icon="💵",
         is_system=True,

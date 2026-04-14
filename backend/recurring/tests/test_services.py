@@ -36,7 +36,7 @@ def rec_data(db):
         current_balance=50000,
         initial_balance=50000,
     )
-    cat = CategoryFactory(user_id=user.id, name="Bills", type="expense")
+    cat = CategoryFactory(user_id=user.id, name={"en": "Bills"}, type="expense")
 
     yield {
         "user_id": user_id,
@@ -552,7 +552,9 @@ def transfer_data(db):
         initial_balance=5000,
     )
     # Fees & Charges category needed for fee transactions
-    cat = CategoryFactory(user_id=user.id, name="Fees & Charges", type="expense")
+    cat = CategoryFactory(
+        user_id=user.id, name={"en": "Fees & Charges"}, type="expense"
+    )
 
     yield {
         "user_id": user_id,
