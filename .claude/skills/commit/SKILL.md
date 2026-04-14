@@ -11,7 +11,6 @@ Create a git commit for the current changes:
 3. Stage the relevant files (prefer specific files over `git add -A`)
 4. Write a conventional commit message: `type: concise description` (under ~72 chars)
    - `feat:` new feature — `fix:` bug fix — `refactor:` code restructure — `docs:` documentation — `chore:` tooling/config — `test:` test additions
-5. End the commit message with: `Co-Authored-By: <WHAT'S YOUR NAME?>`
-6. Run `git status` after to verify success
+5. Run `git status` after to verify success
 
 Do NOT push to the remote unless explicitly asked.
