@@ -1,13 +1,12 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-14
+Last updated: 2026-04-15
 
 ## In Progress
 
 _Nothing in progress._
 
 ## Pending
-| [031](pending/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-03-30 |
 | [032](pending/032-i18n-accounts-templates.md) | i18n strings — accounts templates | feature | medium | 2026-03-30 |
 | [033](pending/033-i18n-budgets-people-virtual.md) | i18n strings — budgets + people + virtual accounts | feature | medium | 2026-03-30 |
 | [034](pending/034-i18n-remaining-templates.md) | i18n strings — recurring + investments + reports + settings + exchange rates | feature | medium | 2026-03-30 |
@@ -95,6 +94,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [031](done/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-04-14 |
 | [030](done/030-i18n-dashboard-templates.md) | i18n strings — dashboard templates | feature | medium | 2026-04-14 |
 | [029](done/029-i18n-shared-components.md) | i18n strings — shared components + error pages | feature | medium | 2026-04-14 |
 | [028](done/028-i18n-auth-templates.md) | i18n strings — auth templates | feature | medium | 2026-04-14 |

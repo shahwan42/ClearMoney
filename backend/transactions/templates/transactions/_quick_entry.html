@@ -1,5 +1,6 @@
 {% load money %}
-<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Quick Entry</h3>
+{% load i18n %}
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">{% trans "Quick Entry" %}</h3>
 
 <div id="quick-entry-result" aria-live="polite"></div>
 
@@ -12,25 +13,25 @@
     id="quick-entry-form"
 >
     <fieldset class="border-0 p-0 m-0">
-        <legend class="sr-only">Transaction type</legend>
+        <legend class="sr-only">{% trans "Transaction type" %}</legend>
         <div class="flex gap-2">
             <label class="flex-1">
                 <input type="radio" name="type" value="expense" checked class="peer sr-only">
                 <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-200 rounded-xl py-3 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
-                    Expense
+                    {% trans "Expense" %}
                 </div>
             </label>
             <label class="flex-1">
                 <input type="radio" name="type" value="income" class="peer sr-only">
                 <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-200 rounded-xl py-3 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
-                    Income
+                    {% trans "Income" %}
                 </div>
             </label>
         </div>
     </fieldset>
 
     <div>
-        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-amount">Amount <span class="text-red-500" aria-hidden="true">*</span></label>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-amount">{% trans "Amount" %} <span class="text-red-500" aria-hidden="true">*</span></label>
         <input type="number" name="amount" id="qe-amount" step="0.01" min="0.01" required autofocus
             placeholder="0.00"
             class="w-full text-3xl font-bold text-center border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
@@ -40,11 +41,11 @@
     {# On tablet+, account and category display side-by-side #}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-account-select">Account <span class="text-red-500" aria-hidden="true">*</span></label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-account-select">{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span></label>
             <select name="account_id" required
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
                 id="qe-account-select">
-                <option value="">Select account...</option>
+                <option value="">{% trans "Select account..." %}</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}" {% if acc.id == last_account_id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
@@ -52,12 +53,12 @@
         </div>
 
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="qe-category-label">Category</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="qe-category-label">{% trans "Category" %}</label>
             <div data-category-combobox
                  data-categories='{{ categories|categories_json }}'
                  data-name="category_id"
                  data-selected-id="{{ auto_category_id|default:'' }}"
-                 data-placeholder="Search categories..."
+                 data-placeholder="{% trans "Search categories..." %}"
                  data-allow-empty="true"
                  id="qe-category-combobox">
             </div>
@@ -70,8 +71,8 @@
     <input type="hidden" name="date" id="qe-date-input" value="{{ today|date:'Y-m-d' }}">
 
     <div>
-        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-note-input">Note (optional)</label>
-        <input type="text" name="note" id="qe-note-input" maxlength="500" placeholder="What was this for?"
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-note-input">{% trans "Note (optional)" %}</label>
+        <input type="text" name="note" id="qe-note-input" maxlength="500" placeholder="{% trans "What was this for?" %}"
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
@@ -82,30 +83,30 @@
         <svg id="qe-more-options-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
-        More options<span id="qe-more-options-date-hint" class="text-gray-400 font-normal"></span>
+        {% trans "More options" %}<span id="qe-more-options-date-hint" class="text-gray-400 font-normal"></span>
     </button>
 
     <!-- Optional fields: date, virtual account -->
     <div id="qe-more-options" class="hidden space-y-4 overflow-hidden">
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-date-picker">Date</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-date-picker">{% trans "Date" %}</label>
             <input type="date" name="date" id="qe-date-picker" disabled
                 value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"
                 class="w-full min-w-0 max-w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
         <!-- Fee (optional) -->
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-fee-input">Fee (optional)</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-fee-input">{% trans "Fee (optional)" %}</label>
             <input type="number" name="fee_amount" id="qe-fee-input" step="0.01" min="0" placeholder="0.00"
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
 
         {% if virtual_accounts %}
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-va-select">Virtual Account (optional)</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-va-select">{% trans "Virtual Account (optional)" %}</label>
             <select name="virtual_account_id" id="qe-va-select"
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-                <option value="">None</option>
+                <option value="">{% trans "None" %}</option>
                 {% for va in virtual_accounts %}
                 <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}">{{ va.name }}</option>
                 {% endfor %}
@@ -116,7 +117,7 @@
 
     <button type="submit"
         class="relative w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
-        <span class="btn-label">Save</span>
+        <span class="btn-label">{% trans "Save" %}</span>
         <span class="btn-spinner hidden">
             <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

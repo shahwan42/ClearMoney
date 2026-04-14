@@ -1,4 +1,5 @@
 {% load money %}
+{% load i18n %}
 {% if data.transactions %}
 <div class="space-y-2">
     {% for tx in data.transactions %}
@@ -10,7 +11,7 @@
     <button hx-get="/transactions/list?offset={{ data.next_offset }}&account_id={{ data.account_id|default:'' }}&type={{ data.type|default:'' }}&category_id={{ data.category_id|default:'' }}&date_from={{ data.date_from|default:'' }}&date_to={{ data.date_to|default:'' }}&search={{ data.search|default:'' }}"
             hx-target="#transaction-list" hx-swap="innerHTML"
             class="text-sm text-teal-600 font-medium py-2">
-        Load more...
+        {% trans "Load more..." %}
     </button>
 </div>
 {% endif %}
@@ -19,15 +20,15 @@
     <svg class="w-12 h-12 mx-auto mb-3 text-gray-200 dark:text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
     </svg>
-    <p class="text-sm font-medium text-gray-500 dark:text-slate-400 mb-1">No transactions found</p>
-    <p class="text-xs mb-4">Try adjusting your filters or add a new transaction.</p>
+    <p class="text-sm font-medium text-gray-500 dark:text-slate-400 mb-1">{% trans "No transactions found" %}</p>
+    <p class="text-xs mb-4">{% trans "Try adjusting your filters or add a new transaction." %}</p>
     <button type="button"
         onclick="openQuickEntry()"
         class="inline-flex items-center gap-1.5 bg-teal-600 text-white text-sm px-4 rounded-xl font-medium hover:bg-teal-700 transition min-h-[44px]">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
         </svg>
-        Add transaction
+        {% trans "Add transaction" %}
     </button>
 </div>
 {% endif %}

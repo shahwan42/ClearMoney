@@ -1,15 +1,16 @@
 {% load money %}
+{% load i18n %}
 <div id="move-money-content" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 space-y-4">
-    <h2 class="text-base font-bold text-slate-800 dark:text-white">Move Money</h2>
+    <h2 class="text-base font-bold text-slate-800 dark:text-white">{% trans "Move Money" %}</h2>
     <form id="move-money-form" hx-post="/transactions/transfer" hx-target="#move-money-content" hx-swap="innerHTML"
           hx-disabled-elt="find button[type='submit']"
           class="space-y-3 overflow-hidden">
         <div>
-            <label for="move-src" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">From Account</label>
+            <label for="move-src" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "From Account" %}</label>
             <select name="source_account_id" id="move-src" required
                     onchange="updateMoveMode()"
                     class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
-                <option value="">Select source...</option>
+                <option value="">{% trans "Select source..." %}</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}" data-currency="{{ acc.currency }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
@@ -17,11 +18,11 @@
         </div>
 
         <div>
-            <label for="move-dst" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">To Account</label>
+            <label for="move-dst" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "To Account" %}</label>
             <select name="dest_account_id" id="move-dst" required
                     onchange="updateMoveMode()"
                     class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
-                <option value="">Select destination...</option>
+                <option value="">{% trans "Select destination..." %}</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}" data-currency="{{ acc.currency }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
@@ -32,7 +33,7 @@
         <div id="move-mode-indicator" aria-live="polite" class="hidden text-xs font-medium px-3 py-1.5 rounded-lg text-center"></div>
 
         <div>
-            <label for="move-amount" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Amount</label>
+            <label for="move-amount" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Amount" %}</label>
             <input type="number" name="amount" id="move-amount" step="0.01" min="0.01" required
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
                    oninput="onMoveAmountInput()">
@@ -41,13 +42,13 @@
         {# Transfer-only fields: fee #}
         <div id="move-transfer-fields" class="hidden space-y-3" aria-hidden="true">
             <div>
-                <label for="move-fee" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Fee (optional)</label>
+                <label for="move-fee" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Fee (optional)" %}</label>
                 <input type="number" name="fee_amount" id="move-fee" step="0.01" min="0" placeholder="0.00" disabled
                        class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
                        oninput="updateMoveTotal()">
             </div>
             <div id="move-total-display" class="hidden bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg p-2 text-xs text-slate-600 dark:text-slate-300">
-                Total from source: <span id="move-total-value" class="font-semibold">0.00</span>
+                {% trans "Total from source:" %} <span id="move-total-value" class="font-semibold">0.00</span>
             </div>
         </div>
 
@@ -55,13 +56,13 @@
         <div id="move-exchange-fields" class="hidden" aria-hidden="true">
             <div class="grid grid-cols-2 gap-2">
                 <div>
-                    <label for="move-rate" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Rate</label>
+                    <label for="move-rate" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Rate" %}</label>
                     <input type="number" name="rate" id="move-rate" step="0.0001" min="0.0001" disabled
                            class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
                            oninput="calcMoveExchange('rate')">
                 </div>
                 <div>
-                    <label for="move-counter" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Result</label>
+                    <label for="move-counter" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Result" %}</label>
                     <input type="number" name="counter_amount" id="move-counter" step="0.01" min="0.01" disabled
                            class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
                            oninput="calcMoveExchange('counter')">
@@ -70,20 +71,20 @@
         </div>
 
         <div>
-            <label for="move-note" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Note (optional)</label>
+            <label for="move-note" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Note (optional)" %}</label>
             <input type="text" name="note" id="move-note"
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
         </div>
 
         <div>
-            <label for="move-date" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">Date</label>
+            <label for="move-date" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Date" %}</label>
             <input type="date" name="date" id="move-date" value="{{ today|date:'Y-m-d' }}"
                    class="w-full min-w-0 max-w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
         </div>
 
         <button type="submit"
                 class="relative w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-sm font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
-            <span class="btn-label" id="move-submit-label">Move Money</span>
+            <span class="btn-label" id="move-submit-label">{% trans "Move Money" %}</span>
             <span class="btn-spinner hidden">
                 <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

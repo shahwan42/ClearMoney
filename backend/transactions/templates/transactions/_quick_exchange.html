@@ -1,4 +1,5 @@
 {% load money %}
-<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Quick Exchange</h3>
+{% load i18n %}
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">{% trans "Quick Exchange" %}</h3>
 <div id="quick-exchange-result" aria-live="polite"></div>
 {% include "transactions/_exchange_form.html" %}

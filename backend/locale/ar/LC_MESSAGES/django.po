@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ClearMoney\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-14 12:36+0200\n"
+"POT-Creation-Date: 2026-04-14 13:44+0200\n"
 "PO-Revision-Date: 2026-04-14 00:00+0200\n"
 "Last-Translator: \n"
 "Language-Team: Arabic\n"
@@ -105,6 +105,71 @@ msgstr ""
 msgid "Request a new link"
 msgstr "طلب رابط جديد"
 
+#: core/templatetags/money.py:191
+msgid "Savings"
+msgstr "الإعدادات"
+
+#: core/templatetags/money.py:192
+msgid "Current"
+msgstr "حالي"
+
+#: core/templatetags/money.py:193
+msgid "Prepaid"
+msgstr "مسبق الدفع"
+
+#: core/templatetags/money.py:194
+#: transactions/templates/transactions/_fawry_cashout_form.html:9
+msgid "Credit Card"
+msgstr "بطاقات الائتمان"
+
+#: core/templatetags/money.py:195
+msgid "Credit Line"
+msgstr "الرصيد المستخدم"
+
+#: core/templatetags/money.py:196
+msgid "Cash"
+msgstr "نقدي"
+
+#: core/templatetags/money.py:208
+#: transactions/templates/transactions/_quick_entry.html:21
+#: transactions/templates/transactions/_transaction_edit_form.html:16
+#: transactions/templates/transactions/batch_entry.html:17
+#: transactions/templates/transactions/transaction_new.html:29
+#: transactions/templates/transactions/transactions.html:36
+msgid "Expense"
+msgstr "مصروف"
+
+#: core/templatetags/money.py:209
+#: transactions/templates/transactions/_quick_entry.html:27
+#: transactions/templates/transactions/_transaction_edit_form.html:17
+#: transactions/templates/transactions/batch_entry.html:18
+#: transactions/templates/transactions/transaction_new.html:36
+#: transactions/templates/transactions/transactions.html:37
+msgid "Income"
+msgstr "دخل"
+
+#: core/templatetags/money.py:210
+#: transactions/templates/transactions/_transfer_form.html:62
+msgid "Transfer"
+msgstr "تحويل"
+
+#: core/templatetags/money.py:211
+#: transactions/templates/transactions/_exchange_form.html:65
+msgid "Exchange"
+msgstr "صرف"
+
+#: core/templatetags/money.py:212
+msgid "Loan Given"
+msgstr "قرض مقدم"
+
+#: core/templatetags/money.py:213
+msgid "Loan Received"
+msgstr "قرض مستلم"
+
+#: core/templatetags/money.py:214
+msgid "Loan Repayment"
+msgstr "سداد قرض"
+
 #: dashboard/templates/dashboard/_accounts.html:5
 #: templates/components/bottom-nav.html:29
 msgid "Accounts"
@@ -122,8 +187,8 @@ msgid ""
 "No accounts yet. <a href=\"/accounts\" class=\"text-teal-600 underline\">Add "
 "your first account</a>"
 msgstr ""
-"لا توجد حسابات بعد. <a href=\"/accounts\" class=\"text-teal-600 underline\">أضف "
-"حسابك الأول</a>"
+"لا توجد حسابات بعد. <a href=\"/accounts\" class=\"text-teal-600 "
+"underline\">أضف حسابك الأول</a>"
 
 #: dashboard/templates/dashboard/_budgets.html:6
 #: templates/components/bottom-nav.html:104
@@ -306,6 +371,7 @@ msgid "The page you're looking for doesn't exist or has been moved."
 msgstr "الصفحة التي تبحث عنها غير موجودة أو تم نقلها."
 
 #: templates/404.html:12 templates/429.html:12 templates/500.html:18
+#: transactions/templates/transactions/_transaction_success.html:16
 msgid "Go to Dashboard"
 msgstr "الذهاب إلى لوحة التحكم"
 
@@ -359,6 +425,7 @@ msgid "History"
 msgstr "السجل"
 
 #: templates/components/bottom-nav.html:19
+#: transactions/templates/transactions/_transaction_list.html:31
 msgid "Add transaction"
 msgstr "إضافة معاملة"
 
@@ -368,6 +435,7 @@ msgid "More menu"
 msgstr "المزيد"
 
 #: templates/components/bottom-nav.html:42
+#: transactions/templates/transactions/transactions.html:74
 msgid "More"
 msgstr "المزيد"
 
@@ -380,6 +448,9 @@ msgid "Transaction"
 msgstr "معاملة"
 
 #: templates/components/bottom-nav.html:71
+#: transactions/templates/transactions/_move_money_form.html:4
+#: transactions/templates/transactions/_move_money_form.html:87
+#: transactions/templates/transactions/_quick_move_money.html:3
 msgid "Move Money"
 msgstr "تحويل الأموال"
 
@@ -416,6 +487,8 @@ msgid "Auto-create transactions"
 msgstr "إنشاء معاملات تلقائياً"
 
 #: templates/components/bottom-nav.html:145
+#: transactions/templates/transactions/batch_entry.html:9
+#: transactions/templates/transactions/transactions.html:74
 msgid "Batch Entry"
 msgstr "الإدخال الجماعي"
 
@@ -439,3 +512,448 @@ msgstr "اتجاه الرصيد"
 #: templates/components/header.html:6
 msgid "Toggle dark mode"
 msgstr "تبديل الوضع المظلم"
+
+#: transactions/templates/transactions/_exchange_form.html:4
+msgid "Currency Exchange"
+msgstr "صرف العملات"
+
+#: transactions/templates/transactions/_exchange_form.html:9
+msgid "From Account (source currency)"
+msgstr "من حساب (عملة المصدر)"
+
+#: transactions/templates/transactions/_exchange_form.html:12
+#: transactions/templates/transactions/_move_money_form.html:13
+#: transactions/templates/transactions/_transfer_form.html:12
+msgid "Select source..."
+msgstr "اختر المصدر..."
+
+#: transactions/templates/transactions/_exchange_form.html:20
+msgid "To Account (destination currency)"
+msgstr "إلى حساب (عملة الوجهة)"
+
+#: transactions/templates/transactions/_exchange_form.html:23
+#: transactions/templates/transactions/_move_money_form.html:25
+#: transactions/templates/transactions/_transfer_form.html:23
+msgid "Select destination..."
+msgstr "اختر الوجهة..."
+
+#: transactions/templates/transactions/_exchange_form.html:32
+#: transactions/templates/transactions/_move_money_form.html:36
+#: transactions/templates/transactions/_quick_entry.html:34
+#: transactions/templates/transactions/_transaction_edit_form.html:21
+#: transactions/templates/transactions/_transfer_form.html:31
+#: transactions/templates/transactions/batch_entry.html:20
+#: transactions/templates/transactions/transaction_new.html:44
+msgid "Amount"
+msgstr "الحسابات"
+
+#: transactions/templates/transactions/_exchange_form.html:38
+#: transactions/templates/transactions/_move_money_form.html:59
+msgid "Rate"
+msgstr "المعدل"
+
+#: transactions/templates/transactions/_exchange_form.html:44
+#: transactions/templates/transactions/_move_money_form.html:65
+msgid "Result"
+msgstr "النتيجة"
+
+#: transactions/templates/transactions/_exchange_form.html:52
+#: transactions/templates/transactions/_fawry_cashout_form.html:63
+#: transactions/templates/transactions/_move_money_form.html:74
+#: transactions/templates/transactions/_quick_entry.html:74
+#: transactions/templates/transactions/_transaction_edit_form.html:36
+#: transactions/templates/transactions/_transfer_form.html:49
+#: transactions/templates/transactions/transaction_new.html:81
+msgid "Note (optional)"
+msgstr ""
+
+#: transactions/templates/transactions/_exchange_form.html:58
+#: transactions/templates/transactions/_fawry_cashout_form.html:58
+#: transactions/templates/transactions/_move_money_form.html:80
+#: transactions/templates/transactions/_quick_entry.html:92
+#: transactions/templates/transactions/_transaction_detail_sheet.html:42
+#: transactions/templates/transactions/_transaction_edit_form.html:43
+#: transactions/templates/transactions/_transfer_form.html:55
+#: transactions/templates/transactions/batch_entry.html:37
+#: transactions/templates/transactions/transaction_new.html:105
+msgid "Date"
+msgstr ""
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:4
+msgid "Fawry Cash-Out"
+msgstr "السحب من فوري"
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:5
+msgid "Charge your credit card and load funds to a Fawry prepaid account."
+msgstr "شحن بطاقتك الائتمانية وتحويل الأموال إلى حساب فوري prepaid."
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:11
+msgid "Select credit card..."
+msgstr "اختر بطاقة الائتمان..."
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:19
+msgid "Prepaid / Fawry Account"
+msgstr "حساب فوري / Prepaid"
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:21
+msgid "Select prepaid account..."
+msgstr "اختر حساب فوري..."
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:29
+msgid "Amount (net, what you receive)"
+msgstr "المبلغ (الصافي، ما تستلمه)"
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:37
+#: transactions/templates/transactions/_transaction_detail_sheet.html:91
+msgid "Fee"
+msgstr "الرسوم"
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:45
+msgid "Total charged to card"
+msgstr "الإجمالي المحصل من البطاقة"
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:50
+msgid "Currency"
+msgstr "العملة"
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:64
+msgid "e.g., Cash withdrawal"
+msgstr "مثال: سحب نقدي"
+
+#: transactions/templates/transactions/_fawry_cashout_form.html:70
+msgid "Process Cash-Out"
+msgstr "تنفيذ السحب"
+
+#: transactions/templates/transactions/_move_money_form.html:9
+#: transactions/templates/transactions/_transfer_form.html:9
+msgid "From Account"
+msgstr "الحسابات"
+
+#: transactions/templates/transactions/_move_money_form.html:21
+#: transactions/templates/transactions/_transfer_form.html:20
+msgid "To Account"
+msgstr "الحسابات"
+
+#: transactions/templates/transactions/_move_money_form.html:45
+#: transactions/templates/transactions/_quick_entry.html:99
+#: transactions/templates/transactions/_transaction_edit_form.html:59
+#: transactions/templates/transactions/_transfer_form.html:38
+#: transactions/templates/transactions/transaction_new.html:113
+msgid "Fee (optional)"
+msgstr ""
+
+#: transactions/templates/transactions/_move_money_form.html:51
+#: transactions/templates/transactions/_transfer_form.html:45
+msgid "Total from source:"
+msgstr "الإجمالي من المصدر:"
+
+#: transactions/templates/transactions/_quick_entry.html:3
+msgid "Quick Entry"
+msgstr "إدخال سريع"
+
+#: transactions/templates/transactions/_quick_entry.html:16
+#: transactions/templates/transactions/transaction_new.html:23
+msgid "Transaction type"
+msgstr "معاملة"
+
+#: transactions/templates/transactions/_quick_entry.html:44
+#: transactions/templates/transactions/_transaction_detail_sheet.html:37
+#: transactions/templates/transactions/batch_entry.html:24
+#: transactions/templates/transactions/transaction_new.html:54
+msgid "Account"
+msgstr "الحسابات"
+
+#: transactions/templates/transactions/_quick_entry.html:48
+#: transactions/templates/transactions/transaction_new.html:57
+msgid "Select account..."
+msgstr "اختر حساباً..."
+
+#: transactions/templates/transactions/_quick_entry.html:56
+#: transactions/templates/transactions/_transaction_detail_sheet.html:29
+#: transactions/templates/transactions/batch_entry.html:29
+#: transactions/templates/transactions/transaction_new.html:68
+msgid "Category"
+msgstr "الفئة"
+
+#: transactions/templates/transactions/_quick_entry.html:61
+#: transactions/templates/transactions/_transaction_edit_form.html:31
+#: transactions/templates/transactions/transaction_new.html:73
+msgid "Search categories..."
+msgstr "البحث في الفئات..."
+
+#: transactions/templates/transactions/_quick_entry.html:75
+#: transactions/templates/transactions/_transaction_edit_form.html:38
+#: transactions/templates/transactions/transaction_new.html:82
+msgid "What was this for?"
+msgstr "ما الغرض من هذا؟"
+
+#: transactions/templates/transactions/_quick_entry.html:86
+#: transactions/templates/transactions/_transaction_edit_form.html:53
+#: transactions/templates/transactions/transaction_new.html:97
+msgid "More options"
+msgstr "المزيد من الخيارات"
+
+#: transactions/templates/transactions/_quick_entry.html:106
+#: transactions/templates/transactions/transaction_new.html:121
+msgid "Virtual Account (optional)"
+msgstr "الحسابات الافتراضية"
+
+#: transactions/templates/transactions/_quick_entry.html:109
+#: transactions/templates/transactions/transaction_new.html:124
+msgid "None"
+msgstr "لا شيء"
+
+#: transactions/templates/transactions/_quick_entry.html:120
+#: transactions/templates/transactions/_transaction_edit_form.html:111
+msgid "Save"
+msgstr "حفظ"
+
+#: transactions/templates/transactions/_quick_entry_success.html:10
+#: transactions/templates/transactions/_transaction_success.html:5
+msgid "Transaction saved!"
+msgstr "معاملة"
+
+#: transactions/templates/transactions/_quick_entry_success.html:15
+#: transactions/templates/transactions/_transaction_success.html:12
+msgid "Add Another"
+msgstr "إضافة أخرى"
+
+#: transactions/templates/transactions/_quick_entry_success.html:20
+#: transactions/templates/transactions/_transfer_success.html:18
+msgid "Done"
+msgstr "تم"
+
+#: transactions/templates/transactions/_quick_exchange.html:3
+msgid "Quick Exchange"
+msgstr "صرف سريع"
+
+#: transactions/templates/transactions/_quick_transfer.html:3
+msgid "Quick Transfer"
+msgstr "إدخال سريع"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:50
+#: transactions/templates/transactions/batch_entry.html:38
+msgid "Note"
+msgstr "ملاحظة"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:57
+msgid "Tags"
+msgstr "العلامات"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:69
+msgid "Transfer to"
+msgstr "معاملة"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:69
+msgid "Transfer from"
+msgstr "تحويل من"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:77
+msgid "Exchange rate"
+msgstr "سعر الصرف"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:84
+msgid "Counter amount"
+msgstr "المبلغ المقابل"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:98
+msgid "Person"
+msgstr "الشخص"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:105
+msgid "Virtual account"
+msgstr "الحسابات الافتراضية"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:115
+msgid "Edit transaction"
+msgstr "إضافة معاملة"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:116
+#: transactions/templates/transactions/_transaction_row.html:79
+msgid "Edit"
+msgstr "تعديل"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:119
+#: transactions/templates/transactions/_transaction_row.html:83
+msgid "Delete this transaction?"
+msgstr "المعاملات الأخيرة"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:122
+msgid "Delete transaction"
+msgstr "المعاملات الأخيرة"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:123
+#: transactions/templates/transactions/_transaction_row.html:88
+msgid "Delete"
+msgstr "حذف"
+
+#: transactions/templates/transactions/_transaction_edit_form.html:3
+msgid "Edit Transaction"
+msgstr "معاملة"
+
+#: transactions/templates/transactions/_transaction_edit_form.html:13
+#: transactions/templates/transactions/batch_entry.html:16
+msgid "Type"
+msgstr "النوع"
+
+#: transactions/templates/transactions/_transaction_edit_form.html:66
+msgid "Virtual Account"
+msgstr "الحسابات الافتراضية"
+
+#: transactions/templates/transactions/_transaction_edit_form.html:69
+msgid "No virtual account"
+msgstr "الحسابات الافتراضية"
+
+#: transactions/templates/transactions/_transaction_edit_form.html:121
+msgid "Cancel"
+msgstr "إلغاء"
+
+#: transactions/templates/transactions/_transaction_list.html:14
+msgid "Load more..."
+msgstr "تحميل المزيد..."
+
+#: transactions/templates/transactions/_transaction_list.html:23
+msgid "No transactions found"
+msgstr "لا توجد معاملات بعد."
+
+#: transactions/templates/transactions/_transaction_list.html:24
+msgid "Try adjusting your filters or add a new transaction."
+msgstr "جرب تعديل الفلاتر أو أضف معاملة جديدة."
+
+#: transactions/templates/transactions/_transaction_row.html:72
+msgid "Duplicate"
+msgstr "تكرار"
+
+#: transactions/templates/transactions/_transaction_success.html:7
+msgid "New balance:"
+msgstr "الرصيد:"
+
+#: transactions/templates/transactions/_transfer_form.html:4
+msgid "Transfer Between Accounts"
+msgstr "تحويل بين الحسابات"
+
+#: transactions/templates/transactions/_transfer_success.html:14
+msgid "Make Another"
+msgstr "إجراء آخر"
+
+#: transactions/templates/transactions/batch_entry.html:5
+msgid "ClearMoney - Batch Entry"
+msgstr "كلير ماني - لوحة التحكم"
+
+#: transactions/templates/transactions/batch_entry.html:10
+msgid ""
+"Add multiple transactions at once — useful for catching up on missed days."
+msgstr ""
+
+#: transactions/templates/transactions/batch_entry.html:30
+msgid "-- Category"
+msgstr "-- الفئة"
+
+#: transactions/templates/transactions/batch_entry.html:44
+msgid "+ Add Another Row"
+msgstr "+ إضافة صف آخر"
+
+#: transactions/templates/transactions/batch_entry.html:48
+msgid "Submit All"
+msgstr "إرسال الكل"
+
+#: transactions/templates/transactions/exchange.html:3
+msgid "ClearMoney - Currency Exchange"
+msgstr "كلير ماني - الرابط منتهي الصلاحية"
+
+#: transactions/templates/transactions/fawry_cashout.html:3
+msgid "ClearMoney - Fawry Cash-Out"
+msgstr "كلير ماني - لوحة التحكم"
+
+#: transactions/templates/transactions/move_money.html:3
+msgid "ClearMoney - Move Money"
+msgstr "كلير ماني - الرابط منتهي الصلاحية"
+
+#: transactions/templates/transactions/transaction_new.html:5
+msgid "ClearMoney - New Transaction"
+msgstr "كلير ماني - لوحة التحكم"
+
+#: transactions/templates/transactions/transaction_new.html:10
+msgid "New Transaction"
+msgstr "معاملة"
+
+#: transactions/templates/transactions/transaction_new.html:137
+msgid "Save Transaction"
+msgstr "معاملة"
+
+#: transactions/templates/transactions/transactions.html:5
+msgid "ClearMoney - Transactions"
+msgstr "المعاملات الأخيرة"
+
+#: transactions/templates/transactions/transactions.html:10
+msgid "Transactions"
+msgstr "معاملة"
+
+#: transactions/templates/transactions/transactions.html:16
+#: transactions/templates/transactions/transactions.html:18
+msgid "Search transaction notes"
+msgstr "المعاملات الأخيرة"
+
+#: transactions/templates/transactions/transactions.html:17
+msgid "Search notes..."
+msgstr "البحث في الملاحظات..."
+
+#: transactions/templates/transactions/transactions.html:23
+#: transactions/templates/transactions/transactions.html:24
+msgid "Filter by account"
+msgstr "تصفية حسب الحساب"
+
+#: transactions/templates/transactions/transactions.html:25
+msgid "All Accounts"
+msgstr "الحسابات"
+
+#: transactions/templates/transactions/transactions.html:33
+#: transactions/templates/transactions/transactions.html:34
+msgid "Filter by type"
+msgstr "تصفية حسب النوع"
+
+#: transactions/templates/transactions/transactions.html:35
+msgid "All Types"
+msgstr "جميع الأنواع"
+
+#: transactions/templates/transactions/transactions.html:44
+#: transactions/templates/transactions/transactions.html:46
+msgid "From date"
+msgstr "من تاريخ"
+
+#: transactions/templates/transactions/transactions.html:50
+#: transactions/templates/transactions/transactions.html:52
+msgid "To date"
+msgstr "إلى تاريخ"
+
+#: transactions/templates/transactions/transactions.html:61
+msgid "All Categories"
+msgstr "جميع الفئات"
+
+#: transactions/templates/transactions/transactions.html:74
+msgid "Tip:"
+msgstr "نصيحة:"
+
+#: transactions/templates/transactions/transactions.html:74
+msgid "Use"
+msgstr "استخدم"
+
+#: transactions/templates/transactions/transactions.html:74
+msgid "to add multiple transactions at once — find it in the"
+msgstr "إضافة معاملات متعددة"
+
+#: transactions/templates/transactions/transactions.html:74
+msgid "menu."
+msgstr "القائمة."
+
+#: transactions/templates/transactions/transactions.html:77
+msgid "Dismiss tip"
+msgstr "إغلاق النصيحة"
+
+#: transactions/templates/transactions/transactions.html:87
+msgid "Swipe left on a transaction to delete, or use the menu"
+msgstr "اسحب لليسار على معاملة لحذفها، أو استخدم القائمة"
+
+#: transactions/templates/transactions/transfer.html:3
+msgid "ClearMoney - Transfer"
+msgstr "كلير ماني - لوحة التحكم"

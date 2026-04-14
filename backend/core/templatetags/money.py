@@ -16,7 +16,9 @@ from datetime import date, datetime
 from typing import Any
 
 from django import template
+from django.utils.encoding import force_str
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 register = template.Library()
 
@@ -186,15 +188,15 @@ def format_account_type(value: object) -> str:
     e.g., 'credit_card' → 'Credit Card', 'credit_limit' → 'Credit Line'
     """
     labels = {
-        "savings": "Savings",
-        "current": "Current",
-        "prepaid": "Prepaid",
-        "credit_card": "Credit Card",
-        "credit_limit": "Credit Line",
-        "cash": "Cash",
+        "savings": _("Savings"),
+        "current": _("Current"),
+        "prepaid": _("Prepaid"),
+        "credit_card": _("Credit Card"),
+        "credit_limit": _("Credit Line"),
+        "cash": _("Cash"),
     }
     key = str(value)
-    return labels.get(key, key)
+    return force_str(labels.get(key, key))
 
 
 @register.filter
@@ -203,16 +205,16 @@ def format_type(value: object) -> str:
     e.g., 'loan_out' → 'Loan Given', 'loan_repayment' → 'Loan Repayment'
     """
     labels = {
-        "expense": "Expense",
-        "income": "Income",
-        "transfer": "Transfer",
-        "exchange": "Exchange",
-        "loan_out": "Loan Given",
-        "loan_in": "Loan Received",
-        "loan_repayment": "Loan Repayment",
+        "expense": _("Expense"),
+        "income": _("Income"),
+        "transfer": _("Transfer"),
+        "exchange": _("Exchange"),
+        "loan_out": _("Loan Given"),
+        "loan_in": _("Loan Received"),
+        "loan_repayment": _("Loan Repayment"),
     }
     key = str(value)
-    return labels.get(key, key)
+    return force_str(labels.get(key, key))
 
 
 # ---------------------------------------------------------------------------

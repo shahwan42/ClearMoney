@@ -1,4 +1,5 @@
 {% load money %}
+{% load i18n %}
 {% comment %}
 Bottom sheet content partial for transaction detail view.
 Loaded via HTMX into the tx-detail bottom sheet.
@@ -25,7 +26,7 @@ Context:
     <dl class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
         {% if tx.category_name %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Category</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Category" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200 font-medium">
                 {% if tx.category_icon %}{{ tx.category_icon }} {% endif %}{{ tx.category_name }}
             </dd>
@@ -33,12 +34,12 @@ Context:
         {% endif %}
 
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Account</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Account" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ tx.account_name }}</dd>
         </div>
 
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Date</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Date" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200">
                 {{ tx.date|format_date }}{% if tx.time %} · {{ tx.time }}{% endif %}
             </dd>
@@ -46,14 +47,14 @@ Context:
 
         {% if tx.note %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Note</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Note" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200">{{ tx.note }}</dd>
         </div>
         {% endif %}
 
         {% if tx.tags %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Tags</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Tags" %}</dt>
             <dd class="flex flex-wrap gap-1 justify-end">
                 {% for tag in tx.tags %}
                 <span class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full">{{ tag }}</span>
@@ -65,7 +66,7 @@ Context:
         {% if counter_account_name %}
         <div class="flex justify-between py-2.5 px-1">
             <dt class="text-gray-500 dark:text-gray-400">
-                {% if tx.balance_delta < 0 %}Transfer to{% else %}Transfer from{% endif %}
+                {% if tx.balance_delta < 0 %}{% trans "Transfer to" %}{% else %}{% trans "Transfer from" %}{% endif %}
             </dt>
             <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ counter_account_name }}</dd>
         </div>
@@ -73,35 +74,35 @@ Context:
 
         {% if tx.exchange_rate %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Exchange rate</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Exchange rate" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200">{{ tx.exchange_rate }}</dd>
         </div>
         {% endif %}
 
         {% if tx.counter_amount and counter_currency %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Counter amount</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Counter amount" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200">{{ tx.counter_amount|format_currency:counter_currency }}</dd>
         </div>
         {% endif %}
 
         {% if tx.fee_amount %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Fee</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Fee" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200">{{ tx.fee_amount|format_currency:tx.currency }}</dd>
         </div>
         {% endif %}
 
         {% if person_name %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Person</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Person" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ person_name }}</dd>
         </div>
         {% endif %}
 
         {% if va_name %}
         <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">Virtual account</dt>
+            <dt class="text-gray-500 dark:text-gray-400">{% trans "Virtual account" %}</dt>
             <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ va_name }}</dd>
         </div>
         {% endif %}
@@ -111,15 +112,15 @@ Context:
     <div class="flex gap-3 pt-2">
         <button onclick="BottomSheet.close('tx-detail'); setTimeout(function(){ BottomSheet.open('tx-edit', {url: '/transactions/edit/{{ tx.id }}'}); }, 350)"
                 class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                aria-label="Edit transaction">
-            Edit
+                aria-label="{% trans "Edit transaction" %}">
+            {% trans "Edit" %}
         </button>
         <button hx-delete="/transactions/{{ tx.id }}" hx-target="#tx-{{ tx.id }}" hx-swap="outerHTML"
-                hx-confirm="Delete this transaction?"
+                hx-confirm="{% trans "Delete this transaction?" %}"
                 hx-on::after-request="if(event.detail.successful) BottomSheet.close('tx-detail')"
                 class="flex-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                aria-label="Delete transaction">
-            Delete
+                aria-label="{% trans "Delete transaction" %}">
+            {% trans "Delete" %}
         </button>
     </div>
 </div>

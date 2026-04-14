@@ -1,27 +1,28 @@
 {% extends "base.html" %}
 {% load money %}
+{% load i18n %}
 
-{% block title %}ClearMoney - Transactions{% endblock %}
+{% block title %}{% trans "ClearMoney - Transactions" %}{% endblock %}
 
 {% block content %}
 <div class="space-y-4 py-4">
     <div class="flex items-center">
-        <h1 class="text-lg font-bold text-slate-800 dark:text-white">Transactions</h1>
+        <h1 class="text-lg font-bold text-slate-800 dark:text-white">{% trans "Transactions" %}</h1>
     </div>
 
     <!-- Filter bar -->
     <form id="tx-filters" hx-get="/transactions/list" hx-target="#transaction-list" hx-trigger="change, keyup changed delay:300ms from:#search-input"
           class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-3 space-y-2">
-        <label class="sr-only" for="search-input">Search transaction notes</label>
-        <input id="search-input" type="text" name="search" placeholder="Search notes..."
-               aria-label="Search transaction notes"
+        <label class="sr-only" for="search-input">{% trans "Search transaction notes" %}</label>
+        <input id="search-input" type="text" name="search" placeholder="{% trans "Search notes..." %}"
+               aria-label="{% trans "Search transaction notes" %}"
                class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5">
 
         <div class="grid grid-cols-2 gap-2">
             <div>
-                <label class="sr-only" for="filter-account">Filter by account</label>
-                <select name="account_id" id="filter-account" aria-label="Filter by account" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-                    <option value="">All Accounts</option>
+                <label class="sr-only" for="filter-account">{% trans "Filter by account" %}</label>
+                <select name="account_id" id="filter-account" aria-label="{% trans "Filter by account" %}" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                    <option value="">{% trans "All Accounts" %}</option>
                     {% for acc in data.accounts %}
                     <option value="{{ acc.id }}">{{ acc.name }}</option>
                     {% endfor %}
@@ -29,26 +30,26 @@
             </div>
 
             <div>
-                <label class="sr-only" for="filter-type">Filter by type</label>
-                <select name="type" id="filter-type" aria-label="Filter by type" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
-                    <option value="">All Types</option>
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
+                <label class="sr-only" for="filter-type">{% trans "Filter by type" %}</label>
+                <select name="type" id="filter-type" aria-label="{% trans "Filter by type" %}" class="w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
+                    <option value="">{% trans "All Types" %}</option>
+                    <option value="expense">{% trans "Expense" %}</option>
+                    <option value="income">{% trans "Income" %}</option>
                 </select>
             </div>
         </div>
 
         <div class="grid grid-cols-2 gap-2">
             <div>
-                <label class="sr-only" for="date-from">From date</label>
+                <label class="sr-only" for="date-from">{% trans "From date" %}</label>
                 <input type="date" id="date-from" name="date_from"
-                       aria-label="From date"
+                       aria-label="{% trans "From date" %}"
                        class="w-full min-w-0 max-w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
             </div>
             <div>
-                <label class="sr-only" for="date-to">To date</label>
+                <label class="sr-only" for="date-to">{% trans "To date" %}</label>
                 <input type="date" id="date-to" name="date_to"
-                       aria-label="To date"
+                       aria-label="{% trans "To date" %}"
                        class="w-full min-w-0 max-w-full text-sm border border-gray-200 rounded-lg px-2 py-1.5">
             </div>
         </div>
@@ -57,7 +58,7 @@
              data-categories='{{ data.categories|categories_json }}'
              data-name="category_id"
              data-selected-id="{{ data.category_id|default:'' }}"
-             data-placeholder="All Categories"
+             data-placeholder="{% trans "All Categories" %}"
              data-allow-empty="true">
         </div>
     </form>
@@ -70,10 +71,10 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z"/>
                 </svg>
                 <p class="text-xs text-teal-800 dark:text-teal-200">
-                    <strong>Tip:</strong> Use <a href="/batch-entry" class="underline font-semibold">Batch Entry</a> to add multiple transactions at once — find it in the <strong>More</strong> menu.
+                    <strong>{% trans "Tip:" %}</strong> {% trans "Use" %} <a href="/batch-entry" class="underline font-semibold">{% trans "Batch Entry" %}</a> {% trans "to add multiple transactions at once — find it in the" %} <strong>{% trans "More" %}</strong> {% trans "menu." %}
                 </p>
             </div>
-            <button type="button" id="batch-entry-hint-dismiss" aria-label="Dismiss tip"
+            <button type="button" id="batch-entry-hint-dismiss" aria-label="{% trans "Dismiss tip" %}"
                 class="text-teal-400 hover:text-teal-600 dark:text-teal-500 dark:hover:text-teal-300 flex-shrink-0 text-lg leading-none">&times;</button>
         </div>
     </div>
@@ -83,7 +84,7 @@
         <svg class="inline w-4 h-4 me-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
         </svg>
-        Swipe left on a transaction to delete, or use the menu
+        {% trans "Swipe left on a transaction to delete, or use the menu" %}
     </div>
 
     <div id="transaction-list" aria-live="polite" aria-atomic="true">
