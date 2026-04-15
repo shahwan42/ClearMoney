@@ -288,80 +288,119 @@ class RecurringService:
     # View helpers
     # ------------------------------------------------------------------
 
-    def rule_to_view(
-        self, rule: RecurringRulePending | dict[str, Any]
-    ) -> dict[str, Any]:
-        """Enrich a rule with display fields for templates.
+    def _format_template_display(self, template: dict[str, Any]) -> dict[str, Any]:
+        """Extract and format template fields for display in views.
 
-        Extracts note and amount from the JSONB template for display without re-querying.
-        Accepts both RecurringRulePending dataclass and dict for backward compatibility.
+        Transforms template_transaction (JSONB dict) into display-ready fields:
+        - note: rule note or fallback to transaction type
+        - amount_display: formatted as "X.XX CURRENCY"
+        - is_transfer: True if type == "transfer"
+        - fee_display: for transfers with fees, formatted as "X.XX CURRENCY"
+
+        Args:
+            template: template_transaction dict from RecurringRule JSONB
+
+        Returns:
+            dict with keys: note, amount_display, is_transfer, fee_display (optional)
         """
-        # Handle both dataclass and dict access patterns
-        if isinstance(rule, dict):
-            tmpl = rule.get("template_transaction", {})
-            rule_id = rule.get("id")
-            user_id = rule.get("user_id")
-            frequency = rule.get("frequency")
-            day_of_month = rule.get("day_of_month")
-            next_due_date = rule.get("next_due_date")
-            is_active = rule.get("is_active")
-            auto_confirm = rule.get("auto_confirm")
-            created_at = rule.get("created_at")
-            updated_at = rule.get("updated_at")
-            template_transaction = tmpl
-        else:
-            tmpl = rule.template_transaction
-            rule_id = rule.id
-            user_id = rule.user_id
-            frequency = rule.frequency
-            day_of_month = rule.day_of_month
-            next_due_date = rule.next_due_date
-            is_active = rule.is_active
-            auto_confirm = rule.auto_confirm
-            created_at = rule.created_at
-            updated_at = rule.updated_at
-            template_transaction = rule.template_transaction
-
-        note = tmpl.get("note") or tmpl.get("type", "")
-        amount = tmpl.get("amount", 0)
-        currency = tmpl.get("currency", "EGP")
-        is_transfer = tmpl.get("type") == "transfer"
+        note = template.get("note") or template.get("type", "")
+        amount = template.get("amount", 0)
+        currency = template.get("currency", "EGP")
+        is_transfer = template.get("type") == "transfer"
 
         result: dict[str, Any] = {
-            "id": rule_id,
-            "user_id": user_id,
-            "template_transaction": template_transaction,
-            "frequency": frequency,
-            "day_of_month": day_of_month,
-            "next_due_date": next_due_date,
-            "is_active": is_active,
-            "auto_confirm": auto_confirm,
-            "created_at": created_at,
-            "updated_at": updated_at,
             "note": note,
             "amount_display": f"{amount:.2f} {currency}",
             "is_transfer": is_transfer,
         }
 
         if is_transfer:
-            from accounts.models import Account
-
-            source_name = (
-                Account.objects.filter(id=tmpl.get("account_id"))
-                .values_list("name", flat=True)
-                .first()
-                or "Unknown"
-            )
-            counter_name = (
-                Account.objects.filter(id=tmpl.get("counter_account_id"))
-                .values_list("name", flat=True)
-                .first()
-                or "Unknown"
-            )
-            result["source_account_name"] = source_name
-            result["counter_account_name"] = counter_name
-            fee = tmpl.get("fee_amount")
+            fee = template.get("fee_amount")
             if fee and float(fee) > 0:
                 result["fee_display"] = f"{float(fee):.2f} {currency}"
+
+        return result
+
+    def _get_account_names(
+        self, account_id: str, counter_account_id: str
+    ) -> dict[str, str]:
+        """Look up account names for a transfer rule.
+
+        Fetches both source and destination account names from the database.
+        Used only for transfer rules (type="transfer").
+
+        Args:
+            account_id: source account UUID
+            counter_account_id: destination account UUID
+
+        Returns:
+            dict with keys: source_account_name, counter_account_name
+            Falls back to "Unknown" if account is not found or deleted.
+        """
+        from accounts.models import Account
+
+        source_name = (
+            Account.objects.filter(id=account_id).values_list("name", flat=True).first()
+            or "Unknown"
+        )
+        counter_name = (
+            Account.objects.filter(id=counter_account_id)
+            .values_list("name", flat=True)
+            .first()
+            or "Unknown"
+        )
+
+        return {
+            "source_account_name": source_name,
+            "counter_account_name": counter_name,
+        }
+
+    def rule_to_view(self, rule: RecurringRulePending) -> dict[str, Any]:
+        """Enrich a rule with display fields for templates.
+
+        Combines rule metadata with template display formatting:
+        - Core fields: id, user_id, frequency, next_due_date, etc.
+        - Template display fields: note, amount_display, is_transfer
+        - Transfer-specific fields: source_account_name, counter_account_name, fee_display
+
+        Extracts note and amount from JSONB template without re-querying.
+        For transfers, performs additional DB lookup to fetch account names
+        (accounts may have been deleted; returns "Unknown" as fallback).
+
+        Args:
+            rule: RecurringRulePending dataclass with JSONB template_transaction
+
+        Returns:
+            dict suitable for template rendering, with all rule + display fields
+        """
+        tmpl = rule.template_transaction
+
+        # Format template-specific display fields
+        template_display = self._format_template_display(tmpl)
+
+        # Build base view dict with all rule fields
+        result: dict[str, Any] = {
+            "id": rule.id,
+            "user_id": rule.user_id,
+            "template_transaction": rule.template_transaction,
+            "frequency": rule.frequency,
+            "day_of_month": rule.day_of_month,
+            "next_due_date": rule.next_due_date,
+            "is_active": rule.is_active,
+            "auto_confirm": rule.auto_confirm,
+            "created_at": rule.created_at,
+            "updated_at": rule.updated_at,
+        }
+
+        # Merge template display fields
+        result.update(template_display)
+
+        # For transfers, look up and add account names
+        if template_display["is_transfer"]:
+            account_names = self._get_account_names(
+                tmpl.get("account_id", ""),
+                tmpl.get("counter_account_id", ""),
+            )
+            result.update(account_names)
 
         return result

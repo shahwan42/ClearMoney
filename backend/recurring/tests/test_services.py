@@ -4,8 +4,7 @@ Recurring service tests — CRUD, confirm/skip, date advancement, auto-processin
 Tests run against the real database with --reuse-db.
 """
 
-from datetime import date, timedelta
-from typing import Any
+from datetime import date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -14,6 +13,7 @@ import pytest
 from accounts.models import Account
 from conftest import SessionFactory, UserFactory
 from recurring.services import RecurringService
+from recurring.types import RecurringRulePending
 from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
 from transactions.models import Transaction
 
@@ -485,18 +485,18 @@ class TestRuleToViewEdgeCases:
     def test_missing_amount_in_template(self) -> None:
         """Template with no 'amount' key defaults to 0 in display."""
         svc = RecurringService("fake-user-id", TZ)
-        rule: dict[str, Any] = {
-            "id": "rule-1",
-            "user_id": "fake-user-id",
-            "template_transaction": {"type": "expense", "note": "No amount"},
-            "frequency": "monthly",
-            "day_of_month": None,
-            "next_due_date": date(2026, 4, 1),
-            "is_active": True,
-            "auto_confirm": False,
-            "created_at": None,
-            "updated_at": None,
-        }
+        rule = RecurringRulePending(
+            id="rule-1",
+            user_id="fake-user-id",
+            template_transaction={"type": "expense", "note": "No amount"},
+            frequency="monthly",
+            day_of_month=None,
+            next_due_date=date(2026, 4, 1),
+            is_active=True,
+            auto_confirm=False,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         view = svc.rule_to_view(rule)
         assert view["amount_display"] == "0.00 EGP"
         assert view["note"] == "No amount"
@@ -504,18 +504,18 @@ class TestRuleToViewEdgeCases:
     def test_empty_template_transaction(self) -> None:
         """Completely empty template_transaction still produces valid output."""
         svc = RecurringService("fake-user-id", TZ)
-        rule: dict[str, Any] = {
-            "id": "rule-2",
-            "user_id": "fake-user-id",
-            "template_transaction": {},
-            "frequency": "monthly",
-            "day_of_month": None,
-            "next_due_date": date(2026, 4, 1),
-            "is_active": True,
-            "auto_confirm": False,
-            "created_at": None,
-            "updated_at": None,
-        }
+        rule = RecurringRulePending(
+            id="rule-2",
+            user_id="fake-user-id",
+            template_transaction={},
+            frequency="monthly",
+            day_of_month=None,
+            next_due_date=date(2026, 4, 1),
+            is_active=True,
+            auto_confirm=False,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
         view = svc.rule_to_view(rule)
         # No note, no type → note falls back to empty string from .get("type", "")
         assert view["note"] == ""
