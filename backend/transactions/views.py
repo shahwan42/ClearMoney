@@ -16,6 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from accounts.models import Account
+from core.decorators import inject_service
 from core.htmx import error_response, render_htmx_result
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
@@ -29,28 +30,19 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _svc(request: AuthenticatedRequest) -> TransactionService:
-    """Create a TransactionService for the authenticated user."""
-    return TransactionService(request.user_id, request.tz)
-
-
-# ---------------------------------------------------------------------------
 # Page Views
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET", "POST"])
-def transactions_list(request: AuthenticatedRequest) -> HttpResponse:
+def transactions_list(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /transactions — full page. POST /transactions — create (HTMX)."""
     if request.method == "POST":
         return transaction_create(request)
-
-    svc = _svc(request)
     offset = int(request.GET.get("offset", 0))
     filters = {
         "account_id": request.GET.get("account_id", ""),
@@ -88,11 +80,13 @@ def transactions_list(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def transactions_list_partial(request: AuthenticatedRequest) -> HttpResponse:
+def transactions_list_partial(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /transactions/list — HTMX partial for filter updates."""
-    svc = _svc(request)
     offset = int(request.GET.get("offset", 0))
     filters = {
         "account_id": request.GET.get("account_id", ""),
@@ -126,11 +120,13 @@ def transactions_list_partial(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def transaction_new(request: AuthenticatedRequest) -> HttpResponse:
+def transaction_new(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /transactions/new — full transaction form page. Supports ?dup=<id>."""
-    svc = _svc(request)
     accounts = svc.get_accounts()
     categories = svc.get_categories()
     virtual_accounts = svc.get_virtual_accounts()
@@ -159,11 +155,13 @@ def transaction_new(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["POST"])
-def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
+def transaction_create(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """POST /transactions — create expense/income transaction (HTMX)."""
-    svc = _svc(request)
     try:
         data = {
             "type": request.POST.get("type", ""),
@@ -210,11 +208,13 @@ def transaction_create(request: AuthenticatedRequest) -> HttpResponse:
         return error_response(str(e))
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
+def transaction_edit_form(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
     """GET /transactions/edit/<id> — inline edit form partial (HTMX)."""
-    svc = _svc(request)
     tx = svc.get_by_id(str(tx_id))
     if not tx:
         return HttpResponse("Not found", status=404)
@@ -245,11 +245,13 @@ def transaction_edit_form(request: AuthenticatedRequest, tx_id: str) -> HttpResp
     )
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def transaction_detail_sheet(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
+def transaction_detail_sheet(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
     """GET /transactions/detail/<id> — bottom sheet detail partial."""
-    svc = _svc(request)
     tx = svc.get_by_id_enriched(str(tx_id))
     if not tx:
         return HttpResponse("Not found", status=404)
@@ -302,9 +304,11 @@ def transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
     return transaction_update(request, tx_id)
 
 
-def transaction_update(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
+@inject_service(TransactionService)
+def transaction_update(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
     """PUT /transactions/<id> — update transaction (HTMX inline edit)."""
-    svc = _svc(request)
     # Django only populates request.POST for POST method — parse PUT body manually
     put_data = QueryDict(request.body)
     try:
@@ -354,9 +358,11 @@ def transaction_update(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
         return error_response(str(e))
 
 
-def transaction_delete(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
+@inject_service(TransactionService)
+def transaction_delete(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
     """DELETE /transactions/<id> — delete transaction (HTMX removes row)."""
-    svc = _svc(request)
     try:
         svc.deallocate_from_virtual_accounts(str(tx_id))
         related_ids = svc.delete(str(tx_id))
@@ -374,11 +380,13 @@ def transaction_delete(request: AuthenticatedRequest, tx_id: str) -> HttpRespons
         return error_response(str(e))
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def transaction_row(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
+def transaction_row(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
     """GET /transactions/row/<id> — single row partial (cancel edit)."""
-    svc = _svc(request)
     enriched = svc.get_by_id_enriched(str(tx_id))
     if not enriched:
         return HttpResponse("Not found", status=404)
@@ -390,11 +398,13 @@ def transaction_row(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def move_money_new(request: AuthenticatedRequest) -> HttpResponse:
+def move_money_new(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /move-money/new — unified move money form page."""
-    svc = _svc(request)
     logger.info("page viewed: move-money, user=%s", request.user_email)
     return render(
         request,
@@ -406,11 +416,13 @@ def move_money_new(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def quick_move_money_form(request: AuthenticatedRequest) -> HttpResponse:
+def quick_move_money_form(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /transactions/quick-move — quick move money partial for bottom sheet."""
-    svc = _svc(request)
     logger.info("partial loaded: quick-move-money, user=%s", request.user_email)
     return render(
         request,
@@ -434,11 +446,13 @@ def transfer_new(request: AuthenticatedRequest) -> HttpResponse:
     return HttpResponseRedirect("/move-money/new")
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["POST"])
-def transfer_create(request: AuthenticatedRequest) -> HttpResponse:
+def transfer_create(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """POST /transactions/transfer — create transfer with optional fee (HTMX)."""
-    svc = _svc(request)
     try:
         amount = parse_float_or_none(request.POST.get("amount", ""))
         if not amount:
@@ -480,11 +494,13 @@ def exchange_new(request: AuthenticatedRequest) -> HttpResponse:
     return HttpResponseRedirect("/move-money/new")
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["POST"])
-def exchange_create(request: AuthenticatedRequest) -> HttpResponse:
+def exchange_create(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """POST /transactions/exchange-submit — currency exchange (HTMX)."""
-    svc = _svc(request)
     try:
         svc.create_exchange(
             source_id=request.POST.get("source_account_id", ""),
@@ -524,11 +540,11 @@ def fawry_cashout_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def batch_entry(request: AuthenticatedRequest) -> HttpResponse:
+def batch_entry(request: AuthenticatedRequest, svc: TransactionService) -> HttpResponse:
     """GET /batch-entry — batch entry form page."""
-    svc = _svc(request)
     logger.info("page viewed: batch-entry, user=%s", request.user_email)
     return render(
         request,
@@ -541,11 +557,13 @@ def batch_entry(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["POST"])
-def batch_create(request: AuthenticatedRequest) -> HttpResponse:
+def batch_create(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """POST /transactions/batch — create multiple transactions (HTMX)."""
-    svc = _svc(request)
     types = request.POST.getlist("type[]")
     amounts = request.POST.getlist("amount[]")
     account_ids = request.POST.getlist("account_id[]")
@@ -579,12 +597,14 @@ def batch_create(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @csrf_exempt  # JS fetch() API (offline sync) — authenticated via session, rate-limited
 @general_rate
 @require_http_methods(["POST"])
-def sync_transactions(request: AuthenticatedRequest) -> JsonResponse:
+def sync_transactions(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> JsonResponse:
     """POST /sync/transactions — JSON API for bulk transaction import."""
-    svc = _svc(request)
     try:
         body = json.loads(request.body)
     except (json.JSONDecodeError, ValueError):
@@ -602,11 +622,13 @@ def sync_transactions(request: AuthenticatedRequest) -> JsonResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def suggest_category(request: AuthenticatedRequest) -> HttpResponse:
+def suggest_category(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /api/transactions/suggest-category?note=TEXT — suggest category."""
-    svc = _svc(request)
     note = request.GET.get("note", "")
     category_id = svc.suggest_category(note)
     if category_id:
@@ -619,11 +641,13 @@ def suggest_category(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
+def quick_entry_form(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /transactions/quick-form — quick entry partial for bottom sheet."""
-    svc = _svc(request)
     defaults = svc.get_smart_defaults("expense")
     accounts = svc.get_accounts()
     categories = svc.get_categories()
@@ -644,11 +668,13 @@ def quick_entry_form(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["POST"])
-def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
+def quick_entry_create(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """POST /transactions/quick — create quick entry (HTMX toast response)."""
-    svc = _svc(request)
     try:
         data = {
             "type": request.POST.get("type", ""),
@@ -700,11 +726,13 @@ def quick_entry_create(request: AuthenticatedRequest) -> HttpResponse:
         return error_response(str(e))
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def quick_transfer_form(request: AuthenticatedRequest) -> HttpResponse:
+def quick_transfer_form(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /transactions/quick-transfer — quick transfer partial."""
-    svc = _svc(request)
     logger.info("partial loaded: quick-transfer, user=%s", request.user_email)
     return render(
         request,
@@ -716,11 +744,13 @@ def quick_transfer_form(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
+def quick_exchange_form(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET /exchange/quick-form — quick exchange partial."""
-    svc = _svc(request)
     logger.info("partial loaded: quick-exchange, user=%s", request.user_email)
     return render(
         request,
@@ -737,17 +767,19 @@ def quick_exchange_form(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(TransactionService)
 @csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "POST"])
-def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
+def api_transaction_list_create(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """GET/POST /api/transactions — list or create transactions (JSON).
 
     GET supports ?account_id=, ?limit= (default 15), ?offset= (default 0).
     Returns paginated response with metadata.
     POST returns {"transaction": {...}, "new_balance": X}.
     """
-    svc = _svc(request)
 
     if request.method == "GET":
         account_id = request.GET.get("account_id", "")
@@ -784,14 +816,16 @@ def api_transaction_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse(result, status=201)
 
 
+@inject_service(TransactionService)
 @api_rate
 @require_http_methods(["POST"])
-def api_transaction_transfer(request: AuthenticatedRequest) -> HttpResponse:
+def api_transaction_transfer(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """POST /api/transactions/transfer — create transfer (JSON).
 
     Returns {"debit": {...}, "credit": {...}}.
     """
-    svc = _svc(request)
     body = parse_json_body(request)
     if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
@@ -811,14 +845,16 @@ def api_transaction_transfer(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse({"debit": debit, "credit": credit}, status=201)
 
 
+@inject_service(TransactionService)
 @api_rate
 @require_http_methods(["POST"])
-def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
+def api_transaction_exchange(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
     """POST /api/transactions/exchange — create currency exchange (JSON).
 
     Returns {"debit": {...}, "credit": {...}}.
     """
-    svc = _svc(request)
     body = parse_json_body(request)
     if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
@@ -839,12 +875,14 @@ def api_transaction_exchange(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse({"debit": debit, "credit": credit}, status=201)
 
 
+@inject_service(TransactionService)
 @csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "DELETE"])
-def api_transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
+def api_transaction_detail(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
     """GET/DELETE /api/transactions/{id} — single transaction operations (JSON)."""
-    svc = _svc(request)
     tid = str(tx_id)
 
     if request.method == "GET":

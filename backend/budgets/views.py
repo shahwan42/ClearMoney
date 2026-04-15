@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 
 from budgets.services import BudgetService
 from categories.models import Category
+from core.decorators import inject_service
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from transactions.models import Transaction as TransactionModel
@@ -27,17 +28,12 @@ from transactions.models import Transaction as TransactionModel
 logger = logging.getLogger(__name__)
 
 
-def _svc(request: AuthenticatedRequest) -> BudgetService:
-    """Create a BudgetService for the authenticated user."""
-    return BudgetService(request.user_id, request.tz)
-
-
+@inject_service(BudgetService)
 @general_rate
 @require_http_methods(["GET"])
-def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
+def budgets_page(request: AuthenticatedRequest, svc: BudgetService) -> HttpResponse:
     """GET /budgets — budget management page with creation form and active budget list."""
     logger.info("page viewed: budgets, user=%s", request.user_email)
-    svc = _svc(request)
     budgets = svc.get_all_with_spending()
     usage_sq = Subquery(
         TransactionModel.objects.filter(category_id=OuterRef("id"))
@@ -69,11 +65,13 @@ def budgets_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(BudgetService)
 @general_rate
 @require_http_methods(["GET"])
-def budget_detail(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
+def budget_detail(
+    request: AuthenticatedRequest, svc: BudgetService, budget_id: str
+) -> HttpResponse:
     """GET /budgets/<id>/ — budget detail with contributing transactions."""
-    svc = _svc(request)
     try:
         budget = svc.get_budget_with_transactions(str(budget_id))
     except Exception:
@@ -88,14 +86,14 @@ def budget_detail(request: AuthenticatedRequest, budget_id: str) -> HttpResponse
     )
 
 
+@inject_service(BudgetService)
 @general_rate
 @require_http_methods(["POST"])
-def budget_add(request: AuthenticatedRequest) -> HttpResponse:
+def budget_add(request: AuthenticatedRequest, svc: BudgetService) -> HttpResponse:
     """POST /budgets/add — create a new budget from form data.
 
     Validates input, creates budget, and redirects back to /budgets.
     """
-    svc = _svc(request)
     category_id = request.POST.get("category_id", "")
     monthly_limit_str = request.POST.get("monthly_limit", "")
     currency = request.POST.get("currency", "EGP")
@@ -118,11 +116,13 @@ def budget_add(request: AuthenticatedRequest) -> HttpResponse:
     return redirect("budgets")
 
 
+@inject_service(BudgetService)
 @general_rate
 @require_http_methods(["POST"])
-def budget_edit(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
+def budget_edit(
+    request: AuthenticatedRequest, svc: BudgetService, budget_id: str
+) -> HttpResponse:
     """POST /budgets/{id}/edit — update a budget's monthly limit."""
-    svc = _svc(request)
     monthly_limit_str = request.POST.get("monthly_limit", "")
 
     try:
@@ -139,11 +139,11 @@ def budget_edit(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
     return redirect("budgets")
 
 
+@inject_service(BudgetService)
 @general_rate
 @require_http_methods(["POST"])
-def total_budget_set(request: AuthenticatedRequest) -> HttpResponse:
+def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpResponse:
     """POST /budgets/total/set — create or update the total monthly budget."""
-    svc = _svc(request)
     monthly_limit_str = request.POST.get("monthly_limit", "")
     currency = request.POST.get("currency", "EGP")
 
@@ -162,24 +162,28 @@ def total_budget_set(request: AuthenticatedRequest) -> HttpResponse:
     return redirect("budgets")
 
 
+@inject_service(BudgetService)
 @general_rate
 @require_http_methods(["POST"])
-def total_budget_delete(request: AuthenticatedRequest) -> HttpResponse:
+def total_budget_delete(
+    request: AuthenticatedRequest, svc: BudgetService
+) -> HttpResponse:
     """POST /budgets/total/delete — delete the total monthly budget."""
-    svc = _svc(request)
     currency = request.POST.get("currency", "EGP")
     svc.delete_total_budget(currency)
     return redirect("budgets")
 
 
+@inject_service(BudgetService)
 @general_rate
 @require_http_methods(["POST"])
-def budget_delete(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
+def budget_delete(
+    request: AuthenticatedRequest, svc: BudgetService, budget_id: str
+) -> HttpResponse:
     """POST /budgets/{id}/delete — delete a budget.
 
     Deletes the budget and redirects back to /budgets.
     """
-    svc = _svc(request)
     if not svc.delete(str(budget_id)):
         logger.warning(
             "budget delete failed: not found id=%s user=%s",

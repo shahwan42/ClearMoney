@@ -12,6 +12,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 
 from accounts.services import AccountService
+from core.decorators import inject_service
 from core.htmx import error_response
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
@@ -21,19 +22,16 @@ from people.services import PersonService
 logger = logging.getLogger(__name__)
 
 
-def _svc(request: AuthenticatedRequest) -> PersonService:
-    """Create a PersonService for the authenticated user."""
-    return PersonService(request.user_id, request.tz)
-
-
 # ---------------------------------------------------------------------------
 # Helper — render people list partial (shared by add/loan/repay)
 # ---------------------------------------------------------------------------
 
 
-def _render_people_list(request: AuthenticatedRequest) -> HttpResponse:
+@inject_service(PersonService)
+def _render_people_list(
+    request: AuthenticatedRequest, svc: PersonService
+) -> HttpResponse:
     """Re-render the people list for HTMX innerHTML swap."""
-    svc = _svc(request)
     persons = svc.get_all()
     accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
         include_balance=True
@@ -63,12 +61,12 @@ def _render_people_list(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(PersonService)
 @general_rate
 @require_http_methods(["GET"])
-def people_page(request: AuthenticatedRequest) -> HttpResponse:
+def people_page(request: AuthenticatedRequest, svc: PersonService) -> HttpResponse:
     """GET /people — people list page with add form."""
     logger.info("page viewed: people, user=%s", request.user_email)
-    svc = _svc(request)
     persons = svc.get_all()
     accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
         include_balance=True
@@ -86,11 +84,11 @@ def people_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(PersonService)
 @general_rate
 @require_http_methods(["POST"])
-def people_add(request: AuthenticatedRequest) -> HttpResponse:
+def people_add(request: AuthenticatedRequest, svc: PersonService) -> HttpResponse:
     """POST /people/add — create person via HTMX form."""
-    svc = _svc(request)
     name = request.POST.get("name", "").strip()
     if not name:
         return HttpResponse("name is required", status=400)
@@ -103,12 +101,14 @@ def people_add(request: AuthenticatedRequest) -> HttpResponse:
     return _render_people_list(request)
 
 
+@inject_service(PersonService)
 @general_rate
 @require_http_methods(["GET"])
-def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
+def person_detail(
+    request: AuthenticatedRequest, svc: PersonService, person_id: str
+) -> HttpResponse:
     """GET /people/{id} — person detail page with debt summary."""
     logger.info("page viewed: person-detail, user=%s", request.user_email)
-    svc = _svc(request)
     summary = svc.get_debt_summary(str(person_id))
     if not summary:
         return HttpResponse("person not found", status=404)
@@ -127,11 +127,13 @@ def person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse
     )
 
 
+@inject_service(PersonService)
 @general_rate
 @require_http_methods(["POST"])
-def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
+def people_loan(
+    request: AuthenticatedRequest, svc: PersonService, person_id: str
+) -> HttpResponse:
     """POST /people/{id}/loan — record loan via HTMX form."""
-    svc = _svc(request)
     amount = parse_float_or_none(request.POST.get("amount"))
     account_id = request.POST.get("account_id", "")
     loan_type = request.POST.get("loan_type", "loan_out")
@@ -154,11 +156,13 @@ def people_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
     return _render_people_list(request)
 
 
+@inject_service(PersonService)
 @general_rate
 @require_http_methods(["POST"])
-def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
+def people_repay(
+    request: AuthenticatedRequest, svc: PersonService, person_id: str
+) -> HttpResponse:
     """POST /people/{id}/repay — record repayment via HTMX form."""
-    svc = _svc(request)
     amount = parse_float_or_none(request.POST.get("amount"))
     account_id = request.POST.get("account_id", "")
     note = request.POST.get("note", "").strip() or None
@@ -184,11 +188,13 @@ def people_repay(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(PersonService)
 @api_rate
 @require_http_methods(["GET", "POST"])
-def api_person_list_create(request: AuthenticatedRequest) -> HttpResponse:
+def api_person_list_create(
+    request: AuthenticatedRequest, svc: PersonService
+) -> HttpResponse:
     """GET/POST /api/persons — list all or create a person (JSON)."""
-    svc = _svc(request)
 
     if request.method == "GET":
         persons = svc.get_all()
@@ -208,11 +214,13 @@ def api_person_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse(person, status=201)
 
 
+@inject_service(PersonService)
 @api_rate
 @require_http_methods(["GET", "PUT", "DELETE"])
-def api_person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
+def api_person_detail(
+    request: AuthenticatedRequest, svc: PersonService, person_id: str
+) -> HttpResponse:
     """GET/PUT/DELETE /api/persons/{id} — single person operations (JSON)."""
-    svc = _svc(request)
     pid = str(person_id)
 
     if request.method == "GET":
@@ -243,11 +251,13 @@ def api_person_detail(request: AuthenticatedRequest, person_id: str) -> HttpResp
     return HttpResponse(status=204)
 
 
+@inject_service(PersonService)
 @api_rate
 @require_http_methods(["POST"])
-def api_person_loan(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
+def api_person_loan(
+    request: AuthenticatedRequest, svc: PersonService, person_id: str
+) -> HttpResponse:
     """POST /api/persons/{id}/loan — record loan (JSON)."""
-    svc = _svc(request)
     body = parse_json_body(request)
     if body is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
@@ -266,11 +276,13 @@ def api_person_loan(request: AuthenticatedRequest, person_id: str) -> HttpRespon
     return JsonResponse(tx, status=201)
 
 
+@inject_service(PersonService)
 @api_rate
 @require_http_methods(["POST"])
-def api_person_repayment(request: AuthenticatedRequest, person_id: str) -> HttpResponse:
+def api_person_repayment(
+    request: AuthenticatedRequest, svc: PersonService, person_id: str
+) -> HttpResponse:
     """POST /api/persons/{id}/repayment — record repayment (JSON)."""
-    svc = _svc(request)
     body = parse_json_body(request)
     if body is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)

@@ -17,6 +17,7 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from accounts.services import AccountService
+from core.decorators import inject_service
 from core.htmx import (
     htmx_redirect,
     operational_error_response,
@@ -30,11 +31,6 @@ from virtual_accounts.services import VirtualAccountService
 logger = logging.getLogger(__name__)
 
 
-def _svc(request: AuthenticatedRequest) -> VirtualAccountService:
-    """Create a VirtualAccountService for the authenticated user."""
-    return VirtualAccountService(request.user_id)
-
-
 def _parse_positive_float(value: str) -> float | None:
     """Parse a form value as positive float, returning None if zero/negative/invalid."""
     f = parse_float_or_none(value)
@@ -46,15 +42,17 @@ def _parse_positive_float(value: str) -> float | None:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["GET"])
-def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
+def virtual_accounts_page(
+    request: AuthenticatedRequest, svc: VirtualAccountService
+) -> HttpResponse:
     """GET /virtual-accounts — list virtual accounts with create form.
 
     Computes over-allocation warnings when VA balances exceed linked account balances.
     """
     logger.info("page viewed: virtual-accounts, user=%s", request.user_email)
-    svc = _svc(request)
     accounts = svc.get_all()
     bank_accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
         include_balance=True
@@ -113,11 +111,13 @@ def virtual_accounts_page(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["POST"])
-def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
+def virtual_account_add(
+    request: AuthenticatedRequest, svc: VirtualAccountService
+) -> HttpResponse:
     """POST /virtual-accounts/add — create a new virtual account."""
-    svc = _svc(request)
     name = request.POST.get("name", "")
     target_amount = _parse_positive_float(request.POST.get("target_amount", ""))
     icon = request.POST.get("icon", "")
@@ -145,15 +145,17 @@ def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["GET"])
-def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
+def virtual_account_detail(
+    request: AuthenticatedRequest, svc: VirtualAccountService, va_id: UUID
+) -> HttpResponse:
     """GET /virtual-accounts/{id} — detail page with allocations and history.
 
     Computes over-allocation warnings if VA is linked to a bank account.
     """
     logger.info("page viewed: virtual-account-detail, user=%s", request.user_email)
-    svc = _svc(request)
     va = svc.get_by_id(str(va_id))
     if not va:
         return HttpResponse("Virtual account not found", status=404)
@@ -210,11 +212,13 @@ def virtual_account_detail(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["POST"])
-def virtual_account_archive(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
+def virtual_account_archive(
+    request: AuthenticatedRequest, svc: VirtualAccountService, va_id: UUID
+) -> HttpResponse:
     """POST /virtual-accounts/{id}/archive — archive (soft-delete) a VA."""
-    svc = _svc(request)
     if not svc.archive(str(va_id)):
         logger.warning(
             "virtual account archive failed: not found id=%s user=%s",
@@ -229,16 +233,16 @@ def virtual_account_archive(request: AuthenticatedRequest, va_id: UUID) -> HttpR
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["POST"])
 def virtual_account_allocate(
-    request: AuthenticatedRequest, va_id: UUID
+    request: AuthenticatedRequest, svc: VirtualAccountService, va_id: UUID
 ) -> HttpResponse:
     """POST /virtual-accounts/{id}/allocate — direct allocation.
 
     Contribution = positive amount, withdrawal = negative.
     """
-    svc = _svc(request)
     amount_str = request.POST.get("amount", "")
     alloc_type = request.POST.get("type", "contribution")
     note = request.POST.get("note", "")
@@ -272,13 +276,13 @@ def virtual_account_allocate(
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["POST"])
 def virtual_account_toggle_exclude(
-    request: AuthenticatedRequest, va_id: UUID
+    request: AuthenticatedRequest, svc: VirtualAccountService, va_id: UUID
 ) -> HttpResponse:
     """POST /virtual-accounts/{id}/toggle-exclude — toggle net worth exclusion."""
-    svc = _svc(request)
     if not svc.toggle_exclude(str(va_id)):
         return HttpResponse("Virtual account not found", status=404)
     return htmx_redirect(request, f"/virtual-accounts/{va_id}")
@@ -289,10 +293,11 @@ def virtual_account_toggle_exclude(
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["GET"])
 def virtual_account_edit_form(
-    request: AuthenticatedRequest, va_id: UUID
+    request: AuthenticatedRequest, svc: VirtualAccountService, va_id: UUID
 ) -> HttpResponse:
     """GET /virtual-accounts/{id}/edit-form — edit form partial for bottom sheet.
 
@@ -302,7 +307,6 @@ def virtual_account_edit_form(
         "partial loaded: virtual-account-edit-form, user=%s",
         request.user_email,
     )
-    svc = _svc(request)
     va = svc.get_by_id(str(va_id))
     if not va:
         return HttpResponse("Virtual account not found", status=404)
@@ -322,14 +326,16 @@ def virtual_account_edit_form(
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
 @require_http_methods(["POST"])
-def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpResponse:
+def virtual_account_update(
+    request: AuthenticatedRequest, svc: VirtualAccountService, va_id: UUID
+) -> HttpResponse:
     """POST /virtual-accounts/{id}/edit — update VA from edit bottom sheet.
 
     Returns error HTML for HTMX swap on validation failure, or redirects on success.
     """
-    svc = _svc(request)
     name = request.POST.get("name", "")
     target_amount = _parse_positive_float(request.POST.get("target_amount", ""))
     icon = request.POST.get("icon", "")
@@ -361,8 +367,11 @@ def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
 # ---------------------------------------------------------------------------
 
 
+@inject_service(VirtualAccountService)
 @general_rate
-def virtual_funds_redirect(request: AuthenticatedRequest) -> HttpResponse:
+def virtual_funds_redirect(
+    request: AuthenticatedRequest, svc: VirtualAccountService
+) -> HttpResponse:
     """Redirect /virtual-funds to /virtual-accounts (legacy URL support)."""
     return redirect("virtual-accounts", permanent=True)
 

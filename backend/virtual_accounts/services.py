@@ -16,6 +16,7 @@ import uuid as uuid_mod
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from django.db import transaction
 from django.db.models import Sum
@@ -96,8 +97,9 @@ class VirtualAccountService:
     All queries are scoped to the authenticated user via user_id.
     """
 
-    def __init__(self, user_id: str) -> None:
+    def __init__(self, user_id: str, tz: ZoneInfo | None = None) -> None:
         self.user_id = user_id
+        self.tz = tz
 
     def _qs(self) -> Any:
         """Base queryset scoped to the current user."""

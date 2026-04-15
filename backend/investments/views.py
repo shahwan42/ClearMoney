@@ -13,6 +13,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
+from core.decorators import inject_service
 from core.htmx import htmx_redirect, operational_error_response
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
@@ -22,17 +23,14 @@ from investments.services import InvestmentService
 logger = logging.getLogger(__name__)
 
 
-def _svc(request: AuthenticatedRequest) -> InvestmentService:
-    """Create an InvestmentService for the authenticated user."""
-    return InvestmentService(request.user_id, request.tz)
-
-
+@inject_service(InvestmentService)
 @general_rate
 @require_http_methods(["GET"])
-def investments_page(request: AuthenticatedRequest) -> HttpResponse:
+def investments_page(
+    request: AuthenticatedRequest, svc: InvestmentService
+) -> HttpResponse:
     """GET /investments — render the investment portfolio page."""
     logger.info("page viewed: investments, user=%s", request.user_email)
-    svc = _svc(request)
     investments = svc.get_all()
     total_valuation = svc.get_total_valuation()
 
@@ -47,11 +45,13 @@ def investments_page(request: AuthenticatedRequest) -> HttpResponse:
     )
 
 
+@inject_service(InvestmentService)
 @general_rate
 @require_http_methods(["POST"])
-def investment_add(request: AuthenticatedRequest) -> HttpResponse:
+def investment_add(
+    request: AuthenticatedRequest, svc: InvestmentService
+) -> HttpResponse:
     """POST /investments/add — create a new investment holding."""
-    svc = _svc(request)
     try:
         svc.create(
             {
@@ -68,11 +68,13 @@ def investment_add(request: AuthenticatedRequest) -> HttpResponse:
     return htmx_redirect(request, "/investments")
 
 
+@inject_service(InvestmentService)
 @general_rate
 @require_http_methods(["POST"])
-def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
+def investment_update(
+    request: AuthenticatedRequest, svc: InvestmentService, id: UUID
+) -> HttpResponse:
     """POST /investments/<id>/update — update the unit price (NAV)."""
-    svc = _svc(request)
     unit_price = parse_float_or_zero(request.POST.get("unit_price", ""))
 
     try:
@@ -83,11 +85,13 @@ def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     return htmx_redirect(request, "/investments")
 
 
+@inject_service(InvestmentService)
 @general_rate
 @require_http_methods(["DELETE"])
-def investment_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
+def investment_delete(
+    request: AuthenticatedRequest, svc: InvestmentService, id: UUID
+) -> HttpResponse:
     """DELETE /investments/<id>/delete — remove an investment holding."""
-    svc = _svc(request)
     try:
         svc.delete(str(id))
     except ValueError as e:

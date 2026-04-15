@@ -11,24 +11,22 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from categories.services import CategoryService
+from core.decorators import inject_service
 from core.ratelimit import api_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_json_body
 
 
-def _svc(request: AuthenticatedRequest) -> CategoryService:
-    """Create a CategoryService scoped to the authenticated user."""
-    return CategoryService(request.user_id, request.tz)
-
-
+@inject_service(CategoryService)
 @api_rate
 @require_http_methods(["GET", "POST"])
-def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
+def api_category_list_create(
+    request: AuthenticatedRequest, svc: CategoryService
+) -> HttpResponse:
     """GET/POST /api/categories — list all or create a category (JSON).
 
     GET supports ?type=expense|income filter.
     """
-    svc = _svc(request)
 
     if request.method == "GET":
         cat_type = request.GET.get("type", "")
@@ -54,17 +52,17 @@ def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
     return JsonResponse(category, status=201)
 
 
+@inject_service(CategoryService)
 @api_rate
 @require_http_methods(["PUT", "DELETE"])
 def api_category_detail(
-    request: AuthenticatedRequest, category_id: str
+    request: AuthenticatedRequest, svc: CategoryService, category_id: str
 ) -> HttpResponse:
     """PUT/DELETE /api/categories/{id} — update or archive a category (JSON).
 
     PUT updates name and icon. DELETE soft-deletes (archives).
     System categories cannot be modified or archived.
     """
-    svc = _svc(request)
     cid = str(category_id)
 
     if request.method == "PUT":

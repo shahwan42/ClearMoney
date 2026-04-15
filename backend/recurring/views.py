@@ -24,17 +24,13 @@ from django.views.decorators.http import require_http_methods
 from accounts.models import Account
 from accounts.services import AccountService
 from categories.models import Category
+from core.decorators import inject_service
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from recurring.services import RecurringService
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
-
-
-def _svc(request: AuthenticatedRequest) -> RecurringService:
-    """Create a RecurringService for the authenticated user."""
-    return RecurringService(request.user_id, request.tz)
 
 
 def _get_categories(request: AuthenticatedRequest) -> list[dict[str, Any]]:
@@ -71,9 +67,11 @@ def _get_categories(request: AuthenticatedRequest) -> list[dict[str, Any]]:
     ]
 
 
-def _render_rule_list(request: AuthenticatedRequest) -> HttpResponse:
+@inject_service(RecurringService)
+def _render_rule_list(
+    request: AuthenticatedRequest, svc: RecurringService
+) -> HttpResponse:
     """Render the _rule_list.html partial for HTMX swap."""
-    svc = _svc(request)
     rules = svc.get_all()
     rule_views = [svc.rule_to_view(r) for r in rules]
     return render(request, "recurring/_rule_list.html", {"rules": rule_views})
@@ -95,12 +93,14 @@ def _lookup_account_currency(user_id: str, account_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(RecurringService)
 @general_rate
 @require_http_methods(["GET"])
-def recurring_page(request: AuthenticatedRequest) -> HttpResponse:
+def recurring_page(
+    request: AuthenticatedRequest, svc: RecurringService
+) -> HttpResponse:
     """GET /recurring — recurring rules page with pending, form, and active list."""
     logger.info("page viewed: recurring, user=%s", request.user_email)
-    svc = _svc(request)
 
     rules = svc.get_all()
     pending = svc.get_due_pending()
@@ -130,15 +130,15 @@ def recurring_page(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(RecurringService)
 @general_rate
 @require_http_methods(["POST"])
-def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
+def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpResponse:
     """POST /recurring/add — create new recurring rule.
 
     Parses form, looks up account currency, builds template JSON,
     creates rule, returns updated rule list partial.
     """
-    svc = _svc(request)
 
     # Parse form fields
     tx_type = request.POST.get("type", "expense")
@@ -241,11 +241,13 @@ def recurring_add(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+@inject_service(RecurringService)
 @general_rate
 @require_http_methods(["POST"])
-def recurring_confirm(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
+def recurring_confirm(
+    request: AuthenticatedRequest, svc: RecurringService, rule_id: UUID
+) -> HttpResponse:
     """POST /recurring/{id}/confirm — confirm pending rule, create transaction."""
-    svc = _svc(request)
     try:
         svc.confirm(str(rule_id))
     except ValueError as e:
@@ -253,11 +255,13 @@ def recurring_confirm(request: AuthenticatedRequest, rule_id: UUID) -> HttpRespo
     return _render_rule_list(request)
 
 
+@inject_service(RecurringService)
 @general_rate
 @require_http_methods(["POST"])
-def recurring_skip(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
+def recurring_skip(
+    request: AuthenticatedRequest, svc: RecurringService, rule_id: UUID
+) -> HttpResponse:
     """POST /recurring/{id}/skip — skip pending rule, advance due date."""
-    svc = _svc(request)
     try:
         svc.skip(str(rule_id))
     except ValueError as e:
@@ -265,10 +269,12 @@ def recurring_skip(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse
     return _render_rule_list(request)
 
 
+@inject_service(RecurringService)
 @general_rate
 @require_http_methods(["DELETE"])
-def recurring_delete(request: AuthenticatedRequest, rule_id: UUID) -> HttpResponse:
+def recurring_delete(
+    request: AuthenticatedRequest, svc: RecurringService, rule_id: UUID
+) -> HttpResponse:
     """DELETE /recurring/{id} — delete recurring rule."""
-    svc = _svc(request)
     svc.delete(str(rule_id))
     return _render_rule_list(request)

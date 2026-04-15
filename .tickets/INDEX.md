@@ -4,7 +4,7 @@ Last updated: 2026-04-16
 
 ## In Progress
 
-_Nothing in progress._
+(none)
 
 ## Pending
 
@@ -69,7 +69,6 @@ _Nothing in progress._
 | [103](pending/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-03-31 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [105](pending/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-03-31 |
-| [051](pending/051-extract-service-factory-decorator.md) | Extract service factory decorator from views | refactor | low | 2026-03-30 |
 | [052](pending/052-break-down-large-views.md) | Break down large views (account_add, recurring_add) | refactor | medium | 2026-03-30 |
 | [053](pending/053-standardize-service-error-handling.md) | Standardize error handling conventions across services | refactor | low | 2026-03-30 |
 
@@ -78,7 +77,7 @@ _Nothing in progress._
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
 | [050](done/050-move-template-display-logic-to-services.md) | Move template display logic to services | refactor | low | 2026-04-16 |
-| [049](done/049-standardize-htmx-error-responses.md) | Standardize HTMX error response helpers | refactor | medium | 2026-04-15 |
+| [051](done/051-extract-service-factory-decorator.md) | Extract service factory decorator from views | refactor | low | 2026-04-16 |
 | [023](done/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-04-15 |
 | [026](done/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-04-15 |
 | [031](done/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-04-15 |
@@ -95,6 +94,7 @@ _Nothing in progress._
 | [046](done/046-decompose-get-debt-summary.md) | Decompose get_debt_summary (100+ lines) | refactor | medium | 2026-04-15 |
 | [047](done/047-decompose-get-dashboard.md) | Decompose get_dashboard (125 lines) | refactor | medium | 2026-04-15 |
 | [048](done/048-decompose-rule-to-view.md) | Decompose rule_to_view (84 lines) | refactor | low | 2026-04-15 |
+| [049](done/049-standardize-htmx-error-responses.md) | Standardize HTMX error response helpers | refactor | medium | 2026-04-15 |
 | [114](done/114-account-health-notification-improvements.md) | Account health notification improvements | improvement | medium | 2026-04-15 |
 | [028](done/028-i18n-auth-templates.md) | i18n strings — auth templates | feature | medium | 2026-04-14 |
 | [029](done/029-i18n-shared-components.md) | i18n strings — shared components + error pages | feature | medium | 2026-04-14 |
