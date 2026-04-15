@@ -17,11 +17,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from core.billing import (
-    get_billing_cycle_info,
-    get_credit_card_utilization,
-    parse_billing_cycle,
-)
+from core.billing import get_credit_card_utilization
 from core.htmx import (
     htmx_redirect,
     render_htmx_result,
@@ -32,11 +28,6 @@ from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
 
-from .display import (
-    get_balance_color_class,
-    get_utilization_color_hex,
-    get_your_money_color_class,
-)
 from .institution_data import EGYPTIAN_BANKS, EGYPTIAN_FINTECHS, WALLET_EXAMPLES
 from .services import AccountService, InstitutionService, get_statement_data
 
@@ -86,84 +77,14 @@ def accounts_list(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /accounts/{id} — account detail page.
-
-    Assembles data from 10+ sources.
-    """
+    """GET /accounts/{id} — account detail page."""
     acc_svc = AccountService(request.user_id, request.tz)
-    account = acc_svc.get_by_id(str(id))
-    if not account:
+    data = acc_svc.get_detail_data(str(id))
+
+    if not data:
         return HttpResponse("Account not found", status=404)
 
     logger.info("page viewed: account-detail, user=%s", request.user_email)
-
-    # Institution name
-    inst_svc = InstitutionService(request.user_id, request.tz)
-    inst = (
-        inst_svc.get_by_id(account.institution_id) if account.institution_id else None
-    )
-    institution_name = inst["name"] if inst else ""
-
-    # Billing cycle (credit cards only)
-    billing_cycle = None
-    if account.is_credit_type and account.metadata:
-        cycle = parse_billing_cycle(account.metadata)
-        if cycle:
-            from datetime import date
-
-            billing_cycle = get_billing_cycle_info(cycle[0], cycle[1], date.today())
-
-    # Balance history (30-day sparkline)
-    balance_history = acc_svc.get_balance_history(str(id))
-
-    # Credit utilization
-    utilization = 0.0
-    utilization_history: list[float] = []
-    if account.is_credit_type:
-        utilization = get_credit_card_utilization(
-            account.current_balance, account.credit_limit
-        )
-        if account.credit_limit and account.credit_limit > 0:
-            utilization_history = acc_svc.get_utilization_history(
-                str(id), account.credit_limit
-            )
-
-    # Virtual accounts linked to this account
-    virtual_accounts = acc_svc.get_linked_virtual_accounts(str(id))
-    excluded_va_balance = acc_svc.get_excluded_va_balance(str(id))
-
-    # Health config
-    health_config = account.health_config or {}
-
-    # Recent transactions
-    transactions = acc_svc.get_recent_transactions(str(id), limit=50)
-    has_more = len(transactions) >= 50
-
-    # Compute "your money" = balance - excluded VA balance
-    your_money = account.current_balance - excluded_va_balance
-
-    # Compute display colors and capped percentages
-    balance_color_class = get_balance_color_class(account.current_balance)
-    your_money_color_class = get_your_money_color_class(your_money)
-    utilization_color = get_utilization_color_hex(utilization)
-
-    data = {
-        "account": account,
-        "institution_name": institution_name,
-        "billing_cycle": billing_cycle,
-        "balance_history": balance_history,
-        "balance_color_class": balance_color_class,
-        "utilization": utilization,
-        "utilization_color": utilization_color,
-        "utilization_history": utilization_history,
-        "virtual_accounts": virtual_accounts,
-        "excluded_va_balance": excluded_va_balance,
-        "your_money": your_money,
-        "your_money_color_class": your_money_color_class,
-        "health_config": health_config,
-        "transactions": transactions,
-        "has_more": has_more,
-    }
     return render(request, "accounts/account_detail.html", {"data": data})
 
 
@@ -307,44 +228,13 @@ def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def account_add_form(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/add-form?institution_id=<optional> — unified add account form.
-
-    When institution_id is provided, the institution picker is hidden and the
-    institution name is shown as a read-only label. Otherwise the full picker
-    (type tabs + combobox) is displayed.
-    """
+    """GET /accounts/add-form?institution_id=<optional> — unified add account form."""
     institution_id = request.GET.get("institution_id", "")
-    preselected_institution = None
-
-    if institution_id:
-        inst_svc = InstitutionService(request.user_id, request.tz)
-        preselected_institution = inst_svc.get_by_id(institution_id)
-        if not preselected_institution:
-            institution_id = ""  # fall back to full picker
-
-    presets_json = json.dumps(
-        {
-            "bank": EGYPTIAN_BANKS,
-            "fintech": EGYPTIAN_FINTECHS,
-            "wallet": list(WALLET_EXAMPLES),
-        }
-    )
+    acc_svc = AccountService(request.user_id, request.tz)
+    ctx = acc_svc.get_add_form_context(institution_id)
 
     logger.info("partial loaded: add-account-form, user=%s", request.user_email)
-    return render(
-        request,
-        "accounts/_add_account_form.html",
-        {
-            "institution_id": institution_id,
-            "preselected_institution": preselected_institution,
-            "presets_json": presets_json,
-            "account_type": "current",
-            "account_currency": "EGP",
-            "account_name": "",
-            "account_balance": "",
-            "account_credit_limit": "",
-        },
-    )
+    return render(request, "accounts/_add_account_form.html", ctx)
 
 
 @general_rate
@@ -519,80 +409,52 @@ def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
 # ---------------------------------------------------------------------------
 
 
+def _render_add_account_error(
+    request: AuthenticatedRequest, error: str, data: dict[str, Any]
+) -> HttpResponse:
+    """Helper to re-render the add account form with error and sticky values."""
+    acc_svc = AccountService(request.user_id, request.tz)
+    ctx = acc_svc.get_add_form_context(data.get("institution_id", ""))
+    ctx.update(
+        {
+            "error": error,
+            "account_type": data.get("type", "current"),
+            "account_currency": data.get("currency", "EGP"),
+            "account_name": data.get("name", ""),
+            "account_balance": data.get("initial_balance", ""),
+            "account_credit_limit": data.get("credit_limit", ""),
+        }
+    )
+    return render(request, "accounts/_add_account_form.html", ctx, status=422)
+
+
 @general_rate
 @require_http_methods(["POST"])
 def account_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /accounts/add — create account.
+    """POST /accounts/add — create account."""
+    inst_id = request.POST.get("institution_id", "")
+    inst_svc = InstitutionService(request.user_id, request.tz)
 
-    Handles both the old flow (institution_id provided) and the unified flow
-    (institution_name + institution_type provided, resolved via get_or_create).
-    Returns close script + OOB institution list refresh.
-    """
-    institution_id = request.POST.get("institution_id", "")
-
-    # Unified flow: resolve institution via get_or_create if no institution_id
-    if not institution_id:
-        inst_name = request.POST.get("institution_name", "").strip()
-        inst_type = request.POST.get("institution_type", "bank")
-        inst_icon = request.POST.get("institution_icon", "") or None
-        inst_color = request.POST.get("institution_color", "") or None
-
-        if not inst_name:
-            return render(
-                request,
-                "accounts/_add_account_form.html",
-                {
-                    "institution_id": "",
-                    "preselected_institution": None,
-                    "presets_json": json.dumps(
-                        {
-                            "bank": EGYPTIAN_BANKS,
-                            "fintech": EGYPTIAN_FINTECHS,
-                            "wallet": list(WALLET_EXAMPLES),
-                        }
-                    ),
-                    "error": "Institution name is required",
-                    "account_type": request.POST.get("type", "current"),
-                    "account_currency": request.POST.get("currency", "EGP"),
-                    "account_name": request.POST.get("name", ""),
-                    "account_balance": request.POST.get("initial_balance", ""),
-                    "account_credit_limit": request.POST.get("credit_limit", ""),
-                },
-                status=422,
+    # Unified flow: resolve institution if no ID provided
+    if not inst_id:
+        name = request.POST.get("institution_name", "").strip()
+        if not name:
+            return _render_add_account_error(
+                request, "Institution name is required", request.POST
             )
-
-        inst_svc = InstitutionService(request.user_id, request.tz)
         try:
             inst = inst_svc.get_or_create(
-                inst_name, inst_type, icon=inst_icon, color=inst_color
+                name,
+                request.POST.get("institution_type", "bank"),
+                icon=request.POST.get("institution_icon") or None,
+                color=request.POST.get("institution_color") or None,
             )
-            institution_id = inst["id"]
+            inst_id = inst["id"]
         except ValueError as e:
-            return render(
-                request,
-                "accounts/_add_account_form.html",
-                {
-                    "institution_id": "",
-                    "preselected_institution": None,
-                    "presets_json": json.dumps(
-                        {
-                            "bank": EGYPTIAN_BANKS,
-                            "fintech": EGYPTIAN_FINTECHS,
-                            "wallet": list(WALLET_EXAMPLES),
-                        }
-                    ),
-                    "error": str(e),
-                    "account_type": request.POST.get("type", "current"),
-                    "account_currency": request.POST.get("currency", "EGP"),
-                    "account_name": request.POST.get("name", ""),
-                    "account_balance": request.POST.get("initial_balance", ""),
-                    "account_credit_limit": request.POST.get("credit_limit", ""),
-                },
-                status=422,
-            )
+            return _render_add_account_error(request, str(e), request.POST)
 
     data = {
-        "institution_id": institution_id,
+        "institution_id": inst_id,
         "name": request.POST.get("name", ""),
         "type": request.POST.get("type", "current"),
         "currency": request.POST.get("currency", "EGP"),
@@ -605,33 +467,7 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
     try:
         acc_svc.create(data)
     except ValueError as e:
-        # Re-render the unified form on error
-        preselected = None
-        if institution_id:
-            inst_svc = InstitutionService(request.user_id, request.tz)
-            preselected = inst_svc.get_by_id(institution_id)
-        return render(
-            request,
-            "accounts/_add_account_form.html",
-            {
-                "institution_id": institution_id if preselected else "",
-                "preselected_institution": preselected,
-                "presets_json": json.dumps(
-                    {
-                        "bank": EGYPTIAN_BANKS,
-                        "fintech": EGYPTIAN_FINTECHS,
-                        "wallet": list(WALLET_EXAMPLES),
-                    }
-                ),
-                "error": str(e),
-                "account_type": data.get("type", "current"),
-                "account_currency": data.get("currency", "EGP"),
-                "account_name": data.get("name", ""),
-                "account_balance": data.get("initial_balance", ""),
-                "account_credit_limit": data.get("credit_limit", ""),
-            },
-            status=422,
-        )
+        return _render_add_account_error(request, str(e), data)
 
     # Success: close sheet + OOB list refresh
     html = "<script>BottomSheet.close('create-sheet');</script>"

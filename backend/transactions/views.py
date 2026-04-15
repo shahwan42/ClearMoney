@@ -319,29 +319,15 @@ def transaction_update(
             "note": put_data.get("note", ""),
             "date": put_data.get("date", ""),
         }
-        svc.update(str(tx_id), data)
+        tx, _ = svc.update(str(tx_id), data)
 
-        # Handle fee changes
-        fee_raw = put_data.get("fee_amount", "")
-        fee = parse_float_or_none(fee_raw) if fee_raw else None
-        svc.update_fee_for_transaction(
-            str(tx_id), fee, tx_date=data.get("date") or None
+        # Handle fee and VA reallocation via service helper
+        svc.apply_post_create_logic(
+            tx,
+            fee_amount=parse_float_or_none(put_data.get("fee_amount", "")),
+            va_id=put_data.get("virtual_account_id"),
+            tx_date=data.get("date"),
         )
-
-        # Handle VA reallocation
-        old_va_id = svc.get_allocation_for_tx(str(tx_id))
-        new_va_id = put_data.get("virtual_account_id", "")
-        if old_va_id != new_va_id:
-            if old_va_id:
-                svc.deallocate_from_virtual_accounts(str(tx_id))
-            if new_va_id:
-                alloc_amount = float(data["amount"])
-                if data["type"] == "expense":
-                    alloc_amount = -alloc_amount
-                try:
-                    svc.allocate_to_virtual_account(str(tx_id), new_va_id, alloc_amount)
-                except ValueError:
-                    pass
 
         # Return updated row with retarget headers so HTMX updates the row
         # in-place, regardless of the form's hx-target (which points at the
@@ -684,28 +670,15 @@ def quick_entry_create(
             "note": request.POST.get("note", ""),
             "date": request.POST.get("date", ""),
         }
-        tx, new_balance = svc.create(data)
+        tx, _ = svc.create(data)
 
-        # Optional fee → separate linked expense transaction
-        fee_raw = request.POST.get("fee_amount", "")
-        if fee_raw:
-            fee = parse_float_or_none(fee_raw)
-            if fee and fee > 0:
-                svc.create_fee_for_transaction(
-                    parent_tx=tx,
-                    fee_amount=fee,
-                    tx_date=data.get("date") or None,
-                )
-
-        va_id = request.POST.get("virtual_account_id", "")
-        if va_id:
-            alloc_amount = float(data["amount"])
-            if tx["type"] == "expense":
-                alloc_amount = -alloc_amount
-            try:
-                svc.allocate_to_virtual_account(tx["id"], va_id, alloc_amount)
-            except ValueError:
-                pass
+        # Handle fee and VA allocation via service helper
+        svc.apply_post_create_logic(
+            tx,
+            fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
+            va_id=request.POST.get("virtual_account_id"),
+            tx_date=data.get("date"),
+        )
 
         # Render success screen with Done/Add Another buttons
         response = render(request, "transactions/_quick_entry_success.html")

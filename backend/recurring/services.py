@@ -178,6 +178,74 @@ class RecurringService:
         self._qs().filter(id=rule_id).delete()
         logger.info("recurring.deleted id=%s user=%s", rule_id, self.user_id)
 
+    def build_template_transaction(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Build template_transaction JSONB from raw form data.
+
+        Handles amount parsing, currency lookup, and transfer-specific logic.
+        """
+        tx_type = data.get("type", "expense")
+        account_id = data.get("account_id", "")
+        if not account_id:
+            raise ValueError("account_id is required")
+
+        # Parse amount
+        try:
+            amount = float(data.get("amount", 0))
+        except (ValueError, TypeError):
+            raise ValueError("Amount is required")
+
+        # Look up account currency (server-side override, never trust form)
+        from accounts.models import Account
+
+        currency = (
+            Account.objects.for_user(self.user_id)
+            .filter(id=account_id)
+            .values_list("currency", flat=True)
+            .first()
+            or "EGP"
+        )
+
+        if tx_type == "transfer":
+            counter_account_id = data.get("counter_account_id", "")
+            if not counter_account_id:
+                raise ValueError("Destination account is required for transfers")
+            if counter_account_id == account_id:
+                raise ValueError("Source and destination accounts must be different")
+
+            template: dict[str, Any] = {
+                "type": "transfer",
+                "amount": amount,
+                "currency": currency,
+                "account_id": account_id,
+                "counter_account_id": counter_account_id,
+            }
+
+            # Parse optional fee
+            fee_str = data.get("fee_amount", "")
+            if fee_str:
+                try:
+                    fee_amount = float(fee_str)
+                    if fee_amount > 0:
+                        template["fee_amount"] = fee_amount
+                except (ValueError, TypeError):
+                    pass
+        else:
+            template = {
+                "type": tx_type,
+                "amount": amount,
+                "currency": currency,
+                "account_id": account_id,
+            }
+            category_id = data.get("category_id")
+            if category_id:
+                template["category_id"] = category_id
+
+        note = data.get("note")
+        if note:
+            template["note"] = note
+
+        return template
+
     def process_due_rules(self) -> int:
         """Auto-process all due rules with auto_confirm=true.
 

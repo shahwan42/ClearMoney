@@ -134,83 +134,11 @@ def recurring_page(
 @general_rate
 @require_http_methods(["POST"])
 def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpResponse:
-    """POST /recurring/add — create new recurring rule.
-
-    Parses form, looks up account currency, builds template JSON,
-    creates rule, returns updated rule list partial.
-    """
-
-    # Parse form fields
-    tx_type = request.POST.get("type", "expense")
-    amount_str = request.POST.get("amount", "")
-    account_id = request.POST.get("account_id", "")
-    category_id = request.POST.get("category_id", "") or None
-    note = request.POST.get("note", "") or None
-    frequency = request.POST.get("frequency", "")
-    next_due_str = request.POST.get("next_due_date", "")
-    auto_confirm = request.POST.get("auto_confirm") == "true"
-
-    # Parse amount
-    try:
-        amount = float(amount_str)
-    except (ValueError, TypeError):
-        return HttpResponse(
-            '<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
-            "Amount is required</div>",
-            status=400,
-        )
-
-    # Look up account currency (server-side override, never trust form)
-    currency = _lookup_account_currency(request.user_id, account_id)
-
-    # Build template_transaction JSONB
-    if tx_type == "transfer":
-        counter_account_id = request.POST.get("counter_account_id", "")
-        if not counter_account_id:
-            return HttpResponse(
-                '<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
-                "Destination account is required for transfers</div>",
-                status=400,
-            )
-        if counter_account_id == account_id:
-            return HttpResponse(
-                '<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">'
-                "Source and destination accounts must be different</div>",
-                status=400,
-            )
-
-        template: dict[str, Any] = {
-            "type": "transfer",
-            "amount": amount,
-            "currency": currency,
-            "account_id": account_id,
-            "counter_account_id": counter_account_id,
-        }
-        if note:
-            template["note"] = note
-
-        # Parse optional fee
-        fee_str = request.POST.get("fee_amount", "")
-        if fee_str:
-            try:
-                fee_amount = float(fee_str)
-                if fee_amount > 0:
-                    template["fee_amount"] = fee_amount
-            except (ValueError, TypeError):
-                pass
-    else:
-        template = {
-            "type": tx_type,
-            "amount": amount,
-            "currency": currency,
-            "account_id": account_id,
-        }
-        if category_id:
-            template["category_id"] = category_id
-        if note:
-            template["note"] = note
+    """POST /recurring/add — create new recurring rule."""
+    from datetime import datetime
 
     # Parse next_due_date
+    next_due_str = request.POST.get("next_due_date", "")
     next_due = None
     if next_due_str:
         try:
@@ -219,12 +147,13 @@ def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpR
             pass
 
     try:
+        template = svc.build_template_transaction(request.POST)
         svc.create(
             {
                 "template_transaction": template,
-                "frequency": frequency,
+                "frequency": request.POST.get("frequency", ""),
                 "next_due_date": next_due,
-                "auto_confirm": auto_confirm,
+                "auto_confirm": request.POST.get("auto_confirm") == "true",
             }
         )
     except ValueError as e:

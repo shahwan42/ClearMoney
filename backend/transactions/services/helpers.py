@@ -201,6 +201,47 @@ class HelperMixin:
         )
         return str(result) if result else None
 
+    def apply_post_create_logic(
+        self,
+        tx: dict[str, Any],
+        fee_amount: float | None = None,
+        va_id: str | None = None,
+        tx_date: Any = None,
+    ) -> None:
+        """Centralized logic for post-transaction creation tasks:
+        1. Create or update optional linked fee transaction.
+        2. Allocate/Reallocate to virtual account.
+        """
+        # 1. Linked Fee (handles add, update, and remove)
+        self.update_fee_for_transaction(  # type: ignore[attr-defined]
+            tx_id=tx["id"],
+            fee_amount=fee_amount,
+            tx_date=tx_date,
+        )
+
+        # 2. Virtual Account Allocation
+        if va_id:
+            alloc_amount = float(tx["amount"])
+            if tx["type"] == "expense":
+                alloc_amount = -alloc_amount
+
+            # If this is an update, we might need to deallocate first
+            # (But this method is designed for 'post-create' or 'unified update')
+            old_va_id = self.get_allocation_for_tx(tx["id"])
+            if old_va_id != va_id:
+                if old_va_id:
+                    self.deallocate_from_virtual_accounts(tx["id"])
+                if va_id:
+                    try:
+                        self.allocate_to_virtual_account(tx["id"], va_id, alloc_amount)
+                    except ValueError:
+                        pass
+        elif va_id == "" or va_id is None:
+            # Handle explicit deallocation if va_id was provided as empty string
+            old_va_id = self.get_allocation_for_tx(tx["id"])
+            if old_va_id:
+                self.deallocate_from_virtual_accounts(tx["id"])
+
     # -------------------------------------------------------------------
     # Helpers for views
     # -------------------------------------------------------------------

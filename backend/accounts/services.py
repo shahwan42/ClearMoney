@@ -31,6 +31,7 @@ from accounts.types import (
 from core.billing import (
     BillingCycleInfo,
     get_billing_cycle_info,
+    get_credit_card_utilization,
     interest_free_remaining,
     parse_billing_cycle,
 )
@@ -591,6 +592,118 @@ class AccountService:
             .aggregate(total=Coalesce(Sum("current_balance"), Decimal("0")))
         )
         return float(result["total"])
+
+    def get_detail_data(self, account_id: str) -> dict[str, Any]:
+        """Assemble all data required for the account detail page.
+
+        Encapsulates institution resolution, billing cycles, balance/utilization
+        history, virtual accounts, and health checks.
+        """
+        account = self.get_by_id(account_id)
+        if not account:
+            return {}
+
+        # Institution info
+        inst_svc = InstitutionService(self.user_id, self.tz)
+        inst = (
+            inst_svc.get_by_id(account.institution_id)
+            if account.institution_id
+            else None
+        )
+        institution_name = inst["name"] if inst else ""
+
+        # Billing cycle (credit cards only)
+        billing_cycle = None
+        if account.is_credit_type and account.metadata:
+            cycle = parse_billing_cycle(account.metadata)
+            if cycle:
+                billing_cycle = get_billing_cycle_info(
+                    cycle[0], cycle[1], date.today()
+                )
+
+        # Histories (sparklines)
+        balance_history = self.get_balance_history(account_id)
+        utilization = 0.0
+        utilization_history: list[float] = []
+        if account.is_credit_type:
+            utilization = get_credit_card_utilization(
+                account.current_balance, account.credit_limit
+            )
+            if account.credit_limit and account.credit_limit > 0:
+                utilization_history = self.get_utilization_history(
+                    account_id, account.credit_limit
+                )
+
+        # Virtual accounts and "Your Money"
+        virtual_accounts = self.get_linked_virtual_accounts(account_id)
+        excluded_va_balance = self.get_excluded_va_balance(account_id)
+        your_money = account.current_balance - excluded_va_balance
+
+        # Over-allocation warning
+        total_va_balance = sum(va["current_balance"] for va in virtual_accounts)
+        is_over_allocated = total_va_balance > account.current_balance
+
+        # Recent transactions
+        transactions = self.get_recent_transactions(account_id, limit=50)
+        has_more = len(transactions) >= 50
+
+        # UI Color helpers
+        from accounts.display import (
+            get_balance_color_class,
+            get_utilization_color_hex,
+            get_your_money_color_class,
+        )
+
+        return {
+            "account": account,
+            "institution_name": institution_name,
+            "billing_cycle": billing_cycle,
+            "balance_history": balance_history,
+            "balance_color_class": get_balance_color_class(account.current_balance),
+            "utilization": utilization,
+            "utilization_color": get_utilization_color_hex(utilization),
+            "utilization_history": utilization_history,
+            "virtual_accounts": virtual_accounts,
+            "excluded_va_balance": excluded_va_balance,
+            "is_over_allocated": is_over_allocated,
+            "your_money": your_money,
+            "your_money_color_class": get_your_money_color_class(your_money),
+            "health_config": account.health_config or {},
+            "transactions": transactions,
+            "has_more": has_more,
+        }
+
+    def get_add_form_context(self, institution_id: str = "") -> dict[str, Any]:
+        """Generate common context for the add account form (presets, etc.)."""
+        from accounts.institution_data import (
+            EGYPTIAN_BANKS,
+            EGYPTIAN_FINTECHS,
+            WALLET_EXAMPLES,
+        )
+
+        preselected = None
+        if institution_id:
+            inst_svc = InstitutionService(self.user_id, self.tz)
+            preselected = inst_svc.get_by_id(institution_id)
+
+        import json
+
+        return {
+            "institution_id": institution_id if preselected else "",
+            "preselected_institution": preselected,
+            "presets_json": json.dumps(
+                {
+                    "bank": EGYPTIAN_BANKS,
+                    "fintech": EGYPTIAN_FINTECHS,
+                    "wallet": list(WALLET_EXAMPLES),
+                }
+            ),
+            "account_type": "current",
+            "account_currency": "EGP",
+            "account_name": "",
+            "account_balance": "",
+            "account_credit_limit": "",
+        }
 
     # --- Internal helpers ---
 
