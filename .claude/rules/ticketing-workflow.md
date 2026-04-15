@@ -48,19 +48,20 @@ When Claude begins work on a non-trivial task (features, bug fixes, refactors, i
 
 **Workflow: close ticket → stage ticket files → stage code → commit together.**
 
-1. **Move ticket from `wip/` to `done/`**:
-   - Rename file: `.tickets/wip/<id>-<slug>.md` → `.tickets/done/<id>-<slug>.md`
+1. **Move ticket to `done/`** (whether from `wip/` or `pending/`):
+   - **From `wip/`**: Rename file: `.tickets/wip/<id>-<slug>.md` → `.tickets/done/<id>-<slug>.md`
+   - **From `pending/`**: Keep file in place, just update frontmatter
    - Update frontmatter:
-     - `status`: wip → done
+     - `status`: → done
      - `updated`: today's date
-   - Add final progress note: `- 2026-03-27: Completed — [what was delivered, key commits, or summary]`
+   - Add final progress note: `- YYYY-MM-DD: Completed — [what was delivered, key commits, or summary]`
 
 2. **Regenerate INDEX.md**
 
 3. **Stage ticket files alongside code changes**:
    ```bash
    git add .tickets/done/<id>-<slug>.md .tickets/INDEX.md
-   # Also stage the deletion of the old wip/ file
+   # If from wip/, also stage the deletion of the old wip/ file
    git add .tickets/wip/<id>-<slug>.md
    # Then stage the feature/fix code files
    git add backend/app/file.py ...
@@ -197,14 +198,14 @@ Last updated: 2026-03-27
 
 ### Close Ticket (Move to Done) — MUST be atomic with feature commit
 ```
-1. Read ticket from wip/
+1. Read ticket from wip/ or pending/ (wherever it lives)
 2. Update: status → done, updated → today
 3. Add progress note: "- YYYY-MM-DD: Completed — [summary]"
-4. Write to done/<id>-<slug>.md
-5. Delete from wip/
-6. Regenerate INDEX.md
-7. Stage ticket files (done/ + deleted wip/ + INDEX.md) alongside code
-8. Commit everything together — never in a separate commit
+4. If from wip/: write to done/<id>-<slug>.md and delete from wip/
+   If from pending/: update file in place
+5. Regenerate INDEX.md
+6. Stage ticket files (done/ + deleted wip/ + INDEX.md) alongside code
+7. Commit everything together — never in a separate commit
 ```
 
 ### Reject Ticket (Move to Rejected)
