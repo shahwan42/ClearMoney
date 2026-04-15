@@ -6,7 +6,6 @@ Like Django's fat-model or service-layer pattern. Uses the Django ORM with
 as raw SQL: ``get_statement_data`` (complex period queries).
 """
 
-import json
 import logging
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
@@ -35,6 +34,7 @@ from core.billing import (
     parse_billing_cycle,
 )
 from core.dates import month_range
+from core.serializers import parse_jsonb
 from recurring.models import RecurringRule
 from transactions.models import Transaction
 from transactions.services.utils import running_balance_annotation
@@ -69,20 +69,6 @@ ACCOUNT_TYPE_LABELS: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _parse_jsonb(value: Any) -> dict[str, Any] | None:
-    """Parse a JSONB value that psycopg3 may return as a string or dict."""
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, str) and value.strip():
-        try:
-            parsed = json.loads(value)
-            if isinstance(parsed, dict):
-                return parsed
-        except (json.JSONDecodeError, ValueError):
-            pass
-    return None
 
 
 def _require_trimmed_name(value: str, field_name: str) -> str:
@@ -609,10 +595,8 @@ class AccountService:
         )
         acc_type = row["type"]
         is_credit = acc_type in CREDIT_ACCOUNT_TYPES
-        metadata = _parse_jsonb(row["metadata"])
-        health_config = (
-            _parse_jsonb(row["health_config"]) if row["health_config"] else {}
-        )
+        metadata = parse_jsonb(row["metadata"])
+        health_config = parse_jsonb(row["health_config"]) or {}
 
         available_credit = None
         if is_credit and credit_limit is not None:
@@ -813,7 +797,7 @@ def load_health_warnings(
             current_balance = acc["current_balance"]
             health_config = acc.get("health_config")
 
-        cfg = _parse_jsonb(health_config)
+        cfg = parse_jsonb(health_config)
         if not cfg:
             continue
 

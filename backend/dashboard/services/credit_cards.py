@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from .accounts import CREDIT_TYPES
-from .helpers import _parse_jsonb
+from .helpers import parse_jsonb
 
 if TYPE_CHECKING:
     from . import DashboardData
@@ -84,7 +84,7 @@ def compute_credit_card_summaries(
         )
 
         # Parse billing cycle from metadata
-        meta = _parse_jsonb(acc.get("metadata"))
+        meta = parse_jsonb(acc.get("metadata"))
         if meta:
             statement_day = meta.get("statement_day", 0)
             due_day = meta.get("due_day", 0)

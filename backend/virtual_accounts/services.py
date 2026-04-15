@@ -22,6 +22,7 @@ from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
+from core.serializers import serialize_instance, serialize_row
 from transactions.models import VirtualAccountAllocation
 from virtual_accounts.models import VirtualAccount
 
@@ -45,59 +46,48 @@ _VA_FIELDS = (
 )
 
 
-def _row_to_va(row: dict[str, Any]) -> dict[str, Any]:
-    """Convert a .values() dict to a virtual account dict.
-
-    Includes computed progress_pct: (current_balance / target_amount) * 100.
-    """
-    target = float(row["target_amount"]) if row["target_amount"] is not None else None
-    balance = float(row["current_balance"])
-    progress_pct = 0.0
+def _compute_progress_pct(target: float | None, balance: float) -> float:
+    """Compute progress_pct from target amount and current balance."""
     if target and target > 0:
-        progress_pct = balance / target * 100
+        return balance / target * 100
+    return 0.0
 
-    return {
-        "id": str(row["id"]),
-        "user_id": str(row["user_id"]),
-        "name": row["name"],
-        "target_amount": target,
-        "current_balance": balance,
-        "icon": row["icon"] or "",
-        "color": row["color"] or "",
-        "is_archived": row["is_archived"],
-        "exclude_from_net_worth": row["exclude_from_net_worth"],
-        "display_order": row["display_order"],
-        "account_id": str(row["account_id"]) if row["account_id"] else None,
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "progress_pct": progress_pct,
-    }
+
+def _row_to_va(row: dict[str, Any]) -> dict[str, Any]:
+    """Convert a .values() dict to a virtual account dict with progress_pct."""
+    out = serialize_row(
+        row,
+        {
+            "id": "id",
+            "user_id": "user_id",
+            "name": "name",
+            "target_amount": "target_amount",
+            "current_balance": "current_balance",
+            "icon": ("icon", lambda v: v or ""),
+            "color": ("color", lambda v: v or ""),
+            "is_archived": "is_archived",
+            "exclude_from_net_worth": "exclude_from_net_worth",
+            "display_order": "display_order",
+            "account_id": "account_id",
+            "created_at": "created_at",
+            "updated_at": "updated_at",
+        },
+    )
+    out["progress_pct"] = _compute_progress_pct(
+        out["target_amount"], out["current_balance"]
+    )
+    return out
 
 
 def _instance_to_va(inst: VirtualAccount) -> dict[str, Any]:
     """Convert a VirtualAccount model instance to a dict with progress_pct."""
-    target = float(inst.target_amount) if inst.target_amount is not None else None
-    balance = float(inst.current_balance)
-    progress_pct = 0.0
-    if target and target > 0:
-        progress_pct = balance / target * 100
-
-    return {
-        "id": str(inst.id),
-        "user_id": str(inst.user_id),
-        "name": inst.name,
-        "target_amount": target,
-        "current_balance": balance,
-        "icon": inst.icon or "",
-        "color": inst.color or "",
-        "is_archived": inst.is_archived,
-        "exclude_from_net_worth": inst.exclude_from_net_worth,
-        "display_order": inst.display_order,
-        "account_id": str(inst.account_id) if inst.account_id else None,
-        "created_at": inst.created_at,
-        "updated_at": inst.updated_at,
-        "progress_pct": progress_pct,
-    }
+    out = serialize_instance(inst, _VA_FIELDS)
+    out["icon"] = out["icon"] or ""
+    out["color"] = out["color"] or ""
+    out["progress_pct"] = _compute_progress_pct(
+        out["target_amount"], out["current_balance"]
+    )
+    return out
 
 
 class VirtualAccountService:

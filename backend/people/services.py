@@ -23,72 +23,58 @@ from django.db.models import F
 from django.utils import timezone as django_tz
 
 from accounts.models import Account
+from core.serializers import serialize_instance, serialize_row
 from people.models import Person
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 
 
-def _person_to_dict(p: dict[str, Any]) -> dict[str, Any]:
+def _person_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     """Convert a .values() row to the expected dict format."""
-    return {
-        "id": str(p["id"]),
-        "user_id": str(p["user_id"]),
-        "name": p["name"],
-        "note": p["note"],
-        "net_balance": float(p["net_balance"]),
-        "net_balance_egp": float(p["net_balance_egp"]),
-        "net_balance_usd": float(p["net_balance_usd"]),
-        "created_at": p["created_at"],
-        "updated_at": p["updated_at"],
-    }
+    return serialize_row(
+        row,
+        {
+            "id": "id",
+            "user_id": "user_id",
+            "name": "name",
+            "note": "note",
+            "net_balance": "net_balance",
+            "net_balance_egp": "net_balance_egp",
+            "net_balance_usd": "net_balance_usd",
+            "created_at": "created_at",
+            "updated_at": "updated_at",
+        },
+    )
 
 
 def _person_instance_to_dict(p: Person) -> dict[str, Any]:
     """Convert a Person model instance to a dict."""
-    return {
-        "id": str(p.id),
-        "user_id": str(p.user_id),
-        "name": p.name,
-        "note": p.note,
-        "net_balance": float(p.net_balance),
-        "net_balance_egp": float(p.net_balance_egp),
-        "net_balance_usd": float(p.net_balance_usd),
-        "created_at": p.created_at,
-        "updated_at": p.updated_at,
-    }
+    return serialize_instance(p, _PERSON_FIELDS)
 
 
 def _tx_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     """Convert a transaction .values() row to a dict."""
-    return {
-        "id": str(row["id"]),
-        "type": row["type"],
-        "amount": float(row["amount"]),
-        "currency": row["currency"],
-        "account_id": str(row["account_id"]),
-        "person_id": str(row["person_id"]) if row["person_id"] else None,
-        "note": row["note"],
-        "date": row["date"],
-        "balance_delta": float(row["balance_delta"]),
-        "created_at": row["created_at"],
-    }
+    return serialize_row(
+        row,
+        {
+            "id": "id",
+            "type": "type",
+            "amount": "amount",
+            "currency": "currency",
+            "account_id": "account_id",
+            "person_id": "person_id",
+            "note": "note",
+            "date": "date",
+            "balance_delta": "balance_delta",
+            "created_at": "created_at",
+        },
+    )
 
 
 def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
     """Convert a Transaction model instance to a dict."""
-    return {
-        "id": str(tx.id),
-        "type": tx.type,
-        "amount": float(tx.amount),
-        "currency": tx.currency,
-        "account_id": str(tx.account_id),
-        "person_id": str(tx.person_id) if tx.person_id else None,
-        "note": tx.note,
-        "date": tx.date,
-        "balance_delta": float(tx.balance_delta),
-        "created_at": tx.created_at,
-    }
+    return serialize_instance(tx, _TX_FIELDS)
 
 
 # Fields returned in person dicts

@@ -11,9 +11,12 @@ import logging
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from core.serializers import serialize_row
 from exchange_rates.models import ExchangeRateLog
 
 logger = logging.getLogger(__name__)
+
+_EXCHANGE_RATE_FIELDS = ("id", "date", "rate", "source", "note", "created_at")
 
 
 class ExchangeRateService:
@@ -31,17 +34,9 @@ class ExchangeRateService:
         Returns up to 100 rows ordered by created_at DESC.
         """
         rows = ExchangeRateLog.objects.order_by("-created_at").values(
-            "id", "date", "rate", "source", "note", "created_at"
+            *_EXCHANGE_RATE_FIELDS
         )[:100]
 
         return [
-            {
-                "id": str(row["id"]),
-                "date": row["date"],
-                "rate": float(row["rate"]),
-                "source": row["source"],
-                "note": row["note"],
-                "created_at": row["created_at"],
-            }
-            for row in rows
+            serialize_row(row, {f: f for f in _EXCHANGE_RATE_FIELDS}) for row in rows
         ]

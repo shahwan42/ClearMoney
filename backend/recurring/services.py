@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
 from django.utils import timezone as django_tz
 
+from core.serializers import serialize_value
 from recurring.models import RecurringRule
 from recurring.types import RecurringRulePending
 from transactions.services import TransactionService
@@ -44,48 +45,31 @@ _FIELDS = (
 )
 
 
+def _parse_template(val: Any) -> Any:
+    """Parse template_transaction JSON if stored as a string."""
+    if isinstance(val, str):
+        return json.loads(val)
+    return val
+
+
 def _row_to_rule(row: dict[str, Any]) -> RecurringRulePending:
-    """Convert a .values() dict to a RecurringRulePending.
-
-    template_transaction comes back as a Python dict from Django's JSONField,
-    but may be a string if manually inserted.
-    """
-    tmpl = row["template_transaction"]
-    if isinstance(tmpl, str):
-        tmpl = json.loads(tmpl)
-
-    return RecurringRulePending(
-        id=str(row["id"]),
-        user_id=str(row["user_id"]),
-        template_transaction=tmpl,
-        frequency=row["frequency"],
-        day_of_month=row["day_of_month"],
-        next_due_date=row["next_due_date"],
-        is_active=row["is_active"],
-        auto_confirm=row["auto_confirm"],
-        created_at=row["created_at"],
-        updated_at=row["updated_at"],
-    )
+    """Convert a .values() dict to a RecurringRulePending."""
+    d: dict[str, Any] = {
+        f: serialize_value(row[f]) for f in _FIELDS if f != "template_transaction"
+    }
+    d["template_transaction"] = _parse_template(row["template_transaction"])
+    return RecurringRulePending(**d)
 
 
 def _instance_to_rule(inst: RecurringRule) -> RecurringRulePending:
     """Convert a RecurringRule model instance to a RecurringRulePending dataclass."""
-    tmpl = inst.template_transaction
-    if isinstance(tmpl, str):
-        tmpl = json.loads(tmpl)
-
-    return RecurringRulePending(
-        id=str(inst.id),
-        user_id=str(inst.user_id),
-        template_transaction=tmpl,
-        frequency=inst.frequency,
-        day_of_month=inst.day_of_month,
-        next_due_date=inst.next_due_date,
-        is_active=inst.is_active,
-        auto_confirm=inst.auto_confirm,
-        created_at=inst.created_at,
-        updated_at=inst.updated_at,
-    )
+    d: dict[str, Any] = {
+        f: serialize_value(getattr(inst, f))
+        for f in _FIELDS
+        if f != "template_transaction"
+    }
+    d["template_transaction"] = _parse_template(inst.template_transaction)
+    return RecurringRulePending(**d)
 
 
 class RecurringService:

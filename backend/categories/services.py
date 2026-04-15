@@ -19,6 +19,7 @@ from django.utils.translation import get_language
 from django.utils.translation import gettext as _
 
 from categories.models import Category
+from core.serializers import resolve_jsonb_name, serialize_instance, serialize_row
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
@@ -39,51 +40,31 @@ _FIELDS = (
 )
 
 
-def _resolve_name(name_value: Any) -> str:
-    """Resolve a JSONB name dict to a display string for the current language."""
-    if isinstance(name_value, str):
-        return name_value
-    if isinstance(name_value, dict):
-        lang = (get_language() or "en").split("-")[0]
-        if lang in name_value:
-            return str(name_value[lang])
-        if "en" in name_value:
-            return str(name_value["en"])
-        if name_value:
-            return str(next(iter(name_value.values())))
-    return str(name_value) if name_value else ""
-
-
 def _instance_to_dict(cat: Category) -> dict[str, Any]:
     """Convert a Category model instance to a dict."""
-    return {
-        "id": str(cat.id),
-        "user_id": str(cat.user_id),
-        "name": cat.get_display_name(),
-        "type": cat.type,
-        "icon": cat.icon,
-        "is_system": cat.is_system,
-        "is_archived": cat.is_archived,
-        "display_order": cat.display_order,
-        "created_at": cat.created_at,
-        "updated_at": cat.updated_at,
-    }
+    out = serialize_instance(cat, _FIELDS)
+    out["name"] = cat.get_display_name()
+    return out
 
 
 def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     """Convert a .values() dict — stringify UUIDs, resolve name."""
-    return {
-        "id": str(row["id"]),
-        "user_id": str(row["user_id"]),
-        "name": _resolve_name(row["name"]),
-        "type": row["type"],
-        "icon": row["icon"],
-        "is_system": row["is_system"],
-        "is_archived": row["is_archived"],
-        "display_order": row["display_order"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-    }
+    lang = (get_language() or "en").split("-")[0]
+    return serialize_row(
+        row,
+        {
+            "id": "id",
+            "user_id": "user_id",
+            "name": ("name", lambda v: resolve_jsonb_name(v, lang)),
+            "type": "type",
+            "icon": "icon",
+            "is_system": "is_system",
+            "is_archived": "is_archived",
+            "display_order": "display_order",
+            "created_at": "created_at",
+            "updated_at": "updated_at",
+        },
+    )
 
 
 def _annotate_name_en(qs: Any) -> Any:
@@ -158,10 +139,11 @@ class CategoryService:
             .order_by("-usage_count", "name_en")
             .values("id", "name", "icon", "is_system", "usage_count")
         )
+        lang = (get_language() or "en").split("-")[0]
         return [
             {
                 "id": str(r["id"]),
-                "name": _resolve_name(r["name"]),
+                "name": resolve_jsonb_name(r["name"], lang),
                 "icon": r["icon"],
                 "is_system": r["is_system"],
                 "usage_count": r["usage_count"],
@@ -180,10 +162,11 @@ class CategoryService:
             .order_by("name_en")
             .values("id", "name", "icon", "is_system", "usage_count")
         )
+        lang = (get_language() or "en").split("-")[0]
         return [
             {
                 "id": str(r["id"]),
-                "name": _resolve_name(r["name"]),
+                "name": resolve_jsonb_name(r["name"], lang),
                 "icon": r["icon"],
                 "is_system": r["is_system"],
                 "usage_count": r["usage_count"],
