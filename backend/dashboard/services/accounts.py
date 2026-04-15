@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +23,98 @@ _CARD_TITLES: dict[str, str] = {
     "credit_used": "Credit Used",
     "credit_available": "Credit Available",
     "debt": "Debt",
+}
+
+
+@dataclass
+class CardStrategy:
+    """Strategy for processing accounts belonging to a specific net-worth card type.
+
+    Attributes:
+        filter_fn: Returns True if an account should be included in this card's breakdown.
+        transform_fn: Mutates the row dict before appending (e.g. abs-ify balance, add `available` field).
+        sort_key: Which row field to sort by ('balance' or 'available').
+        sort_reverse: Sort descending when True, ascending when False.
+    """
+
+    filter_fn: Callable[[Any, float], bool]
+    transform_fn: Callable[[Any, float, dict[str, Any]], None]
+    sort_key: str
+    sort_reverse: bool
+
+
+def _is_liquid_cash(acc: Any, bal: float) -> bool:
+    """Include non-credit, non-dormant accounts with a positive balance."""
+    return acc.type not in CREDIT_TYPES and not acc.is_dormant and bal > 0
+
+
+def _transform_liquid_cash(acc: Any, bal: float, row: dict[str, Any]) -> None:
+    """No transformation needed — balance is used as-is."""
+    pass
+
+
+def _is_credit_used(acc: Any, bal: float) -> bool:
+    """Include credit accounts with a negative balance (amount owed)."""
+    return acc.type in CREDIT_TYPES and bal < 0
+
+
+def _transform_credit_used(acc: Any, bal: float, row: dict[str, Any]) -> None:
+    """Show negative balance as a positive 'used' amount."""
+    row["balance"] = abs(bal)
+
+
+def _is_credit_available(acc: Any, bal: float) -> bool:
+    """Include credit accounts that have an explicit credit limit."""
+    if acc.type not in CREDIT_TYPES:
+        return False
+    limit = float(acc.credit_limit) if acc.credit_limit else 0
+    return limit > 0
+
+
+def _transform_credit_available(acc: Any, bal: float, row: dict[str, Any]) -> None:
+    """Add `available` = credit_limit + current_balance (which is negative)."""
+    limit = float(acc.credit_limit) if acc.credit_limit else 0
+    row["available"] = limit + bal
+    row["credit_limit"] = limit
+
+
+def _is_debt(acc: Any, bal: float) -> bool:
+    """Include any account with a negative balance."""
+    return bal < 0
+
+
+def _transform_debt(acc: Any, bal: float, row: dict[str, Any]) -> None:
+    """No transformation needed — negative balance correctly represents debt."""
+    pass
+
+
+# Card-type → strategy mapping used by get_net_worth_breakdown().
+# Each strategy encapsulates the filter, transform, and sort rules for one KPI card.
+_STRATEGIES: dict[str, CardStrategy] = {
+    "liquid_cash": CardStrategy(
+        filter_fn=_is_liquid_cash,
+        transform_fn=_transform_liquid_cash,
+        sort_key="balance",
+        sort_reverse=True,
+    ),
+    "credit_used": CardStrategy(
+        filter_fn=_is_credit_used,
+        transform_fn=_transform_credit_used,
+        sort_key="balance",
+        sort_reverse=True,
+    ),
+    "credit_available": CardStrategy(
+        filter_fn=_is_credit_available,
+        transform_fn=_transform_credit_available,
+        sort_key="available",
+        sort_reverse=True,
+    ),
+    "debt": CardStrategy(
+        filter_fn=_is_debt,
+        transform_fn=_transform_debt,
+        sort_key="balance",
+        sort_reverse=False,
+    ),
 }
 
 
@@ -135,6 +228,45 @@ def compute_net_worth(data: DashboardData, all_accounts: list[dict[str, Any]]) -
             group.total = total
 
 
+def _get_people_debt(user_id: str) -> list[dict[str, Any]]:
+    """Return people records where the user owes them money (negative net_balance).
+
+    Each returned dict has name, balance, currency, institution_name ('People'),
+    and institution_icon ('👤').  Only currency-specific negative balances are
+    returned — e.g. a person with net_balance_egp=-300 and net_balance_usd=50
+    yields one row in EGP only.
+    """
+    people_rows = (
+        Person.objects.for_user(user_id)
+        .filter(net_balance__lt=0)
+        .order_by("name")
+        .values_list("name", "net_balance_egp", "net_balance_usd")
+    )
+    rows = []
+    for name, nb_egp, nb_usd in people_rows:
+        if nb_egp is not None and nb_egp < 0:
+            rows.append(
+                {
+                    "name": name,
+                    "balance": float(nb_egp),
+                    "currency": "EGP",
+                    "institution_name": "People",
+                    "institution_icon": "👤",
+                }
+            )
+        if nb_usd is not None and nb_usd < 0:
+            rows.append(
+                {
+                    "name": name,
+                    "balance": float(nb_usd),
+                    "currency": "USD",
+                    "institution_name": "People",
+                    "institution_icon": "👤",
+                }
+            )
+    return rows
+
+
 def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
     """Return accounts contributing to a specific net worth sub-card.
 
@@ -150,7 +282,8 @@ def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
     if card_type not in _CARD_TITLES:
         raise ValueError(f"Unknown card type: {card_type}")
 
-    # Load all accounts with institution info
+    strategy = _STRATEGIES[card_type]
+
     accounts = (
         Account.objects.for_user(user_id)
         .select_related("institution")
@@ -161,80 +294,25 @@ def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
 
     for acc in accounts:
         bal = float(acc.current_balance)
-        inst = acc.institution
-        inst_name = inst.name if inst else ""
-        inst_icon = (inst.icon or "") if inst else ""
+        if not strategy.filter_fn(acc, bal):
+            continue
 
+        inst = acc.institution
         row: dict[str, Any] = {
             "name": acc.name,
             "balance": bal,
             "currency": acc.currency,
-            "institution_name": inst_name,
-            "institution_icon": inst_icon,
+            "institution_name": inst.name if inst else "",
+            "institution_icon": (inst.icon or "") if inst else "",
         }
+        strategy.transform_fn(acc, bal, row)
+        result_accounts.append(row)
 
-        if card_type == "liquid_cash":
-            # Non-credit, non-dormant, positive balance
-            if acc.type not in CREDIT_TYPES and not acc.is_dormant and bal > 0:
-                result_accounts.append(row)
-
-        elif card_type == "credit_used":
-            # Credit accounts with negative balance (debt on card)
-            if acc.type in CREDIT_TYPES and bal < 0:
-                row["balance"] = abs(bal)  # show as positive "used" amount
-                result_accounts.append(row)
-
-        elif card_type == "credit_available":
-            # Credit accounts with a limit
-            if acc.type in CREDIT_TYPES:
-                limit = float(acc.credit_limit) if acc.credit_limit else 0
-                if limit > 0:
-                    row["available"] = limit + bal  # limit + negative balance
-                    row["credit_limit"] = limit
-                    result_accounts.append(row)
-
-        elif card_type == "debt":
-            # All accounts with negative balance
-            if bal < 0:
-                result_accounts.append(row)
-
-    # Add people I owe to debt breakdown
     if card_type == "debt":
-        people_rows = (
-            Person.objects.for_user(user_id)
-            .filter(net_balance__lt=0)
-            .order_by("name")
-            .values_list("name", "net_balance", "net_balance_egp", "net_balance_usd")
-        )
-        for name, net_bal, nb_egp, nb_usd in people_rows:
-            # Add per-currency rows for people with debt in each currency
-            if nb_egp < 0:
-                result_accounts.append(
-                    {
-                        "name": name,
-                        "balance": float(nb_egp),
-                        "currency": "EGP",
-                        "institution_name": "People",
-                        "institution_icon": "👤",
-                    }
-                )
-            if nb_usd < 0:
-                result_accounts.append(
-                    {
-                        "name": name,
-                        "balance": float(nb_usd),
-                        "currency": "USD",
-                        "institution_name": "People",
-                        "institution_icon": "👤",
-                    }
-                )
+        result_accounts.extend(_get_people_debt(user_id))
 
-    # Sort: highest first for assets, most negative first for debt
-    if card_type == "credit_available":
-        result_accounts.sort(key=lambda a: a["available"], reverse=True)
-    elif card_type in ("liquid_cash", "credit_used"):
-        result_accounts.sort(key=lambda a: a["balance"], reverse=True)
-    else:  # debt: most negative first
-        result_accounts.sort(key=lambda a: a["balance"])
+    result_accounts.sort(
+        key=lambda a: a[strategy.sort_key], reverse=strategy.sort_reverse
+    )
 
     return {"title": _CARD_TITLES[card_type], "accounts": result_accounts}
