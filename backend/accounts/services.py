@@ -29,6 +29,7 @@ from accounts.types import (
     NetWorthSummary,
 )
 from core.billing import (
+    BillingCycleInfo,
     get_billing_cycle_info,
     interest_free_remaining,
     parse_billing_cycle,
@@ -629,6 +630,116 @@ class AccountService:
 # ---------------------------------------------------------------------------
 
 
+def _parse_statement_period(
+    statement_day: int, due_day: int, today: date, period_str: str
+) -> BillingCycleInfo:
+    """Recompute billing cycle info when a specific YYYY-MM period is requested."""
+    info = get_billing_cycle_info(statement_day, due_day, today)
+    if not period_str:
+        return info
+    try:
+        parts = period_str.split("-")
+        year = int(parts[0])
+        month = int(parts[1])
+        ref_date = date(year, month, min(statement_day, 28))
+        return get_billing_cycle_info(statement_day, due_day, ref_date)
+    except (ValueError, IndexError):
+        return info
+
+
+def _fetch_statement_transactions(
+    user_id: str, account_id: str, period_start: date, period_end: date
+) -> list[dict[str, Any]]:
+    """Query transactions within the statement period."""
+    return [
+        {
+            "id": str(row["id"]),
+            "type": row["type"],
+            "amount": float(row["amount"]),
+            "currency": row["currency"],
+            "account_id": str(row["account_id"]),
+            "date": row["date"],
+            "note": row["note"],
+            "balance_delta": float(row["balance_delta"]),
+            "created_at": row["created_at"],
+        }
+        for row in (
+            Transaction.objects.for_user(user_id)
+            .filter(account_id=account_id, date__gte=period_start, date__lte=period_end)
+            .order_by("-date", "-created_at")
+            .values(
+                "id",
+                "type",
+                "amount",
+                "currency",
+                "account_id",
+                "date",
+                "note",
+                "balance_delta",
+                "created_at",
+            )
+        )
+    ]
+
+
+def _calculate_opening_balance(
+    transactions: list[dict[str, Any]], closing_balance: float
+) -> tuple[float, float, float]:
+    """Derive opening balance and spending/payment totals from transaction list."""
+    total_spending = total_payments = 0.0
+    for tx in transactions:
+        if tx["balance_delta"] < 0:
+            total_spending += -tx["balance_delta"]
+        else:
+            total_payments += tx["balance_delta"]
+    opening_balance = closing_balance
+    for tx in transactions:
+        opening_balance -= tx["balance_delta"]
+    return opening_balance, total_spending, total_payments
+
+
+def _calculate_interest_free_period(period_end: date, today: date) -> tuple[int, bool]:
+    """Compute interest-free days remaining and urgency flag."""
+    return interest_free_remaining(period_end, today)
+
+
+def _fetch_payment_history(user_id: str, account_id: str) -> list[dict[str, Any]]:
+    """Fetch last 10 incoming payments/credits for the account."""
+    return [
+        {
+            "id": str(row["id"]),
+            "type": row["type"],
+            "amount": float(row["amount"]),
+            "currency": row["currency"],
+            "account_id": str(row["account_id"]),
+            "date": row["date"],
+            "note": row["note"],
+            "balance_delta": float(row["balance_delta"]),
+            "created_at": row["created_at"],
+        }
+        for row in (
+            Transaction.objects.for_user(user_id)
+            .filter(
+                Q(account_id=account_id) | Q(counter_account_id=account_id),
+                balance_delta__gt=0,
+                type__in=["income", "transfer"],
+            )
+            .order_by("-date", "-created_at")[:10]
+            .values(
+                "id",
+                "type",
+                "amount",
+                "currency",
+                "account_id",
+                "date",
+                "note",
+                "balance_delta",
+                "created_at",
+            )
+        )
+    ]
+
+
 def get_statement_data(
     account: AccountSummary | dict[str, Any],
     user_id: str,
@@ -654,100 +765,17 @@ def get_statement_data(
 
     statement_day, due_day = cycle
     today = date.today()
-    info = get_billing_cycle_info(statement_day, due_day, today)
+    info = _parse_statement_period(statement_day, due_day, today, period_str)
 
-    # If a specific period is requested (YYYY-MM), recompute for that month
-    if period_str:
-        try:
-            parts = period_str.split("-")
-            year = int(parts[0])
-            month = int(parts[1])
-            # Use statement_day of that month as reference
-            ref_date = date(year, month, min(statement_day, 28))
-            info = get_billing_cycle_info(statement_day, due_day, ref_date)
-        except (ValueError, IndexError):
-            pass  # Use current period on parse failure
-
-    transactions = [
-        {
-            "id": str(row["id"]),
-            "type": row["type"],
-            "amount": float(row["amount"]),
-            "currency": row["currency"],
-            "account_id": str(row["account_id"]),
-            "date": row["date"],
-            "note": row["note"],
-            "balance_delta": float(row["balance_delta"]),
-            "created_at": row["created_at"],
-        }
-        for row in Transaction.objects.for_user(user_id)
-        .filter(
-            account_id=account_id,
-            date__gte=info.period_start,
-            date__lte=info.period_end,
-        )
-        .order_by("-date", "-created_at")
-        .values(
-            "id",
-            "type",
-            "amount",
-            "currency",
-            "account_id",
-            "date",
-            "note",
-            "balance_delta",
-            "created_at",
-        )
-    ]
-
-    # Calculate totals
-    total_spending = 0.0
-    total_payments = 0.0
-    for tx in transactions:
-        if tx["balance_delta"] < 0:
-            total_spending += -tx["balance_delta"]
-        else:
-            total_payments += tx["balance_delta"]
-
+    transactions = _fetch_statement_transactions(
+        user_id, account_id, info.period_start, info.period_end
+    )
     closing_balance = current_balance
-    opening_balance = closing_balance
-    for tx in transactions:
-        opening_balance -= tx["balance_delta"]
-
-    # Interest-free period
-    remaining, is_urgent = interest_free_remaining(info.period_end, today)
-
-    payment_history: list[dict[str, Any]] = [
-        {
-            "id": str(row["id"]),
-            "type": row["type"],
-            "amount": float(row["amount"]),
-            "currency": row["currency"],
-            "account_id": str(row["account_id"]),
-            "date": row["date"],
-            "note": row["note"],
-            "balance_delta": float(row["balance_delta"]),
-            "created_at": row["created_at"],
-        }
-        for row in Transaction.objects.for_user(user_id)
-        .filter(
-            Q(account_id=account_id) | Q(counter_account_id=account_id),
-            balance_delta__gt=0,
-            type__in=["income", "transfer"],
-        )
-        .order_by("-date", "-created_at")[:10]
-        .values(
-            "id",
-            "type",
-            "amount",
-            "currency",
-            "account_id",
-            "date",
-            "note",
-            "balance_delta",
-            "created_at",
-        )
-    ]
+    opening_balance, total_spending, total_payments = _calculate_opening_balance(
+        transactions, closing_balance
+    )
+    remaining, is_urgent = _calculate_interest_free_period(info.period_end, today)
+    payment_history = _fetch_payment_history(user_id, account_id)
 
     return {
         "account": account,
