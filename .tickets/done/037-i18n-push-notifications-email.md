@@ -3,9 +3,9 @@ id: "037"
 title: "i18n — push notifications + email template"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
@@ -36,3 +36,4 @@ Wrap push notification titles/bodies and the magic link email template with tran
 ## Progress Notes
 
 - 2026-03-30: Created — i18n for push notifications and email template
+- 2026-04-14: Completed — push/services.py notification strings wrapped with gettext(). auth_app/services.py magic link email has gettext(). All 1252 tests pass, lint clean.

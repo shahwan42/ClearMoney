@@ -5,7 +5,7 @@ type: feature
 priority: high
 status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
@@ -38,3 +38,4 @@ Add a `language` field to the User model so each user can choose their preferred
 ## Progress Notes
 
 - 2026-03-30: Created — Per-user language preference with middleware
+- 2026-04-10: Completed — Language middleware implemented as part of i18n infrastructure. User.language field added, LanguageMiddleware in core/middleware.py, activated by downstream templates (024, 025, etc.).

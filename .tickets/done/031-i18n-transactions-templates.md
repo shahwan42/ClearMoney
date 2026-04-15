@@ -3,9 +3,9 @@ id: "031"
 title: "i18n strings — transactions templates"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
@@ -32,3 +32,4 @@ Wrap all hardcoded English strings in transaction templates with Django translat
 ## Progress Notes
 
 - 2026-03-30: Created — i18n for transaction templates (largest app)
+- 2026-04-14: Completed — All 22 transaction templates have {% load i18n %} and {% trans %} tags. Arabic translations added. All 1252 tests pass.

@@ -3,9 +3,9 @@ id: "036"
 title: "i18n — auth + validation error messages"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
@@ -37,3 +37,4 @@ Wrap all user-facing error and validation messages in service layer files with `
 ## Progress Notes
 
 - 2026-03-30: Created — i18n for service-layer validation errors
+- 2026-04-14: Completed — All service-layer error messages wrapped with gettext/gettext_lazy. Arabic translations added to .po file. All 1252 tests pass, lint clean.

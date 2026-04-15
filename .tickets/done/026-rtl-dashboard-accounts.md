@@ -3,9 +3,9 @@ id: "026"
 title: "RTL — dashboard + accounts templates"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
@@ -32,3 +32,4 @@ Convert physical Tailwind directional classes to logical equivalents in all dash
 ## Progress Notes
 
 - 2026-03-30: Created — RTL for dashboard + accounts
+- 2026-04-13: Completed — All physical directional classes replaced with logical equivalents (ms-, me-, start-, end-). Dashboard and accounts templates render correctly in RTL.

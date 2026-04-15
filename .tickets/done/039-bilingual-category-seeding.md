@@ -1,9 +1,11 @@
 ---
-id: "039-done"
-title: "Bilingual category seeding [DONE]"
+id: "039"
+title: "Bilingual category seeding"
+type: feature
+priority: medium
 status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
@@ -35,3 +37,4 @@ Update the default category seeding to store both English and Arabic names in th
 ## Progress Notes
 
 - 2026-03-30: Created — Arabic translations for default categories
+- 2026-04-14: Completed — Arabic names added to all 27 seeded categories as part of ticket #038 JSONB migration implementation.

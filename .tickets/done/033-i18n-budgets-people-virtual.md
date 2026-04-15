@@ -3,9 +3,9 @@ id: "033"
 title: "i18n strings — budgets + people + virtual accounts"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
@@ -34,3 +34,4 @@ Wrap all hardcoded English strings in budgets, people, and virtual accounts temp
 ## Progress Notes
 
 - 2026-03-30: Created — i18n for budgets, people, virtual accounts
+- 2026-04-14: Completed — All 9 templates (budgets 2, people 4, virtual_accounts 3) have {% load i18n %} and {% trans %} tags. Arabic translations added. All 1252 tests pass.
