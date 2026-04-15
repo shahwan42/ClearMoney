@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import DecimalField, OuterRef, Subquery, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
@@ -213,14 +214,15 @@ class BudgetService:
         Only updates budgets belonging to the authenticated user.
 
         Raises:
-            ValueError: If monthly_limit <= 0 or budget not found.
+            ValueError: If monthly_limit <= 0.
+            ObjectDoesNotExist: If budget not found.
         """
         if monthly_limit <= 0:
             raise ValueError("Monthly limit must be positive")
 
         count = self._qs().filter(id=budget_id).update(monthly_limit=monthly_limit)
         if count == 0:
-            raise ValueError("Budget not found")
+            raise ObjectDoesNotExist(f"Budget not found: {budget_id}")
 
         budget = self._qs().get(id=budget_id)
         logger.info(

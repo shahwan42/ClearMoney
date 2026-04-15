@@ -11,6 +11,7 @@ import logging
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Count, OuterRef, Subquery, Value
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
@@ -250,10 +251,14 @@ class CategoryService:
         """Soft-delete a category (sets is_archived=true). System categories cannot be archived.
 
         Like Laravel's SoftDeletes trait but with a boolean flag.
+
+        Raises:
+            ObjectDoesNotExist: If category not found.
+            ValueError: If category is a system category.
         """
         existing = self.get_by_id(cat_id)
         if not existing:
-            raise ValueError(_("category not found"))
+            raise ObjectDoesNotExist(f"Category not found: {cat_id}")
         if existing["is_system"]:
             raise ValueError(_("system categories cannot be archived"))
 

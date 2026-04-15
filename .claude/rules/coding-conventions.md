@@ -54,3 +54,55 @@ Always run tests and do a code review before declaring done:
 Use conventional commits: `type: concise description` (under ~72 chars)
 
 - `feat:` new feature — `fix:` bug fix — `refactor:` code restructure — `docs:` documentation — `chore:` tooling/config — `test:` test additions
+
+## Error Handling Conventions
+
+### Exception Hierarchy
+
+| Exception | Use When |
+|-----------|----------|
+| `ValueError` | Validation failures (invalid input, business rule violations) |
+| `ObjectDoesNotExist` | Resource not found (from `django.core.exceptions`) |
+| `IntegrityError` | Database constraint violations (let bubble — do not catch) |
+
+### Service Layer Rules
+
+**CRUD operations:**
+- Raise `ValueError` for validation errors (missing fields, invalid values, business rule violations)
+- Raise `ObjectDoesNotExist` for "not found" — callers handle via view-level error responses
+- Let `IntegrityError` bubble up uncaught — it signals critical data issues
+
+**Batch operations:**
+- Log errors and continue (partial success is acceptable)
+- Aggregate errors for a final summary, do not raise on first failure
+
+**Background jobs (management commands, startup jobs):**
+- Catch all exceptions, log with context, continue processing
+- Never let one failing item halt the entire job
+
+### Anti-patterns to Avoid
+
+- **Do not** return error strings or `None` from service methods — always raise an exception
+- **Do not** catch bare `Exception` in service CRUD methods — catch specific exceptions only
+- **Do not** use generic error messages — include identifiers (ID, field name) for debugging
+
+### Example
+
+```python
+# Good
+def delete(self, account_id: str) -> None:
+    count, _ = self._qs().filter(id=account_id).delete()
+    if count == 0:
+        raise ObjectDoesNotExist(f"Account not found: {account_id}")
+    logger.info("account.deleted id=%s", account_id)
+
+# Bad
+def delete(self, account_id: str) -> str | None:
+    try:
+        count, _ = self._qs().filter(id=account_id).delete()
+        if count == 0:
+            return "account not found"
+        return None
+    except IntegrityError:
+        raise
+```

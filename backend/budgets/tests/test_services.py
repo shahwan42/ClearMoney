@@ -244,7 +244,9 @@ class TestBudgetUpdate:
 
     def test_nonexistent_budget_raises(self, budget_data):
         svc = _svc(budget_data["user_id"])
-        with pytest.raises(ValueError, match="Budget not found"):
+        from django.core.exceptions import ObjectDoesNotExist
+
+        with pytest.raises(ObjectDoesNotExist, match="Budget not found"):
             svc.update(str(uuid.uuid4()), 1000.0)
 
     def test_cannot_update_other_users_budget(self, budget_data):
@@ -252,7 +254,9 @@ class TestBudgetUpdate:
         budget = svc.create(budget_data["cat1_id"], 1000.0, "EGP")
 
         other_svc = _svc(str(uuid.uuid4()))
-        with pytest.raises(ValueError, match="Budget not found"):
+        from django.core.exceptions import ObjectDoesNotExist
+
+        with pytest.raises(ObjectDoesNotExist, match="Budget not found"):
             other_svc.update(budget["id"], 999.0)
 
 

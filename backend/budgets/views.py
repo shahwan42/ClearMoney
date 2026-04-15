@@ -10,6 +10,7 @@ after mutations.
 
 import logging
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
 from django.db.models import Count, OuterRef, Subquery, Value
 from django.db.models.fields.json import KeyTextTransform
@@ -135,6 +136,8 @@ def budget_edit(
             svc.update(str(budget_id), monthly_limit)
     except ValueError as e:
         return HttpResponse(str(e), status=400)
+    except ObjectDoesNotExist:
+        return HttpResponse("Budget not found", status=404)
 
     return redirect("budgets")
 

@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from django.db import IntegrityError
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import F, Q, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
@@ -423,24 +423,19 @@ class AccountService:
         row = self._qs().filter(id=account_id).values(*self._FIELDS).first()
         return self._row_to_summary(row) if row else None
 
-    def delete(self, account_id: str) -> str | None:
-        """Delete account. Returns error message or None on success.
+    def delete(self, account_id: str) -> None:
+        """Delete account.
 
         Cleans up recurring rules referencing this account (BUG-012).
+        Raises ObjectDoesNotExist if account not found.
         """
-        try:
-            # Clean up recurring rules referencing this account (BUG-012)
-            RecurringRule.objects.for_user(self.user_id).filter(
-                template_transaction__account_id=account_id
-            ).delete()
-            # Delete the account (CASCADE to transactions, snapshots, etc.)
-            count, _ = self._qs().filter(id=account_id).delete()
-            if count == 0:
-                return str(_("account not found"))
-            logger.info("account.deleted id=%s user=%s", account_id, self.user_id)
-            return None
-        except IntegrityError:
-            raise
+        RecurringRule.objects.for_user(self.user_id).filter(
+            template_transaction__account_id=account_id
+        ).delete()
+        count, _ = self._qs().filter(id=account_id).delete()
+        if count == 0:
+            raise ObjectDoesNotExist(f"Account not found: {account_id}")
+        logger.info("account.deleted id=%s user=%s", account_id, self.user_id)
 
     def toggle_dormant(self, account_id: str) -> bool:
         """Toggle dormant flag. Returns True if account found."""
@@ -617,9 +612,7 @@ class AccountService:
         if account.is_credit_type and account.metadata:
             cycle = parse_billing_cycle(account.metadata)
             if cycle:
-                billing_cycle = get_billing_cycle_info(
-                    cycle[0], cycle[1], date.today()
-                )
+                billing_cycle = get_billing_cycle_info(cycle[0], cycle[1], date.today())
 
         # Histories (sparklines)
         balance_history = self.get_balance_history(account_id)

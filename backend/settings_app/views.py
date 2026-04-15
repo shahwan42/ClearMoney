@@ -8,6 +8,7 @@ import csv
 import logging
 from datetime import datetime
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
@@ -230,6 +231,8 @@ def category_archive(request: AuthenticatedRequest, cat_id: str) -> HttpResponse
     svc = _cat_svc(request)
     try:
         svc.archive(str(cat_id))
+    except ObjectDoesNotExist:
+        return HttpResponse("Category not found", status=404)
     except ValueError as e:
         msg = str(e)
         if "system" in msg:

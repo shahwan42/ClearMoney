@@ -177,7 +177,9 @@ class TestCategoryServiceArchive:
 
     def test_archive_not_found(self, cat_svc):
         svc, _ = cat_svc
-        with pytest.raises(ValueError, match="not found"):
+        from django.core.exceptions import ObjectDoesNotExist
+
+        with pytest.raises(ObjectDoesNotExist, match="not found"):
             svc.archive(str(uuid.uuid4()))
 
 

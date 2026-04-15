@@ -11,6 +11,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import render
 from django.template.loader import render_to_string
@@ -503,11 +504,11 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """DELETE /accounts/{id}/delete — delete account."""
     acc_svc = AccountService(request.user_id, request.tz)
-    error = acc_svc.delete(str(id))
-
-    if error:
-        if "not found" in error.lower():
-            return HttpResponse("Account not found", status=404)
+    try:
+        acc_svc.delete(str(id))
+    except ObjectDoesNotExist:
+        return HttpResponse("Account not found", status=404)
+    except Exception:
         return render_htmx_result("error", "Failed to delete account", "")
 
     return htmx_redirect(request, "/accounts")
@@ -717,7 +718,10 @@ def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpRe
         return JsonResponse(acc_dict)
 
     # DELETE
-    error = acc_svc.delete(aid)
-    if error:
-        return JsonResponse({"error": error}, status=400)
+    try:
+        acc_svc.delete(aid)
+    except ObjectDoesNotExist:
+        return JsonResponse({"error": "Account not found"}, status=404)
+    except Exception:
+        return JsonResponse({"error": "Failed to delete account"}, status=400)
     return HttpResponse(status=204)
