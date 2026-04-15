@@ -3,9 +3,9 @@ id: "041"
 title: "Extract shared month-range utilities to core/dates.py"
 type: refactor
 priority: medium
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-15
 ---
 
 ## Description
