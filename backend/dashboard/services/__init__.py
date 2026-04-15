@@ -158,6 +158,38 @@ class DashboardService:
         """
         data = DashboardData()
 
+        # Load core data (net worth, institutions, accounts, exchange rate)
+        all_accounts = self._load_core_data(data)
+
+        # Load financial summary (credit cards, people, investments)
+        self._load_financial_summary(data, all_accounts)
+
+        # Load activity data (virtual accounts, streak, transactions, budgets, spending)
+        self._load_activity_data(data)
+
+        # Load sparklines (net worth history, per-currency, per-account)
+        self._load_sparklines(data, all_accounts)
+
+        # Load constraints (health warnings)
+        self._load_constraints(data, all_accounts)
+
+        # Compute template-helper fields
+        result = data.__dict__
+        # is_good for net worth change: positive change is good
+        result["net_worth_change_is_good"] = data.net_worth_change > 0
+        # is_good for spending: lower spending is good (negative change = good)
+        for cs in data.spending_by_currency:
+            cs.change_is_good = cs.change < 0  # type: ignore[attr-defined]
+            for cat in cs.top_categories:
+                cat["change_is_good"] = cat["change"] < 0
+        return result
+
+    def _load_core_data(self, data: DashboardData) -> list[dict[str, Any]]:
+        """Load institutions, accounts, exchange rate, and compute net worth.
+
+        Steps 1, 2, 3, 5, 6 from original get_dashboard().
+        Returns list of all accounts for use by downstream methods.
+        """
         # 1. Core: institutions + accounts (hard requirement)
         try:
             all_accounts = self._load_institutions_with_accounts(data)
@@ -173,12 +205,6 @@ class DashboardService:
 
         # 3. Compute net worth from loaded accounts
         self._compute_net_worth(data, all_accounts)
-
-        # 4. Credit card summaries
-        try:
-            self._compute_credit_card_summaries(data, all_accounts)
-        except Exception:
-            logger.warning("dashboard: failed to compute CC summaries")
 
         # 5. Excluded virtual account balances
         try:
@@ -196,6 +222,21 @@ class DashboardService:
             data.usd_in_egp = data.usd_total * data.exchange_rate
             data.net_worth_egp = (data.net_worth - data.usd_total) + data.usd_in_egp
 
+        return all_accounts
+
+    def _load_financial_summary(
+        self, data: DashboardData, all_accounts: list[dict[str, Any]]
+    ) -> None:
+        """Load credit cards, people debt, and investments.
+
+        Steps 4, 7, 7b, 9 from original get_dashboard().
+        """
+        # 4. Credit card summaries
+        try:
+            self._compute_credit_card_summaries(data, all_accounts)
+        except Exception:
+            logger.warning("dashboard: failed to compute CC summaries")
+
         # 7. People summary
         try:
             self._load_people_summary(data)
@@ -206,17 +247,22 @@ class DashboardService:
         if data.people_i_owe < 0:
             data.debt_total += abs(data.people_i_owe)
 
-        # 8. Virtual accounts
-        try:
-            data.virtual_accounts = self._load_virtual_accounts()
-        except Exception:
-            logger.warning("dashboard: failed to load virtual accounts")
-
         # 9. Investments
         try:
             data.investment_total = self._load_investments_total()
         except Exception:
             logger.warning("dashboard: failed to load investments")
+
+    def _load_activity_data(self, data: DashboardData) -> None:
+        """Load virtual accounts, streak, transactions, budgets, and spending.
+
+        Steps 8, 10, 11, 16, 17 from original get_dashboard().
+        """
+        # 8. Virtual accounts
+        try:
+            data.virtual_accounts = self._load_virtual_accounts()
+        except Exception:
+            logger.warning("dashboard: failed to load virtual accounts")
 
         # 10. Streak
         try:
@@ -230,6 +276,25 @@ class DashboardService:
         except Exception:
             logger.warning("dashboard: failed to load recent transactions")
 
+        # 16. Budgets
+        try:
+            data.budgets = self._load_budgets_with_spending()
+        except Exception:
+            logger.warning("dashboard: failed to load budgets")
+
+        # 17. Spending comparison + velocity
+        try:
+            self._compute_spending_comparison(data)
+        except Exception:
+            logger.warning("dashboard: failed to compute spending comparison")
+
+    def _load_sparklines(
+        self, data: DashboardData, all_accounts: list[dict[str, Any]]
+    ) -> None:
+        """Load net worth and account sparkline history.
+
+        Steps 12, 13, 14 from original get_dashboard().
+        """
         # 12. Net worth sparkline
         try:
             self._load_net_worth_history(data)
@@ -248,34 +313,18 @@ class DashboardService:
         except Exception:
             logger.warning("dashboard: failed to load account sparklines")
 
+    def _load_constraints(
+        self, data: DashboardData, all_accounts: list[dict[str, Any]]
+    ) -> None:
+        """Load health warnings and constraints.
+
+        Step 15 from original get_dashboard().
+        """
         # 15. Health warnings
         try:
             data.health_warnings = self._load_health_warnings(all_accounts)
         except Exception:
             logger.warning("dashboard: failed to load health warnings")
-
-        # 16. Budgets
-        try:
-            data.budgets = self._load_budgets_with_spending()
-        except Exception:
-            logger.warning("dashboard: failed to load budgets")
-
-        # 17. Spending comparison + velocity
-        try:
-            self._compute_spending_comparison(data)
-        except Exception:
-            logger.warning("dashboard: failed to compute spending comparison")
-
-        # Compute template-helper fields
-        result = data.__dict__
-        # is_good for net worth change: positive change is good
-        result["net_worth_change_is_good"] = data.net_worth_change > 0
-        # is_good for spending: lower spending is good (negative change = good)
-        for cs in data.spending_by_currency:
-            cs.change_is_good = cs.change < 0  # type: ignore[attr-defined]
-            for cat in cs.top_categories:
-                cat["change_is_good"] = cat["change"] < 0
-        return result
 
     # ------------------------------------------------------------------
     # Delegate methods — thin wrappers around module-level functions

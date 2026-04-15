@@ -75,7 +75,6 @@ _Nothing in progress._
 | [044](pending/044-decompose-get-statement-data.md) | Decompose get_statement_data (133 lines) | refactor | medium | 2026-03-30 |
 | [045](pending/045-decompose-get-net-worth-breakdown.md) | Decompose get_net_worth_breakdown (100 lines) | refactor | medium | 2026-03-30 |
 | [046](pending/046-decompose-get-debt-summary.md) | Decompose get_debt_summary (100+ lines) | refactor | medium | 2026-03-30 |
-| [047](pending/047-decompose-get-dashboard.md) | Decompose get_dashboard (125 lines) | refactor | medium | 2026-03-30 |
 | [048](pending/048-decompose-rule-to-view.md) | Decompose rule_to_view (84 lines) | refactor | low | 2026-03-30 |
 | [049](pending/049-standardize-htmx-error-responses.md) | Standardize HTMX error response helpers | refactor | medium | 2026-03-30 |
 | [050](pending/050-move-template-display-logic-to-services.md) | Move template display logic to services | refactor | low | 2026-03-30 |
@@ -87,6 +86,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [047](done/047-decompose-get-dashboard.md) | Decompose get_dashboard (125 lines) | refactor | medium | 2026-04-15 |
 | [023](done/023-user-language-preference.md) | User language preference — model + middleware + mi... | feature | high | 2026-04-15 |
 | [026](done/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-04-15 |
 | [031](done/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-04-15 |

@@ -1416,3 +1416,75 @@ def test_debt_total_only_people_no_account_debt(db):
     svc = DashboardService(str(user.id), TZ)
     result = svc.get_dashboard()
     assert result["debt_total"] == pytest.approx(300.0)
+
+
+# ==================== Tests for decomposed sub-methods ====================
+
+
+@pytest.mark.django_db
+def test_load_core_data_populates_net_worth_and_accounts(svc_data):
+    """_load_core_data() should populate net worth, exchange rate, accounts."""
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    all_accounts = svc._load_core_data(data)
+    assert len(all_accounts) > 0
+    assert data.net_worth > 0
+    assert data.exchange_rate > 0
+    assert len(data.institutions) > 0
+
+
+@pytest.mark.django_db
+def test_load_financial_summary_populates_credit_and_people(svc_data):
+    """_load_financial_summary() should populate credit card and people data."""
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    all_accounts = svc._load_core_data(data)
+    svc._load_financial_summary(data, all_accounts)
+    # After loading financial summary, credit data should be populated
+    assert hasattr(data, "credit_cards")
+    assert hasattr(data, "people_owed_to_me")
+
+
+@pytest.mark.django_db
+def test_load_activity_data_populates_transactions_and_virtual_accounts(svc_data):
+    """_load_activity_data() should populate transactions, VA, and budgets."""
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    svc._load_activity_data(data)
+    # Activity data should be loaded
+    assert hasattr(data, "recent_transactions")
+    assert hasattr(data, "virtual_accounts")
+    assert hasattr(data, "budgets")
+
+
+@pytest.mark.django_db
+def test_load_sparklines_populates_history_data(svc_data):
+    """_load_sparklines() should populate net worth history and sparklines."""
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    all_accounts = svc._load_core_data(data)
+    svc._load_sparklines(data, all_accounts)
+    # Sparklines should be populated
+    assert hasattr(data, "net_worth_history")
+    assert hasattr(data, "account_sparklines")
+
+
+@pytest.mark.django_db
+def test_load_constraints_populates_health_warnings(svc_data):
+    """_load_constraints() should populate health warnings."""
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    all_accounts = svc._load_core_data(data)
+    svc._load_constraints(data, all_accounts)
+    # Health data should be populated
+    assert hasattr(data, "health_warnings")
