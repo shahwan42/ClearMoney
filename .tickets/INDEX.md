@@ -17,7 +17,6 @@ Last updated: 2026-04-16
 | [111](pending/111-mark-read-mark-all-read.md) | Mark as read + mark all as read | feature | high | 2026-04-04 |
 | [112](pending/112-e2e-tests-notification-center.md) | E2E tests for notification center | test | medium | 2026-04-04 |
 | [113](pending/113-django-admin-setup.md) | Django Admin setup for monitoring and management | feature | high | 2026-04-04 |
-| [054](pending/054-auth-rate-limiting-tests.md) | Auth rate limiting tests | test | high | 2026-03-31 |
 | [055](pending/055-transaction-helpers-coverage.md) | Transaction helpers test coverage | test | medium | 2026-03-31 |
 | [056](pending/056-people-debt-summary-tests.md) | People debt summary + repayment tests | test | medium | 2026-03-31 |
 | [057](pending/057-data-isolation-recurring-investments.md) | Data isolation tests: recurring + investments | test | medium | 2026-03-31 |
@@ -76,6 +75,7 @@ Last updated: 2026-04-16
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [054](done/054-auth-rate-limiting-tests.md) | Auth rate limiting tests | test | high | 2026-04-16 |
 | [050](done/050-move-template-display-logic-to-services.md) | Move template display logic to services | refactor | low | 2026-04-16 |
 | [051](done/051-extract-service-factory-decorator.md) | Extract service factory decorator from views | refactor | low | 2026-04-16 |
 | [023](done/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-04-15 |
