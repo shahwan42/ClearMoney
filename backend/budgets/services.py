@@ -22,6 +22,7 @@ from django.db.models.functions import Coalesce
 from budgets.models import Budget, TotalBudget
 from budgets.types import BudgetWithSpending
 from core.dates import month_range
+from core.status import compute_threshold_status
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
@@ -88,12 +89,7 @@ class BudgetService:
             pct = (spent / limit_amt * 100) if limit_amt > 0 else 0.0
             remaining = limit_amt - spent
 
-            if pct >= 100:
-                status = "red"
-            elif pct >= 80:
-                status = "amber"
-            else:
-                status = "green"
+            status = compute_threshold_status(pct, (80.0, 100.0))
 
             budgets.append(
                 BudgetWithSpending(
@@ -141,12 +137,7 @@ class BudgetService:
         pct = (spent / limit_amt * 100) if limit_amt > 0 else 0.0
         remaining = limit_amt - spent
 
-        if pct >= 100:
-            status = "red"
-        elif pct >= 80:
-            status = "amber"
-        else:
-            status = "green"
+        status = compute_threshold_status(pct, (80.0, 100.0))
 
         return {
             "id": str(budget.id),
@@ -327,12 +318,7 @@ class BudgetService:
         remaining = limit_val - spent
         pct = float(spent / limit_val * 100) if limit_val > 0 else 0.0
 
-        if pct >= 100:
-            status = "red"
-        elif pct >= 80:
-            status = "amber"
-        else:
-            status = "green"
+        status = compute_threshold_status(pct, (80.0, 100.0))
 
         # Sum of active category budgets for warning
         cat_sum_agg = Budget.objects.filter(

@@ -18,6 +18,7 @@ from django.utils.translation import gettext as _
 from accounts.services import AccountService, load_health_warnings
 from budgets.services import BudgetService
 from core.billing import compute_due_date, parse_billing_cycle
+from core.status import compute_threshold_status
 from recurring.services import RecurringService
 
 logger = logging.getLogger(__name__)
@@ -91,8 +92,9 @@ class NotificationService:
             for budget in budget_svc.get_all_with_spending():
                 pct = budget.percentage
                 display_name = f"{budget.category_icon} {budget.category_name}".strip()
+                status = compute_threshold_status(pct, (80.0, 100.0))
 
-                if pct >= 100:
+                if status == "red":
                     notifications.append(
                         {
                             "title": _("Budget Exceeded"),
@@ -105,7 +107,7 @@ class NotificationService:
                             "tag": f"budget-exceeded-{budget.category_id}",
                         }
                     )
-                elif pct >= 80:
+                elif status == "amber":
                     remaining = budget.monthly_limit - budget.spent
                     notifications.append(
                         {

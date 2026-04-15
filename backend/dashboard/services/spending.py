@@ -14,6 +14,7 @@ from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
 from core.dates import next_month_range, prev_month_range
+from core.status import compute_spending_velocity_status
 from transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -132,12 +133,7 @@ def compute_spending_comparison(
 
     pct = (total_this / total_last * 100) if total_last > 0 else 0.0
 
-    if pct <= day_progress:
-        status = "green"
-    elif pct <= day_progress + 10:
-        status = "amber"
-    else:
-        status = "red"
+    status = compute_spending_velocity_status(pct, day_progress)
 
     data.spending_velocity = SpendingVelocity(
         percentage=pct,
