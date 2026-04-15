@@ -37,6 +37,7 @@ from core.billing import (
 from core.dates import month_range
 from core.serializers import parse_jsonb
 from recurring.models import RecurringRule
+from transactions.display import get_tx_amount_color_class, get_tx_indicator_color
 from transactions.models import Transaction
 from transactions.services.utils import running_balance_annotation
 from virtual_accounts.models import VirtualAccount
@@ -528,6 +529,11 @@ class AccountService:
                 "category_name": t.category_name,
                 "category_icon": t.category_icon,
                 "running_balance": float(t.running_balance),
+                # Display-layer colors (moved from template)
+                "indicator_color": get_tx_indicator_color(t.type),
+                "amount_color_class": get_tx_amount_color_class(
+                    t.type, t.balance_delta
+                ),
             }
             for t in qs
         ]

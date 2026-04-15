@@ -3,9 +3,9 @@ id: "050"
 title: "Move template display logic to services"
 type: refactor
 priority: low
-status: pending
+status: done
 created: 2026-03-30
-updated: 2026-03-30
+updated: 2026-04-16
 ---
 
 ## Description
@@ -21,12 +21,14 @@ Color thresholds, progress bar capping, and utilization color logic are hardcode
 
 ## Acceptance Criteria
 
-- [ ] Compute utilization color in service, pass as context variable
-- [ ] Compute balance color class in service or template filter
-- [ ] Cap VA progress percentage in service (not template)
-- [ ] Templates only reference pre-computed display values
-- [ ] All existing tests pass (`make test && make lint && make test-e2e`)
+- [x] Compute utilization color in service, pass as context variable
+- [x] Compute balance color class in service or template filter
+- [x] Cap VA progress percentage in service (not template)
+- [x] Templates only reference pre-computed display values
+- [x] All existing tests pass (`make test && make lint && make test-e2e`)
 
 ## Progress Notes
 
 - 2026-03-30: Created — identified from codebase-wide refactoring audit
+- 2026-04-16: Started — creating display helper modules for accounts and transactions
+- 2026-04-16: Completed — Created `accounts/display.py` and `transactions/display.py` with color and percentage helpers. Updated views and templates to use pre-computed values. Added 20+ unit tests covering edge cases. All 1354 unit tests + 159 E2E tests passing.

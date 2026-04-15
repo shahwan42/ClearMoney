@@ -20,7 +20,7 @@
         <div class="flex items-end justify-between">
             <div>
                 <p class="text-xs text-gray-500 dark:text-slate-400 mb-0.5">{% trans "Current Balance" %}</p>
-                <p class="text-2xl font-bold {% if data.account.current_balance < 0 %}text-red-600{% else %}text-teal-700 dark:text-teal-400{% endif %}">
+                <p class="text-2xl font-bold {{ data.balance_color_class }}">
                     {{ data.account.current_balance|format_currency:data.account.currency }}
                 </p>
             </div>
@@ -42,7 +42,7 @@
             </div>
             <div class="flex items-center justify-between mt-0.5">
                 <p class="text-xs text-gray-400">{% trans "Your money" %}</p>
-                <p class="text-sm font-bold {% if data.your_money < 0 %}text-red-600{% else %}text-teal-600{% endif %}">
+                <p class="text-sm font-bold {{ data.your_money_color_class }}">
                     {{ data.your_money|format_currency:data.account.currency }}
                 </p>
             </div>
@@ -83,7 +83,7 @@
                 <svg viewBox="0 0 36 36" class="w-20 h-20 transform -rotate-90">
                     <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3"/>
                     <circle cx="18" cy="18" r="15.9" fill="none"
-                        stroke="{% if data.utilization > 80 %}#ef4444{% elif data.utilization > 50 %}#f59e0b{% else %}#10b981{% endif %}"
+                        stroke="{{ data.utilization_color }}"
                         stroke-width="3"
                         stroke-dasharray="{{ data.utilization|floatformat:1 }}, 100"
                         stroke-linecap="round"/>
@@ -147,7 +147,7 @@
                 {% if va.target_amount %}
                 <div class="mt-1.5">
                     <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full transition-all" style="width: {% if va.progress_pct > 100 %}100{% else %}{{ va.progress_pct|floatformat:0 }}{% endif %}%; background-color: {{ va.color }}"></div>
+                        <div class="h-1.5 rounded-full transition-all" style="width: {{ va.progress_pct|floatformat:0 }}%; background-color: {{ va.color }}"></div>
                     </div>
                 </div>
                 {% endif %}

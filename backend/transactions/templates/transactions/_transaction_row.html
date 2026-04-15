@@ -17,13 +17,7 @@ Context:
      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
     <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2">
-            {% if tx.type == "expense" %}
-            <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0"></span>
-            {% elif tx.type == "income" %}
-            <span class="w-2 h-2 rounded-full bg-green-400 flex-shrink-0"></span>
-            {% else %}
-            <span class="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0"></span>
-            {% endif %}
+            <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{ tx.indicator_color }}"></span>
             <span class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
                 {# category present: [icon] Category [· note] #}
                 {% if tx.category_name %}
@@ -40,15 +34,9 @@ Context:
     </div>
     <div class="flex items-center gap-2">
         <div class="text-end flex-shrink-0">
-            {% if tx.type == "expense" %}
-            <span class="text-sm font-semibold text-red-600">-{{ tx.amount|format_currency:tx.currency }}</span>
-            {% elif tx.type == "income" %}
-            <span class="text-sm font-semibold text-green-600">+{{ tx.amount|format_currency:tx.currency }}</span>
-            {% else %}
-            <span class="text-sm font-semibold {% if tx.balance_delta < 0 %}text-red-600{% else %}text-blue-600{% endif %}">
-                {% if tx.balance_delta < 0 %}-{% else %}+{% endif %}{{ tx.amount|format_currency:tx.currency }}
+            <span class="text-sm font-semibold {{ tx.amount_color_class }}">
+                {% if tx.type == "expense" %}-{% elif tx.type == "income" %}+{% else %}{% if tx.balance_delta < 0 %}-{% else %}+{% endif %}{% endif %}{{ tx.amount|format_currency:tx.currency }}
             </span>
-            {% endif %}
             {% if tx.running_balance is not None %}
             <div class="text-xs text-gray-400">Balance {{ tx.running_balance|format_currency:tx.currency }}</div>
             {% endif %}

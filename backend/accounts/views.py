@@ -32,6 +32,11 @@ from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
 
+from .display import (
+    get_balance_color_class,
+    get_utilization_color_hex,
+    get_your_money_color_class,
+)
 from .institution_data import EGYPTIAN_BANKS, EGYPTIAN_FINTECHS, WALLET_EXAMPLES
 from .services import AccountService, InstitutionService, get_statement_data
 
@@ -137,16 +142,24 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     # Compute "your money" = balance - excluded VA balance
     your_money = account.current_balance - excluded_va_balance
 
+    # Compute display colors and capped percentages
+    balance_color_class = get_balance_color_class(account.current_balance)
+    your_money_color_class = get_your_money_color_class(your_money)
+    utilization_color = get_utilization_color_hex(utilization)
+
     data = {
         "account": account,
         "institution_name": institution_name,
         "billing_cycle": billing_cycle,
         "balance_history": balance_history,
+        "balance_color_class": balance_color_class,
         "utilization": utilization,
+        "utilization_color": utilization_color,
         "utilization_history": utilization_history,
         "virtual_accounts": virtual_accounts,
         "excluded_va_balance": excluded_va_balance,
         "your_money": your_money,
+        "your_money_color_class": your_money_color_class,
         "health_config": health_config,
         "transactions": transactions,
         "has_more": has_more,
