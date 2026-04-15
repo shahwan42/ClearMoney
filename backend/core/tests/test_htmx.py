@@ -6,9 +6,11 @@ from core.htmx import (
     error_html,
     error_response,
     htmx_redirect,
+    operational_error_response,
     render_htmx_result,
     success_html,
     success_response,
+    validation_error_response,
 )
 
 
@@ -167,3 +169,47 @@ class TestSuccessResponse:
         response = success_response("Done!")
         assert response.status_code == 200
         assert "Done!" in response.content.decode()
+
+
+class TestValidationErrorResponse:
+    """validation_error_response returns HttpResponse with status 422."""
+
+    def test_status_422(self) -> None:
+        response = validation_error_response("Name is required")
+        assert response.status_code == 422
+        assert "Name is required" in response.content.decode()
+
+    def test_returns_error_html(self) -> None:
+        """Response body uses the shared error_html styling."""
+        response = validation_error_response("Invalid date")
+        content = response.content.decode()
+        assert "bg-red-50" in content
+
+    def test_field_param_propagated(self) -> None:
+        """field= is forwarded to error_html to highlight the input."""
+        response = validation_error_response("Required", field="name")
+        content = response.content.decode()
+        assert "aria-invalid" in content
+        assert "name" in content
+
+
+class TestOperationalErrorResponse:
+    """operational_error_response returns HttpResponse with status 400."""
+
+    def test_status_400(self) -> None:
+        response = operational_error_response("Budget already exists")
+        assert response.status_code == 400
+        assert "Budget already exists" in response.content.decode()
+
+    def test_returns_error_html(self) -> None:
+        """Response body uses the shared error_html styling."""
+        response = operational_error_response("Duplicate entry")
+        content = response.content.decode()
+        assert "bg-red-50" in content
+
+    def test_field_param_propagated(self) -> None:
+        """field= is forwarded to error_html."""
+        response = operational_error_response("Invalid amount", field="amount")
+        content = response.content.decode()
+        assert "aria-invalid" in content
+        assert "amount" in content

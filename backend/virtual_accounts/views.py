@@ -17,7 +17,11 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from accounts.services import AccountService
-from core.htmx import htmx_redirect
+from core.htmx import (
+    htmx_redirect,
+    operational_error_response,
+    validation_error_response,
+)
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none
@@ -131,7 +135,7 @@ def virtual_account_add(request: AuthenticatedRequest) -> HttpResponse:
             exclude_from_net_worth=exclude,
         )
     except ValueError as e:
-        return HttpResponse(str(e), status=400)
+        return operational_error_response(str(e))
 
     return htmx_redirect(request, "/virtual-accounts")
 
@@ -344,11 +348,7 @@ def virtual_account_update(request: AuthenticatedRequest, va_id: UUID) -> HttpRe
             exclude_from_net_worth=exclude,
         )
     except ValueError as e:
-        return HttpResponse(
-            f'<div class="bg-red-50 dark:bg-red-900/20 text-red-700 '
-            f'dark:text-red-400 p-3 rounded-lg text-sm mb-3">{e}</div>',
-            status=422,
-        )
+        return validation_error_response(str(e))
 
     if not updated:
         return HttpResponse("Virtual account not found", status=404)

@@ -134,10 +134,7 @@ def budget_edit(request: AuthenticatedRequest, budget_id: str) -> HttpResponse:
         with transaction.atomic():
             svc.update(str(budget_id), monthly_limit)
     except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            return HttpResponse(error_msg, status=404)
-        return HttpResponse(error_msg, status=400)
+        return HttpResponse(str(e), status=400)
 
     return redirect("budgets")
 
@@ -151,10 +148,10 @@ def total_budget_set(request: AuthenticatedRequest) -> HttpResponse:
     currency = request.POST.get("currency", "EGP")
 
     try:
-        from decimal import Decimal
+        from decimal import Decimal, InvalidOperation
 
         monthly_limit = Decimal(monthly_limit_str) if monthly_limit_str else Decimal(0)
-    except Exception:
+    except (ValueError, InvalidOperation):
         return HttpResponse("Invalid monthly limit", status=400)
 
     try:

@@ -69,7 +69,6 @@ _Nothing in progress._
 | [103](pending/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-03-31 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [105](pending/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-03-31 |
-| [049](pending/049-standardize-htmx-error-responses.md) | Standardize HTMX error response helpers | refactor | medium | 2026-03-30 |
 | [050](pending/050-move-template-display-logic-to-services.md) | Move template display logic to services | refactor | low | 2026-03-30 |
 | [051](pending/051-extract-service-factory-decorator.md) | Extract service factory decorator from views | refactor | low | 2026-03-30 |
 | [052](pending/052-break-down-large-views.md) | Break down large views (account_add, recurring_add) | refactor | medium | 2026-03-30 |
@@ -79,6 +78,7 @@ _Nothing in progress._
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [049](done/049-standardize-htmx-error-responses.md) | Standardize HTMX error response helpers | refactor | medium | 2026-04-15 |
 | [023](done/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-04-15 |
 | [026](done/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-04-15 |
 | [031](done/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-04-15 |

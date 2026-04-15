@@ -49,9 +49,7 @@ def api_category_list_create(request: AuthenticatedRequest) -> HttpResponse:
             icon=body.get("icon"),
         )
     except ValueError as e:
-        msg = str(e)
-        status = 409 if "already exists" in msg else 400
-        return JsonResponse({"error": msg}, status=status)
+        return JsonResponse({"error": str(e)}, status=400)
 
     return JsonResponse(category, status=201)
 

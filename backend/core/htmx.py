@@ -8,6 +8,22 @@ django-htmx provides:
 
 This module adds ClearMoney-specific helpers for redirects and inline
 result fragments, using django-htmx under the hood.
+
+## Error response convention
+
+Use the correct status code so screen readers, AJAX handlers, and HTMX
+error-path logic detect failures instead of treating them as success:
+
+- **422 Unprocessable Entity** — ``validation_error_response()``
+  User-input validation failed: missing required field, value out of range,
+  invalid format.  The server understood the request but the data is wrong.
+
+- **400 Bad Request** — ``operational_error_response()`` / ``error_response()``
+  Business-rule / operational violation: duplicate record, constraint conflict,
+  incompatible state.  The operation cannot be performed as requested.
+
+- **404 Not Found** — plain ``HttpResponse("…", status=404)`` or ``Http404``
+  The requested resource doesn't exist or belongs to another user.
 """
 
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -151,7 +167,42 @@ def success_html(message: str) -> str:
 
 
 def error_response(message: str, field: str = "") -> HttpResponse:
-    """Return error HTML fragment as HttpResponse with status 400."""
+    """Return error HTML fragment as HttpResponse with status 400.
+
+    Kept for backward compatibility — prefer ``operational_error_response()``
+    in new code to make the intent explicit.
+    """
+    return HttpResponse(error_html(message, field=field), status=400)
+
+
+def validation_error_response(message: str, field: str = "") -> HttpResponse:
+    """Return error HTML fragment as HttpResponse with status 422.
+
+    Use when the request was well-formed but the submitted *data* is invalid —
+    missing required field, value out of range, wrong format, etc.
+
+    Args:
+        message: Human-readable error description shown to the user.
+        field: Optional form field name.  When provided, the matching input
+            gets a red border, ``aria-invalid="true"``, and an
+            ``aria-describedby`` link to the error element.
+    """
+    return HttpResponse(error_html(message, field=field), status=422)
+
+
+def operational_error_response(message: str, field: str = "") -> HttpResponse:
+    """Return error HTML fragment as HttpResponse with status 400.
+
+    Use when the data is valid but the *operation* cannot be completed —
+    duplicate record, business-rule constraint, conflicting state, etc.
+
+    This is a named alias of ``error_response()`` that makes the intent
+    explicit.  Prefer this name in new code.
+
+    Args:
+        message: Human-readable error description shown to the user.
+        field: Optional form field name (see ``validation_error_response``).
+    """
     return HttpResponse(error_html(message, field=field), status=400)
 
 

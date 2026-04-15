@@ -13,7 +13,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from core.htmx import htmx_redirect
+from core.htmx import htmx_redirect, operational_error_response
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_zero
@@ -63,7 +63,7 @@ def investment_add(request: AuthenticatedRequest) -> HttpResponse:
             }
         )
     except ValueError as e:
-        return HttpResponse(str(e), status=400)
+        return operational_error_response(str(e))
 
     return htmx_redirect(request, "/investments")
 
@@ -78,7 +78,7 @@ def investment_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     try:
         svc.update_valuation(str(id), unit_price)
     except ValueError as e:
-        return HttpResponse(str(e), status=400)
+        return operational_error_response(str(e))
 
     return htmx_redirect(request, "/investments")
 
@@ -90,8 +90,7 @@ def investment_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     svc = _svc(request)
     try:
         svc.delete(str(id))
-    except Exception:
-        logger.exception("failed to delete investment id=%s", id)
-        return HttpResponse("Failed to delete investment", status=500)
+    except ValueError as e:
+        return operational_error_response(str(e))
 
     return htmx_redirect(request, "/investments")

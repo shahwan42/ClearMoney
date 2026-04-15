@@ -282,11 +282,12 @@ class TestBudgetEdit:
         response = c.post(f"/budgets/{budget_id}/edit", {"monthly_limit": "0"})
         assert response.status_code == 400
 
-    def test_nonexistent_budget_returns_404(self, client, budget_view_data):
+    def test_nonexistent_budget_returns_400(self, client, budget_view_data):
+        """Editing a non-existent budget returns 400 (service raises ValueError)."""
         c = set_auth_cookie(client, budget_view_data["session_token"])
         fake_id = str(uuid.uuid4())
         response = c.post(f"/budgets/{fake_id}/edit", {"monthly_limit": "1000"})
-        assert response.status_code == 404
+        assert response.status_code == 400
 
     def test_cannot_edit_other_users_budget(self, client, budget_view_data):
         c = set_auth_cookie(client, budget_view_data["session_token"])
@@ -298,7 +299,8 @@ class TestBudgetEdit:
         c2 = Client()
         c2.cookies[COOKIE_NAME] = session2.token
         response = c2.post(f"/budgets/{budget_id}/edit", {"monthly_limit": "9999"})
-        assert response.status_code == 404
+        # Service scopes by user_id; budget not found → ValueError → 400
+        assert response.status_code == 400
 
         # Original budget unchanged
         page = c.get("/budgets")

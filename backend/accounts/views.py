@@ -22,7 +22,12 @@ from core.billing import (
     get_credit_card_utilization,
     parse_billing_cycle,
 )
-from core.htmx import htmx_redirect, render_htmx_result, success_html
+from core.htmx import (
+    htmx_redirect,
+    render_htmx_result,
+    success_html,
+    validation_error_response,
+)
 from core.ratelimit import api_rate, general_rate
 from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none, parse_json_body
@@ -636,10 +641,7 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     try:
         updated = acc_svc.update(str(id), data)
     except ValueError as e:
-        return HttpResponse(
-            f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm mb-3">{e}</div>',
-            status=422,
-        )
+        return validation_error_response(str(e))
 
     if not updated:
         return HttpResponse("Account not found", status=404)

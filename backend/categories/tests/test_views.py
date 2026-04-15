@@ -87,7 +87,8 @@ class TestCategoryAPI:
         assert cat["name"] == "Travel"
         assert cat["type"] == "expense"
 
-    def test_create_duplicate_name_409(self, client, cat_api_data):
+    def test_create_duplicate_name_returns_400(self, client, cat_api_data):
+        """Duplicate category name returns 400 (standardised from 409)."""
         c = set_auth_cookie(client, cat_api_data["session_token"])
         c.post(
             "/api/categories",
@@ -99,7 +100,7 @@ class TestCategoryAPI:
             data=json.dumps({"name": "Coffee", "icon": "☕"}),
             content_type="application/json",
         )
-        assert resp.status_code == 409
+        assert resp.status_code == 400
         assert "already exists" in json.loads(resp.content)["error"]
 
     def test_create_empty_name(self, client, cat_api_data):
