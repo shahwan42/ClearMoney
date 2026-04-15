@@ -21,6 +21,7 @@ from django.db.models.functions import Coalesce
 
 from budgets.models import Budget, TotalBudget
 from budgets.types import BudgetWithSpending
+from core.dates import month_range
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
@@ -50,11 +51,7 @@ class BudgetService:
         which disables reverse FK access from Category/Budget.
         """
         today = datetime.now(self.tz).date()
-        month_start = today.replace(day=1)
-        if today.month == 12:
-            month_end = date(today.year + 1, 1, 1)
-        else:
-            month_end = date(today.year, today.month + 1, 1)
+        month_start, month_end = month_range(today)
 
         # Subquery: sum of expense transactions for the same category, user, currency
         # in the current month. Uses OuterRef to correlate with the outer Budget queryset.
@@ -271,12 +268,7 @@ class BudgetService:
     def _month_range(self) -> tuple[date, date]:
         """Return (month_start, month_end) for the current month in user's tz."""
         today = datetime.now(self.tz).date()
-        month_start = today.replace(day=1)
-        if today.month == 12:
-            month_end = date(today.year + 1, 1, 1)
-        else:
-            month_end = date(today.year, today.month + 1, 1)
-        return month_start, month_end
+        return month_range(today)
 
     def set_total_budget(
         self, monthly_limit: Decimal, currency: str = "EGP"

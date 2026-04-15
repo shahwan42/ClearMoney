@@ -13,6 +13,7 @@ from django.db.models import CharField, F, Q, Sum, Value
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
+from core.dates import next_month_range, prev_month_range
 from transactions.models import Transaction
 
 if TYPE_CHECKING:
@@ -51,18 +52,8 @@ def compute_spending_comparison(
     now = datetime.now(tz)
     today = now.date()
     this_month_start = today.replace(day=1)
-
-    # Last month start
-    if this_month_start.month == 1:
-        last_month_start = date(this_month_start.year - 1, 12, 1)
-    else:
-        last_month_start = date(this_month_start.year, this_month_start.month - 1, 1)
-
-    # Next month start (end of current month range)
-    if this_month_start.month == 12:
-        next_month_start = date(this_month_start.year + 1, 1, 1)
-    else:
-        next_month_start = date(this_month_start.year, this_month_start.month + 1, 1)
+    last_month_start, _ = prev_month_range(today)
+    _, next_month_start = next_month_range(today)
 
     # Spending per currency this month
     this_month_by_currency = _query_spending_by_currency(

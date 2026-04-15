@@ -34,6 +34,7 @@ from core.billing import (
     interest_free_remaining,
     parse_billing_cycle,
 )
+from core.dates import month_range
 from recurring.models import RecurringRule
 from transactions.models import Transaction
 from transactions.services.utils import running_balance_annotation
@@ -797,11 +798,7 @@ def load_health_warnings(
     warnings: list[HealthWarning] = []
     now = datetime.now(tz)
     today = now.date()
-    month_start = today.replace(day=1)
-    if today.month == 12:
-        month_end = date(today.year + 1, 1, 1)
-    else:
-        month_end = date(today.year, today.month + 1, 1)
+    month_start, month_end = month_range(today)
 
     for acc in all_accounts:
         # Support both AccountSummary and dict[str, Any]

@@ -13,6 +13,7 @@ from django.db.models import Q, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
+from core.dates import month_range
 from core.timing import timed
 from transactions.models import Transaction
 
@@ -89,8 +90,7 @@ def get_spending_by_category(
     user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
 ) -> tuple[list[dict[str, Any]], float]:
     """Get expense totals grouped by category for a month."""
-    start_date = date(year, month, 1)
-    end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    start_date, end_date = month_range(date(year, month, 1))
 
     qs = Transaction.objects.for_user(user_id).filter(
         type="expense",
@@ -137,8 +137,7 @@ def get_month_summary(
     user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
 ) -> dict[str, Any]:
     """Get income and expense totals for a single month."""
-    start_date = date(year, month, 1)
-    end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    start_date, end_date = month_range(date(year, month, 1))
 
     qs = Transaction.objects.for_user(user_id).filter(
         date__gte=start_date,

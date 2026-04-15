@@ -22,11 +22,12 @@ Month boundary calculations (first day of month, first day of next month, previo
 
 ## Acceptance Criteria
 
-- [ ] Create `backend/core/dates.py` with `month_range(date)`, `prev_month_range(date)`, `next_month_range(date)` helpers
-- [ ] Replace all inline month calculations with calls to shared helpers
-- [ ] Add unit tests for edge cases (December→January rollover, leap year February)
-- [ ] All existing tests pass (`make test && make lint`)
+- [x] Create `backend/core/dates.py` with `month_range(date)`, `prev_month_range(date)`, `next_month_range(date)` helpers
+- [x] Replace all inline month calculations with calls to shared helpers
+- [x] Add unit tests for edge cases (December→January rollover, leap year February)
+- [x] All existing tests pass (`make test && make lint`)
 
 ## Progress Notes
 
 - 2026-03-30: Created — identified from codebase-wide refactoring audit
+- 2026-04-15: Completed — created core/dates.py, updated 4 service files, 13 new tests pass, all 1265 tests pass
