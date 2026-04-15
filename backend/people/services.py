@@ -382,25 +382,24 @@ class PersonService:
         )
         return [_tx_to_dict(row) for row in rows]
 
-    def get_debt_summary(self, person_id: str) -> dict[str, Any] | None:
-        """Compute full debt/loan summary for a person.
+    def _compute_currency_breakdown(
+        self, txns: list[dict[str, Any]], person: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Compute per-currency loan tallies and progress for a person's transactions.
 
-        Returns person info, per-currency breakdown, aggregate totals,
-        progress percentages, and projected payoff date.
+        Accumulates totals (lent/borrowed/repaid) per currency from the transaction
+        list, then builds a sorted-by-currency breakdown with progress percentages.
+
+        Args:
+            txns: List of transaction dicts (from get_person_transactions).
+            person: Person dict with net_balance_egp and net_balance_usd fields.
+
+        Returns:
+            List of per-currency dicts, each containing currency, total_lent,
+            total_borrowed, total_repaid, net_balance, and progress_pct.
+            Ordered EGP then USD to match display conventions.
         """
-        person = self.get_by_id(person_id)
-        if not person:
-            return None
-
-        txns = self.get_person_transactions(person_id)
-
-        # Per-currency tallies
         currency_map: dict[str, dict[str, float]] = {}
-        total_lent = 0.0
-        total_borrowed = 0.0
-        total_repaid = 0.0
-        repayment_dates: list[date] = []
-
         for tx in txns:
             cur = tx["currency"]
             if cur not in currency_map:
@@ -410,23 +409,14 @@ class PersonService:
                     "total_repaid": 0.0,
                 }
             cd = currency_map[cur]
-
             if tx["type"] == "loan_out":
-                total_lent += tx["amount"]
                 cd["total_lent"] += tx["amount"]
             elif tx["type"] == "loan_in":
-                total_borrowed += tx["amount"]
                 cd["total_borrowed"] += tx["amount"]
             elif tx["type"] == "loan_repayment":
-                total_repaid += tx["amount"]
                 cd["total_repaid"] += tx["amount"]
-                if isinstance(tx["date"], date):
-                    repayment_dates.append(tx["date"])
 
-        # Build per-currency breakdown with progress
         by_currency: list[dict[str, Any]] = []
-
-        # EGP first, then USD (match Go ordering)
         for cur in ["EGP", "USD"]:
             if cur not in currency_map:
                 continue
@@ -450,30 +440,111 @@ class PersonService:
                     "progress_pct": progress,
                 }
             )
+        return by_currency
 
-        # Aggregate progress
+    def _compute_aggregate_progress(
+        self, total_lent: float, total_borrowed: float, total_repaid: float
+    ) -> float:
+        """Compute aggregate repayment progress percentage across all currencies.
+
+        Computes total debt (lent + borrowed) and expresses repaid amount as a
+        capped percentage. Caps at 100% to handle over-repayments gracefully.
+
+        Args:
+            total_lent: Sum of all loan_out amounts across all currencies.
+            total_borrowed: Sum of all loan_in amounts across all currencies.
+            total_repaid: Sum of all loan_repayment amounts across all currencies.
+
+        Returns:
+            Progress percentage from 0.0 to 100.0, or 0.0 when total debt is zero.
+        """
         total_debt_all = total_lent + total_borrowed
-        progress_pct = (
+        return (
             min((total_repaid / total_debt_all) * 100, 100.0)
             if total_debt_all > 0
             else 0.0
         )
 
-        # Projected payoff
-        projected_payoff = None
+    def _compute_projected_payoff(
+        self, repayment_dates: list[date], remaining: float, total_repaid: float
+    ) -> date | None:
+        """Project the estimated payoff date based on repayment history.
+
+        Calculates the average repayment interval from the sorted repayment dates,
+        then extrapolates how many payments are needed to clear the remaining balance.
+
+        Requires at least two repayment events to establish an interval. Returns
+        None if inputs are insufficient or if the average interval is invalid.
+
+        Args:
+            repayment_dates: Sorted list of repayment transaction dates.
+            remaining: Absolute sum of net balances across all currencies.
+            total_repaid: Total amount repaid to date.
+
+        Returns:
+            Estimated payoff date (date.today() + projected days), or None if
+            insufficient data to project.
+        """
+        if len(repayment_dates) < 2 or remaining <= 0 or total_repaid <= 0:
+            return None
+        avg_repayment = total_repaid / len(repayment_dates)
+        if avg_repayment <= 0:
+            return None
+        sorted_dates = sorted(repayment_dates)
+        first, last = sorted_dates[0], sorted_dates[-1]
+        total_days = (last - first).days
+        if total_days <= 0:
+            return None
+        avg_interval_days = total_days / (len(repayment_dates) - 1)
+        payments_needed = remaining / avg_repayment
+        days_to_payoff = int(payments_needed * avg_interval_days)
+        return date.today() + timedelta(days=days_to_payoff)
+
+    def get_debt_summary(self, person_id: str) -> dict[str, Any] | None:
+        """Compute full debt/loan summary for a person.
+
+        Returns person info, per-currency breakdown, aggregate totals,
+        progress percentages, and projected payoff date.
+
+        Delegates to three sub-functions:
+          - _compute_currency_breakdown: per-currency tallies and progress
+          - _compute_aggregate_progress: overall repayment percentage
+          - _compute_projected_payoff: estimated payoff date from repayment cadence
+
+        Returns:
+            Dict with keys: person, transactions, by_currency, total_lent,
+            total_borrowed, total_repaid, progress_pct, projected_payoff.
+            Returns None if person_id does not exist.
+        """
+        person = self.get_by_id(person_id)
+        if not person:
+            return None
+
+        txns = self.get_person_transactions(person_id)
+
+        total_lent = 0.0
+        total_borrowed = 0.0
+        total_repaid = 0.0
+        repayment_dates: list[date] = []
+
+        for tx in txns:
+            if tx["type"] == "loan_out":
+                total_lent += tx["amount"]
+            elif tx["type"] == "loan_in":
+                total_borrowed += tx["amount"]
+            elif tx["type"] == "loan_repayment":
+                total_repaid += tx["amount"]
+                if isinstance(tx["date"], date):
+                    repayment_dates.append(tx["date"])
+
+        by_currency = self._compute_currency_breakdown(txns, person)
+        progress_pct = self._compute_aggregate_progress(
+            total_lent, total_borrowed, total_repaid
+        )
         remaining = abs(person["net_balance_egp"]) + abs(person["net_balance_usd"])
-        if len(repayment_dates) >= 2 and remaining > 0 and total_repaid > 0:
-            avg_repayment = total_repaid / len(repayment_dates)
-            if avg_repayment > 0:
-                sorted_dates = sorted(repayment_dates)
-                first = sorted_dates[0]
-                last = sorted_dates[-1]
-                total_days = (last - first).days
-                if total_days > 0:
-                    avg_interval_days = total_days / (len(repayment_dates) - 1)
-                    payments_needed = remaining / avg_repayment
-                    days_to_payoff = int(payments_needed * avg_interval_days)
-                    projected_payoff = date.today() + timedelta(days=days_to_payoff)
+        projected_payoff = self._compute_projected_payoff(
+            repayment_dates, remaining, total_repaid
+        )
 
         return {
             "person": person,
