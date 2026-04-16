@@ -129,3 +129,48 @@ class TestVirtualAccounts:
         ):
             page.click('button:has-text("Archive")')
         expect(page.locator("main")).to_contain_text("No virtual accounts yet")
+
+    def test_auto_allocate_from_recurring_income(self, page: Page) -> None:
+        """E2E test for enabling auto-allocate → confirming recurring → VA balance updated."""
+        from conftest import get_category_id
+        category_id = get_category_id("income", _user_id)
+        
+        # 1. Create a virtual account with auto_allocate
+        page.goto("/virtual-accounts")
+        page.fill('input[name="name"]', "Project Savings")
+        page.fill('input[name="target_amount"]', "10000")
+        page.fill('input[name="monthly_target"]', "500")
+        page.select_option('select[name="account_id"]', _account_id)
+        page.check('input[name="auto_allocate"]')
+        with page.expect_response(
+            lambda r: "/virtual-accounts" in r.url and r.request.method == "POST"
+        ):
+            page.click('button[type="submit"]')
+            
+        # 2. Go to recurring and create income rule
+        page.goto("/recurring")
+        page.click('input[name="type"][value="income"]', force=True)
+        page.fill('input[name="amount"]', "2000")
+        page.select_option('select[name="account_id"]', _account_id)
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+        )
+        page.fill('input[name="note"]', "Salary")
+        page.select_option('select[name="frequency"]', "monthly")
+        page.fill('input[name="next_due_date"]', "2026-04-01")
+        with page.expect_response(
+            lambda r: "/recurring/add" in r.url and r.request.method == "POST"
+        ):
+            page.click('button[type="submit"]')
+        
+        # 3. Confirm the pending rule
+        # Find the form for confirm and submit it
+        with page.expect_response(lambda r: "confirm" in r.url and r.request.method == "POST"):
+            page.click('form[action*="/confirm"] button[type="submit"]')
+            
+        # 4. Check VA balance updated
+        page.goto("/virtual-accounts")
+        # Check that VA has 500 allocated
+        page.click('a:has-text("Project Savings")')
+        expect(page.locator("main")).to_contain_text("500")
+

@@ -29,6 +29,10 @@ class VirtualAccount(models.Model):
     target_amount = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
     )
+    monthly_target = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
+    auto_allocate = models.BooleanField(default=False, db_default=False)
     current_balance = models.DecimalField(
         max_digits=15, decimal_places=2, default=0, db_default=0
     )

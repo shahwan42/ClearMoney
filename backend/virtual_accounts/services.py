@@ -42,6 +42,8 @@ _VA_FIELDS = (
     "exclude_from_net_worth",
     "display_order",
     "account_id",
+    "monthly_target",
+    "auto_allocate",
     "created_at",
     "updated_at",
 )
@@ -52,6 +54,15 @@ def _compute_progress_pct(target: float | None, balance: float) -> float:
     if target and target > 0:
         return balance / target * 100
     return 0.0
+
+
+def _compute_months_remaining(target: float | None, balance: float, monthly_target: float | None) -> float | None:
+    if target and target > 0 and monthly_target and monthly_target > 0:
+        remaining = target - balance
+        if remaining <= 0:
+            return 0.0
+        return remaining / monthly_target
+    return None
 
 
 def _row_to_va(row: dict[str, Any]) -> dict[str, Any]:
@@ -70,12 +81,17 @@ def _row_to_va(row: dict[str, Any]) -> dict[str, Any]:
             "exclude_from_net_worth": "exclude_from_net_worth",
             "display_order": "display_order",
             "account_id": "account_id",
+            "monthly_target": "monthly_target",
+            "auto_allocate": "auto_allocate",
             "created_at": "created_at",
             "updated_at": "updated_at",
         },
     )
     out["progress_pct"] = _compute_progress_pct(
         out["target_amount"], out["current_balance"]
+    )
+    out["months_remaining"] = _compute_months_remaining(
+        out["target_amount"], out["current_balance"], out["monthly_target"]
     )
     return out
 
@@ -87,6 +103,9 @@ def _instance_to_va(inst: VirtualAccount) -> dict[str, Any]:
     out["color"] = out["color"] or ""
     out["progress_pct"] = _compute_progress_pct(
         out["target_amount"], out["current_balance"]
+    )
+    out["months_remaining"] = _compute_months_remaining(
+        out["target_amount"], out["current_balance"], out["monthly_target"]
     )
     return out
 
@@ -214,6 +233,8 @@ class VirtualAccountService:
         color: str = "",
         account_id: str | None = None,
         exclude_from_net_worth: bool = False,
+        monthly_target: float | None = None,
+        auto_allocate: bool = False,
     ) -> dict[str, Any]:
         """Create a new virtual account with validation.
 
@@ -235,6 +256,8 @@ class VirtualAccountService:
             color=color,
             account_id=account_id,
             exclude_from_net_worth=exclude_from_net_worth,
+            monthly_target=monthly_target,
+            auto_allocate=auto_allocate,
         )
 
         logger.info("virtual_account.created name=%s user=%s", name, self.user_id)
@@ -249,6 +272,8 @@ class VirtualAccountService:
         color: str = "",
         account_id: str | None = None,
         exclude_from_net_worth: bool = False,
+        monthly_target: float | None = None,
+        auto_allocate: bool = False,
     ) -> bool:
         """Update an existing virtual account.
 
@@ -270,6 +295,8 @@ class VirtualAccountService:
                 color=color,
                 account_id=account_id,
                 exclude_from_net_worth=exclude_from_net_worth,
+                monthly_target=monthly_target,
+                auto_allocate=auto_allocate,
                 updated_at=django_tz.now(),
             )
         )

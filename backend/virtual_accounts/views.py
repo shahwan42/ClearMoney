@@ -124,6 +124,8 @@ def virtual_account_add(
     color = request.POST.get("color", "")
     account_id = request.POST.get("account_id", "") or None
     exclude = request.POST.get("exclude_from_net_worth") == "on"
+    monthly_target = _parse_positive_float(request.POST.get("monthly_target", ""))
+    auto_allocate = request.POST.get("auto_allocate") == "on"
 
     try:
         svc.create(
@@ -133,6 +135,8 @@ def virtual_account_add(
             color=color,
             account_id=account_id,
             exclude_from_net_worth=exclude,
+            monthly_target=monthly_target,
+            auto_allocate=auto_allocate,
         )
     except ValueError as e:
         return operational_error_response(str(e))
@@ -342,6 +346,8 @@ def virtual_account_update(
     color = request.POST.get("color", "")
     account_id = request.POST.get("account_id", "") or None
     exclude = request.POST.get("exclude_from_net_worth") == "on"
+    monthly_target = _parse_positive_float(request.POST.get("monthly_target", ""))
+    auto_allocate = request.POST.get("auto_allocate") == "on"
 
     try:
         updated = svc.update(
@@ -352,6 +358,8 @@ def virtual_account_update(
             color=color,
             account_id=account_id,
             exclude_from_net_worth=exclude,
+            monthly_target=monthly_target,
+            auto_allocate=auto_allocate,
         )
     except ValueError as e:
         return validation_error_response(str(e))

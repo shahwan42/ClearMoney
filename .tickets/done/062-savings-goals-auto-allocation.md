@@ -3,9 +3,9 @@ id: "062"
 title: "Savings goals with auto-allocation"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-16
 ---
 
 ## Description
@@ -14,13 +14,13 @@ Extend virtual accounts with automation: users set a monthly savings target and 
 
 ## Acceptance Criteria
 
-- [ ] New fields on VirtualAccount: `monthly_target` (Decimal, nullable), `auto_allocate` (Boolean, default False)
-- [ ] When a recurring rule is confirmed and `auto_allocate` is enabled, allocate to linked virtual account
-- [ ] Progress timeline on VA detail: projected completion date based on monthly target
-- [ ] Dashboard widget highlights closest-to-goal virtual accounts
-- [ ] Settings on VA create/edit form for monthly target and auto-allocate toggle
-- [ ] Service-layer tests for auto-allocation logic
-- [ ] E2E test for enabling auto-allocate → confirming recurring → VA balance updated
+- [x] New fields on VirtualAccount: `monthly_target` (Decimal, nullable), `auto_allocate` (Boolean, default False)
+- [x] When a recurring rule is confirmed and `auto_allocate` is enabled, allocate to linked virtual account
+- [x] Progress timeline on VA detail: projected completion date based on monthly target
+- [x] Dashboard widget highlights closest-to-goal virtual accounts
+- [x] Settings on VA create/edit form for monthly target and auto-allocate toggle
+- [x] Service-layer tests for auto-allocation logic
+- [x] E2E test for enabling auto-allocate → confirming recurring → VA balance updated
 
 ## Technical Notes
 

@@ -29,6 +29,15 @@
             <div class="w-full bg-gray-100 rounded-full h-3">
                 <div class="h-3 rounded-full transition-all" style="width: {% if account.progress_pct > 100 %}100{% else %}{{ account.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ account.color }}"></div>
             </div>
+            {% if account.months_remaining is not None %}
+            <p class="text-xs text-gray-400 mt-2 text-right">
+                {% if account.months_remaining <= 0 %}
+                    {% trans "Goal reached!" %}
+                {% else %}
+                    {% blocktrans with months=account.months_remaining|floatformat:"1" %}Projected completion in {{ months }} months{% endblocktrans %}
+                {% endif %}
+            </p>
+            {% endif %}
         </div>
         {% endif %}
         {% if account.exclude_from_net_worth %}

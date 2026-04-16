@@ -23,6 +23,12 @@
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
         <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Monthly Target (optional)" %}</label>
+            <input type="number" name="monthly_target" step="0.01" min="0" placeholder="0.00"
+                {% if account.monthly_target %}value="{{ account.monthly_target }}"{% endif %}
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+        </div>
+        <div>
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Color" %}</label>
             <input type="color" name="color" value="{{ account.color }}"
                 class="w-full h-10 border border-gray-300 dark:border-slate-600 rounded-lg cursor-pointer">
@@ -50,6 +56,12 @@
         <input type="checkbox" name="exclude_from_net_worth" {% if account.exclude_from_net_worth %}checked{% endif %}
             class="rounded border-gray-300 dark:border-slate-600">
         <span class="text-xs text-gray-500 dark:text-slate-400">{% trans "Not my money (exclude from net worth)" %}</span>
+    </label>
+
+    <label class="flex items-center gap-2 py-1">
+        <input type="checkbox" name="auto_allocate" {% if account.auto_allocate %}checked{% endif %}
+            class="rounded border-gray-300 dark:border-slate-600">
+        <span class="text-xs text-gray-500 dark:text-slate-400">{% trans "Auto-allocate from recurring income" %}</span>
     </label>
 
     <div class="flex gap-2 pt-1">

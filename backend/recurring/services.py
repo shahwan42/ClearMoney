@@ -331,6 +331,37 @@ class RecurringService:
         next_date = self._advance_due_date(rule)
         self._update_next_due_date(rule.id, next_date)
 
+        # Auto allocate to goals
+        if tmpl.get("type") == "income":
+            from virtual_accounts.models import VirtualAccount
+            from virtual_accounts.services import VirtualAccountService
+            
+            linked_vas = VirtualAccount.objects.for_user(self.user_id).filter(
+                account_id=account_id,
+                is_archived=False,
+                auto_allocate=True,
+                monthly_target__isnull=False,
+                monthly_target__gt=0,
+            )
+            
+            if linked_vas.exists():
+                va_svc = VirtualAccountService(self.user_id, self.tz)
+                now = django_tz.now()
+                note_text = tmpl.get("note", "Recurring Income")
+                for va in linked_vas:
+                    try:
+                        va_svc.direct_allocate(
+                            va_id=str(va.id),
+                            amount=float(va.monthly_target),
+                            note=f"Auto-allocated from {note_text}",
+                            allocated_at=now,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to auto-allocate for rule %s to va %s: %s",
+                            rule.id, va.id, str(e)
+                        )
+
     def _advance_due_date(self, rule: RecurringRulePending) -> date:
         """Calculate next due date based on frequency.
 
