@@ -70,7 +70,14 @@
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="tags-input">{% trans "Tags (comma-separated)" %}</label>
             <input type="text" name="tags" id="tags-input" placeholder="{% trans "vacation, wedding..." %}"
                 {% if prefill and prefill.tags %}value="{{ prefill.tags|join:', ' }}"{% endif %}
+                list="tags-suggestions"
+                autocomplete="off"
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+            {% if tag_names %}
+            <datalist id="tags-suggestions">
+                {% for tag in tag_names %}<option value="{{ tag }}">{% endfor %}
+            </datalist>
+            {% endif %}
         </div>
 
         <!-- Attachment -->

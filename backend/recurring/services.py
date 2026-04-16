@@ -156,13 +156,31 @@ class RecurringService:
         logger.info("recurring.created frequency=%s user=%s", frequency, self.user_id)
         return _instance_to_rule(rule)
 
-    def confirm(self, rule_id: str) -> None:
-        """Execute a pending rule — create transaction + advance due date."""
+    def confirm(self, rule_id: str, actual_amount: float | None = None) -> None:
+        """Execute a pending rule — create transaction + advance due date.
+
+        If actual_amount is provided and differs from the template amount,
+        the transaction is created with the actual amount (expected-vs-actual tracking).
+        """
         rule = self.get_by_id(rule_id)
         if not rule:
             raise ValueError("Rule not found")
-        self._execute_rule(rule)
-        logger.info("recurring.confirmed id=%s user=%s", rule_id, self.user_id)
+        self._execute_rule(rule, actual_amount=actual_amount)
+        if actual_amount is not None:
+            expected = float(rule.template_transaction.get("amount", 0))
+            if expected != actual_amount:
+                logger.info(
+                    "recurring.confirmed id=%s user=%s expected=%.2f actual=%.2f deviation=%.2f%%",
+                    rule_id,
+                    self.user_id,
+                    expected,
+                    actual_amount,
+                    ((actual_amount - expected) / expected * 100) if expected else 0,
+                )
+            else:
+                logger.info("recurring.confirmed id=%s user=%s", rule_id, self.user_id)
+        else:
+            logger.info("recurring.confirmed id=%s user=%s", rule_id, self.user_id)
 
     def skip(self, rule_id: str) -> None:
         """Advance next_due_date without creating a transaction."""
@@ -277,7 +295,9 @@ class RecurringService:
     # Private
     # ------------------------------------------------------------------
 
-    def _execute_rule(self, rule: RecurringRulePending) -> None:
+    def _execute_rule(
+        self, rule: RecurringRulePending, actual_amount: float | None = None
+    ) -> None:
         """Create a transaction from the rule template and advance the due date.
 
         Core logic shared by confirm() and process_due_rules().
@@ -286,6 +306,8 @@ class RecurringService:
         2. Guard: check account_id is not empty
         3. Route to create_transfer() for transfers, or create() for expense/income
         4. Advance next_due_date and persist
+
+        actual_amount: if provided, overrides the template amount (expected-vs-actual).
         """
         tmpl = rule.template_transaction
 
@@ -297,6 +319,7 @@ class RecurringService:
             )
 
         tx_svc = TransactionService(self.user_id, self.tz)
+        amount = actual_amount if actual_amount is not None else tmpl.get("amount", 0)
 
         if tmpl.get("type") == "transfer":
             counter_account_id = tmpl.get("counter_account_id", "")
@@ -308,7 +331,7 @@ class RecurringService:
             tx_svc.create_transfer(
                 source_id=account_id,
                 dest_id=counter_account_id,
-                amount=tmpl.get("amount", 0),
+                amount=amount,
                 currency=None,
                 note=tmpl.get("note"),
                 tx_date=rule.next_due_date,
@@ -317,7 +340,7 @@ class RecurringService:
         else:
             tx_data: dict[str, Any] = {
                 "type": tmpl.get("type", "expense"),
-                "amount": tmpl.get("amount", 0),
+                "amount": amount,
                 "account_id": account_id,
                 "date": rule.next_due_date,
                 "recurring_rule_id": rule.id,

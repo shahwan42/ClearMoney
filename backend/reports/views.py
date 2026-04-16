@@ -16,6 +16,7 @@ try:
 except Exception:
     HTML = None
 
+from budgets.services import BudgetService
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from reports.services import get_monthly_report
@@ -71,8 +72,13 @@ def export_pdf_report(request: AuthenticatedRequest) -> HttpResponse:
         request.user_id, year, month, account_id, currency, months=6
     )
 
+    # Budget status for the reported month
+    budget_svc = BudgetService(request.user_id, request.tz)
+    budgets = budget_svc.get_all_with_spending(target_date=date(year, month, 1))
+
     html_string = render_to_string(
-        "reports/pdf_report.html", {"data": report_data, "today": now}
+        "reports/pdf_report.html",
+        {"data": report_data, "today": now, "budgets": budgets},
     )
 
     pdf_file = HTML(string=html_string).write_pdf()

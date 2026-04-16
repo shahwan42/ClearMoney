@@ -116,12 +116,15 @@ def recurring_calendar(
 
     occurrences = svc.get_calendar_data(year, month)
 
-    # Group by day
+    today_date = now.date()
+
+    # Group by day; mark occurrences due on or before today as confirmable
     calendar_days: dict[int, list[dict[str, Any]]] = {}
     for occ in occurrences:
         day = occ["day"]
         if day not in calendar_days:
             calendar_days[day] = []
+        occ["is_due"] = occ["due_date"] <= today_date
         calendar_days[day].append(occ)
 
     import calendar
@@ -157,6 +160,7 @@ def recurring_calendar(
             "prev_year": prev_year,
             "next_month": next_month,
             "next_year": next_year,
+            "today": now.date(),
             "active_tab": "more",
         },
     )
@@ -245,9 +249,21 @@ def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpR
 def recurring_confirm(
     request: AuthenticatedRequest, svc: RecurringService, rule_id: UUID
 ) -> HttpResponse:
-    """POST /recurring/{id}/confirm — confirm pending rule, create transaction."""
+    """POST /recurring/{id}/confirm — confirm pending rule, create transaction.
+
+    Optional POST param ``actual_amount``: if provided, overrides the template
+    amount so users can record the real charge (expected-vs-actual tracking).
+    """
+    actual_amount: float | None = None
+    raw = request.POST.get("actual_amount", "").strip()
+    if raw:
+        try:
+            actual_amount = float(raw)
+        except ValueError:
+            return HttpResponse("actual_amount must be a number", status=400)
+
     try:
-        svc.confirm(str(rule_id))
+        svc.confirm(str(rule_id), actual_amount=actual_amount)
     except ValueError as e:
         return HttpResponse(str(e), status=400)
     return _render_rule_list(request)

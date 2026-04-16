@@ -28,6 +28,21 @@ from .services import TransactionService
 
 logger = logging.getLogger(__name__)
 
+_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+_ATTACHMENT_ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}
+
+
+def _validate_attachment(file: object) -> str | None:
+    """Return an error string if the uploaded file is invalid, else None."""
+    if file is None:
+        return None
+    if file.size > _ATTACHMENT_MAX_BYTES:
+        return "Attachment must be 5 MB or smaller."
+    ct = getattr(file, "content_type", "") or ""
+    if ct not in _ATTACHMENT_ALLOWED_TYPES:
+        return "Attachment must be a JPEG, PNG, GIF, WebP image or PDF."
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Page Views
@@ -131,9 +146,12 @@ def transaction_new(
     request: AuthenticatedRequest, svc: TransactionService
 ) -> HttpResponse:
     """GET /transactions/new — full transaction form page. Supports ?dup=<id>."""
+    from transactions.services import TagService
+
     accounts = svc.get_accounts()
     categories = svc.get_categories()
     virtual_accounts = svc.get_virtual_accounts()
+    tag_names = [t["name"] for t in TagService(request.user_id, request.tz).get_all_with_usage()]
 
     prefill = None
     dup_id = request.GET.get("dup")
@@ -150,6 +168,7 @@ def transaction_new(
             "virtual_accounts": virtual_accounts,
             "today": date.today(),
             "prefill": prefill,
+            "tag_names": tag_names,
         },
     )
 
@@ -167,6 +186,10 @@ def transaction_create(
 ) -> HttpResponse:
     """POST /transactions — create expense/income transaction (HTMX)."""
     try:
+        attachment = request.FILES.get("attachment")
+        att_err = _validate_attachment(attachment)
+        if att_err:
+            return error_response(att_err, target="#transaction-result")
         data = {
             "type": request.POST.get("type", ""),
             "amount": request.POST.get("amount", "0"),
@@ -175,7 +198,7 @@ def transaction_create(
             "note": request.POST.get("note", ""),
             "date": request.POST.get("date", ""),
             "tags": request.POST.get("tags", ""),
-            "attachment": request.FILES.get("attachment"),
+            "attachment": attachment,
         }
         tx, new_balance = svc.create(data)
 
@@ -236,6 +259,10 @@ def transaction_edit_form(
         .first()
     )
 
+    from transactions.services import TagService
+
+    tag_names = [t["name"] for t in TagService(request.user_id, request.tz).get_all_with_usage()]
+
     logger.info("partial loaded: transaction-edit-form, user=%s", request.user_email)
     return render(
         request,
@@ -247,6 +274,7 @@ def transaction_edit_form(
             "virtual_accounts": virtual_accounts,
             "selected_va_id": selected_va_id or "",
             "existing_fee_amount": fee_tx.amount if fee_tx else "",
+            "tag_names": tag_names,
         },
     )
 
@@ -329,6 +357,10 @@ def transaction_update(
         data_source = QueryDict(body)
 
     try:
+        attachment = request.FILES.get("attachment")
+        att_err = _validate_attachment(attachment)
+        if att_err:
+            return error_response(att_err, target="#edit-result")
         data = {
             "type": data_source.get("type", ""),
             "amount": data_source.get("amount", "0"),
@@ -336,7 +368,7 @@ def transaction_update(
             "note": data_source.get("note", ""),
             "date": data_source.get("date", ""),
             "tags": data_source.get("tags", ""),
-            "attachment": request.FILES.get("attachment"),
+            "attachment": attachment,
         }
         tx, _ = svc.update(str(tx_id), data)
 
@@ -753,6 +785,10 @@ def quick_entry_create(
 ) -> HttpResponse:
     """POST /transactions/quick — create quick entry (HTMX toast response)."""
     try:
+        attachment = request.FILES.get("attachment")
+        att_err = _validate_attachment(attachment)
+        if att_err:
+            return error_response(att_err, target="#quick-entry-result")
         data = {
             "type": request.POST.get("type", ""),
             "amount": request.POST.get("amount", "0"),
@@ -761,7 +797,7 @@ def quick_entry_create(
             "note": request.POST.get("note", ""),
             "date": request.POST.get("date", ""),
             "tags": request.POST.get("tags", ""),
-            "attachment": request.FILES.get("attachment"),
+            "attachment": attachment,
         }
         tx, _ = svc.create(data)
 

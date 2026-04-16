@@ -7,22 +7,41 @@
         <span class="text-[10px] text-slate-400">{% trans "Based on past 3m discretionary spending" %}</span>
     </div>
 
-    {# Projection Chart (CSS Bars) #}
-    <div class="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800">
-        <div class="h-40 flex items-end gap-2">
-            {% with max_val=data.projection.points|map_attr:"value"|max_float %}
+    {# Scenario Legend #}
+    <div class="flex items-center gap-4 text-[10px] text-slate-500 dark:text-slate-400 px-1">
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-teal-500"></span>{% trans "Expected" %}</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>{% trans "Optimistic (-20% spending)" %}</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>{% trans "Pessimistic (+20% spending)" %}</span>
+    </div>
+
+    {# Projection Chart — expected scenario bars with optimistic/pessimistic markers #}
+    <div class="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-800"
+         role="img" aria-label="{% trans "Net worth projection chart showing expected, optimistic, and pessimistic scenarios" %}">
+        <div class="h-40 flex items-end gap-1.5">
+            {% with max_val=data.projection.optimistic_points|map_attr:"value"|max_float %}
             {% for point in data.projection.points %}
-            <div class="flex-1 flex flex-col items-center gap-2 group relative">
+            <div class="flex-1 flex flex-col items-center gap-1 group relative">
                 {# Tooltip #}
-                <div class="absolute bottom-full mb-2 hidden group-hover:block z-10">
-                    <div class="bg-slate-800 text-white text-[10px] py-1 px-2 rounded shadow-lg whitespace-nowrap">
-                        {{ point.value|money_format:data.filter_currency }}
+                <div class="absolute bottom-full mb-2 hidden group-hover:flex flex-col z-10 pointer-events-none">
+                    <div class="bg-slate-800 text-white text-[10px] py-1.5 px-2.5 rounded shadow-lg whitespace-nowrap space-y-0.5">
+                        <div class="text-emerald-300">▲ {{ point.optimistic|money_format:data.filter_currency }}</div>
+                        <div class="text-teal-300 font-bold">● {{ point.value|money_format:data.filter_currency }}</div>
+                        <div class="text-amber-300">▼ {{ point.pessimistic|money_format:data.filter_currency }}</div>
                     </div>
                 </div>
-                <div class="w-full bg-teal-500/20 dark:bg-teal-500/10 rounded-t-sm transition-all hover:bg-teal-500/40" 
+
+                {# Optimistic range (background) #}
+                <div class="w-full bg-emerald-100/50 dark:bg-emerald-800/10 rounded-t-sm absolute bottom-6 transition-all"
+                     style="height: {% if max_val > 0 %}{{ point.optimistic|percentage:max_val }}{% else %}0{% endif %}%"></div>
+                {# Expected bar #}
+                <div class="w-full bg-teal-500/25 dark:bg-teal-500/15 rounded-t-sm relative transition-all hover:bg-teal-500/40"
                      style="height: {% if max_val > 0 %}{{ point.value|percentage:max_val }}{% else %}0{% endif %}%">
                     <div class="w-full bg-teal-600 dark:bg-teal-500 rounded-t-sm h-1"></div>
                 </div>
+                {# Pessimistic marker line #}
+                <div class="w-full absolute border-t border-dashed border-amber-400/60 pointer-events-none"
+                     style="bottom: calc(6px + {% if max_val > 0 %}{{ point.pessimistic|percentage:max_val }}{% else %}0{% endif %}%)"></div>
+
                 <span class="text-[8px] text-slate-400 font-bold uppercase">{{ point.month }}</span>
             </div>
             {% endfor %}

@@ -22,19 +22,6 @@ Last updated: 2026-04-16
 | [057](pending/057-data-isolation-recurring-investments.md) | Data isolation tests: recurring + investments | test | medium | 2026-03-31 |
 | [058](pending/058-transfer-variants-tests.md) | Transfer variant tests: Fawry + InstaPay | test | medium | 2026-03-31 |
 | [059](pending/059-dashboard-service-edge-cases.md) | Dashboard service edge case tests | test | low | 2026-03-31 |
-| [060](pending/060-bank-statement-csv-import.md) | Bank statement CSV import | feature | high | 2026-03-31 |
-| [061](pending/061-global-search.md) | Global search | feature | high | 2026-03-31 |
-| [062](pending/062-savings-goals-auto-allocation.md) | Savings goals with auto-allocation | feature | medium | 2026-03-31 |
-| [063](pending/063-spending-insights-trends.md) | Spending insights and trends | feature | high | 2026-03-31 |
-| [064](pending/064-transaction-tags.md) | Transaction tags | feature | medium | 2026-03-31 |
-| [065](pending/065-budget-templates-rollover.md) | Budget templates and rollover | feature | medium | 2026-03-31 |
-| [066](pending/066-recurring-rule-improvements.md) | Recurring rule improvements | improvement | medium | 2026-03-31 |
-| [067](pending/067-account-reconciliation.md) | Account reconciliation | feature | medium | 2026-03-31 |
-| [068](pending/068-financial-calendar.md) | Financial calendar | feature | medium | 2026-03-31 |
-| [069](pending/069-pdf-reports.md) | PDF report export | feature | low | 2026-03-31 |
-| [070](pending/070-transaction-attachments.md) | Transaction attachments (receipt photos) | feature | low | 2026-03-31 |
-| [071](pending/071-spending-alerts.md) | Smart spending alerts | feature | medium | 2026-03-31 |
-| [072](pending/072-net-worth-projection.md) | Net worth projection | feature | low | 2026-03-31 |
 | [073](pending/073-shared-expense-splitting.md) | Shared expense splitting | feature | low | 2026-03-31 |
 | [074](pending/074-dashboard-customization.md) | Dashboard customization | feature | low | 2026-03-31 |
 | [075](pending/075-subscription-detector.md) | Subscription detector | feature | high | 2026-03-31 |
@@ -75,9 +62,23 @@ Last updated: 2026-04-16
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [115](done/115-qa-fixes-tickets-063-072.md) | QA fixes for tickets 063-072 | bug | high | 2026-04-16 |
 | [054](done/054-auth-rate-limiting-tests.md) | Auth rate limiting tests | test | high | 2026-04-16 |
 | [050](done/050-move-template-display-logic-to-services.md) | Move template display logic to services | refactor | low | 2026-04-16 |
 | [051](done/051-extract-service-factory-decorator.md) | Extract service factory decorator from views | refactor | low | 2026-04-16 |
+| [072](done/072-net-worth-projection.md) | Net worth projection | feature | low | 2026-04-16 |
+| [071](done/071-spending-alerts.md) | Smart spending alerts | feature | medium | 2026-04-16 |
+| [070](done/070-transaction-attachments.md) | Transaction attachments (receipt photos) | feature | low | 2026-04-16 |
+| [069](done/069-pdf-reports.md) | PDF report export | feature | low | 2026-04-16 |
+| [068](done/068-financial-calendar.md) | Financial calendar | feature | medium | 2026-04-16 |
+| [067](done/067-account-reconciliation.md) | Account reconciliation | feature | medium | 2026-04-16 |
+| [066](done/066-recurring-rule-improvements.md) | Recurring rule improvements | improvement | medium | 2026-04-16 |
+| [065](done/065-budget-templates-rollover.md) | Budget templates and rollover | feature | medium | 2026-04-16 |
+| [064](done/064-transaction-tags.md) | Transaction tags | feature | medium | 2026-04-16 |
+| [063](done/063-spending-insights-trends.md) | Spending insights and trends | feature | high | 2026-04-16 |
+| [062](done/062-savings-goals-auto-allocation.md) | Savings goals with auto-allocation | feature | medium | 2026-04-16 |
+| [061](done/061-global-search.md) | Global search | feature | high | 2026-04-16 |
+| [060](done/060-bank-statement-csv-import.md) | Bank statement CSV import | feature | high | 2026-04-16 |
 | [023](done/023-user-language-preference.md) | User language preference — model + middleware + migration | feature | high | 2026-04-15 |
 | [026](done/026-rtl-dashboard-accounts.md) | RTL — dashboard + accounts templates | feature | medium | 2026-04-15 |
 | [031](done/031-i18n-transactions-templates.md) | i18n strings — transactions templates | feature | medium | 2026-04-15 |

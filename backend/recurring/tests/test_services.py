@@ -253,6 +253,61 @@ class TestConfirm:
         balance = float(Account.objects.get(id=rec_data["account_id"]).current_balance)
         assert balance == 49500.0  # 50000 - 500
 
+    def test_confirm_with_actual_amount_uses_actual(self, rec_data):
+        """Confirm with actual_amount creates transaction with overridden amount."""
+        svc = _svc(rec_data["user_id"])
+
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data, amount=500.0),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        # Actual charge was 475 (cheaper than expected)
+        svc.confirm(rule.id, actual_amount=475.0)
+
+        tx = Transaction.objects.get(recurring_rule_id=UUID(rule.id))
+        assert float(tx.amount) == 475.0
+
+    def test_confirm_with_actual_amount_updates_balance_correctly(self, rec_data):
+        """Balance reflects actual amount, not template amount."""
+        svc = _svc(rec_data["user_id"])
+
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data, amount=500.0),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id, actual_amount=600.0)
+
+        balance = float(Account.objects.get(id=rec_data["account_id"]).current_balance)
+        assert balance == 49400.0  # 50000 - 600 (actual)
+
+    def test_confirm_without_actual_amount_uses_template(self, rec_data):
+        """When actual_amount is None, template amount is used unchanged."""
+        svc = _svc(rec_data["user_id"])
+
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data, amount=300.0),
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id)  # no actual_amount
+
+        tx = Transaction.objects.get(recurring_rule_id=UUID(rule.id))
+        assert float(tx.amount) == 300.0
+
     def test_auto_allocates_to_virtual_accounts(self, rec_data):
         """Confirming an income rule auto-allocates to linked VAs with auto_allocate=True."""
         from virtual_accounts.models import VirtualAccount

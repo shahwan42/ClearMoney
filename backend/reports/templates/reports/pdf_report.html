@@ -1,3 +1,4 @@
+{% load money %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -96,6 +97,21 @@
             border-top: 1px solid #f1f5f9;
             padding-top: 10px;
         }
+        .budget-bar-bg {
+            background: #f1f5f9;
+            border-radius: 4px;
+            height: 6px;
+            width: 120px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .budget-bar-fill {
+            border-radius: 4px;
+            height: 6px;
+        }
+        .status-green { color: #059669; }
+        .status-amber { color: #d97706; }
+        .status-red   { color: #dc2626; }
     </style>
 </head>
 <body>
@@ -160,6 +176,42 @@
             <tr>
                 <td>#{{ tag.name }}</td>
                 <td class="text-right">{{ tag.amount|money_format:data.filter_currency }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if budgets %}
+    <h2>Budget Status</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th class="text-right">Limit</th>
+                <th class="text-right">Spent</th>
+                <th class="text-right">Remaining</th>
+                <th class="text-right">Used</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in budgets %}
+            <tr>
+                <td>{{ b.category_icon }} {{ b.category_name }}</td>
+                <td class="text-right">{{ b.effective_limit|floatformat:2 }} {{ b.currency }}</td>
+                <td class="text-right">{{ b.spent|floatformat:2 }} {{ b.currency }}</td>
+                <td class="text-right
+                    {% if b.status == 'green' %}status-green
+                    {% elif b.status == 'amber' %}status-amber
+                    {% else %}status-red{% endif %}">
+                    {{ b.remaining|floatformat:2 }} {{ b.currency }}
+                </td>
+                <td class="text-right
+                    {% if b.status == 'green' %}status-green
+                    {% elif b.status == 'amber' %}status-amber
+                    {% else %}status-red{% endif %}">
+                    {{ b.percentage|floatformat:0 }}%
+                </td>
             </tr>
             {% endfor %}
         </tbody>

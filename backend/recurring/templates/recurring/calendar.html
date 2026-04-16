@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load money %}
+{% load i18n %}
+
+{% block title %}ClearMoney - {% trans "Recurring Calendar" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6 py-4 px-2">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'recurring' %}" class="p-2 -ms-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" aria-label="{% trans "Back to Recurring Rules" %}">
+                <svg class="w-5 h-5 text-gray-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h2 class="text-xl font-bold text-slate-800 dark:text-white">{{ month_name }} {{ year }}</h2>
+        </div>
+
+        <div class="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <a href="?year={{ prev_year }}&month={{ prev_month }}" class="p-2 hover:bg-gray-50 dark:hover:bg-slate-700 border-r dark:border-slate-700" title="{% trans "Previous Month" %}" aria-label="{% trans "Previous Month" %}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+            <a href="?year={{ next_year }}&month={{ next_month }}" class="p-2 hover:bg-gray-50 dark:hover:bg-slate-700" title="{% trans "Next Month" %}" aria-label="{% trans "Next Month" %}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
+
+    {# Legend #}
+    <div class="flex items-center gap-4 px-1 text-xs text-slate-500 dark:text-slate-400">
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>{% trans "Expense" %}</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>{% trans "Income" %}</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>{% trans "Transfer" %}</span>
+    </div>
+
+    {# Calendar Grid (hidden on mobile, shown sm+) #}
+    <div class="hidden sm:block bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
+        <div class="grid grid-cols-7 border-b dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
+            {% for day_label in "Sun,Mon,Tue,Wed,Thu,Fri,Sat"|split:"," %}
+            <div class="py-2 text-center text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">{{ day_label }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="divide-y dark:divide-slate-800">
+            {% for week in month_days %}
+            <div class="grid grid-cols-7 divide-x dark:divide-slate-800">
+                {% for day in week %}
+                <div class="min-h-[90px] p-1.5 {% if day == 0 %}bg-gray-50/30 dark:bg-slate-900/30{% endif %}">
+                    {% if day != 0 %}
+                    <span class="text-xs font-medium block mb-1 {% if day == today.day and month == today.month and year == today.year %}bg-teal-600 text-white w-6 h-6 flex items-center justify-center rounded-full mx-auto{% else %}text-slate-400 dark:text-slate-500 text-center{% endif %}">
+                        {{ day }}
+                    </span>
+                    <div class="space-y-0.5">
+                        {% for occ in calendar_days|get_item:day %}
+                        <div class="p-1 rounded text-[9px] font-medium leading-tight border
+                             {% if occ.template_transaction.type == 'expense' %}
+                                bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-300 dark:border-red-900/30
+                             {% elif occ.template_transaction.type == 'income' %}
+                                bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-900/30
+                             {% else %}
+                                bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-900/30
+                             {% endif %}"
+                             title="{{ occ.note }}: {{ occ.template_transaction.amount }} {{ occ.template_transaction.currency }}">
+                            <span class="block truncate">{{ occ.note }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# List View (mobile + always-visible detail) #}
+    <div class="space-y-3" id="recurring-calendar-list" aria-live="polite">
+        {% if calendar_days %}
+        {% for day, occs in calendar_days.items|dictsort:0 %}
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
+            <div class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2">
+                <span class="text-sm font-bold text-slate-700 dark:text-slate-200">{{ month_name|slice:":3" }} {{ day }}</span>
+                {% if day == today.day and month == today.month and year == today.year %}
+                <span class="text-[10px] font-bold bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400 px-1.5 py-0.5 rounded-full">{% trans "Today" %}</span>
+                {% endif %}
+            </div>
+            <div class="divide-y dark:divide-slate-800">
+                {% for occ in occs %}
+                <div class="px-4 py-3 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-2 h-2 flex-shrink-0 rounded-full
+                            {% if occ.template_transaction.type == 'expense' %}bg-red-400
+                            {% elif occ.template_transaction.type == 'income' %}bg-emerald-400
+                            {% else %}bg-blue-400{% endif %}">
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ occ.note }}</p>
+                            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">
+                                {{ occ.template_transaction.type }}
+                                {% if occ.frequency %}&middot; {{ occ.frequency }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <span class="text-sm font-bold
+                            {% if occ.template_transaction.type == 'expense' %}text-red-600 dark:text-red-400
+                            {% elif occ.template_transaction.type == 'income' %}text-emerald-600 dark:text-emerald-400
+                            {% else %}text-blue-600 dark:text-blue-400{% endif %}">
+                            {{ occ.template_transaction.amount|money_format:occ.template_transaction.currency }}
+                        </span>
+                        {% if occ.is_due %}
+                        <form hx-post="{% url 'recurring-confirm' occ.id %}"
+                              hx-target="#recurring-calendar-list"
+                              hx-swap="outerHTML"
+                              class="flex items-center gap-1">
+                            {% csrf_token %}
+                            {# Actual amount input — prefilled with template; user can override #}
+                            <input type="number"
+                                   name="actual_amount"
+                                   value="{{ occ.template_transaction.amount }}"
+                                   step="0.01"
+                                   min="0.01"
+                                   aria-label="{% trans "Actual amount" %}"
+                                   class="w-20 text-xs border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500">
+                            <button type="submit"
+                                    class="text-[10px] font-bold bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 rounded-lg transition-colors"
+                                    aria-label="{% blocktrans with note=occ.note %}Confirm {{ note }}{% endblocktrans %}">
+                                {% trans "Confirm" %}
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-12 text-gray-400 dark:text-slate-500">
+            <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <p class="text-sm">{% trans "No recurring transactions due this month." %}</p>
+            <a href="{% url 'recurring' %}" class="mt-2 inline-block text-sm text-teal-600 hover:underline">{% trans "Manage recurring rules" %}</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
