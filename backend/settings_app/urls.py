@@ -9,8 +9,7 @@ Routes:
 
 from django.urls import path
 
-from . import views
-from . import views_import
+from . import views, views_import
 
 urlpatterns = [
     path("settings", views.settings_page, name="settings"),
@@ -27,11 +26,12 @@ urlpatterns = [
         views.category_archive,
         name="category-archive",
     ),
-    path(
-        "settings/categories/<uuid:cat_id>/unarchive",
-        views.category_unarchive,
-        name="category-unarchive",
-    ),
+    path("settings/categories/unarchive/<uuid:cat_id>", views.category_unarchive, name="category-unarchive"),
+    path("settings/tags", views.tags_page, name="tags_settings"),
+    path("settings/tags/add", views.tag_add, name="tag-add"),
+    path("settings/tags/<uuid:tag_id>/update", views.tag_update, name="tag-update"),
+    path("settings/tags/<uuid:tag_id>/delete", views.tag_delete, name="tag-delete"),
+    path("settings/tags/merge", views.tag_merge, name="tag-merge"),
     path("export/transactions", views.export_transactions, name="export-transactions"),
     path("settings/import", views_import.import_upload, name="import-upload"),
     path("settings/import/<str:import_id>/mapping", views_import.import_mapping, name="import-mapping"),

@@ -1,8 +1,8 @@
 """
-Accounts & Institutions views — all /accounts/* and /institutions/* routes.
+Accounts & Institutions views - all /accounts/* and /institutions/* routes.
 
 Handles pages, HTMX partials, and mutations.
-Like Laravel's AccountController — thin views that delegate to services.
+Like Laravel's AccountController - thin views that delegate to services.
 """
 
 import dataclasses
@@ -13,7 +13,7 @@ from uuid import UUID
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpResponse, JsonResponse, QueryDict
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -69,7 +69,7 @@ def _render_institution_list_oob(request: AuthenticatedRequest) -> str:
 @general_rate
 @require_http_methods(["GET"])
 def accounts_list(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts — accounts list grouped by institution."""
+    """GET /accounts - accounts list grouped by institution."""
     logger.info("page viewed: accounts, user=%s", request.user_email)
     groups = _build_institution_groups(request)
     return render(request, "accounts/accounts.html", {"data": groups})
@@ -78,7 +78,7 @@ def accounts_list(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /accounts/{id} — account detail page."""
+    """GET /accounts/{id} - account detail page."""
     acc_svc = AccountService(request.user_id, request.tz)
     data = acc_svc.get_detail_data(str(id))
 
@@ -91,8 +91,40 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 
 @general_rate
 @require_http_methods(["GET"])
+def reconcile_page(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
+    """GET /accounts/<id>/reconcile - reconciliation workflow."""
+    svc = AccountService(request.user_id, request.tz)
+    account = svc.get_by_id(str(id))
+    if not account:
+        return HttpResponse("Not found", status=404)
+
+    unverified = svc.get_unverified_transactions(str(id))
+
+    return render(
+        request,
+        "accounts/reconcile.html",
+        {
+            "account": account,
+            "unverified": unverified,
+            "active_tab": "accounts",
+        },
+    )
+
+
+@general_rate
+@require_http_methods(["POST"])
+def reconcile_submit(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
+    """POST /accounts/<id>/reconcile - complete reconciliation."""
+    svc = AccountService(request.user_id, request.tz)
+    tx_ids = request.POST.getlist("verified_tx_ids")
+    svc.reconcile(str(id), tx_ids)
+    return redirect("account-detail", id=id)
+
+
+@general_rate
+@require_http_methods(["GET"])
 def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /accounts/{id}/statement — credit card statement page."""
+    """GET /accounts/{id}/statement - credit card statement page."""
     acc_svc = AccountService(request.user_id, request.tz)
     account = acc_svc.get_by_id(str(id))
     if not account:
@@ -152,7 +184,7 @@ def credit_card_statement(request: AuthenticatedRequest, id: UUID) -> HttpRespon
 @general_rate
 @require_http_methods(["GET"])
 def account_form(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/form?institution_id=X — account creation form partial."""
+    """GET /accounts/form?institution_id=X - account creation form partial."""
     institution_id = request.GET.get("institution_id", "")
     if not institution_id:
         return HttpResponse("institution_id required", status=400)
@@ -175,7 +207,7 @@ def account_form(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /accounts/{id}/edit-form — account edit form partial."""
+    """GET /accounts/{id}/edit-form - account edit form partial."""
     acc_svc = AccountService(request.user_id, request.tz)
     account = acc_svc.get_by_id(str(id))
     if not account:
@@ -188,7 +220,7 @@ def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def institution_presets(request: AuthenticatedRequest) -> JsonResponse:
-    """GET /accounts/institution-presets?type=bank|fintech|wallet — preset list JSON.
+    """GET /accounts/institution-presets?type=bank|fintech|wallet - preset list JSON.
 
     Returns the static preset entries for the requested institution type.
     Used by the institution form's JS combobox and available as an API.
@@ -210,7 +242,7 @@ def institution_presets(request: AuthenticatedRequest) -> JsonResponse:
 @general_rate
 @require_http_methods(["GET"])
 def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/institution-form — institution creation form partial."""
+    """GET /accounts/institution-form - institution creation form partial."""
     logger.info("partial loaded: institution-form, user=%s", request.user_email)
     presets_json = json.dumps(
         {
@@ -229,7 +261,7 @@ def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def account_add_form(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/add-form?institution_id=<optional> — unified add account form."""
+    """GET /accounts/add-form?institution_id=<optional> - unified add account form."""
     institution_id = request.GET.get("institution_id", "")
     acc_svc = AccountService(request.user_id, request.tz)
     ctx = acc_svc.get_add_form_context(institution_id)
@@ -241,7 +273,7 @@ def account_add_form(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def institution_list_partial(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/list — render institution list partial."""
+    """GET /accounts/list - render institution list partial."""
     logger.info("partial loaded: institution-list, user=%s", request.user_email)
     groups = _build_institution_groups(request)
     return render(request, "accounts/_institution_list.html", {"data": groups})
@@ -250,7 +282,7 @@ def institution_list_partial(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /institutions/{id}/edit-form — institution edit form partial."""
+    """GET /institutions/{id}/edit-form - institution edit form partial."""
     inst_svc = InstitutionService(request.user_id, request.tz)
     inst = inst_svc.get_by_id(str(id))
     if not inst:
@@ -265,7 +297,7 @@ def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpRespon
 @general_rate
 @require_http_methods(["GET"])
 def institution_delete_confirm(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /institutions/{id}/delete-confirm — delete confirmation partial."""
+    """GET /institutions/{id}/delete-confirm - delete confirmation partial."""
     inst_svc = InstitutionService(request.user_id, request.tz)
     inst = inst_svc.get_by_id(str(id))
     if not inst:
@@ -291,19 +323,19 @@ def institution_delete_confirm(request: AuthenticatedRequest, id: UUID) -> HttpR
 @general_rate
 @require_http_methods(["GET"])
 def empty_partial(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /accounts/empty — empty response for HTMX auto-dismiss."""
+    """GET /accounts/empty - empty response for HTMX auto-dismiss."""
     return HttpResponse("", content_type="text/html; charset=utf-8")
 
 
 # ---------------------------------------------------------------------------
-# Mutations — Institutions
+# Mutations - Institutions
 # ---------------------------------------------------------------------------
 
 
 @general_rate
 @require_http_methods(["POST"])
 def institution_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /institutions/add — create institution.
+    """POST /institutions/add - create institution.
 
     Returns toast + close script + OOB institution list refresh.
     """
@@ -333,7 +365,7 @@ def institution_add(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["PUT", "POST"])
 def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """PUT /institutions/{id}/update — update institution.
+    """PUT /institutions/{id}/update - update institution.
 
     Returns close script + OOB card swap.
     """
@@ -377,7 +409,7 @@ def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["DELETE", "POST"])
 def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """DELETE /institutions/{id}/delete — delete institution (cascade).
+    """DELETE /institutions/{id}/delete - delete institution (cascade).
 
     Returns toast + close script + OOB list refresh.
     """
@@ -395,7 +427,7 @@ def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /institutions/reorder — update display_order."""
+    """POST /institutions/reorder - update display_order."""
     ids = request.POST.getlist("id[]")
     if not ids:
         return HttpResponse("No IDs provided", status=400)
@@ -406,7 +438,7 @@ def institutions_reorder(request: AuthenticatedRequest) -> HttpResponse:
 
 
 # ---------------------------------------------------------------------------
-# Mutations — Accounts
+# Mutations - Accounts
 # ---------------------------------------------------------------------------
 
 
@@ -432,7 +464,7 @@ def _render_add_account_error(
 @general_rate
 @require_http_methods(["POST"])
 def account_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /accounts/add — create account."""
+    """POST /accounts/add - create account."""
     inst_id = request.POST.get("institution_id", "")
     inst_svc = InstitutionService(request.user_id, request.tz)
 
@@ -479,7 +511,7 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /accounts/{id}/edit — update account fields."""
+    """POST /accounts/{id}/edit - update account fields."""
     data = {
         "name": request.POST.get("name", ""),
         "type": request.POST.get("type", "current"),
@@ -502,7 +534,7 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["DELETE", "POST"])
 def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """DELETE /accounts/{id}/delete — delete account."""
+    """DELETE /accounts/{id}/delete - delete account."""
     acc_svc = AccountService(request.user_id, request.tz)
     try:
         acc_svc.delete(str(id))
@@ -517,7 +549,7 @@ def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def accounts_reorder(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /accounts/reorder — update display_order."""
+    """POST /accounts/reorder - update display_order."""
     ids = request.POST.getlist("id[]")
     if not ids:
         return HttpResponse("No IDs provided", status=400)
@@ -530,7 +562,7 @@ def accounts_reorder(request: AuthenticatedRequest) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def toggle_dormant(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /accounts/{id}/dormant — toggle dormant flag."""
+    """POST /accounts/{id}/dormant - toggle dormant flag."""
     acc_svc = AccountService(request.user_id, request.tz)
     toggled = acc_svc.toggle_dormant(str(id))
     if not toggled:
@@ -541,7 +573,7 @@ def toggle_dormant(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["POST"])
 def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /accounts/{id}/health — save health constraints."""
+    """POST /accounts/{id}/health - save health constraints."""
     config: dict[str, float | None] = {}
 
     min_balance = parse_float_or_none(request.POST.get("min_balance", ""))
@@ -562,15 +594,15 @@ def health_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 
 
 # ---------------------------------------------------------------------------
-# JSON API Views — Institutions
+# JSON API Views - Institutions
 # ---------------------------------------------------------------------------
 
 
-@csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
+@csrf_exempt  # JSON API - authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "POST"])
 def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
-    """GET/POST /api/institutions — list all or create an institution (JSON)."""
+    """GET/POST /api/institutions - list all or create an institution (JSON)."""
     inst_svc = InstitutionService(request.user_id, request.tz)
 
     if request.method == "GET":
@@ -579,7 +611,7 @@ def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
             inst["user_id"] = request.user_id
         return JsonResponse(institutions, safe=False)
 
-    # POST — create
+    # POST - create
     body = parse_json_body(request)
     if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
@@ -599,7 +631,7 @@ def api_institution_list_create(request: AuthenticatedRequest) -> HttpResponse:
 @api_rate
 @require_http_methods(["GET", "PUT", "DELETE"])
 def api_institution_detail(request: AuthenticatedRequest, inst_id: str) -> HttpResponse:
-    """GET/PUT/DELETE /api/institutions/{id} — single institution operations (JSON)."""
+    """GET/PUT/DELETE /api/institutions/{id} - single institution operations (JSON)."""
     inst_svc = InstitutionService(request.user_id, request.tz)
     iid = str(inst_id)
 
@@ -636,15 +668,15 @@ def api_institution_detail(request: AuthenticatedRequest, inst_id: str) -> HttpR
 
 
 # ---------------------------------------------------------------------------
-# JSON API Views — Accounts
+# JSON API Views - Accounts
 # ---------------------------------------------------------------------------
 
 
-@csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and JS fetch()
+@csrf_exempt  # JSON API - authenticated via session, called by e2e helpers and JS fetch()
 @api_rate
 @require_http_methods(["GET", "POST"])
 def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
-    """GET/POST /api/accounts — list or create accounts (JSON).
+    """GET/POST /api/accounts - list or create accounts (JSON).
 
     GET supports ?institution_id= filter.
     """
@@ -663,7 +695,7 @@ def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
             acc.pop("available_credit", None)
         return JsonResponse(accounts, safe=False)
 
-    # POST — create
+    # POST - create
     body = parse_json_body(request)
     if body is None:
         return JsonResponse({"error": "invalid JSON body"}, status=400)
@@ -682,7 +714,7 @@ def api_account_list_create(request: AuthenticatedRequest) -> HttpResponse:
 @api_rate
 @require_http_methods(["GET", "PUT", "DELETE"])
 def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpResponse:
-    """GET/PUT/DELETE /api/accounts/{id} — single account operations (JSON)."""
+    """GET/PUT/DELETE /api/accounts/{id} - single account operations (JSON)."""
     acc_svc = AccountService(request.user_id, request.tz)
     aid = str(account_id)
 

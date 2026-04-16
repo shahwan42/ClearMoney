@@ -10,16 +10,20 @@ the browser handles delivery.
 """
 
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+from django.db.models import Avg
 from django.utils.translation import gettext as _
 
 from accounts.services import AccountService, load_health_warnings
 from budgets.services import BudgetService
 from core.billing import compute_due_date, parse_billing_cycle
+from core.dates import month_range
 from core.status import compute_threshold_status
 from recurring.services import RecurringService
+from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +50,7 @@ class NotificationService:
         """
         notifications: list[dict[str, str]] = []
 
-        # 1-3. Leaf-service-based triggers: CC due, health, budgets
+        # 1-4. Leaf-service-based triggers: CC due, health, budgets, unusual spending
         try:
             # Get all accounts for CC due date checks and health warnings
             acct_svc = AccountService(self.user_id, self.tz)
@@ -69,14 +73,14 @@ class NotificationService:
                                 "title": _("Credit Card Due Soon"),
                                 "body": (
                                     f"{card.name} is due in {days_until} day(s)"
-                                    f" — balance: EGP {-card.current_balance:.2f}"
+                                    f" — balance: {card.currency} {-card.current_balance:.2f}"
                                 ),
                                 "url": "/accounts",
                                 "tag": f"cc-due-{card.name}-{due_date.isoformat()}",
                             }
                         )
 
-            # 2. Account health warnings
+            # 2. Account health warnings (Low balance, missing deposits, reconciliation)
             for warning in load_health_warnings(self.user_id, all_accounts, self.tz):
                 notifications.append(
                     {
@@ -89,6 +93,8 @@ class NotificationService:
 
             # 3. Budget threshold alerts (80% warning, 100% exceeded)
             budget_svc = BudgetService(self.user_id, self.tz)
+            days_left = month_range(today)[1].day - today.day
+
             for budget in budget_svc.get_all_with_spending():
                 pct = budget.percentage
                 display_name = f"{budget.category_icon} {budget.category_name}".strip()
@@ -99,32 +105,80 @@ class NotificationService:
                         {
                             "title": _("Budget Exceeded"),
                             "body": (
-                                f"{display_name}: spent EGP {budget.spent:.0f}"
-                                f" of EGP {budget.monthly_limit:.0f}"
-                                f" limit ({pct:.0f}%)"
+                                f"{display_name}: spent {budget.spent:.0f} "
+                                f"of {budget.monthly_limit:.0f} "
+                                f"limit ({pct:.0f}%)"
                             ),
                             "url": "/budgets",
                             "tag": f"budget-exceeded-{budget.category_id}",
                         }
                     )
                 elif status == "amber":
-                    remaining = budget.monthly_limit - budget.spent
+                    remaining = budget.effective_limit - budget.spent
                     notifications.append(
                         {
                             "title": _("Budget Warning"),
                             "body": (
-                                f"{display_name}: {pct:.0f}% of budget used"
-                                f" (EGP {remaining:.0f} remaining)"
+                                f"{display_name}: {pct:.0f}% used "
+                                f"({remaining:.0f} remaining, {days_left} days left)"
                             ),
                             "url": "/budgets",
                             "tag": f"budget-warning-{budget.category_id}",
                         }
                     )
 
-        except Exception:
-            logger.exception("push: failed to load account/health/budget notifications")
+            # 4. Unusual Spending detection (Last 24h vs 30-day average)
+            yesterday = datetime.now(self.tz) - timedelta(days=1)
+            recent_txs = (
+                Transaction.objects.for_user(self.user_id)
+                .filter(
+                    type="expense",
+                    created_at__gte=yesterday,
+                )
+                .select_related("category")
+            )
 
-        # 4. Recurring transactions due (needing confirmation)
+            for tx in recent_txs:
+                if not tx.category_id:
+                    continue
+
+                # Calculate 30-day average for this category
+                thirty_days_ago = date.today() - timedelta(days=30)
+                avg_val = (
+                    Transaction.objects.for_user(self.user_id)
+                    .filter(
+                        category_id=tx.category_id,
+                        type="expense",
+                        date__gte=thirty_days_ago,
+                        date__lt=date.today(),
+                    )
+                    .aggregate(avg=Avg("amount"))["avg"]
+                    or Decimal(0)
+                )
+
+                if avg_val > 0 and tx.amount > (avg_val * 3):
+                    notifications.append(
+                        {
+                            "title": _("Unusual Spending Detected"),
+                            "body": _(
+                                "%(amount).0f %(currency)s on %(cat)s is 3x your average"
+                            )
+                            % {
+                                "amount": tx.amount,
+                                "currency": tx.currency,
+                                "cat": tx.category.get_display_name(),
+                            },
+                            "url": "/transactions",
+                            "tag": f"unusual-spending-{tx.id}",
+                        }
+                    )
+
+        except Exception:
+            logger.exception(
+                "push: failed to load account/health/budget/unusual notifications"
+            )
+
+        # 5. Recurring transactions due (needing confirmation)
         try:
             recurring_svc = RecurringService(self.user_id, self.tz)
             pending = recurring_svc.get_due_pending()

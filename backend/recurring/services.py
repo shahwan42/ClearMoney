@@ -335,7 +335,7 @@ class RecurringService:
         if tmpl.get("type") == "income":
             from virtual_accounts.models import VirtualAccount
             from virtual_accounts.services import VirtualAccountService
-            
+
             linked_vas = VirtualAccount.objects.for_user(self.user_id).filter(
                 account_id=account_id,
                 is_archived=False,
@@ -343,7 +343,7 @@ class RecurringService:
                 monthly_target__isnull=False,
                 monthly_target__gt=0,
             )
-            
+
             if linked_vas.exists():
                 va_svc = VirtualAccountService(self.user_id, self.tz)
                 now = django_tz.now()
@@ -365,17 +365,81 @@ class RecurringService:
     def _advance_due_date(self, rule: RecurringRulePending) -> date:
         """Calculate next due date based on frequency.
 
-        Weekly: +7 days (timedelta).
-        Monthly: +1 month (dateutil.relativedelta — clamps month overflow,
-        e.g., Jan 31 + 1 month = Feb 28).
+        Weekly: +7 days
+        Biweekly: +14 days
+        Monthly: +1 month
+        Quarterly: +3 months
+        Yearly: +1 year
         """
         current: date = rule.next_due_date
         freq: str = rule.frequency
         if freq == "weekly":
             return current + timedelta(days=7)
+        if freq == "biweekly":
+            return current + timedelta(days=14)
+        if freq == "monthly":
+            return current + relativedelta(months=1)
+        if freq == "quarterly":
+            return current + relativedelta(months=3)
+        if freq == "yearly":
+            return current + relativedelta(years=1)
         # Default to monthly
-        result: date = current + relativedelta(months=1)
-        return result
+        return current + relativedelta(months=1)
+
+    def get_calendar_data(self, year: int, month: int) -> list[dict[str, Any]]:
+        """Get all recurring rule occurrences for a specific month.
+
+        Calculates occurrences by projecting active rules into the target month.
+        """
+        from core.dates import month_range
+        start_date, end_date = month_range(date(year, month, 1))
+
+        rules = self._qs().filter(is_active=True)
+        occurrences = []
+
+        for rule_inst in rules:
+            rule = _instance_to_rule(rule_inst)
+            view_data = self.rule_to_view(rule)
+
+            # Project occurrences into the month
+            current = rule.next_due_date
+
+            # If next_due_date is before start_date, advance it until it's >= start_date
+            # (only for projection purposes, not persisting)
+            while current < start_date:
+                # To avoid infinite loop for misconfigured rules, we limit iterations
+                # or just check if it will ever reach the month.
+                prev = current
+                current = self._advance_due_date(RecurringRulePending(
+                    id=rule.id, user_id=rule.user_id, template_transaction=rule.template_transaction,
+                    frequency=rule.frequency, day_of_month=rule.day_of_month,
+                    next_due_date=current, is_active=rule.is_active,
+                    auto_confirm=rule.auto_confirm, created_at=rule.created_at, updated_at=rule.updated_at
+                ))
+                if current <= prev:
+                    break # Safety
+
+            # Now find all occurrences in the month
+            while current < end_date:
+                if current >= start_date:
+                    occ = view_data.copy()
+                    occ["due_date"] = current
+                    occ["day"] = current.day
+                    occurrences.append(occ)
+
+                prev = current
+                current = self._advance_due_date(RecurringRulePending(
+                    id=rule.id, user_id=rule.user_id, template_transaction=rule.template_transaction,
+                    frequency=rule.frequency, day_of_month=rule.day_of_month,
+                    next_due_date=current, is_active=rule.is_active,
+                    auto_confirm=rule.auto_confirm, created_at=rule.created_at, updated_at=rule.updated_at
+                ))
+                if current <= prev:
+                    break # Safety
+
+        # Sort by date
+        occurrences.sort(key=lambda x: x["due_date"])
+        return occurrences
 
     def _update_next_due_date(self, rule_id: str, next_date: date) -> None:
         """Persist the advanced next_due_date."""

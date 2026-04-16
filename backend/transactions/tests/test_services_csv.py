@@ -1,9 +1,11 @@
-import pytest
 from decimal import Decimal
-from transactions.services import CsvImportService
+
+import pytest
+
+from tests.factories import AccountFactory, InstitutionFactory, UserFactory
 from transactions.models import Transaction
-from accounts.models import Account
-from tests.factories import UserFactory, AccountFactory, InstitutionFactory
+from transactions.services import CsvImportService
+
 
 @pytest.fixture
 def test_user_id(db):
@@ -39,7 +41,7 @@ def test_csv_parse_rows_validation_and_classification(csv_service, target_accoun
 01/02/2023,-50.50,,negative amount implies expense
 invalid_date,10.00,CR,bad date
 2023-01-04,invalid,CR,bad amount"""
-    
+
     mapping = {
         "date": "Date",
         "amount": "Amount",
@@ -51,7 +53,7 @@ invalid_date,10.00,CR,bad date
 
     assert len(parsed) == 2
     assert len(errors) == 2
-    
+
     assert "Invalid date format: invalid_date" in errors[0]
     assert "Invalid amount format: invalid" in errors[1]
 

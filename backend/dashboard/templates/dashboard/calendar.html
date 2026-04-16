@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load money %}
+{% load i18n %}
+
+{% block title %}ClearMoney - {% trans "Financial Calendar" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6 py-4 px-2">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'home' %}" class="p-2 -ms-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" aria-label="{% trans "Back" %}">
+                <svg class="w-5 h-5 text-gray-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+            </a>
+            <h2 class="text-xl font-bold text-slate-800 dark:text-white">{{ month_name }} {{ year }}</h2>
+        </div>
+        
+        <div class="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <a href="?year={{ prev_year }}&month={{ prev_month }}" class="p-2 hover:bg-gray-50 dark:hover:bg-slate-700 border-r dark:border-slate-700" title="{% trans "Previous Month" %}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+            <a href="?year={{ next_year }}&month={{ next_month }}" class="p-2 hover:bg-gray-50 dark:hover:bg-slate-700" title="{% trans "Next Month" %}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
+
+    {# Calendar Grid #}
+    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
+        <div class="grid grid-cols-7 border-b dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
+            {% for day_label in "Sun,Mon,Tue,Wed,Thu,Fri,Sat"|split:"," %}
+            <div class="py-2 text-center text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">{{ day_label }}</div>
+            {% endfor %}
+        </div>
+        
+        <div class="divide-y dark:divide-slate-800">
+            {% for week in month_days %}
+            <div class="grid grid-cols-7 divide-x dark:divide-slate-800">
+                {% for day in week %}
+                <div class="min-h-[100px] p-1.5 relative {% if day == 0 %}bg-gray-50/30 dark:bg-slate-900/30{% endif %}">
+                    {% if day != 0 %}
+                    <span class="text-xs font-medium {% if day == today.day and month == today.month and year == today.year %}bg-teal-600 text-white w-6 h-6 flex items-center justify-center rounded-full -ms-1 -mt-1 mb-1 shadow-sm{% else %}text-slate-400 dark:text-slate-500{% endif %}">
+                        {{ day }}
+                    </span>
+                    
+                    <div class="space-y-1 mt-1">
+                        {% for event in calendar_days|get_item:day %}
+                        <div class="p-1 rounded text-[9px] font-medium leading-tight truncate border
+                             {% if event.subtype == 'expense' %}
+                                bg-red-50 text-red-700 border-red-100 dark:bg-red-900/20 dark:text-red-300 dark:border-red-900/30
+                             {% elif event.subtype == 'income' %}
+                                bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-900/30
+                             {% elif event.subtype == 'transfer' %}
+                                bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-900/30
+                             {% else %}
+                                bg-slate-50 text-slate-700 border-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700
+                             {% endif %}
+                             {% if event.is_projection %}opacity-70 border-dashed{% endif %}"
+                             title="{{ event.title }}{% if event.amount %}: {{ event.amount|money_format:event.currency }}{% endif %}">
+                            {{ event.title }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# List View for Mobile #}
+    <div class="sm:hidden space-y-4">
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-2">{% trans "Events This Month" %}</h3>
+        <div class="space-y-2">
+            {% for day, events in calendar_days.items|dictsort:0 %}
+                {% for event in events %}
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm flex items-center justify-between border border-gray-100 dark:border-slate-700 {% if event.is_projection %}opacity-75{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex flex-col items-center justify-center">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold">{{ month_name|slice:":3" }}</span>
+                            <span class="text-sm font-bold text-slate-800 dark:text-white leading-none">{{ day }}</span>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-800 dark:text-white">{{ event.title }}</p>
+                            <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">
+                                {% if event.is_projection %}{% trans "Upcoming" %} · {% endif %}{{ event.type }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        {% if event.amount %}
+                        <p class="text-sm font-bold {% if event.subtype == 'expense' %}text-red-600{% elif event.subtype == 'income' %}text-emerald-600{% else %}text-blue-600{% endif %}">
+                            {{ event.amount|money_format:event.currency }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% empty %}
+                <p class="text-center text-gray-400 dark:text-slate-500 py-8 italic">{% trans "No events scheduled for this month." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

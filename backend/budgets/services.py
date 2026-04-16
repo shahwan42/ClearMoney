@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from dateutil.relativedelta import relativedelta
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import DecimalField, OuterRef, Subquery, Sum
 from django.db.models.fields.json import KeyTextTransform
@@ -43,17 +44,22 @@ class BudgetService:
         """Base queryset scoped to the current user."""
         return Budget.objects.for_user(self.user_id)
 
-    def get_all_with_spending(self) -> list[BudgetWithSpending]:
+    def _month_range(self) -> tuple[date, date]:
+        """Current month range."""
+        return month_range(datetime.now(self.tz).date())
+
+    def get_all_with_spending(
+        self, target_date: date | None = None
+    ) -> list[BudgetWithSpending]:
         """Return active budgets with current month's actual spending.
 
         Annotates budgets with a Subquery against transactions to compute spent
         amount, percentage, and traffic-light status (green/amber/red).
-
-        Uses Subquery because Transaction.category has related_name="+"
-        which disables reverse FK access from Category/Budget.
+        Includes rollover logic if enabled.
         """
-        today = datetime.now(self.tz).date()
-        month_start, month_end = month_range(today)
+        if not target_date:
+            target_date = datetime.now(self.tz).date()
+        month_start, month_end = month_range(target_date)
 
         # Subquery: sum of expense transactions for the same category, user, currency
         # in the current month. Uses OuterRef to correlate with the outer Budget queryset.
@@ -83,12 +89,44 @@ class BudgetService:
             .order_by("category_name_en")
         )
 
+        # Pre-calculate previous month's remaining for rollover
+        prev_month_start, prev_month_end = month_range(
+            target_date - relativedelta(months=1)
+        )
+
         budgets: list[BudgetWithSpending] = []
         for b in rows:
             limit_amt = float(b.monthly_limit)
+
+            effective_limit = limit_amt
+            rollover_amt = 0.0
+
+            if b.rollover_enabled:
+                # Get last month's spending
+                prev_spent_agg = (
+                    Transaction.objects.filter(
+                        category_id=b.category_id,
+                        user_id=self.user_id,
+                        type="expense",
+                        currency=b.currency,
+                        date__gte=prev_month_start,
+                        date__lt=prev_month_end,
+                    )
+                    .aggregate(total=Coalesce(Sum("amount"), Decimal(0)))
+                )
+
+                prev_spent = float(prev_spent_agg["total"])
+                carryover = max(0.0, limit_amt - prev_spent)
+
+                if b.max_rollover is not None:
+                    carryover = min(carryover, float(b.max_rollover))
+
+                rollover_amt = carryover
+                effective_limit += rollover_amt
+
             spent = float(b.spent_amount)
-            pct = (spent / limit_amt * 100) if limit_amt > 0 else 0.0
-            remaining = limit_amt - spent
+            pct = (spent / effective_limit * 100) if effective_limit > 0 else 0.0
+            remaining = effective_limit - spent
 
             status = compute_threshold_status(pct, (80.0, 100.0))
 
@@ -104,18 +142,60 @@ class BudgetService:
                     remaining=remaining,
                     percentage=pct,
                     status=status,
+                    rollover_amount=rollover_amt,
+                    effective_limit=effective_limit,
                 )
             )
         return budgets
 
-    def get_budget_with_transactions(self, budget_id: str) -> dict[str, Any]:
-        """Return a budget with its contributing transactions for the current month.
+    def copy_last_month_budgets(self) -> int:
+        """Create budgets for categories that had spending last month but no budget yet.
 
-        Fetches the budget (scoped to user), then queries expense transactions
-        matching the budget's category and currency in the current month.
-
-        Raises Budget.DoesNotExist if the budget is not found or not owned by user.
+        Uses last month's actual spending as the new monthly limit.
+        Returns the number of budgets created.
         """
+        today = datetime.now(self.tz).date()
+        prev_month_start, prev_month_end = month_range(today - relativedelta(months=1))
+
+        # 1. Find all categories with spending last month
+        last_month_spending = (
+            Transaction.objects.filter(
+                user_id=self.user_id,
+                type="expense",
+                date__gte=prev_month_start,
+                date__lt=prev_month_end,
+            )
+            .values("category_id", "currency")
+            .annotate(total=Sum("amount"))
+        )
+
+        created_count = 0
+        for item in last_month_spending:
+            cat_id = item["category_id"]
+            if not cat_id:
+                continue
+
+            currency = item["currency"]
+            limit = float(item["total"])
+
+            # Skip if budget already exists for this category/currency
+            if Budget.objects.filter(
+                user_id=self.user_id, category_id=cat_id, currency=currency
+            ).exists():
+                continue
+
+            try:
+                self.create(
+                    category_id=str(cat_id), monthly_limit=limit, currency=currency
+                )
+                created_count += 1
+            except Exception as e:
+                logger.warning("failed to copy budget for cat=%s: %s", cat_id, e)
+
+        return created_count
+
+    def get_budget_with_transactions(self, budget_id: str) -> dict[str, Any]:
+        """Return a budget with its contributing transactions for the current month."""
         budget = self._qs().select_related("category").get(id=budget_id)
 
         month_start, month_end = self._month_range()
@@ -134,6 +214,7 @@ class BudgetService:
         )
 
         limit_amt = float(budget.monthly_limit)
+        # TODO: Apply rollover logic here too if needed for detail view
         spent = sum(float(tx.amount) for tx in transactions)
         pct = (spent / limit_amt * 100) if limit_amt > 0 else 0.0
         remaining = limit_amt - spent
@@ -168,16 +249,10 @@ class BudgetService:
         category_id: str,
         monthly_limit: float,
         currency: str = "EGP",
+        rollover_enabled: bool = False,
+        max_rollover: float | None = None,
     ) -> dict[str, Any]:
-        """Create a new budget with validation.
-
-        Validates that category_id is provided and monthly_limit is positive.
-        Currency defaults to 'EGP'.
-
-        Raises:
-            ValueError: If category_id is empty or monthly_limit <= 0.
-            IntegrityError: If a budget already exists for this user+category+currency.
-        """
+        """Create a new budget with validation."""
         if not category_id:
             raise ValueError("Category is required")
         if monthly_limit <= 0:
@@ -190,6 +265,8 @@ class BudgetService:
             category_id=category_id,
             monthly_limit=monthly_limit,
             currency=currency,
+            rollover_enabled=rollover_enabled,
+            max_rollover=max_rollover,
         )
 
         logger.info(
@@ -204,31 +281,56 @@ class BudgetService:
             "monthly_limit": float(budget.monthly_limit),
             "currency": budget.currency,
             "is_active": budget.is_active,
+            "rollover_enabled": budget.rollover_enabled,
+            "max_rollover": float(budget.max_rollover) if budget.max_rollover else None,
             "created_at": budget.created_at,
             "updated_at": budget.updated_at,
         }
 
-    def update(self, budget_id: str, monthly_limit: float) -> dict[str, Any]:
-        """Update a budget's monthly limit.
+    def update(
+        self,
+        budget_id: str,
+        monthly_limit: float | None = None,
+        rollover_enabled: bool | None = None,
+        max_rollover: float | None = None,
+    ) -> dict[str, Any]:
+        """Update a budget's fields."""
+        update_data = {}
+        if monthly_limit is not None:
+            if monthly_limit <= 0:
+                raise ValueError("Monthly limit must be positive")
+            update_data["monthly_limit"] = monthly_limit
 
-        Only updates budgets belonging to the authenticated user.
+        if rollover_enabled is not None:
+            update_data["rollover_enabled"] = rollover_enabled
 
-        Raises:
-            ValueError: If monthly_limit <= 0.
-            ObjectDoesNotExist: If budget not found.
-        """
-        if monthly_limit <= 0:
-            raise ValueError("Monthly limit must be positive")
+        if max_rollover is not None:
+            update_data["max_rollover"] = max_rollover
 
-        count = self._qs().filter(id=budget_id).update(monthly_limit=monthly_limit)
+        if not update_data:
+            budget = self._qs().get(id=budget_id)
+            return {
+                "id": str(budget.id),
+                "category_id": str(budget.category_id),
+                "monthly_limit": float(budget.monthly_limit),
+                "currency": budget.currency,
+                "is_active": budget.is_active,
+                "created_at": budget.created_at,
+                "updated_at": budget.updated_at,
+            }
+
+        count = (
+            self._qs()
+            .filter(id=budget_id)
+            .update(**update_data, updated_at=datetime.now())
+        )
         if count == 0:
             raise ObjectDoesNotExist(f"Budget not found: {budget_id}")
 
         budget = self._qs().get(id=budget_id)
         logger.info(
-            "budget.updated id=%s limit=%s user=%s",
+            "budget.updated id=%s user=%s",
             budget_id,
-            monthly_limit,
             self.user_id,
         )
         return {
@@ -237,117 +339,49 @@ class BudgetService:
             "monthly_limit": float(budget.monthly_limit),
             "currency": budget.currency,
             "is_active": budget.is_active,
+            "rollover_enabled": budget.rollover_enabled,
+            "max_rollover": float(budget.max_rollover) if budget.max_rollover else None,
             "created_at": budget.created_at,
             "updated_at": budget.updated_at,
         }
 
     def delete(self, budget_id: str) -> bool:
-        """Delete a budget by ID.
-
-        Only deletes budgets belonging to the authenticated user.
-        Returns True if a row was deleted, False if not found.
-        """
+        """Delete budget record."""
         count, _ = self._qs().filter(id=budget_id).delete()
-        deleted = bool(count > 0)
+        return bool(count > 0)
 
-        if deleted:
-            logger.info("budget.deleted id=%s user=%s", budget_id, self.user_id)
-        return deleted
+    def get_total_budget(self, currency: str = "EGP") -> float:
+        """Get the total monthly budget limit for a currency."""
+        row = (
+            TotalBudget.objects.for_user(self.user_id)
+            .filter(currency=currency)
+            .values_list("monthly_limit", flat=True)
+            .first()
+        )
+        return float(row) if row else 0.0
 
-    # ------------------------------------------------------------------
-    # Total budget
-    # ------------------------------------------------------------------
+    def set_total_budget(self, limit: Decimal, currency: str = "EGP") -> None:
+        """Create or update the total monthly budget limit."""
+        if limit < 0:
+            raise ValueError("Total budget limit cannot be negative")
 
-    def _month_range(self) -> tuple[date, date]:
-        """Return (month_start, month_end) for the current month in user's tz."""
-        today = datetime.now(self.tz).date()
-        return month_range(today)
-
-    def set_total_budget(
-        self, monthly_limit: Decimal, currency: str = "EGP"
-    ) -> dict[str, Any]:
-        """Create or update the total monthly budget for a currency.
-
-        Raises ValueError if monthly_limit <= 0.
-        """
-        if monthly_limit <= 0:
-            raise ValueError("Monthly limit must be positive")
-
-        obj, _created = TotalBudget.objects.update_or_create(
+        TotalBudget.objects.update_or_create(
             user_id=self.user_id,
             currency=currency,
-            defaults={"monthly_limit": monthly_limit, "is_active": True},
+            defaults={"monthly_limit": limit, "updated_at": datetime.now()},
         )
         logger.info(
-            "total_budget.set currency=%s limit=%s user=%s",
+            "total_budget.set limit=%s currency=%s user=%s",
+            limit,
             currency,
-            monthly_limit,
             self.user_id,
         )
-        return {
-            "id": str(obj.id),
-            "monthly_limit": obj.monthly_limit,
-            "currency": obj.currency,
-        }
-
-    def get_total_budget(self, currency: str = "EGP") -> dict[str, Any] | None:
-        """Return total budget with spending info, or None if not set.
-
-        Computes total expenses for the month (all categories, including
-        uncategorized) and compares against the monthly limit.
-        Also checks if the sum of active category budgets exceeds the total.
-        """
-        try:
-            tb = TotalBudget.objects.get(
-                user_id=self.user_id, currency=currency, is_active=True
-            )
-        except TotalBudget.DoesNotExist:
-            return None
-
-        month_start, month_end = self._month_range()
-
-        # Total expenses for the month — all categories
-        spent_agg = Transaction.objects.filter(
-            user_id=self.user_id,
-            type="expense",
-            currency=currency,
-            date__gte=month_start,
-            date__lt=month_end,
-        ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))
-        spent = Decimal(str(spent_agg["total"]))
-
-        limit_val = tb.monthly_limit
-        remaining = limit_val - spent
-        pct = float(spent / limit_val * 100) if limit_val > 0 else 0.0
-
-        status = compute_threshold_status(pct, (80.0, 100.0))
-
-        # Sum of active category budgets for warning
-        cat_sum_agg = Budget.objects.filter(
-            user_id=self.user_id, currency=currency, is_active=True
-        ).aggregate(total=Coalesce(Sum("monthly_limit"), Decimal(0)))
-        category_sum = Decimal(str(cat_sum_agg["total"]))
-
-        return {
-            "id": str(tb.id),
-            "monthly_limit": limit_val,
-            "currency": tb.currency,
-            "spent": spent,
-            "remaining": remaining,
-            "percentage": pct,
-            "status": status,
-            "category_sum": category_sum,
-            "category_sum_exceeds": category_sum > limit_val,
-        }
 
     def delete_total_budget(self, currency: str = "EGP") -> bool:
-        """Delete the total budget for a currency.
-
-        Returns True if deleted, False if not found.
-        """
-        count, _ = TotalBudget.objects.filter(
-            user_id=self.user_id, currency=currency
-        ).delete()
+        """Remove the total monthly budget limit for a currency."""
+        count, _ = (
+            TotalBudget.objects.for_user(self.user_id).filter(currency=currency).delete()
+        )
         deleted = bool(count > 0)
         if deleted:
             logger.info(

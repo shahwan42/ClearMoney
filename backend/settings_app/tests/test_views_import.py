@@ -1,12 +1,12 @@
-import json
-import pytest
-from django.urls import reverse
-from django.core.cache import cache
-from transactions.models import Transaction
-from accounts.models import Account
-from tests.factories import AccountFactory, InstitutionFactory
 from decimal import Decimal
+
+import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
+
+from tests.factories import AccountFactory, InstitutionFactory
+from transactions.models import Transaction
+
 
 @pytest.mark.django_db
 def test_csv_import_wizard_flow(auth_client, auth_user):
@@ -25,16 +25,16 @@ def test_csv_import_wizard_flow(auth_client, auth_user):
 
     # Step 1: Upload CSV
     url_upload = reverse("import-upload")
-    
+
     csv_content = b"Date,Amount,Type,Note\n2023-05-01,100.00,CR,Import Test"
     file = SimpleUploadedFile("statement.csv", csv_content, content_type="text/csv")
-    
+
     response = auth_client.post(url_upload, {"file": file})
     assert response.status_code == 302
-    
+
     # redirect url is settings/import/<import_id>/mapping
     redirect_url = response.url
-    import_id = redirect_url.split("/")[-2]
+    redirect_url.split("/")[-2]
 
     # Step 2: Mapping
     response = auth_client.get(redirect_url)
@@ -49,7 +49,7 @@ def test_csv_import_wizard_flow(auth_client, auth_user):
         "col_type": "Type",
         "col_note": "Note",
     })
-    
+
     assert response.status_code == 302
     redirect_url_preview = response.url
     assert "preview" in redirect_url_preview

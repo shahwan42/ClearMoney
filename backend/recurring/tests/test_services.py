@@ -256,9 +256,9 @@ class TestConfirm:
     def test_auto_allocates_to_virtual_accounts(self, rec_data):
         """Confirming an income rule auto-allocates to linked VAs with auto_allocate=True."""
         from virtual_accounts.models import VirtualAccount
-        
+
         svc = _svc(rec_data["user_id"])
-        
+
         va = VirtualAccount.objects.create(
             user_id=rec_data["user_id"],
             name="Savings",
@@ -268,7 +268,7 @@ class TestConfirm:
             auto_allocate=True,
             current_balance=0.0,
         )
-        
+
         rule = svc.create(
             {
                 "template_transaction": _make_template(rec_data, type="income", amount=2000.0),
@@ -277,9 +277,9 @@ class TestConfirm:
                 "auto_confirm": False,
             }
         )
-        
+
         svc.confirm(rule.id)
-        
+
         va.refresh_from_db()
         assert float(va.current_balance) == 500.0
 

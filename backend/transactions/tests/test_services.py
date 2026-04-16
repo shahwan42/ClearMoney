@@ -1879,10 +1879,10 @@ class TestApplyPostCreateLogic:
             "account_id": tx_data["egp_id"]
         })
         svc.apply_post_create_logic(tx, fee_amount=25.0, va_id=str(va.id), tx_date=None)
-        
+
         # Test reallocation
         va2 = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=tx_data["egp_id"])
         svc.apply_post_create_logic(tx, fee_amount=None, va_id=str(va2.id), tx_date=None)
-        
+
         # Test explicit deallocation
         svc.apply_post_create_logic(tx, fee_amount=None, va_id="", tx_date=None)

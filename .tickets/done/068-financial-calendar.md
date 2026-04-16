@@ -3,9 +3,9 @@ id: "068"
 title: "Financial calendar"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-16
 ---
 
 ## Description

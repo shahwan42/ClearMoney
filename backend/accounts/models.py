@@ -86,6 +86,7 @@ class Account(models.Model):
     health_config = models.JSONField(
         null=True, blank=True
     )  # JSONB: min_balance, min_monthly_deposit
+    last_reconciled_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
     updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 

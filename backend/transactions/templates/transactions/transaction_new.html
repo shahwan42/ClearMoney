@@ -7,72 +7,52 @@
 {% block content %}
 <div class="max-w-lg mx-auto py-4">
 
-    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">{% trans "New Transaction" %}</h2>
+    <h2 class="text-lg font-bold text-slate-800 dark:text-white px-2 mb-4">{% trans "New Transaction" %}</h2>
 
-    <div id="transaction-result" aria-live="polite" aria-atomic="true"></div>
+    <form method="POST" action="{% url 'transactions' %}" id="tx-form" enctype="multipart/form-data" class="space-y-4 px-2">
+        {% csrf_token %}
 
-    <form
-        hx-post="/transactions"
-        hx-target="#transaction-result"
-        hx-swap="innerHTML"
-        hx-disabled-elt="find button[type='submit']"
-        class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 space-y-4"
-    >
-        <!-- Type selector -->
-        <fieldset class="border-0 p-0 m-0">
-            <legend class="sr-only">{% trans "Transaction type" %}</legend>
-            <div class="flex gap-2">
-                <label class="flex-1">
-                    <input type="radio" name="type" value="expense" {% if not prefill or prefill.type == "expense" %}checked{% endif %} class="peer sr-only">
-                    <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-200 rounded-xl py-3 text-center text-sm font-medium cursor-pointer transition-all"
-                         id="type-expense-label">
-                        {% trans "Expense" %}
-                    </div>
-                </label>
-                <label class="flex-1">
-                    <input type="radio" name="type" value="income" {% if prefill and prefill.type == "income" %}checked{% endif %} class="peer sr-only">
-                    <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-200 rounded-xl py-3 text-center text-sm font-medium cursor-pointer transition-all"
-                         id="type-income-label">
-                        {% trans "Income" %}
-                    </div>
-                </label>
+        <div class="grid grid-cols-2 gap-3">
+            <!-- Type -->
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="type-select">{% trans "Type" %}</label>
+                <select name="type" id="type-select" required 
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                    <option value="expense" {% if prefill and prefill.type == "expense" %}selected{% endif %}>{% trans "Expense" %}</option>
+                    <option value="income" {% if prefill and prefill.type == "income" %}selected{% endif %}>{% trans "Income" %}</option>
+                </select>
             </div>
-        </fieldset>
 
-        <!-- Amount -->
-        <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Amount" %} <span class="text-red-500" aria-hidden="true">*</span></label>
-            <input type="number" name="amount" step="0.01" min="0.01" required autofocus
-                placeholder="0.00"
-                {% if prefill %}value="{{ prefill.amount }}"{% endif %}
-                class="w-full text-3xl font-bold text-center border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
-                inputmode="decimal">
+            <!-- Amount -->
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="amount-input">{% trans "Amount" %}</label>
+                <input type="number" name="amount" id="amount-input" step="0.01" required placeholder="0.00"
+                    {% if prefill and prefill.amount %}value="{{ prefill.amount }}"{% endif %}
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+            </div>
         </div>
 
         <!-- Account -->
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span></label>
-            <select name="account_id" required
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="account-select">{% trans "Account" %}</label>
+            <select name="account_id" id="account-select" required
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="">{% trans "Select account..." %}</option>
                 {% for acc in accounts %}
-                <option value="{{ acc.id }}" {% if prefill and prefill.account_id == acc.id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
+                <option value="{{ acc.id }}" {% if prefill and prefill.account_id == acc.id|stringformat:"s" %}selected{% endif %}>{{ acc.name }} ({{ acc.current_balance|format_currency:acc.currency }})</option>
                 {% endfor %}
             </select>
         </div>
 
-        <input type="hidden" name="currency" value="{% if prefill %}{{ prefill.currency }}{% else %}EGP{% endif %}" id="currency-input">
-
         <!-- Category -->
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="category-label">{% trans "Category" %}</label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Category" %}</label>
             <div data-category-combobox
                  data-categories='{{ categories|categories_json }}'
                  data-name="category_id"
-                 data-selected-id="{% if prefill %}{{ prefill.category_id|default:'' }}{% endif %}"
-                 data-placeholder="{% trans "Search categories..." %}"
-                 data-allow-empty="true"
-                 id="category-combobox">
+                 {% if prefill and prefill.category_id %}data-selected-id="{{ prefill.category_id }}"{% endif %}
+                 data-placeholder="{% trans "Select category..." %}"
+                 data-allow-empty="true">
             </div>
         </div>
 
@@ -84,209 +64,116 @@
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
 
-        <!-- Hidden date submitted when "More options" is collapsed -->
+        <!-- Tags -->
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="tags-input">{% trans "Tags (comma-separated)" %}</label>
+            <input type="text" name="tags" id="tags-input" placeholder="{% trans "vacation, wedding..." %}"
+                {% if prefill and prefill.tags %}value="{{ prefill.tags|join:', ' }}"{% endif %}
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+        </div>
+
+        <!-- Attachment -->
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="attachment-input">{% trans "Receipt / Attachment" %}</label>
+            <input type="file" name="attachment" id="attachment-input" accept="image/*,application/pdf"
+                class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
+        </div>
+
+        <!-- More options section -->
+        <div id="more-options" class="hidden space-y-4 pt-2 border-t border-gray-100 dark:border-slate-700">
+            <!-- Date -->
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="date-input">{% trans "Date" %}</label>
+                <input type="date" name="date" id="date-input" value="{{ today|date:'Y-m-d' }}"
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+            </div>
+
+            <!-- Fee -->
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="fee-input">{% trans "Fee (optional)" %}</label>
+                <input type="number" name="fee_amount" id="fee-input" step="0.01" placeholder="0.00"
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+            </div>
+
+            <!-- Link to Goal -->
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="va-select">{% trans "Link to Goal" %}</label>
+                <select name="virtual_account_id" id="va-select"
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                    <option value="">{% trans "No goal" %}</option>
+                    {% for va in virtual_accounts %}
+                    <option value="{{ va.id }}">{{ va.name }} ({{ va.current_balance|format_egp }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Hidden inputs for fallback values when "More options" is collapsed -->
         <input type="hidden" name="date" id="date-default" value="{{ today|date:'Y-m-d' }}">
 
         <!-- More options toggle -->
         <button type="button" id="more-options-toggle"
-            aria-expanded="false" aria-controls="more-options"
-            class="text-sm text-teal-600 hover:text-teal-800 font-medium flex items-center gap-1 transition-colors min-h-[44px]">
-            <svg id="more-options-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                class="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-teal-600 transition-colors py-1">
+            <svg id="options-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
-            {% trans "More options" %}<span id="more-options-date-hint" class="text-gray-400 font-normal"></span>
+            <span id="options-text">{% trans "More options" %}</span>
         </button>
 
-        <!-- Optional fields: date, virtual account -->
-        <div id="more-options" class="more-options-panel space-y-4 overflow-hidden">
-
-            <!-- Date -->
-            <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="date-picker">{% trans "Date" %}</label>
-                <input type="date" name="date" id="date-picker" disabled max="{{ today|date:'Y-m-d' }}"
-                    value="{% if prefill and prefill.date %}{{ prefill.date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"
-                    class="w-full min-w-0 max-w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-            </div>
-
-            <!-- Fee (optional) -->
-            <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="fee-input">{% trans "Fee (optional)" %}</label>
-                <input type="number" name="fee_amount" id="fee-input" step="0.01" min="0" placeholder="0.00"
-                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-            </div>
-
-            <!-- Virtual account -->
-            {% if virtual_accounts %}
-            <div>
-                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="va-select">{% trans "Virtual Account (optional)" %}</label>
-                <select name="virtual_account_id" id="va-select"
-                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-                    <option value="">{% trans "None" %}</option>
-                    {% for va in virtual_accounts %}
-                    <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}"
-                        {% if prefill and prefill.virtual_account_id == va.id %}selected{% endif %}>{{ va.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-
+        <!-- Submit -->
+        <div class="pt-4">
+            <button type="submit" 
+                    class="w-full bg-teal-600 text-white rounded-xl py-3.5 text-base font-bold shadow-lg hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                {% trans "Save Transaction" %}
+            </button>
+            <a href="{% url 'transactions' %}" 
+               class="block text-center text-gray-500 py-3 text-sm font-medium">{% trans "Cancel" %}</a>
         </div>
-
-        <button type="submit"
-            class="relative w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
-            <span class="btn-label">{% trans "Save Transaction" %}</span>
-            <span class="btn-spinner hidden">
-                <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                </svg>
-            </span>
-        </button>
     </form>
-
 </div>
 
 <script>
 (function() {
-    // --- More options toggle ---
-    var toggle = document.getElementById('more-options-toggle');
-    var panel = document.getElementById('more-options');
-    var datePicker = document.getElementById('date-picker');
-    var dateDefault = document.getElementById('date-default');
-    var chevron = document.getElementById('more-options-chevron');
-    var dateHint = document.getElementById('more-options-date-hint');
-    var todayIso = '{{ today|date:"Y-m-d" }}';
+    const toggle = document.getElementById('more-options-toggle');
+    const moreOptions = document.getElementById('more-options');
+    const chevron = document.getElementById('options-chevron');
+    const dateDefault = document.getElementById('date-default');
+    const dateInput = document.getElementById('date-input');
+    const txForm = document.getElementById('tx-form');
 
-    function updateDateHint() {
-        if (!dateHint || !datePicker) return;
-        var val = datePicker.value;
-        dateHint.textContent = (val && val !== todayIso)
-            ? ' · ' + new Date(val + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-            : '';
-    }
-
-    function openMoreOptions() {
-        panel.classList.add('is-open');
-        toggle.setAttribute('aria-expanded', 'true');
-        if (chevron) chevron.style.transform = 'rotate(180deg)';
-        if (datePicker) datePicker.disabled = false;
-        if (dateDefault) dateDefault.disabled = true;
-        if (dateHint) dateHint.textContent = '';
-    }
-
-    function closeMoreOptions() {
-        panel.classList.remove('is-open');
-        toggle.setAttribute('aria-expanded', 'false');
-        if (chevron) chevron.style.transform = '';
-        if (datePicker) datePicker.disabled = true;
-        if (dateDefault) dateDefault.disabled = false;
-        updateDateHint();
-    }
-
-    if (toggle) {
-        toggle.addEventListener('click', function() {
-            if (toggle.getAttribute('aria-expanded') === 'true') {
-                closeMoreOptions();
-            } else {
-                openMoreOptions();
-            }
-        });
-    }
-
-    var acctSelect = document.querySelector('select[name="account_id"]');
-    if (acctSelect) {
-        acctSelect.addEventListener('change', function() {
-            var selected = this.options[this.selectedIndex];
-            if (selected && selected.text.includes('USD')) {
-                document.getElementById('currency-input').value = 'USD';
-            } else {
-                document.getElementById('currency-input').value = 'EGP';
-            }
-            filterVirtualAccounts();
-        });
-    }
-
-    function filterVirtualAccounts() {
-        var vaSelect = document.getElementById('va-select');
-        if (!acctSelect || !vaSelect) return;
-        var selectedAcct = acctSelect.value;
-        vaSelect.querySelectorAll('option').forEach(function(opt) {
-            if (!opt.value) return;
-            var vaAcctId = opt.getAttribute('data-account-id');
-            var hide = vaAcctId && vaAcctId !== selectedAcct;
-            opt.hidden = hide;
-            opt.disabled = hide;
-        });
-        if (vaSelect.selectedOptions[0] && vaSelect.selectedOptions[0].hidden) {
-            vaSelect.value = '';
+    toggle.addEventListener('click', function() {
+        const isHidden = moreOptions.classList.contains('hidden');
+        moreOptions.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        
+        // Sync date inputs if hidden
+        if (!isHidden) {
+            dateDefault.value = dateInput.value;
         }
-    }
-    filterVirtualAccounts();
+    });
 
-    // --- Auto-reset form after successful HTMX submit ---
-    var txForm = document.querySelector('form[hx-post="/transactions"]');
-    if (txForm) {
-        txForm.addEventListener('htmx:afterRequest', function(evt) {
-            if (evt.detail.successful) {
-                txForm.reset();
-                // Reset category combobox (custom component)
-                var catEl = document.getElementById('category-combobox');
-                if (catEl && catEl._combobox) catEl._combobox.selectById('');
-                // Reset currency hidden field to EGP default
-                var currInput = document.getElementById('currency-input');
-                if (currInput) currInput.value = 'EGP';
-                // Re-close more-options panel
-                closeMoreOptions();
-                // Clear draft localStorage
-                localStorage.removeItem('tx-draft');
-            }
-        });
-    }
-
-    // --- Draft persistence (localStorage) ---
-    var draftKey = 'tx-draft';
-
+    // Simple draft save to local storage
+    const DRAFT_KEY = 'tx_form_draft';
     function saveDraft() {
-        if (!txForm) return;
-        var draft = {};
-        var inputs = txForm.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select, input[type="radio"]:checked');
-        inputs.forEach(function(input) {
-            if (input.name) {
-                draft[input.name] = input.value;
-            }
+        const data = new FormData(txForm);
+        const obj = {};
+        data.forEach((value, key) => {
+            if (!(value instanceof File)) obj[key] = value;
         });
-        try {
-            localStorage.setItem(draftKey, JSON.stringify(draft));
-        } catch (e) {
-            // Silently fail if localStorage is unavailable
-        }
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(obj));
     }
 
     function restoreDraft() {
-        if (!txForm) return;
-        try {
-            var draft = JSON.parse(localStorage.getItem(draftKey));
-            if (!draft) return;
-
-            Object.keys(draft).forEach(function(key) {
-                var input = txForm.querySelector('[name="' + key + '"]');
-                if (!input) return;
-
-                if (input.type === 'radio') {
-                    var radio = txForm.querySelector('input[type="radio"][name="' + key + '"][value="' + draft[key] + '"]');
-                    if (radio) radio.checked = true;
-                } else if (input.type === 'text' || input.type === 'number' || input.type === 'date') {
-                    input.value = draft[key];
-                } else if (input.tagName === 'SELECT') {
-                    input.value = draft[key];
-                }
-            });
-        } catch (e) {
-            // Silently fail if localStorage is corrupted
-        }
+        const draft = localStorage.getItem(DRAFT_KEY);
+        if (!draft) return;
+        const obj = JSON.parse(draft);
+        Object.keys(obj).forEach(key => {
+            const el = txForm.querySelector(`[name="${key}"]`);
+            if (el && el.type !== 'file') el.value = obj[key];
+        });
     }
 
-    // Save draft on input change
     if (txForm) {
         ['input', 'change'].forEach(function(event) {
             txForm.addEventListener(event, saveDraft, true);

@@ -23,7 +23,7 @@ from django.utils.translation import gettext as _
 
 from accounts.models import Account
 from categories.models import Category
-from transactions.models import Transaction
+from transactions.models import Tag, Transaction
 
 from .utils import CREDIT_ACCOUNT_TYPES, VALID_TX_TYPES, _parse_tags, _to_str
 
@@ -36,6 +36,16 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
     Monetary values are returned as strings to preserve decimal precision.
     JavaScript clients parse these with Decimal.js library.
     """
+    tags = []
+    if hasattr(tx, "tags"):
+        # Handle both M2M manager and prefetched list
+        try:
+            # If prefetched, tx.tags.all() is efficient.
+            # In some contexts, it might be a list already if we manually set it.
+            tags = [t.name for t in tx.tags.all()]
+        except (AttributeError, ValueError):
+            tags = []
+
     return {
         "id": str(tx.id),
         "user_id": str(tx.user_id),
@@ -50,7 +60,8 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         "date": tx.date,
         "time": tx.time,
         "note": tx.note,
-        "tags": tx.tags or [],
+        "tags": tags,
+        "attachment_url": tx.attachment.url if tx.attachment else None,
         "exchange_rate": str(tx.exchange_rate)
         if tx.exchange_rate is not None
         else None,
@@ -67,6 +78,7 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
             str(tx.recurring_rule_id) if tx.recurring_rule_id else None
         ),
         "balance_delta": str(tx.balance_delta),
+        "is_verified": tx.is_verified,
         "created_at": tx.created_at,
         "updated_at": tx.updated_at,
     }
@@ -216,9 +228,13 @@ class TransactionServiceBase:
         category_id = _to_str(data.get("category_id"))
         note = _to_str(data.get("note"))
         recurring_rule_id = _to_str(data.get("recurring_rule_id"))
-        tags = data.get("tags", [])
-        if isinstance(tags, str):
-            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        tags_raw = data.get("tags", [])
+        if isinstance(tags_raw, str):
+            tags_list = [t.strip() for t in tags_raw.split(",") if t.strip()]
+        else:
+            tags_list = tags_raw
+
+        attachment = data.get("attachment")
 
         with transaction.atomic():
             tx_obj = Transaction.objects.create(
@@ -231,10 +247,22 @@ class TransactionServiceBase:
                 category_id=category_id,
                 date=tx_date,
                 note=note,
-                tags=tags,
                 balance_delta=delta,
                 recurring_rule_id=recurring_rule_id,
+                attachment=attachment,
             )
+
+            # Handle M2M tags
+            if tags_list:
+                tag_objs = []
+                for name in tags_list:
+                    tag, created = Tag.objects.get_or_create(
+                        user_id=self.user_id,
+                        name=name,
+                        defaults={"color": "#64748b"}
+                    )
+                    tag_objs.append(tag)
+                tx_obj.tags.set(tag_objs)
 
             # Atomic F() update — DB-level add avoids read-modify-write race conditions
             Account.objects.for_user(self.user_id).filter(id=account_id).update(
@@ -394,9 +422,13 @@ class TransactionServiceBase:
                 """SELECT sub.* FROM (
                     SELECT t.id, t.type, t.amount, t.currency, t.account_id,
                         t.counter_account_id, t.category_id, t.date, t.time, t.note,
-                        t.tags, t.exchange_rate, t.counter_amount, t.fee_amount,
+                        (SELECT ARRAY_AGG(tg.name) FROM tags tg
+                         JOIN transactions_tags ttg ON tg.id = ttg.tag_id
+                         WHERE ttg.transaction_id = t.id) as tags,
+                        t.attachment,
+                        t.exchange_rate, t.counter_amount, t.fee_amount,
                         t.fee_account_id, t.person_id, t.linked_transaction_id,
-                        t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
+                        t.recurring_rule_id, t.balance_delta, t.is_verified, t.created_at, t.updated_at,
                         a.name AS account_name,
                         c.name->>'en' AS category_name,
                         c.icon AS category_icon,
@@ -429,6 +461,7 @@ class TransactionServiceBase:
             "time",
             "note",
             "tags",
+            "attachment",
             "exchange_rate",
             "counter_amount",
             "fee_amount",
@@ -437,6 +470,7 @@ class TransactionServiceBase:
             "linked_transaction_id",
             "recurring_rule_id",
             "balance_delta",
+            "is_verified",
             "created_at",
             "updated_at",
             "account_name",
@@ -444,7 +478,14 @@ class TransactionServiceBase:
             "category_icon",
             "running_balance",
         ]
-        return self._scan_tx_row(row, cols)
+        res = self._scan_tx_row(row, cols)
+        # Add attachment_url manually for dict
+        if res.get("attachment"):
+            # Mock URL or real URL? Transaction object url is needed.
+            # Raw SQL doesn't give us FileField.url.
+            from django.conf import settings
+            res["attachment_url"] = settings.MEDIA_URL + str(res["attachment"])
+        return res
 
     def get_filtered_enriched(
         self, filters: dict[str, Any]
@@ -461,16 +502,20 @@ class TransactionServiceBase:
         query = """
             SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
                 sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
-                sub.tags, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
+                sub.tags, sub.attachment, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
                 sub.fee_account_id, sub.person_id, sub.linked_transaction_id,
-                sub.recurring_rule_id, sub.balance_delta, sub.created_at, sub.updated_at,
+                sub.recurring_rule_id, sub.balance_delta, sub.is_verified, sub.created_at, sub.updated_at,
                 sub.account_name, sub.category_name, sub.category_icon, sub.running_balance
             FROM (
                 SELECT t.id, t.type, t.amount, t.currency, t.account_id,
                     t.counter_account_id, t.category_id, t.date, t.time, t.note,
-                    t.tags, t.exchange_rate, t.counter_amount, t.fee_amount,
+                    (SELECT ARRAY_AGG(tg.name) FROM tags tg
+                     JOIN transactions_tags ttg ON tg.id = ttg.tag_id
+                     WHERE ttg.transaction_id = t.id) as tags,
+                    t.attachment,
+                    t.exchange_rate, t.counter_amount, t.fee_amount,
                     t.fee_account_id, t.person_id, t.linked_transaction_id,
-                    t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
+                    t.recurring_rule_id, t.balance_delta, t.is_verified, t.created_at, t.updated_at,
                     a.name AS account_name,
                     c.name->>'en' AS category_name,
                     c.icon AS category_icon,
@@ -519,6 +564,11 @@ class TransactionServiceBase:
             query += " AND sub.note ILIKE %s"
             params.append(f"%{search}%")
 
+        tag_name = filters.get("tag")
+        if tag_name:
+            query += " AND %s = ANY(sub.tags)"
+            params.append(tag_name)
+
         query += " ORDER BY sub.date DESC, sub.created_at DESC"
 
         limit = int(filters.get("limit", 50))
@@ -549,6 +599,7 @@ class TransactionServiceBase:
             "time",
             "note",
             "tags",
+            "attachment",
             "exchange_rate",
             "counter_amount",
             "fee_amount",
@@ -557,6 +608,7 @@ class TransactionServiceBase:
             "linked_transaction_id",
             "recurring_rule_id",
             "balance_delta",
+            "is_verified",
             "created_at",
             "updated_at",
             "account_name",
@@ -569,7 +621,14 @@ class TransactionServiceBase:
         if has_more:
             rows = rows[:limit]
 
-        transactions = [self._scan_tx_row(row, cols) for row in rows]
+        transactions = []
+        from django.conf import settings
+        for row in rows:
+            res = self._scan_tx_row(row, cols)
+            if res.get("attachment"):
+                res["attachment_url"] = settings.MEDIA_URL + str(res["attachment"])
+            transactions.append(res)
+
         return transactions, has_more
 
     def get_recent_enriched(
@@ -674,26 +733,48 @@ class TransactionServiceBase:
         if tx_date > date.today():
             raise ValueError(_("Transaction date cannot be in the future"))
 
+        tags_raw = data.get("tags")
+        if tags_raw is not None:
+            if isinstance(tags_raw, str):
+                tags_list = [t.strip() for t in tags_raw.split(",") if t.strip()]
+            else:
+                tags_list = tags_raw
+        else:
+            tags_list = None
+
+        attachment = data.get("attachment")
+
         now = django_tz.now()
 
         with transaction.atomic():
             # Update transaction fields via ORM
-            updated_count = (
-                Transaction.objects.for_user(self.user_id)
-                .filter(id=tx_id)
-                .update(
-                    type=tx_type,
-                    amount=amount,
-                    currency=currency,
-                    category_id=category_id,
-                    note=note,
-                    date=tx_date,
-                    balance_delta=new_delta,
-                    updated_at=now,
-                )
-            )
-            if updated_count == 0:
+            tx_obj = Transaction.objects.for_user(self.user_id).filter(id=tx_id).first()
+            if not tx_obj:
                 raise ValueError(_("Transaction not found: %(id)s") % {"id": tx_id})
+
+            tx_obj.type = tx_type
+            tx_obj.amount = amount
+            tx_obj.currency = currency
+            tx_obj.category_id = category_id
+            tx_obj.note = note
+            tx_obj.date = tx_date
+            tx_obj.balance_delta = new_delta
+            tx_obj.updated_at = now
+            if attachment:
+                tx_obj.attachment = attachment
+            tx_obj.save()
+
+            # Handle M2M tags
+            if tags_list is not None:
+                tag_objs = []
+                for name in tags_list:
+                    tag, created = Tag.objects.get_or_create(
+                        user_id=self.user_id,
+                        name=name,
+                        defaults={"color": "#64748b"}
+                    )
+                    tag_objs.append(tag)
+                tx_obj.tags.set(tag_objs)
 
             # Atomic F() update — only adjusts by the difference (newDelta - oldDelta)
             if balance_adjustment != 0:
@@ -811,3 +892,12 @@ class TransactionServiceBase:
             related_ids.append(str(tx["linked_transaction_id"]))
         related_ids.extend(str(f["id"]) for f in fee_txs)
         return related_ids
+
+    def delete_attachment(self, tx_id: str) -> None:
+        """Remove attachment from a transaction without deleting the transaction."""
+        tx = Transaction.objects.for_user(self.user_id).filter(id=tx_id).first()
+        if tx and tx.attachment:
+            tx.attachment.delete()
+            tx.attachment = None
+            tx.save(update_fields=["attachment", "updated_at"])
+            logger.info("transaction.attachment_deleted id=%s user=%s", tx_id, self.user_id)

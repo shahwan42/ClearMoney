@@ -4,7 +4,7 @@ import io
 import logging
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from transactions.models import Transaction
 
@@ -18,7 +18,7 @@ class CsvImportService:
         from transactions.services import TransactionService
         self.tx_service = TransactionService(user_id, "")
 
-    def parse_headers(self, file_content: str) -> List[str]:
+    def parse_headers(self, file_content: str) -> list[str]:
         f = io.StringIO(file_content)
         reader = csv.reader(f)
         try:
@@ -26,7 +26,7 @@ class CsvImportService:
         except StopIteration:
             raise ValueError("CSV is empty")
 
-    def _parse_date(self, val: str) -> Optional[str]:
+    def _parse_date(self, val: str) -> str | None:
         # try a few common formats
         val = val.strip()
         for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"):
@@ -37,7 +37,7 @@ class CsvImportService:
                 pass
         return None
 
-    def parse_rows(self, file_content: str, mapping: dict[str, str], account_id: str) -> Tuple[List[dict[str, Any]], List[dict[str, Any]], List[str]]:
+    def parse_rows(self, file_content: str, mapping: dict[str, str], account_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
         """
         Parses the CSV content using the given column mapping.
         mapping has keys like: 'col_date', 'col_amount', 'col_type', 'col_note'
@@ -64,13 +64,13 @@ class CsvImportService:
                 parsed_date = self._parse_date(date_str)
                 if not parsed_date:
                     raise ValueError(f"Invalid date format: {date_str}")
-                
+
                 amount_str = row.get(amount_col, "").replace(",", "").strip()
                 try:
                     amount = Decimal(amount_str)
                 except InvalidOperation:
                     raise ValueError(f"Invalid amount format: {amount_str}")
-                
+
                 # Determine type
                 tx_type = "expense"
                 if type_col and row.get(type_col):
@@ -90,9 +90,9 @@ class CsvImportService:
                         tx_type = "expense"
 
                 final_amount = abs(amount)
-                
+
                 note = row.get(note_col, "") if note_col else ""
-                
+
                 # Auto-categorize
                 category_id = self.tx_service.suggest_category(note)
 
@@ -114,7 +114,7 @@ class CsvImportService:
         if parsed:
             min_date = min(p["date"] for p in parsed)
             max_date = max(p["date"] for p in parsed)
-            
+
             existing = Transaction.objects.for_user(self.user_id).filter(
                 date__gte=min_date,
                 date__lte=max_date,

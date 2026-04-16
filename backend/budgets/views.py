@@ -90,6 +90,20 @@ def budget_detail(
 @inject_service(BudgetService)
 @general_rate
 @require_http_methods(["POST"])
+def budget_copy_last_month(
+    request: AuthenticatedRequest, svc: BudgetService
+) -> HttpResponse:
+    """POST /budgets/copy-last-month — template new budgets from last month's spending."""
+    created = svc.copy_last_month_budgets()
+    logger.info(
+        "budgets copied from last month: count=%d user=%s", created, request.user_id
+    )
+    return redirect("budgets")
+
+
+@inject_service(BudgetService)
+@general_rate
+@require_http_methods(["POST"])
 def budget_add(request: AuthenticatedRequest, svc: BudgetService) -> HttpResponse:
     """POST /budgets/add — create a new budget from form data.
 
@@ -98,15 +112,24 @@ def budget_add(request: AuthenticatedRequest, svc: BudgetService) -> HttpRespons
     category_id = request.POST.get("category_id", "")
     monthly_limit_str = request.POST.get("monthly_limit", "")
     currency = request.POST.get("currency", "EGP")
+    rollover_enabled = request.POST.get("rollover_enabled") == "on"
+    max_rollover_str = request.POST.get("max_rollover", "")
 
     try:
         monthly_limit = float(monthly_limit_str) if monthly_limit_str else 0.0
+        max_rollover = float(max_rollover_str) if max_rollover_str else None
     except ValueError:
-        return HttpResponse("Invalid monthly limit", status=400)
+        return HttpResponse("Invalid monthly limit or max rollover", status=400)
 
     try:
         with transaction.atomic():
-            svc.create(category_id, monthly_limit, currency)
+            svc.create(
+                category_id,
+                monthly_limit,
+                currency,
+                rollover_enabled=rollover_enabled,
+                max_rollover=max_rollover,
+            )
     except ValueError as e:
         return HttpResponse(str(e), status=400)
     except IntegrityError:
@@ -125,15 +148,23 @@ def budget_edit(
 ) -> HttpResponse:
     """POST /budgets/{id}/edit — update a budget's monthly limit."""
     monthly_limit_str = request.POST.get("monthly_limit", "")
+    rollover_enabled = request.POST.get("rollover_enabled") == "on"
+    max_rollover_str = request.POST.get("max_rollover", "")
 
     try:
-        monthly_limit = float(monthly_limit_str) if monthly_limit_str else 0.0
+        monthly_limit = float(monthly_limit_str) if monthly_limit_str else None
+        max_rollover = float(max_rollover_str) if max_rollover_str else None
     except ValueError:
-        return HttpResponse("Invalid monthly limit", status=400)
+        return HttpResponse("Invalid monthly limit or max rollover", status=400)
 
     try:
         with transaction.atomic():
-            svc.update(str(budget_id), monthly_limit)
+            svc.update(
+                str(budget_id),
+                monthly_limit=monthly_limit,
+                rollover_enabled=rollover_enabled,
+                max_rollover=max_rollover,
+            )
     except ValueError as e:
         return HttpResponse(str(e), status=400)
     except ObjectDoesNotExist:

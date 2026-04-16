@@ -51,6 +51,7 @@ def transactions_list(
         "date_from": request.GET.get("date_from", ""),
         "date_to": request.GET.get("date_to", ""),
         "search": request.GET.get("search", ""),
+        "tag": request.GET.get("tag", ""),
         "limit": 50,
         "offset": offset,
     }
@@ -75,6 +76,7 @@ def transactions_list(
                 "date_from": filters["date_from"],
                 "date_to": filters["date_to"],
                 "search": filters["search"],
+                "tag": filters["tag"],
             },
         },
     )
@@ -95,6 +97,7 @@ def transactions_list_partial(
         "date_from": request.GET.get("date_from", ""),
         "date_to": request.GET.get("date_to", ""),
         "search": request.GET.get("search", ""),
+        "tag": request.GET.get("tag", ""),
         "limit": 50,
         "offset": offset,
     }
@@ -115,6 +118,7 @@ def transactions_list_partial(
                 "date_from": filters["date_from"],
                 "date_to": filters["date_to"],
                 "search": filters["search"],
+                "tag": filters["tag"],
             },
         },
     )
@@ -170,6 +174,8 @@ def transaction_create(
             "category_id": request.POST.get("category_id", ""),
             "note": request.POST.get("note", ""),
             "date": request.POST.get("date", ""),
+            "tags": request.POST.get("tags", ""),
+            "attachment": request.FILES.get("attachment"),
         }
         tx, new_balance = svc.create(data)
 
@@ -296,11 +302,12 @@ def transaction_detail_sheet(
 
 @csrf_exempt  # JSON API — authenticated via session, called by e2e helpers and HTMX (which sends X-CSRFToken anyway)
 @general_rate
-@require_http_methods(["PUT", "DELETE"])
+@require_http_methods(["PUT", "DELETE", "POST"])
 def transaction_detail(request: AuthenticatedRequest, tx_id: str) -> HttpResponse:
     """PUT/DELETE /transactions/<id> — dispatches to update or delete."""
     if request.method == "DELETE":
         return transaction_delete(request, tx_id)
+    # POST used for update-with-files since some browsers/HTMX setups have issues with PUT + multipart
     return transaction_update(request, tx_id)
 
 
@@ -309,29 +316,31 @@ def transaction_update(
     request: AuthenticatedRequest, svc: TransactionService, tx_id: str
 ) -> HttpResponse:
     """PUT /transactions/<id> — update transaction (HTMX inline edit)."""
-    # Django only populates request.POST for POST method — parse PUT body manually
-    put_data = QueryDict(request.body)
+    # If POST, files are in request.FILES. If PUT, we have to be careful.
+    # We'll support both.
+    data_source = request.POST if request.method in ["POST", "PUT"] else QueryDict(request.body)
+
     try:
         data = {
-            "type": put_data.get("type", ""),
-            "amount": put_data.get("amount", "0"),
-            "category_id": put_data.get("category_id", ""),
-            "note": put_data.get("note", ""),
-            "date": put_data.get("date", ""),
+            "type": data_source.get("type", ""),
+            "amount": data_source.get("amount", "0"),
+            "category_id": data_source.get("category_id", ""),
+            "note": data_source.get("note", ""),
+            "date": data_source.get("date", ""),
+            "tags": data_source.get("tags", ""),
+            "attachment": request.FILES.get("attachment"),
         }
         tx, _ = svc.update(str(tx_id), data)
 
         # Handle fee and VA reallocation via service helper
         svc.apply_post_create_logic(
             tx,
-            fee_amount=parse_float_or_none(put_data.get("fee_amount", "")),
-            va_id=put_data.get("virtual_account_id"),
+            fee_amount=parse_float_or_none(data_source.get("fee_amount", "")),
+            va_id=data_source.get("virtual_account_id"),
             tx_date=data.get("date"),
         )
 
-        # Return updated row with retarget headers so HTMX updates the row
-        # in-place, regardless of the form's hx-target (which points at the
-        # error div inside the sheet).
+        # Return updated row with retarget headers
         enriched = svc.get_by_id_enriched(str(tx_id))
         response = render(
             request, "transactions/_transaction_row.html", {"tx": enriched}
@@ -345,6 +354,17 @@ def transaction_update(
 
 
 @inject_service(TransactionService)
+@require_http_methods(["POST"])
+def transaction_delete_attachment(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
+    """POST /transactions/<id>/delete-attachment — remove attachment."""
+    svc.delete_attachment(str(tx_id))
+    enriched = svc.get_by_id_enriched(str(tx_id))
+    return render(request, "transactions/_transaction_detail_sheet.html", {"tx": enriched})
+
+
+@inject_service(TransactionService)
 def transaction_delete(
     request: AuthenticatedRequest, svc: TransactionService, tx_id: str
 ) -> HttpResponse:
@@ -353,12 +373,11 @@ def transaction_delete(
         svc.deallocate_from_virtual_accounts(str(tx_id))
         related_ids = svc.delete(str(tx_id))
 
-        # Build OOB delete elements so HTMX removes related rows (linked + fees)
+        # Build OOB delete elements
         oob_html = "".join(
             f'<div id="tx-{rid}" hx-swap-oob="delete"></div>' for rid in related_ids
         )
         response = HttpResponse(oob_html)
-        # Header for swipe-to-delete path (raw fetch, not HTMX)
         if related_ids:
             response["X-Related-Deleted"] = ",".join(related_ids)
         return response
@@ -697,6 +716,8 @@ def quick_entry_create(
             "category_id": request.POST.get("category_id", ""),
             "note": request.POST.get("note", ""),
             "date": request.POST.get("date", ""),
+            "tags": request.POST.get("tags", ""),
+            "attachment": request.FILES.get("attachment"),
         }
         tx, _ = svc.create(data)
 

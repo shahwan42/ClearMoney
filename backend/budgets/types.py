@@ -26,3 +26,5 @@ class BudgetWithSpending:
     remaining: float
     percentage: float  # spent / limit * 100
     status: str  # "green" | "amber" | "red"
+    rollover_amount: float = 0.0
+    effective_limit: float = 0.0

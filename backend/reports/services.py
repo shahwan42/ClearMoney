@@ -9,9 +9,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from dateutil.relativedelta import relativedelta
 from django.db.models import Q, Sum
 from django.db.models.fields.json import KeyTextTransform
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, ExtractMonth, ExtractYear
 
 from core.dates import month_range
 from core.timing import timed
@@ -35,7 +36,12 @@ CHART_PALETTE = [
 
 @timed(threshold_ms=500)
 def get_monthly_report(
-    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
+    user_id: str,
+    year: int,
+    month: int,
+    account_id: str = "",
+    currency: str = "",
+    months: int = 6,
 ) -> dict[str, Any]:
     """Build the full report data for a given month.
 
@@ -66,6 +72,25 @@ def get_monthly_report(
     monthly_history = get_monthly_history(user_id, year, month, account_id, currency)
     bar_groups, bar_legend = build_bar_chart(monthly_history)
 
+    # New: Insights and trends
+    insights = get_insights(user_id, year, month, account_id, currency, months=months)
+
+    # New: Spending by tag
+    tag_spending = get_spending_by_tag(user_id, year, month, account_id, currency)
+
+    # New: Net worth projection
+    from dashboard.services.projection import ProjectionService
+    proj_svc = ProjectionService(user_id, None) # TZ not needed for simple projection
+    # Estimate current net worth from latest summaries
+    from accounts.services import AccountService, compute_net_worth
+    acc_svc = AccountService(user_id, None)
+    all_accs = acc_svc.get_all()
+    # Convert summaries to dicts for compute_net_worth
+    import dataclasses
+    acc_dicts = [dataclasses.asdict(a) for a in all_accs]
+    nw_summary = compute_net_worth(acc_dicts)
+    projection = proj_svc.get_projection(nw_summary.net_worth, months=12)
+
     month_name = date(year, month, 1).strftime("%B")
 
     return {
@@ -83,7 +108,212 @@ def get_monthly_report(
         "monthly_history": monthly_history,
         "bar_groups": bar_groups,
         "bar_legend": bar_legend,
+        "insights": insights,
+        "trend_period": months,
+        "tag_spending": tag_spending,
+        "projection": projection,
     }
+
+
+def get_spending_by_tag(
+    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
+) -> list[dict[str, Any]]:
+    """Get expense totals grouped by tag for a month."""
+    start_date, end_date = month_range(date(year, month, 1))
+
+    qs = Transaction.objects.for_user(user_id).filter(
+        type="expense",
+        date__gte=start_date,
+        date__lt=end_date,
+    )
+
+    if account_id:
+        qs = qs.filter(account_id=account_id)
+    if currency:
+        qs = qs.filter(currency=currency)
+
+    # Aggregate by tag name
+    rows = qs.values("tags__name").annotate(total=Sum("amount")).order_by("-total")
+
+    tag_spending = []
+    for row in rows:
+        if row["tags__name"]:
+            tag_spending.append(
+                {
+                    "name": row["tags__name"],
+                    "amount": float(row["total"]),
+                }
+            )
+
+    return tag_spending
+
+
+def get_insights(
+    user_id: str,
+    year: int,
+    month: int,
+    account_id: str = "",
+    currency: str = "",
+    months: int = 6,
+) -> dict[str, Any]:
+    """Calculate spending trends, anomalies, and savings rate."""
+    category_trends = get_category_trends(
+        user_id, year, month, months, account_id, currency
+    )
+    savings_rate_history = get_savings_rate_history(
+        user_id, year, month, months, account_id, currency
+    )
+
+    # Identify anomalies and growing categories
+    anomalies = []
+    growing = []
+
+    for trend in category_trends:
+        current_val = trend["current"]
+        avg_val = trend["average_3m"]
+
+        # Anomaly: current > 130% of 3-month rolling average (if avg > 0)
+        if avg_val > 0 and current_val > (avg_val * 1.3):
+            pct_increase = ((current_val - avg_val) / avg_val) * 100
+            anomalies.append(
+                {
+                    "category": trend["name"],
+                    "icon": trend["icon"],
+                    "pct_increase": round(pct_increase),
+                    "current": current_val,
+                    "average": avg_val,
+                }
+            )
+
+        # Growing: current > average
+        if current_val > avg_val:
+            growing.append(trend)
+
+    # Sort growing by absolute increase
+    growing.sort(key=lambda x: x["current"] - x["average_3m"], reverse=True)
+    top_growing = growing[:3]
+
+    return {
+        "category_trends": category_trends,
+        "anomalies": anomalies,
+        "top_growing": top_growing,
+        "savings_rate_history": savings_rate_history,
+        "current_savings_rate": (
+            savings_rate_history[-1]["rate"] if savings_rate_history else 0
+        ),
+    }
+
+
+def get_category_trends(
+    user_id: str,
+    year: int,
+    month: int,
+    months: int = 6,
+    account_id: str = "",
+    currency: str = "",
+) -> list[dict[str, Any]]:
+    """Get monthly spending history per category with sparkline values."""
+    end_date = month_range(date(year, month, 1))[1]
+    start_date = date(year, month, 1) - relativedelta(months=months - 1)
+
+    qs = Transaction.objects.for_user(user_id).filter(
+        type="expense",
+        date__gte=start_date,
+        date__lt=end_date,
+    )
+    if account_id:
+        qs = qs.filter(account_id=account_id)
+    if currency:
+        qs = qs.filter(currency=currency)
+
+    rows = (
+        qs.annotate(
+            m=ExtractMonth("date"),
+            y=ExtractYear("date"),
+            category_name_en=KeyTextTransform("en", "category__name"),
+        )
+        .values("y", "m", "category_id", "category_name_en", "category__icon")
+        .annotate(total=Sum("amount"))
+        .order_by("y", "m")
+    )
+
+    # Map results: category -> { (y, m) -> total }
+    data: dict[tuple[str, str, str], dict[tuple[int, int], float]] = {}
+    for row in rows:
+        cat_key = (
+            str(row["category_id"]) if row["category_id"] else "",
+            row["category_name_en"] or "Uncategorized",
+            row["category__icon"] or "",
+        )
+        if cat_key not in data:
+            data[cat_key] = {}
+        data[cat_key][(row["y"], row["m"])] = float(row["total"])
+
+    # Build history for each category
+    trends = []
+    months_list = []
+    for i in range(months - 1, -1, -1):
+        dt = date(year, month, 1) - relativedelta(months=i)
+        months_list.append((dt.year, dt.month))
+
+    for cat_key, history in data.items():
+        cat_id, name, icon = cat_key
+        values = []
+        for y, m in months_list:
+            values.append(history.get((y, m), 0.0))
+
+        current = values[-1]
+        # 3-month rolling average
+        last_3 = values[-3:] if len(values) >= 3 else values
+        avg_3m = sum(last_3) / len(last_3) if last_3 else 0
+
+        trends.append(
+            {
+                "category_id": cat_id,
+                "name": name,
+                "icon": icon,
+                "values": values,
+                "current": current,
+                "average_3m": avg_3m,
+            }
+        )
+
+    # Sort trends by current month spending
+    trends.sort(key=lambda x: x["current"], reverse=True)
+    return trends
+
+
+def get_savings_rate_history(
+    user_id: str,
+    year: int,
+    month: int,
+    months: int = 6,
+    account_id: str = "",
+    currency: str = "",
+) -> list[dict[str, Any]]:
+    """Calculate savings rate (income-expenses)/income for the last N months."""
+    history = []
+    for i in range(months - 1, -1, -1):
+        dt = date(year, month, 1) - relativedelta(months=i)
+        summary = get_month_summary(user_id, dt.year, dt.month, account_id, currency)
+        income = summary["income"]
+        expenses = summary["expenses"]
+
+        rate = 0.0
+        if income > 0:
+            rate = ((income - expenses) / income) * 100
+
+        history.append(
+            {
+                "year": dt.year,
+                "month": dt.month,
+                "label": dt.strftime("%b"),
+                "rate": rate,
+                "income": income,
+                "expenses": expenses,
+            }
+        )
+    return history
 
 
 def get_spending_by_category(

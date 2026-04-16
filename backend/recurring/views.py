@@ -96,6 +96,75 @@ def _lookup_account_currency(user_id: str, account_id: str) -> str:
 @inject_service(RecurringService)
 @general_rate
 @require_http_methods(["GET"])
+def recurring_calendar(
+    request: AuthenticatedRequest, svc: RecurringService
+) -> HttpResponse:
+    """GET /recurring/calendar - monthly view of upcoming recurring transactions."""
+    year_str = request.GET.get("year", "")
+    month_str = request.GET.get("month", "")
+    now = datetime.now(request.tz)
+    year = int(year_str) if year_str.isdigit() else now.year
+    month = int(month_str) if month_str.isdigit() else now.month
+
+    # Clamp month/year
+    if month < 1:
+        month = 12
+        year -= 1
+    elif month > 12:
+        month = 1
+        year += 1
+
+    occurrences = svc.get_calendar_data(year, month)
+
+    # Group by day
+    calendar_days: dict[int, list[dict[str, Any]]] = {}
+    for occ in occurrences:
+        day = occ["day"]
+        if day not in calendar_days:
+            calendar_days[day] = []
+        calendar_days[day].append(occ)
+
+    import calendar
+    cal = calendar.Calendar(firstweekday=6) # Sunday start
+    month_days = cal.monthdayscalendar(year, month)
+
+    month_name = datetime(year, month, 1).strftime("%B")
+
+    # Navigation
+    prev_month = month - 1
+    prev_year = year
+    if prev_month == 0:
+        prev_month = 12
+        prev_year -= 1
+
+    next_month = month + 1
+    next_year = year
+    if next_month == 13:
+        next_month = 1
+        next_year += 1
+
+    logger.info("page viewed: recurring-calendar, year=%d month=%d", year, month)
+    return render(
+        request,
+        "recurring/calendar.html",
+        {
+            "calendar_days": calendar_days,
+            "month_days": month_days,
+            "year": year,
+            "month": month,
+            "month_name": month_name,
+            "prev_month": prev_month,
+            "prev_year": prev_year,
+            "next_month": next_month,
+            "next_year": next_year,
+            "active_tab": "more",
+        },
+    )
+
+
+@inject_service(RecurringService)
+@general_rate
+@require_http_methods(["GET"])
 def recurring_page(
     request: AuthenticatedRequest, svc: RecurringService
 ) -> HttpResponse:

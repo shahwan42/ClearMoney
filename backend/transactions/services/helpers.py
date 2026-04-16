@@ -447,7 +447,10 @@ class HelperMixin:
             FROM (
                 SELECT t.id, t.user_id, t.type, t.amount, t.currency, t.account_id,
                     t.counter_account_id, t.category_id, t.date, t.time, t.note,
-                    t.tags, t.exchange_rate, t.counter_amount, t.fee_amount,
+                    (SELECT ARRAY_AGG(tg.name) FROM tags tg
+                     JOIN transactions_tags ttg ON tg.id = ttg.tag_id
+                     WHERE ttg.transaction_id = t.id) as tags,
+                    t.exchange_rate, t.counter_amount, t.fee_amount,
                     t.fee_account_id, t.person_id, t.linked_transaction_id,
                     t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
                     a.name AS account_name,

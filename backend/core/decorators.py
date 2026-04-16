@@ -15,7 +15,7 @@ from core.types import AuthenticatedRequest
 ServiceT = TypeVar("ServiceT")
 
 
-def inject_service(service_class: type[ServiceT]) -> Callable:
+def inject_service[ServiceT](service_class: type[ServiceT]) -> Callable:
     """
     Decorator that instantiates a service and injects it into the view function.
 

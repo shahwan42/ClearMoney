@@ -3,9 +3,9 @@ id: "072"
 title: "Net worth projection"
 type: feature
 priority: low
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-16
 ---
 
 ## Description

@@ -18,6 +18,91 @@ from categories.services import CategoryService
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from transactions.models import Transaction
+from transactions.services import TagService
+
+...
+# ---------------------------------------------------------------------------
+# Tag Management
+# ---------------------------------------------------------------------------
+
+
+def _tag_svc(request: AuthenticatedRequest) -> TagService:
+    """Create a TagService scoped to the authenticated user."""
+    return TagService(request.user_id, request.tz)
+
+
+@general_rate
+@require_http_methods(["GET"])
+def tags_page(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /settings/tags - tag management page."""
+    svc = _tag_svc(request)
+    tags = svc.get_all_with_usage()
+
+    logger.info("page viewed: tags, user=%s", request.user_email)
+    return render(
+        request,
+        "settings_app/tags.html",
+        {
+            "tags": tags,
+        },
+    )
+
+
+@general_rate
+@require_http_methods(["POST"])
+def tag_add(request: AuthenticatedRequest) -> HttpResponse:
+    """POST /settings/tags/add - create a new tag."""
+    svc = _tag_svc(request)
+    name = request.POST.get("name", "")
+    color = request.POST.get("color", "#64748b")
+
+    try:
+        svc.create(name=name, color=color)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
+
+    return redirect("tags_settings")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def tag_update(request: AuthenticatedRequest, tag_id: str) -> HttpResponse:
+    """POST /settings/tags/<id>/update - edit name/color."""
+    svc = _tag_svc(request)
+    name = request.POST.get("name", "")
+    color = request.POST.get("color", "")
+
+    try:
+        svc.update(str(tag_id), name=name, color=color or None)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
+
+    return redirect("tags_settings")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def tag_delete(request: AuthenticatedRequest, tag_id: str) -> HttpResponse:
+    """POST /settings/tags/<id>/delete - delete a tag."""
+    svc = _tag_svc(request)
+    svc.delete(str(tag_id))
+    return redirect("tags_settings")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def tag_merge(request: AuthenticatedRequest) -> HttpResponse:
+    """POST /settings/tags/merge - merge two tags."""
+    svc = _tag_svc(request)
+    source_id = request.POST.get("source_id", "")
+    target_id = request.POST.get("target_id", "")
+
+    try:
+        svc.merge(source_id, target_id)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
+
+    return redirect("tags_settings")
 
 logger = logging.getLogger(__name__)
 

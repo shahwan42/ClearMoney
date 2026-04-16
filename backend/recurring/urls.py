@@ -1,8 +1,8 @@
 """
-Recurring rules URL patterns — page routes for /recurring*.
+Budget URL patterns — page routes for budget management.
 
-Static paths (add) come before UUID paths to avoid being
-swallowed by the <uuid:rule_id> converter.
+Static paths come before UUID paths to avoid being swallowed
+by the <uuid:budget_id> converter.
 """
 
 from django.urls import path
@@ -10,8 +10,8 @@ from django.urls import path
 from recurring import views
 
 urlpatterns = [
-    # Static paths first
     path("recurring", views.recurring_page, name="recurring"),
+    path("recurring/calendar", views.recurring_calendar, name="recurring-calendar"),
     path("recurring/add", views.recurring_add, name="recurring-add"),
     # UUID paths (confirm/skip before bare UUID to avoid capture)
     path(

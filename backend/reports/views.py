@@ -4,10 +4,17 @@ Thin view that parses query params and delegates to reports.services.
 """
 
 import logging
+from datetime import date
 
 from django.http import HttpResponse
 from django.shortcuts import render
-from django.utils import timezone
+from django.template.loader import render_to_string
+from django.views.decorators.http import require_http_methods
+
+try:
+    from weasyprint import HTML
+except Exception:
+    HTML = None
 
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
@@ -17,27 +24,61 @@ logger = logging.getLogger(__name__)
 
 
 @general_rate
+@require_http_methods(["GET"])
 def reports_page(request: AuthenticatedRequest) -> HttpResponse:
-    """Render the monthly reports page.
-
-    GET /reports?year=2026&month=3&currency=EGP&account_id=xxx
-    """
-    logger.info("page viewed: reports, user=%s", request.user_email)
-
-    now = timezone.localtime()
-    year = now.year
-    month = now.month
-
+    """GET /reports — monthly summary page."""
     year_str = request.GET.get("year", "")
     month_str = request.GET.get("month", "")
-    if year_str.isdigit():
-        year = int(year_str)
-    if month_str.isdigit() and 1 <= int(month_str) <= 12:
-        month = int(month_str)
+    now = date.today()
+    year = int(year_str) if year_str.isdigit() else now.year
+    month = int(month_str) if month_str.isdigit() else now.month
 
     account_id = request.GET.get("account_id", "")
     currency = request.GET.get("currency", "")
 
-    report = get_monthly_report(request.user_id, year, month, account_id, currency)
+    months = 6
+    months_str = request.GET.get("months", "")
+    if months_str.isdigit() and int(months_str) in [3, 6, 12]:
+        months = int(months_str)
+
+    report = get_monthly_report(
+        request.user_id, year, month, account_id, currency, months=months
+    )
 
     return render(request, "reports/reports.html", {"data": report})
+
+
+@general_rate
+@require_http_methods(["GET"])
+def export_pdf_report(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /reports/export-pdf — generate and download monthly PDF report."""
+    if HTML is None:
+        return HttpResponse(
+            "PDF generation dependency (weasyprint) not installed.", status=500
+        )
+
+    year_str = request.GET.get("year", "")
+    month_str = request.GET.get("month", "")
+    now = date.today()
+    year = int(year_str) if year_str.isdigit() else now.year
+    month = int(month_str) if month_str.isdigit() else now.month
+
+    account_id = request.GET.get("account_id", "")
+    currency = request.GET.get("currency", "")
+
+    # Always use 6 months for trends in PDF
+    report_data = get_monthly_report(
+        request.user_id, year, month, account_id, currency, months=6
+    )
+
+    html_string = render_to_string(
+        "reports/pdf_report.html", {"data": report_data, "today": now}
+    )
+
+    pdf_file = HTML(string=html_string).write_pdf()
+
+    response = HttpResponse(pdf_file, content_type="application/pdf")
+    filename = f"ClearMoney_Report_{year}_{month:02d}.pdf"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return response

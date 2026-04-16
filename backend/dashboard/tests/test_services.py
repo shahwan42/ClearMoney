@@ -1495,7 +1495,7 @@ def test_load_constraints_populates_health_warnings(svc_data):
 @pytest.mark.django_db
 def test_dashboard_usd_exchange_rate_fallback(svc_data):
     """Test accounts in USD are converted using exchange rate and compute net worth correctly."""
-    usd_acc = AccountFactory(
+    AccountFactory(
         user_id=svc_data["user"].id,
         institution_id=svc_data["inst_id"],
         name="USD Savings",
@@ -1599,6 +1599,7 @@ def test_query_top_categories_empty_this_month(svc_data):
 
 from unittest.mock import patch
 
+
 @pytest.mark.django_db
 def test_compute_credit_card_summaries_metadata(svc_data):
     """Test credit card summary correctly uses billing cycle metadata (lines 89-99)."""
@@ -1613,7 +1614,7 @@ def test_compute_credit_card_summaries_metadata(svc_data):
     with patch("dashboard.services.credit_cards._compute_due_date") as mock_due_date:
         mock_due_date.return_value = today + timedelta(days=3)
         svc._compute_credit_card_summaries(data, accounts)
-    
+
     assert len(data.due_soon_cards) == 1
     assert data.due_soon_cards[0].account_name == "CC EGP"
 
@@ -1633,7 +1634,7 @@ def test_load_people_summary_usd_and_negative_nb(svc_data):
 
     data = DashboardData()
     svc._load_people_summary(data)
-    
+
     assert data.people_i_owe == -100.0
     usd_summary = next(c for c in data.people_by_currency if c.currency == "USD")
     assert usd_summary.owed_to_me == 100.0

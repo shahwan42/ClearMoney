@@ -13,10 +13,19 @@ from reports.services import (
     build_chart_segments as _build_chart_segments,
 )
 from reports.services import (
+    get_category_trends as _get_category_trends,
+)
+from reports.services import (
+    get_insights as _get_insights,
+)
+from reports.services import (
     get_month_summary as _get_month_summary,
 )
 from reports.services import (
     get_monthly_history as _get_monthly_history,
+)
+from reports.services import (
+    get_savings_rate_history as _get_savings_rate_history,
 )
 from reports.services import (
     get_spending_by_category as _get_spending_by_category,
@@ -28,6 +37,133 @@ from tests.factories import (
     TransactionFactory,
     UserFactory,
 )
+
+
+@pytest.mark.django_db
+class TestGetCategoryTrends:
+    """_get_category_trends() — category spending over time."""
+
+    def test_basic_trends(self):
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        category = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
+
+        # Create transactions for 3 months
+        for i in range(3):
+            TransactionFactory(
+                user_id=user.id,
+                account_id=account.id,
+                category_id=category.id,
+                type="expense",
+                amount=Decimal(100 * (i + 1)),
+                currency="EGP",
+                date=datetime.date(2026, 1 + i, 15),
+            )
+
+        trends = _get_category_trends(str(user.id), 2026, 3, months=3)
+        assert len(trends) == 1
+        assert trends[0]["name"] == "Food"
+        assert trends[0]["values"] == [100.0, 200.0, 300.0]
+        assert trends[0]["current"] == 300.0
+        assert trends[0]["average_3m"] == 200.0
+
+
+@pytest.mark.django_db
+class TestGetSavingsRateHistory:
+    """_get_savings_rate_history() — savings rate over time."""
+
+    def test_basic_savings_rate(self):
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+
+        # Jan: 5000 income, 3000 expense -> 40% rate
+        TransactionFactory(
+            user_id=user.id,
+            account_id=account.id,
+            type="income",
+            amount=5000,
+            date=datetime.date(2026, 1, 15),
+        )
+        TransactionFactory(
+            user_id=user.id,
+            account_id=account.id,
+            type="expense",
+            amount=3000,
+            date=datetime.date(2026, 1, 20),
+        )
+
+        history = _get_savings_rate_history(str(user.id), 2026, 1, months=1)
+        assert len(history) == 1
+        assert history[0]["rate"] == 40.0
+
+
+@pytest.mark.django_db
+class TestGetInsights:
+    """_get_insights() — anomalies and growing categories."""
+
+    def test_anomaly_detection(self):
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        category = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
+
+        # Avg = 100, 100. Current = 200. 200 > 1.3 * 133.3...
+        for d in [datetime.date(2026, 1, 1), datetime.date(2026, 2, 1)]:
+            TransactionFactory(
+                user_id=user.id,
+                account_id=account.id,
+                category_id=category.id,
+                type="expense",
+                amount=100,
+                date=d,
+            )
+
+        TransactionFactory(
+            user_id=user.id,
+            account_id=account.id,
+            category_id=category.id,
+            type="expense",
+            amount=250,
+            date=datetime.date(2026, 3, 1),
+        )
+
+        insights = _get_insights(str(user.id), 2026, 3, months=3)
+        assert len(insights["anomalies"]) == 1
+        assert insights["anomalies"][0]["category"] == "Food"
+        assert insights["anomalies"][0]["pct_increase"] > 30
+
+    def test_growing_categories(self):
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        cat1 = CategoryFactory(user_id=user.id, name={"en": "Rent"}, type="expense")
+        cat2 = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
+
+        # Rent: 1000, 1000, 1000 (no growth)
+        # Food: 100, 200, 300 (growth)
+        for i in range(3):
+            TransactionFactory(
+                user_id=user.id,
+                account_id=account.id,
+                category_id=cat1.id,
+                type="expense",
+                amount=1000,
+                date=datetime.date(2026, 1 + i, 1),
+            )
+            TransactionFactory(
+                user_id=user.id,
+                account_id=account.id,
+                category_id=cat2.id,
+                type="expense",
+                amount=100 * (i + 1),
+                date=datetime.date(2026, 1 + i, 1),
+            )
+
+        insights = _get_insights(str(user.id), 2026, 3, months=3)
+        assert len(insights["top_growing"]) >= 1
+        assert insights["top_growing"][0]["name"] == "Food"
 
 
 @pytest.mark.django_db
@@ -43,9 +179,7 @@ class TestGetSpendingByCategory:
     def test_single_category(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(
-            user_id=user.id, institution_id=inst.id, currency="EGP"
-        )
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
         category = CategoryFactory(user_id=user.id, type="expense")
         TransactionFactory(
             user_id=user.id,
@@ -64,13 +198,9 @@ class TestGetSpendingByCategory:
     def test_multiple_categories(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(
-            user_id=user.id, institution_id=inst.id, currency="EGP"
-        )
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
         cat1 = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
-        cat2 = CategoryFactory(
-            user_id=user.id, name={"en": "Transport"}, type="expense"
-        )
+        cat2 = CategoryFactory(user_id=user.id, name={"en": "Transport"}, type="expense")
         TransactionFactory(
             user_id=user.id,
             account_id=account.id,
@@ -96,9 +226,7 @@ class TestGetSpendingByCategory:
     def test_income_excluded(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(
-            user_id=user.id, institution_id=inst.id, currency="EGP"
-        )
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
         cat = CategoryFactory(user_id=user.id, type="income")
         TransactionFactory(
             user_id=user.id,
@@ -115,12 +243,8 @@ class TestGetSpendingByCategory:
     def test_filter_by_currency(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        egp_acc = AccountFactory(
-            user_id=user.id, institution_id=inst.id, currency="EGP"
-        )
-        usd_acc = AccountFactory(
-            user_id=user.id, institution_id=inst.id, currency="USD"
-        )
+        egp_acc = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        usd_acc = AccountFactory(user_id=user.id, institution_id=inst.id, currency="USD")
         cat = CategoryFactory(user_id=user.id, type="expense")
         TransactionFactory(
             user_id=user.id,
@@ -189,9 +313,7 @@ class TestGetMonthSummary:
     def test_income_and_expenses(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(
-            user_id=user.id, institution_id=inst.id, currency="EGP"
-        )
+        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
         exp_cat = CategoryFactory(user_id=user.id, type="expense")
         inc_cat = CategoryFactory(user_id=user.id, type="income")
         TransactionFactory(

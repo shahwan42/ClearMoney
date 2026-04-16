@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "ClearMoney - Manage Tags" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-6 py-4">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'settings' %}" class="p-2 -ms-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" aria-label="{% trans "Back to Settings" %}">
+            <svg class="w-5 h-5 text-gray-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <h2 class="text-xl font-bold text-slate-800 dark:text-white">{% trans "Manage Tags" %}</h2>
+    </div>
+
+    {# Add Tag Form #}
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-4">{% trans "Create New Tag" %}</h3>
+        <form action="{% url 'tag-add' %}" method="POST" class="flex gap-2">
+            {% csrf_token %}
+            <div class="flex-1">
+                <input type="text" name="name" placeholder="{% trans "Tag name (e.g. vacation)" %}" required
+                       class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <input type="color" name="color" value="#64748b" class="w-10 h-10 p-0.5 border border-gray-200 dark:border-slate-600 rounded-lg cursor-pointer">
+            <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                {% trans "Add" %}
+            </button>
+        </form>
+    </section>
+
+    {# Tags List #}
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide p-5 pb-2">{% trans "Your Tags" %}</h3>
+        
+        <div class="divide-y dark:divide-slate-700">
+            {% for tag in tags %}
+            <div class="p-4 flex items-center justify-between group">
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 rounded-full" style="background-color: {{ tag.color }}"></div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ tag.name }}</p>
+                        <p class="text-xs text-gray-500 dark:text-slate-400">
+                            {% blocktrans count count=tag.count %}{{ count }} transaction{% plural %}{{ count }} transactions{% endblocktrans %}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onclick="editTag('{{ tag.id }}', '{{ tag.name }}', '{{ tag.color }}')"
+                            class="p-2 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" title="{% trans "Edit" %}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                    </button>
+                    <form action="{% url 'tag-delete' tag.id %}" method="POST" onsubmit="return confirm('{% trans "Delete this tag? It will be removed from all transactions." %}')">
+                        {% csrf_token %}
+                        <button type="submit" class="p-2 text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" title="{% trans "Delete" %}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-8 text-center">
+                <p class="text-gray-400 dark:text-slate-500">{% trans "You haven't created any tags yet." %}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {# Merge Tags #}
+    {% if tags|length > 1 %}
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-4">{% trans "Merge Tags" %}</h3>
+        <p class="text-xs text-gray-500 dark:text-slate-400 mb-4">{% trans "Merge all transactions from one tag into another." %}</p>
+        <form action="{% url 'tag-merge' %}" method="POST" class="space-y-3">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">{% trans "Source (will be deleted)" %}</label>
+                    <select name="source_id" class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none">
+                        {% for tag in tags %}
+                        <option value="{{ tag.id }}">{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">{% trans "Target (will remain)" %}</label>
+                    <select name="target_id" class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none">
+                        {% for tag in tags %}
+                        <option value="{{ tag.id }}">{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="w-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 py-2 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">
+                {% trans "Merge Tags" %}
+            </button>
+        </form>
+    </section>
+    {% endif %}
+</div>
+
+{# Edit Tag Modal/Dialog (simple overlay) #}
+<div id="edit-tag-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4">{% trans "Edit Tag" %}</h3>
+        <form id="edit-tag-form" method="POST" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name" %}</label>
+                <input type="text" name="name" id="edit-tag-name" required
+                       class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Color" %}</label>
+                <input type="color" name="color" id="edit-tag-color"
+                       class="w-full h-10 p-0.5 border border-gray-200 dark:border-slate-600 rounded-lg cursor-pointer">
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg font-medium transition-colors">
+                    {% trans "Save Changes" %}
+                </button>
+                <button type="button" onclick="closeEditModal()" class="flex-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 py-2 rounded-lg font-medium transition-colors">
+                    {% trans "Cancel" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editTag(id, name, color) {
+    const modal = document.getElementById('edit-tag-modal');
+    const form = document.getElementById('edit-tag-form');
+    const nameInput = document.getElementById('edit-tag-name');
+    const colorInput = document.getElementById('edit-tag-color');
+    
+    form.action = `/settings/tags/${id}/update`;
+    nameInput.value = name;
+    colorInput.value = color;
+    
+    modal.classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-tag-modal').classList.add('hidden');
+}
+</script>
+{% endblock %}

@@ -71,7 +71,7 @@ def load_virtual_accounts(user_id: str) -> list[dict[str, Any]]:
                 "progress_pct": progress,
             }
         )
-    
+
     # Sort to highlight closest-to-goal virtual accounts
     result.sort(key=lambda x: (x["target_amount"] > 0, x["progress_pct"]), reverse=True)
     return result

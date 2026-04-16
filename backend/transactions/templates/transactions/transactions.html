@@ -39,6 +39,14 @@
             </div>
         </div>
 
+        <div>
+            <label class="sr-only" for="filter-tag">{% trans "Filter by tag" %}</label>
+            <input id="filter-tag" type="text" name="tag" placeholder="{% trans "Filter by tag..." %}"
+                   value="{{ data.tag|default:'' }}"
+                   aria-label="{% trans "Filter by tag" %}"
+                   class="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5">
+        </div>
+
         <div class="grid grid-cols-2 gap-2">
             <div>
                 <label class="sr-only" for="date-from">{% trans "From date" %}</label>

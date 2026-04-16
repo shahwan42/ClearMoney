@@ -14,7 +14,9 @@ import pytest
 from accounts.services import AccountService, InstitutionService
 from budgets.services import BudgetService
 from categories.services import CategoryService
+from investments.services import InvestmentService
 from people.services import PersonService
+from recurring.services import RecurringService
 from tests.factories import (
     AccountFactory,
     BudgetFactory,
@@ -30,8 +32,6 @@ from tests.factories import (
 )
 from transactions.services import TransactionService
 from virtual_accounts.services import VirtualAccountService
-from investments.services import InvestmentService
-from recurring.services import RecurringService
 
 TZ = ZoneInfo("Africa/Cairo")
 

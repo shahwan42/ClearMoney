@@ -6,6 +6,7 @@ Like Laravel's DashboardController or Django's TemplateView.
 """
 
 import logging
+from datetime import datetime
 
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -16,6 +17,7 @@ from core.types import AuthenticatedRequest
 
 from .services import DashboardService
 from .services.accounts import get_net_worth_breakdown
+from .services.calendar import CalendarService
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,67 @@ def home(request: AuthenticatedRequest) -> HttpResponse:
     svc = DashboardService(request.user_id, request.tz)
     data = svc.get_dashboard()
     return render(request, "dashboard/home.html", {"data": data})
+
+
+@general_rate
+@require_http_methods(["GET"])
+def calendar_page(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /calendar — monthly view of all financial events."""
+    year_str = request.GET.get("year", "")
+    month_str = request.GET.get("month", "")
+    now = datetime.now(request.tz)
+    year = int(year_str) if year_str.isdigit() else now.year
+    month = int(month_str) if month_str.isdigit() else now.month
+
+    # Clamp month/year
+    if month < 1:
+        month = 12
+        year -= 1
+    elif month > 12:
+        month = 1
+        year += 1
+
+    svc = CalendarService(request.user_id, request.tz)
+    events_by_day = svc.get_month_events(year, month)
+
+    import calendar
+
+    cal = calendar.Calendar(firstweekday=6)  # Sunday start
+    month_days = cal.monthdayscalendar(year, month)
+
+    month_name = datetime(year, month, 1).strftime("%B")
+
+    # Navigation
+    prev_month = month - 1
+    prev_year = year
+    if prev_month == 0:
+        prev_month = 12
+        prev_year -= 1
+
+    next_month = month + 1
+    next_year = year
+    if next_month == 13:
+        next_month = 1
+        next_year += 1
+
+    logger.info("page viewed: calendar, year=%d month=%d", year, month)
+    return render(
+        request,
+        "dashboard/calendar.html",
+        {
+            "calendar_days": events_by_day,
+            "month_days": month_days,
+            "year": year,
+            "month": month,
+            "month_name": month_name,
+            "prev_month": prev_month,
+            "prev_year": prev_year,
+            "next_month": next_month,
+            "next_year": next_year,
+            "active_tab": "dashboard",
+            "today": now.date(),
+        },
+    )
 
 
 @general_rate

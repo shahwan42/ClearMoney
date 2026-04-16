@@ -3,9 +3,9 @@ id: "063"
 title: "Spending insights and trends"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-16
 ---
 
 ## Description

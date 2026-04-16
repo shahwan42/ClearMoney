@@ -348,12 +348,12 @@ class TestDebtSummary:
         from datetime import date, timedelta
         svc = _svc(people_data["user_id"])
         person = svc.create("Payoff")
-        
+
         # Repayments on the same day -> total_days = 0 avoids division by zero
         svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out", tx_date="2026-04-01")
         svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-02")
         svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-02")
-        
+
         summary = svc.get_debt_summary(person["id"])
         assert summary["projected_payoff"] is None
 

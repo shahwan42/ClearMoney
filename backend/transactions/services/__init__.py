@@ -14,9 +14,10 @@ CRITICAL INVARIANTS:
 
 from .activity import StreakInfo, TransactionRow, load_recent_transactions, load_streak
 from .crud import TransactionServiceBase
-from .helpers import HelperMixin
-from .transfers import TransferMixin
 from .csv_import import CsvImportService
+from .helpers import HelperMixin
+from .tags import TagService
+from .transfers import TransferMixin
 from .utils import (
     CREDIT_ACCOUNT_TYPES,
     VALID_TX_TYPES,
@@ -40,6 +41,7 @@ __all__ = [
     "TransactionServiceBase",
     "TransferMixin",
     "HelperMixin",
+    "TagService",
     "VALID_TX_TYPES",
     "CREDIT_ACCOUNT_TYPES",
     "calculate_instapay_fee",

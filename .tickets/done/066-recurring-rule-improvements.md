@@ -3,9 +3,9 @@ id: "066"
 title: "Recurring rule improvements"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-16
 ---
 
 ## Description

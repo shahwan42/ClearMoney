@@ -14,6 +14,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.db.models import F, Q, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
@@ -261,6 +262,7 @@ class AccountService:
         "display_order",
         "metadata",
         "health_config",
+        "last_reconciled_at",
         "created_at",
         "updated_at",
     )
@@ -518,8 +520,9 @@ class AccountService:
                 "category_id": str(t.category_id) if t.category_id else None,
                 "date": t.date,
                 "note": t.note,
-                "tags": t.tags or [],
+                "tags": t.tags.all() if hasattr(t, "tags") else [],
                 "balance_delta": float(t.balance_delta),
+                "is_verified": t.is_verified,
                 "created_at": t.created_at,
                 "account_name": t.account_name,
                 "category_name": t.category_name,
@@ -533,6 +536,63 @@ class AccountService:
             }
             for t in qs
         ]
+
+    def get_unverified_transactions(self, account_id: str) -> list[dict[str, Any]]:
+        """Get all unverified transactions for an account."""
+        qs = (
+            Transaction.objects.filter(
+                user_id=self.user_id, account_id=account_id, is_verified=False
+            )
+            .select_related("account", "category")
+            .annotate(
+                account_name=F("account__name"),
+                category_name=KeyTextTransform("en", "category__name"),
+                category_icon=F("category__icon"),
+            )
+            .order_by("-date", "-created_at")
+        )
+
+        return [
+            {
+                "id": str(t.id),
+                "type": t.type,
+                "amount": float(t.amount),
+                "currency": t.currency,
+                "account_id": str(t.account_id),
+                "category_id": str(t.category_id) if t.category_id else None,
+                "date": t.date,
+                "note": t.note,
+                "tags": t.tags.all() if hasattr(t, "tags") else [],
+                "balance_delta": float(t.balance_delta),
+                "is_verified": t.is_verified,
+                "account_name": t.account_name,
+                "category_name": t.category_name,
+                "category_icon": t.category_icon,
+                "indicator_color": get_tx_indicator_color(t.type),
+                "amount_color_class": get_tx_amount_color_class(
+                    t.type, t.balance_delta
+                ),
+            }
+            for t in qs
+        ]
+
+    def reconcile(self, account_id: str, verified_tx_ids: list[str]) -> None:
+        """Mark transactions as verified and update account's last_reconciled_at."""
+        now = django_tz.now()
+        with transaction.atomic():
+            Transaction.objects.for_user(self.user_id).filter(
+                account_id=account_id, id__in=verified_tx_ids
+            ).update(is_verified=True, updated_at=now)
+
+            self._qs().filter(id=account_id).update(
+                last_reconciled_at=now, updated_at=now
+            )
+        logger.info(
+            "account.reconciled id=%s verified_count=%d user=%s",
+            account_id,
+            len(verified_tx_ids),
+            self.user_id,
+        )
 
     def get_linked_virtual_accounts(self, account_id: str) -> list[dict[str, Any]]:
         """Virtual accounts linked to this bank account (non-archived)."""
@@ -730,6 +790,7 @@ class AccountService:
             display_order=row["display_order"],
             metadata=metadata,
             health_config=health_config,
+            last_reconciled_at=row["last_reconciled_at"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             is_credit_type=is_credit,
@@ -931,11 +992,43 @@ def load_health_warnings(
             acc_id = acc.id
             current_balance = acc.current_balance
             health_config: dict[str, Any] | None = acc.health_config
+            last_reconciled_at = acc.last_reconciled_at
         else:
             acc_name = acc["name"]
             acc_id = acc["id"]
             current_balance = acc["current_balance"]
             health_config = acc.get("health_config")
+            last_reconciled_at = acc.get("last_reconciled_at")
+
+        # Check reconciliation status (30 days)
+        if last_reconciled_at:
+            if isinstance(last_reconciled_at, str):
+                last_reconciled_at = datetime.fromisoformat(
+                    last_reconciled_at.replace("Z", "+00:00")
+                )
+
+            # Normalize to date for comparison if needed, or keep as datetime
+            if (now - last_reconciled_at).days >= 30:
+                warnings.append(
+                    HealthWarning(
+                        account_name=acc_name,
+                        account_id=acc_id,
+                        rule="reconciliation_stale",
+                        message=_("%(name)s has not been reconciled in over 30 days")
+                        % {"name": acc_name},
+                    )
+                )
+        else:
+            # Never reconciled
+            warnings.append(
+                HealthWarning(
+                    account_name=acc_name,
+                    account_id=acc_id,
+                    rule="reconciliation_missing",
+                    message=_("%(name)s has never been reconciled")
+                    % {"name": acc_name},
+                )
+            )
 
         cfg = parse_jsonb(health_config)
         if not cfg:

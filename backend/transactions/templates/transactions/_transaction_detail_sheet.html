@@ -6,119 +6,124 @@ Loaded via HTMX into the tx-detail bottom sheet.
 
 Context:
   tx                   — enriched transaction dict
-  counter_account_name — name of counter account (transfers/exchanges, optional)
-  person_name          — name of linked person (loans, optional)
-  va_name              — virtual account name (if allocated, optional)
+  counter_account_name — destination account (transfers)
+  counter_currency     — destination currency (exchanges)
+  person_name          — borrower/lender (loans)
+  va_name              — linked virtual account
 {% endcomment %}
-<div class="space-y-4 pb-2">
-    {# ── Amount header ── #}
-    <div class="text-center pt-2">
-        <p class="text-2xl font-bold
-            {% if tx.type == 'expense' %}text-red-600 dark:text-red-400
-            {% elif tx.type == 'income' %}text-green-600 dark:text-green-400
-            {% else %}text-blue-600 dark:text-blue-400{% endif %}">
-            {% if tx.type == 'expense' %}-{% elif tx.type == 'income' %}+{% endif %}{{ tx.amount|format_currency:tx.currency }}
+
+<div id="tx-detail-content" class="space-y-6">
+    {# Header: Amount + Type #}
+    <div class="text-center space-y-1">
+        <p class="text-3xl font-bold {{ tx.amount_color_class }}">
+            {% if tx.type == "expense" %}-{% elif tx.type == "income" %}+{% endif %}{{ tx.amount|money_format:tx.currency }}
         </p>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ tx.type|format_type }}</p>
+        <div class="flex items-center justify-center gap-2">
+            <span class="w-2 h-2 rounded-full" style="background-color: {{ tx.indicator_color }}"></span>
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ tx.type|format_type }}</span>
+        </div>
     </div>
 
-    {# ── Detail rows ── #}
-    <dl class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+    {# Detail Grid #}
+    <div class="grid grid-cols-2 gap-y-4 px-2">
+        <div>
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Date & Time" %}</h4>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ tx.date|date:"M j, Y" }}{% if tx.time %} &middot; {{ tx.time }}{% endif %}</p>
+        </div>
+        <div>
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Account" %}</h4>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ tx.account_name }}</p>
+        </div>
+
         {% if tx.category_name %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Category" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200 font-medium">
-                {% if tx.category_icon %}{{ tx.category_icon }} {% endif %}{{ tx.category_name }}
-            </dd>
-        </div>
-        {% endif %}
-
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Account" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ tx.account_name }}</dd>
-        </div>
-
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Date" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200">
-                {{ tx.date|format_date }}{% if tx.time %} · {{ tx.time }}{% endif %}
-            </dd>
-        </div>
-
-        {% if tx.note %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Note" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200">{{ tx.note }}</dd>
-        </div>
-        {% endif %}
-
-        {% if tx.tags %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Tags" %}</dt>
-            <dd class="flex flex-wrap gap-1 justify-end">
-                {% for tag in tx.tags %}
-                <span class="inline-block bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full">{{ tag }}</span>
-                {% endfor %}
-            </dd>
+        <div>
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Category" %}</h4>
+            <div class="flex items-center gap-1.5">
+                {% if tx.category_icon %}<span class="text-sm">{{ tx.category_icon }}</span>{% endif %}
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ tx.category_name }}</p>
+            </div>
         </div>
         {% endif %}
 
         {% if counter_account_name %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">
-                {% if tx.balance_delta < 0 %}{% trans "Transfer to" %}{% else %}{% trans "Transfer from" %}{% endif %}
-            </dt>
-            <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ counter_account_name }}</dd>
+        <div>
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">
+                {% if tx.type == "transfer" %}{% trans "To Account" %}{% else %}{% trans "Exchange To" %}{% endif %}
+            </h4>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ counter_account_name }}</p>
         </div>
         {% endif %}
 
-        {% if tx.exchange_rate %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Exchange rate" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200">{{ tx.exchange_rate }}</dd>
-        </div>
-        {% endif %}
-
-        {% if tx.counter_amount and counter_currency %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Counter amount" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200">{{ tx.counter_amount|format_currency:counter_currency }}</dd>
-        </div>
-        {% endif %}
-
-        {% if tx.fee_amount %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Fee" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200">{{ tx.fee_amount|format_currency:tx.currency }}</dd>
-        </div>
-        {% endif %}
-
-        {% if person_name %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Person" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ person_name }}</dd>
+        {% if tx.person_name or person_name %}
+        <div>
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Person" %}</h4>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ tx.person_name|default:person_name }}</p>
         </div>
         {% endif %}
 
         {% if va_name %}
-        <div class="flex justify-between py-2.5 px-1">
-            <dt class="text-gray-500 dark:text-gray-400">{% trans "Virtual account" %}</dt>
-            <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ va_name }}</dd>
+        <div>
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Linked Goal" %}</h4>
+            <p class="text-sm font-semibold text-teal-600 dark:text-teal-400">{{ va_name }}</p>
         </div>
         {% endif %}
-    </dl>
 
-    {# ── Action buttons ── #}
-    <div class="flex gap-3 pt-2">
-        <button onclick="BottomSheet.close('tx-detail'); setTimeout(function(){ BottomSheet.open('tx-edit', {url: '/transactions/edit/{{ tx.id }}'}); }, 350)"
-                class="flex-1 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors"
+        {% if tx.tags %}
+        <div class="col-span-2">
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">{% trans "Tags" %}</h4>
+            <div class="flex flex-wrap gap-1.5">
+                {% for tag in tx.tags %}
+                <span class="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-full border dark:border-slate-700">#{{ tag }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if tx.note %}
+        <div class="col-span-2">
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Note" %}</h4>
+            <p class="text-sm text-slate-600 dark:text-slate-400">{{ tx.note }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {# Attachment Section #}
+    {% if tx.attachment_url %}
+    <div class="mt-4 pt-4 border-t dark:border-slate-700">
+        <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2">{% trans "Attachment" %}</h4>
+        <div class="relative group px-2">
+            <a href="{{ tx.attachment_url }}" target="_blank" class="block rounded-xl overflow-hidden border dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                {% if tx.attachment_url|lower|endswith:".pdf" %}
+                <div class="py-8 flex flex-col items-center justify-center gap-2">
+                    <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{% trans "View PDF Receipt" %}</span>
+                </div>
+                {% else %}
+                <img src="{{ tx.attachment_url }}" alt="{% trans "Receipt" %}" class="w-full h-auto max-h-64 object-contain">
+                {% endif %}
+            </a>
+            <button hx-post="{% url 'transaction-delete-attachment' tx.id %}"
+                    hx-target="#tx-detail-content"
+                    hx-confirm="{% trans "Remove this attachment?" %}"
+                    class="absolute top-4 right-4 p-2 bg-red-600/80 hover:bg-red-600 text-white rounded-full shadow-lg transition-all opacity-0 group-hover:opacity-100">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Action Buttons #}
+    <div class="grid grid-cols-2 gap-3 pt-2">
+        <button onclick="BottomSheet.close('tx-detail'); BottomSheet.open('tx-edit', {url: '/transactions/{{ tx.id }}/edit-form'})"
+                class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-sm font-semibold transition-colors"
                 aria-label="{% trans "Edit transaction" %}">
             {% trans "Edit" %}
         </button>
-        <button hx-delete="/transactions/{{ tx.id }}" hx-target="#tx-{{ tx.id }}" hx-swap="outerHTML"
-                hx-confirm="{% trans "Delete this transaction?" %}"
-                hx-on::after-request="if(event.detail.successful) BottomSheet.close('tx-detail')"
-                class="flex-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+        <button hx-delete="/transactions/{{ tx.id }}"
+                hx-target="#tx-{{ tx.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="{% trans "Delete this transaction? This cannot be undone." %}"
+                class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 py-2.5 rounded-xl text-sm font-semibold transition-colors"
                 aria-label="{% trans "Delete transaction" %}">
             {% trans "Delete" %}
         </button>

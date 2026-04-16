@@ -282,20 +282,20 @@ class TestRequestAccessLink:
 @pytest.mark.django_db
 class TestRateLimiting:
     """Tests for rate limiting logic: per-email cooldown, daily caps, global caps.
-    
+
     Rate limiting prevents abuse of the magic link endpoint via:
     1. Per-email 5-minute cooldown (1 request per 5 min)
     2. Per-email 3/day limit (max 3 requests per calendar day)
     3. Global 50/day limit (max 50 requests across all emails per day)
     4. Token reuse: unexpired tokens are reused without sending new emails
     5. After expiry, new tokens are generated (not reused)
-    
+
     All times are in UTC. Calendar days reset at 00:00 UTC.
     """
 
     def test_cooldown_blocks_second_request(self, auth_svc: AuthService) -> None:
         """Second request within 5 minutes returns COOLDOWN when token is used.
-        
+
         Scenario:
         - User requests magic link (creates unexpired token)
         - Token is marked as used (e.g., user clicked link or it was consumed)
@@ -331,7 +331,7 @@ class TestRateLimiting:
 
     def test_cooldown_expires_after_5_minutes(self, auth_svc: AuthService) -> None:
         """Request after 5+ minutes succeeds with SENT (cooldown no longer blocks).
-        
+
         Scenario:
         - User requests magic link at T=0 (token created)
         - Token is marked as used
@@ -375,7 +375,7 @@ class TestRateLimiting:
 
     def test_daily_per_email_limit(self, auth_svc: AuthService) -> None:
         """After 3 tokens created in same day, 4th request returns DAILY_LIMIT.
-        
+
         Scenario:
         - Create 3 login tokens for same user on Day 1 (>5 min apart)
         - Request 4th token on Day 1
@@ -403,7 +403,7 @@ class TestRateLimiting:
         with freezegun.freeze_time(now + timedelta(minutes=18)):
             result4, _ = auth_svc.request_login_link(email)
             assert result4 == SendResult.DAILY_LIMIT
-        
+
         # Verify exactly 3 tokens exist for this email on this day
         token_count = AuthToken.objects.filter(
             email=email, purpose="login"
@@ -416,7 +416,7 @@ class TestRateLimiting:
 
     def test_daily_counter_resets_next_day(self, auth_svc: AuthService) -> None:
         """Daily limit resets on next calendar day (UTC midnight).
-        
+
         Scenario:
         - User requests magic link 3 times on Day 1 (each >5 min apart)
         - User requests on Day 2 (after UTC midnight)
@@ -459,7 +459,7 @@ class TestRateLimiting:
 
     def test_global_daily_cap(self, auth_svc: AuthService) -> None:
         """Global daily cap blocks requests when exceeded.
-        
+
         Scenario:
         - Create auth service with global cap of 2 (low for easy testing)
         - Create 2 magic link requests from different emails on same day
@@ -498,12 +498,12 @@ class TestRateLimiting:
         self, auth_svc: AuthService
     ) -> None:
         """Expired token does NOT trigger REUSED; new token generated after cooldown.
-        
+
         Scenario:
         - User requests magic link at T=0, token expires in 1 min
         - User requests at T=2 min: token is expired, but cooldown still blocks (COOLDOWN)
         - User requests at T=5 min+: token is expired AND cooldown expired → SENT
-        
+
         This differs from unexpired token reuse (REUSED).
         The key difference: expired tokens don't trigger REUSED, so they're
         subject to normal cooldown rules.
@@ -515,7 +515,7 @@ class TestRateLimiting:
         # First request — create token with 1-minute TTL
         with freezegun.freeze_time(now):
             # Manually create token with short TTL instead of using service
-            token1 = AuthToken.objects.create(
+            AuthToken.objects.create(
                 email=email,
                 token=secrets.token_urlsafe(32),
                 purpose="login",
