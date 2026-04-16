@@ -787,6 +787,28 @@ class TestTransfer:
                 None,
             )
 
+    def test_tx_date_defaults_to_today(self, tx_data):
+        from datetime import date
+
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        debit, _ = svc.create_transfer(
+            tx_data["egp_id"],
+            str(dest.id),
+            1000,
+            None,
+            None,
+            None,  # tx_date=None
+        )
+        assert str(debit["date"]) == str(date.today())
+
 
 @pytest.mark.django_db
 class TestTransferWithFee:
@@ -939,6 +961,85 @@ class TestInstapayTransfer:
         # Dest: 5000 + 1000 = 6000
         assert _get_balance(dest_id) == 6000
 
+    def test_validation_same_account_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="same account"):
+            svc.create_instapay_transfer(
+                tx_data["egp_id"],
+                tx_data["egp_id"],
+                1000,
+                None,
+                None,
+                None,
+            )
+
+    def test_validation_different_currency_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="same currency"):
+            svc.create_instapay_transfer(
+                tx_data["egp_id"],
+                tx_data["usd_id"],
+                1000,
+                None,
+                None,
+                None,
+            )
+
+    def test_validation_zero_amount_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        with pytest.raises(ValueError, match="positive"):
+            svc.create_instapay_transfer(
+                tx_data["egp_id"],
+                str(dest.id),
+                0,
+                None,
+                None,
+                None,
+            )
+
+    def test_validation_missing_accounts_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="required"):
+            svc.create_instapay_transfer(
+                tx_data["egp_id"],
+                "",
+                1000,
+                None,
+                None,
+                None,
+            )
+
+    def test_tx_date_defaults_to_today(self, tx_data):
+        from datetime import date
+
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        debit, _, _ = svc.create_instapay_transfer(
+            tx_data["egp_id"],
+            str(dest.id),
+            1000,
+            None,
+            None,
+            None,  # tx_date defaults to today
+        )
+        assert str(debit["date"]) == str(date.today())
+
+
 
 # ---------------------------------------------------------------------------
 # Exchange tests
@@ -1073,6 +1174,79 @@ class TestFawryCashout:
                 None,
                 None,
             )
+
+    def test_validation_missing_accounts_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="required"):
+            svc.create_fawry_cashout(
+                tx_data["cc_id"],
+                "",
+                1000,
+                0,
+                None,
+                None,
+                None,
+            )
+
+    def test_validation_same_account_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="different"):
+            svc.create_fawry_cashout(
+                tx_data["cc_id"],
+                tx_data["cc_id"],
+                1000,
+                0,
+                None,
+                None,
+                None,
+            )
+
+    def test_validation_zero_amount_rejected(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        prepaid = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Prepaid",
+            type="prepaid",
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        with pytest.raises(ValueError, match="positive"):
+            svc.create_fawry_cashout(
+                tx_data["cc_id"],
+                str(prepaid.id),
+                0,
+                0,
+                None,
+                None,
+                None,
+            )
+
+    def test_tx_date_defaults_to_today(self, tx_data):
+        from datetime import date
+
+        svc = _svc(tx_data["user_id"])
+        prepaid = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Prepaid",
+            type="prepaid",
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        charge, _ = svc.create_fawry_cashout(
+            tx_data["cc_id"],
+            str(prepaid.id),
+            1000,
+            0,
+            None,
+            None,
+            None,
+        )
+        assert str(charge["date"]) == str(date.today())
+
 
 
 # ---------------------------------------------------------------------------

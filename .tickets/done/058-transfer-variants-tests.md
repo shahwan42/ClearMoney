@@ -3,9 +3,9 @@ id: "058"
 title: "Transfer variant tests: Fawry + InstaPay"
 type: test
 priority: medium
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-16
 ---
 
 ## Description
@@ -14,14 +14,14 @@ updated: 2026-03-31
 
 ## Acceptance Criteria
 
-- [ ] Test `create_fawry_cashout()` happy path — balance updates for both accounts
-- [ ] Test Fawry cashout with invalid account IDs
-- [ ] Test Fawry same-account validation returns error
-- [ ] Test Fawry fee handling
-- [ ] Test InstaPay fee deduction from source account balance
-- [ ] Test `tx_date=None` defaults to `date.today()` (line 67)
-- [ ] transfers.py coverage reaches at least 93%
-- [ ] All existing tests still pass
+- [x] Test `create_fawry_cashout()` happy path — balance updates for both accounts
+- [x] Test Fawry cashout with invalid account IDs
+- [x] Test Fawry same-account validation returns error
+- [x] Test Fawry fee handling
+- [x] Test InstaPay fee deduction from source account balance
+- [x] Test `tx_date=None` defaults to `date.today()` (line 67)
+- [x] transfers.py coverage reaches at least 93%
+- [x] All existing tests still pass
 
 ## Files
 
