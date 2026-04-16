@@ -106,6 +106,10 @@ class TestPersonCRUD:
         assert svc.delete(person["id"]) is True
         assert svc.get_by_id(person["id"]) is None
 
+    def test_update_nonexistent_returns_none(self, people_data):
+        svc = _svc(people_data["user_id"])
+        assert svc.update(str(uuid.uuid4()), "New Name") is None
+
 
 # ---------------------------------------------------------------------------
 # Loan Tests
@@ -162,6 +166,20 @@ class TestRecordLoan:
         person = svc.create("Test")
         with pytest.raises(ValueError, match="type must be loan_out or loan_in"):
             svc.record_loan(person["id"], people_data["egp_id"], 100, "expense")
+
+    def test_account_not_found_raises_value_error(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("AccountMiss")
+        with pytest.raises(ValueError, match="Account not found"):
+            svc.record_loan(person["id"], str(uuid.uuid4()), 100, "loan_out")
+
+    def test_record_loan_date_parsing(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("DateParse")
+        tx = svc.record_loan(
+            person["id"], people_data["egp_id"], 100, "loan_out", tx_date="2026-04-01"
+        )
+        assert str(tx["date"]) == "2026-04-01"
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +241,29 @@ class TestRecordRepayment:
         assert bal["net_balance_egp"] == 0
         assert bal["net_balance"] == 0
 
+    def test_record_repayment_date_parsing(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("RepayDateParse")
+        svc.record_loan(person["id"], people_data["egp_id"], 100, "loan_out")
+        tx = svc.record_repayment(
+            person["id"], people_data["egp_id"], 50, tx_date="2026-04-02"
+        )
+        assert str(tx["date"]) == "2026-04-02"
+
+    def test_person_not_found_raises_value_error(self, people_data):
+        svc = _svc(people_data["user_id"])
+        with pytest.raises(ValueError, match="Person not found"):
+            svc.record_repayment(str(uuid.uuid4()), people_data["egp_id"], 50)
+
+    def test_repayment_direction_zero_balance(self, people_data):
+        """Zero balance -> defaults to 'else' block (money leaves, person delta positive)."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("ZeroBal")
+        svc.record_repayment(person["id"], people_data["usd_id"], 50)
+        bal = _get_person_balance(person["id"])
+        assert bal["net_balance_usd"] == 50
+        assert _get_balance(people_data["usd_id"]) == 450
+
 
 # ---------------------------------------------------------------------------
 # Debt Summary Tests
@@ -283,6 +324,49 @@ class TestDebtSummary:
         # Both transactions present (order: date DESC, created_at DESC)
         types = {tx["type"] for tx in summary["transactions"]}
         assert types == {"loan_out", "loan_repayment"}
+
+    def test_summary_zero_debt(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Zero")
+        summary = svc.get_debt_summary(person["id"])
+        assert summary["total_lent"] == 0
+        assert summary["total_borrowed"] == 0
+        assert summary["total_repaid"] == 0
+        assert summary["progress_pct"] == 0.0
+        assert summary["projected_payoff"] is None
+
+    def test_summary_single_transaction(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Single")
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
+        summary = svc.get_debt_summary(person["id"])
+        assert summary["total_lent"] == 1000
+        assert summary["progress_pct"] == 0.0
+        assert summary["projected_payoff"] is None
+
+    def test_projected_payoff_calculation_and_zero_division(self, people_data):
+        from datetime import date, timedelta
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Payoff")
+        
+        # Repayments on the same day -> total_days = 0 avoids division by zero
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out", tx_date="2026-04-01")
+        svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-02")
+        svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-02")
+        
+        summary = svc.get_debt_summary(person["id"])
+        assert summary["projected_payoff"] is None
+
+        # Add payment on different day to allow calculation
+        svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-04")
+        summary = svc.get_debt_summary(person["id"])
+        # Dates: 04-02, 04-02, 04-04 -> len = 3
+        # total_repaid = 300, avg_repayment = 100
+        # first = 04-02, last = 04-04 -> total_days = 2
+        # avg_interval_days = 2 / 2 = 1.0
+        # remaining = 700, payments_needed = 7.0
+        # days_to_payoff = 7
+        assert summary["projected_payoff"] == date.today() + timedelta(days=7)
 
 
 # ---------------------------------------------------------------------------

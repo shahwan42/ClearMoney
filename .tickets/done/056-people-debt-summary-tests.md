@@ -3,9 +3,9 @@ id: "056"
 title: "People debt summary + repayment tests"
 type: test
 priority: medium
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-16
 ---
 
 ## Description
@@ -14,15 +14,15 @@ updated: 2026-03-31
 
 ## Acceptance Criteria
 
-- [ ] Test debt summary with zero debt (no transactions) — lines 432-490
-- [ ] Test debt summary with single transaction
-- [ ] Test projected payoff avoids division by zero
-- [ ] Test repayment direction logic for positive vs negative balance (line 311)
-- [ ] Test `update()` returns None for nonexistent person (line 172)
-- [ ] Test account-not-found ValueError in loan operations (line 204)
-- [ ] Test date parsing edge cases in loans/repayments (lines 252, 340)
-- [ ] people app coverage reaches at least 92%
-- [ ] All existing tests still pass
+- [x] Test debt summary with zero debt (no transactions) — lines 432-490
+- [x] Test debt summary with single transaction
+- [x] Test projected payoff avoids division by zero
+- [x] Test repayment direction logic for positive vs negative balance (line 311)
+- [x] Test `update()` returns None for nonexistent person (line 172)
+- [x] Test account-not-found ValueError in loan operations (line 204)
+- [x] Test date parsing edge cases in loans/repayments (lines 252, 340)
+- [x] people app coverage reaches at least 92%
+- [x] All existing tests still pass
 
 ## Files
 
@@ -36,3 +36,4 @@ Medium — 6-8 new tests, no code changes needed.
 ## Progress Notes
 
 - 2026-03-31: Created — identified gaps in complex financial math during test coverage analysis
+- 2026-04-16: Completed — Added tests for missing edge cases and division scenarios, coverage is now 96.28%.
