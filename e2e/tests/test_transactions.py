@@ -69,7 +69,7 @@ class TestTransactionCRUD:
         page.goto("/transactions/new")
         page.select_option('select[name="account_id"]', _account_id)
         # Type uses hidden radios (Tailwind peer pattern) — click the visible label div
-        page.click('#type-expense-label')
+        page.select_option('#type-select', 'expense')
         # Category uses a custom combobox — select via its programmatic API
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
@@ -91,7 +91,7 @@ class TestTransactionCRUD:
         category_id = get_category_id("income", _user_id)
         page.goto("/transactions/new")
         page.select_option('select[name="account_id"]', _account_id)
-        page.click('#type-income-label')
+        page.select_option('#type-select', 'income')
         # Category uses a custom combobox — select via its programmatic API
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
@@ -256,7 +256,7 @@ class TestTransactionCRUD:
 
         # Fill and submit form
         page.select_option('select[name="account_id"]', _account_id)
-        page.click('#type-expense-label')
+        page.select_option('#type-select', 'expense')
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
         )
@@ -348,7 +348,7 @@ class TestTransactionCRUD:
         category_id = get_category_id("expense", _user_id)
         page.goto("/transactions/new")
         page.select_option('select[name="account_id"]', _account_id)
-        page.click('#type-expense-label')
+        page.select_option('#type-select', 'expense')
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
         )

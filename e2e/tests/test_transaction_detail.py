@@ -67,7 +67,7 @@ def _open_detail_sheet(page: Page) -> None:
     """Click the first transaction row and wait for sheet content to load."""
     page.locator('[role="button"][id^="tx-"]').first.click()
     # Wait for HTMX to load content into the sheet
-    page.wait_for_selector("#tx-detail-content dl", timeout=5000)
+    page.wait_for_selector("#tx-detail-content h4", timeout=5000)
 
 
 class TestTransactionDetailSheet:
@@ -94,7 +94,7 @@ class TestTransactionDetailSheet:
         _create_test_transaction(page)
         row = page.locator('[role="button"][id^="tx-"]').first
         row.click()
-        page.wait_for_selector("#tx-detail-content dl", timeout=5000)
+        page.wait_for_selector("#tx-detail-content h4", timeout=5000)
         content = page.locator("#tx-detail-content")
         # Click Edit button — closes detail sheet and opens tx-edit sheet
         content.locator("button:has-text('Edit')").click()
@@ -116,7 +116,7 @@ class TestTransactionDetailSheet:
         row = page.locator('[role="button"][id^="tx-"]', has_text="ToDelete").first
         row_id = row.get_attribute("id")
         row.click()
-        page.wait_for_selector("#tx-detail-content dl", timeout=5000)
+        page.wait_for_selector("#tx-detail-content h4", timeout=5000)
         content = page.locator("#tx-detail-content")
         page.on("dialog", lambda d: d.accept())
         content.locator("button:has-text('Delete')").click()

@@ -163,10 +163,13 @@ class TestVirtualAccounts:
         ):
             page.click('button[type="submit"]')
         
-        # 3. Confirm the pending rule
-        # Find the form for confirm and submit it
+        # 3. Navigate back to recurring page to see the pending rule section
+        # (HTMX form submission only updates #recurring-list, not the pending section)
+        page.goto("/recurring")
+
+        # Confirm the pending rule
         with page.expect_response(lambda r: "confirm" in r.url and r.request.method == "POST"):
-            page.click('form[action*="/confirm"] button[type="submit"]')
+            page.click('button:has-text("Confirm")')
             
         # 4. Check VA balance updated
         page.goto("/virtual-accounts")

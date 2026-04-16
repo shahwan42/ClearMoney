@@ -9,7 +9,7 @@
 
     <h2 class="text-lg font-bold text-slate-800 dark:text-white px-2 mb-4">{% trans "New Transaction" %}</h2>
 
-    <form method="POST" action="{% url 'transactions' %}" id="tx-form" enctype="multipart/form-data" class="space-y-4 px-2">
+    <form method="POST" action="{% url 'transactions' %}" id="tx-form" enctype="multipart/form-data" class="space-y-4 px-2" onsubmit="localStorage.removeItem('tx-draft')">
         {% csrf_token %}
 
         <!-- Type Selector (Fieldset for accessibility) -->
@@ -173,7 +173,7 @@
     });
 
     // Simple draft save to local storage
-    const DRAFT_KEY = 'tx_form_draft';
+    const DRAFT_KEY = 'tx-draft';
     function saveDraft() {
         const data = new FormData(txForm);
         const obj = {};
