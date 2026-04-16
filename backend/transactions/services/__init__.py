@@ -16,6 +16,7 @@ from .activity import StreakInfo, TransactionRow, load_recent_transactions, load
 from .crud import TransactionServiceBase
 from .helpers import HelperMixin
 from .transfers import TransferMixin
+from .csv_import import CsvImportService
 from .utils import (
     CREDIT_ACCOUNT_TYPES,
     VALID_TX_TYPES,
@@ -43,6 +44,7 @@ __all__ = [
     "CREDIT_ACCOUNT_TYPES",
     "calculate_instapay_fee",
     "resolve_exchange_fields",
+    "CsvImportService",
     # Activity (extracted from dashboard)
     "TransactionRow",
     "StreakInfo",

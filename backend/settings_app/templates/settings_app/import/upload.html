@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Import Transactions" %} - ClearMoney{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8">
+    <h1 class="text-2xl font-bold mb-6">{% trans "Upload CSV" %}</h1>
+    
+    <div class="bg-surface rounded-xl border border-divider p-6">
+        <form method="POST" enctype="multipart/form-data" action="{% url 'import-upload' %}">
+            {% csrf_token %}
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-text-secondary mb-2">
+                    {% trans "Select CSV file" %} (Max 5MB / 10,000 rows)
+                </label>
+                <input type="file" name="file" accept=".csv" required
+                       class="block w-full text-sm text-text-secondary
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-full file:border-0
+                              file:text-sm file:font-semibold
+                              file:bg-brand file:text-white
+                              hover:file:bg-brand-hover cursor-pointer" />
+            </div>
+
+            <div class="flex justify-end gap-3 text-sm">
+                <a href="{% url 'settings' %}" class="px-4 py-2 rounded-lg font-medium text-text-secondary hover:bg-surface-hover transition-colors">
+                    {% trans "Cancel" %}
+                </a>
+                <button type="submit" class="px-4 py-2 rounded-lg font-medium bg-brand text-white hover:bg-brand-hover transition-colors shadow-sm">
+                    {% trans "Next" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

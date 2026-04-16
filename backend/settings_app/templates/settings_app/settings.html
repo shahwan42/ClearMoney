@@ -78,6 +78,19 @@
         </script>
     </section>
 
+    {# Import — new section mirroring Export #}
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Import Transactions" %}</h3>
+                <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Bulk import from a CSV file" %}</p>
+            </div>
+            <a href="{% url 'import-upload' %}" class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg text-sm font-semibold min-h-[44px] transition-colors">
+                {% trans "Upload CSV" %}
+            </a>
+        </div>
+    </section>
+
     {# Push Notifications — client-side only, requestNotificationPermission() in push.js #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between">

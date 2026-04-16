@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Preview Import" %} - ClearMoney{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <h1 class="text-2xl font-bold mb-2">{% trans "Preview Import" %}</h1>
+    <p class="text-text-secondary mb-6">{% trans "Found" %} {{ total_rows }} {% trans "valid rows" %}. {% trans "Showing up to 50 preview rows." %}</p>
+    
+    {% if errors %}
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
+        <h3 class="text-red-800 dark:text-red-400 font-semibold mb-2">{% trans "Validation Errors (Skipped)" %}</h3>
+        <ul class="list-disc pl-5 text-sm text-red-700 dark:text-red-300">
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if total_duplicates > 0 %}
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 mb-6">
+        <h3 class="text-yellow-800 dark:text-yellow-400 font-semibold">
+            {% trans "Possible Duplicates" %}: {{ total_duplicates }}
+        </h3>
+        <p class="text-sm text-yellow-700 dark:text-yellow-300">
+            {% trans "These transactions appear to already exist in your account. They will still be imported if you proceed." %}
+        </p>
+    </div>
+    {% endif %}
+
+    <div class="bg-surface rounded-xl border border-divider overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-surface-hover/50 text-text-secondary font-medium">
+                    <tr>
+                        <th class="px-4 py-3">Row</th>
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Type</th>
+                        <th class="px-4 py-3">Amount</th>
+                        <th class="px-4 py-3">Note</th>
+                        <th class="px-4 py-3">Auto-Category</th>
+                        <th class="px-4 py-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-divider">
+                    {% for row in parsed %}
+                    <tr class="{% if row.is_duplicate %}bg-yellow-500/10{% endif %}">
+                        <td class="px-4 py-3 text-text-tertiary">#{{ row.row_index }}</td>
+                        <td class="px-4 py-3">{{ row.date }}</td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                {% if row.type == 'income' %}bg-green-500/10 text-green-500
+                                {% else %}bg-red-500/10 text-red-500{% endif %}">
+                                {{ row.type|title }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 font-mono">{{ row.amount }}</td>
+                        <td class="px-4 py-3 truncate max-w-[200px]" title="{{ row.note }}">{{ row.note }}</td>
+                        <td class="px-4 py-3 text-text-tertiary">
+                            {% if row.category_id %}
+                            <span class="inline-block w-2 h-2 rounded-full bg-brand mr-1"></span> {% trans "Matched" %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if row.is_duplicate %}
+                            <span class="text-xs font-medium text-yellow-500">{% trans "Duplicate" %}</span>
+                            {% else %}
+                            <span class="text-xs font-medium text-green-500">{% trans "Ready" %}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <form method="POST" action="{% url 'import-preview' import_id %}">
+        {% csrf_token %}
+        <div class="flex justify-between items-center text-sm">
+            <a href="{% url 'import-upload' %}" class="px-4 py-2 rounded-lg font-medium text-text-secondary hover:bg-surface-hover transition-colors">
+                {% trans "Cancel" %}
+            </a>
+            <button type="submit" class="px-4 py-2 rounded-lg font-medium bg-brand text-white hover:bg-brand-hover transition-colors shadow-sm">
+                {% trans "Confirm Import" %} ({{ total_rows }})
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
