@@ -1439,3 +1439,110 @@ class TestTransactionBoundaryAmounts:
             # Current behavior: float loses precision on large amounts
             # This is the BUG we're fixing
             pass  # Document current float behavior
+
+@pytest.mark.django_db
+class TestAllocateToVirtualAccount:
+    def test_va_not_found(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="Virtual account not found"):
+            svc.allocate_to_virtual_account("00000000-0000-0000-0000-000000000000", "11111111-1111-1111-1111-111111111111", 100)
+
+    def test_tx_not_found(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        va = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=None)
+        with pytest.raises(ValueError, match="Transaction not found"):
+            svc.allocate_to_virtual_account("00000000-0000-0000-0000-000000000000", str(va.id), 100)
+
+    def test_account_linkage_mismatch(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        va = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=tx_data["usd_id"])
+        tx, _ = svc.create({
+            "type": "expense",
+            "amount": 100,
+            "account_id": tx_data["egp_id"]
+        })
+        with pytest.raises(ValueError, match="Virtual account is linked to a different account"):
+            svc.allocate_to_virtual_account(tx["id"], str(va.id), 100)
+
+@pytest.mark.django_db
+class TestDropdownHelpers:
+    def test_get_accounts(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        accounts = svc.get_accounts()
+        assert len(accounts) >= 1
+
+    def test_get_virtual_accounts(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        VirtualAccountFactory(user_id=tx_data["user_id"], name="Test VA")
+        vas = svc.get_virtual_accounts()
+        assert len(vas) >= 1
+
+    def test_get_fees_category_id_missing(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        from categories.models import Category
+        # Remove fees category
+        Category.objects.filter(id=tx_data["fees_cat_id"]).delete()
+        assert svc.get_fees_category_id() is None
+
+    def test_get_categories_with_cat_type(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        cats = svc.get_categories(cat_type="income")
+        assert len(cats) >= 1
+        assert all(c["type"] == "income" for c in cats)
+
+@pytest.mark.django_db
+class TestJSONApiHelpers:
+    def test_get_recent_limit_handling(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        svc.create({"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]})
+        # limit=0 returns 15 implicitly
+        assert len(svc.get_recent(limit=0)) > 0
+        assert len(svc.get_recent(limit=-1)) > 0
+
+    def test_get_by_account_filters(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        svc.create({"type": "expense", "amount": 100, "account_id": tx_data["usd_id"]})
+        res = svc.get_by_account(tx_data["usd_id"])
+        assert len(res) == 1
+        assert res[0]["account_id"] == tx_data["usd_id"]
+        res_limit = svc.get_by_account(tx_data["usd_id"], limit=0)
+        assert len(res_limit) == 1
+
+    def test_dict_from_values(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        import uuid
+        from decimal import Decimal
+        uid = uuid.uuid4()
+        row = {
+            "id": uid,
+            "user_id": uid,
+            "amount": Decimal("100.50"),
+            "tags": ["a", "b"],
+            "currency": "USD"
+        }
+        res = svc._dict_from_values(row)
+        assert res["id"] == str(uid)
+        assert res["user_id"] == str(uid)
+        assert res["amount"] == 100.5
+        assert res["tags"] == ["a", "b"]
+        assert res["currency"] == "USD"
+
+@pytest.mark.django_db
+class TestApplyPostCreateLogic:
+    def test_apply_post_create_logic_with_va(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        # Test basic allocation
+        va = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=tx_data["egp_id"])
+        tx, _ = svc.create({
+            "type": "expense",
+            "amount": 100,
+            "account_id": tx_data["egp_id"]
+        })
+        svc.apply_post_create_logic(tx, fee_amount=25.0, va_id=str(va.id), tx_date=None)
+        
+        # Test reallocation
+        va2 = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=tx_data["egp_id"])
+        svc.apply_post_create_logic(tx, fee_amount=None, va_id=str(va2.id), tx_date=None)
+        
+        # Test explicit deallocation
+        svc.apply_post_create_logic(tx, fee_amount=None, va_id="", tx_date=None)
