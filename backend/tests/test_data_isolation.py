@@ -20,7 +20,9 @@ from tests.factories import (
     BudgetFactory,
     CategoryFactory,
     InstitutionFactory,
+    InvestmentFactory,
     PersonFactory,
+    RecurringRuleFactory,
     SessionFactory,
     TransactionFactory,
     UserFactory,
@@ -28,6 +30,8 @@ from tests.factories import (
 )
 from transactions.services import TransactionService
 from virtual_accounts.services import VirtualAccountService
+from investments.services import InvestmentService
+from recurring.services import RecurringService
 
 TZ = ZoneInfo("Africa/Cairo")
 
@@ -214,3 +218,62 @@ class TestDataIsolation:
         # User B sees none of User A's custom categories
         custom_b = [c for c in cats_b if c["name"].startswith("Custom Cat")]
         assert len(custom_b) == 0
+
+    # gap: data
+    def test_recurring_rules_isolated(self, two_users: dict[str, str]) -> None:
+        """User B cannot see User A's recurring rules."""
+        uid_a = two_users["user_a_id"]
+        uid_b = two_users["user_b_id"]
+
+        RecurringRuleFactory(user_id=uid_a)
+        RecurringRuleFactory(user_id=uid_a)
+
+        svc_a = RecurringService(uid_a, TZ)
+        svc_b = RecurringService(uid_b, TZ)
+
+        assert len(svc_a.get_all()) == 2
+        assert len(svc_b.get_all()) == 0
+
+    # gap: data
+    def test_recurring_rule_by_id_isolated(self, two_users: dict[str, str]) -> None:
+        """User B cannot fetch User A's recurring rule by ID."""
+        uid_a = two_users["user_a_id"]
+        uid_b = two_users["user_b_id"]
+
+        rule = RecurringRuleFactory(user_id=uid_a)
+
+        svc_a = RecurringService(uid_a, TZ)
+        svc_b = RecurringService(uid_b, TZ)
+
+        assert svc_a.get_by_id(str(rule.id)) is not None
+        assert svc_b.get_by_id(str(rule.id)) is None
+
+    # gap: data
+    def test_investments_isolated(self, two_users: dict[str, str]) -> None:
+        """User B cannot see User A's investments."""
+        uid_a = two_users["user_a_id"]
+        uid_b = two_users["user_b_id"]
+
+        InvestmentFactory(user_id=uid_a)
+        InvestmentFactory(user_id=uid_a)
+
+        svc_a = InvestmentService(uid_a, TZ)
+        svc_b = InvestmentService(uid_b, TZ)
+
+        assert len(svc_a.get_all()) == 2
+        assert len(svc_b.get_all()) == 0
+
+    # gap: data
+    def test_investment_by_id_isolated(self, two_users: dict[str, str]) -> None:
+        """User B cannot fetch User A's investment by ID."""
+        uid_a = two_users["user_a_id"]
+        uid_b = two_users["user_b_id"]
+
+        inv = InvestmentFactory(user_id=uid_a)
+
+        svc_a = InvestmentService(uid_a, TZ)
+        svc_b = InvestmentService(uid_b, TZ)
+
+        assert svc_a._qs().filter(id=inv.id).exists() is True
+        assert svc_b._qs().filter(id=inv.id).exists() is False
+
