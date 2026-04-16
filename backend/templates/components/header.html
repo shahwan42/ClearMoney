@@ -3,6 +3,19 @@
 <header class="fixed top-0 start-0 end-0 z-50 bg-slate-900 text-white h-14 flex items-center justify-between px-4 shadow-md">
     <a href="/" class="text-lg font-bold tracking-tight text-white no-underline">{% trans "ClearMoney" %}</a>
     <div class="flex items-center gap-3">
+        <!-- Global search trigger -->
+        <button id="global-search-btn"
+                onclick="GlobalSearch.open()"
+                class="text-slate-300 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="{% trans 'Search transactions' %}"
+                aria-label="{% trans 'Search transactions' %}"
+                aria-expanded="false"
+                aria-controls="global-search-overlay">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+            </svg>
+        </button>
+
         <button id="theme-toggle" onclick="toggleTheme()" class="text-slate-300 hover:text-white text-sm p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="{% trans 'Toggle dark mode' %}" aria-label="{% trans 'Toggle dark mode' %}" aria-pressed="false">🌙</button>
         <a href="/reports" class="text-slate-300 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="{% trans 'Reports' %}" aria-label="{% trans 'Reports' %}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -17,3 +30,113 @@
         </a>
     </div>
 </header>
+
+<!-- -----------------------------------------------------------------------
+     Global Search Overlay
+     Opens when user clicks the 🔍 icon. HTMX fetches /search?q=... with a
+     300ms debounce. Escape closes; Enter navigates the first result.
+     ----------------------------------------------------------------------- -->
+<div id="global-search-overlay"
+     class="hidden fixed inset-0 z-[60] flex flex-col"
+     role="dialog"
+     aria-modal="true"
+     aria-label="{% trans 'Search transactions' %}">
+
+    <!-- Backdrop -->
+    <div id="global-search-backdrop"
+         class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
+         onclick="GlobalSearch.close()">
+    </div>
+
+    <!-- Search panel (slides down from top) -->
+    <div class="relative bg-white dark:bg-slate-800 shadow-2xl w-full max-h-[80vh] flex flex-col"
+         style="border-radius: 0 0 1rem 1rem;">
+
+        <!-- Input row -->
+        <div class="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-slate-700">
+            <svg class="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+            </svg>
+            <input id="global-search-input"
+                   type="search"
+                   name="q"
+                   autocomplete="off"
+                   placeholder="{% trans 'Search by note, amount, or category…' %}"
+                   aria-label="{% trans 'Search transactions' %}"
+                   aria-controls="global-search-results"
+                   aria-autocomplete="list"
+                   class="flex-1 bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 text-sm outline-none min-h-[44px]"
+                   hx-get="/search"
+                   hx-trigger="input changed delay:300ms, search"
+                   hx-target="#global-search-results"
+                   hx-swap="innerHTML"
+                   hx-include="[name='q']">
+            <button type="button"
+                    onclick="GlobalSearch.close()"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    aria-label="{% trans 'Close search' %}">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Results container -->
+        <div id="global-search-results"
+             class="overflow-y-auto flex-1 px-2 py-2"
+             role="listbox"
+             aria-label="{% trans 'Search results' %}">
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * GlobalSearch — controls the header search overlay.
+ *
+ * open()  — shows the overlay and focuses the input.
+ * close() — hides overlay, clears input and results.
+ * Keyboard: Escape → close; Enter → navigate first result.
+ */
+var GlobalSearch = (function () {
+    var overlay, input, results, btn;
+
+    function init() {
+        overlay = document.getElementById('global-search-overlay');
+        input   = document.getElementById('global-search-input');
+        results = document.getElementById('global-search-results');
+        btn     = document.getElementById('global-search-btn');
+    }
+
+    function open() {
+        if (!overlay) init();
+        overlay.classList.remove('hidden');
+        btn && btn.setAttribute('aria-expanded', 'true');
+        // Focus input on next tick so the overlay is visible first
+        setTimeout(function () { input && input.focus(); }, 50);
+        document.addEventListener('keydown', onKey);
+    }
+
+    function close() {
+        if (!overlay) return;
+        overlay.classList.add('hidden');
+        btn && btn.setAttribute('aria-expanded', 'false');
+        if (input) { input.value = ''; }
+        if (results) { results.innerHTML = ''; }
+        document.removeEventListener('keydown', onKey);
+    }
+
+    function onKey(e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            close();
+        } else if (e.key === 'Enter') {
+            // Navigate to first result — the row's onclick fires BottomSheet.open()
+            var firstResult = results && results.querySelector('[role="button"], [onclick]');
+            if (firstResult) { firstResult.click(); close(); }
+        }
+    }
+
+    return { open: open, close: close };
+}());
+</script>

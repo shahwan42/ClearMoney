@@ -16,6 +16,7 @@ from django.utils import timezone as django_tz
 
 from accounts.models import Account
 from categories.models import Category
+from transactions.display import get_tx_amount_color_class, get_tx_indicator_color
 from transactions.models import Transaction, VirtualAccountAllocation
 from virtual_accounts.models import VirtualAccount
 
@@ -407,6 +408,96 @@ class HelperMixin:
             .values(*self._BARE_TX_COLS)[:limit]
         )
         return [self._dict_from_values(r) for r in rows]
+
+    def search(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
+        """Global search across transactions for the current user.
+
+        Matches against:
+        - note (case-insensitive substring)
+        - amount (cast to text, prefix/substring match)
+        - category name in English (case-insensitive substring)
+
+        Uses the same enriched raw-SQL pattern as ``get_filtered_enriched``
+        (window-function running balance, account/category JOIN) so the returned
+        dicts are compatible with ``_transaction_row.html``.
+
+        Args:
+            query: The search string (should be non-empty; caller must strip/validate).
+            limit: Maximum number of results to return (default 20).
+
+        Returns:
+            List of enriched transaction dicts ordered by date DESC, created_at DESC.
+        """
+        from django.db import connection
+
+        stripped = (query or "").strip()
+        if not stripped or limit <= 0:
+            return []
+
+        uid = self.user_id  # type: ignore[attr-defined]
+        pattern = f"%{stripped}%"
+
+        sql = """
+            SELECT sub.id, sub.user_id, sub.type, sub.amount, sub.currency, sub.account_id,
+                sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
+                sub.tags, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
+                sub.fee_account_id, sub.person_id, sub.linked_transaction_id,
+                sub.recurring_rule_id, sub.balance_delta, sub.created_at, sub.updated_at,
+                sub.account_name, sub.category_name, sub.category_icon, sub.running_balance
+            FROM (
+                SELECT t.id, t.user_id, t.type, t.amount, t.currency, t.account_id,
+                    t.counter_account_id, t.category_id, t.date, t.time, t.note,
+                    t.tags, t.exchange_rate, t.counter_amount, t.fee_amount,
+                    t.fee_account_id, t.person_id, t.linked_transaction_id,
+                    t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
+                    a.name AS account_name,
+                    c.name->>'en' AS category_name,
+                    c.icon AS category_icon,
+                    a.current_balance - COALESCE(
+                        SUM(t.balance_delta) OVER (
+                            PARTITION BY t.account_id
+                            ORDER BY t.date DESC, t.created_at DESC
+                            ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                        ), 0
+                    ) AS running_balance
+                FROM transactions t
+                JOIN accounts a ON a.id = t.account_id
+                LEFT JOIN categories c ON c.id = t.category_id
+                WHERE t.user_id = %s
+            ) sub
+            WHERE (
+                sub.note ILIKE %s
+                OR sub.amount::text ILIKE %s
+                OR sub.category_name ILIKE %s
+            )
+            ORDER BY sub.date DESC, sub.created_at DESC
+            LIMIT %s
+        """
+        params = [uid, pattern, pattern, pattern, limit]
+
+        cols = [
+            "id", "user_id", "type", "amount", "currency", "account_id",
+            "counter_account_id", "category_id", "date", "time", "note",
+            "tags", "exchange_rate", "counter_amount", "fee_amount",
+            "fee_account_id", "person_id", "linked_transaction_id",
+            "recurring_rule_id", "balance_delta", "created_at", "updated_at",
+            "account_name", "category_name", "category_icon", "running_balance",
+        ]
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+
+        results = [self._scan_tx_row(row, cols) for row in rows]  # type: ignore[attr-defined]
+        # Annotate with display fields so _transaction_row.html renders correctly
+        from decimal import Decimal
+
+        for tx in results:
+            tx["indicator_color"] = get_tx_indicator_color(tx.get("type", ""))
+            balance_delta_raw = tx.get("balance_delta")
+            bd = Decimal(balance_delta_raw) if balance_delta_raw is not None else None
+            tx["amount_color_class"] = get_tx_amount_color_class(tx.get("type", ""), bd)
+        return results
 
     def get_by_account(self, account_id: str, limit: int = 15) -> list[dict[str, Any]]:
         """Bare transactions for an account, for JSON API."""

@@ -80,6 +80,9 @@ urlpatterns = [
         views.suggest_category,
         name="suggest-category",
     ),
+    # --- Global search ---
+    path("search", views.global_search, name="global-search"),
+
     # --- JSON API routes (static paths before UUID) ---
     path(
         "api/transactions/transfer",

@@ -369,3 +369,42 @@ class TestTransactionCRUD:
         # 10,000 - 500 (expense) - 25 (fee) = 9,475
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("9,475")
+
+
+class TestGlobalSearchE2E:
+    def test_global_search_flow(self, page: Page) -> None:
+        """Verify the global search flow from the header: click icon, type query, see results, click result."""
+        # Create a transaction to search for
+        category_id = get_category_id("expense", _user_id)
+        tx_id = create_transaction(
+            page, _account_id, category_id, "999", "expense", note="Global Search Target"
+        )
+        
+        # Go to Dashboard (which has the header)
+        page.goto("/")
+        
+        # Click the search icon in the header
+        page.click("#global-search-btn")
+        
+        # Search overlay should become visible
+        overlay = page.locator("#global-search-overlay")
+        expect(overlay).not_to_have_class("hidden")
+        
+        # Type into the search input to trigger HTMX request (with debounce)
+        input_loc = page.locator("#global-search-input")
+        input_loc.fill("Search Target")
+        
+        # Wait for HTMX to respond and render results
+        results_container = page.locator("#global-search-results")
+        expect(results_container).to_contain_text("Global Search Target", timeout=5000)
+        
+        # Click the first result
+        first_result = page.locator("#search-result-1 [role='button']")
+        first_result.click()
+        
+        # Detail sheet should be visible containing the transaction info
+        detail_sheet = page.locator("#tx-detail-content")
+        expect(detail_sheet).to_be_visible()
+        expect(detail_sheet).to_contain_text("Global Search Target")
+        expect(detail_sheet).to_contain_text("999")
+

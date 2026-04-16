@@ -623,6 +623,34 @@ def suggest_category(
 
 
 # ---------------------------------------------------------------------------
+# Global Search (Header)
+# ---------------------------------------------------------------------------
+
+
+@inject_service(TransactionService)
+@general_rate
+@require_http_methods(["GET"])
+def global_search(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
+    """GET /search?q=TEXT — HTMX partial for the global header search bar.
+
+    Searches transactions by note, amount, and category name (up to 20 results).
+    Returns an empty partial when ``q`` is blank so the search overlay clears.
+    """
+    q = (request.GET.get("q", "") or "").strip()
+    transactions = svc.search(q) if q else []
+    logger.info("global search: q=%r hits=%d user=%s", q, len(transactions), request.user_email)
+    return render(
+        request,
+        "transactions/_search_results.html",
+        {"transactions": transactions, "query": q},
+    )
+
+
+
+
+# ---------------------------------------------------------------------------
 # Quick Entry Partials (Dashboard Bottom Sheet)
 # ---------------------------------------------------------------------------
 

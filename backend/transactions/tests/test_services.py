@@ -730,6 +730,172 @@ class TestGetFiltered:
         assert results[0]["currency"] == "USD"
 
 
+
+# ---------------------------------------------------------------------------
+# Global search tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestGlobalSearch:
+    """Tests for HelperMixin.search() — global search across note, amount, category."""
+
+    def test_search_by_note_substring(self, tx_data):
+        """Should return transactions whose note contains the query (case-insensitive)."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 150,
+                "account_id": tx_data["egp_id"],
+                "note": "Lunch with colleagues",
+            }
+        )
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 200,
+                "account_id": tx_data["egp_id"],
+                "note": "Grocery run",
+            }
+        )
+        results = svc.search("lunch")
+        assert len(results) == 1
+        assert results[0]["note"] == "Lunch with colleagues"
+
+    def test_search_by_note_case_insensitive(self, tx_data):
+        """Note matching should be case-insensitive."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "note": "TAXI Ride",
+            }
+        )
+        results = svc.search("taxi")
+        assert len(results) == 1
+
+    def test_search_by_amount(self, tx_data):
+        """Should match transactions whose amount string contains the query."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 999,
+                "account_id": tx_data["egp_id"],
+                "note": "Big purchase",
+            }
+        )
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 50,
+                "account_id": tx_data["egp_id"],
+                "note": "Small purchase",
+            }
+        )
+        results = svc.search("999")
+        assert len(results) == 1
+        assert results[0]["note"] == "Big purchase"
+
+    def test_search_by_category_name(self, tx_data):
+        """Should return transactions whose category name contains the query."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 75,
+                "account_id": tx_data["egp_id"],
+                "category_id": tx_data["cat_expense_id"],  # "Food"
+                "note": None,
+            }
+        )
+        svc.create(
+            {
+                "type": "income",
+                "amount": 3000,
+                "account_id": tx_data["egp_id"],
+                "category_id": tx_data["cat_income_id"],  # "Salary"
+            }
+        )
+        results = svc.search("food")
+        assert len(results) == 1
+        assert results[0]["category_name"] == "Food"
+
+    def test_search_empty_query_returns_empty(self, tx_data):
+        """An empty or whitespace-only query must return [] without hitting the DB."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
+        )
+        assert svc.search("") == []
+        assert svc.search("   ") == []
+
+    def test_search_no_match_returns_empty_list(self, tx_data):
+        """A query with no matches should return an empty list."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"], "note": "coffee"}
+        )
+        results = svc.search("zzznomatch")
+        assert results == []
+
+    def test_search_scoped_to_user(self, db):
+        """Results must only contain transactions belonging to the requesting user."""
+        from conftest import SessionFactory, UserFactory
+        from tests.factories import AccountFactory, InstitutionFactory
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        SessionFactory(user=user_a)
+        SessionFactory(user=user_b)
+        inst_a = InstitutionFactory(user_id=user_a.id)
+        inst_b = InstitutionFactory(user_id=user_b.id)
+        acc_a = AccountFactory(user_id=user_a.id, institution_id=inst_a.id, currency="EGP", current_balance=10000, initial_balance=10000)
+        acc_b = AccountFactory(user_id=user_b.id, institution_id=inst_b.id, currency="EGP", current_balance=10000, initial_balance=10000)
+
+        svc_a = _svc(str(user_a.id))
+        svc_b = _svc(str(user_b.id))
+        svc_a.create({"type": "expense", "amount": 111, "account_id": str(acc_a.id), "note": "secret lunch"})
+        svc_b.create({"type": "expense", "amount": 222, "account_id": str(acc_b.id), "note": "secret lunch"})
+
+        results_a = svc_a.search("secret")
+        assert len(results_a) == 1
+        assert results_a[0]["user_id"] == str(user_a.id)
+
+    def test_search_results_have_display_fields(self, tx_data):
+        """Returned dicts must include indicator_color and amount_color_class."""
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {"type": "expense", "amount": 50, "account_id": tx_data["egp_id"], "note": "display check"}
+        )
+        results = svc.search("display check")
+        assert len(results) == 1
+        tx = results[0]
+        assert "indicator_color" in tx
+        assert "amount_color_class" in tx
+        # Expense indicator is red-400
+        assert tx["indicator_color"] == "#f87171"
+        assert tx["amount_color_class"] == "text-red-600"
+
+    def test_search_limit_respected(self, tx_data):
+        """The limit parameter must cap the number of returned results."""
+        svc = _svc(tx_data["user_id"])
+        for i in range(10):
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 100 + i,
+                    "account_id": tx_data["egp_id"],
+                    "note": f"limitcheck {i}",
+                }
+            )
+        results = svc.search("limitcheck", limit=3)
+        assert len(results) == 3
+
+
 # ---------------------------------------------------------------------------
 # Transfer tests
 # ---------------------------------------------------------------------------
