@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-16
+Last updated: 2026-04-17
 
 ## In Progress
 
@@ -62,6 +62,7 @@ Last updated: 2026-04-16
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [116](done/116-deferred-e2e-tests-t063-t067-t068-t070-t071.md) | Deferred E2E tests for T063 T067 T068 T070 T071 | test | medium | 2026-04-17 |
 | [115](done/115-qa-fixes-tickets-063-072.md) | QA fixes for tickets 063-072 | bug | high | 2026-04-16 |
 | [054](done/054-auth-rate-limiting-tests.md) | Auth rate limiting tests | test | high | 2026-04-16 |
 | [050](done/050-move-template-display-logic-to-services.md) | Move template display logic to services | refactor | low | 2026-04-16 |
