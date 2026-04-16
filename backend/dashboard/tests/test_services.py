@@ -1488,3 +1488,152 @@ def test_load_constraints_populates_health_warnings(svc_data):
     svc._load_constraints(data, all_accounts)
     # Health data should be populated
     assert hasattr(data, "health_warnings")
+
+
+# ==================== Edge Cases from Coverage ====================
+
+@pytest.mark.django_db
+def test_dashboard_usd_exchange_rate_fallback(svc_data):
+    """Test accounts in USD are converted using exchange rate and compute net worth correctly."""
+    usd_acc = AccountFactory(
+        user_id=svc_data["user"].id,
+        institution_id=svc_data["inst_id"],
+        name="USD Savings",
+        type="savings",
+        currency="USD",
+        current_balance=100,
+    )
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.0  # exchange rate > 0
+    all_accounts = svc._load_institutions_with_accounts(data)
+
+    # 1. Test load_institutions_with_accounts (line 174)
+    inst = data.institutions[0]
+    # USD Savings (100*50=5000), Savings EGP (10000), CC EGP (-2000)
+    # Total = 5000 + 10000 - 2000 = 13000
+    assert inst.total == pytest.approx(13000.0)
+
+    # 2. Test compute_net_worth exchange rate recalculation (line 225)
+    svc._compute_net_worth(data, all_accounts)
+    assert inst.total == pytest.approx(13000.0)
+
+
+@pytest.mark.django_db
+def test_get_net_worth_breakdown_people_debt_usd(svc_data):
+    """Test get_net_worth_breakdown for debt card includes USD debt from people (line 258)."""
+    PersonFactory(
+        user_id=svc_data["user"].id,
+        name="John Doe",
+        net_balance=-50,
+        net_balance_egp=0,
+        net_balance_usd=-50,
+    )
+    result = get_net_worth_breakdown(str(svc_data["user_id"]), "debt")
+    names = [row["name"] for row in result["accounts"]]
+    assert "John Doe" in names
+    row = next(r for r in result["accounts"] if r["name"] == "John Doe")
+    assert row["currency"] == "USD"
+    assert row["balance"] == -50.0
+
+
+@pytest.mark.django_db
+def test_spending_by_currency_other_than_egp(svc_data):
+    """Test spending by currency ordering works when spending in a non-EGP currency (line 76)."""
+    today = date.today()
+    this_month_start = today.replace(day=1)
+
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=100,
+        currency="EUR",  # Non-EGP currency
+        date=this_month_start,
+        balance_delta=-100,
+    )
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.0
+    svc._compute_spending_comparison(data)
+
+    currencies = [c.currency for c in data.spending_by_currency]
+    assert "EUR" in currencies
+
+
+@pytest.mark.django_db
+def test_query_top_categories_empty_this_month(svc_data):
+    """Test top categories returns empty when no data for this month but called within loop (line 198)."""
+    # Create an expense for LAST month in USD to force loop to run and create empty top categories for USD this month
+    today = date.today()
+    this_month_start = today.replace(day=1)
+    if this_month_start.month == 1:
+        last_month_start = date(this_month_start.year - 1, 12, 1)
+    else:
+        last_month_start = date(this_month_start.year, this_month_start.month - 1, 1)
+
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=50,
+        currency="GBP",
+        date=last_month_start,
+        balance_delta=-50,
+    )
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    data.exchange_rate = 50.0
+    svc._compute_spending_comparison(data)
+
+    gbp = next(c for c in data.spending_by_currency if c.currency == "GBP")
+    assert gbp.this_month == 0.0
+    assert gbp.top_categories == []
+
+
+from unittest.mock import patch
+
+@pytest.mark.django_db
+def test_compute_credit_card_summaries_metadata(svc_data):
+    """Test credit card summary correctly uses billing cycle metadata (lines 89-99)."""
+    Account.objects.filter(id=svc_data["cc_id"]).update(metadata={"statement_day": 5, "due_day": 20})
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    accounts = svc._load_institutions_with_accounts(data)
+
+    today = date.today()
+    with patch("dashboard.services.credit_cards._compute_due_date") as mock_due_date:
+        mock_due_date.return_value = today + timedelta(days=3)
+        svc._compute_credit_card_summaries(data, accounts)
+    
+    assert len(data.due_soon_cards) == 1
+    assert data.due_soon_cards[0].account_name == "CC EGP"
+
+
+@pytest.mark.django_db
+def test_load_people_summary_usd_and_negative_nb(svc_data):
+    """Test load_people_summary logic correctly populates usd.owed_to_me and people_i_owe."""
+    PersonFactory(
+        user_id=svc_data["user"].id,
+        name="USD Debtor",
+        net_balance=-100, # covers nb < 0 (data.people_i_owe += nb)
+        net_balance_egp=0,
+        net_balance_usd=100, # covers nb_usd > 0
+    )
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    svc._load_people_summary(data)
+    
+    assert data.people_i_owe == -100.0
+    usd_summary = next(c for c in data.people_by_currency if c.currency == "USD")
+    assert usd_summary.owed_to_me == 100.0

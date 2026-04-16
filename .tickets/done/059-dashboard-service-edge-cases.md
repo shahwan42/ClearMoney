@@ -3,7 +3,7 @@ id: "059"
 title: "Dashboard service edge case tests"
 type: test
 priority: low
-status: pending
+status: done
 created: 2026-03-31
 updated: 2026-03-31
 ---
@@ -14,14 +14,14 @@ updated: 2026-03-31
 
 ## Acceptance Criteria
 
-- [ ] Test exchange rate fallback: rate=0 or missing rate in `services/accounts.py` (lines 100-108)
-- [ ] Test currency conversion with zero/missing exchange rate (lines 77-84)
-- [ ] Test net worth breakdown for all card type filters (lines 138-200)
-- [ ] Test spending velocity at exact threshold boundaries (services/spending.py lines 143-148)
-- [ ] Test month boundary: December → January transition (spending.py lines 54-64)
-- [ ] Test top categories with no data and all-uncategorized scenarios
-- [ ] dashboard coverage reaches at least 92%
-- [ ] All existing tests still pass
+- [x] Test exchange rate fallback: rate=0 or missing rate in `services/accounts.py` (lines 100-108)
+- [x] Test currency conversion with zero/missing exchange rate (lines 77-84)
+- [x] Test net worth breakdown for all card type filters (lines 138-200)
+- [x] Test spending velocity at exact threshold boundaries (services/spending.py lines 143-148)
+- [x] Test month boundary: December → January transition (spending.py lines 54-64)
+- [x] Test top categories with no data and all-uncategorized scenarios
+- [x] dashboard coverage reaches at least 92%
+- [x] All existing tests still pass
 
 ## Files
 
