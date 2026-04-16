@@ -18,6 +18,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import factory
+from typing import Any
 from django.utils import timezone
 
 from accounts.models import Account, AccountSnapshot, Institution
@@ -140,6 +141,20 @@ class TransactionFactory(factory.django.DjangoModelFactory):
     currency = "EGP"
     date = factory.LazyFunction(lambda: timezone.now().date())
     balance_delta = -100
+
+    @factory.post_generation
+    def tags(self, create: bool, extracted: list[str], **kwargs: Any) -> None:
+        if not create or not extracted:
+            return
+
+        from transactions.models import Tag
+        for name in extracted:
+            tag, _ = Tag.objects.get_or_create(
+                user_id=self.user_id,
+                name=name,
+                defaults={"color": "#64748b"}
+            )
+            self.tags.add(tag)
 
 
 class BudgetFactory(factory.django.DjangoModelFactory):

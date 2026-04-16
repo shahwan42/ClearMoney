@@ -15,7 +15,7 @@ Context:
 <div id="tx-detail-content" class="space-y-6">
     {# Header: Amount + Type #}
     <div class="text-center space-y-1">
-        <p class="text-3xl font-bold {{ tx.amount_color_class }}">
+        <p class="text-3xl font-bold {{ tx.amount_color_class }} {% if tx.type == 'income' %}text-green-600{% endif %}">
             {% if tx.type == "expense" %}-{% elif tx.type == "income" %}+{% endif %}{{ tx.amount|money_format:tx.currency }}
         </p>
         <div class="flex items-center justify-center gap-2">
@@ -26,6 +26,19 @@ Context:
 
     {# Detail Grid #}
     <div class="grid grid-cols-2 gap-y-4 px-2">
+        {% if tx.type == "exchange" and tx.counter_amount and counter_currency %}
+        <div class="col-span-2">
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Counter amount" %}</h4>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ tx.counter_amount|money_format:counter_currency }}</p>
+        </div>
+        {% endif %}
+
+        {% if tx.type == "transfer" and tx.balance_delta|add_float:0 > 0 and counter_account_name %}
+        <div class="col-span-2">
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Transfer from" %}</h4>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ counter_account_name }}</p>
+        </div>
+        {% endif %}
         <div>
             <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Date & Time" %}</h4>
             <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ tx.date|date:"M j, Y" }}{% if tx.time %} &middot; {{ tx.time }}{% endif %}</p>
@@ -114,7 +127,7 @@ Context:
 
     {# Action Buttons #}
     <div class="grid grid-cols-2 gap-3 pt-2">
-        <button onclick="BottomSheet.close('tx-detail'); BottomSheet.open('tx-edit', {url: '/transactions/{{ tx.id }}/edit-form'})"
+        <button onclick="BottomSheet.close('tx-detail'); BottomSheet.open('tx-edit', {url: '/transactions/edit/{{ tx.id }}'})"
                 class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-sm font-semibold transition-colors"
                 aria-label="{% trans "Edit transaction" %}">
             {% trans "Edit" %}

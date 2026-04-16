@@ -72,8 +72,7 @@ class TestAccountReconciliation:
             svc.get_by_id(str(acc3.id)),
         ]
 
-        warnings = load_health_warnings(str(user.id), summaries, ZoneInfo("UTC"))
-
+        warnings = load_health_warnings(str(user.id), summaries, ZoneInfo("UTC"), include_stale_reconciliation=True)
         # Should have warnings for Acc 1 (missing) and Acc 2 (stale)
         warning_rules = [w.rule for w in warnings]
         assert "reconciliation_missing" in warning_rules

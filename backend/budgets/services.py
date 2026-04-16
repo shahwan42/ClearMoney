@@ -350,22 +350,61 @@ class BudgetService:
         count, _ = self._qs().filter(id=budget_id).delete()
         return bool(count > 0)
 
-    def get_total_budget(self, currency: str = "EGP") -> float:
-        """Get the total monthly budget limit for a currency."""
-        row = (
-            TotalBudget.objects.for_user(self.user_id)
-            .filter(currency=currency)
-            .values_list("monthly_limit", flat=True)
-            .first()
+    def get_total_budget(self, currency: str = "EGP") -> dict[str, Any] | None:
+        """Get the total monthly budget limit for a currency with spending stats."""
+        try:
+            budget = (
+                TotalBudget.objects.for_user(self.user_id)
+                .filter(currency=currency, is_active=True)
+                .get()
+            )
+        except ObjectDoesNotExist:
+            return None
+
+        month_start, month_end = self._month_range()
+        limit_amt = Decimal(str(budget.monthly_limit))
+
+        # 1. Total spending this month for this currency (all expense categories)
+        spent = (
+            Transaction.objects.filter(
+                user_id=self.user_id,
+                type="expense",
+                currency=currency,
+                date__gte=month_start,
+                date__lt=month_end,
+            ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))["total"]
+            or Decimal(0)
         )
-        return float(row) if row else 0.0
 
-    def set_total_budget(self, limit: Decimal, currency: str = "EGP") -> None:
+        # 2. Sum of individual category budgets (to check if they exceed total)
+        category_sum = (
+            Budget.objects.filter(
+                user_id=self.user_id, currency=currency, is_active=True
+            ).aggregate(total=Coalesce(Sum("monthly_limit"), Decimal(0)))["total"]
+            or Decimal(0)
+        )
+
+        pct = (float(spent) / float(limit_amt) * 100) if limit_amt > 0 else 0.0
+        status = compute_threshold_status(pct, (80.0, 100.0))
+
+        return {
+            "id": str(budget.id),
+            "monthly_limit": limit_amt,
+            "currency": currency,
+            "spent": spent,
+            "remaining": limit_amt - spent,
+            "percentage": pct,
+            "status": status,
+            "category_sum": category_sum,
+            "category_sum_exceeds": category_sum > limit_amt,
+        }
+
+    def set_total_budget(self, limit: Decimal, currency: str = "EGP") -> dict[str, Any]:
         """Create or update the total monthly budget limit."""
-        if limit < 0:
-            raise ValueError("Total budget limit cannot be negative")
+        if limit <= 0:
+            raise ValueError("Monthly limit must be positive")
 
-        TotalBudget.objects.update_or_create(
+        budget, _ = TotalBudget.objects.update_or_create(
             user_id=self.user_id,
             currency=currency,
             defaults={"monthly_limit": limit, "updated_at": datetime.now()},
@@ -376,6 +415,11 @@ class BudgetService:
             currency,
             self.user_id,
         )
+        return {
+            "id": str(budget.id),
+            "monthly_limit": budget.monthly_limit,
+            "currency": budget.currency,
+        }
 
     def delete_total_budget(self, currency: str = "EGP") -> bool:
         """Remove the total monthly budget limit for a currency."""

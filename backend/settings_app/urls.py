@@ -26,7 +26,11 @@ urlpatterns = [
         views.category_archive,
         name="category-archive",
     ),
-    path("settings/categories/unarchive/<uuid:cat_id>", views.category_unarchive, name="category-unarchive"),
+    path(
+        "settings/categories/<uuid:cat_id>/unarchive",
+        views.category_unarchive,
+        name="category-unarchive",
+    ),
     path("settings/tags", views.tags_page, name="tags_settings"),
     path("settings/tags/add", views.tag_add, name="tag-add"),
     path("settings/tags/<uuid:tag_id>/update", views.tag_update, name="tag-update"),

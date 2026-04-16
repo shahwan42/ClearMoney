@@ -46,9 +46,9 @@ class AccountSummary:
     display_order: int
     metadata: dict | None
     health_config: dict | None
-    last_reconciled_at: object  # datetime
-    created_at: object  # datetime
-    updated_at: object  # datetime
+    last_reconciled_at: object | None = None  # datetime
+    created_at: object | None = None  # datetime
+    updated_at: object | None = None  # datetime
 
 
 @dataclass

@@ -262,7 +262,11 @@ def transaction_detail_sheet(
     if not tx:
         return HttpResponse("Not found", status=404)
 
-    context: dict[str, object] = {"tx": tx}
+    context: dict[str, object] = {
+        "tx": tx,
+        "counter_currency": None,
+        "counter_account_name": None,
+    }
 
     # Counter account name + currency (transfers/exchanges)
     if tx.get("counter_account_id"):
@@ -318,7 +322,11 @@ def transaction_update(
     """PUT /transactions/<id> — update transaction (HTMX inline edit)."""
     # If POST, files are in request.FILES. If PUT, we have to be careful.
     # We'll support both.
-    data_source = request.POST if request.method in ["POST", "PUT"] else QueryDict(request.body)
+    if request.method == "POST":
+        data_source = request.POST
+    else:
+        body = request.body.decode("utf-8") if isinstance(request.body, bytes) else str(request.body)
+        data_source = QueryDict(body)
 
     try:
         data = {
@@ -699,6 +707,42 @@ def quick_entry_form(
             "today": date.today(),
         },
     )
+
+
+@inject_service(TransactionService)
+@general_rate
+@require_http_methods(["GET"])
+def quick_transfer_form(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
+    """GET /transactions/quick-transfer — quick transfer partial."""
+    accounts = svc.get_accounts()
+    logger.info("partial loaded: quick-transfer, user=%s", request.user_email)
+    return render(request, "transactions/_quick_transfer.html", {"accounts": accounts})
+
+
+@inject_service(TransactionService)
+@general_rate
+@require_http_methods(["GET"])
+def quick_exchange_form(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
+    """GET /transactions/quick-exchange — quick exchange partial."""
+    accounts = svc.get_accounts()
+    logger.info("partial loaded: quick-exchange, user=%s", request.user_email)
+    return render(request, "transactions/_quick_exchange.html", {"accounts": accounts})
+
+
+@inject_service(TransactionService)
+@general_rate
+@require_http_methods(["GET"])
+def quick_move_money_form(
+    request: AuthenticatedRequest, svc: TransactionService
+) -> HttpResponse:
+    """GET /transactions/quick-move — quick move-money partial."""
+    virtual_accounts = svc.get_virtual_accounts()
+    logger.info("partial loaded: quick-move, user=%s", request.user_email)
+    return render(request, "transactions/_quick_move_money.html", {"virtual_accounts": virtual_accounts})
 
 
 @inject_service(TransactionService)

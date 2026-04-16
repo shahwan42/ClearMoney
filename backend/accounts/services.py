@@ -19,7 +19,7 @@ from django.db.models import F, Q, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy
 
 from accounts.models import Account, AccountSnapshot, Institution
@@ -79,7 +79,7 @@ def _require_trimmed_name(value: str, field_name: str) -> str:
     """Trim whitespace, raise ValueError if empty."""
     trimmed = value.strip() if value else ""
     if not trimmed:
-        raise ValueError(_("%(field_name)s is required") % {"field_name": field_name})
+        raise ValueError(gettext("%(field_name)s is required") % {"field_name": field_name})
     return trimmed
 
 
@@ -152,7 +152,8 @@ class InstitutionService:
             inst_type = "bank"
         if inst_type not in VALID_INSTITUTION_TYPES:
             raise ValueError(
-                _("invalid institution type: %(type)s") % {"type": inst_type}
+                gettext(
+"invalid institution type: %(type)s") % {"type": inst_type}
             )
 
         inst = Institution.objects.create(
@@ -217,7 +218,8 @@ class InstitutionService:
         name = _require_trimmed_name(name, "institution name")
         if inst_type not in VALID_INSTITUTION_TYPES:
             raise ValueError(
-                _("invalid institution type: %(type)s") % {"type": inst_type}
+                gettext(
+"invalid institution type: %(type)s") % {"type": inst_type}
             )
         row = (
             self._qs()
@@ -333,13 +335,13 @@ class AccountService:
         raw_name = (data.get("name", "") or "").strip()
         institution_id = data.get("institution_id", "")
         if not institution_id:
-            raise ValueError(_("institution_id is required"))
+            raise ValueError(gettext("institution_id is required"))
 
         acc_type = data.get("type", "").strip() if data.get("type") else ""
         if not acc_type:
-            raise ValueError(_("Please select an account type"))
+            raise ValueError(gettext("Please select an account type"))
         if acc_type not in VALID_ACCOUNT_TYPES:
-            raise ValueError(_("Invalid account type: %(type)s") % {"type": acc_type})
+            raise ValueError(gettext("Invalid account type: %(type)s") % {"type": acc_type})
 
         # Auto-generate name from institution + type if left blank
         if raw_name:
@@ -352,16 +354,18 @@ class AccountService:
         currency = data.get("currency", "EGP")
         if currency not in VALID_CURRENCIES:
             raise ValueError(
-                _("invalid currency: %(currency)s") % {"currency": currency}
+                gettext(
+"invalid currency: %(currency)s") % {"currency": currency}
             )
 
         credit_limit = data.get("credit_limit")
         if acc_type in CREDIT_ACCOUNT_TYPES and credit_limit is None:
             raise ValueError(
-                _("credit_limit is required for %(type)s accounts") % {"type": acc_type}
+                gettext(
+"credit_limit is required for %(type)s accounts") % {"type": acc_type}
             )
         if acc_type == "cash" and credit_limit is not None:
-            raise ValueError(_("cash accounts cannot have a credit limit"))
+            raise ValueError(gettext("cash accounts cannot have a credit limit"))
 
         initial_balance = data.get("initial_balance", 0.0)
 
@@ -520,7 +524,7 @@ class AccountService:
                 "category_id": str(t.category_id) if t.category_id else None,
                 "date": t.date,
                 "note": t.note,
-                "tags": t.tags.all() if hasattr(t, "tags") else [],
+                "tags": list(t.tags.all()) if hasattr(t, "tags") else [],
                 "balance_delta": float(t.balance_delta),
                 "is_verified": t.is_verified,
                 "created_at": t.created_at,
@@ -562,7 +566,7 @@ class AccountService:
                 "category_id": str(t.category_id) if t.category_id else None,
                 "date": t.date,
                 "note": t.note,
-                "tags": t.tags.all() if hasattr(t, "tags") else [],
+                "tags": list(t.tags.all()) if hasattr(t, "tags") else [],
                 "balance_delta": float(t.balance_delta),
                 "is_verified": t.is_verified,
                 "account_name": t.account_name,
@@ -804,10 +808,10 @@ class AccountService:
 
 
 def _parse_statement_period(
-    statement_day: int, due_day: int, today: date, period_str: str
+    statement_day: int, due_day: int, t_date: date, period_str: str
 ) -> BillingCycleInfo:
     """Recompute billing cycle info when a specific YYYY-MM period is requested."""
-    info = get_billing_cycle_info(statement_day, due_day, today)
+    info = get_billing_cycle_info(statement_day, due_day, t_date)
     if not period_str:
         return info
     try:
@@ -871,9 +875,9 @@ def _calculate_opening_balance(
     return opening_balance, total_spending, total_payments
 
 
-def _calculate_interest_free_period(period_end: date, today: date) -> tuple[int, bool]:
+def _calculate_interest_free_period(p_end: date, t_date: date) -> tuple[int, bool]:
     """Compute interest-free days remaining and urgency flag."""
-    return interest_free_remaining(period_end, today)
+    return interest_free_remaining(p_end, t_date)
 
 
 def _fetch_payment_history(user_id: str, account_id: str) -> list[dict[str, Any]]:
@@ -970,10 +974,13 @@ def get_statement_data(
 # ============================================================================
 
 
+
+
 def load_health_warnings(
     user_id: str,
     all_accounts: Sequence[AccountSummary | dict[str, Any]],
     tz: ZoneInfo,
+    include_stale_reconciliation: bool = False,
 ) -> list[HealthWarning]:
     """Check account health constraints.
 
@@ -982,8 +989,9 @@ def load_health_warnings(
     """
     warnings: list[HealthWarning] = []
     now = datetime.now(tz)
-    today = now.date()
-    month_start, month_end = month_range(today)
+    t_date = now.date()
+    m_start, _ = month_range(t_date)
+    m_end = (m_start + timedelta(days=32)).replace(day=1)
 
     for acc in all_accounts:
         # Support both AccountSummary and dict[str, Any]
@@ -1000,91 +1008,88 @@ def load_health_warnings(
             health_config = acc.get("health_config")
             last_reconciled_at = acc.get("last_reconciled_at")
 
-        # Check reconciliation status (30 days)
-        if last_reconciled_at:
-            if isinstance(last_reconciled_at, str):
-                last_reconciled_at = datetime.fromisoformat(
-                    last_reconciled_at.replace("Z", "+00:00")
-                )
-
-            # Normalize to date for comparison if needed, or keep as datetime
-            if (now - last_reconciled_at).days >= 30:
-                warnings.append(
-                    HealthWarning(
-                        account_name=acc_name,
-                        account_id=acc_id,
-                        rule="reconciliation_stale",
-                        message=_("%(name)s has not been reconciled in over 30 days")
-                        % {"name": acc_name},
-                    )
-                )
-        else:
-            # Never reconciled
-            warnings.append(
-                HealthWarning(
-                    account_name=acc_name,
-                    account_id=acc_id,
-                    rule="reconciliation_missing",
-                    message=_("%(name)s has never been reconciled")
-                    % {"name": acc_name},
-                )
-            )
-
         cfg = parse_jsonb(health_config)
-        if not cfg:
-            continue
-
-        # Check minimum balance
-        min_balance = cfg.get("min_balance")
-        if min_balance is not None and Decimal(str(current_balance)) < Decimal(
-            str(min_balance)
-        ):
-            warnings.append(
-                HealthWarning(
-                    account_name=acc_name,
-                    account_id=acc_id,
-                    rule="min_balance",
-                    message=_(
-                        "%(name)s balance (%(balance)s) is below minimum (%(min)s)"
-                    )
-                    % {
-                        "name": acc_name,
-                        "balance": f"{Decimal(str(current_balance)):,.2f}",
-                        "min": f"{Decimal(str(min_balance)):,.2f}",
-                    },
-                )
-            )
-
-        # Check minimum monthly deposit
-        min_deposit = cfg.get("min_monthly_deposit")
-        if min_deposit is not None:
-            has_deposit = (
-                Transaction.objects.for_user(user_id)
-                .filter(
-                    account_id=acc_id,
-                    type="income",
-                    amount__gte=Decimal(str(min_deposit)),
-                    date__gte=month_start,
-                    date__lt=month_end,
-                )
-                .exists()
-            )
-
-            if not has_deposit:
+        if cfg:
+            # Check minimum balance
+            min_balance = cfg.get("min_balance")
+            if min_balance is not None and Decimal(str(current_balance)) < Decimal(
+                str(min_balance)
+            ):
                 warnings.append(
                     HealthWarning(
                         account_name=acc_name,
                         account_id=acc_id,
-                        rule="min_monthly_deposit",
-                        message=_(
-                            "%(name)s is missing required monthly deposit (%(min)s)"
+                        rule="min_balance",
+                        message=gettext(
+                            "%(name)s balance (%(balance)s) is below minimum (%(min)s)"
                         )
                         % {
                             "name": acc_name,
-                            "min": f"{Decimal(str(min_deposit)):,.2f}",
+                            "balance": f"{Decimal(str(current_balance)):,.2f}",
+                            "min": f"{Decimal(str(min_balance)):,.2f}",
                         },
                     )
                 )
+
+            # Check minimum monthly deposit
+            min_deposit = cfg.get("min_monthly_deposit")
+            if min_deposit is not None:
+                # Total income for this account this month
+                total_income = (
+                    Transaction.objects.filter(
+                        user_id=user_id,
+                        account_id=acc_id,
+                        type="income",
+                        date__gte=m_start,
+                        date__lt=m_end,
+                    ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))["total"]
+                    or Decimal(0)
+                )
+
+                if total_income < Decimal(str(min_deposit)):
+                    warnings.append(
+                        HealthWarning(
+                            account_name=acc_name,
+                            account_id=acc_id,
+                            rule="min_monthly_deposit",
+                            message=gettext(
+                                "%(name)s is missing required monthly deposit (%(min)s)"
+                            )
+                            % {
+                                "name": acc_name,
+                                "min": f"{Decimal(str(min_deposit)):,.2f}",
+                            },
+                        )
+                    )
+
+        # Check reconciliation status (30 days) - always at the end
+        if include_stale_reconciliation:
+            if not last_reconciled_at:
+                warnings.append(
+                    HealthWarning(
+                        account_name=acc_name,
+                        account_id=acc_id,
+                        rule="reconciliation_missing",
+                        message=gettext("%(name)s has never been reconciled")
+                        % {"name": acc_name},
+                    )
+                )
+            else:
+                if isinstance(last_reconciled_at, str):
+                    last_reconciled_at = datetime.fromisoformat(
+                        last_reconciled_at.replace("Z", "+00:00")
+                    )
+
+                if (now - last_reconciled_at).days >= 30:
+                    warnings.append(
+                        HealthWarning(
+                            account_name=acc_name,
+                            account_id=acc_id,
+                            rule="reconciliation_stale",
+                            message=gettext("%(name)s was last reconciled %(days)d days ago")
+                            % {"name": acc_name, "days": (now - last_reconciled_at).days},
+                        )
+                    )
 
     return warnings
 

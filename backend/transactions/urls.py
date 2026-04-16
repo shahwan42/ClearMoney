@@ -24,9 +24,9 @@ urlpatterns = [
     path("transactions/quick-form", views.quick_entry_form, name="transaction-quick-form"),
     path("transactions/quick-move", views.quick_move_money_form, name="transaction-quick-move"),
     path("transactions/quick-transfer", views.quick_transfer_form, name="transaction-quick-transfer"),
-    path("transactions/quick-exchange", views.quick_exchange_form, name="transaction-quick-exchange"),
+    path("exchange/quick-form", views.quick_exchange_form, name="transaction-quick-exchange"),
     path("transactions/batch", views.batch_create, name="transaction-batch-create"),
-    path("transactions/suggest-category", views.suggest_category, name="suggest-category"),
+    path("api/transactions/suggest-category", views.suggest_category, name="suggest-category"),
     path("transactions/search", views.global_search, name="global-search"),
     path("transactions/quick", views.quick_entry_create, name="transaction-quick-create"),
     # --- Mutation Views ---
@@ -35,9 +35,9 @@ urlpatterns = [
     path("transactions/instapay-transfer", views.instapay_transfer_create),
     path("transactions/fawry-cashout-submit", views.fawry_cashout_create),
     # --- Detail / Edit Views ---
-    path("transactions/<uuid:tx_id>/edit-form", views.transaction_edit_form, name="transaction-edit-form"),
-    path("transactions/<uuid:tx_id>/detail", views.transaction_detail_sheet, name="transaction-detail-sheet"),
-    path("transactions/<uuid:tx_id>/row", views.transaction_row, name="transaction-row"),
+    path("transactions/edit/<uuid:tx_id>", views.transaction_edit_form, name="transaction-edit-form"),
+    path("transactions/detail/<uuid:tx_id>", views.transaction_detail_sheet, name="transaction-detail-sheet"),
+    path("transactions/row/<uuid:tx_id>", views.transaction_row, name="transaction-row"),
     path("transactions/<uuid:tx_id>/delete-attachment", views.transaction_delete_attachment, name="transaction-delete-attachment"),
     path("transactions/<uuid:tx_id>", views.transaction_detail, name="transaction-detail"),
     # --- JSON API ---

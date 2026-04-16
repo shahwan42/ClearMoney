@@ -381,7 +381,7 @@ class DashboardService:
     def _load_health_warnings(
         self, all_accounts: list[dict[str, Any]]
     ) -> list[HealthWarning]:
-        return load_health_warnings(self.user_id, all_accounts, self.tz)
+        return load_health_warnings(self.user_id, all_accounts, self.tz, include_stale_reconciliation=True)
 
     def _load_budgets_with_spending(self) -> list[dict[str, Any]]:
         return load_budgets_with_spending(self.user_id, self.tz)

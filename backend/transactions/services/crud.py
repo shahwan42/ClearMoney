@@ -46,6 +46,23 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         except (AttributeError, ValueError):
             tags = []
 
+    # UI-specific computed properties
+    balance_delta = Decimal(str(tx.balance_delta))
+    if tx.type == "income":
+        amount_color = "text-green-600 dark:text-green-400"
+        indicator_color = "#10b981"  # emerald-500
+    elif tx.type == "expense":
+        amount_color = "text-slate-900 dark:text-white"
+        indicator_color = "#64748b"  # slate-500
+    else:
+        # Transfers/Exchanges
+        if balance_delta < 0:
+            amount_color = "text-slate-900 dark:text-white"
+            indicator_color = "#64748b"
+        else:
+            amount_color = "text-teal-600 dark:text-teal-400"
+            indicator_color = "#0d9488"
+
     return {
         "id": str(tx.id),
         "user_id": str(tx.user_id),
@@ -79,6 +96,8 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         ),
         "balance_delta": str(tx.balance_delta),
         "is_verified": tx.is_verified,
+        "amount_color_class": amount_color,
+        "indicator_color": indicator_color,
         "created_at": tx.created_at,
         "updated_at": tx.updated_at,
     }
