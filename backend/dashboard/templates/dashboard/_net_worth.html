@@ -44,6 +44,9 @@
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
             <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Liquid Cash" %}</p>
             <p class="text-lg font-semibold text-teal-700 dark:text-teal-400">{{ data.cash_total|format_egp }}</p>
+            {% if data.cash_usd != 0 %}
+            <p class="text-sm font-medium text-blue-500">{{ data.cash_usd|format_currency:"USD" }}</p>
+            {% endif %}
         </div>
         <div role="button" tabindex="0" aria-label="View Credit Used breakdown"
              class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"

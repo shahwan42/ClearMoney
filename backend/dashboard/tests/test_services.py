@@ -1980,3 +1980,27 @@ def test_category_velocity_in_dashboard_context(svc_data):
     data = svc.get_dashboard()
     assert "category_velocities" in data
     assert isinstance(data["category_velocities"], list)
+
+
+@pytest.mark.django_db
+def test_liquid_cash_splits_by_currency(svc_data):
+    """Liquid Cash must NOT mix EGP and USD balances (ticket #118)."""
+    from accounts.services import compute_net_worth
+
+    accounts = [
+        {
+            "current_balance": 13300.0,
+            "currency": "EGP",
+            "type": "current",
+            "credit_limit": None,
+        },
+        {
+            "current_balance": 500.0,
+            "currency": "USD",
+            "type": "savings",
+            "credit_limit": None,
+        },
+    ]
+    summary = compute_net_worth(accounts)
+    assert summary.cash_total == pytest.approx(13300.0), "EGP only in cash_total"
+    assert summary.cash_usd == pytest.approx(500.0), "USD in cash_usd"

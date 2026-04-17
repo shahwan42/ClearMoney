@@ -3,9 +3,9 @@ id: "118"
 title: "Bug: Liquid Cash dashboard card sums multi-currency balances without conversion"
 type: bug
 priority: high
-status: pending
+status: done
 created: 2026-04-17
-updated: 2026-04-17
+updated: 2026-04-18
 ---
 
 ## Description
@@ -38,11 +38,11 @@ See: `.tickets/attachments/qa-02-dashboard-with-data.png`
 
 ## Acceptance Criteria
 
-- [ ] Liquid Cash card shows per-currency sub-totals (matching Net Worth card behavior), OR
-- [ ] If only EGP displayed: exclude foreign-currency accounts from the EGP total and add a note, OR
-- [ ] Use the last recorded exchange rate to convert and display the converted EGP equivalent with an asterisk/note about the rate used
-- [ ] The displayed number must never mix raw balances from different currencies
+- [x] Liquid Cash card shows per-currency sub-totals (matching Net Worth card behavior)
+- [x] The displayed number must never mix raw balances from different currencies
 
 ## Progress Notes
 
 - 2026-04-17: Filed during manual QA session (ticket #117). Verified via DB query — USD account balance 500 directly added to EGP total.
+- 2026-04-18: Started — implementing per-currency split (cash_total=EGP only, cash_usd=USD) matching Net Worth card pattern.
+- 2026-04-18: Completed — Added `cash_usd` field to `NetWorthSummary` and `DashboardData`; split `compute_net_worth()` to separate EGP/USD liquid cash; updated `_net_worth.html` to show USD sub-total when non-zero. 1470 tests pass.

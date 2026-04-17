@@ -1158,6 +1158,9 @@ def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
                 # available = limit + balance (balance is negative, so this subtracts debt)
                 summary.credit_avail += limit + balance
         else:
-            summary.cash_total += balance
+            if acc["currency"] == "USD":
+                summary.cash_usd += balance
+            else:
+                summary.cash_total += balance  # EGP (and any other currency)
 
     return summary

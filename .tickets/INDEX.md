@@ -3,6 +3,7 @@
 Last updated: 2026-04-18
 
 
+
 ## In Progress
 
 (none)
@@ -21,7 +22,6 @@ Last updated: 2026-04-18
 | [122](pending/122-form-inputs-missing-maxlength-attributes.md) | Form inputs missing maxlength attributes across multiple pages | bug | low | 2026-04-17 |
 | [120](pending/120-bug-move-money-form-allows-future-dates.md) | Bug: Move Money form allows future dates | bug | medium | 2026-04-17 |
 | [119](pending/119-bug-pdf-export-500-no-user-feedback.md) | Bug: PDF export returns HTTP 500 with no user-facing error | bug | medium | 2026-04-17 |
-| [118](pending/118-bug-liquid-cash-mixes-currencies-no-conversion.md) | Bug: Liquid Cash sums multi-currency balances without conversion | bug | high | 2026-04-17 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [112](pending/112-e2e-tests-notification-center.md) | E2E tests for notification center | test | medium | 2026-04-04 |
 | [111](pending/111-mark-read-mark-all-read.md) | Mark as read + mark all as read | feature | high | 2026-04-04 |
@@ -66,6 +66,7 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [118](done/118-bug-liquid-cash-mixes-currencies-no-conversion.md) | Bug: Liquid Cash sums multi-currency balances without conversion | bug | high | 2026-04-18 |
 | [125](done/125-dead-code-detection-vulture.md) | Add dead code detection with vulture | chore | medium | 2026-04-18 |
 | [123](done/123-rtl-section-headings-untranslated.md) | RTL/Arabic: Dashboard and Settings section headings not translated | bug | medium | 2026-04-17 |
 | [121](done/121-bug-fee-amount-silently-dropped-on-transaction-create.md) | Bug: Fee amount silently dropped when creating transaction — balance not updated correctly | bug | high | 2026-04-18 |

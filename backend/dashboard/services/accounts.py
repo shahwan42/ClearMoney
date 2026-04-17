@@ -212,6 +212,7 @@ def compute_net_worth(data: DashboardData, all_accounts: list[dict[str, Any]]) -
     data.egp_total = summary.egp_total
     data.usd_total = summary.usd_total
     data.cash_total = summary.cash_total
+    data.cash_usd = summary.cash_usd
     data.credit_used = summary.credit_used
     data.credit_avail = summary.credit_avail
     data.debt_total = summary.debt_total

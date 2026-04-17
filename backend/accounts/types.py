@@ -62,7 +62,8 @@ class NetWorthSummary:
     net_worth: float = 0.0
     egp_total: float = 0.0
     usd_total: float = 0.0
-    cash_total: float = 0.0
+    cash_total: float = 0.0  # EGP liquid cash (non-credit, positive balance)
+    cash_usd: float = 0.0  # USD liquid cash (non-credit, positive balance)
     credit_used: float = 0.0
     credit_avail: float = 0.0
     debt_total: float = 0.0
