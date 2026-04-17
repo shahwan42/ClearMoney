@@ -7,6 +7,7 @@ Last updated: 2026-04-18
 
 (none)
 
+
 ## Pending
 
 | ID | Title | Type | Priority | Updated |
@@ -59,6 +60,7 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [125](done/125-dead-code-detection-vulture.md) | Add dead code detection with vulture | chore | medium | 2026-04-18 |
 | [123](done/123-rtl-section-headings-untranslated.md) | RTL/Arabic: Dashboard and Settings section headings not translated | bug | medium | 2026-04-17 |
 | [121](done/121-bug-fee-amount-silently-dropped-on-transaction-create.md) | Bug: Fee amount silently dropped when creating transaction — balance not updated correctly | bug | high | 2026-04-18 |
 | [124](done/124-reconciliation-banners-shown-for-new-accounts.md) | UX: Reconciliation warning banners shown for brand-new accounts | improvement | low | 2026-04-17 |

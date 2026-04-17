@@ -3,7 +3,7 @@
 # Usage: make <target>
 #
 # Like: composer scripts, manage.py commands, or package.json scripts.
-.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check messages compile-messages createsuperuser qa-user qa-login qa-seed qa-teardown qa-reset
+.PHONY: run test test-fast test-e2e lint format dead clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check messages compile-messages createsuperuser qa-user qa-login qa-seed qa-teardown qa-reset
 
 DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable
 
@@ -30,6 +30,10 @@ lint:
 	cd backend && uv run ruff format --check .
 	cd backend && DATABASE_URL="$(DB_URL)" uv run mypy .
 	cd backend && uv run lint-imports
+
+# Detect unused Python code (dead code). Findings require human triage — not wired into lint.
+dead:
+	cd backend && uv run vulture . vulture_whitelist.py --min-confidence 60 --exclude migrations,tests,conftest.py
 
 # Run end-to-end tests using Playwright.
 test-e2e:

@@ -43,6 +43,10 @@ jobs:
         working-directory: backend
         run: uv run lint-imports
 
+      - name: Detect dead code
+        working-directory: backend
+        run: uv run vulture . vulture_whitelist.py --min-confidence 60 --exclude migrations,tests,conftest.py
+
   test:
     runs-on: ubuntu-latest
 
