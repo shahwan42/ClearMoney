@@ -4,6 +4,7 @@ Extracted from reports/views.py. Contains all query logic and chart
 data building for the monthly reports page.
 """
 
+import dataclasses
 import logging
 from datetime import date
 from typing import Any
@@ -14,13 +15,12 @@ from django.db.models import Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import ExtractMonth, ExtractYear
 
+from accounts.services import AccountService, compute_net_worth
 from core.dates import month_range
 from core.monthly import get_month_summary  # re-exported for backward compat
 from core.projection import ProjectionService
 from core.timing import timed
 from transactions.models import Transaction
-from accounts.services import AccountService, compute_net_worth
-import dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +84,11 @@ def get_monthly_report(
 
     # New: Net worth projection
     proj_svc = ProjectionService(user_id, ZoneInfo("UTC"))
-    
+
     # Estimate current net worth from latest summaries
     acc_svc = AccountService(user_id, ZoneInfo("UTC"))
     all_accs = acc_svc.get_all()
-    
+
     # Convert summaries to dicts for compute_net_worth
     acc_dicts = [dataclasses.asdict(a) for a in all_accs]
     nw_summary = compute_net_worth(acc_dicts)
