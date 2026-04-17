@@ -991,6 +991,20 @@ def load_health_warnings(
     m_start, _ = month_range(t_date)
     m_end = (m_start + timedelta(days=32)).replace(day=1)
 
+    # Find which accounts have at least one transaction to avoid noise for new accounts
+    acc_ids = [
+        str(acc.id if isinstance(acc, AccountSummary) else acc["id"])
+        for acc in all_accounts
+    ]
+    accounts_with_tx = set(
+        map(
+            str,
+            Transaction.objects.filter(user_id=user_id, account_id__in=acc_ids)
+            .values_list("account_id", flat=True)
+            .distinct(),
+        )
+    )
+
     for acc in all_accounts:
         # Support both AccountSummary and dict[str, Any]
         if isinstance(acc, AccountSummary):
@@ -999,12 +1013,14 @@ def load_health_warnings(
             current_balance = acc.current_balance
             health_config: dict[str, Any] | None = acc.health_config
             last_reconciled_at = acc.last_reconciled_at
+            acc_created_at = acc.created_at
         else:
             acc_name = acc["name"]
             acc_id = acc["id"]
             current_balance = acc["current_balance"]
             health_config = acc.get("health_config")
             last_reconciled_at = acc.get("last_reconciled_at")
+            acc_created_at = acc.get("created_at")
 
         cfg = parse_jsonb(health_config)
         if cfg:
@@ -1062,15 +1078,30 @@ def load_health_warnings(
         # Check reconciliation status (30 days) - always at the end
         if include_stale_reconciliation:
             if not last_reconciled_at:
-                warnings.append(
-                    HealthWarning(
-                        account_name=acc_name,
-                        account_id=acc_id,
-                        rule="reconciliation_missing",
-                        message=gettext("%(name)s has never been reconciled")
-                        % {"name": acc_name},
+                # Skip banner for accounts created within the last 30 days —
+                # they haven't had time to need reconciliation yet.
+                created_dt = acc_created_at
+                if isinstance(created_dt, str):
+                    created_dt = datetime.fromisoformat(
+                        created_dt.replace("Z", "+00:00")
                     )
+                account_age_days = (
+                    (now - created_dt).days
+                    if isinstance(created_dt, datetime)
+                    else 0  # unknown age → treat as new
                 )
+                if (
+                    account_age_days >= 30 and str(acc_id) in accounts_with_tx
+                ) and account_age_days >= 0:
+                    warnings.append(
+                        HealthWarning(
+                            account_name=acc_name,
+                            account_id=acc_id,
+                            rule="reconciliation_missing",
+                            message=gettext("%(name)s has never been reconciled")
+                            % {"name": acc_name},
+                        )
+                    )
             else:
                 if isinstance(last_reconciled_at, str):
                     last_reconciled_at = datetime.fromisoformat(

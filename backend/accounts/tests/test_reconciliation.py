@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from accounts.models import Account
 from accounts.services import AccountService
 from tests.factories import (
     AccountFactory,
@@ -61,13 +62,17 @@ class TestAccountReconciliation:
         inst = InstitutionFactory(user_id=user.id)
         svc = AccountService(str(user.id), ZoneInfo("UTC"))
 
-        # Account 1: Never reconciled
+        # Account 1: Never reconciled — make it old so the grace period doesn't suppress it
         acc1 = AccountFactory(
             user_id=user.id,
             institution_id=inst.id,
             name="Acc 1",
             last_reconciled_at=None,
         )
+        old_created = datetime.datetime.now(ZoneInfo("UTC")) - datetime.timedelta(
+            days=31
+        )
+        Account.objects.filter(id=acc1.id).update(created_at=old_created)
 
         # Account 2: Reconciled 31 days ago
         old_date = datetime.datetime.now(ZoneInfo("UTC")) - datetime.timedelta(days=31)
@@ -104,3 +109,92 @@ class TestAccountReconciliation:
         assert "reconciliation_stale" in warning_rules
         # Account 1 & 2 only, Account 3 is fine
         assert len(warnings) == 2
+
+    def test_new_account_no_reconciliation_warning(self):
+        """Brand-new accounts (created < 30 days ago) must not show the reconciliation_missing banner."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        svc = AccountService(str(user.id), ZoneInfo("UTC"))
+
+        # New account — created_at defaults to now (auto_now_add)
+        acc = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="New Account",
+            last_reconciled_at=None,
+        )
+
+        from accounts.services import load_health_warnings
+
+        summary = svc.get_by_id(str(acc.id))
+        assert summary is not None
+
+        warnings = load_health_warnings(
+            str(user.id), [summary], ZoneInfo("UTC"), include_stale_reconciliation=True
+        )
+        warning_rules = [w.rule for w in warnings]
+        assert "reconciliation_missing" not in warning_rules
+
+    def test_old_account_shows_reconciliation_warning(self):
+        """Accounts older than 30 days with no reconciliation must still show the banner."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        svc = AccountService(str(user.id), ZoneInfo("UTC"))
+
+        acc = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Old Account",
+            last_reconciled_at=None,
+        )
+        old_created = datetime.datetime.now(ZoneInfo("UTC")) - datetime.timedelta(
+            days=45
+        )
+        Account.objects.filter(id=acc.id).update(created_at=old_created)
+
+        from accounts.services import load_health_warnings
+
+        summary = svc.get_by_id(str(acc.id))
+        assert summary is not None
+
+        # Create a transaction so it's not considered a "new" account with 0 tx
+        from transactions.models import Transaction
+        Transaction.objects.create(
+            user_id=user.id,
+            account_id=acc.id,
+            amount=10,
+            type="expense",
+            date=datetime.date.today(),
+        )
+
+        warnings = load_health_warnings(
+            str(user.id), [summary], ZoneInfo("UTC"), include_stale_reconciliation=True
+        )
+        warning_rules = [w.rule for w in warnings]
+        assert "reconciliation_missing" in warning_rules
+
+    def test_old_account_with_no_transactions_no_warning(self):
+        """Accounts older than 30 days with NO transactions must NOT show the banner."""
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        svc = AccountService(str(user.id), ZoneInfo("UTC"))
+
+        acc = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            name="Old Empty Account",
+            last_reconciled_at=None,
+        )
+        old_created = datetime.datetime.now(ZoneInfo("UTC")) - datetime.timedelta(
+            days=45
+        )
+        Account.objects.filter(id=acc.id).update(created_at=old_created)
+
+        from accounts.services import load_health_warnings
+
+        summary = svc.get_by_id(str(acc.id))
+        warnings = load_health_warnings(
+            str(user.id), [summary], ZoneInfo("UTC"), include_stale_reconciliation=True
+        )
+        warning_rules = [w.rule for w in warnings]
+        assert "reconciliation_missing" not in warning_rules
