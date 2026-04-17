@@ -12,6 +12,12 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [126](pending/126-dead-payment-methods-instapay-fawry.md) | Dead payment methods: create_instapay_transfer, create_fawry_cashout | chore | medium | 2026-04-18 |
+| [127](pending/127-dead-transaction-helper-methods.md) | Dead transaction helper methods: get_fees_category_id, get_recent, get_by_account | chore | low | 2026-04-18 |
+| [128](pending/128-stale-2fa-schema-fields.md) | Stale 2FA schema: pin_hash, session_key, failed_attempts, locked_until on Session model | chore | medium | 2026-04-18 |
+| [129](pending/129-dead-auth-service-request-login-link.md) | Investigate unused auth_app/services.py::request_login_link | chore | medium | 2026-04-18 |
+| [130](pending/130-dead-utility-functions-db-htmx-helpers.md) | Dead utility functions: row_to_dict, rows_to_dicts, success_response, _lookup_account_currency | chore | low | 2026-04-18 |
+| [131](pending/131-dead-model-fields-unimplemented-features.md) | Dead model fields from unimplemented features: rollover_amount, is_system, is_archived, role_tags, etc. | chore | low | 2026-04-18 |
 | [122](pending/122-form-inputs-missing-maxlength-attributes.md) | Form inputs missing maxlength attributes across multiple pages | bug | low | 2026-04-17 |
 | [120](pending/120-bug-move-money-form-allows-future-dates.md) | Bug: Move Money form allows future dates | bug | medium | 2026-04-17 |
 | [119](pending/119-bug-pdf-export-500-no-user-feedback.md) | Bug: PDF export returns HTTP 500 with no user-facing error | bug | medium | 2026-04-17 |
