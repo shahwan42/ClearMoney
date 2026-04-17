@@ -92,6 +92,13 @@ Context:
         </div>
         {% endif %}
 
+        {% if fee_amount %}
+        <div>
+            <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Fee" %}</h4>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ fee_amount|money_format:fee_currency }}</p>
+        </div>
+        {% endif %}
+
         {% if tx.note %}
         <div class="col-span-2">
             <h4 class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">{% trans "Note" %}</h4>

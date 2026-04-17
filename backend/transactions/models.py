@@ -85,17 +85,6 @@ class Transaction(models.Model):
     counter_amount = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
     )
-    fee_amount = models.DecimalField(
-        max_digits=15, decimal_places=2, null=True, blank=True
-    )
-    fee_account = models.ForeignKey(
-        "accounts.Account",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        db_column="fee_account_id",
-        related_name="+",
-    )
     person = models.ForeignKey(
         "people.Person",
         on_delete=models.SET_NULL,

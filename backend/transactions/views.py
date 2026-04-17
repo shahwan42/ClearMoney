@@ -339,6 +339,17 @@ def transaction_detail_sheet(
     if va_alloc:
         context["va_name"] = va_alloc["virtual_account__name"]
 
+    # Linked fee transaction
+    fee_tx = (
+        Transaction.objects.for_user(request.user_id)
+        .filter(linked_transaction_id=str(tx_id), note="Transaction fee")
+        .values("amount", "currency")
+        .first()
+    )
+    if fee_tx:
+        context["fee_amount"] = fee_tx["amount"]
+        context["fee_currency"] = fee_tx["currency"]
+
     logger.info("partial loaded: transaction-detail-sheet, user=%s", request.user_email)
     return render(request, "transactions/_transaction_detail_sheet.html", context)
 

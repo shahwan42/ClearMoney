@@ -341,6 +341,31 @@ class TestCreateWithFee:
         )
         assert fee_tx["currency"] == "USD"
 
+    def test_create_expense_with_fee_deducts_amount_plus_fee(self, tx_data):
+        """End-to-end: create + fee produces correct total balance deduction."""
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 1000,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        fee_tx = svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=50.0, tx_date=date(2026, 3, 15)
+        )
+        # Balance = 10000 - 1000 (expense) - 50 (fee) = 8950
+        assert Decimal(str(_get_balance(tx_data["egp_id"]))) == Decimal("8950")
+        # Fee tx links back to parent
+        assert fee_tx["linked_transaction_id"] == tx["id"]
+        # Parent tx balance_delta is -amount only (fee is its own tx)
+        assert Decimal(tx["balance_delta"]) == Decimal("-1000")
+        # Fee tx balance_delta is -fee
+        assert Decimal(fee_tx["balance_delta"]) == Decimal("-50")
+
 
 @pytest.mark.django_db
 class TestUpdate:

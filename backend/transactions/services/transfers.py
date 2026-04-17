@@ -208,7 +208,6 @@ class TransferMixin:
                 account_id=source_id,
                 counter_account_id=dest_id,
                 note=instapay_note,
-                fee_amount=fee,
                 date=tx_date,
                 balance_delta=-amount,
             )
@@ -450,7 +449,6 @@ class TransferMixin:
                 account_id=credit_card_id,
                 counter_account_id=prepaid_id,
                 category_id=fees_category_id,
-                fee_amount=fee,
                 note=charge_note,
                 date=tx_date,
                 balance_delta=-total_charge,

@@ -351,8 +351,6 @@ class HelperMixin:
         "tags",
         "exchange_rate",
         "counter_amount",
-        "fee_amount",
-        "fee_account_id",
         "person_id",
         "linked_transaction_id",
         "recurring_rule_id",
@@ -375,7 +373,6 @@ class HelperMixin:
                 "account_id",
                 "counter_account_id",
                 "category_id",
-                "fee_account_id",
                 "person_id",
                 "linked_transaction_id",
                 "recurring_rule_id",
@@ -386,7 +383,6 @@ class HelperMixin:
                 "balance_delta",
                 "exchange_rate",
                 "counter_amount",
-                "fee_amount",
             ):
                 val = float(val) if val is not None else None
             elif col == "tags":
@@ -440,8 +436,8 @@ class HelperMixin:
         sql = """
             SELECT sub.id, sub.user_id, sub.type, sub.amount, sub.currency, sub.account_id,
                 sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
-                sub.tags, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
-                sub.fee_account_id, sub.person_id, sub.linked_transaction_id,
+                sub.tags, sub.exchange_rate, sub.counter_amount,
+                sub.person_id, sub.linked_transaction_id,
                 sub.recurring_rule_id, sub.balance_delta, sub.created_at, sub.updated_at,
                 sub.account_name, sub.category_name, sub.category_icon, sub.running_balance
             FROM (
@@ -450,8 +446,8 @@ class HelperMixin:
                     (SELECT ARRAY_AGG(tg.name) FROM tags tg
                      JOIN transactions_tags ttg ON tg.id = ttg.tag_id
                      WHERE ttg.transaction_id = t.id) as tags,
-                    t.exchange_rate, t.counter_amount, t.fee_amount,
-                    t.fee_account_id, t.person_id, t.linked_transaction_id,
+                    t.exchange_rate, t.counter_amount,
+                    t.person_id, t.linked_transaction_id,
                     t.recurring_rule_id, t.balance_delta, t.created_at, t.updated_at,
                     a.name AS account_name,
                     c.name->>'en' AS category_name,
@@ -493,8 +489,6 @@ class HelperMixin:
             "tags",
             "exchange_rate",
             "counter_amount",
-            "fee_amount",
-            "fee_account_id",
             "person_id",
             "linked_transaction_id",
             "recurring_rule_id",

@@ -85,8 +85,6 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         "counter_amount": str(tx.counter_amount)
         if tx.counter_amount is not None
         else None,
-        "fee_amount": str(tx.fee_amount) if tx.fee_amount is not None else None,
-        "fee_account_id": str(tx.fee_account_id) if tx.fee_account_id else None,
         "person_id": str(tx.person_id) if tx.person_id else None,
         "linked_transaction_id": (
             str(tx.linked_transaction_id) if tx.linked_transaction_id else None
@@ -177,7 +175,6 @@ class TransactionServiceBase:
                 "account_id",
                 "counter_account_id",
                 "category_id",
-                "fee_account_id",
                 "person_id",
                 "linked_transaction_id",
                 "recurring_rule_id",
@@ -188,7 +185,6 @@ class TransactionServiceBase:
                 "balance_delta",
                 "exchange_rate",
                 "counter_amount",
-                "fee_amount",
                 "running_balance",
                 "current_balance",
                 "credit_limit",
@@ -443,8 +439,8 @@ class TransactionServiceBase:
                          JOIN transactions_tags ttg ON tg.id = ttg.tag_id
                          WHERE ttg.transaction_id = t.id) as tags,
                         t.attachment,
-                        t.exchange_rate, t.counter_amount, t.fee_amount,
-                        t.fee_account_id, t.person_id, t.linked_transaction_id,
+                        t.exchange_rate, t.counter_amount,
+                        t.person_id, t.linked_transaction_id,
                         t.recurring_rule_id, t.balance_delta, t.is_verified, t.created_at, t.updated_at,
                         a.name AS account_name,
                         c.name->>'en' AS category_name,
@@ -481,8 +477,6 @@ class TransactionServiceBase:
             "attachment",
             "exchange_rate",
             "counter_amount",
-            "fee_amount",
-            "fee_account_id",
             "person_id",
             "linked_transaction_id",
             "recurring_rule_id",
@@ -520,8 +514,8 @@ class TransactionServiceBase:
         query = """
             SELECT sub.id, sub.type, sub.amount, sub.currency, sub.account_id,
                 sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
-                sub.tags, sub.attachment, sub.exchange_rate, sub.counter_amount, sub.fee_amount,
-                sub.fee_account_id, sub.person_id, sub.linked_transaction_id,
+                sub.tags, sub.attachment, sub.exchange_rate, sub.counter_amount,
+                sub.person_id, sub.linked_transaction_id,
                 sub.recurring_rule_id, sub.balance_delta, sub.is_verified, sub.created_at, sub.updated_at,
                 sub.account_name, sub.category_name, sub.category_icon, sub.running_balance
             FROM (
@@ -531,8 +525,8 @@ class TransactionServiceBase:
                      JOIN transactions_tags ttg ON tg.id = ttg.tag_id
                      WHERE ttg.transaction_id = t.id) as tags,
                     t.attachment,
-                    t.exchange_rate, t.counter_amount, t.fee_amount,
-                    t.fee_account_id, t.person_id, t.linked_transaction_id,
+                    t.exchange_rate, t.counter_amount,
+                    t.person_id, t.linked_transaction_id,
                     t.recurring_rule_id, t.balance_delta, t.is_verified, t.created_at, t.updated_at,
                     a.name AS account_name,
                     c.name->>'en' AS category_name,
@@ -620,8 +614,6 @@ class TransactionServiceBase:
             "attachment",
             "exchange_rate",
             "counter_amount",
-            "fee_amount",
-            "fee_account_id",
             "person_id",
             "linked_transaction_id",
             "recurring_rule_id",
