@@ -53,7 +53,9 @@ class Command(BaseCommand):
             name="QA Test Bank",
             defaults={"color": "#10b981"},
         )
-        self.stdout.write(f"  Institution: {inst.name} ({'created' if created else 'exists'})")
+        self.stdout.write(
+            f"  Institution: {inst.name} ({'created' if created else 'exists'})"
+        )
 
         # ── Accounts ─────────────────────────────────────────────────────────
         egp1, _ = Account.objects.get_or_create(
@@ -122,10 +124,12 @@ class Command(BaseCommand):
         salary_id = get_cat("Salary")
 
         if not food_id or not transport_id or not salary_id:
-            self.stdout.write(self.style.WARNING(
-                "  Warning: some categories not found — skipping transactions/budgets. "
-                "Categories are seeded during user registration."
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    "  Warning: some categories not found — skipping transactions/budgets. "
+                    "Categories are seeded during user registration."
+                )
+            )
             return
 
         # ── Transactions ─────────────────────────────────────────────────────
@@ -135,14 +139,42 @@ class Command(BaseCommand):
         )
 
         tx_data = [
-            {"account_id": str(egp1.id), "type": "income", "amount": Decimal("5000.00"),
-             "category_id": salary_id, "note": "Monthly salary April", "date": today, "tags": []},
-            {"account_id": str(egp1.id), "type": "expense", "amount": Decimal("500.00"),
-             "category_id": food_id, "note": "Grocery shopping", "date": today, "tags": []},
-            {"account_id": str(egp1.id), "type": "expense", "amount": Decimal("200.00"),
-             "category_id": transport_id, "note": "Uber rides", "date": today, "tags": []},
-            {"account_id": str(egp1.id), "type": "expense", "amount": Decimal("1000.00"),
-             "category_id": food_id, "note": "Restaurant dinner", "date": today, "tags": []},
+            {
+                "account_id": str(egp1.id),
+                "type": "income",
+                "amount": Decimal("5000.00"),
+                "category_id": salary_id,
+                "note": "Monthly salary April",
+                "date": today,
+                "tags": [],
+            },
+            {
+                "account_id": str(egp1.id),
+                "type": "expense",
+                "amount": Decimal("500.00"),
+                "category_id": food_id,
+                "note": "Grocery shopping",
+                "date": today,
+                "tags": [],
+            },
+            {
+                "account_id": str(egp1.id),
+                "type": "expense",
+                "amount": Decimal("200.00"),
+                "category_id": transport_id,
+                "note": "Uber rides",
+                "date": today,
+                "tags": [],
+            },
+            {
+                "account_id": str(egp1.id),
+                "type": "expense",
+                "amount": Decimal("1000.00"),
+                "category_id": food_id,
+                "note": "Restaurant dinner",
+                "date": today,
+                "tags": [],
+            },
         ]
 
         tx_count = 0
@@ -151,7 +183,9 @@ class Command(BaseCommand):
                 svc.create(data)
                 tx_count += 1
 
-        self.stdout.write(f"  Transactions: {tx_count} created (skipped {len(tx_data) - tx_count} existing)")
+        self.stdout.write(
+            f"  Transactions: {tx_count} created (skipped {len(tx_data) - tx_count} existing)"
+        )
 
         # ── Budgets ───────────────────────────────────────────────────────────
         bsvc = BudgetService(uid, tz)
@@ -176,8 +210,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  Budgets: {budget_count} created")
         self.stdout.write(self.style.SUCCESS(f"\nQA seed complete for {email}"))
         self.stdout.write(
-            f"  → Login: make qa-login EMAIL={email}\n"
-            f"  → App:   http://localhost:8000/"
+            f"  → Login: make qa-login EMAIL={email}\n  → App:   http://localhost:8000/"
         )
 
 

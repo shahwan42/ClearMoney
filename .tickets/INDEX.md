@@ -11,7 +11,6 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [123](pending/123-rtl-section-headings-untranslated.md) | RTL/Arabic: Dashboard and Settings section headings not translated | bug | medium | 2026-04-17 |
 | [122](pending/122-form-inputs-missing-maxlength-attributes.md) | Form inputs missing maxlength attributes across multiple pages | bug | low | 2026-04-17 |
 | [120](pending/120-bug-move-money-form-allows-future-dates.md) | Bug: Move Money form allows future dates | bug | medium | 2026-04-17 |
 | [119](pending/119-bug-pdf-export-500-no-user-feedback.md) | Bug: PDF export returns HTTP 500 with no user-facing error | bug | medium | 2026-04-17 |
@@ -60,6 +59,7 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [123](done/123-rtl-section-headings-untranslated.md) | RTL/Arabic: Dashboard and Settings section headings not translated | bug | medium | 2026-04-17 |
 | [121](done/121-bug-fee-amount-silently-dropped-on-transaction-create.md) | Bug: Fee amount silently dropped when creating transaction — balance not updated correctly | bug | high | 2026-04-18 |
 | [124](done/124-reconciliation-banners-shown-for-new-accounts.md) | UX: Reconciliation warning banners shown for brand-new accounts | improvement | low | 2026-04-17 |
 | [113](done/113-django-admin-setup.md) | Django Admin setup for monitoring and management | feature | high | 2026-04-17 |

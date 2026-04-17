@@ -159,6 +159,7 @@ class TestAccountReconciliation:
 
         # Create a transaction so it's not considered a "new" account with 0 tx
         from transactions.models import Transaction
+
         Transaction.objects.create(
             user_id=user.id,
             account_id=acc.id,
