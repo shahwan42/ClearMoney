@@ -128,7 +128,8 @@ def recurring_calendar(
         calendar_days[day].append(occ)
 
     import calendar
-    cal = calendar.Calendar(firstweekday=6) # Sunday start
+
+    cal = calendar.Calendar(firstweekday=6)  # Sunday start
     month_days = cal.monthdayscalendar(year, month)
 
     month_name = datetime(year, month, 1).strftime("%B")

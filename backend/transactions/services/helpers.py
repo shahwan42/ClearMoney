@@ -479,12 +479,32 @@ class HelperMixin:
         params = [uid, pattern, pattern, pattern, limit]
 
         cols = [
-            "id", "user_id", "type", "amount", "currency", "account_id",
-            "counter_account_id", "category_id", "date", "time", "note",
-            "tags", "exchange_rate", "counter_amount", "fee_amount",
-            "fee_account_id", "person_id", "linked_transaction_id",
-            "recurring_rule_id", "balance_delta", "created_at", "updated_at",
-            "account_name", "category_name", "category_icon", "running_balance",
+            "id",
+            "user_id",
+            "type",
+            "amount",
+            "currency",
+            "account_id",
+            "counter_account_id",
+            "category_id",
+            "date",
+            "time",
+            "note",
+            "tags",
+            "exchange_rate",
+            "counter_amount",
+            "fee_amount",
+            "fee_account_id",
+            "person_id",
+            "linked_transaction_id",
+            "recurring_rule_id",
+            "balance_delta",
+            "created_at",
+            "updated_at",
+            "account_name",
+            "category_name",
+            "category_icon",
+            "running_balance",
         ]
 
         with connection.cursor() as cursor:

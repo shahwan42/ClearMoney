@@ -19,8 +19,7 @@ from django.db.models import F, Q, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
-from django.utils.translation import gettext
-from django.utils.translation import gettext_lazy
+from django.utils.translation import gettext, gettext_lazy
 
 from accounts.models import Account, AccountSnapshot, Institution
 from accounts.types import (
@@ -79,7 +78,9 @@ def _require_trimmed_name(value: str, field_name: str) -> str:
     """Trim whitespace, raise ValueError if empty."""
     trimmed = value.strip() if value else ""
     if not trimmed:
-        raise ValueError(gettext("%(field_name)s is required") % {"field_name": field_name})
+        raise ValueError(
+            gettext("%(field_name)s is required") % {"field_name": field_name}
+        )
     return trimmed
 
 
@@ -152,8 +153,7 @@ class InstitutionService:
             inst_type = "bank"
         if inst_type not in VALID_INSTITUTION_TYPES:
             raise ValueError(
-                gettext(
-"invalid institution type: %(type)s") % {"type": inst_type}
+                gettext("invalid institution type: %(type)s") % {"type": inst_type}
             )
 
         inst = Institution.objects.create(
@@ -218,8 +218,7 @@ class InstitutionService:
         name = _require_trimmed_name(name, "institution name")
         if inst_type not in VALID_INSTITUTION_TYPES:
             raise ValueError(
-                gettext(
-"invalid institution type: %(type)s") % {"type": inst_type}
+                gettext("invalid institution type: %(type)s") % {"type": inst_type}
             )
         row = (
             self._qs()
@@ -341,7 +340,9 @@ class AccountService:
         if not acc_type:
             raise ValueError(gettext("Please select an account type"))
         if acc_type not in VALID_ACCOUNT_TYPES:
-            raise ValueError(gettext("Invalid account type: %(type)s") % {"type": acc_type})
+            raise ValueError(
+                gettext("Invalid account type: %(type)s") % {"type": acc_type}
+            )
 
         # Auto-generate name from institution + type if left blank
         if raw_name:
@@ -354,15 +355,14 @@ class AccountService:
         currency = data.get("currency", "EGP")
         if currency not in VALID_CURRENCIES:
             raise ValueError(
-                gettext(
-"invalid currency: %(currency)s") % {"currency": currency}
+                gettext("invalid currency: %(currency)s") % {"currency": currency}
             )
 
         credit_limit = data.get("credit_limit")
         if acc_type in CREDIT_ACCOUNT_TYPES and credit_limit is None:
             raise ValueError(
-                gettext(
-"credit_limit is required for %(type)s accounts") % {"type": acc_type}
+                gettext("credit_limit is required for %(type)s accounts")
+                % {"type": acc_type}
             )
         if acc_type == "cash" and credit_limit is not None:
             raise ValueError(gettext("cash accounts cannot have a credit limit"))
@@ -974,8 +974,6 @@ def get_statement_data(
 # ============================================================================
 
 
-
-
 def load_health_warnings(
     user_id: str,
     all_accounts: Sequence[AccountSummary | dict[str, Any]],
@@ -1035,16 +1033,15 @@ def load_health_warnings(
             min_deposit = cfg.get("min_monthly_deposit")
             if min_deposit is not None:
                 # Total income for this account this month
-                total_income = (
-                    Transaction.objects.filter(
-                        user_id=user_id,
-                        account_id=acc_id,
-                        type="income",
-                        date__gte=m_start,
-                        date__lt=m_end,
-                    ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))["total"]
-                    or Decimal(0)
-                )
+                total_income = Transaction.objects.filter(
+                    user_id=user_id,
+                    account_id=acc_id,
+                    type="income",
+                    date__gte=m_start,
+                    date__lt=m_end,
+                ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))[
+                    "total"
+                ] or Decimal(0)
 
                 if total_income < Decimal(str(min_deposit)):
                     warnings.append(
@@ -1080,14 +1077,20 @@ def load_health_warnings(
                         last_reconciled_at.replace("Z", "+00:00")
                     )
 
+                assert isinstance(last_reconciled_at, datetime)
                 if (now - last_reconciled_at).days >= 30:
                     warnings.append(
                         HealthWarning(
                             account_name=acc_name,
                             account_id=acc_id,
                             rule="reconciliation_stale",
-                            message=gettext("%(name)s was last reconciled %(days)d days ago")
-                            % {"name": acc_name, "days": (now - last_reconciled_at).days},
+                            message=gettext(
+                                "%(name)s was last reconciled %(days)d days ago"
+                            )
+                            % {
+                                "name": acc_name,
+                                "days": (now - last_reconciled_at).days,
+                            },
                         )
                     )
 

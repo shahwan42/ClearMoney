@@ -40,8 +40,14 @@ urlpatterns = [
     ),
     path("accounts/<uuid:id>/edit", views.account_update, name="account-update"),
     path("accounts/<uuid:id>/delete", views.account_delete, name="account-delete"),
-    path("accounts/<uuid:id>/reconcile", views.reconcile_page, name="account-reconcile"),
-    path("accounts/<uuid:id>/reconcile/submit", views.reconcile_submit, name="account-reconcile-submit"),
+    path(
+        "accounts/<uuid:id>/reconcile", views.reconcile_page, name="account-reconcile"
+    ),
+    path(
+        "accounts/<uuid:id>/reconcile/submit",
+        views.reconcile_submit,
+        name="account-reconcile-submit",
+    ),
     path("accounts/<uuid:id>/dormant", views.toggle_dormant, name="toggle-dormant"),
     path("accounts/<uuid:id>/health", views.health_update, name="health-update"),
     # --- Institutions ---

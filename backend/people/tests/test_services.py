@@ -3,6 +3,7 @@ Person service tests — CRUD, loan/repayment, multi-currency, debt summary.
 """
 
 import uuid
+from datetime import date
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -177,7 +178,11 @@ class TestRecordLoan:
         svc = _svc(people_data["user_id"])
         person = svc.create("DateParse")
         tx = svc.record_loan(
-            person["id"], people_data["egp_id"], 100, "loan_out", tx_date="2026-04-01"
+            person["id"],
+            people_data["egp_id"],
+            100,
+            "loan_out",
+            tx_date=date(2026, 4, 1),
         )
         assert str(tx["date"]) == "2026-04-01"
 
@@ -246,7 +251,7 @@ class TestRecordRepayment:
         person = svc.create("RepayDateParse")
         svc.record_loan(person["id"], people_data["egp_id"], 100, "loan_out")
         tx = svc.record_repayment(
-            person["id"], people_data["egp_id"], 50, tx_date="2026-04-02"
+            person["id"], people_data["egp_id"], 50, tx_date=date(2026, 4, 2)
         )
         assert str(tx["date"]) == "2026-04-02"
 
@@ -329,6 +334,7 @@ class TestDebtSummary:
         svc = _svc(people_data["user_id"])
         person = svc.create("Zero")
         summary = svc.get_debt_summary(person["id"])
+        assert summary is not None
         assert summary["total_lent"] == 0
         assert summary["total_borrowed"] == 0
         assert summary["total_repaid"] == 0
@@ -340,26 +346,42 @@ class TestDebtSummary:
         person = svc.create("Single")
         svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
         summary = svc.get_debt_summary(person["id"])
+        assert summary is not None
         assert summary["total_lent"] == 1000
         assert summary["progress_pct"] == 0.0
         assert summary["projected_payoff"] is None
 
     def test_projected_payoff_calculation_and_zero_division(self, people_data):
         from datetime import date, timedelta
+
         svc = _svc(people_data["user_id"])
         person = svc.create("Payoff")
 
         # Repayments on the same day -> total_days = 0 avoids division by zero
-        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out", tx_date="2026-04-01")
-        svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-02")
-        svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-02")
+        svc.record_loan(
+            person["id"],
+            people_data["egp_id"],
+            1000,
+            "loan_out",
+            tx_date=date(2026, 4, 1),
+        )
+        svc.record_repayment(
+            person["id"], people_data["egp_id"], 100, tx_date=date(2026, 4, 2)
+        )
+        svc.record_repayment(
+            person["id"], people_data["egp_id"], 100, tx_date=date(2026, 4, 2)
+        )
 
         summary = svc.get_debt_summary(person["id"])
+        assert summary is not None
         assert summary["projected_payoff"] is None
 
         # Add payment on different day to allow calculation
-        svc.record_repayment(person["id"], people_data["egp_id"], 100, tx_date="2026-04-04")
+        svc.record_repayment(
+            person["id"], people_data["egp_id"], 100, tx_date=date(2026, 4, 4)
+        )
         summary = svc.get_debt_summary(person["id"])
+        assert summary is not None
         # Dates: 04-02, 04-02, 04-04 -> len = 3
         # total_repaid = 300, avg_repayment = 100
         # first = 04-02, last = 04-04 -> total_days = 2

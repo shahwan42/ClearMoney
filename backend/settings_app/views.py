@@ -104,6 +104,7 @@ def tag_merge(request: AuthenticatedRequest) -> HttpResponse:
 
     return redirect("tags_settings")
 
+
 logger = logging.getLogger(__name__)
 
 

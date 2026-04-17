@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('transactions', '0005_remove_transaction_transaction_tags_and_more'),
+        ("transactions", "0005_remove_transaction_transaction_tags_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='transaction',
-            name='is_verified',
+            model_name="transaction",
+            name="is_verified",
             field=models.BooleanField(db_default=False, default=False),
         ),
     ]

@@ -360,12 +360,12 @@ class TestRateLimiting:
         with freezegun.freeze_time(now + timedelta(minutes=5, seconds=1)):
             result2, _ = auth_svc.request_login_link(email)
             assert result2 == SendResult.SENT
-            token_count = AuthToken.objects.filter(
-                email=email, purpose="login"
-            ).count()
+            token_count = AuthToken.objects.filter(email=email, purpose="login").count()
             assert token_count == 2  # New token created (cooldown expired)
             # Verify they're different tokens
-            tokens = AuthToken.objects.filter(email=email, purpose="login").order_by("created_at")
+            tokens = AuthToken.objects.filter(email=email, purpose="login").order_by(
+                "created_at"
+            )
             assert tokens[0].used is True  # First token was marked used
             assert tokens[1].used is False  # Second token is fresh
 
@@ -390,11 +390,13 @@ class TestRateLimiting:
         for i in range(3):
             with freezegun.freeze_time(now + timedelta(minutes=i * 6)):
                 result, _ = auth_svc.request_login_link(email)
-                assert result == SendResult.SENT, f"Request {i+1} should succeed"
+                assert result == SendResult.SENT, f"Request {i + 1} should succeed"
                 # Immediately mark as used so next request doesn't reuse it
-                token = AuthToken.objects.filter(
-                    email=email, purpose="login"
-                ).order_by("-created_at").first()
+                token = (
+                    AuthToken.objects.filter(email=email, purpose="login")
+                    .order_by("-created_at")
+                    .first()
+                )
                 if token:
                     token.used = True
                     token.save(update_fields=["used"])
@@ -405,9 +407,7 @@ class TestRateLimiting:
             assert result4 == SendResult.DAILY_LIMIT
 
         # Verify exactly 3 tokens exist for this email on this day
-        token_count = AuthToken.objects.filter(
-            email=email, purpose="login"
-        ).count()
+        token_count = AuthToken.objects.filter(email=email, purpose="login").count()
         assert token_count == 3
 
         # Cleanup
@@ -433,9 +433,12 @@ class TestRateLimiting:
                 result, _ = auth_svc.request_login_link(email)
                 assert result == SendResult.SENT
                 # Mark as used so next request doesn't reuse it
-                token = AuthToken.objects.filter(
-                    email=email, purpose="login"
-                ).order_by("-created_at").first()
+                token = (
+                    AuthToken.objects.filter(email=email, purpose="login")
+                    .order_by("-created_at")
+                    .first()
+                )
+                assert token is not None
                 token.used = True
                 token.save()
 
@@ -448,9 +451,7 @@ class TestRateLimiting:
         with freezegun.freeze_time(day2 + timedelta(hours=1)):
             result, _ = auth_svc.request_login_link(email)
             assert result == SendResult.SENT  # New day, counter reset
-            token_count = AuthToken.objects.filter(
-                email=email, purpose="login"
-            ).count()
+            token_count = AuthToken.objects.filter(email=email, purpose="login").count()
             assert token_count == 4  # 3 from day 1 + 1 from day 2
 
         # Cleanup
@@ -466,9 +467,7 @@ class TestRateLimiting:
         - Request 3 should return GLOBAL_CAP
         """
         # Create auth service with very low global cap for testing
-        low_cap_svc = AuthService(
-            email_service=auth_svc.email_svc, max_daily_emails=2
-        )
+        low_cap_svc = AuthService(email_service=auth_svc.email_svc, max_daily_emails=2)
         now = timezone.now()
 
         # Create 2 requests from different emails (hitting the cap)
@@ -478,7 +477,7 @@ class TestRateLimiting:
                 result, _, _ = low_cap_svc.request_access_link(
                     f"global-test-{i}@example.com"
                 )
-                assert result == SendResult.SENT, f"Request {i+1} should succeed"
+                assert result == SendResult.SENT, f"Request {i + 1} should succeed"
 
         # 3rd request from new email — should hit GLOBAL_CAP
         with freezegun.freeze_time(now):
@@ -535,14 +534,12 @@ class TestRateLimiting:
         with freezegun.freeze_time(now + timedelta(minutes=5, seconds=1)):
             result2, _ = auth_svc.request_login_link(email)
             assert result2 == SendResult.SENT
-            token_count = AuthToken.objects.filter(
-                email=email, purpose="login"
-            ).count()
+            token_count = AuthToken.objects.filter(email=email, purpose="login").count()
             assert token_count == 2  # Original expired + new fresh token
             # Verify tokens: first is expired, second is fresh
-            tokens = AuthToken.objects.filter(
-                email=email, purpose="login"
-            ).order_by("created_at")
+            tokens = AuthToken.objects.filter(email=email, purpose="login").order_by(
+                "created_at"
+            )
             assert tokens[0].expires_at < now + timedelta(minutes=5, seconds=1)
             assert tokens[1].expires_at > now + timedelta(minutes=5, seconds=1)
 

@@ -4,19 +4,18 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('transactions', '0004_migrate_array_tags_to_m2m'),
+        ("transactions", "0004_migrate_array_tags_to_m2m"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='transaction',
-            name='tags',
+            model_name="transaction",
+            name="tags",
         ),
         migrations.RenameField(
-            model_name='transaction',
-            old_name='transaction_tags',
-            new_name='tags',
+            model_name="transaction",
+            old_name="transaction_tags",
+            new_name="tags",
         ),
     ]

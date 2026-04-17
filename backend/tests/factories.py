@@ -16,9 +16,9 @@ See conftest.py for the auth_user / auth_client fixtures that wrap UserFactory
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from typing import Any
 
 import factory
-from typing import Any
 from django.utils import timezone
 
 from accounts.models import Account, AccountSnapshot, Institution
@@ -148,11 +148,10 @@ class TransactionFactory(factory.django.DjangoModelFactory):
             return
 
         from transactions.models import Tag
+
         for name in extracted:
             tag, _ = Tag.objects.get_or_create(
-                user_id=self.user_id,
-                name=name,
-                defaults={"color": "#64748b"}
+                user_id=self.user_id, name=name, defaults={"color": "#64748b"}
             )
             self.tags.add(tag)
 

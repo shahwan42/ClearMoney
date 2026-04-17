@@ -14,8 +14,8 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from django.db.models import Avg
 from django.core.exceptions import ValidationError
+from django.db.models import Avg
 from django.utils.translation import gettext as _
 
 from accounts.services import AccountService, load_health_warnings
@@ -130,6 +130,7 @@ class NotificationService:
             # 4. Unusual Spending detection (Last 24h vs 30-day average)
             try:
                 import uuid
+
                 uuid.UUID(self.user_id)
 
                 yesterday = datetime.now(self.tz) - timedelta(days=1)
@@ -148,17 +149,12 @@ class NotificationService:
 
                     # Calculate 30-day average for this category
                     thirty_days_ago = date.today() - timedelta(days=30)
-                    avg_val = (
-                        Transaction.objects.for_user(self.user_id)
-                        .filter(
-                            category_id=tx.category_id,
-                            type="expense",
-                            date__gte=thirty_days_ago,
-                            date__lt=date.today(),
-                        )
-                        .aggregate(avg=Avg("amount"))["avg"]
-                        or Decimal(0)
-                    )
+                    avg_val = Transaction.objects.for_user(self.user_id).filter(
+                        category_id=tx.category_id,
+                        type="expense",
+                        date__gte=thirty_days_ago,
+                        date__lt=date.today(),
+                    ).aggregate(avg=Avg("amount"))["avg"] or Decimal(0)
 
                     if avg_val > 0 and tx.amount > (avg_val * 3):
                         notifications.append(

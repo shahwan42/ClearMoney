@@ -42,13 +42,16 @@ def test_csv_import_wizard_flow(auth_client, auth_user):
     assert "Amount" in response.content.decode()
 
     # Post mapping
-    response = auth_client.post(redirect_url, {
-        "account_id": str(account.id),
-        "col_date": "Date",
-        "col_amount": "Amount",
-        "col_type": "Type",
-        "col_note": "Note",
-    })
+    response = auth_client.post(
+        redirect_url,
+        {
+            "account_id": str(account.id),
+            "col_date": "Date",
+            "col_amount": "Amount",
+            "col_type": "Type",
+            "col_note": "Note",
+        },
+    )
 
     assert response.status_code == 302
     redirect_url_preview = response.url

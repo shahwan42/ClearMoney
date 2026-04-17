@@ -45,3 +45,6 @@ temporary_artifacts/
 # Python virtual environments
 .venv
 venv
+
+# media files
+backend/media

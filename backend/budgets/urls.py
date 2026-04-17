@@ -12,7 +12,11 @@ from budgets import views
 urlpatterns = [
     path("budgets", views.budgets_page, name="budgets"),
     path("budgets/add", views.budget_add, name="budget-add"),
-    path("budgets/copy-last-month", views.budget_copy_last_month, name="budget-copy-last-month"),
+    path(
+        "budgets/copy-last-month",
+        views.budget_copy_last_month,
+        name="budget-copy-last-month",
+    ),
     path("budgets/total/set", views.total_budget_set, name="total-budget-set"),
     path("budgets/total/delete", views.total_budget_delete, name="total-budget-delete"),
     path("budgets/<uuid:budget_id>/", views.budget_detail, name="budget-detail"),

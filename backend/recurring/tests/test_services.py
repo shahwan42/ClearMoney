@@ -326,7 +326,9 @@ class TestConfirm:
 
         rule = svc.create(
             {
-                "template_transaction": _make_template(rec_data, type="income", amount=2000.0),
+                "template_transaction": _make_template(
+                    rec_data, type="income", amount=2000.0
+                ),
                 "frequency": "monthly",
                 "next_due_date": date.today(),
                 "auto_confirm": False,

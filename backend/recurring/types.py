@@ -26,5 +26,5 @@ class RecurringRulePending:
     is_active: bool
     auto_confirm: bool
     template_transaction: dict[str, Any]  # JSONB: note, amount, account_id, etc.
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime | None
+    updated_at: datetime | None

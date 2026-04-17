@@ -4,20 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('budgets', '0002_retarget_user_fk'),
+        ("budgets", "0002_retarget_user_fk"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='budget',
-            name='max_rollover',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=15, null=True),
+            model_name="budget",
+            name="max_rollover",
+            field=models.DecimalField(
+                blank=True, decimal_places=2, max_digits=15, null=True
+            ),
         ),
         migrations.AddField(
-            model_name='budget',
-            name='rollover_enabled',
+            model_name="budget",
+            name="rollover_enabled",
             field=models.BooleanField(db_default=False, default=False),
         ),
     ]

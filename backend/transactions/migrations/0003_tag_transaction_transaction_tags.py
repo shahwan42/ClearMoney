@@ -7,29 +7,45 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('auth_app', '0005_alter_user_language'),
-        ('transactions', '0002_retarget_user_fk'),
+        ("auth_app", "0005_alter_user_language"),
+        ("transactions", "0002_retarget_user_fk"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Tag',
+            name="Tag",
             fields=[
-                ('id', models.UUIDField(db_default=models.Func(function='gen_random_uuid'), default=uuid.uuid4, primary_key=True, serialize=False)),
-                ('name', models.CharField(max_length=100)),
-                ('color', models.CharField(default='#64748b', max_length=7)),
-                ('user', models.ForeignKey(db_column='user_id', on_delete=django.db.models.deletion.CASCADE, to='auth_app.user')),
+                (
+                    "id",
+                    models.UUIDField(
+                        db_default=models.Func(function="gen_random_uuid"),
+                        default=uuid.uuid4,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("name", models.CharField(max_length=100)),
+                ("color", models.CharField(default="#64748b", max_length=7)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        db_column="user_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="auth_app.user",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'tags',
-                'unique_together': {('user', 'name')},
+                "db_table": "tags",
+                "unique_together": {("user", "name")},
             },
         ),
         migrations.AddField(
-            model_name='transaction',
-            name='transaction_tags',
-            field=models.ManyToManyField(blank=True, related_name='transactions', to='transactions.tag'),
+            model_name="transaction",
+            name="transaction_tags",
+            field=models.ManyToManyField(
+                blank=True, related_name="transactions", to="transactions.tag"
+            ),
         ),
     ]

@@ -257,7 +257,9 @@ class TestRecurringConfirm:
         tx = Transaction.objects.get(recurring_rule_id=rule.id)
         assert float(tx.amount) == 480.50
 
-    def test_confirm_with_invalid_actual_amount_returns_400(self, client, rec_view_data):
+    def test_confirm_with_invalid_actual_amount_returns_400(
+        self, client, rec_view_data
+    ):
         """Non-numeric actual_amount returns 400."""
         c = set_auth_cookie(client, rec_view_data["session_token"])
         yesterday = (date.today() - timedelta(days=1)).isoformat()
@@ -276,7 +278,9 @@ class TestRecurringConfirm:
         rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
         assert rule is not None
 
-        response = c.post(f"/recurring/{rule.id}/confirm", {"actual_amount": "not-a-number"})
+        response = c.post(
+            f"/recurring/{rule.id}/confirm", {"actual_amount": "not-a-number"}
+        )
         assert response.status_code == 400
 
 

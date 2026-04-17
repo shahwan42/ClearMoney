@@ -276,9 +276,7 @@ class TransactionServiceBase:
                 tag_objs = []
                 for name in tags_list:
                     tag, created = Tag.objects.get_or_create(
-                        user_id=self.user_id,
-                        name=name,
-                        defaults={"color": "#64748b"}
+                        user_id=self.user_id, name=name, defaults={"color": "#64748b"}
                     )
                     tag_objs.append(tag)
                 tx_obj.tags.set(tag_objs)
@@ -289,7 +287,7 @@ class TransactionServiceBase:
                 updated_at=django_tz.now(),
             )
 
-        created = _tx_instance_to_dict(tx_obj)
+        tx_dict = _tx_instance_to_dict(tx_obj)
         new_balance = acc["current_balance"] + delta
 
         logger.info(
@@ -299,7 +297,7 @@ class TransactionServiceBase:
             account_id,
             self.user_id,
         )
-        return created, str(new_balance)
+        return tx_dict, str(new_balance)
 
     def create_fee_for_transaction(
         self,
@@ -503,6 +501,7 @@ class TransactionServiceBase:
             # Mock URL or real URL? Transaction object url is needed.
             # Raw SQL doesn't give us FileField.url.
             from django.conf import settings
+
             res["attachment_url"] = settings.MEDIA_URL + str(res["attachment"])
         return res
 
@@ -642,6 +641,7 @@ class TransactionServiceBase:
 
         transactions = []
         from django.conf import settings
+
         for row in rows:
             res = self._scan_tx_row(row, cols)
             if res.get("attachment"):
@@ -788,9 +788,7 @@ class TransactionServiceBase:
                 tag_objs = []
                 for name in tags_list:
                     tag, created = Tag.objects.get_or_create(
-                        user_id=self.user_id,
-                        name=name,
-                        defaults={"color": "#64748b"}
+                        user_id=self.user_id, name=name, defaults={"color": "#64748b"}
                     )
                     tag_objs.append(tag)
                 tx_obj.tags.set(tag_objs)
@@ -919,4 +917,6 @@ class TransactionServiceBase:
             tx.attachment.delete()
             tx.attachment = None
             tx.save(update_fields=["attachment", "updated_at"])
-            logger.info("transaction.attachment_deleted id=%s user=%s", tx_id, self.user_id)
+            logger.info(
+                "transaction.attachment_deleted id=%s user=%s", tx_id, self.user_id
+            )

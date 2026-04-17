@@ -6,17 +6,21 @@ data building for the monthly reports page.
 
 import logging
 from datetime import date
-from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
-from django.db.models import Q, Sum
+from django.db.models import Sum
 from django.db.models.fields.json import KeyTextTransform
-from django.db.models.functions import Coalesce, ExtractMonth, ExtractYear
+from django.db.models.functions import ExtractMonth, ExtractYear
 
 from core.dates import month_range
+from core.monthly import get_month_summary  # re-exported for backward compat
+from core.projection import ProjectionService
 from core.timing import timed
 from transactions.models import Transaction
+from accounts.services import AccountService, compute_net_worth
+import dataclasses
 
 logger = logging.getLogger(__name__)
 
@@ -79,14 +83,13 @@ def get_monthly_report(
     tag_spending = get_spending_by_tag(user_id, year, month, account_id, currency)
 
     # New: Net worth projection
-    from dashboard.services.projection import ProjectionService
-    proj_svc = ProjectionService(user_id, None) # TZ not needed for simple projection
+    proj_svc = ProjectionService(user_id, ZoneInfo("UTC"))
+    
     # Estimate current net worth from latest summaries
-    from accounts.services import AccountService, compute_net_worth
-    acc_svc = AccountService(user_id, None)
+    acc_svc = AccountService(user_id, ZoneInfo("UTC"))
     all_accs = acc_svc.get_all()
+    
     # Convert summaries to dicts for compute_net_worth
-    import dataclasses
     acc_dicts = [dataclasses.asdict(a) for a in all_accs]
     nw_summary = compute_net_worth(acc_dicts)
     projection = proj_svc.get_projection(nw_summary.net_worth, months=12)
@@ -279,7 +282,7 @@ def get_category_trends(
         )
 
     # Sort trends by current month spending
-    trends.sort(key=lambda x: x["current"], reverse=True)
+    trends.sort(key=lambda x: float(str(x["current"])), reverse=True)
     return trends
 
 
@@ -361,43 +364,6 @@ def get_spending_by_category(
             item["percentage"] = (item["amount"] / total) * 100
 
     return spending, total
-
-
-def get_month_summary(
-    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
-) -> dict[str, Any]:
-    """Get income and expense totals for a single month."""
-    start_date, end_date = month_range(date(year, month, 1))
-
-    qs = Transaction.objects.for_user(user_id).filter(
-        date__gte=start_date,
-        date__lt=end_date,
-    )
-
-    if account_id:
-        qs = qs.filter(account_id=account_id)
-    if currency:
-        qs = qs.filter(currency=currency)
-
-    # Conditional aggregation — Sum with filter=Q() computes income and expenses
-    # in a single query instead of two separate filtered queries
-    result = qs.aggregate(
-        income=Coalesce(Sum("amount", filter=Q(type="income")), Decimal(0)),
-        expenses=Coalesce(Sum("amount", filter=Q(type="expense")), Decimal(0)),
-    )
-
-    income = float(result["income"])
-    expenses = float(result["expenses"])
-    month_name = date(year, month, 1).strftime("%B")
-
-    return {
-        "year": year,
-        "month": month,
-        "month_name": month_name,
-        "income": income,
-        "expenses": expenses,
-        "net": income - expenses,
-    }
 
 
 def get_monthly_history(
