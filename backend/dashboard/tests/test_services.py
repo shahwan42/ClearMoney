@@ -6,6 +6,7 @@ direct calls to service methods, automatic rollback via pytest-django.
 """
 
 from datetime import date, timedelta
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -13,6 +14,7 @@ import pytest
 from accounts.models import Account
 from auth_app.models import User
 from conftest import UserFactory
+from core.dates import prev_month_range
 from dashboard.services import (
     DashboardService,
     _compute_due_date,
@@ -1492,6 +1494,7 @@ def test_load_constraints_populates_health_warnings(svc_data):
 
 # ==================== Edge Cases from Coverage ====================
 
+
 @pytest.mark.django_db
 def test_dashboard_usd_exchange_rate_fallback(svc_data):
     """Test accounts in USD are converted using exchange rate and compute net worth correctly."""
@@ -1597,13 +1600,12 @@ def test_query_top_categories_empty_this_month(svc_data):
     assert gbp.top_categories == []
 
 
-from unittest.mock import patch
-
-
 @pytest.mark.django_db
 def test_compute_credit_card_summaries_metadata(svc_data):
     """Test credit card summary correctly uses billing cycle metadata (lines 89-99)."""
-    Account.objects.filter(id=svc_data["cc_id"]).update(metadata={"statement_day": 5, "due_day": 20})
+    Account.objects.filter(id=svc_data["cc_id"]).update(
+        metadata={"statement_day": 5, "due_day": 20}
+    )
     svc = DashboardService(str(svc_data["user_id"]), TZ)
     from dashboard.services import DashboardData
 
@@ -1625,9 +1627,9 @@ def test_load_people_summary_usd_and_negative_nb(svc_data):
     PersonFactory(
         user_id=svc_data["user"].id,
         name="USD Debtor",
-        net_balance=-100, # covers nb < 0 (data.people_i_owe += nb)
+        net_balance=-100,  # covers nb < 0 (data.people_i_owe += nb)
         net_balance_egp=0,
-        net_balance_usd=100, # covers nb_usd > 0
+        net_balance_usd=100,  # covers nb_usd > 0
     )
     svc = DashboardService(str(svc_data["user_id"]), TZ)
     from dashboard.services import DashboardData
@@ -1638,3 +1640,343 @@ def test_load_people_summary_usd_and_negative_nb(svc_data):
     assert data.people_i_owe == -100.0
     usd_summary = next(c for c in data.people_by_currency if c.currency == "USD")
     assert usd_summary.owed_to_me == 100.0
+
+
+# ---------------------------------------------------------------------------
+# Spending velocity projections (ticket 076)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_velocity_projection_green_daily_remaining(svc_data):
+    """On-track spending: daily_remaining > 0, status=green, reduce_by=0."""
+    from calendar import monthrange
+    from datetime import date
+
+    from dashboard.services import DashboardData
+
+    today = date.today()
+    _, days_in_month = monthrange(today.year, today.month)
+    this_month_start = today.replace(day=1)
+    last_month_start, _ = prev_month_range(today)
+
+    # Last month: 3000 EGP spent
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=3000,
+        currency="EGP",
+        date=last_month_start + timedelta(days=2),
+        balance_delta=-3000,
+    )
+
+    # This month: only 100 EGP spent (well under pace)
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=100,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-100,
+    )
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    data = DashboardData()
+    data.exchange_rate = 0.0  # EGP only
+    svc._compute_spending_comparison(data)
+
+    sv = data.spending_velocity
+    assert sv.status == "green"
+    assert sv.budget_total == pytest.approx(3000.0)
+    assert sv.daily_remaining > 0
+    assert sv.projected_total > 0
+    assert sv.reduce_by == pytest.approx(0.0)  # on track → no reduction needed
+
+
+@pytest.mark.django_db
+def test_velocity_projection_projected_total_formula(svc_data):
+    """projected_total = (spent / days_elapsed) * days_total."""
+    from calendar import monthrange
+    from datetime import date
+
+    from dashboard.services import DashboardData
+
+    today = date.today()
+    _, days_in_month = monthrange(today.year, today.month)
+    this_month_start = today.replace(day=1)
+
+    spent = 1200.0
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=spent,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-spent,
+    )
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    data = DashboardData()
+    data.exchange_rate = 0.0
+    svc._compute_spending_comparison(data)
+
+    sv = data.spending_velocity
+    days_elapsed = today.day
+    expected_projected = (spent / days_elapsed) * days_in_month
+    assert sv.projected_total == pytest.approx(expected_projected, rel=0.01)
+
+
+@pytest.mark.django_db
+def test_velocity_projection_daily_remaining_formula(svc_data):
+    """daily_remaining = (budget_total - spent) / days_left."""
+    from calendar import monthrange
+    from datetime import date
+
+    from dashboard.services import DashboardData
+
+    today = date.today()
+    _, days_in_month = monthrange(today.year, today.month)
+    days_left = days_in_month - today.day
+
+    this_month_start = today.replace(day=1)
+    last_month_start, _ = prev_month_range(today)
+
+    last_month_total = 2000.0
+    this_month_spent = 300.0
+
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=last_month_total,
+        currency="EGP",
+        date=last_month_start + timedelta(days=1),
+        balance_delta=-last_month_total,
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=this_month_spent,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-this_month_spent,
+    )
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    data = DashboardData()
+    data.exchange_rate = 0.0
+    svc._compute_spending_comparison(data)
+
+    sv = data.spending_velocity
+    if days_left > 0:
+        expected_dr = (last_month_total - this_month_spent) / days_left
+        assert sv.daily_remaining == pytest.approx(expected_dr, rel=0.01)
+    # Edge: last day of month → skip formula check (days_left == 0)
+
+
+@pytest.mark.django_db
+def test_velocity_projection_overspend_reduce_by(svc_data):
+    """When spending faster than budget pace, reduce_by = daily_pace - budget_daily > 0."""
+    from calendar import monthrange
+    from datetime import date
+
+    from dashboard.services import DashboardData
+
+    today = date.today()
+    _, days_in_month = monthrange(today.year, today.month)
+    this_month_start = today.replace(day=1)
+    last_month_start, _ = prev_month_range(today)
+
+    # Modest last month baseline
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=1000,
+        currency="EGP",
+        date=last_month_start + timedelta(days=1),
+        balance_delta=-1000,
+    )
+    # Massive this-month spend (forces amber/red)
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=5000,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-5000,
+    )
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    data = DashboardData()
+    data.exchange_rate = 0.0
+    svc._compute_spending_comparison(data)
+
+    sv = data.spending_velocity
+    assert sv.status in ("amber", "red")
+    assert sv.reduce_by > 0
+
+
+@pytest.mark.django_db
+def test_velocity_projection_no_last_month(svc_data):
+    """When there is no last month spending, percentage=0, status=green, projections safe."""
+    from dashboard.services import DashboardData
+
+    today = date.today()
+    this_month_start = today.replace(day=1)
+
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        type="expense",
+        amount=200,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-200,
+    )
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    data = DashboardData()
+    data.exchange_rate = 0.0
+    svc._compute_spending_comparison(data)
+
+    sv = data.spending_velocity
+    # No baseline → pct = 0 → green
+    assert sv.status == "green"
+    assert sv.percentage == pytest.approx(0.0)
+    assert sv.budget_total == pytest.approx(0.0)
+    assert sv.daily_remaining == pytest.approx(0.0)
+
+
+@pytest.mark.django_db
+def test_velocity_projection_no_spending_at_all(svc_data):
+    """When there are no transactions at all, all projection fields should be 0."""
+    from dashboard.services import DashboardData
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    data = DashboardData()
+    data.exchange_rate = 0.0
+    svc._compute_spending_comparison(data)
+
+    sv = data.spending_velocity
+    assert sv.percentage == pytest.approx(0.0)
+    assert sv.projected_total == pytest.approx(0.0)
+    assert sv.budget_total == pytest.approx(0.0)
+    assert sv.reduce_by == pytest.approx(0.0)
+    assert sv.days_total > 0
+
+
+# ---------------------------------------------------------------------------
+# Category velocity (ticket 076)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_compute_category_velocities_basic(svc_data):
+    """Returns a CategoryVelocity for each active budget with correct fields."""
+    from calendar import monthrange
+    from datetime import date
+
+    from dashboard.services import CategoryVelocity
+
+    today = date.today()
+    _, days_in_month = monthrange(today.year, today.month)
+    days_left = days_in_month - today.day
+    this_month_start = today.replace(day=1)
+
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=1000,
+        currency="EGP",
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=400,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-400,
+    )
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    cvs = svc._compute_category_velocities()
+
+    assert len(cvs) == 1
+    cv = cvs[0]
+    assert isinstance(cv, CategoryVelocity)
+    assert cv.category_name == "Food"
+    assert cv.spent == pytest.approx(400.0)
+    assert cv.monthly_limit == pytest.approx(1000.0)
+    assert cv.percentage == pytest.approx(40.0)
+    assert cv.status == "green"
+    if days_left > 0:
+        expected_dr = (1000.0 - 400.0) / days_left
+        assert cv.daily_remaining == pytest.approx(expected_dr, rel=0.01)
+    assert cv.reduce_by == pytest.approx(0.0)  # on track
+
+
+@pytest.mark.django_db
+def test_compute_category_velocities_over_budget(svc_data):
+    """Over-budget category has negative daily_remaining and reduce_by > 0."""
+    from datetime import date
+
+    today = date.today()
+    this_month_start = today.replace(day=1)
+
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=500,
+        currency="EGP",
+    )
+    TransactionFactory(
+        user_id=svc_data["user"].id,
+        account_id=svc_data["savings"].id,
+        category_id=svc_data["cat_id"],
+        type="expense",
+        amount=900,
+        currency="EGP",
+        date=this_month_start,
+        balance_delta=-900,
+    )
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    cvs = svc._compute_category_velocities()
+
+    assert len(cvs) == 1
+    cv = cvs[0]
+    assert cv.spent > cv.monthly_limit
+    assert cv.daily_remaining < 0
+    assert cv.reduce_by > 0
+    assert cv.status in ("amber", "red")
+
+
+@pytest.mark.django_db
+def test_compute_category_velocities_no_budgets(svc_data):
+    """Returns empty list when the user has no active budgets."""
+    svc = DashboardService(svc_data["user_id"], TZ)
+    cvs = svc._compute_category_velocities()
+    assert cvs == []
+
+
+@pytest.mark.django_db
+def test_category_velocity_in_dashboard_context(svc_data):
+    """get_dashboard() includes category_velocities in the returned dict."""
+    BudgetFactory(
+        user_id=svc_data["user"].id,
+        category_id=svc_data["cat_id"],
+        monthly_limit=800,
+        currency="EGP",
+    )
+    svc = DashboardService(svc_data["user_id"], TZ)
+    data = svc.get_dashboard()
+    assert "category_velocities" in data
+    assert isinstance(data["category_velocities"], list)

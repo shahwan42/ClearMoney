@@ -1,4 +1,12 @@
-"""Dashboard spending — month-over-month comparison, top categories, velocity."""
+"""Dashboard spending — month-over-month comparison, top categories, velocity projections.
+
+Velocity projections surface the existing SpendingVelocity computation as actionable
+daily budget advice:
+  - daily_remaining: how much the user can spend per day to stay on last month's pace
+  - projected_total: (spent / elapsed_days) * total_days — estimated month-end spend
+  - reduce_by: the daily reduction needed when amber/red
+  - Per-category velocity for budgeted categories
+"""
 
 from __future__ import annotations
 
@@ -13,6 +21,7 @@ from django.db.models import CharField, F, Q, Sum, Value
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
+from budgets.services import BudgetService
 from core.dates import next_month_range, prev_month_range
 from core.status import compute_spending_velocity_status
 from transactions.models import Transaction
@@ -36,20 +45,78 @@ class CurrencySpending:
 
 @dataclass
 class SpendingVelocity:
-    """Spending pace relative to last month."""
+    """Spending pace relative to last month, with actionable projections.
 
-    percentage: float  # current spend / last month total x 100
+    Fields
+    ------
+    percentage       -- current spend / last month total × 100
+    days_elapsed     -- calendar days elapsed so far this month
+    days_total       -- total calendar days in this month
+    days_left        -- remaining calendar days (days_total - days_elapsed)
+    day_progress     -- % of month elapsed (days_elapsed / days_total × 100)
+    status           -- "green" | "amber" | "red"
+    daily_pace       -- current daily spending rate (spent / days_elapsed)
+    budget_daily     -- target daily rate to match last month (last_month / days_total)
+    daily_remaining  -- how much the user can spend per remaining day and still match
+                        budget: (budget_total - spent) / days_left.  Negative means
+                        budget already exceeded.
+    projected_total  -- estimated full-month spend at current pace:
+                        (spent / days_elapsed) * days_total.  0 if days_elapsed == 0.
+    budget_total     -- last month's total used as the budget reference
+    reduce_by        -- daily reduction needed when over pace:
+                        daily_pace - budget_daily.  0 when on track.
+    """
+
+    percentage: float
     days_elapsed: int
     days_total: int
     days_left: int
-    day_progress: float  # % of month elapsed
+    day_progress: float
     status: str  # "green", "amber", "red"
+
+    # Projection fields (default 0 so callers don't need to pass them)
+    daily_pace: float = 0.0
+    budget_daily: float = 0.0
+    daily_remaining: float = 0.0
+    projected_total: float = 0.0
+    budget_total: float = 0.0
+    reduce_by: float = 0.0
+
+
+@dataclass
+class CategoryVelocity:
+    """Per-category spending velocity for a budgeted category.
+
+    Attributes
+    ----------
+    category_name   -- display name of the category
+    category_icon   -- emoji / icon string (may be empty)
+    monthly_limit   -- budget limit for this category this month
+    spent           -- amount spent so far this month
+    currency        -- currency of the budget and spending
+    daily_remaining -- (monthly_limit - spent) / days_left; negative if over budget
+    projected_total -- (spent / days_elapsed) * days_total at current pace
+    percentage      -- spent / monthly_limit × 100
+    status          -- "green" | "amber" | "red"
+    reduce_by       -- daily reduction needed (max(0, daily_pace - budget_daily))
+    """
+
+    category_name: str
+    category_icon: str
+    monthly_limit: float
+    spent: float
+    currency: str
+    daily_remaining: float = 0.0
+    projected_total: float = 0.0
+    percentage: float = 0.0
+    status: str = "green"
+    reduce_by: float = 0.0
 
 
 def compute_spending_comparison(
     user_id: str, data: DashboardData, tz: ZoneInfo
 ) -> None:
-    """Compute this month vs last month spending + top categories + velocity."""
+    """Compute this month vs last month spending + top categories + velocity projections."""
     now = datetime.now(tz)
     today = now.date()
     this_month_start = today.replace(day=1)
@@ -114,12 +181,13 @@ def compute_spending_comparison(
             )
         )
 
-    # Spending velocity
+    # ---- Spending velocity + projections ----
     _, days_in_month = monthrange(today.year, today.month)
     days_elapsed = today.day
     days_left = days_in_month - days_elapsed
     day_progress = days_elapsed / days_in_month * 100
 
+    # Aggregate EGP-equivalent totals (USD converted at current exchange rate)
     total_this = 0.0
     total_last = 0.0
     for cs in data.spending_by_currency:
@@ -135,6 +203,33 @@ def compute_spending_comparison(
 
     status = compute_spending_velocity_status(pct, day_progress)
 
+    # Projection math
+    # daily_pace: average daily spend this month (avoid div-by-0 on day 0)
+    daily_pace = (total_this / days_elapsed) if days_elapsed > 0 else 0.0
+
+    # budget_daily: what the daily rate should be to match last month exactly
+    budget_daily = (total_last / days_in_month) if days_in_month > 0 else 0.0
+
+    # projected_total: extrapolate current pace to end of month
+    projected_total = daily_pace * days_in_month
+
+    # daily_remaining: how much budget is left to spread across remaining days
+    # When there is no last-month baseline (total_last=0) we have no spending target,
+    # so daily_remaining is meaningless — return 0.
+    # Negative means budget already blown for the month.
+    if total_last <= 0:
+        daily_remaining = 0.0
+    elif days_left > 0:
+        daily_remaining = (total_last - total_this) / days_left
+    elif total_last > 0:
+        # Last day of the month: show what was available today
+        daily_remaining = total_last - total_this
+    else:
+        daily_remaining = 0.0
+
+    # reduce_by: daily cut needed to get back on track (0 when already on track)
+    reduce_by = max(0.0, daily_pace - budget_daily)
+
     data.spending_velocity = SpendingVelocity(
         percentage=pct,
         days_elapsed=days_elapsed,
@@ -142,7 +237,77 @@ def compute_spending_comparison(
         days_left=days_left,
         day_progress=day_progress,
         status=status,
+        daily_pace=daily_pace,
+        budget_daily=budget_daily,
+        daily_remaining=daily_remaining,
+        projected_total=projected_total,
+        budget_total=total_last,
+        reduce_by=reduce_by,
     )
+
+
+def compute_category_velocities(user_id: str, tz: ZoneInfo) -> list[CategoryVelocity]:
+    """Compute per-category spending velocity for all active budgets.
+
+    For each active budget:
+    - Calculates daily_remaining: how much budget is left to spend per day
+    - Calculates projected_total: extrapolated month-end spend at current pace
+    - Assigns traffic-light status mirroring the global velocity logic
+
+    Returns an empty list when the user has no active budgets.
+    """
+    today = datetime.now(tz).date()
+    _, days_in_month = monthrange(today.year, today.month)
+    days_elapsed = today.day
+    days_left = days_in_month - days_elapsed
+
+    svc = BudgetService(user_id, tz)
+    budgets = svc.get_all_with_spending()
+
+    result: list[CategoryVelocity] = []
+    for b in budgets:
+        spent = b.spent
+        limit = b.effective_limit  # respects rollover
+
+        # Per-category projection math (same formulas as global velocity)
+        daily_pace = (spent / days_elapsed) if days_elapsed > 0 else 0.0
+        budget_daily = (limit / days_in_month) if days_in_month > 0 else 0.0
+        projected_total = daily_pace * days_in_month
+
+        if days_left > 0:
+            daily_remaining = (limit - spent) / days_left
+        elif limit > 0:
+            daily_remaining = limit - spent
+        else:
+            daily_remaining = 0.0
+
+        reduce_by = max(0.0, daily_pace - budget_daily)
+
+        # Status: compare projected vs limit (traffic-light)
+        pct = (spent / limit * 100) if limit > 0 else 0.0
+        day_progress = (
+            (days_elapsed / days_in_month * 100) if days_in_month > 0 else 0.0
+        )
+        from core.status import compute_spending_velocity_status as _sv_status
+
+        status = _sv_status(pct, day_progress)
+
+        result.append(
+            CategoryVelocity(
+                category_name=b.category_name,
+                category_icon=b.category_icon,
+                monthly_limit=limit,
+                spent=spent,
+                currency=b.currency,
+                daily_remaining=daily_remaining,
+                projected_total=projected_total,
+                percentage=pct,
+                status=status,
+                reduce_by=reduce_by,
+            )
+        )
+
+    return result
 
 
 def _query_spending_by_currency(

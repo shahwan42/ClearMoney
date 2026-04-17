@@ -42,7 +42,13 @@ from .sparklines import (
     load_net_worth_by_currency,
     load_net_worth_history,
 )
-from .spending import CurrencySpending, SpendingVelocity, compute_spending_comparison
+from .spending import (
+    CategoryVelocity,
+    CurrencySpending,
+    SpendingVelocity,
+    compute_category_velocities,
+    compute_spending_comparison,
+)
 from .widgets import (
     HealthWarning,
     load_budgets_with_spending,
@@ -62,6 +68,7 @@ __all__ = [
     "InstitutionGroup",
     "CurrencySpending",
     "SpendingVelocity",
+    "CategoryVelocity",
     "CreditCardSummary",
     "DueSoonCard",
     "StreakInfo",
@@ -122,6 +129,8 @@ class DashboardData:
     spending_velocity: SpendingVelocity = field(
         default_factory=lambda: SpendingVelocity(0, 0, 0, 0, 0, "green")
     )
+    # Per-category velocity for budgeted categories (populated after budgets)
+    category_velocities: list[CategoryVelocity] = field(default_factory=list)
 
     # Virtual accounts
     virtual_accounts: list[dict[str, Any]] = field(default_factory=list)
@@ -288,6 +297,12 @@ class DashboardService:
         except Exception:
             logger.warning("dashboard: failed to compute spending comparison")
 
+        # 18. Per-category velocity projections (requires budgets + spending to be computed)
+        try:
+            data.category_velocities = self._compute_category_velocities()
+        except Exception:
+            logger.warning("dashboard: failed to compute category velocities")
+
     def _load_sparklines(
         self, data: DashboardData, all_accounts: list[dict[str, Any]]
     ) -> None:
@@ -381,10 +396,15 @@ class DashboardService:
     def _load_health_warnings(
         self, all_accounts: list[dict[str, Any]]
     ) -> list[HealthWarning]:
-        return load_health_warnings(self.user_id, all_accounts, self.tz, include_stale_reconciliation=True)
+        return load_health_warnings(
+            self.user_id, all_accounts, self.tz, include_stale_reconciliation=True
+        )
 
     def _load_budgets_with_spending(self) -> list[dict[str, Any]]:
         return load_budgets_with_spending(self.user_id, self.tz)
 
     def _compute_spending_comparison(self, data: DashboardData) -> None:
         compute_spending_comparison(self.user_id, data, self.tz)
+
+    def _compute_category_velocities(self) -> list[CategoryVelocity]:
+        return compute_category_velocities(self.user_id, self.tz)
