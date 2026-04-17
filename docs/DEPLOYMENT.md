@@ -29,7 +29,7 @@ ClearMoney uses a **unified uv workspace** for both backend and e2e dependencies
 - **Docker builds**: Copy root workspace config + backend pyproject + root lockfile → creates `/app/.venv` with backend dependencies only
 - **No e2e dependencies in production**: Production Docker image is minimal and contains only backend requirements
 
-See [CLAUDE.md](../CLAUDE.md) under "Dependencies" for details.
+See [GEMINI.md] or [CLAUDE.md](../CLAUDE.md) under "Dependencies" for details.
 
 ## Prerequisites
 

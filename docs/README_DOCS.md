@@ -195,8 +195,8 @@ Response (template or JSON)
 ## 🔗 Related Documentation
 
 - **Git**: See `.git/` for commit history (use `git log` to understand decisions)
-- **Rules**: See `.claude/rules/` for production safety, accessibility, TDD, coding conventions
-- **Codebase instructions**: See `CLAUDE.md` for project-specific guidelines
+- **Rules**: See `.gemini/rules/` (or `.claude/rules/`) for production safety, accessibility, TDD, coding conventions
+- **Codebase instructions**: See `GEMINI.md` (or `CLAUDE.md`) for project-specific guidelines
 
 ---
 

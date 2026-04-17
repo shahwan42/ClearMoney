@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "htmx-expert",
+  "owner": "lullabot",
+  "repo": "htmx-expert",
+  "path": ".",
+  "branch": "master",
+  "sha": "36e112f35f0290b21b5e52ed6bc609dc5f0ed12b",
+  "source": "manual"
+}
