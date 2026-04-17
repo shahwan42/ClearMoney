@@ -4,7 +4,7 @@
 
 Before beginning any feature implementation or batch of work, verify the environment is ready:
 
-0. **Remote environment?** — If running in Gemini Code remote (SessionStart hook runs automatically):
+0. **Remote environment?** — If running in Gemini CLI remote (SessionStart hook runs automatically):
    - Hook starts PostgreSQL and exports `DB_URL` with port 5432
    - If hook didn't run, see `.gemini/rules/remote-environment.md` for manual steps
 1. **Run tests** — `make test` — record baseline test count (e.g. "692 passed"). Store this number.
@@ -13,7 +13,7 @@ Before beginning any feature implementation or batch of work, verify the environ
 4. **List migrations** — `mcp__django-ai-boost__list_migrations` — all applied
 5. **Start server** — `DISABLE_RATE_LIMIT=true make run` in background. Verify: `curl http://0.0.0.0:8000`
 6. **Verify Playwright MCP** — `mcp__playwright__browser_navigate` to `http://0.0.0.0:8000` (required for QA)
-   - If it fails: `npx @anthropic-ai/gemini-code mcp add playwright -- npx @anthropic-ai/playwright-mcp@latest`
+   - If it fails: `gemini mcp add playwright -- npx @anthropic-ai/playwright-mcp@latest`
 7. **Git status** — `git status` — working tree clean, on main branch
 
 ---

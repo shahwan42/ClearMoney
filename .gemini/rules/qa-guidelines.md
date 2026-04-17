@@ -3,7 +3,9 @@
 > This rule governs **when** and **how** to test in ClearMoney. It integrates with:
 > `.gemini/rules/tdd-workflow.md` (RED→GREEN), `.gemini/rules/delivery-checklist.md` (gates),
 > `.gemini/rules/accessibility-qa-protocol.md` (WCAG), `.gemini/rules/batch-execution-pattern.md` (batch work),
-> and `docs/qa/TEST-FLOWS.md` (detailed scenarios).
+> `docs/qa/TEST-FLOWS.md` (detailed scenarios), and `docs/qa/QA-ENGINEER-GUIDE.md` (manual QA setup + make commands).
+>
+> **QA environment setup:** `make qa-reset` → `make qa-login` → paste token URL in browser. Seeds institution, 4 accounts, 4 transactions, 2 budgets. See `docs/qa/QA-ENGINEER-GUIDE.md` for full reference.
 
 ## 1. Pre-Commit Gate (MANDATORY — no exceptions)
 
