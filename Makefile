@@ -3,7 +3,7 @@
 # Usage: make <target>
 #
 # Like: composer scripts, manage.py commands, or package.json scripts.
-.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check messages compile-messages createsuperuser
+.PHONY: run test test-fast test-e2e lint format clean up down logs reconcile reconcile-fix deploy deploy-logs ensure-vapid-keys shell inspectdb snapshots startup-jobs makemigrations migrate fake-initial setup-hooks coverage coverage-check messages compile-messages createsuperuser qa-user qa-login qa-seed qa-teardown qa-reset
 
 DB_URL ?= postgres://clearmoney:clearmoney@localhost:5433/clearmoney?sslmode=disable
 
@@ -143,3 +143,39 @@ backup-prod:
 	done; \
 	filename="$$base$$( [ $$count -gt 1 ] && echo _$$count || echo ).dump"; \
 	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && docker compose -f docker-compose.prod.yml exec -T db pg_dump -U clearmoney -Fc clearmoney" > "$$filename"
+
+# ── QA Helpers ─────────────────────────────────────────────────────────────────
+QA_EMAIL ?= qa@clearmoney.app
+QA_PASSWORD ?= qatest123
+
+# Create a QA superuser. Usage: make qa-user  or  make qa-user EMAIL=x PASSWORD=y
+qa-user:
+	cd backend && DATABASE_URL="$(DB_URL)" DJANGO_SUPERUSER_EMAIL="$(QA_EMAIL)" DJANGO_SUPERUSER_PASSWORD="$(QA_PASSWORD)" uv run manage.py create_superuser
+
+# Print the magic-link login URL for a QA user (dev mode — no email sent).
+# Usage: make qa-login  or  make qa-login EMAIL=qa@clearmoney.app
+qa-login:
+	cd backend && DATABASE_URL="$(DB_URL)" uv run python -c "\
+import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clearmoney.settings'); django.setup(); \
+from auth_app.models import AuthToken; \
+t = AuthToken.objects.filter(email='$(QA_EMAIL)', used=False).order_by('-created_at').first(); \
+print('http://localhost:8000/auth/verify?token=' + t.token if t else 'No token found — submit login form first') \
+" 2>/dev/null || (echo "No token — try: curl -s -X POST http://localhost:8000/login -d 'email=$(QA_EMAIL)'")
+
+# Seed standard QA test data (institution, accounts, budgets, transactions).
+qa-seed:
+	cd backend && DATABASE_URL="$(DB_URL)" uv run manage.py qa_seed --email "$(QA_EMAIL)"
+
+# Delete all data for a QA user (accounts, transactions, budgets, etc.) + the user itself.
+qa-teardown:
+	cd backend && DATABASE_URL="$(DB_URL)" uv run python -c "\
+import django, os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'clearmoney.settings'); django.setup(); \
+from auth_app.models import User; \
+u = User.objects.filter(email='$(QA_EMAIL)').first(); \
+u.delete() if u else print('User not found'); \
+print('Teardown complete for $(QA_EMAIL)') \
+" 2>/dev/null
+
+# Full reset: teardown + create user + seed data.
+qa-reset: qa-teardown qa-user qa-seed
+	@echo "QA environment reset for $(QA_EMAIL)"

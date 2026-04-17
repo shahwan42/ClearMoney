@@ -20,6 +20,7 @@
 | QA Guidelines | `.claude/rules/qa-guidelines.md` — test pyramid, financial data integrity, coverage floors, E2E requirements, form validation standards |
 | Critical Paths | `.claude/rules/critical-paths.md` — 6 critical user journeys that must always pass, regression checkpoints |
 | Test Flows | `docs/qa/TEST-FLOWS.md` — detailed test scenarios for all 14 feature areas, known gaps |
+| QA Engineer Guide | `docs/qa/QA-ENGINEER-GUIDE.md` — manual QA setup, make commands, test data baseline, bug filing, known issues |
 | Remote setup | `.claude/rules/remote-environment.md` — remote vs local DB differences, SessionStart hook |
 
 ## Architecture
