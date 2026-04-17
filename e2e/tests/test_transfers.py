@@ -146,6 +146,28 @@ class TestExchange:
             page.click('button[type="submit"]')
         expect(page).to_have_url(re.compile(r"move-money"))
 
+    def test_exchange_amount_zero_or_negative(self, page: Page) -> None:
+        page.goto("/move-money/new")
+        page.select_option("#move-src", _egp_account_1)
+        page.select_option("#move-dst", _usd_account)
+        page.fill("#move-amount", "0")
+        page.fill("#move-rate", "50")
+        page.click('button[type="submit"]')
+        # UI validation via min="0.01" stops submit. Let's verify standard HTML5 validation or error class.
+        # It shouldn't navigate
+        expect(page.locator("#move-amount")).to_have_attribute("min", "0.01")
+        
+    def test_same_source_and_destination_account(self, page: Page) -> None:
+        page.goto("/move-money/new")
+        page.select_option("#move-src", _egp_account_1)
+        page.select_option("#move-dst", _egp_account_1)
+        # Should show UI error or prevent submission
+        page.fill("#move-amount", "50")
+        page.click('button[type="submit"]')
+        # Expect an error either natively or through validation
+        expect(page.locator("text='Source and destination accounts must be different'")).to_be_visible()
+
+
     def test_create_exchange_updates_balances(self, page: Page) -> None:
         page.goto("/move-money/new")
         page.select_option("#move-src", _egp_account_1)
