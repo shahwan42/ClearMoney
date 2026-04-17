@@ -3,9 +3,9 @@ id: "113"
 title: "Django Admin setup for monitoring and management"
 type: feature
 priority: high
-status: wip
+status: done
 created: 2026-04-04
-updated: 2026-04-04
+updated: 2026-04-17
 ---
 
 ## Description
@@ -149,16 +149,16 @@ Create `admin.py` in each app with rich configurations:
 
 ## Acceptance Criteria
 
-- [ ] `/admin` loads Django Admin login page
-- [ ] Superuser can log in and see all registered models
-- [ ] All 18 models registered with useful list_display, filters, and search
-- [ ] GoSessionAuthMiddleware does NOT intercept `/admin` requests
-- [ ] Existing magic link auth flow unchanged (no regression)
-- [ ] No changes to existing `users` table schema
-- [ ] New Django contrib tables created via migration (non-destructive)
-- [ ] `make test` passes (no regressions)
-- [ ] `make lint` passes (zero errors)
-- [ ] Admin is read-heavy by default (most fields readonly where mutation is risky)
+- [x] `/admin` loads Django Admin login page
+- [x] Superuser can log in and see all registered models
+- [x] All 18 models registered with useful list_display, filters, and search
+- [x] GoSessionAuthMiddleware does NOT intercept `/admin` requests
+- [x] Existing magic link auth flow unchanged (no regression)
+- [x] No changes to existing `users` table schema
+- [x] New Django contrib tables created via migration (non-destructive)
+- [x] `make test` passes (no regressions)
+- [x] `make lint` passes (zero errors)
+- [x] Admin is read-heavy by default (most fields readonly where mutation is risky)
 
 ## Risks
 
@@ -170,6 +170,7 @@ Create `admin.py` in each app with rich configurations:
 
 - 2026-04-04: Started — Ticket planning, explored codebase state (no admin.py files, no contrib apps installed)
 - 2026-04-14: Implementation complete — Django contrib installed, middleware configured, all 20 models registered, superuser command created
+- 2026-04-17: Completed — Added admin tests (core/tests/test_admin.py): middleware bypass, model registration, branding. 1466 tests passing, lint clean.
 
 ## Completed Steps
 
