@@ -993,7 +993,7 @@ msgstr "سداد قرض"
 #: dashboard/templates/dashboard/_people_summary.html:6
 #: dashboard/templates/dashboard/_virtual_accounts.html:7
 msgid "Manage"
-msgstr ""
+msgstr "إدارة"
 
 #: dashboard/templates/dashboard/_accounts.html:49
 msgid ""
@@ -1003,7 +1003,7 @@ msgstr ""
 
 #: dashboard/templates/dashboard/_credit_cards.html:5
 msgid "Credit Cards"
-msgstr ""
+msgstr "بطاقات الائتمان"
 
 #: dashboard/templates/dashboard/_credit_cards.html:28
 #: dashboard/templates/dashboard/_due_date_warning.html:13
@@ -1057,7 +1057,7 @@ msgstr ""
 
 #: dashboard/templates/dashboard/_net_worth.html:4
 msgid "Net Worth"
-msgstr ""
+msgstr "صافي الثروة"
 
 #: dashboard/templates/dashboard/_net_worth.html:45
 msgid "Liquid Cash"
@@ -1114,7 +1114,7 @@ msgstr ""
 
 #: dashboard/templates/dashboard/_spending.html:6
 msgid "This Month vs Last"
-msgstr ""
+msgstr "هذا الشهر مقابل الماضي"
 
 #: dashboard/templates/dashboard/_spending.html:22
 msgid "This month"
@@ -1126,7 +1126,7 @@ msgstr ""
 
 #: dashboard/templates/dashboard/_spending.html:58
 msgid "Spending Pace"
-msgstr ""
+msgstr "وتيرة الإنفاق"
 
 #: dashboard/templates/dashboard/_spending.html:60
 msgid "of last month"
@@ -1135,7 +1135,7 @@ msgstr ""
 #: dashboard/templates/dashboard/_spending.html:61
 #, python-format
 msgid "%(days)s d left"
-msgstr ""
+msgstr "متبقي %(days)s يوم"
 
 #: dashboard/templates/dashboard/_streak.html:6
 #, python-format
@@ -1153,7 +1153,7 @@ msgstr ""
 
 #: dashboard/templates/dashboard/home.html:5
 msgid "ClearMoney - Dashboard"
-msgstr ""
+msgstr "ClearMoney - لوحة التحكم"
 
 #: dashboard/templates/dashboard/home.html:53
 msgid "Recent Transactions"
@@ -1648,7 +1648,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Category"
 msgid "Categories"
-msgstr "الفئة"
+msgstr "الفئات"
 
 #: settings_app/templates/settings_app/categories.html:10
 msgid "Back"
@@ -1720,11 +1720,11 @@ msgstr ""
 
 #: settings_app/templates/settings_app/settings.html:4
 msgid "ClearMoney - Settings"
-msgstr ""
+msgstr "ClearMoney - الإعدادات"
 
 #: settings_app/templates/settings_app/settings.html:14
 msgid "Dark Mode"
-msgstr ""
+msgstr "الوضع الداكن"
 
 #: settings_app/templates/settings_app/settings.html:15
 msgid "Toggle between light and dark theme"
@@ -1743,7 +1743,7 @@ msgstr ""
 #, fuzzy
 #| msgid "View transactions"
 msgid "Export Transactions"
-msgstr "عرض المعاملات"
+msgstr "تصدير المعاملات"
 
 #: settings_app/templates/settings_app/settings.html:34
 msgid "From"
@@ -1759,7 +1759,7 @@ msgstr ""
 
 #: settings_app/templates/settings_app/settings.html:63
 msgid "Push Notifications"
-msgstr ""
+msgstr "إشعارات الدفع"
 
 #: settings_app/templates/settings_app/settings.html:64
 msgid "Get reminders for due dates and recurring transactions"
@@ -2114,7 +2114,7 @@ msgstr ""
 
 #: transactions/templates/transactions/_transaction_detail_sheet.html:57
 msgid "Tags"
-msgstr ""
+msgstr "الوسوم"
 
 #: transactions/templates/transactions/_transaction_detail_sheet.html:69
 msgid "Transfer to"
@@ -2424,3 +2424,18 @@ msgstr "يتجاوز رصيد الحساب (%(va_balance)s)"
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:105
 msgid "No virtual accounts yet. Create one above!"
 msgstr "لا توجد حسابات افتراضية بعد. أنشئ واحدة أعلاه!"
+
+msgid "By Category"
+msgstr "حسب الفئة"
+
+msgid "%(name)s has never been reconciled"
+msgstr "لم يتم تسوية %(name)s أبداً"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "Import Transactions"
+msgstr "استيراد المعاملات"
+
+msgid "%(days)s days left"
+msgstr "متبقي %(days)s يوم"

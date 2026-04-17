@@ -60,7 +60,7 @@
             <span class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Spending Pace" %}</span>
             <div class="flex items-center gap-3">
                 <span class="text-xs text-slate-600 dark:text-slate-300">{{ data.spending_velocity.percentage|floatformat:"0" }}% {% trans "of last month" %}</span>
-                <span class="text-xs text-gray-400 dark:text-gray-500">{% blocktrans with days=data.spending_velocity.days_left %}{{ days }} d left{% endblocktrans %}</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500">{% blocktrans with days=data.spending_velocity.days_left %}{{ days }} days left{% endblocktrans %}</span>
             </div>
         </div>
 
