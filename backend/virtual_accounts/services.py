@@ -56,7 +56,9 @@ def _compute_progress_pct(target: float | None, balance: float) -> float:
     return 0.0
 
 
-def _compute_months_remaining(target: float | None, balance: float, monthly_target: float | None) -> float | None:
+def _compute_months_remaining(
+    target: float | None, balance: float, monthly_target: float | None
+) -> float | None:
     if target and target > 0 and monthly_target and monthly_target > 0:
         remaining = target - balance
         if remaining <= 0:

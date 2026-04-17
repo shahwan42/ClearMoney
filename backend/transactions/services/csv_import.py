@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from transactions.models import Transaction
 
@@ -16,7 +17,8 @@ class CsvImportService:
         self.user_id = user_id
         self.tz_name = tz_name
         from transactions.services import TransactionService
-        self.tx_service = TransactionService(user_id, "")
+
+        self.tx_service = TransactionService(user_id, ZoneInfo("UTC"))
 
     def parse_headers(self, file_content: str) -> list[str]:
         f = io.StringIO(file_content)
@@ -37,7 +39,9 @@ class CsvImportService:
                 pass
         return None
 
-    def parse_rows(self, file_content: str, mapping: dict[str, str], account_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    def parse_rows(
+        self, file_content: str, mapping: dict[str, str], account_id: str
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
         """
         Parses the CSV content using the given column mapping.
         mapping has keys like: 'col_date', 'col_amount', 'col_type', 'col_note'
@@ -57,7 +61,7 @@ class CsvImportService:
         if not (date_col and amount_col):
             raise ValueError("Date and Amount mapping is required")
 
-        row_index = 2 # 1-based index including header
+        row_index = 2  # 1-based index including header
         for row in reader:
             try:
                 date_str = row.get(date_col, "")
@@ -96,15 +100,17 @@ class CsvImportService:
                 # Auto-categorize
                 category_id = self.tx_service.suggest_category(note)
 
-                parsed.append({
-                    "date": parsed_date,
-                    "amount": str(final_amount),
-                    "type": tx_type,
-                    "note": note,
-                    "account_id": account_id,
-                    "category_id": category_id,
-                    "row_index": row_index,
-                })
+                parsed.append(
+                    {
+                        "date": parsed_date,
+                        "amount": str(final_amount),
+                        "type": tx_type,
+                        "note": note,
+                        "account_id": account_id,
+                        "category_id": category_id,
+                        "row_index": row_index,
+                    }
+                )
             except Exception as e:
                 errors.append(f"Row {row_index}: {str(e)}")
             row_index += 1
@@ -112,13 +118,17 @@ class CsvImportService:
         # duplicate detection
         duplicates = []
         if parsed:
-            min_date = min(p["date"] for p in parsed)
-            max_date = max(p["date"] for p in parsed)
+            min_date = min(str(p["date"]) for p in parsed)
+            max_date = max(str(p["date"]) for p in parsed)
 
-            existing = Transaction.objects.for_user(self.user_id).filter(
-                date__gte=min_date,
-                date__lte=max_date,
-            ).values("date", "amount", "note")
+            existing = (
+                Transaction.objects.for_user(self.user_id)
+                .filter(
+                    date__gte=min_date,
+                    date__lte=max_date,
+                )
+                .values("date", "amount", "note")
+            )
 
             existing_hashes = set()
             for ex in existing:
@@ -130,8 +140,10 @@ class CsvImportService:
                 existing_hashes.add(h)
 
             for p in parsed:
-                amount_str = f"{float(p['amount']):.2f}"
-                h = hashlib.sha256(f"{p['date']}_{amount_str}_{p['note']}".encode()).hexdigest()
+                amount_str = f"{float(str(p['amount'])):.2f}"
+                h = hashlib.sha256(
+                    f"{p['date']}_{amount_str}_{p['note']}".encode()
+                ).hexdigest()
                 p["hash"] = h
                 if h in existing_hashes:
                     duplicates.append(p)

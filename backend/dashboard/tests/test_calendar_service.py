@@ -37,7 +37,9 @@ class TestCalendarServiceGetMonthEvents:
         """Actual transactions are grouped under the day they occurred."""
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         category = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
 
         TransactionFactory(
@@ -64,7 +66,9 @@ class TestCalendarServiceGetMonthEvents:
         """Income transactions appear alongside expense transactions."""
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
 
         TransactionFactory(
             user_id=user.id,
@@ -85,7 +89,9 @@ class TestCalendarServiceGetMonthEvents:
         """Recurring rules produce is_projection=True events in the calendar."""
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
 
         RecurringRuleFactory(
             user_id=user.id,
@@ -117,7 +123,9 @@ class TestCalendarServiceGetMonthEvents:
         """Transactions from other months do not appear in the requested month."""
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
 
         # Transaction in February — should NOT appear in March events
         TransactionFactory(
@@ -145,7 +153,9 @@ class TestCalendarServiceGetMonthEvents:
         user_a = UserFactory()
         user_b = UserFactory()
         inst_b = InstitutionFactory(user_id=user_b.id)
-        account_b = AccountFactory(user_id=user_b.id, institution_id=inst_b.id, currency="EGP")
+        account_b = AccountFactory(
+            user_id=user_b.id, institution_id=inst_b.id, currency="EGP"
+        )
 
         TransactionFactory(
             user_id=user_b.id,
@@ -171,7 +181,9 @@ class TestCalendarServiceGetMonthEvents:
         """Multiple events on the same day are all included."""
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         cat = CategoryFactory(user_id=user.id, type="expense")
 
         for amount in [100, 200, 300]:

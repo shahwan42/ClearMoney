@@ -103,17 +103,14 @@ class BudgetService:
 
             if b.rollover_enabled:
                 # Get last month's spending
-                prev_spent_agg = (
-                    Transaction.objects.filter(
-                        category_id=b.category_id,
-                        user_id=self.user_id,
-                        type="expense",
-                        currency=b.currency,
-                        date__gte=prev_month_start,
-                        date__lt=prev_month_end,
-                    )
-                    .aggregate(total=Coalesce(Sum("amount"), Decimal(0)))
-                )
+                prev_spent_agg = Transaction.objects.filter(
+                    category_id=b.category_id,
+                    user_id=self.user_id,
+                    type="expense",
+                    currency=b.currency,
+                    date__gte=prev_month_start,
+                    date__lt=prev_month_end,
+                ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))
 
                 prev_spent = float(prev_spent_agg["total"])
                 carryover = max(0.0, limit_amt - prev_spent)
@@ -365,24 +362,20 @@ class BudgetService:
         limit_amt = Decimal(str(budget.monthly_limit))
 
         # 1. Total spending this month for this currency (all expense categories)
-        spent = (
-            Transaction.objects.filter(
-                user_id=self.user_id,
-                type="expense",
-                currency=currency,
-                date__gte=month_start,
-                date__lt=month_end,
-            ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))["total"]
-            or Decimal(0)
-        )
+        spent = Transaction.objects.filter(
+            user_id=self.user_id,
+            type="expense",
+            currency=currency,
+            date__gte=month_start,
+            date__lt=month_end,
+        ).aggregate(total=Coalesce(Sum("amount"), Decimal(0)))["total"] or Decimal(0)
 
         # 2. Sum of individual category budgets (to check if they exceed total)
-        category_sum = (
-            Budget.objects.filter(
-                user_id=self.user_id, currency=currency, is_active=True
-            ).aggregate(total=Coalesce(Sum("monthly_limit"), Decimal(0)))["total"]
-            or Decimal(0)
-        )
+        category_sum = Budget.objects.filter(
+            user_id=self.user_id, currency=currency, is_active=True
+        ).aggregate(total=Coalesce(Sum("monthly_limit"), Decimal(0)))[
+            "total"
+        ] or Decimal(0)
 
         pct = (float(spent) / float(limit_amt) * 100) if limit_amt > 0 else 0.0
         status = compute_threshold_status(pct, (80.0, 100.0))
@@ -424,7 +417,9 @@ class BudgetService:
     def delete_total_budget(self, currency: str = "EGP") -> bool:
         """Remove the total monthly budget limit for a currency."""
         count, _ = (
-            TotalBudget.objects.for_user(self.user_id).filter(currency=currency).delete()
+            TotalBudget.objects.for_user(self.user_id)
+            .filter(currency=currency)
+            .delete()
         )
         deleted = bool(count > 0)
         if deleted:

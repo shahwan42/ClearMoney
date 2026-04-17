@@ -12,9 +12,11 @@ def test_user_id(db):
     user = UserFactory()
     return str(user.id)
 
+
 @pytest.fixture
 def csv_service(test_user_id):
     return CsvImportService(test_user_id, "UTC")
+
 
 @pytest.fixture
 def target_account(test_user_id):
@@ -28,11 +30,13 @@ def target_account(test_user_id):
         type="depository",
     )
 
+
 @pytest.mark.django_db
 def test_csv_parse_headers(csv_service):
     csv_content = "Date,Amount,Type,Note\n2023-01-01,100.00,CR,Test"
     headers = csv_service.parse_headers(csv_content)
     assert headers == ["Date", "Amount", "Type", "Note"]
+
 
 @pytest.mark.django_db
 def test_csv_parse_rows_validation_and_classification(csv_service, target_account):
@@ -42,14 +46,11 @@ def test_csv_parse_rows_validation_and_classification(csv_service, target_accoun
 invalid_date,10.00,CR,bad date
 2023-01-04,invalid,CR,bad amount"""
 
-    mapping = {
-        "date": "Date",
-        "amount": "Amount",
-        "type": "Type",
-        "note": "Note"
-    }
+    mapping = {"date": "Date", "amount": "Amount", "type": "Type", "note": "Note"}
 
-    parsed, duplicates, errors = csv_service.parse_rows(csv_content, mapping, str(target_account.id))
+    parsed, duplicates, errors = csv_service.parse_rows(
+        csv_content, mapping, str(target_account.id)
+    )
 
     assert len(parsed) == 2
     assert len(errors) == 2
@@ -70,18 +71,14 @@ invalid_date,10.00,CR,bad date
     assert parsed[1]["type"] == "expense"
     assert parsed[1]["note"] == "negative amount implies expense"
 
+
 @pytest.mark.django_db
 def test_csv_parse_duplicate_detection(csv_service, target_account, test_user_id):
     csv_content = """Date,Amount,Type,Note
 2023-01-01,100.00,Credit,Test Note Duplicate
 2023-01-02,50.00,Debit,New Note"""
 
-    mapping = {
-        "date": "Date",
-        "amount": "Amount",
-        "type": "Type",
-        "note": "Note"
-    }
+    mapping = {"date": "Date", "amount": "Amount", "type": "Type", "note": "Note"}
 
     # pre-create a transaction that matches row 1 completely
     Transaction.objects.create(
@@ -92,10 +89,12 @@ def test_csv_parse_duplicate_detection(csv_service, target_account, test_user_id
         type="income",
         note="Test Note Duplicate",
         balance_delta=Decimal("100.00"),
-        currency="USD"
+        currency="USD",
     )
 
-    parsed, duplicates, errors = csv_service.parse_rows(csv_content, mapping, str(target_account.id))
+    parsed, duplicates, errors = csv_service.parse_rows(
+        csv_content, mapping, str(target_account.id)
+    )
 
     assert len(parsed) == 2
     assert len(duplicates) == 1

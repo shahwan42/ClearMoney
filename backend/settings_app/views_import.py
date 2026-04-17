@@ -23,11 +23,11 @@ def import_upload(request: AuthenticatedRequest) -> HttpResponse:
         if not file:
             return HttpResponse("No file uploaded", status=400)
 
-        if not file.name.endswith(".csv"):
+        if not (file.name or "").endswith(".csv"):
             return HttpResponse("Only .csv files are supported", status=400)
 
         # Max 5MB
-        if file.size > 5 * 1024 * 1024:
+        if (file.size or 0) > 5 * 1024 * 1024:
             return HttpResponse("File too large (max 5MB)", status=400)
 
         content = file.read().decode("utf-8")
@@ -68,10 +68,11 @@ def import_mapping(request: AuthenticatedRequest, import_id: str) -> HttpRespons
         if not mapping["date"] or not mapping["amount"] or not account_id:
             return HttpResponse("Date, Amount and Account are required", status=400)
 
-        cache.set(f"import_mapping_{import_id}", json.dumps({
-            "mapping": mapping,
-            "account_id": account_id
-        }), timeout=3600)
+        cache.set(
+            f"import_mapping_{import_id}",
+            json.dumps({"mapping": mapping, "account_id": account_id}),
+            timeout=3600,
+        )
 
         return redirect("import-preview", import_id=import_id)
 
@@ -79,11 +80,15 @@ def import_mapping(request: AuthenticatedRequest, import_id: str) -> HttpRespons
     tx_svc = TransactionService(request.user_id, request.tz)
     accounts = tx_svc.get_accounts()
 
-    return render(request, "settings_app/import/mapping.html", {
-        "headers": headers,
-        "import_id": import_id,
-        "accounts": accounts,
-    })
+    return render(
+        request,
+        "settings_app/import/mapping.html",
+        {
+            "headers": headers,
+            "import_id": import_id,
+            "accounts": accounts,
+        },
+    )
 
 
 @general_rate
@@ -109,7 +114,7 @@ def import_preview(request: AuthenticatedRequest, import_id: str) -> HttpRespons
 
     # 10,000 rows limit
     if len(parsed) > 10000:
-         return HttpResponse("Too many rows (max 10,000)", status=400)
+        return HttpResponse("Too many rows (max 10,000)", status=400)
 
     if request.method == "POST":
         # Process import
@@ -124,23 +129,31 @@ def import_preview(request: AuthenticatedRequest, import_id: str) -> HttpRespons
         cache.delete(f"import_csv_{import_id}")
         cache.delete(f"import_mapping_{import_id}")
 
-        cache.set(f"import_summary_{import_id}", {
-            "created": created,
-            "failed": failed,
-            "errors": errors,
-            "duplicates": len(duplicates),
-        }, timeout=3600)
+        cache.set(
+            f"import_summary_{import_id}",
+            {
+                "created": created,
+                "failed": failed,
+                "errors": errors,
+                "duplicates": len(duplicates),
+            },
+            timeout=3600,
+        )
 
         return redirect("import-summary", import_id=import_id)
 
-    return render(request, "settings_app/import/preview.html", {
-        "parsed": parsed[:50], # show top 50
-        "total_rows": len(parsed),
-        "duplicates": duplicates[:50],
-        "total_duplicates": len(duplicates),
-        "errors": errors,
-        "import_id": import_id,
-    })
+    return render(
+        request,
+        "settings_app/import/preview.html",
+        {
+            "parsed": parsed[:50],  # show top 50
+            "total_rows": len(parsed),
+            "duplicates": duplicates[:50],
+            "total_duplicates": len(duplicates),
+            "errors": errors,
+            "import_id": import_id,
+        },
+    )
 
 
 @general_rate
@@ -150,6 +163,4 @@ def import_summary(request: AuthenticatedRequest, import_id: str) -> HttpRespons
     if not summary:
         return redirect("import-upload")
 
-    return render(request, "settings_app/import/summary.html", {
-        "summary": summary
-    })
+    return render(request, "settings_app/import/summary.html", {"summary": summary})

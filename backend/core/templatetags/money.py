@@ -16,9 +16,7 @@ from datetime import date, datetime
 from typing import Any
 
 from django import template
-from django.db.models import QuerySet
 from django.utils.encoding import force_str
-from django.utils.formats import date_format
 from django.utils.safestring import mark_safe
 from django.utils.translation import get_language
 from django.utils.translation import gettext_lazy as _
@@ -49,7 +47,7 @@ def _format_number(n: float) -> str:
 def format_currency(amount: object, currency: object = "EGP") -> str:
     """Format with currency symbol."""
     try:
-        amt = float(amount) if amount is not None else 0.0
+        amt = float(str(amount)) if amount is not None else 0.0
     except (ValueError, TypeError):
         amt = 0.0
     cur = str(currency).upper() if currency else "EGP"
@@ -365,7 +363,9 @@ def categories_json(categories: Any) -> str:
                 display_name = name_raw.get(lang) or name_raw.get("en", "Uncategorized")
             else:
                 display_name = str(name_raw)
-            items.append({"id": str(cat.id), "name": display_name, "icon": cat.icon or ""})
+            items.append(
+                {"id": str(cat.id), "name": display_name, "icon": cat.icon or ""}
+            )
         elif isinstance(cat, dict):
             # Dict
             raw_name = cat.get("name", "")

@@ -11,11 +11,12 @@ from typing import Any, TypeVar
 
 from core.types import AuthenticatedRequest
 
-# Type variable for service classes
-ServiceT = TypeVar("ServiceT")
+R = TypeVar("R")
 
 
-def inject_service[ServiceT](service_class: type[ServiceT]) -> Callable:
+def inject_service(
+    service_class: type[Any],
+) -> Callable[[Callable[..., R]], Callable[..., R]]:
     """
     Decorator that instantiates a service and injects it into the view function.
 
@@ -46,22 +47,11 @@ def inject_service[ServiceT](service_class: type[ServiceT]) -> Callable:
         TypeError: If the service class cannot be instantiated with the given parameters.
     """
 
-    def decorator(view_func: Callable[..., Any]) -> Callable[..., Any]:
+    def decorator(view_func: Callable[..., R]) -> Callable[..., R]:
         """Inner decorator that wraps the view function."""
 
         @wraps(view_func)
-        def wrapper(request: AuthenticatedRequest, *args: Any, **kwargs: Any) -> Any:
-            """
-            Instantiate the service and pass it to the view.
-
-            Args:
-                request: The authenticated request object (must have user_id and tz).
-                *args: Additional positional arguments passed to the view.
-                **kwargs: Additional keyword arguments passed to the view.
-
-            Returns:
-                The result of the wrapped view function.
-            """
+        def wrapper(request: AuthenticatedRequest, *args: Any, **kwargs: Any) -> R:
             svc = service_class(request.user_id, request.tz)
             return view_func(request, svc, *args, **kwargs)
 

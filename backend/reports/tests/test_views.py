@@ -20,7 +20,9 @@ from tests.factories import (
 class TestPdfExport:
     """PDF export view — budget section and basic rendering."""
 
-    def test_returns_pdf_content_type(self, auth_client: Client, auth_user: tuple) -> None:
+    def test_returns_pdf_content_type(
+        self, auth_client: Client, auth_user: tuple
+    ) -> None:
         """PDF export returns application/pdf content type."""
         user_id, _, _ = auth_user
         with patch("reports.views.HTML") as mock_html:
@@ -29,7 +31,9 @@ class TestPdfExport:
         assert response.status_code == 200
         assert response["Content-Type"] == "application/pdf"
 
-    def test_pdf_filename_includes_year_month(self, auth_client: Client, auth_user: tuple) -> None:
+    def test_pdf_filename_includes_year_month(
+        self, auth_client: Client, auth_user: tuple
+    ) -> None:
         """PDF filename contains the requested year and month."""
         with patch("reports.views.HTML") as mock_html:
             mock_html.return_value.write_pdf.return_value = b"%PDF-1.4 fake"
@@ -42,9 +46,13 @@ class TestPdfExport:
 
         user_id, _, _ = auth_user
         inst = InstitutionFactory(user_id=user_id)
-        account = AccountFactory(user_id=user_id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user_id, institution_id=inst.id, currency="EGP"
+        )
         category = CategoryFactory(user_id=user_id, name={"en": "Food"}, type="expense")
-        BudgetFactory(user_id=user_id, category_id=category.id, monthly_limit=2000, currency="EGP")
+        BudgetFactory(
+            user_id=user_id, category_id=category.id, monthly_limit=2000, currency="EGP"
+        )
         TransactionFactory(
             user_id=user_id,
             account_id=account.id,
@@ -66,7 +74,11 @@ class TestPdfExport:
 
         html = render_to_string(
             "reports/pdf_report.html",
-            {"data": report_data, "today": datetime.date(2026, 4, 1), "budgets": budgets},
+            {
+                "data": report_data,
+                "today": datetime.date(2026, 4, 1),
+                "budgets": budgets,
+            },
         )
         assert "Budget Status" in html
         assert "Food" in html
@@ -82,13 +94,17 @@ class TestPdfExport:
         from reports.services import get_monthly_report
 
         report_data = get_monthly_report(user_id, 2026, 3)
-        budgets = BudgetService(user_id, ZoneInfo("Africa/Cairo")).get_all_with_spending(
-            target_date=datetime.date(2026, 3, 1)
-        )
+        budgets = BudgetService(
+            user_id, ZoneInfo("Africa/Cairo")
+        ).get_all_with_spending(target_date=datetime.date(2026, 3, 1))
 
         html = render_to_string(
             "reports/pdf_report.html",
-            {"data": report_data, "today": datetime.date(2026, 4, 1), "budgets": budgets},
+            {
+                "data": report_data,
+                "today": datetime.date(2026, 4, 1),
+                "budgets": budgets,
+            },
         )
         assert "Budget Status" not in html
 

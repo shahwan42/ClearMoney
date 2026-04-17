@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(/.gemini/skills/commit/**)",
+      "Edit(/.gemini/skills/deploy/**)",
+      "Edit(/.gemini/skills/qa-review/**)"
+    ]
+  },
+  "env": {
+    "ENABLE_LSP_TOOL": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$GEMINI_PROJECT_DIR/.gemini/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

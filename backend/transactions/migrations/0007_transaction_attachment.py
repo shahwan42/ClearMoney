@@ -6,15 +6,18 @@ import transactions.models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('transactions', '0006_transaction_is_verified'),
+        ("transactions", "0006_transaction_is_verified"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='transaction',
-            name='attachment',
-            field=models.FileField(blank=True, null=True, upload_to=transactions.models.transaction_attachment_path),
+            model_name="transaction",
+            name="attachment",
+            field=models.FileField(
+                blank=True,
+                null=True,
+                upload_to=transactions.models.transaction_attachment_path,
+            ),
         ),
     ]

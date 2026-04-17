@@ -276,4 +276,3 @@ class TestDataIsolation:
 
         assert svc_a._qs().filter(id=inv.id).exists() is True
         assert svc_b._qs().filter(id=inv.id).exists() is False
-

@@ -23,24 +23,38 @@ class TestBudgetRollover:
         category = CategoryFactory(user_id=user.id, type="expense", name={"en": "Food"})
 
         # Create budget with rollover
-        svc.create(category_id=str(category.id), monthly_limit=1000, rollover_enabled=True)
+        svc.create(
+            category_id=str(category.id), monthly_limit=1000, rollover_enabled=True
+        )
 
         # Last month: spent 600 of 1000 -> 400 rollover
         today = datetime.date(2026, 4, 16)
         last_month_mid = datetime.date(2026, 3, 15)
 
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
 
         TransactionFactory(
-            user_id=user.id, category_id=category.id, account_id=account.id,
-            type="expense", amount=600, date=last_month_mid, currency="EGP"
+            user_id=user.id,
+            category_id=category.id,
+            account_id=account.id,
+            type="expense",
+            amount=600,
+            date=last_month_mid,
+            currency="EGP",
         )
 
         # This month: spent 200
         TransactionFactory(
-            user_id=user.id, category_id=category.id, account_id=account.id,
-            type="expense", amount=200, date=today, currency="EGP"
+            user_id=user.id,
+            category_id=category.id,
+            account_id=account.id,
+            type="expense",
+            amount=200,
+            date=today,
+            currency="EGP",
         )
 
         budgets = svc.get_all_with_spending(target_date=today)
@@ -57,15 +71,27 @@ class TestBudgetRollover:
         category = CategoryFactory(user_id=user.id, type="expense")
 
         # Limit 1000, rollover 400, but max_rollover 200
-        svc.create(category_id=str(category.id), monthly_limit=1000, rollover_enabled=True, max_rollover=200)
+        svc.create(
+            category_id=str(category.id),
+            monthly_limit=1000,
+            rollover_enabled=True,
+            max_rollover=200,
+        )
 
         last_month_mid = datetime.date(2026, 3, 15)
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
 
         TransactionFactory(
-            user_id=user.id, category_id=category.id, account_id=account.id,
-            type="expense", amount=600, date=last_month_mid, currency="EGP"
+            user_id=user.id,
+            category_id=category.id,
+            account_id=account.id,
+            type="expense",
+            amount=600,
+            date=last_month_mid,
+            currency="EGP",
         )
 
         budgets = svc.get_all_with_spending(target_date=datetime.date(2026, 4, 16))
@@ -73,6 +99,7 @@ class TestBudgetRollover:
 
         assert b.rollover_amount == 200.0
         assert b.effective_limit == 1200.0
+
 
 @pytest.mark.django_db
 class TestBudgetCopy:
@@ -83,12 +110,28 @@ class TestBudgetCopy:
         cat2 = CategoryFactory(user_id=user.id, type="expense", name={"en": "Rent"})
 
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
 
         # Spending last month for cat1 and cat2
         last_month_mid = datetime.date(2026, 3, 15)
-        TransactionFactory(user_id=user.id, category_id=cat1.id, account_id=account.id, type="expense", amount=500, date=last_month_mid)
-        TransactionFactory(user_id=user.id, category_id=cat2.id, account_id=account.id, type="expense", amount=2000, date=last_month_mid)
+        TransactionFactory(
+            user_id=user.id,
+            category_id=cat1.id,
+            account_id=account.id,
+            type="expense",
+            amount=500,
+            date=last_month_mid,
+        )
+        TransactionFactory(
+            user_id=user.id,
+            category_id=cat2.id,
+            account_id=account.id,
+            type="expense",
+            amount=2000,
+            date=last_month_mid,
+        )
 
         # Already have a budget for cat2
         svc.create(category_id=str(cat2.id), monthly_limit=1500)

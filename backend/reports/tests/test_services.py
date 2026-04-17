@@ -46,7 +46,9 @@ class TestGetCategoryTrends:
     def test_basic_trends(self):
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         category = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
 
         # Create transactions for 3 months
@@ -76,7 +78,9 @@ class TestGetSavingsRateHistory:
     def test_basic_savings_rate(self):
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
 
         # Jan: 5000 income, 3000 expense -> 40% rate
         TransactionFactory(
@@ -106,7 +110,9 @@ class TestGetInsights:
     def test_anomaly_detection(self):
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         category = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
 
         # Avg = 100, 100. Current = 200. 200 > 1.3 * 133.3...
@@ -137,7 +143,9 @@ class TestGetInsights:
     def test_growing_categories(self):
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         cat1 = CategoryFactory(user_id=user.id, name={"en": "Rent"}, type="expense")
         cat2 = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
 
@@ -179,7 +187,9 @@ class TestGetSpendingByCategory:
     def test_single_category(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         category = CategoryFactory(user_id=user.id, type="expense")
         TransactionFactory(
             user_id=user.id,
@@ -198,9 +208,13 @@ class TestGetSpendingByCategory:
     def test_multiple_categories(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         cat1 = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
-        cat2 = CategoryFactory(user_id=user.id, name={"en": "Transport"}, type="expense")
+        cat2 = CategoryFactory(
+            user_id=user.id, name={"en": "Transport"}, type="expense"
+        )
         TransactionFactory(
             user_id=user.id,
             account_id=account.id,
@@ -226,7 +240,9 @@ class TestGetSpendingByCategory:
     def test_income_excluded(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         cat = CategoryFactory(user_id=user.id, type="income")
         TransactionFactory(
             user_id=user.id,
@@ -243,8 +259,12 @@ class TestGetSpendingByCategory:
     def test_filter_by_currency(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        egp_acc = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
-        usd_acc = AccountFactory(user_id=user.id, institution_id=inst.id, currency="USD")
+        egp_acc = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
+        usd_acc = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="USD"
+        )
         cat = CategoryFactory(user_id=user.id, type="expense")
         TransactionFactory(
             user_id=user.id,
@@ -313,7 +333,9 @@ class TestGetMonthSummary:
     def test_income_and_expenses(self) -> None:
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        account = AccountFactory(user_id=user.id, institution_id=inst.id, currency="EGP")
+        account = AccountFactory(
+            user_id=user.id, institution_id=inst.id, currency="EGP"
+        )
         exp_cat = CategoryFactory(user_id=user.id, type="expense")
         inc_cat = CategoryFactory(user_id=user.id, type="income")
         TransactionFactory(

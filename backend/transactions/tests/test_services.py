@@ -730,7 +730,6 @@ class TestGetFiltered:
         assert results[0]["currency"] == "USD"
 
 
-
 # ---------------------------------------------------------------------------
 # Global search tests
 # ---------------------------------------------------------------------------
@@ -827,9 +826,7 @@ class TestGlobalSearch:
     def test_search_empty_query_returns_empty(self, tx_data):
         """An empty or whitespace-only query must return [] without hitting the DB."""
         svc = _svc(tx_data["user_id"])
-        svc.create(
-            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
-        )
+        svc.create({"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]})
         assert svc.search("") == []
         assert svc.search("   ") == []
 
@@ -837,7 +834,12 @@ class TestGlobalSearch:
         """A query with no matches should return an empty list."""
         svc = _svc(tx_data["user_id"])
         svc.create(
-            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"], "note": "coffee"}
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "note": "coffee",
+            }
         )
         results = svc.search("zzznomatch")
         assert results == []
@@ -853,13 +855,39 @@ class TestGlobalSearch:
         SessionFactory(user=user_b)
         inst_a = InstitutionFactory(user_id=user_a.id)
         inst_b = InstitutionFactory(user_id=user_b.id)
-        acc_a = AccountFactory(user_id=user_a.id, institution_id=inst_a.id, currency="EGP", current_balance=10000, initial_balance=10000)
-        acc_b = AccountFactory(user_id=user_b.id, institution_id=inst_b.id, currency="EGP", current_balance=10000, initial_balance=10000)
+        acc_a = AccountFactory(
+            user_id=user_a.id,
+            institution_id=inst_a.id,
+            currency="EGP",
+            current_balance=10000,
+            initial_balance=10000,
+        )
+        acc_b = AccountFactory(
+            user_id=user_b.id,
+            institution_id=inst_b.id,
+            currency="EGP",
+            current_balance=10000,
+            initial_balance=10000,
+        )
 
         svc_a = _svc(str(user_a.id))
         svc_b = _svc(str(user_b.id))
-        svc_a.create({"type": "expense", "amount": 111, "account_id": str(acc_a.id), "note": "secret lunch"})
-        svc_b.create({"type": "expense", "amount": 222, "account_id": str(acc_b.id), "note": "secret lunch"})
+        svc_a.create(
+            {
+                "type": "expense",
+                "amount": 111,
+                "account_id": str(acc_a.id),
+                "note": "secret lunch",
+            }
+        )
+        svc_b.create(
+            {
+                "type": "expense",
+                "amount": 222,
+                "account_id": str(acc_b.id),
+                "note": "secret lunch",
+            }
+        )
 
         results_a = svc_a.search("secret")
         assert len(results_a) == 1
@@ -869,7 +897,12 @@ class TestGlobalSearch:
         """Returned dicts must include indicator_color and amount_color_class."""
         svc = _svc(tx_data["user_id"])
         svc.create(
-            {"type": "expense", "amount": 50, "account_id": tx_data["egp_id"], "note": "display check"}
+            {
+                "type": "expense",
+                "amount": 50,
+                "account_id": tx_data["egp_id"],
+                "note": "display check",
+            }
         )
         results = svc.search("display check")
         assert len(results) == 1
@@ -1206,7 +1239,6 @@ class TestInstapayTransfer:
         assert str(debit["date"]) == str(date.today())
 
 
-
 # ---------------------------------------------------------------------------
 # Exchange tests
 # ---------------------------------------------------------------------------
@@ -1412,7 +1444,6 @@ class TestFawryCashout:
             None,
         )
         assert str(charge["date"]) == str(date.today())
-
 
 
 # ---------------------------------------------------------------------------
@@ -1780,29 +1811,39 @@ class TestTransactionBoundaryAmounts:
             # This is the BUG we're fixing
             pass  # Document current float behavior
 
+
 @pytest.mark.django_db
 class TestAllocateToVirtualAccount:
     def test_va_not_found(self, tx_data):
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="Virtual account not found"):
-            svc.allocate_to_virtual_account("00000000-0000-0000-0000-000000000000", "11111111-1111-1111-1111-111111111111", 100)
+            svc.allocate_to_virtual_account(
+                "00000000-0000-0000-0000-000000000000",
+                "11111111-1111-1111-1111-111111111111",
+                100,
+            )
 
     def test_tx_not_found(self, tx_data):
         svc = _svc(tx_data["user_id"])
         va = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=None)
         with pytest.raises(ValueError, match="Transaction not found"):
-            svc.allocate_to_virtual_account("00000000-0000-0000-0000-000000000000", str(va.id), 100)
+            svc.allocate_to_virtual_account(
+                "00000000-0000-0000-0000-000000000000", str(va.id), 100
+            )
 
     def test_account_linkage_mismatch(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        va = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=tx_data["usd_id"])
-        tx, _ = svc.create({
-            "type": "expense",
-            "amount": 100,
-            "account_id": tx_data["egp_id"]
-        })
-        with pytest.raises(ValueError, match="Virtual account is linked to a different account"):
+        va = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["usd_id"]
+        )
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
+        )
+        with pytest.raises(
+            ValueError, match="Virtual account is linked to a different account"
+        ):
             svc.allocate_to_virtual_account(tx["id"], str(va.id), 100)
+
 
 @pytest.mark.django_db
 class TestDropdownHelpers:
@@ -1820,6 +1861,7 @@ class TestDropdownHelpers:
     def test_get_fees_category_id_missing(self, tx_data):
         svc = _svc(tx_data["user_id"])
         from categories.models import Category
+
         # Remove fees category
         Category.objects.filter(id=tx_data["fees_cat_id"]).delete()
         assert svc.get_fees_category_id() is None
@@ -1829,6 +1871,7 @@ class TestDropdownHelpers:
         cats = svc.get_categories(cat_type="income")
         assert len(cats) >= 1
         assert all(c["type"] == "income" for c in cats)
+
 
 @pytest.mark.django_db
 class TestJSONApiHelpers:
@@ -1852,13 +1895,14 @@ class TestJSONApiHelpers:
         svc = _svc(tx_data["user_id"])
         import uuid
         from decimal import Decimal
+
         uid = uuid.uuid4()
         row = {
             "id": uid,
             "user_id": uid,
             "amount": Decimal("100.50"),
             "tags": ["a", "b"],
-            "currency": "USD"
+            "currency": "USD",
         }
         res = svc._dict_from_values(row)
         assert res["id"] == str(uid)
@@ -1867,22 +1911,27 @@ class TestJSONApiHelpers:
         assert res["tags"] == ["a", "b"]
         assert res["currency"] == "USD"
 
+
 @pytest.mark.django_db
 class TestApplyPostCreateLogic:
     def test_apply_post_create_logic_with_va(self, tx_data):
         svc = _svc(tx_data["user_id"])
         # Test basic allocation
-        va = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=tx_data["egp_id"])
-        tx, _ = svc.create({
-            "type": "expense",
-            "amount": 100,
-            "account_id": tx_data["egp_id"]
-        })
+        va = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["egp_id"]
+        )
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
+        )
         svc.apply_post_create_logic(tx, fee_amount=25.0, va_id=str(va.id), tx_date=None)
 
         # Test reallocation
-        va2 = VirtualAccountFactory(user_id=tx_data["user_id"], account_id=tx_data["egp_id"])
-        svc.apply_post_create_logic(tx, fee_amount=None, va_id=str(va2.id), tx_date=None)
+        va2 = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["egp_id"]
+        )
+        svc.apply_post_create_logic(
+            tx, fee_amount=None, va_id=str(va2.id), tx_date=None
+        )
 
         # Test explicit deallocation
         svc.apply_post_create_logic(tx, fee_amount=None, va_id="", tx_date=None)

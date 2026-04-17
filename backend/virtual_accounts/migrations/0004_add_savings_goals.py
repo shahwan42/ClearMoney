@@ -4,20 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('virtual_accounts', '0003_retarget_user_fk'),
+        ("virtual_accounts", "0003_retarget_user_fk"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='virtualaccount',
-            name='auto_allocate',
+            model_name="virtualaccount",
+            name="auto_allocate",
             field=models.BooleanField(db_default=False, default=False),
         ),
         migrations.AddField(
-            model_name='virtualaccount',
-            name='monthly_target',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=15, null=True),
+            model_name="virtualaccount",
+            name="monthly_target",
+            field=models.DecimalField(
+                blank=True, decimal_places=2, max_digits=15, null=True
+            ),
         ),
     ]

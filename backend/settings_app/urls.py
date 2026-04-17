@@ -38,7 +38,19 @@ urlpatterns = [
     path("settings/tags/merge", views.tag_merge, name="tag-merge"),
     path("export/transactions", views.export_transactions, name="export-transactions"),
     path("settings/import", views_import.import_upload, name="import-upload"),
-    path("settings/import/<str:import_id>/mapping", views_import.import_mapping, name="import-mapping"),
-    path("settings/import/<str:import_id>/preview", views_import.import_preview, name="import-preview"),
-    path("settings/import/<str:import_id>/summary", views_import.import_summary, name="import-summary"),
+    path(
+        "settings/import/<str:import_id>/mapping",
+        views_import.import_mapping,
+        name="import-mapping",
+    ),
+    path(
+        "settings/import/<str:import_id>/preview",
+        views_import.import_preview,
+        name="import-preview",
+    ),
+    path(
+        "settings/import/<str:import_id>/summary",
+        views_import.import_summary,
+        name="import-summary",
+    ),
 ]

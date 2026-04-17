@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0004_state_only_account_snapshot'),
+        ("accounts", "0004_state_only_account_snapshot"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='account',
-            name='last_reconciled_at',
+            model_name="account",
+            name="last_reconciled_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

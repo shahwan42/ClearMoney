@@ -10,6 +10,7 @@ import logging
 from datetime import date
 
 from django.core.cache import cache
+from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, QueryDict
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
@@ -29,14 +30,20 @@ from .services import TransactionService
 logger = logging.getLogger(__name__)
 
 _ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
-_ATTACHMENT_ALLOWED_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}
+_ATTACHMENT_ALLOWED_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+}
 
 
-def _validate_attachment(file: object) -> str | None:
+def _validate_attachment(file: UploadedFile | None) -> str | None:
     """Return an error string if the uploaded file is invalid, else None."""
     if file is None:
         return None
-    if file.size > _ATTACHMENT_MAX_BYTES:
+    if file.size and file.size > _ATTACHMENT_MAX_BYTES:
         return "Attachment must be 5 MB or smaller."
     ct = getattr(file, "content_type", "") or ""
     if ct not in _ATTACHMENT_ALLOWED_TYPES:
@@ -151,7 +158,9 @@ def transaction_new(
     accounts = svc.get_accounts()
     categories = svc.get_categories()
     virtual_accounts = svc.get_virtual_accounts()
-    tag_names = [t["name"] for t in TagService(request.user_id, request.tz).get_all_with_usage()]
+    tag_names = [
+        t["name"] for t in TagService(request.user_id, request.tz).get_all_with_usage()
+    ]
 
     prefill = None
     dup_id = request.GET.get("dup")
@@ -189,7 +198,7 @@ def transaction_create(
         attachment = request.FILES.get("attachment")
         att_err = _validate_attachment(attachment)
         if att_err:
-            return error_response(att_err, target="#transaction-result")
+            return error_response(att_err)
         data = {
             "type": request.POST.get("type", ""),
             "amount": request.POST.get("amount", "0"),
@@ -210,13 +219,13 @@ def transaction_create(
                 svc.create_fee_for_transaction(
                     parent_tx=tx,
                     fee_amount=fee,
-                    tx_date=data.get("date") or None,
+                    tx_date=request.POST.get("date") or None,
                 )
 
         # Virtual account allocation
         va_id = request.POST.get("virtual_account_id", "")
         if va_id:
-            alloc_amount = float(data["amount"])
+            alloc_amount = float(request.POST.get("amount", "0"))
             if tx["type"] == "expense":
                 alloc_amount = -alloc_amount
             try:
@@ -261,7 +270,9 @@ def transaction_edit_form(
 
     from transactions.services import TagService
 
-    tag_names = [t["name"] for t in TagService(request.user_id, request.tz).get_all_with_usage()]
+    tag_names = [
+        t["name"] for t in TagService(request.user_id, request.tz).get_all_with_usage()
+    ]
 
     logger.info("partial loaded: transaction-edit-form, user=%s", request.user_email)
     return render(
@@ -353,14 +364,18 @@ def transaction_update(
     if request.method == "POST":
         data_source = request.POST
     else:
-        body = request.body.decode("utf-8") if isinstance(request.body, bytes) else str(request.body)
+        body = (
+            request.body.decode("utf-8")
+            if isinstance(request.body, bytes)
+            else str(request.body)
+        )
         data_source = QueryDict(body)
 
     try:
         attachment = request.FILES.get("attachment")
         att_err = _validate_attachment(attachment)
         if att_err:
-            return error_response(att_err, target="#edit-result")
+            return error_response(att_err)
         data = {
             "type": data_source.get("type", ""),
             "amount": data_source.get("amount", "0"),
@@ -401,7 +416,9 @@ def transaction_delete_attachment(
     """POST /transactions/<id>/delete-attachment — remove attachment."""
     svc.delete_attachment(str(tx_id))
     enriched = svc.get_by_id_enriched(str(tx_id))
-    return render(request, "transactions/_transaction_detail_sheet.html", {"tx": enriched})
+    return render(
+        request, "transactions/_transaction_detail_sheet.html", {"tx": enriched}
+    )
 
 
 @inject_service(TransactionService)
@@ -699,14 +716,14 @@ def global_search(
     """
     q = (request.GET.get("q", "") or "").strip()
     transactions = svc.search(q) if q else []
-    logger.info("global search: q=%r hits=%d user=%s", q, len(transactions), request.user_email)
+    logger.info(
+        "global search: q=%r hits=%d user=%s", q, len(transactions), request.user_email
+    )
     return render(
         request,
         "transactions/_search_results.html",
         {"transactions": transactions, "query": q},
     )
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -743,42 +760,6 @@ def quick_entry_form(
 
 @inject_service(TransactionService)
 @general_rate
-@require_http_methods(["GET"])
-def quick_transfer_form(
-    request: AuthenticatedRequest, svc: TransactionService
-) -> HttpResponse:
-    """GET /transactions/quick-transfer — quick transfer partial."""
-    accounts = svc.get_accounts()
-    logger.info("partial loaded: quick-transfer, user=%s", request.user_email)
-    return render(request, "transactions/_quick_transfer.html", {"accounts": accounts})
-
-
-@inject_service(TransactionService)
-@general_rate
-@require_http_methods(["GET"])
-def quick_exchange_form(
-    request: AuthenticatedRequest, svc: TransactionService
-) -> HttpResponse:
-    """GET /transactions/quick-exchange — quick exchange partial."""
-    accounts = svc.get_accounts()
-    logger.info("partial loaded: quick-exchange, user=%s", request.user_email)
-    return render(request, "transactions/_quick_exchange.html", {"accounts": accounts})
-
-
-@inject_service(TransactionService)
-@general_rate
-@require_http_methods(["GET"])
-def quick_move_money_form(
-    request: AuthenticatedRequest, svc: TransactionService
-) -> HttpResponse:
-    """GET /transactions/quick-move — quick move-money partial."""
-    virtual_accounts = svc.get_virtual_accounts()
-    logger.info("partial loaded: quick-move, user=%s", request.user_email)
-    return render(request, "transactions/_quick_move_money.html", {"virtual_accounts": virtual_accounts})
-
-
-@inject_service(TransactionService)
-@general_rate
 @require_http_methods(["POST"])
 def quick_entry_create(
     request: AuthenticatedRequest, svc: TransactionService
@@ -788,7 +769,7 @@ def quick_entry_create(
         attachment = request.FILES.get("attachment")
         att_err = _validate_attachment(attachment)
         if att_err:
-            return error_response(att_err, target="#quick-entry-result")
+            return error_response(att_err)
         data = {
             "type": request.POST.get("type", ""),
             "amount": request.POST.get("amount", "0"),

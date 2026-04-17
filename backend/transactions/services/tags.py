@@ -43,13 +43,13 @@ class TagService:
             raise ValueError("Tag name is required")
 
         tag, created = Tag.objects.get_or_create(
-            user_id=self.user_id,
-            name=name,
-            defaults={"color": color}
+            user_id=self.user_id, name=name, defaults={"color": color}
         )
         return tag
 
-    def update(self, tag_id: str, name: str = None, color: str = None) -> Tag:
+    def update(
+        self, tag_id: str, name: str | None = None, color: str | None = None
+    ) -> Tag:
         """Update a tag's name or color."""
         tag = Tag.objects.for_user(self.user_id).filter(id=tag_id).first()
         if not tag:
@@ -59,7 +59,12 @@ class TagService:
             name = name.strip()
             if name and name != tag.name:
                 # Check if another tag with same name exists
-                existing = Tag.objects.for_user(self.user_id).filter(name=name).exclude(id=tag_id).first()
+                existing = (
+                    Tag.objects.for_user(self.user_id)
+                    .filter(name=name)
+                    .exclude(id=tag_id)
+                    .first()
+                )
                 if existing:
                     raise ValueError(f"Tag with name '{name}' already exists")
                 tag.name = name
@@ -68,6 +73,7 @@ class TagService:
             tag.color = color
 
         tag.save()
+        assert isinstance(tag, Tag)
         return tag
 
     def delete(self, tag_id: str) -> None:

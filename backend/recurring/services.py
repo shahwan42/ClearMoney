@@ -382,7 +382,9 @@ class RecurringService:
                     except Exception as e:
                         logger.warning(
                             "Failed to auto-allocate for rule %s to va %s: %s",
-                            rule.id, va.id, str(e)
+                            rule.id,
+                            va.id,
+                            str(e),
                         )
 
     def _advance_due_date(self, rule: RecurringRulePending) -> date:
@@ -415,6 +417,7 @@ class RecurringService:
         Calculates occurrences by projecting active rules into the target month.
         """
         from core.dates import month_range
+
         start_date, end_date = month_range(date(year, month, 1))
 
         rules = self._qs().filter(is_active=True)
@@ -433,14 +436,22 @@ class RecurringService:
                 # To avoid infinite loop for misconfigured rules, we limit iterations
                 # or just check if it will ever reach the month.
                 prev = current
-                current = self._advance_due_date(RecurringRulePending(
-                    id=rule.id, user_id=rule.user_id, template_transaction=rule.template_transaction,
-                    frequency=rule.frequency, day_of_month=rule.day_of_month,
-                    next_due_date=current, is_active=rule.is_active,
-                    auto_confirm=rule.auto_confirm, created_at=rule.created_at, updated_at=rule.updated_at
-                ))
+                current = self._advance_due_date(
+                    RecurringRulePending(
+                        id=rule.id,
+                        user_id=rule.user_id,
+                        template_transaction=rule.template_transaction,
+                        frequency=rule.frequency,
+                        day_of_month=rule.day_of_month,
+                        next_due_date=current,
+                        is_active=rule.is_active,
+                        auto_confirm=rule.auto_confirm,
+                        created_at=rule.created_at,
+                        updated_at=rule.updated_at,
+                    )
+                )
                 if current <= prev:
-                    break # Safety
+                    break  # Safety
 
             # Now find all occurrences in the month
             while current < end_date:
@@ -451,14 +462,22 @@ class RecurringService:
                     occurrences.append(occ)
 
                 prev = current
-                current = self._advance_due_date(RecurringRulePending(
-                    id=rule.id, user_id=rule.user_id, template_transaction=rule.template_transaction,
-                    frequency=rule.frequency, day_of_month=rule.day_of_month,
-                    next_due_date=current, is_active=rule.is_active,
-                    auto_confirm=rule.auto_confirm, created_at=rule.created_at, updated_at=rule.updated_at
-                ))
+                current = self._advance_due_date(
+                    RecurringRulePending(
+                        id=rule.id,
+                        user_id=rule.user_id,
+                        template_transaction=rule.template_transaction,
+                        frequency=rule.frequency,
+                        day_of_month=rule.day_of_month,
+                        next_due_date=current,
+                        is_active=rule.is_active,
+                        auto_confirm=rule.auto_confirm,
+                        created_at=rule.created_at,
+                        updated_at=rule.updated_at,
+                    )
+                )
                 if current <= prev:
-                    break # Safety
+                    break  # Safety
 
         # Sort by date
         occurrences.sort(key=lambda x: x["due_date"])

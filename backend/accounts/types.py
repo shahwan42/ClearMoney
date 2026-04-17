@@ -6,6 +6,7 @@ dashboard/services for backward compatibility.
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -46,7 +47,7 @@ class AccountSummary:
     display_order: int
     metadata: dict | None
     health_config: dict | None
-    last_reconciled_at: object | None = None  # datetime
+    last_reconciled_at: datetime | str | None = None
     created_at: object | None = None  # datetime
     updated_at: object | None = None  # datetime
 
