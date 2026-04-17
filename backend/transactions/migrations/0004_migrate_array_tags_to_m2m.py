@@ -9,8 +9,11 @@ def migrate_tags(apps: Any, schema_editor: Any) -> None:
     Transaction = apps.get_model("transactions", "Transaction")
     Tag = apps.get_model("transactions", "Tag")
 
-    # Process all transactions that have tags in the ArrayField
-    for tx in Transaction.objects.exclude(tags=[]):
+    # Use raw SQL filter to avoid ORM type-cast mismatch (text[] vs varchar[])
+    # on production. array_length returns NULL for empty arrays so > 0 is safe.
+    for tx in Transaction.objects.extra(  # noqa: S610
+        where=["array_length(tags, 1) > 0"]
+    ):
         for tag_name in tx.tags:
             tag_name = tag_name.strip()
             if not tag_name:
