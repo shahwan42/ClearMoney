@@ -73,6 +73,7 @@ class TestAccountReconciliation:
             days=31
         )
         Account.objects.filter(id=acc1.id).update(created_at=old_created)
+        TransactionFactory(user_id=user.id, account_id=acc1.id)
 
         # Account 2: Reconciled 31 days ago
         old_date = datetime.datetime.now(ZoneInfo("UTC")) - datetime.timedelta(days=31)
