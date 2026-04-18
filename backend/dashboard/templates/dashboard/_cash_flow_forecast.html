@@ -31,7 +31,7 @@
             <span class="font-medium {% if data.cash_flow_forecast.change >= 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
                 {% if data.cash_flow_forecast.change >= 0 %}+{% endif %}{{ data.cash_flow_forecast.change|format_egp }}
                 {% if data.cash_flow_forecast.current_balance > 0 %}
-                    ({{ data.cash_flow_forecast.change|div:data.cash_flow_forecast.current_balance|mul:100|floatformat:"1" }}%)
+                    ({% widthratio data.cash_flow_forecast.change data.cash_flow_forecast.current_balance 100 %}%)
                 {% endif %}
             </span>
         </div>
