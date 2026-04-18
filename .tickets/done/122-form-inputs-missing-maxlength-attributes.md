@@ -3,9 +3,9 @@ id: "122"
 title: "Form inputs missing maxlength attributes across multiple pages"
 type: bug
 priority: low
-status: pending
+status: done
 created: 2026-04-17
-updated: 2026-04-17
+updated: 2026-04-18
 ---
 
 ## Description

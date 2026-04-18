@@ -78,6 +78,7 @@ var CategoryCombobox = (function() {
         this.textInput.type         = 'text';
         this.textInput.placeholder  = this.placeholder;
         this.textInput.autocomplete = 'off';
+        this.textInput.maxLength    = 100;
         this.textInput.spellcheck   = false;
         // ARIA combobox role wires the input to the listbox
         this.textInput.setAttribute('role', 'combobox');

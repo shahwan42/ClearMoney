@@ -20,7 +20,7 @@
         <form action="{% url 'tag-add' %}" method="POST" class="flex gap-2">
             {% csrf_token %}
             <div class="flex-1">
-                <input type="text" name="name" placeholder="{% trans "Tag name (e.g. vacation)" %}" required
+                <input type="text" name="name" placeholder="{% trans "Tag name (e.g. vacation)" %}" required maxlength="100"
                        class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <input type="color" name="color" value="#64748b" class="w-10 h-10 p-0.5 border border-gray-200 dark:border-slate-600 rounded-lg cursor-pointer">
@@ -109,7 +109,7 @@
             {% csrf_token %}
             <div>
                 <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name" %}</label>
-                <input type="text" name="name" id="edit-tag-name" required
+                <input type="text" name="name" id="edit-tag-name" required maxlength="100"
                        class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
             </div>
             <div>
