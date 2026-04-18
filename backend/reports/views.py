@@ -48,7 +48,11 @@ def reports_page(request: AuthenticatedRequest) -> HttpResponse:
         request.user_id, year, month, account_id, currency, months=months
     )
 
-    return render(request, "reports/reports.html", {"data": report, "pdf_available": PDF_AVAILABLE})
+    return render(
+        request,
+        "reports/reports.html",
+        {"data": report, "pdf_available": PDF_AVAILABLE},
+    )
 
 
 @general_rate
@@ -56,9 +60,7 @@ def reports_page(request: AuthenticatedRequest) -> HttpResponse:
 def export_pdf_report(request: AuthenticatedRequest) -> HttpResponse:
     """GET /reports/export-pdf — generate and download monthly PDF report."""
     if HTML is None:
-        return HttpResponse(
-            "PDF export is not available on this server.", status=503
-        )
+        return HttpResponse("PDF export is not available on this server.", status=503)
 
     year_str = request.GET.get("year", "")
     month_str = request.GET.get("month", "")

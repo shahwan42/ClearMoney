@@ -7,6 +7,7 @@ To regenerate (after adding new apps/classes):
   uv run vulture . --min-confidence 60 --exclude migrations,tests,vulture_whitelist.py,conftest.py --make-whitelist
 Then remove any genuine dead code candidates before pasting here.
 """
+
 ALLOWED_HOSTS  # unused variable (clearmoney/settings.py:41)
 AccountAdmin  # unused class (accounts/admin.py:14)
 AccountSnapshotAdmin  # unused class (accounts/admin.py:29)

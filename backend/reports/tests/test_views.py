@@ -121,9 +121,7 @@ class TestPdfExport:
             response = auth_client.get("/reports/export-pdf?year=2026&month=3")
         assert response.status_code == 503
 
-    def test_reports_page_passes_pdf_available_false(
-        self, auth_client: Client
-    ) -> None:
+    def test_reports_page_passes_pdf_available_false(self, auth_client: Client) -> None:
         """reports_page passes pdf_available=False in context when weasyprint unavailable."""
         with patch("reports.views.PDF_AVAILABLE", False):
             response = auth_client.get("/reports")
