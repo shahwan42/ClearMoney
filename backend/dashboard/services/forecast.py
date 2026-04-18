@@ -16,8 +16,7 @@ from datetime import date, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from dateutil.relativedelta import relativedelta
-from django.db.models import DecimalField, Sum
+from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
 from accounts.models import Account
@@ -56,6 +55,10 @@ class CashFlowForecast:
     income_total: float = 0.0  # Total projected income
     expense_total: float = 0.0  # Total projected expenses
     currency: str = "EGP"
+
+    @property
+    def negative_days_count(self) -> int:
+        return len(self.negative_days)
 
 
 class ForecastService:
