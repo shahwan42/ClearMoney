@@ -53,11 +53,13 @@ def load_people_summary(user_id: str, data: DashboardData) -> None:
             egp.owed_to_me += nb_egp
         elif nb_egp < 0:
             egp.i_owe += nb_egp
+            data.debt_egp += abs(nb_egp)
 
         if nb_usd > 0:
             usd.owed_to_me += nb_usd
         elif nb_usd < 0:
             usd.i_owe += nb_usd
+            data.debt_usd += abs(nb_usd)
 
         if nb > 0:
             data.people_owed_to_me += nb
