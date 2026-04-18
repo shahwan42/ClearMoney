@@ -81,46 +81,38 @@
 
     // --- Swipe-to-Delete ---
     // Works on any element with [data-swipe-delete] attribute.
-    // The attribute value is the URL to DELETE (via fetch).
+    // Swipe left reveals a delete button; user must tap the button to delete.
+    // Swipe right or tap elsewhere dismisses the revealed button.
+    // Only one row can be revealed at a time.
 
     var swipeStart = 0;
     var swipeEl = null;
+    var revealedEl = null; // Track which row currently has delete button revealed
 
-    document.addEventListener('touchstart', function(e) {
-        var target = e.target.closest('[data-swipe-delete]');
-        if (!target) return;
-        swipeStart = e.touches[0].clientX;
-        swipeEl = target;
-    }, { passive: true });
+    function resetSwipeRow(el) {
+        if (!el) return;
+        el.style.transition = 'transform 0.2s ease';
+        el.style.transform = 'translateX(0)';
+        var bg = el.querySelector('.swipe-delete-bg');
+        if (bg) bg.remove();
+    }
 
-    document.addEventListener('touchmove', function(e) {
-        if (!swipeEl) return;
-        var dx = e.touches[0].clientX - swipeStart;
-        if (dx > 0) { dx = 0; } // Only swipe left
-        if (dx < -80) { dx = -80; }
-        swipeEl.style.transform = 'translateX(' + dx + 'px)';
-        swipeEl.style.transition = 'none';
+    function revealDeleteButton(el) {
+        if (!el) return;
+        var bg = document.createElement('div');
+        bg.className = 'swipe-delete-bg absolute right-0 top-0 bottom-0 w-24 bg-red-500 flex items-center justify-center rounded-r-lg';
+        bg.innerHTML = '<button type="button" class="swipe-delete-btn w-full h-full flex flex-col items-center justify-center text-white" aria-label="Delete transaction"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span class="text-xs font-medium">Delete</span></button>';
+        el.style.position = 'relative';
+        el.style.overflow = 'visible';
+        el.appendChild(bg);
 
-        // Show delete indicator
-        if (dx < -50 && !swipeEl.querySelector('.swipe-delete-bg')) {
-            var bg = document.createElement('div');
-            bg.className = 'swipe-delete-bg absolute right-0 top-0 bottom-0 w-16 bg-red-500 flex items-center justify-center rounded-r-lg';
-            bg.innerHTML = '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
-            swipeEl.style.position = 'relative';
-            swipeEl.style.overflow = 'visible';
-            swipeEl.appendChild(bg);
-        }
-    }, { passive: true });
-
-    document.addEventListener('touchend', function() {
-        if (!swipeEl) return;
-        var dx = parseInt(swipeEl.style.transform.replace(/[^-\d]/g, '') || '0');
-        if (dx <= -60) {
-            var url = swipeEl.getAttribute('data-swipe-delete');
+        bg.querySelector('.swipe-delete-btn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            var url = el.getAttribute('data-swipe-delete');
             if (url) {
-                var note = swipeEl.querySelector('[data-transaction-note]');
-                var date = swipeEl.querySelector('[data-transaction-date]');
-                var amount = swipeEl.querySelector('[data-transaction-amount]');
+                var note = el.querySelector('[data-transaction-note]');
+                var date = el.querySelector('[data-transaction-date]');
+                var amount = el.querySelector('[data-transaction-amount]');
                 var summary = '';
                 if (amount) summary = amount.textContent.trim() + (note ? ' — ' + note.textContent.trim() : '') + (date ? ' (' + date.textContent.trim() + ')' : '');
 
@@ -134,41 +126,81 @@
                     if (confirmed) {
                         fetch(url, { method: 'DELETE', headers: { 'HX-Request': 'true' } })
                             .then(function(resp) {
-                                swipeEl.style.transition = 'all 0.3s ease';
-                                swipeEl.style.transform = 'translateX(-100%)';
-                                swipeEl.style.opacity = '0';
-                                setTimeout(function() { swipeEl.remove(); }, 300);
+                                el.style.transition = 'all 0.3s ease';
+                                el.style.transform = 'translateX(-100%)';
+                                el.style.opacity = '0';
+                                setTimeout(function() { el.remove(); }, 300);
+                                revealedEl = null;
                                 var related = resp.headers.get('X-Related-Deleted');
                                 if (related) {
                                     related.split(',').forEach(function(rid) {
-                                        var el = document.getElementById('tx-' + rid);
-                                        if (el) {
-                                            el.style.transition = 'all 0.3s ease';
-                                            el.style.opacity = '0';
-                                            el.style.maxHeight = '0';
-                                            setTimeout(function() { el.remove(); }, 300);
+                                        var relEl = document.getElementById('tx-' + rid);
+                                        if (relEl) {
+                                            relEl.style.transition = 'all 0.3s ease';
+                                            relEl.style.opacity = '0';
+                                            relEl.style.maxHeight = '0';
+                                            setTimeout(function() { relEl.remove(); }, 300);
                                         }
                                     });
                                 }
                             });
                     } else {
-                        swipeEl.style.transition = 'transform 0.2s ease';
-                        swipeEl.style.transform = 'translateX(0)';
-                        var bg = swipeEl.querySelector('.swipe-delete-bg');
-                        if (bg) bg.remove();
+                        resetSwipeRow(el);
+                        revealedEl = null;
                     }
                 });
             } else {
-                swipeEl.style.transition = 'transform 0.2s ease';
-                swipeEl.style.transform = 'translateX(0)';
-                var bg = swipeEl.querySelector('.swipe-delete-bg');
-                if (bg) bg.remove();
+                resetSwipeRow(el);
+                revealedEl = null;
             }
+        });
+    }
+
+    document.addEventListener('touchstart', function(e) {
+        var target = e.target.closest('[data-swipe-delete]');
+        if (target) {
+            if (revealedEl && revealedEl !== target) {
+                resetSwipeRow(revealedEl);
+                revealedEl = null;
+            }
+            swipeStart = e.touches[0].clientX;
+            swipeEl = target;
+        } else if (revealedEl) {
+            resetSwipeRow(revealedEl);
+            revealedEl = null;
+        }
+    }, { passive: true });
+
+    document.addEventListener('click', function(e) {
+        if (revealedEl && !revealedEl.contains(e.target)) {
+            resetSwipeRow(revealedEl);
+            revealedEl = null;
+        }
+    });
+
+    document.addEventListener('touchmove', function(e) {
+        if (!swipeEl) return;
+        var dx = e.touches[0].clientX - swipeStart;
+        if (dx > 0) { dx = 0; }
+        if (dx < -80) { dx = -80; }
+        swipeEl.style.transform = 'translateX(' + dx + 'px)';
+        swipeEl.style.transition = 'none';
+    }, { passive: true });
+
+    document.addEventListener('touchend', function() {
+        if (!swipeEl) return;
+        var dx = parseInt(swipeEl.style.transform.replace(/[^-\d]/g, '') || '0');
+        if (dx <= -60) {
+            if (revealedEl && revealedEl !== swipeEl) {
+                resetSwipeRow(revealedEl);
+            }
+            revealDeleteButton(swipeEl);
+            revealedEl = swipeEl;
         } else {
-            swipeEl.style.transition = 'transform 0.2s ease';
-            swipeEl.style.transform = 'translateX(0)';
-            var bg = swipeEl.querySelector('.swipe-delete-bg');
-            if (bg) bg.remove();
+            resetSwipeRow(swipeEl);
+            if (revealedEl === swipeEl) {
+                revealedEl = null;
+            }
         }
         swipeEl = null;
     });

@@ -391,11 +391,11 @@ class TestTransactionCRUD:
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("9,475")
 
-    def test_swipe_to_delete_custom_dialog_appears(self, page: Page) -> None:
-        """Test that swipe gesture shows custom confirmation dialog instead of browser confirm()."""
+    def test_swipe_to_delete_reveals_button(self, page: Page) -> None:
+        """Test that swipe gesture reveals delete button (no auto-dialog)."""
         category_id = get_category_id("expense", _user_id)
         tx_id = create_transaction(
-            page, _account_id, category_id, "150", "expense", note="DialogTest"
+            page, _account_id, category_id, "150", "expense", note="SwipeReveal"
         )
         page.goto("/transactions")
 
@@ -454,13 +454,10 @@ class TestTransactionCRUD:
 
         page.wait_for_timeout(500)
 
-        # Custom dialog should appear instead of browser confirm
-        dialog = page.locator("#confirm-dialog")
-        expect(dialog).to_be_visible()
-        expect(dialog).to_contain_text("Delete transaction")
-        expect(dialog).to_contain_text("DialogTest")
-        expect(page.locator("#confirm-dialog-confirm")).to_contain_text("Delete")
-        expect(page.locator("#confirm-dialog-cancel")).to_contain_text("Cancel")
+        # Delete button should be revealed (no dialog yet)
+        expect(page.locator("#confirm-dialog")).not_to_be_visible()
+        expect(row.locator(".swipe-delete-btn")).to_be_visible()
+        expect(row.locator(".swipe-delete-btn")).to_contain_text("Delete")
 
     def test_swipe_to_delete_dialog_cancel(self, page: Page) -> None:
         """Test that canceling the custom dialog keeps the transaction."""
@@ -473,7 +470,7 @@ class TestTransactionCRUD:
         row = page.locator(f"#tx-{tx_id}")
         expect(row).to_be_visible()
 
-        # Swipe to trigger delete
+        # Swipe to reveal delete button
         page.evaluate(f"""() => {{
             const el = document.getElementById('tx-{tx_id}');
             if (el) {{
@@ -510,11 +507,15 @@ class TestTransactionCRUD:
 
         page.wait_for_timeout(500)
 
-        # Click cancel
+        # Tap the revealed delete button
+        row.locator(".swipe-delete-btn").click()
+        page.wait_for_timeout(400)
+
+        # Click cancel on dialog
         page.click("#confirm-dialog-cancel")
         page.wait_for_timeout(400)
 
-        # Row should still be visible
+        # Row should still be visible and button hidden
         expect(row).to_be_visible()
         expect(page.locator("#confirm-dialog")).not_to_be_visible()
 
@@ -529,7 +530,7 @@ class TestTransactionCRUD:
         row = page.locator(f"#tx-{tx_id}")
         expect(row).to_be_visible()
 
-        # Swipe to trigger delete
+        # Swipe to reveal delete button
         page.evaluate(f"""() => {{
             const el = document.getElementById('tx-{tx_id}');
             if (el) {{
@@ -565,6 +566,10 @@ class TestTransactionCRUD:
         }}""")
 
         page.wait_for_timeout(500)
+
+        # Tap the revealed delete button
+        row.locator(".swipe-delete-btn").click()
+        page.wait_for_timeout(400)
 
         # Click confirm delete
         with page.expect_response(
@@ -600,6 +605,114 @@ class TestTransactionCRUD:
 
         # Cancel to clean up
         page.click("#confirm-dialog-cancel")
+
+    def test_swipe_to_delete_dismiss_on_tap_elsewhere(self, page: Page) -> None:
+        """Test that tapping elsewhere dismisses the revealed delete button."""
+        category_id = get_category_id("expense", _user_id)
+        tx_id = create_transaction(
+            page, _account_id, category_id, "150", "expense", note="DismissTest"
+        )
+        page.goto("/transactions")
+
+        row = page.locator(f"#tx-{tx_id}")
+        expect(row).to_be_visible()
+
+        # Swipe to reveal delete button
+        page.evaluate(f"""() => {{
+            const el = document.getElementById('tx-{tx_id}');
+            if (el) {{
+                const startTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 300,
+                    clientY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchstart', {{
+                    bubbles: true,
+                    touches: [startTouch],
+                    changedTouches: [startTouch]
+                }}));
+
+                const moveTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 50,
+                    clientY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchmove', {{
+                    bubbles: true,
+                    touches: [moveTouch],
+                    changedTouches: [moveTouch]
+                }}));
+
+                el.dispatchEvent(new TouchEvent('touchend', {{
+                    bubbles: true,
+                    changedTouches: [moveTouch]
+                }}));
+            }}
+        }}""")
+
+        page.wait_for_timeout(500)
+
+        # Delete button should be revealed
+        expect(row.locator(".swipe-delete-btn")).to_be_visible()
+
+        # Tap elsewhere on the page
+        page.click("main")
+        page.wait_for_timeout(400)
+
+        # Delete button should be hidden
+        expect(row.locator(".swipe-delete-btn")).not_to_be_visible()
+        expect(page.locator("#confirm-dialog")).not_to_be_visible()
+
+    def test_swipe_to_delete_only_one_revealed_at_a_time(self, page: Page) -> None:
+        """Test that revealing one row hides the previously revealed row."""
+        category_id = get_category_id("expense", _user_id)
+        tx1_id = create_transaction(
+            page, _account_id, category_id, "100", "expense", note="First"
+        )
+        tx2_id = create_transaction(
+            page, _account_id, category_id, "200", "expense", note="Second"
+        )
+        page.goto("/transactions")
+
+        row1 = page.locator(f"#tx-{tx1_id}")
+        row2 = page.locator(f"#tx-{tx2_id}")
+        expect(row1).to_be_visible()
+        expect(row2).to_be_visible()
+
+        # Swipe first row to reveal
+        page.evaluate(f"""() => {{
+            const el = document.getElementById('tx-{tx1_id}');
+            if (el) {{
+                const startTouch = new Touch({{ identifier: 0, target: el, clientX: 300, clientY: 100 }});
+                el.dispatchEvent(new TouchEvent('touchstart', {{ bubbles: true, touches: [startTouch], changedTouches: [startTouch] }}));
+                const moveTouch = new Touch({{ identifier: 0, target: el, clientX: 50, clientY: 100 }});
+                el.dispatchEvent(new TouchEvent('touchmove', {{ bubbles: true, touches: [moveTouch], changedTouches: [moveTouch] }}));
+                el.dispatchEvent(new TouchEvent('touchend', {{ bubbles: true, changedTouches: [moveTouch] }}));
+            }}
+        }}""")
+
+        page.wait_for_timeout(500)
+        expect(row1.locator(".swipe-delete-btn")).to_be_visible()
+
+        # Swipe second row
+        page.evaluate(f"""() => {{
+            const el = document.getElementById('tx-{tx2_id}');
+            if (el) {{
+                const startTouch = new Touch({{ identifier: 0, target: el, clientX: 300, clientY: 100 }});
+                el.dispatchEvent(new TouchEvent('touchstart', {{ bubbles: true, touches: [startTouch], changedTouches: [startTouch] }}));
+                const moveTouch = new Touch({{ identifier: 0, target: el, clientX: 50, clientY: 100 }});
+                el.dispatchEvent(new TouchEvent('touchmove', {{ bubbles: true, touches: [moveTouch], changedTouches: [moveTouch] }}));
+                el.dispatchEvent(new TouchEvent('touchend', {{ bubbles: true, changedTouches: [moveTouch] }}));
+            }}
+        }}""")
+
+        page.wait_for_timeout(500)
+
+        # First row should be hidden, second row revealed
+        expect(row1.locator(".swipe-delete-btn")).not_to_be_visible()
+        expect(row2.locator(".swipe-delete-btn")).to_be_visible()
 
 
 class TestGlobalSearchE2E:
