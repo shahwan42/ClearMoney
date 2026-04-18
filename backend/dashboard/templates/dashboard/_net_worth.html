@@ -69,7 +69,10 @@
              onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/debt'})"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
             <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Debt" %}</p>
-            <p class="text-lg font-semibold text-slate-800 dark:text-slate-200">{{ data.debt_total|format_egp }}</p>
+            <p class="text-lg font-semibold text-slate-800 dark:text-slate-200">{{ data.debt_egp|format_egp }}</p>
+            {% if data.debt_usd != 0 %}
+            <p class="text-sm font-medium text-blue-500">{{ data.debt_usd|format_currency:"USD" }}</p>
+            {% endif %}
         </div>
     </div>
 </section>

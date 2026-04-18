@@ -67,6 +67,8 @@ class NetWorthSummary:
     credit_used: float = 0.0
     credit_avail: float = 0.0
     debt_total: float = 0.0
+    debt_egp: float = 0.0
+    debt_usd: float = 0.0
 
 
 @dataclass(frozen=True)

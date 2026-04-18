@@ -447,6 +447,7 @@ def build_bar_chart(
 
     return groups, legend
 
+
 def get_fee_analytics(
     user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
 ) -> dict[str, Any]:
@@ -468,9 +469,9 @@ def get_fee_analytics(
 
     # Total this month
     month_total = float(
-        base_qs.filter(date__year=year, date__month=month).aggregate(total=Sum("amount"))[
-            "total"
-        ]
+        base_qs.filter(date__year=year, date__month=month).aggregate(
+            total=Sum("amount")
+        )["total"]
         or 0
     )
 

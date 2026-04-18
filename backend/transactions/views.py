@@ -812,14 +812,14 @@ def quick_entry_create(
             '<div class="flex gap-4 mb-4"><div class="h-8 w-28 skeleton"></div><div class="h-8 w-28 skeleton"></div></div>'
             '<div class="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-100 dark:border-slate-800">'
             '<div class="h-10 skeleton"></div><div class="h-10 skeleton"></div>'
-            '</div></section>'
+            "</div></section>"
         )
         acc_skeleton = (
             '<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 animate-pulse">'
             '<div class="flex items-center justify-between mb-4"><div class="h-4 w-20 skeleton"></div><div class="h-4 w-12 skeleton"></div></div>'
             '<div class="space-y-4">'
             '<div class="h-12 skeleton"></div><div class="h-12 skeleton"></div><div class="h-12 skeleton"></div>'
-            '</div></section>'
+            "</div></section>"
         )
 
         response.write(

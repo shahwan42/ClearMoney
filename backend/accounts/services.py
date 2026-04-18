@@ -1154,6 +1154,10 @@ def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
         summary.net_worth += balance
         if balance < 0:
             summary.debt_total += abs(balance)
+            if acc["currency"] == "USD":
+                summary.debt_usd += abs(balance)
+            elif acc["currency"] == "EGP":
+                summary.debt_egp += abs(balance)
 
         if acc["currency"] == "USD":
             summary.usd_total += balance
