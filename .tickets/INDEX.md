@@ -13,6 +13,7 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [133](pending/133-compact-buttons-inputs-mobile.md) | Compact buttons and inputs for better mobile visuals | improvement | medium | 2026-04-18 |
 | [126](pending/126-dead-payment-methods-instapay-fawry.md) | Dead payment methods: create_instapay_transfer, create_fawry_cashout | chore | medium | 2026-04-18 |
 | [127](pending/127-dead-transaction-helper-methods.md) | Dead transaction helper methods: get_fees_category_id, get_recent, get_by_account | chore | low | 2026-04-18 |
 | [128](pending/128-stale-2fa-schema-fields.md) | Stale 2FA schema: pin_hash, session_key, failed_attempts, locked_until on Session model | chore | medium | 2026-04-18 |
