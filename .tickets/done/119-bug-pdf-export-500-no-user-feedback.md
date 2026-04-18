@@ -3,9 +3,9 @@ id: "119"
 title: "Bug: PDF export returns HTTP 500 with no user-facing error message"
 type: bug
 priority: medium
-status: pending
+status: done
 created: 2026-04-17
-updated: 2026-04-17
+updated: 2026-04-18
 ---
 
 ## Description
@@ -42,10 +42,11 @@ The issue is:
 
 ## Acceptance Criteria
 
-- [ ] If WeasyPrint unavailable: return HTTP 503 (Service Unavailable) with proper JSON/HTML error
-- [ ] OR: add a server-side check at startup that sets a `PDF_AVAILABLE` flag, and hide/disable the Download PDF button with a tooltip: "PDF export requires additional server setup"
-- [ ] The user should never see a raw HTTP 500 from this endpoint
+- [x] If WeasyPrint unavailable: return HTTP 503 (Service Unavailable) with proper JSON/HTML error
+- [x] OR: add a server-side check at startup that sets a `PDF_AVAILABLE` flag, and hide/disable the Download PDF button with a tooltip: "PDF export requires additional server setup"
+- [x] The user should never see a raw HTTP 500 from this endpoint
 
 ## Progress Notes
 
 - 2026-04-17: Filed during manual QA session (ticket #117). Confirmed via `curl` returning 500. WeasyPrint import succeeds but native libs missing.
+- 2026-04-18: Completed — Added `PDF_AVAILABLE` module-level flag in `reports/views.py`; changed 500→503 in fallback guard; passed `pdf_available` into `reports_page` context; template conditionally renders active teal button or grayed disabled `<span>` with tooltip; 2 new tests added (503 guard + context flag). 17 tests pass, zero lint errors.

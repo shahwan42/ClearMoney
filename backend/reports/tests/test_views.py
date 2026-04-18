@@ -113,6 +113,23 @@ class TestPdfExport:
         response = client.get("/reports/export-pdf")
         assert response.status_code == 302
 
+    def test_returns_503_when_weasyprint_unavailable(
+        self, auth_client: Client, auth_user: tuple
+    ) -> None:
+        """Returns 503 (not 500) when weasyprint native libs are missing."""
+        with patch("reports.views.HTML", None):
+            response = auth_client.get("/reports/export-pdf?year=2026&month=3")
+        assert response.status_code == 503
+
+    def test_reports_page_passes_pdf_available_false(
+        self, auth_client: Client
+    ) -> None:
+        """reports_page passes pdf_available=False in context when weasyprint unavailable."""
+        with patch("reports.views.PDF_AVAILABLE", False):
+            response = auth_client.get("/reports")
+        assert response.status_code == 200
+        assert response.context["pdf_available"] is False
+
 
 @pytest.mark.django_db
 class TestReportsPage:
