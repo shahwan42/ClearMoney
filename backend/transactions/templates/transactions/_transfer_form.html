@@ -7,7 +7,7 @@
           class="space-y-3 overflow-hidden" id="transfer-form">
         <div>
             <label for="source_account_id" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "From Account" %}</label>
-            <select name="source_account_id" id="source_account_id" required
+            <select name="source_account_id" id="source_account_id" required data-validate="required"
                     class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
                 <option value="">{% trans "Select source..." %}</option>
                 {% for acc in accounts %}
@@ -18,7 +18,7 @@
 
         <div>
             <label for="dest_account_id" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "To Account" %}</label>
-            <select name="dest_account_id" id="dest_account_id" required
+            <select name="dest_account_id" id="dest_account_id" required data-validate="required"
                     class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
                 <option value="">{% trans "Select destination..." %}</option>
                 {% for acc in accounts %}
@@ -30,6 +30,7 @@
         <div>
             <label for="transfer-amount" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Amount" %}</label>
             <input type="number" name="amount" id="transfer-amount" step="0.01" min="0.01" required
+                   data-validate="required,min:0.01"
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
                    oninput="updateTransferTotal()">
         </div>
@@ -37,6 +38,7 @@
         <div>
             <label for="transfer-fee" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Fee (optional)" %}</label>
             <input type="number" name="fee_amount" id="transfer-fee" step="0.01" min="0" placeholder="0.00"
+                   data-validate="min:0"
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
                    oninput="updateTransferTotal()">
         </div>
@@ -47,13 +49,15 @@
 
         <div>
             <label for="transfer-note" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Note (optional)" %}</label>
-            <input type="text" name="note" id="transfer-note"
+            <input type="text" name="note" id="transfer-note" maxlength="200"
+                   data-validate="maxlength:200"
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
         </div>
 
         <div>
             <label for="transfer-date" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Date" %}</label>
             <input type="date" name="date" id="transfer-date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"
+                   data-validate="date:not-future"
                    class="w-full min-w-0 max-w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
         </div>
 

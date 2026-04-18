@@ -42,6 +42,7 @@
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Amount" %}</label>
             <input type="number" name="amount" step="0.01" min="0.01" required
                    placeholder="0.00" inputmode="decimal"
+                   data-validate="required,min:0.01"
                    class="w-full text-lg font-bold text-center border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400 bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
@@ -51,7 +52,7 @@
                    data-account-label="{% trans "Account" %}"
                    data-from-account-label="{% trans "From Account" %}"
                    class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Account" %}</label>
-            <select name="account_id" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+            <select name="account_id" id="recurring-account-select" required data-validate="required" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
@@ -73,6 +74,7 @@
         <div id="recurring-fee" class="hidden">
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Fee (optional)" %}</label>
             <input type="number" name="fee_amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal"
+                   data-validate="min:0"
                    class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
@@ -90,7 +92,8 @@
         {# Note #}
         <div>
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Note" %}</label>
-            <input type="text" name="note" placeholder="{% trans "e.g., Monthly insurance" %}"
+            <input type="text" name="note" id="recurring-note-input" placeholder="{% trans "e.g., Monthly insurance" %}" maxlength="200"
+                   data-validate="maxlength:200"
                    class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
@@ -108,7 +111,8 @@
             </div>
             <div>
                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Next Due" %}</label>
-                <input type="date" name="next_due_date" value="{{ today|date:'Y-m-d' }}" required
+                <input type="date" name="next_due_date" id="recurring-next-due" value="{{ today|date:'Y-m-d' }}" required
+                       data-validate="required,date:not-future"
                        class="w-full min-w-0 max-w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
             </div>
         </div>

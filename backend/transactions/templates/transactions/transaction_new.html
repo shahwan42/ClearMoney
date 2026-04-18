@@ -28,6 +28,7 @@
                 <div>
                     <input type="number" name="amount" id="amount-input" step="0.01" required placeholder="0.00"
                         {% if prefill and prefill.amount %}value="{{ prefill.amount }}"{% endif %}
+                        data-validate="required,min:0.01"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 </div>
             </div>
@@ -36,7 +37,7 @@
         <!-- Account -->
         <div>
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="account-select">{% trans "Account" %}</label>
-            <select name="account_id" id="account-select" required
+            <select name="account_id" id="account-select" required data-validate="required"
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="">{% trans "Select account..." %}</option>
                 {% for acc in accounts %}
@@ -62,6 +63,7 @@
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="note-input">{% trans "Note (optional)" %}</label>
             <input type="text" name="note" id="note-input" maxlength="500" placeholder="{% trans "What was this for?" %}"
                 {% if prefill and prefill.note %}value="{{ prefill.note }}"{% endif %}
+                data-validate="maxlength:500"
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
 
@@ -104,6 +106,7 @@
             <div>
                 <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="fee-input">{% trans "Fee (optional)" %}</label>
                 <input type="number" name="fee_amount" id="fee-input" step="0.01" placeholder="0.00"
+                    data-validate="min:0.01"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 

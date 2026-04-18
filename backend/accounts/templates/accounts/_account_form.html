@@ -66,14 +66,16 @@ Context: institution_id, institution_name, error (optional string).
 
             <div>
                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Initial Balance" %}</label>
-                <input type="number" name="initial_balance" step="0.01" value="0" placeholder="0.00"
+                <input type="number" name="initial_balance" step="0.01" min="0" value="0" placeholder="0.00"
+                    data-validate="min:0"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 
             <!-- Credit limit field — only shown for credit card / credit limit account types -->
             <div id="credit-limit-field" style="display: none;">
                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Credit Limit" %}</label>
-                <input type="number" name="credit_limit" step="0.01" placeholder="{% trans "e.g., 500000" %}"
+                <input type="number" name="credit_limit" step="0.01" min="0" placeholder="{% trans "e.g., 500000" %}"
+                    data-validate="min:0"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
         </div>

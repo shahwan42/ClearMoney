@@ -82,6 +82,9 @@ def get_monthly_report(
     # New: Spending by tag
     tag_spending = get_spending_by_tag(user_id, year, month, account_id, currency)
 
+    # New: Fee analytics
+    fees = get_fee_analytics(user_id, year, month, account_id, currency)
+
     # New: Net worth projection
     proj_svc = ProjectionService(user_id, ZoneInfo("UTC"))
 
@@ -114,6 +117,7 @@ def get_monthly_report(
         "insights": insights,
         "trend_period": months,
         "tag_spending": tag_spending,
+        "fees": fees,
         "projection": projection,
     }
 
@@ -442,3 +446,94 @@ def build_bar_chart(
     ]
 
     return groups, legend
+
+def get_fee_analytics(
+    user_id: str, year: int, month: int, account_id: str = "", currency: str = ""
+) -> dict[str, Any]:
+    """Calculate fee summary, breakdowns and trends."""
+    # Base queryset for fees
+    base_qs = Transaction.objects.for_user(user_id).filter(
+        category__name__en="Fees & Charges"
+    )
+
+    if account_id:
+        base_qs = base_qs.filter(account_id=account_id)
+    if currency:
+        base_qs = base_qs.filter(currency=currency)
+
+    # Total this year
+    year_total = float(
+        base_qs.filter(date__year=year).aggregate(total=Sum("amount"))["total"] or 0
+    )
+
+    # Total this month
+    month_total = float(
+        base_qs.filter(date__year=year, date__month=month).aggregate(total=Sum("amount"))[
+            "total"
+        ]
+        or 0
+    )
+
+    # Breakdown by account (Yearly)
+    acc_rows = (
+        base_qs.filter(date__year=year)
+        .values("account__name")
+        .annotate(total=Sum("amount"))
+        .order_by("-total")
+    )
+    by_account = [
+        {"name": r["account__name"], "amount": float(r["total"])} for r in acc_rows
+    ]
+
+    # Breakdown by type (Monthly)
+    month_qs = base_qs.filter(date__year=year, date__month=month).select_related(
+        "linked_transaction"
+    )
+    by_type_map = {"transfer": 0.0, "exchange": 0.0, "expense": 0.0, "other": 0.0}
+
+    for tx in month_qs:
+        amount = float(tx.amount)
+        if tx.linked_transaction:
+            t = tx.linked_transaction.type
+            # Map system types to user-friendly labels if needed, or just group
+            if t in ["transfer", "exchange", "expense"]:
+                by_type_map[t] += amount
+            else:
+                by_type_map["other"] += amount
+        else:
+            # Fallback to note parsing for unlinked fees (like InstaPay or manual)
+            note = (tx.note or "").lower()
+            if "instapay" in note or "transfer" in note:
+                by_type_map["transfer"] += amount
+            elif "exchange" in note:
+                by_type_map["exchange"] += amount
+            elif "fawry" in note or "cashout" in note:
+                by_type_map["expense"] += amount
+            else:
+                by_type_map["other"] += amount
+
+    by_type = [
+        {"name": k.capitalize(), "amount": v} for k, v in by_type_map.items() if v > 0
+    ]
+    by_type.sort(key=lambda x: x["amount"], reverse=True)
+
+    # Trend (Last 6 months)
+    trend = []
+    for i in range(5, -1, -1):
+        dt = date(year, month, 1) - relativedelta(months=i)
+        m_total = float(
+            base_qs.filter(date__year=dt.year, date__month=dt.month).aggregate(
+                total=Sum("amount")
+            )["total"]
+            or 0
+        )
+        trend.append({"label": dt.strftime("%b"), "amount": m_total})
+
+    return {
+        "month_total": month_total,
+        "year_total": year_total,
+        "by_account": by_account,
+        "by_type": by_type,
+        "trend": trend,
+        "currency": currency or "EGP",
+    }

@@ -1,0 +1,69 @@
+{% load money %}
+{% load i18n %}
+
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Fee Analytics" %}</h3>
+    </div>
+
+    {# Headline Stat #}
+    <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-900/30">
+        <p class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">{% trans "Fees Paid This Year" %}</p>
+        <div class="flex items-end justify-between">
+            <span class="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{{ data.fees.year_total|money_format:data.fees.currency }}</span>
+            <div class="text-right">
+                <p class="text-xs text-indigo-600/70 dark:text-indigo-400/70">{% trans "This month" %}</p>
+                <p class="text-sm font-bold text-indigo-700 dark:text-indigo-300">{{ data.fees.month_total|money_format:data.fees.currency }}</p>
+            </div>
+        </div>
+    </div>
+
+    {# Breakdown by Type and Trend #}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {# Trend Sparkline #}
+        <div class="space-y-3">
+            <h4 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{% trans "6-Month Trend" %}</h4>
+            <div class="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-4 border border-slate-100 dark:border-slate-700/50 h-24 flex items-end">
+                {% include "components/chart_sparkline.html" with values=data.fees.trend|map_attr:"amount" color="var(--chart-2)" width=200 height=60 %}
+            </div>
+        </div>
+
+        {# Breakdown by Type #}
+        <div class="space-y-3">
+            <h4 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{% trans "By Type (This Month)" %}</h4>
+            <div class="space-y-2">
+                {% for item in data.fees.by_type %}
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-slate-600 dark:text-slate-400">{{ item.name }}</span>
+                        <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">{{ item.amount|money_format:data.fees.currency }}</span>
+                    </div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="bg-teal-500 h-1.5 rounded-full" style="width: {% widthratio item.amount data.fees.month_total 100 %}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-xs text-slate-400 italic">{% trans "No fee breakdown for this month" %}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {# Breakdown by Account #}
+    <div class="space-y-3">
+        <h4 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{% trans "Costliest Accounts (Yearly)" %}</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {% for acc in data.fees.by_account|slice:":6" %}
+            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-700/20 border border-slate-100 dark:border-slate-700/50">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <div class="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0"></div>
+                    <span class="text-sm text-slate-700 dark:text-slate-300 truncate">{{ acc.name }}</span>
+                </div>
+                <span class="text-sm font-bold text-slate-800 dark:text-slate-200 flex-shrink-0 ml-2">{{ acc.amount|money_format:data.fees.currency }}</span>
+            </div>
+            {% empty %}
+            <p class="text-xs text-slate-400">{% trans "No fee data available" %}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
