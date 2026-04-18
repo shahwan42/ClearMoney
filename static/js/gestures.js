@@ -116,29 +116,48 @@
         if (!swipeEl) return;
         var dx = parseInt(swipeEl.style.transform.replace(/[^-\d]/g, '') || '0');
         if (dx <= -60) {
-            // Trigger delete
             var url = swipeEl.getAttribute('data-swipe-delete');
-            if (url && confirm('Delete this transaction?')) {
-                fetch(url, { method: 'DELETE', headers: { 'HX-Request': 'true' } })
-                    .then(function(resp) {
-                        swipeEl.style.transition = 'all 0.3s ease';
-                        swipeEl.style.transform = 'translateX(-100%)';
-                        swipeEl.style.opacity = '0';
-                        setTimeout(function() { swipeEl.remove(); }, 300);
-                        // Remove related transaction rows (linked transfers/exchanges, fees)
-                        var related = resp.headers.get('X-Related-Deleted');
-                        if (related) {
-                            related.split(',').forEach(function(rid) {
-                                var el = document.getElementById('tx-' + rid);
-                                if (el) {
-                                    el.style.transition = 'all 0.3s ease';
-                                    el.style.opacity = '0';
-                                    el.style.maxHeight = '0';
-                                    setTimeout(function() { el.remove(); }, 300);
+            if (url) {
+                var note = swipeEl.querySelector('[data-transaction-note]');
+                var date = swipeEl.querySelector('[data-transaction-date]');
+                var amount = swipeEl.querySelector('[data-transaction-amount]');
+                var summary = '';
+                if (amount) summary = amount.textContent.trim() + (note ? ' — ' + note.textContent.trim() : '') + (date ? ' (' + date.textContent.trim() + ')' : '');
+
+                ConfirmDialog.show({
+                    title: 'Delete transaction',
+                    message: summary || 'Are you sure you want to delete this transaction?',
+                    confirmText: 'Delete',
+                    confirmClass: 'bg-red-500 hover:bg-red-600 text-white',
+                    cancelText: 'Cancel'
+                }).then(function(confirmed) {
+                    if (confirmed) {
+                        fetch(url, { method: 'DELETE', headers: { 'HX-Request': 'true' } })
+                            .then(function(resp) {
+                                swipeEl.style.transition = 'all 0.3s ease';
+                                swipeEl.style.transform = 'translateX(-100%)';
+                                swipeEl.style.opacity = '0';
+                                setTimeout(function() { swipeEl.remove(); }, 300);
+                                var related = resp.headers.get('X-Related-Deleted');
+                                if (related) {
+                                    related.split(',').forEach(function(rid) {
+                                        var el = document.getElementById('tx-' + rid);
+                                        if (el) {
+                                            el.style.transition = 'all 0.3s ease';
+                                            el.style.opacity = '0';
+                                            el.style.maxHeight = '0';
+                                            setTimeout(function() { el.remove(); }, 300);
+                                        }
+                                    });
                                 }
                             });
-                        }
-                    });
+                    } else {
+                        swipeEl.style.transition = 'transform 0.2s ease';
+                        swipeEl.style.transform = 'translateX(0)';
+                        var bg = swipeEl.querySelector('.swipe-delete-bg');
+                        if (bg) bg.remove();
+                    }
+                });
             } else {
                 swipeEl.style.transition = 'transform 0.2s ease';
                 swipeEl.style.transform = 'translateX(0)';

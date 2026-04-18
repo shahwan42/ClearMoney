@@ -74,7 +74,7 @@
                             {% trans "Update" %}
                         </button>
                     </form>
-                    <button hx-delete="/investments/{{ inv.id }}/delete" hx-confirm="{% trans "Delete this investment?" %}"
+                    <button hx-delete="/investments/{{ inv.id }}/delete" hx-ext="confirm-dialog" hx-confirm="{% trans "Delete this investment?" %}"
                             class="text-red-400 hover:text-red-600 text-xs">{% trans "Del" %}</button>
                 </div>
                 <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">{% trans "Updated" %}: {{ inv.last_updated|format_date }}</p>

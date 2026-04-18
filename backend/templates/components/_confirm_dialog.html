@@ -1,0 +1,38 @@
+{% comment %}
+Custom confirmation dialog — replaces browser confirm() with branded UX.
+Used with ConfirmDialog JS module (static/js/confirm-dialog.js).
+
+Includes:
+- Accessible alertdialog with proper ARIA attributes
+- Focus trap and keyboard navigation (Escape to cancel, Tab to cycle)
+- Focus restoration after close
+- Smooth open/close animation matching bottom sheets
+- Dark mode support
+
+Usage in base template:
+  {% include "components/_confirm_dialog.html" %}
+{% endcomment %}
+<div id="confirm-dialog-overlay" class="fixed inset-0 z-[100] bg-black/40 hidden" aria-hidden="true"></div>
+<div id="confirm-dialog"
+     class="hidden fixed bottom-0 start-0 end-0 z-[110] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto"
+     role="alertdialog"
+     aria-modal="true"
+     aria-labelledby="confirm-dialog-title"
+     aria-describedby="confirm-dialog-message"
+     aria-hidden="true">
+    <div class="flex justify-center pt-3 pb-1 cursor-grab">
+        <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+    </div>
+    <div class="px-4 pb-6 pt-2">
+        <h3 id="confirm-dialog-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-2"></h3>
+        <p id="confirm-dialog-message" class="text-gray-600 dark:text-gray-300 mb-6"></p>
+        <div class="flex flex-col gap-3">
+            <button id="confirm-dialog-confirm" type="button" class="w-full py-3 px-4 rounded-lg font-medium transition-colors bg-red-500 hover:bg-red-600 text-white">
+                Confirm
+            </button>
+            <button id="confirm-dialog-cancel" type="button" class="w-full py-3 px-4 rounded-lg font-medium transition-colors bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-800 dark:text-gray-200">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>

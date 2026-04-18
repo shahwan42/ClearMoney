@@ -81,6 +81,8 @@
 
     <!-- App scripts -->
     <script src="/static/js/bottom-sheet.js" defer></script>
+    <script src="/static/js/confirm-dialog.js" defer></script>
+    <script src="/static/js/htmx-confirm-dialog.js" defer></script>
     <script src="/static/js/offline.js" defer></script>
     <script src="/static/js/push.js" defer></script>
     <script src="/static/js/gestures.js" defer></script>
@@ -113,6 +115,8 @@
     </main>
 
     {% include "components/bottom-nav.html" %}
+
+    {% include "components/_confirm_dialog.html" %}
 
     <!-- Scroll focused inputs into view when virtual keyboard appears (iOS/Android) -->
     <script>

@@ -11,6 +11,7 @@ UI notes:
 - Search input: name="search" (id="search-input"), 300ms debounce via keyup/change
 - Type filter: select[name="type"] triggers HTMX immediately (no debounce)
 """
+
 import sys
 import os
 
@@ -69,7 +70,7 @@ class TestTransactionCRUD:
         page.goto("/transactions/new")
         page.select_option('select[name="account_id"]', _account_id)
         # Type uses hidden radios (Tailwind peer pattern) — click the visible label div
-        page.select_option('#type-select', 'expense')
+        page.select_option("#type-select", "expense")
         # Category uses a custom combobox — select via its programmatic API
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
@@ -82,7 +83,9 @@ class TestTransactionCRUD:
         ):
             page.click('button[type="submit"]')
 
-        expect(page.locator("#transaction-result")).to_contain_text("Transaction saved!")
+        expect(page.locator("#transaction-result")).to_contain_text(
+            "Transaction saved!"
+        )
         # 10,000 - 150 = 9,850
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("9,850")
@@ -91,7 +94,7 @@ class TestTransactionCRUD:
         category_id = get_category_id("income", _user_id)
         page.goto("/transactions/new")
         page.select_option('select[name="account_id"]', _account_id)
-        page.select_option('#type-select', 'income')
+        page.select_option("#type-select", "income")
         # Category uses a custom combobox — select via its programmatic API
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
@@ -104,7 +107,9 @@ class TestTransactionCRUD:
         ):
             page.click('button[type="submit"]')
 
-        expect(page.locator("#transaction-result")).to_contain_text("Transaction saved!")
+        expect(page.locator("#transaction-result")).to_contain_text(
+            "Transaction saved!"
+        )
         # 10,000 + 5,000 = 15,000 (each test has a fresh account)
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("15,000")
@@ -113,8 +118,12 @@ class TestTransactionCRUD:
         # Create both expense and income transactions
         expense_cat_id = get_category_id("expense", _user_id)
         income_cat_id = get_category_id("income", _user_id)
-        create_transaction(page, _account_id, expense_cat_id, "150", "expense", note="Coffee")
-        create_transaction(page, _account_id, income_cat_id, "5000", "income", note="Salary")
+        create_transaction(
+            page, _account_id, expense_cat_id, "150", "expense", note="Coffee"
+        )
+        create_transaction(
+            page, _account_id, income_cat_id, "5000", "income", note="Salary"
+        )
         page.goto("/transactions")
         expect(page.locator("main")).to_contain_text("Coffee")
         expect(page.locator("main")).to_contain_text("Salary")
@@ -123,8 +132,12 @@ class TestTransactionCRUD:
         # Create both expense and income transactions
         expense_cat_id = get_category_id("expense", _user_id)
         income_cat_id = get_category_id("income", _user_id)
-        create_transaction(page, _account_id, expense_cat_id, "150", "expense", note="Coffee")
-        create_transaction(page, _account_id, income_cat_id, "5000", "income", note="Salary")
+        create_transaction(
+            page, _account_id, expense_cat_id, "150", "expense", note="Coffee"
+        )
+        create_transaction(
+            page, _account_id, income_cat_id, "5000", "income", note="Salary"
+        )
         page.goto("/transactions")
         with page.expect_response(lambda r: "/transactions/list" in r.url):
             page.select_option('select[name="type"]', "expense")
@@ -137,8 +150,12 @@ class TestTransactionCRUD:
         # Create both expense and income transactions
         expense_cat_id = get_category_id("expense", _user_id)
         income_cat_id = get_category_id("income", _user_id)
-        create_transaction(page, _account_id, expense_cat_id, "150", "expense", note="Coffee")
-        create_transaction(page, _account_id, income_cat_id, "5000", "income", note="Salary")
+        create_transaction(
+            page, _account_id, expense_cat_id, "150", "expense", note="Coffee"
+        )
+        create_transaction(
+            page, _account_id, income_cat_id, "5000", "income", note="Salary"
+        )
         page.goto("/transactions")
         # Use keyboard.type() to fire keyup events (needed for 300ms debounce trigger)
         with page.expect_response(lambda r: "/transactions/list" in r.url):
@@ -152,7 +169,9 @@ class TestTransactionCRUD:
     def test_dashboard_shows_recent_transactions(self, page: Page) -> None:
         # Create transaction for dashboard to show
         category_id = get_category_id("expense", _user_id)
-        create_transaction(page, _account_id, category_id, "150", "expense", note="Coffee")
+        create_transaction(
+            page, _account_id, category_id, "150", "expense", note="Coffee"
+        )
         page.goto("/")
         expect(page.locator("main")).to_contain_text("Coffee")
 
@@ -256,7 +275,7 @@ class TestTransactionCRUD:
 
         # Fill and submit form
         page.select_option('select[name="account_id"]', _account_id)
-        page.select_option('#type-select', 'expense')
+        page.select_option("#type-select", "expense")
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
         )
@@ -348,7 +367,7 @@ class TestTransactionCRUD:
         category_id = get_category_id("expense", _user_id)
         page.goto("/transactions/new")
         page.select_option('select[name="account_id"]', _account_id)
-        page.select_option('#type-select', 'expense')
+        page.select_option("#type-select", "expense")
         page.evaluate(
             f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
         )
@@ -356,19 +375,231 @@ class TestTransactionCRUD:
         page.fill('input[name="note"]', "Groceries")
 
         # Open More Options and fill fee
-        page.click('#more-options-toggle')
-        expect(page.locator('#fee-input')).to_be_visible()
-        page.fill('#fee-input', "25")
+        page.click("#more-options-toggle")
+        expect(page.locator("#fee-input")).to_be_visible()
+        page.fill("#fee-input", "25")
 
         with page.expect_response(
             lambda r: "/transactions" in r.url and r.request.method == "POST"
         ):
             page.click('button[type="submit"]')
 
-        expect(page.locator("#transaction-result")).to_contain_text("Transaction saved!")
+        expect(page.locator("#transaction-result")).to_contain_text(
+            "Transaction saved!"
+        )
         # 10,000 - 500 (expense) - 25 (fee) = 9,475
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("9,475")
+
+    def test_swipe_to_delete_custom_dialog_appears(self, page: Page) -> None:
+        """Test that swipe gesture shows custom confirmation dialog instead of browser confirm()."""
+        category_id = get_category_id("expense", _user_id)
+        tx_id = create_transaction(
+            page, _account_id, category_id, "150", "expense", note="DialogTest"
+        )
+        page.goto("/transactions")
+
+        row = page.locator(f"#tx-{tx_id}")
+        expect(row).to_be_visible()
+
+        # Simulate swipe gesture
+        page.evaluate(f"""() => {{
+            const el = document.getElementById('tx-{tx_id}');
+            if (el) {{
+                const startTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 300,
+                    clientY: 100,
+                    screenX: 300,
+                    screenY: 100,
+                    pageX: 300,
+                    pageY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchstart', {{
+                    bubbles: true,
+                    cancelable: true,
+                    touches: [startTouch],
+                    targetTouches: [startTouch],
+                    changedTouches: [startTouch]
+                }}));
+
+                const moveTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 50,
+                    clientY: 100,
+                    screenX: 50,
+                    screenY: 100,
+                    pageX: 50,
+                    pageY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchmove', {{
+                    bubbles: true,
+                    cancelable: true,
+                    touches: [moveTouch],
+                    targetTouches: [moveTouch],
+                    changedTouches: [moveTouch]
+                }}));
+
+                el.dispatchEvent(new TouchEvent('touchend', {{
+                    bubbles: true,
+                    cancelable: true,
+                    touches: [],
+                    targetTouches: [],
+                    changedTouches: [moveTouch]
+                }}));
+            }}
+        }}""")
+
+        page.wait_for_timeout(500)
+
+        # Custom dialog should appear instead of browser confirm
+        dialog = page.locator("#confirm-dialog")
+        expect(dialog).to_be_visible()
+        expect(dialog).to_contain_text("Delete transaction")
+        expect(dialog).to_contain_text("DialogTest")
+        expect(page.locator("#confirm-dialog-confirm")).to_contain_text("Delete")
+        expect(page.locator("#confirm-dialog-cancel")).to_contain_text("Cancel")
+
+    def test_swipe_to_delete_dialog_cancel(self, page: Page) -> None:
+        """Test that canceling the custom dialog keeps the transaction."""
+        category_id = get_category_id("expense", _user_id)
+        tx_id = create_transaction(
+            page, _account_id, category_id, "150", "expense", note="CancelTest"
+        )
+        page.goto("/transactions")
+
+        row = page.locator(f"#tx-{tx_id}")
+        expect(row).to_be_visible()
+
+        # Swipe to trigger delete
+        page.evaluate(f"""() => {{
+            const el = document.getElementById('tx-{tx_id}');
+            if (el) {{
+                const startTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 300,
+                    clientY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchstart', {{
+                    bubbles: true,
+                    touches: [startTouch],
+                    changedTouches: [startTouch]
+                }}));
+
+                const moveTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 50,
+                    clientY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchmove', {{
+                    bubbles: true,
+                    touches: [moveTouch],
+                    changedTouches: [moveTouch]
+                }}));
+
+                el.dispatchEvent(new TouchEvent('touchend', {{
+                    bubbles: true,
+                    changedTouches: [moveTouch]
+                }}));
+            }}
+        }}""")
+
+        page.wait_for_timeout(500)
+
+        # Click cancel
+        page.click("#confirm-dialog-cancel")
+        page.wait_for_timeout(400)
+
+        # Row should still be visible
+        expect(row).to_be_visible()
+        expect(page.locator("#confirm-dialog")).not_to_be_visible()
+
+    def test_swipe_to_delete_dialog_confirm(self, page: Page) -> None:
+        """Test that confirming delete removes the transaction row."""
+        category_id = get_category_id("expense", _user_id)
+        tx_id = create_transaction(
+            page, _account_id, category_id, "150", "expense", note="ConfirmTest"
+        )
+        page.goto("/transactions")
+
+        row = page.locator(f"#tx-{tx_id}")
+        expect(row).to_be_visible()
+
+        # Swipe to trigger delete
+        page.evaluate(f"""() => {{
+            const el = document.getElementById('tx-{tx_id}');
+            if (el) {{
+                const startTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 300,
+                    clientY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchstart', {{
+                    bubbles: true,
+                    touches: [startTouch],
+                    changedTouches: [startTouch]
+                }}));
+
+                const moveTouch = new Touch({{
+                    identifier: 0,
+                    target: el,
+                    clientX: 50,
+                    clientY: 100
+                }});
+                el.dispatchEvent(new TouchEvent('touchmove', {{
+                    bubbles: true,
+                    touches: [moveTouch],
+                    changedTouches: [moveTouch]
+                }}));
+
+                el.dispatchEvent(new TouchEvent('touchend', {{
+                    bubbles: true,
+                    changedTouches: [moveTouch]
+                }}));
+            }}
+        }}""")
+
+        page.wait_for_timeout(500)
+
+        # Click confirm delete
+        with page.expect_response(
+            lambda r: f"/transactions/{tx_id}" in r.url and r.request.method == "DELETE"
+        ):
+            page.click("#confirm-dialog-confirm")
+
+        # Row should be removed after animation
+        page.wait_for_timeout(500)
+        expect(row).not_to_be_visible()
+        expect(page.locator("#confirm-dialog")).not_to_be_visible()
+
+    def test_kebab_menu_delete_uses_custom_dialog(self, page: Page) -> None:
+        """Test that delete from kebab menu uses custom dialog."""
+        category_id = get_category_id("expense", _user_id)
+        tx_id = create_transaction(
+            page, _account_id, category_id, "150", "expense", note="KebabTest"
+        )
+        page.goto("/transactions")
+
+        # Open kebab menu
+        page.click(f"#tx-{tx_id} [data-kebab-trigger]")
+        page.wait_for_timeout(200)
+
+        # Click delete button
+        page.click(f"#tx-{tx_id} button[hx-delete='/transactions/{tx_id}']")
+        page.wait_for_timeout(500)
+
+        # Custom dialog should appear
+        dialog = page.locator("#confirm-dialog")
+        expect(dialog).to_be_visible()
+        expect(dialog).to_contain_text("Delete this transaction?")
+
+        # Cancel to clean up
+        page.click("#confirm-dialog-cancel")
 
 
 class TestGlobalSearchE2E:
@@ -377,34 +608,38 @@ class TestGlobalSearchE2E:
         # Create a transaction to search for
         category_id = get_category_id("expense", _user_id)
         tx_id = create_transaction(
-            page, _account_id, category_id, "999", "expense", note="Global Search Target"
+            page,
+            _account_id,
+            category_id,
+            "999",
+            "expense",
+            note="Global Search Target",
         )
-        
+
         # Go to Dashboard (which has the header)
         page.goto("/")
-        
+
         # Click the search icon in the header
         page.click("#global-search-btn")
-        
+
         # Search overlay should become visible
         overlay = page.locator("#global-search-overlay")
         expect(overlay).not_to_have_class("hidden")
-        
+
         # Type into the search input to trigger HTMX request (with debounce)
         input_loc = page.locator("#global-search-input")
         input_loc.fill("Search Target")
-        
+
         # Wait for HTMX to respond and render results
         results_container = page.locator("#global-search-results")
         expect(results_container).to_contain_text("Global Search Target", timeout=5000)
-        
+
         # Click the first result
         first_result = page.locator("#search-result-1 [role='button']")
         first_result.click()
-        
+
         # Detail sheet should be visible containing the transaction info
         detail_sheet = page.locator("#tx-detail-content")
         expect(detail_sheet).to_be_visible()
         expect(detail_sheet).to_contain_text("Global Search Target")
         expect(detail_sheet).to_contain_text("999")
-
