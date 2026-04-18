@@ -4,6 +4,7 @@ title: "Fee analytics"
 type: feature
 priority: medium
 status: done
+created: 2026-03-31
 updated: 2026-04-18
 ---
 

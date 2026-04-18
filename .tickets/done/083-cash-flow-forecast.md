@@ -3,7 +3,7 @@ id: "083"
 title: "Cash flow forecast"
 type: feature
 priority: high
-status: completed
+status: done
 created: 2026-03-31
 updated: 2026-04-18
 ---

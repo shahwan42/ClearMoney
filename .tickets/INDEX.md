@@ -20,8 +20,6 @@ Last updated: 2026-04-18
 | [129](pending/129-dead-auth-service-request-login-link.md) | Investigate unused auth_app/services.py::request_login_link | chore | medium | 2026-04-18 |
 | [130](pending/130-dead-utility-functions-db-htmx-helpers.md) | Dead utility functions: row_to_dict, rows_to_dicts, success_response, _lookup_account_currency | chore | low | 2026-04-18 |
 | [131](pending/131-dead-model-fields-unimplemented-features.md) | Dead model fields from unimplemented features: rollover_amount, is_system, is_archived, role_tags, etc. | chore | low | 2026-04-18 |
-| [122](pending/122-form-inputs-missing-maxlength-attributes.md) | Form inputs missing maxlength attributes across multiple pages | bug | low | 2026-04-17 |
-| [120](pending/120-bug-move-money-form-allows-future-dates.md) | Bug: Move Money form allows future dates | bug | medium | 2026-04-17 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [112](pending/112-e2e-tests-notification-center.md) | E2E tests for notification center | test | medium | 2026-04-04 |
 | [111](pending/111-mark-read-mark-all-read.md) | Mark as read + mark all as read | feature | high | 2026-04-04 |
@@ -29,7 +27,6 @@ Last updated: 2026-04-18
 | [109](pending/109-bell-icon-unread-badge-header.md) | Bell icon with unread badge in header | feature | high | 2026-04-04 |
 | [108](pending/108-notification-generation-pipeline.md) | Notification generation pipeline | feature | high | 2026-04-04 |
 | [107](pending/107-notification-model-and-migration.md) | Notification model and migration | feature | high | 2026-04-04 |
-| [105](pending/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-03-31 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [102](pending/102-transaction-detail-enhancements.md) | Transaction detail enhancements | improvement | low | 2026-03-31 |
 | [101](pending/101-account-custom-name-visible.md) | Account custom name always visible | improvement | low | 2026-03-31 |
@@ -37,8 +34,6 @@ Last updated: 2026-04-18
 | [099](pending/099-budget-save-feedback.md) | Budget save feedback | improvement | medium | 2026-03-31 |
 | [098](pending/098-contextual-feature-hints.md) | Contextual feature hints | improvement | medium | 2026-03-31 |
 | [097](pending/097-bottom-sheet-close-button.md) | Bottom sheet visible close button | improvement | medium | 2026-03-31 |
-| [096](pending/096-quick-entry-preload.md) | Quick-entry sheet pre-load form | improvement | medium | 2026-03-31 |
-| [095](pending/095-loading-skeletons.md) | Loading skeletons for HTMX content | improvement | medium | 2026-03-31 |
 | [094](pending/094-consolidated-credit-card-view.md) | Consolidated credit card view | improvement | high | 2026-03-31 |
 | [093](pending/093-interactive-report-charts.md) | Interactive report charts with drill-down | improvement | high | 2026-03-31 |
 | [091](pending/091-reorder-collapse-dashboard.md) | Reorder and collapse dashboard panels | improvement | high | 2026-03-31 |
@@ -63,6 +58,11 @@ Last updated: 2026-04-18
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
 | [092](done/092-inline-form-validation.md) | Inline form validation | improvement | high | 2026-04-18 |
+| [122](done/122-form-inputs-missing-maxlength-attributes.md) | Form inputs missing maxlength attributes across multiple pages | bug | low | 2026-04-18 |
+| [120](done/120-bug-move-money-form-allows-future-dates.md) | Bug: Move Money form allows future dates | bug | medium | 2026-04-18 |
+| [105](done/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-04-18 |
+| [096](done/096-quick-entry-preload.md) | Quick-entry sheet pre-load form | improvement | medium | 2026-04-18 |
+| [095](done/095-loading-skeletons.md) | Loading skeletons for HTMX content | improvement | medium | 2026-04-18 |
 | [077](done/077-fee-analytics.md) | Fee analytics | feature | medium | 2026-04-18 |
 | [103](done/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-04-18 |
 | [083](done/083-cash-flow-forecast.md) | Cash flow forecast | feature | high | 2026-04-18 |
