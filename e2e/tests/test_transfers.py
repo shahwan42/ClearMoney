@@ -161,11 +161,11 @@ class TestExchange:
         page.goto("/move-money/new")
         page.select_option("#move-src", _egp_account_1)
         page.select_option("#move-dst", _egp_account_1)
-        # Should show UI error or prevent submission
         page.fill("#move-amount", "50")
-        page.click('button[type="submit"]')
-        # Expect an error either natively or through validation
-        expect(page.locator("text='Source and destination accounts must be different'")).to_be_visible()
+        with page.expect_response(lambda r: "/transactions/transfer" in r.url):
+            page.click('button[type="submit"]')
+        # Service raises ValueError("Cannot transfer to the same account") → 400 error fragment
+        expect(page.locator("#move-money-content")).to_contain_text("Cannot transfer to the same account")
 
 
     def test_create_exchange_updates_balances(self, page: Page) -> None:

@@ -60,36 +60,27 @@ class TestQAEdgeCases:
         expect(results).not_to_contain_text("alert")
 
     def test_budget_limit_zero(self, page: Page) -> None:
-        """Update a budget limit to 0 checking behavior."""
-        # Create a budget directly via UI
+        """Budget monthly limit input must have min=0.01 to prevent zero limits."""
         page.goto("/budgets")
-        page.click("button:has-text('New Budget')")
-        page.select_option("select[name='category_id']", index=1)
-        page.locator("input[name='limit']").fill("0")
-        
-        page.click("button[type='submit']")
-        
-        # It should block or show validation since min value > 0 is standard for limits
-        # We assert it prevents submit
-        expect(page.locator("input[name='limit']")).to_have_attribute("min", "1")
+
+        # The "New Budget" section is always visible on the page (not behind a button)
+        limit_input = page.locator("input[name='monthly_limit']").first
+
+        # Verify the min constraint prevents zero/negative amounts
+        expect(limit_input).to_have_attribute("min", "0.01")
 
     def test_huge_note_in_quick_entry(self, page: Page) -> None:
-        """Enter a note exceeding the maximum character limit in Quick-Entry."""
-        page.goto("/quick-entry")
-        
-        # In Django usually maxlength=100 or 120
-        huge_note = "A" * 150
-        page.locator("input[name='note']").fill(huge_note)
-        
-        # The browser should restrict it based on maxlength
-        max_length = page.locator("input[name='note']").get_attribute("maxlength")
-        
-        # Read the real value that got typed
-        val = page.locator("input[name='note']").input_value()
-        
-        # Length should be truncated
-        if max_length:
-            assert len(val) == int(max_length)
-        else:
-            # If no maxlength is set, it will be validated by server
-            pass
+        """Note input in Quick-Entry enforces maxlength, truncating overlong input."""
+        # Quick entry is a bottom-sheet partial; load it directly
+        page.goto("/transactions/quick-form")
+
+        note_input = page.locator("input[name='note']")
+        max_length_attr = note_input.get_attribute("maxlength")
+        assert max_length_attr is not None, "note input must have a maxlength attribute"
+
+        max_length = int(max_length_attr)
+        huge_note = "A" * (max_length + 50)
+        note_input.fill(huge_note)
+
+        val = note_input.input_value()
+        assert len(val) == max_length, f"Expected {max_length} chars, got {len(val)}"
