@@ -112,12 +112,14 @@ class TestRecurring:
         _create_recurring_rule(page)
         # Verify rule exists before deleting
         expect(page.locator("#recurring-list")).to_contain_text("Netflix")
-        # Register dialog handler before clicking — hx-confirm fires browser confirm()
-        page.on("dialog", lambda d: d.accept())
+        # Click Del — hx-ext="confirm-dialog" shows a custom branded dialog (not browser confirm)
+        page.click('button:has-text("Del")')
+        # Wait for custom confirm dialog and click the confirm button
+        expect(page.locator("#confirm-dialog-confirm")).to_be_visible(timeout=5000)
         with page.expect_response(
             lambda r: "/recurring/" in r.url and r.request.method == "DELETE"
         ):
-            page.click('button:has-text("Del")')
+            page.click("#confirm-dialog-confirm")
         expect(page.locator("#recurring-list")).not_to_contain_text("Netflix")
 
 

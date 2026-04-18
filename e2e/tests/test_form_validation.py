@@ -20,6 +20,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+import re
 import pytest
 from playwright.sync_api import Page, expect
 from conftest import ensure_auth, reset_database, get_category_id
@@ -64,7 +65,7 @@ class TestTransactionFormValidation:
     def test_amount_field_shows_error_on_zero(self, page: Page) -> None:
         """Amount field shows error when value is 0."""
         page.goto("/transactions/new")
-        amount_input = page.locator('input[name="amount"]')
+        amount_input = page.locator('#amount-input')
 
         # Fill with invalid value and blur
         amount_input.fill("0")
@@ -81,7 +82,7 @@ class TestTransactionFormValidation:
     def test_amount_field_clears_error_on_valid_input(self, page: Page) -> None:
         """Amount error clears when valid value entered."""
         page.goto("/transactions/new")
-        amount_input = page.locator('input[name="amount"]')
+        amount_input = page.locator('#amount-input')
 
         # Trigger error
         amount_input.fill("0")
@@ -96,11 +97,11 @@ class TestTransactionFormValidation:
     def test_required_field_shows_error_on_empty(self, page: Page) -> None:
         """Required field shows error when empty."""
         page.goto("/transactions/new")
-        account_select = page.locator('select[name="account_id"]')
+        account_select = page.locator('#account-select')
 
-        # Select empty option and blur
+        # Select empty option then trigger blur validation via JS
         account_select.select_option("")
-        account_select.blur()
+        account_select.evaluate("el => el.dispatchEvent(new Event('blur'))")
 
         # Should show error
         expect(account_select).to_have_attribute("aria-invalid", "true")
@@ -128,24 +129,23 @@ class TestTransactionFormValidation:
         # Fill to 95% of limit (475 chars)
         note_input.fill("x" * 475)
 
-        # Should show amber warning
-        expect(page.locator("#note-input-count")).to_have_class(
-            "text-amber-500 text-xs mt-1 text-right"
-        )
+        # Should show amber warning (class is added to existing classes, not replaced)
+        expect(page.locator("#note-input-count")).to_have_class(re.compile(r'text-amber-500'))
 
     def test_date_field_rejects_future_date(self, page: Page) -> None:
         """Date field shows error for future dates."""
         page.goto("/transactions/new")
 
-        # Open more options to show date picker
+        # Open more options to show date picker (enables #date-picker input)
         page.click("#more-options-toggle")
 
-        date_input = page.locator('input[name="date"]')
-        future_date = "2099-01-01"
+        date_input = page.locator('#date-picker')
 
-        # Set future date and blur
-        date_input.fill(future_date)
-        date_input.blur()
+        # Set future date directly and dispatch blur to trigger validation
+        date_input.evaluate("""el => {
+            el.value = '2099-01-01';
+            el.dispatchEvent(new Event('blur'));
+        }""")
 
         # Should show error
         expect(date_input).to_have_attribute("aria-invalid", "true")
@@ -274,9 +274,11 @@ class TestRecurringFormValidation:
         page.goto("/recurring")
         date_input = page.locator("#recurring-next-due")
 
-        # Clear and set future date
-        date_input.fill("2099-01-01")
-        date_input.blur()
+        # Set a future date directly and dispatch blur to trigger validation
+        date_input.evaluate("""el => {
+            el.value = '2099-01-01';
+            el.dispatchEvent(new Event('blur'));
+        }""")
 
         # Should show error
         expect(date_input).to_have_attribute("aria-invalid", "true")
@@ -331,7 +333,7 @@ class TestValidationAccessibility:
     def test_aria_describedby_links_to_error(self, page: Page) -> None:
         """aria-describedby correctly links field to error message."""
         page.goto("/transactions/new")
-        amount_input = page.locator('input[name="amount"]')
+        amount_input = page.locator('#amount-input')
 
         # Trigger error
         amount_input.fill("0")
@@ -343,7 +345,7 @@ class TestValidationAccessibility:
     def test_error_container_has_role_alert(self, page: Page) -> None:
         """Error container has role="alert" for screen readers."""
         page.goto("/transactions/new")
-        amount_input = page.locator('input[name="amount"]')
+        amount_input = page.locator('#amount-input')
 
         # Trigger error
         amount_input.fill("0")
@@ -362,7 +364,7 @@ class TestValidationDoesNotBlockSubmission:
         page.goto("/transactions/new")
 
         # Fill form with invalid data
-        amount_input = page.locator('input[name="amount"]')
+        amount_input = page.locator('#amount-input')
         amount_input.fill("0")
 
         # Blur to trigger validation

@@ -106,6 +106,9 @@
         if (target && target.hasAttribute('aria-busy')) {
           target.setAttribute('aria-busy', 'false');
         }
+        if (typeof FormValidation !== 'undefined') {
+          FormValidation.init();
+        }
       });
     </script>
 

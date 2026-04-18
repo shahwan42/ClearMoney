@@ -15,7 +15,7 @@ function setQuickEntryTab(mode) {
 
 function openQuickEntry() {
     setQuickEntryTab('transaction');
-    BottomSheet.open('quick-entry');
+    BottomSheet.open('quick-entry', {url: '/transactions/quick-form'});
 }
 
 function closeQuickEntry() {

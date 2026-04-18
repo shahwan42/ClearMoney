@@ -118,8 +118,11 @@ class TestTransactionDetailSheet:
         row.click()
         page.wait_for_selector("#tx-detail-content h4", timeout=5000)
         content = page.locator("#tx-detail-content")
-        page.on("dialog", lambda d: d.accept())
         content.locator("button:has-text('Delete')").click()
+        # hx-ext="confirm-dialog" shows custom branded dialog, not browser confirm()
+        expect(page.locator("#confirm-dialog-confirm")).to_be_visible(timeout=5000)
+        with page.expect_response(lambda r: r.request.method == "DELETE"):
+            page.click("#confirm-dialog-confirm")
         expect(page.locator(f"#{row_id}")).to_have_count(0, timeout=5000)
 
     def test_kebab_menu_still_works(self, page: Page) -> None:

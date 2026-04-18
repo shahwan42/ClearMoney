@@ -55,8 +55,8 @@ class TestCSVImport:
         page.locator("input[type='file']").set_input_files(
             files=[{"name": "test.csv", "mimeType": "text/csv", "buffer": csv_content.encode("utf-8")}]
         )
-        page.locator("button[type='submit']").click()
-        
+        page.locator("main button[type='submit']").click()
+
         # 2. Mapping
         expect(page).to_have_url(str(page.url))
         expect(page.locator("body")).to_contain_text("Map CSV Columns")
@@ -64,7 +64,7 @@ class TestCSVImport:
         page.select_option("select[name='col_amount']", "Amount")
         page.select_option("select[name='col_note']", "Note")
         page.select_option("select[name='account_id']", _account_id)
-        page.locator("button[type='submit']").click()
+        page.locator("main button[type='submit']").click()
         
         # 3. Preview
         expect(page.locator("body")).to_contain_text("Preview Import")

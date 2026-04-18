@@ -68,8 +68,8 @@ var FormValidation = (function() {
                         error = MESSAGES.maxlength.replace('{max}', rule.value);
                     }
                     break;
-                case 'date:not-future':
-                    if (value) {
+                case 'date':
+                    if (rule.value === 'not-future' && value) {
                         var fieldDate = new Date(value);
                         var today = new Date();
                         today.setHours(0, 0, 0, 0);

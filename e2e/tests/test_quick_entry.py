@@ -97,23 +97,23 @@ class TestQuickEntry:
         seed_basic_data(page)
         page.goto("/", wait_until="domcontentloaded")
 
-        # Open sheet
+        # Open sheet — HTMX loads the form
         page.click("button.fab-button", timeout=10000)
-        page.wait_for_selector("#qe-amount", timeout=5000)
+        page.wait_for_selector("#qe-amount", timeout=10000)
 
         # Fill in some data
         page.fill("#qe-amount", "999")
         page.fill("#qe-note-input", "Test note")
 
-        # Close sheet
-        page.click("#quick-entry-overlay")
+        # Close sheet via overlay click
+        page.locator("#quick-entry-overlay").click(force=True)
         page.wait_for_timeout(500)  # Wait for close animation
 
-        # Reopen sheet
+        # Reopen sheet — HTMX reloads a fresh form
         page.click("button.fab-button", timeout=10000)
-        page.wait_for_selector("#qe-amount", timeout=5000)
+        page.wait_for_selector("#qe-amount", timeout=10000)
 
-        # Form should be reset (amount field empty)
+        # Fresh form load means amount field is empty
         expect(page.locator("#qe-amount")).to_have_value("")
 
     def test_quick_entry_expense_updates_balance(self, page: Page) -> None:

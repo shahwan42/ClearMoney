@@ -232,7 +232,7 @@ class TestCashFlowForecast:
                         f'{{"type": "income", "amount": 5000, "currency": "EGP", "account_id": "{account_id}", "note": "Salary"}}',
                     ),
                 )
-        conn.commit()
+            conn.commit()
 
         page.goto("/")
 
@@ -259,7 +259,7 @@ class TestCashFlowForecast:
                         f'{{"type": "expense", "amount": 20000, "currency": "EGP", "account_id": "{account_id}", "note": "Big Purchase"}}',
                     ),
                 )
-        conn.commit()
+            conn.commit()
 
         page.goto("/")
 
