@@ -13,7 +13,7 @@
                 <label class="flex-1">
                     <input type="radio" name="type" value="expense" class="sr-only peer" checked
                            onchange="toggleRecurringType()">
-                    <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                    <div class="text-center py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-300 dark:peer-checked:border-red-700 peer-checked:text-red-700 dark:peer-checked:text-red-400">
                         {% trans "Expense" %}
                     </div>
@@ -21,7 +21,7 @@
                 <label class="flex-1">
                     <input type="radio" name="type" value="income" class="sr-only peer"
                            onchange="toggleRecurringType()">
-                    <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                    <div class="text-center py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-green-50 dark:peer-checked:bg-green-900/20 peer-checked:border-green-300 dark:peer-checked:border-green-700 peer-checked:text-green-700 dark:peer-checked:text-green-400">
                         {% trans "Income" %}
                     </div>
@@ -29,7 +29,7 @@
                 <label class="flex-1">
                     <input type="radio" name="type" value="transfer" class="sr-only peer"
                            onchange="toggleRecurringType()">
-                    <div class="text-center py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
+                    <div class="text-center py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
                                 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 peer-checked:border-blue-300 dark:peer-checked:border-blue-700 peer-checked:text-blue-700 dark:peer-checked:text-blue-400">
                         {% trans "Transfer" %}
                     </div>
@@ -43,7 +43,7 @@
             <input type="number" name="amount" step="0.01" min="0.01" required
                    placeholder="0.00" inputmode="decimal"
                    data-validate="required,min:0.01"
-                   class="w-full text-lg font-bold text-center border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400 bg-white dark:bg-gray-700 dark:text-white">
+                    class="w-full text-lg font-bold text-center border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400 bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
         {# Account (source for transfers) #}
@@ -52,7 +52,7 @@
                    data-account-label="{% trans "Account" %}"
                    data-from-account-label="{% trans "From Account" %}"
                    class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Account" %}</label>
-            <select name="account_id" id="recurring-account-select" required data-validate="required" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+            <select name="account_id" id="recurring-account-select" required data-validate="required" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
@@ -62,7 +62,7 @@
         {# Destination account (transfer only) #}
         <div id="recurring-dest-account" class="hidden">
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "To Account" %}</label>
-            <select name="counter_account_id" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+            <select name="counter_account_id" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
                 <option value="">{% trans "Select destination..." %}</option>
                 {% for acc in accounts %}
                 <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
@@ -75,7 +75,7 @@
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Fee (optional)" %}</label>
             <input type="number" name="fee_amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal"
                    data-validate="min:0"
-                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
         {# Category (expense/income only) #}
@@ -94,7 +94,7 @@
             <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Note" %}</label>
             <input type="text" name="note" id="recurring-note-input" placeholder="{% trans "e.g., Monthly insurance" %}" maxlength="200"
                    data-validate="maxlength:200"
-                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
         {# Frequency + Next Due Date #}
@@ -126,7 +126,7 @@
         </div>
 
         <button type="submit"
-                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+                class="w-full bg-teal-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-teal-700">
             {% trans "Create Rule" %}
         </button>
     </form>

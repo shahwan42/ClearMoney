@@ -7,7 +7,7 @@
     <form hx-post="/transactions/fawry-cashout" hx-target="#fawry-result" hx-swap="innerHTML" class="space-y-3 overflow-hidden">
         <div>
             <label class="block text-xs text-gray-500 mb-1">{% trans "Credit Card" %}</label>
-            <select name="credit_card_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+            <select name="credit_card_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
                 <option value="">{% trans "Select credit card..." %}</option>
                 {% for acc in accounts %}{% if acc.type == "credit_card" %}
                 <option value="{{ acc.id }}">{{ acc.name }}</option>
@@ -17,7 +17,7 @@
 
         <div>
             <label class="block text-xs text-gray-500 mb-1">{% trans "Prepaid / Fawry Account" %}</label>
-            <select name="prepaid_account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+            <select name="prepaid_account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
                 <option value="">{% trans "Select prepaid account..." %}</option>
                 {% for acc in accounts %}{% if acc.type == "prepaid" %}
                 <option value="{{ acc.id }}">{{ acc.name }}</option>
@@ -29,7 +29,7 @@
             <label class="block text-xs text-gray-500 mb-1">{% trans "Amount (net, what you receive)" %}</label>
             <input type="number" name="amount" step="0.01" min="0.01" required
                    placeholder="0.00" inputmode="decimal"
-                   class="w-full text-xl font-bold text-center border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                   class="w-full text-xl font-bold text-center border border-gray-300 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
                    oninput="updateFawryTotal()">
         </div>
 
@@ -37,7 +37,7 @@
             <label class="block text-xs text-gray-500 mb-1">{% trans "Fee" %}</label>
             <input type="number" name="fee" step="0.01" min="0" value="0"
                    id="fawry-fee" inputmode="decimal"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                    oninput="updateFawryTotal()">
         </div>
 
@@ -48,7 +48,7 @@
 
         <div>
             <label class="block text-xs text-gray-500 mb-1">{% trans "Currency" %}</label>
-            <select name="currency" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+            <select name="currency" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
                 <option value="EGP" selected>EGP</option>
                 <option value="USD">USD</option>
             </select>
@@ -56,7 +56,7 @@
 
         <div>
             <label class="block text-xs text-gray-500 mb-1">{% trans "Date" %}</label>
-            <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="w-full min-w-0 max-w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm">
+            <input type="date" name="date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="w-full min-w-0 max-w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
         </div>
 
         <div>
@@ -66,7 +66,7 @@
         </div>
 
         <button type="submit"
-                class="w-full bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-teal-700">
+                class="w-full bg-teal-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-teal-700">
             {% trans "Process Cash-Out" %}
         </button>
     </form>

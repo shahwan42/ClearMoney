@@ -3,7 +3,7 @@ id: "133"
 title: "Compact buttons and inputs for better mobile visuals"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-04-18
 updated: 2026-04-18
 ---
@@ -77,3 +77,4 @@ input, select, textarea, button {
 ## Progress Notes
 
 - 2026-04-18: Created — Ticket captures compact UI + overflow containment requirements for mobile forms
+- 2026-04-18: Implemented — Global CSS fix in app.css (box-sizing, max-width); reduced input padding (py-2.5 → py-2) and button padding (py-3 → py-2.5, py-2 → py-1.5) across all form templates; all 1529 tests pass

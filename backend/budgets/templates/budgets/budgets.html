@@ -48,7 +48,7 @@
             <input type="number" name="monthly_limit" id="total-limit-edit" step="0.01" min="0.01" required
                    value="{{ total_budget.monthly_limit|floatformat:'2' }}" placeholder="0.00"
                    data-validate="required,min:0.01"
-                   class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
+                   class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-1.5 text-sm">
             <button type="submit"
                     class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700">
                 {% trans "Update" %}
@@ -63,7 +63,7 @@
             <input type="number" name="monthly_limit" id="total-limit-new" step="0.01" min="0.01" required
                    placeholder="e.g. 15000"
                    data-validate="required,min:0.01"
-                   class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
+                   class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-1.5 text-sm">
             <button type="submit"
                     class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700">
                 {% trans "Set Total Budget" %}
@@ -162,9 +162,9 @@
                     <input type="number" name="monthly_limit" id="limit-{{ budget.id }}"
                            step="0.01" min="0.01" required
                            value="{{ budget.monthly_limit|floatformat:'2' }}"
-                           class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
+                           class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-1.5 text-sm">
                     <button type="submit"
-                            class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700">
+                            class="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-teal-700">
                         {% trans "Update" %}
                     </button>
                 </div>

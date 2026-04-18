@@ -283,11 +283,20 @@ button[disabled] { cursor: not-allowed; opacity: 0.75; transition: opacity 150ms
 }
 
 /* Touch target compliance — WCAG 2.5.5 AAA: all form controls must be at least 44px tall.
-   Excludes radio/checkbox (custom-styled with peer-checked pattern) and range sliders. */
+    Excludes radio/checkbox (custom-styled with peer-checked pattern) and range sliders. */
 input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]):not([type="range"]),
 select,
 textarea {
     min-height: 44px;
+}
+
+/* Width containment — prevent form elements from overflowing containers.
+    Critical for mobile layouts where inputs/buttons must fit within padded parents. */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+input, select, textarea, button {
+    max-width: 100%;
 }
 
 /* Optimize main scrolling container for momentum scroll performance on iOS.
