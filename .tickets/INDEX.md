@@ -31,7 +31,6 @@ Last updated: 2026-04-18
 | [107](pending/107-notification-model-and-migration.md) | Notification model and migration | feature | high | 2026-04-04 |
 | [105](pending/105-custom-delete-confirmation-dialog.md) | Custom delete confirmation dialog | improvement | medium | 2026-03-31 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
-| [103](pending/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-03-31 |
 | [102](pending/102-transaction-detail-enhancements.md) | Transaction detail enhancements | improvement | low | 2026-03-31 |
 | [101](pending/101-account-custom-name-visible.md) | Account custom name always visible | improvement | low | 2026-03-31 |
 | [100](pending/100-smarter-more-menu.md) | Smarter More menu organization | improvement | medium | 2026-03-31 |
@@ -42,7 +41,6 @@ Last updated: 2026-04-18
 | [095](pending/095-loading-skeletons.md) | Loading skeletons for HTMX content | improvement | medium | 2026-03-31 |
 | [094](pending/094-consolidated-credit-card-view.md) | Consolidated credit card view | improvement | high | 2026-03-31 |
 | [093](pending/093-interactive-report-charts.md) | Interactive report charts with drill-down | improvement | high | 2026-03-31 |
-| [092](pending/092-inline-form-validation.md) | Inline form validation | improvement | high | 2026-03-31 |
 | [091](pending/091-reorder-collapse-dashboard.md) | Reorder and collapse dashboard panels | improvement | high | 2026-03-31 |
 | [090](pending/090-onboarding-wizard.md) | Onboarding wizard for new users | feature | high | 2026-03-31 |
 | [089](pending/089-streak-gamification.md) | Streak gamification and milestones | feature | low | 2026-03-31 |
@@ -51,13 +49,11 @@ Last updated: 2026-04-18
 | [086](pending/086-weekly-email-digest.md) | Weekly email digest | feature | low | 2026-03-31 |
 | [085](pending/085-bulk-edit-transactions.md) | Bulk edit transactions | feature | medium | 2026-03-31 |
 | [084](pending/084-transaction-templates.md) | Transaction templates / favorites | feature | medium | 2026-03-31 |
-| [083](pending/083-cash-flow-forecast.md) | Cash flow forecast | feature | high | 2026-03-31 |
 | [082](pending/082-credit-card-payment-widget.md) | Credit card payment widget | feature | medium | 2026-03-31 |
 | [081](pending/081-auto-categorization-rules.md) | Auto-categorization rules | feature | high | 2026-03-31 |
 | [080](pending/080-year-over-year-comparison.md) | Year-over-year comparison | feature | medium | 2026-03-31 |
 | [079](pending/079-recurring-vs-onetime-split.md) | Recurring vs one-time spending split | feature | medium | 2026-03-31 |
 | [078](pending/078-debt-payoff-timeline.md) | Debt payoff timeline visualizer | feature | medium | 2026-03-31 |
-| [077](pending/077-fee-analytics.md) | Fee analytics | feature | medium | 2026-03-31 |
 | [075](pending/075-subscription-detector.md) | Subscription detector | feature | high | 2026-03-31 |
 | [074](pending/074-dashboard-customization.md) | Dashboard customization | feature | low | 2026-03-31 |
 | [073](pending/073-shared-expense-splitting.md) | Shared expense splitting | feature | low | 2026-03-31 |
@@ -66,6 +62,10 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [092](done/092-inline-form-validation.md) | Inline form validation | improvement | high | 2026-04-18 |
+| [077](done/077-fee-analytics.md) | Fee analytics | feature | medium | 2026-04-18 |
+| [103](done/103-swipe-delete-safety.md) | Swipe-to-delete safety improvements | improvement | low | 2026-04-18 |
+| [083](done/083-cash-flow-forecast.md) | Cash flow forecast | feature | high | 2026-04-18 |
 | [132](done/132-usage-ordered-accounts-categories-in-transaction-forms.md) | Usage-ordered accounts and categories in transaction forms | improvement | medium | 2026-04-18 |
 | [119](done/119-bug-pdf-export-500-no-user-feedback.md) | Bug: PDF export returns HTTP 500 with no user-facing error message | bug | medium | 2026-04-18 |
 | [118](done/118-bug-liquid-cash-mixes-currencies-no-conversion.md) | Bug: Liquid Cash sums multi-currency balances without conversion | bug | high | 2026-04-18 |
