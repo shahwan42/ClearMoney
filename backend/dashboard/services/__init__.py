@@ -37,6 +37,7 @@ from .credit_cards import (
     _compute_due_date,
     compute_credit_card_summaries,
 )
+from .forecast import CashFlowForecast, ForecastService
 from .sparklines import (
     load_account_sparklines,
     load_net_worth_by_currency,
@@ -75,6 +76,7 @@ __all__ = [
     "HealthWarning",
     "PeopleCurrencySummary",
     "TransactionRow",
+    "CashFlowForecast",
     # Helpers (used by tests)
     "_compute_due_date",
 ]
@@ -143,6 +145,9 @@ class DashboardData:
     # Health
     health_warnings: list[HealthWarning] = field(default_factory=list)
 
+    # Cash flow forecast
+    cash_flow_forecast: CashFlowForecast | None = None
+
 
 class DashboardService:
     """Aggregates all dashboard data from 10+ database sources.
@@ -182,6 +187,9 @@ class DashboardService:
 
         # Load constraints (health warnings)
         self._load_constraints(data, all_accounts)
+
+        # Load cash flow forecast
+        self._load_cash_flow_forecast(data)
 
         # Compute template-helper fields
         result = data.__dict__
@@ -409,3 +417,11 @@ class DashboardService:
 
     def _compute_category_velocities(self) -> list[CategoryVelocity]:
         return compute_category_velocities(self.user_id, self.tz)
+
+    def _load_cash_flow_forecast(self, data: DashboardData) -> None:
+        """Load cash flow forecast for the current month."""
+        try:
+            forecast_svc = ForecastService(self.user_id, self.tz)
+            data.cash_flow_forecast = forecast_svc.calculate_forecast()
+        except Exception:
+            logger.warning("dashboard: failed to load cash flow forecast")

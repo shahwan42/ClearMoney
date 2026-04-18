@@ -2,7 +2,9 @@
 
 Converts: 04-dashboard.spec.ts
 """
+
 import sys, os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import pytest
@@ -57,7 +59,9 @@ class TestDashboard:
         expect(page.locator("main")).to_contain_text("No transactions yet")
 
         category_id = get_category_id("expense", _user_id)
-        create_transaction(page, account_id, category_id, "250", "expense", note="Lunch")
+        create_transaction(
+            page, account_id, category_id, "250", "expense", note="Lunch"
+        )
 
         page.reload()
         expect(page.locator("main")).to_contain_text("Lunch")
@@ -96,7 +100,9 @@ class TestDashboard:
         expect(page.locator("main")).to_contain_text("Test Bank")
 
 
-def _create_budget_via_sql(user_id: str, category_id: str, monthly_limit: int = 3000) -> str:
+def _create_budget_via_sql(
+    user_id: str, category_id: str, monthly_limit: int = 3000
+) -> str:
     """Insert a budget directly via SQL and return the budget id."""
     with _conn() as conn:
         with conn.cursor() as cur:
@@ -142,6 +148,7 @@ class TestSpendingVelocityCard:
 
         # Last month spending via SQL (transactions API only accepts today's date range)
         from datetime import date, timedelta
+
         last_month = date.today().replace(day=1) - timedelta(days=1)
         last_month_first = last_month.replace(day=1)
         with _conn() as conn:
@@ -171,6 +178,7 @@ class TestSpendingVelocityCard:
 
         # Inject last-month baseline
         from datetime import date, timedelta
+
         last_month = date.today().replace(day=1) - timedelta(days=1)
         with _conn() as conn:
             with conn.cursor() as cur:
@@ -203,3 +211,58 @@ class TestSpendingVelocityCard:
         # Category velocity list should be visible
         cat_list = page.locator("#category-velocity-list")
         expect(cat_list).to_be_visible()
+
+
+class TestCashFlowForecast:
+    def test_forecast_card_visible_with_recurring_rules(self, page: Page) -> None:
+        """Cash flow forecast card shows when recurring rules exist."""
+        global _user_id
+        _, account_id = seed_basic_data(page)
+
+        # Create a recurring income rule via SQL
+        category_id = get_category_id("income", _user_id)
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO recurring_rules "
+                    "(user_id, template_transaction, frequency, next_due_date, is_active, auto_confirm) "
+                    "VALUES (%s, %s, 'monthly', '2026-04-25', true, false) RETURNING id",
+                    (
+                        _user_id,
+                        f'{{"type": "income", "amount": 5000, "currency": "EGP", "account_id": "{account_id}", "note": "Salary"}}',
+                    ),
+                )
+        conn.commit()
+
+        page.goto("/")
+
+        # Forecast card should be visible
+        expect(page.locator("main")).to_contain_text("Cash Flow Forecast")
+        expect(page.locator("main")).to_contain_text("Projected")
+        expect(page.locator("main")).to_contain_text("Expected Income")
+
+    def test_forecast_shows_negative_warning(self, page: Page) -> None:
+        """Forecast displays warning when balance goes negative."""
+        global _user_id
+        _, account_id = seed_basic_data(page)
+
+        # Create a large recurring expense that exceeds balance
+        category_id = get_category_id("expense", _user_id)
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO recurring_rules "
+                    "(user_id, template_transaction, frequency, next_due_date, is_active, auto_confirm) "
+                    "VALUES (%s, %s, 'monthly', '2026-04-25', true, false) RETURNING id",
+                    (
+                        _user_id,
+                        f'{{"type": "expense", "amount": 20000, "currency": "EGP", "account_id": "{account_id}", "note": "Big Purchase"}}',
+                    ),
+                )
+        conn.commit()
+
+        page.goto("/")
+
+        # Warning should be visible
+        expect(page.locator("main")).to_contain_text("Warning")
+        expect(page.locator("main")).to_contain_text("negative")
