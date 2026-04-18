@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Subquery, Value
+from django.db.models import Count, F, OuterRef, Q, Subquery, Value
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
@@ -248,12 +248,15 @@ class HelperMixin:
     # -------------------------------------------------------------------
 
     def get_accounts(self) -> list[dict[str, Any]]:
-        """Get all non-dormant accounts for dropdowns."""
+        """Get all non-dormant accounts for dropdowns, ordered by usage then display_order."""
         uid = self.user_id  # type: ignore[attr-defined]
         rows = (
             Account.objects.for_user(uid)
             .filter(is_dormant=False)
-            .order_by("display_order", "name")
+            .annotate(
+                tx_count=Count("transactions", filter=Q(transactions__user_id=uid))
+            )
+            .order_by("-tx_count", "display_order", "name")
             .values("id", "name", "currency", "current_balance", "type")
         )
         return [
@@ -271,7 +274,7 @@ class HelperMixin:
         """Get categories sorted by usage count (most used first), then name."""
         uid = self.user_id  # type: ignore[attr-defined]
         usage_sq = Subquery(
-            Transaction.objects.filter(category_id=OuterRef("id"))
+            Transaction.objects.filter(category_id=OuterRef("id"), user_id=uid)
             .values("category_id")
             .annotate(cnt=Count("id"))
             .values("cnt")[:1]

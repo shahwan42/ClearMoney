@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import F, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
@@ -286,12 +286,21 @@ class AccountService:
     def get_for_dropdown(
         self, *, include_balance: bool = False
     ) -> list[AccountDropdownItem]:
-        """Active (non-dormant) accounts for form dropdowns.
+        """Active (non-dormant) accounts for form dropdowns, ordered by usage then display_order.
 
         Returns lightweight AccountDropdownItem with id, name, currency (and optionally
         current_balance). Much cheaper than get_all() for dropdown selects.
         """
-        qs = self._qs().filter(is_dormant=False).order_by("display_order", "name")
+        qs = (
+            self._qs()
+            .filter(is_dormant=False)
+            .annotate(
+                tx_count=Count(
+                    "transactions", filter=Q(transactions__user_id=self.user_id)
+                )
+            )
+            .order_by("-tx_count", "display_order", "name")
+        )
         if include_balance:
             rows = qs.values("id", "name", "currency", "current_balance")
             return [

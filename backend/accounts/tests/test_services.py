@@ -200,6 +200,36 @@ class TestGetForDropdown:
         assert acc.current_balance is not None
         assert isinstance(acc.current_balance, float)
 
+    def test_ordered_by_usage(self, dropdown_data: dict) -> None:
+        """Account with more transactions comes first in the dropdown."""
+        user_id = dropdown_data["user_id"]
+        # Add 3 transactions to the active account so it has higher usage than zero
+        for _ in range(3):
+            TransactionFactory(
+                user_id=user_id,
+                account_id=dropdown_data["active_id"],
+            )
+        svc = AccountService(user_id, self.tz)
+        accounts = svc.get_for_dropdown()
+        ids = [a.id for a in accounts]
+        assert ids[0] == dropdown_data["active_id"]
+
+    def test_isolation_ordering(self, dropdown_data: dict) -> None:
+        """User B's transaction volume does not affect user A's ordering."""
+        user_b = UserFactory()
+        SessionFactory(user=user_b)
+        inst_b = InstitutionFactory(user_id=user_b.id)
+        acc_b = AccountFactory(
+            user_id=user_b.id, institution_id=inst_b.id, currency="EGP"
+        )
+        for _ in range(50):
+            TransactionFactory(user_id=user_b.id, account_id=acc_b.id)
+
+        svc_a = AccountService(dropdown_data["user_id"], self.tz)
+        accounts_a = svc_a.get_for_dropdown()
+        ids_a = {a.id for a in accounts_a}
+        assert str(acc_b.id) not in ids_a
+
 
 # ---------------------------------------------------------------------------
 # InstitutionService.create() — branding (icon + color)

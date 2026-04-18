@@ -65,6 +65,7 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [132](done/132-usage-ordered-accounts-categories-in-transaction-forms.md) | Usage-ordered accounts and categories in transaction forms | improvement | medium | 2026-04-18 |
 | [119](done/119-bug-pdf-export-500-no-user-feedback.md) | Bug: PDF export returns HTTP 500 with no user-facing error message | bug | medium | 2026-04-18 |
 | [118](done/118-bug-liquid-cash-mixes-currencies-no-conversion.md) | Bug: Liquid Cash sums multi-currency balances without conversion | bug | high | 2026-04-18 |
 | [125](done/125-dead-code-detection-vulture.md) | Add dead code detection with vulture | chore | medium | 2026-04-18 |

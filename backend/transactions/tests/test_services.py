@@ -1897,6 +1897,83 @@ class TestDropdownHelpers:
         assert len(cats) >= 1
         assert all(c["type"] == "income" for c in cats)
 
+    def test_get_accounts_ordered_by_usage(self, tx_data):
+        """Most-used account comes first in the dropdown."""
+        svc = _svc(tx_data["user_id"])
+        # Create 3 transactions on usd_id so it has more usage than egp_id (0 tx)
+        for _ in range(3):
+            svc.create(
+                {"type": "expense", "amount": 1, "account_id": tx_data["usd_id"]}
+            )
+        accounts = svc.get_accounts()
+        ids = [a["id"] for a in accounts]
+        assert ids.index(tx_data["usd_id"]) < ids.index(tx_data["egp_id"])
+
+    def test_get_accounts_isolation(self, tx_data):
+        """User B's transaction count does not affect user A's account ordering."""
+        user_b = UserFactory()
+        SessionFactory(user=user_b)
+        inst_b = InstitutionFactory(user_id=user_b.id)
+        acc_b = AccountFactory(
+            user_id=user_b.id, institution_id=inst_b.id, currency="EGP"
+        )
+        svc_b = _svc(str(user_b.id))
+        for _ in range(10):
+            svc_b.create({"type": "expense", "amount": 1, "account_id": str(acc_b.id)})
+
+        svc_a = _svc(tx_data["user_id"])
+        accounts_a = svc_a.get_accounts()
+        # user_a can only see their own accounts
+        ids_a = {a["id"] for a in accounts_a}
+        assert str(acc_b.id) not in ids_a
+
+    def test_get_categories_ordered_by_usage(self, tx_data):
+        """Most-used category appears first."""
+        svc = _svc(tx_data["user_id"])
+        for _ in range(5):
+            svc.create(
+                {
+                    "type": "expense",
+                    "amount": 1,
+                    "account_id": tx_data["egp_id"],
+                    "category_id": tx_data["cat_income_id"],
+                }
+            )
+        cats = svc.get_categories()
+        ids = [c["id"] for c in cats]
+        assert ids.index(tx_data["cat_income_id"]) < ids.index(
+            tx_data["cat_expense_id"]
+        )
+
+    def test_get_categories_isolation(self, tx_data):
+        """User B's category usage does not inflate user A's category ordering."""
+        user_b = UserFactory()
+        SessionFactory(user=user_b)
+        # Give user_b the same category via a system-like copy
+        cat_b = CategoryFactory(
+            user_id=user_b.id, name={"en": "PopularB"}, type="expense"
+        )
+        svc_b = _svc(str(user_b.id))
+        inst_b = InstitutionFactory(user_id=user_b.id)
+        acc_b = AccountFactory(
+            user_id=user_b.id, institution_id=inst_b.id, currency="EGP"
+        )
+        for _ in range(100):
+            svc_b.create(
+                {
+                    "type": "expense",
+                    "amount": 1,
+                    "account_id": str(acc_b.id),
+                    "category_id": str(cat_b.id),
+                }
+            )
+
+        # user_a has no transactions at all; user_b's heavy usage shouldn't appear
+        svc_a = _svc(tx_data["user_id"])
+        cats_a = svc_a.get_categories()
+        ids_a = {c["id"] for c in cats_a}
+        assert str(cat_b.id) not in ids_a
+
 
 @pytest.mark.django_db
 class TestJSONApiHelpers:

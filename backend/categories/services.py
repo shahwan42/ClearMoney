@@ -118,12 +118,13 @@ class CategoryService:
         return _row_to_dict(row)
 
     def _usage_subquery(self) -> Subquery:
-        """Subquery counting transactions per category.
+        """Subquery counting this user's transactions per category.
 
+        Scoped to self.user_id so ordering reflects the current user's habits only.
         Needed because Transaction.category has related_name='+' (no reverse).
         """
         return Subquery(
-            Transaction.objects.filter(category_id=OuterRef("id"))
+            Transaction.objects.filter(category_id=OuterRef("id"), user_id=self.user_id)
             .values("category_id")
             .annotate(cnt=Count("id"))
             .values("cnt")[:1]
