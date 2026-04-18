@@ -48,8 +48,13 @@
 
 <div id="quick-entry-sheet" class="hidden fixed bottom-16 start-0 end-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto overflow-x-hidden scroll-shadow"
      data-bottom-sheet="quick-entry" role="dialog" aria-modal="true" aria-label="{% trans 'Quick entry' %}" aria-hidden="true">
-    <div id="quick-entry-handle" class="flex justify-center pt-3 pb-1 cursor-grab">
+    <div id="quick-entry-handle" class="flex justify-center items-center pt-3 pb-1 cursor-grab relative">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+        <button type="button" onclick="BottomSheet.close('quick-entry')" aria-label="Close" class="absolute top-1 right-2 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
+            <svg class="w-5 h-5 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
     </div>
     <div class="flex gap-2 px-4 mb-3" id="quick-entry-tabs">
         <button type="button"
@@ -83,8 +88,13 @@
 
 <div id="more-menu-sheet" class="hidden fixed bottom-16 start-0 end-0 z-[70] bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl translate-y-full transition-transform duration-300 ease-out max-h-[70vh] overflow-y-auto scroll-shadow"
      data-bottom-sheet="more-menu" data-bottom-sheet-persist role="dialog" aria-modal="true" aria-label="{% trans 'More menu' %}" aria-hidden="true">
-    <div class="flex justify-center pt-3 pb-1 cursor-grab">
+    <div id="more-menu-handle" class="flex justify-center items-center pt-3 pb-1 cursor-grab relative">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
+        <button type="button" onclick="BottomSheet.close('more-menu')" aria-label="Close" class="absolute top-1 right-2 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
+            <svg class="w-5 h-5 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
     </div>
     <div class="px-4 pb-6">
         {# Money Management section #}
