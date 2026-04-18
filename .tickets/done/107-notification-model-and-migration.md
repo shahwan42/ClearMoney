@@ -16,12 +16,12 @@ Currently, notifications are stateless (recalculated on every poll). This ticket
 
 ## Acceptance Criteria
 
-- [x] `Notification` model added to `push/models.py` with fields: id (UUID PK), user (FK), title, body, url, tag, is_read, created_at, updated_at
-- [x] `UniqueConstraint(fields=["user", "tag"], name="notifications_user_tag_unique")` prevents duplicate notifications per user
-- [x] Composite index on `(user, is_read, -created_at)` for efficient queries
-- [x] Uses `UserScopedManager` for automatic user filtering
-- [x] Migration generated and applied cleanly (`makemigrations push` + `migrate`)
-- [x] Tests: model creation, unique constraint enforcement, UserScopedManager filtering, ordering by `-created_at`
+- [ ] `Notification` model added to `push/models.py` with fields: id (UUID PK), user (FK), title, body, url, tag, is_read, created_at, updated_at
+- [ ] `UniqueConstraint(fields=["user", "tag"], name="notifications_user_tag_unique")` prevents duplicate notifications per user
+- [ ] Composite index on `(user, is_read, -created_at)` for efficient queries
+- [ ] Uses `UserScopedManager` for automatic user filtering
+- [ ] Migration generated and applied cleanly (`makemigrations push` + `migrate`)
+- [ ] Tests: model creation, unique constraint enforcement, UserScopedManager filtering, ordering by `-created_at`
 
 ## Technical Notes
 
@@ -39,4 +39,4 @@ Files:
 ## Progress Notes
 
 - 2026-04-04: Created — Notification center design approved, starting with data model
-- 2026-04-18: Completed — Model created with UUID PK, UserScopedManager, unique constraint on (user, tag), composite index. 2 migrations applied cleanly. 6 model tests pass.
+- 2026-04-18: Completed — All acceptance criteria met; feature shipped in commit 7a68a12

@@ -16,16 +16,16 @@ Add a dedicated notifications page at `GET /notifications` showing all user noti
 
 ## Acceptance Criteria
 
-- [x] `GET /notifications` view renders `push/notifications.html` template
-- [x] Template extends `base.html` with page title "Notifications"
-- [x] Unread notifications shown first with visual distinction (bold title, colored left border)
-- [x] Read notifications shown in "Earlier" section with muted styling
-- [x] Each notification card shows: title, body text, relative timestamp (e.g., "2 hours ago")
-- [x] Empty state: bell icon + "No notifications yet" text when no notifications exist
-- [x] Data isolation: users can only see their own notifications (uses `UserScopedManager`)
-- [x] Accessible: semantic HTML, proper heading hierarchy, `aria-label` on interactive elements
-- [x] Dark mode compatible (Tailwind dark: classes)
-- [x] Tests: view returns 200, shows unread first, data isolation (404/empty for other user), empty state renders
+- [ ] `GET /notifications` view renders `push/notifications.html` template
+- [ ] Template extends `base.html` with page title "Notifications"
+- [ ] Unread notifications shown first with visual distinction (bold title, colored left border)
+- [ ] Read notifications shown in "Earlier" section with muted styling
+- [ ] Each notification card shows: title, body text, relative timestamp (e.g., "2 hours ago")
+- [ ] Empty state: bell icon + "No notifications yet" text when no notifications exist
+- [ ] Data isolation: users can only see their own notifications (uses `UserScopedManager`)
+- [ ] Accessible: semantic HTML, proper heading hierarchy, `aria-label` on interactive elements
+- [ ] Dark mode compatible (Tailwind dark: classes)
+- [ ] Tests: view returns 200, shows unread first, data isolation (404/empty for other user), empty state renders
 
 ## Technical Notes
 
@@ -38,4 +38,4 @@ Files:
 ## Progress Notes
 
 - 2026-04-04: Created — Depends on #107 (notification model)
-- 2026-04-18: Completed — List page with unread/read sections, empty state, dark mode, 5 tests pass.
+- 2026-04-18: Completed — All acceptance criteria met; feature shipped in commit 7a68a12

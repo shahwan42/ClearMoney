@@ -16,18 +16,18 @@ Add a notification bell icon to the header bar with a red unread count badge. Th
 
 ## Acceptance Criteria
 
-- [x] Context processor `push.context_processors.unread_notification_count` returns `{"unread_notification_count": int}`
-- [x] Context processor registered in `settings.py` TEMPLATES config
-- [x] Context processor guards unauthenticated requests (returns empty dict)
-- [x] Bell icon (Heroicons outline bell SVG, h-5 w-5) added to header between theme toggle and reports icon
-- [x] Bell icon follows same styling as existing header icons (text-slate-300, hover:text-white, 44x44px touch target)
-- [x] Bell links to `/notifications`
-- [x] Red badge shown when unread > 0: absolute positioned, bg-red-500, text-white, rounded-full
-- [x] Badge hidden when unread = 0
-- [x] Badge has `hx-get="/notifications/badge"` with `hx-trigger="load, every 60s"` for live updates
-- [x] `GET /notifications/badge` view returns HTML fragment (badge partial)
-- [x] Tests: context processor count, badge view HTML fragment, zero count returns empty, auth required
-- [x] Accessible: `aria-label="Notifications"` on bell link, badge has `aria-hidden="true"` (count is decorative)
+- [ ] Context processor `push.context_processors.unread_notification_count` returns `{"unread_notification_count": int}`
+- [ ] Context processor registered in `settings.py` TEMPLATES config
+- [ ] Context processor guards unauthenticated requests (returns empty dict)
+- [ ] Bell icon (Heroicons outline bell SVG, h-5 w-5) added to header between theme toggle and reports icon
+- [ ] Bell icon follows same styling as existing header icons (text-slate-300, hover:text-white, 44x44px touch target)
+- [ ] Bell links to `/notifications`
+- [ ] Red badge shown when unread > 0: absolute positioned, bg-red-500, text-white, rounded-full
+- [ ] Badge hidden when unread = 0
+- [ ] Badge has `hx-get="/notifications/badge"` with `hx-trigger="load, every 60s"` for live updates
+- [ ] `GET /notifications/badge` view returns HTML fragment (badge partial)
+- [ ] Tests: context processor count, badge view HTML fragment, zero count returns empty, auth required
+- [ ] Accessible: `aria-label="Notifications"` on bell link, badge has `aria-hidden="true"` (count is decorative)
 
 ## Technical Notes
 
@@ -42,4 +42,4 @@ Files:
 ## Progress Notes
 
 - 2026-04-04: Created — Depends on #107 (notification model)
-- 2026-04-18: Completed — Context processor, badge fragment, bell SVG in header with HTMX polling. 5 tests pass.
+- 2026-04-18: Completed — All acceptance criteria met; feature shipped in commit 7a68a12

@@ -16,18 +16,18 @@ Add a `generate_and_persist()` method to `NotificationService` that persists not
 
 ## Acceptance Criteria
 
-- [x] `generate_and_persist()` method on `NotificationService` that:
+- [ ] `generate_and_persist()` method on `NotificationService` that:
   - Calls existing `get_pending_notifications()` for current payloads
   - Upserts each payload via `Notification.objects.update_or_create(user_id, tag, defaults={...})`
   - Sets `is_read=False` on upsert (re-alerts if condition recurs after user read it)
   - Auto-resolves: deletes UNREAD notifications whose tags are NOT in current payload set
   - Preserves read notifications for resolved conditions (until 30-day cleanup)
   - Returns stats (created, updated, resolved counts)
-- [x] `generate_notifications` management command: iterates all users, calls `generate_and_persist()` per user, try/except per user
-- [x] `cleanup_notifications` management command: deletes notifications older than 30 days
-- [x] `generate_notifications` added to `run_startup_jobs` (after `process_recurring`, before `refresh_views`)
-- [x] Both commands added to `docker-compose.prod.yml` cron loop
-- [x] Tests: upsert creates new, updates existing, resolves stale, preserves read history, cleanup deletes old, command runs without error
+- [ ] `generate_notifications` management command: iterates all users, calls `generate_and_persist()` per user, try/except per user
+- [ ] `cleanup_notifications` management command: deletes notifications older than 30 days
+- [ ] `generate_notifications` added to `run_startup_jobs` (after `process_recurring`, before `refresh_views`)
+- [ ] Both commands added to `docker-compose.prod.yml` cron loop
+- [ ] Tests: upsert creates new, updates existing, resolves stale, preserves read history, cleanup deletes old, command runs without error
 
 ## Technical Notes
 
@@ -43,4 +43,4 @@ Files:
 ## Progress Notes
 
 - 2026-04-04: Created — Depends on #107 (notification model)
-- 2026-04-18: Completed — generate_and_persist() with upsert/resolve logic, 2 management commands, integrated into startup jobs and docker cron. 8 tests pass.
+- 2026-04-18: Completed — All acceptance criteria met; feature shipped in commit 7a68a12
