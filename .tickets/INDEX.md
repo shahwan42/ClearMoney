@@ -4,7 +4,9 @@ Last updated: 2026-04-18
 
 ## In Progress
 
-(none)
+| ID | Title | Type | Priority | Updated |
+| --- | --- | --- | --- | --- |
+| [135](wip/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-18 |
 
 ## Pending
 
