@@ -113,6 +113,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "django.contrib.auth.context_processors.auth",
                 "core.context_processors.active_tab",
+                "push.context_processors.unread_notification_count",
             ],
         },
     },

@@ -12,6 +12,7 @@ the browser handles delivery.
 import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from typing import TypedDict
 from zoneinfo import ZoneInfo
 
 from django.core.exceptions import ValidationError
@@ -27,6 +28,12 @@ from recurring.services import RecurringService
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
+
+
+class PersistStats(TypedDict):
+    created: int
+    updated: int
+    resolved: int
 
 
 class NotificationService:
@@ -204,3 +211,51 @@ class NotificationService:
             logger.exception("push: failed to load recurring notifications")
 
         return notifications
+
+    def generate_and_persist(self) -> PersistStats:
+        """Generate notifications and persist them to the database.
+
+        - Upserts each current payload by (user, tag).
+        - Resets is_read=False on upsert so re-triggered conditions re-alert.
+        - Auto-resolves: deletes UNREAD notifications whose tags are not in
+          the current payload set (condition no longer active).
+        - Preserves READ notifications for history (cleaned up after 30 days).
+        """
+        from push.models import Notification
+
+        payloads = self.get_pending_notifications()
+        current_tags = {p["tag"] for p in payloads}
+        created = updated = resolved = 0
+
+        for payload in payloads:
+            _, was_created = Notification.objects.update_or_create(
+                user_id=self.user_id,
+                tag=payload["tag"],
+                defaults={
+                    "title": payload["title"],
+                    "body": payload["body"],
+                    "url": payload.get("url", ""),
+                    "is_read": False,
+                },
+            )
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+
+        # Auto-resolve: remove unread notifications that are no longer active
+        resolved_qs = Notification.objects.filter(
+            user_id=self.user_id,
+            is_read=False,
+        ).exclude(tag__in=current_tags)
+        resolved = resolved_qs.count()
+        resolved_qs.delete()
+
+        logger.info(
+            "push.generate_and_persist user=%s created=%d updated=%d resolved=%d",
+            self.user_id,
+            created,
+            updated,
+            resolved,
+        )
+        return {"created": created, "updated": updated, "resolved": resolved}

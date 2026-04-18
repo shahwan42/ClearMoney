@@ -165,6 +165,7 @@ def reset_database() -> str:
             # Wipe all user-owned data in dependency order (matches actual schema)
             cur.execute("""
                 TRUNCATE TABLE
+                    notifications,
                     budgets, virtual_account_allocations, virtual_accounts,
                     account_snapshots, daily_snapshots, transactions,
                     accounts, institutions, categories, persons,

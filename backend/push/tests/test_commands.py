@@ -373,3 +373,49 @@ class TestGenerateVapidKeysCommand(TestCase):
             content = output_file.read_text()
             assert "VAPID_PUBLIC_KEY=" in content
             assert "VAPID_PRIVATE_KEY=" in content
+
+
+class TestGenerateNotificationsCommand(TestCase):
+    """Test the generate_notifications management command."""
+
+    def test_command_runs_without_error(self) -> None:
+        out = StringIO()
+        call_command("generate_notifications", stdout=out)
+        output = out.getvalue()
+        assert "Done:" in output
+
+    def test_command_handles_no_users(self) -> None:
+        out = StringIO()
+        # No users in test DB → should still complete
+        call_command("generate_notifications", stdout=out)
+        assert "Done:" in out.getvalue()
+
+
+class TestCleanupNotificationsCommand(TestCase):
+    """Test the cleanup_notifications management command."""
+
+    def test_command_runs_without_error(self) -> None:
+        out = StringIO()
+        call_command("cleanup_notifications", stdout=out)
+        assert "Cleanup complete:" in out.getvalue()
+
+    def test_command_deletes_old_notifications(self) -> None:
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from push.models import Notification
+        from tests.factories import UserFactory
+
+        user = UserFactory()
+        old_notif = Notification.objects.create(
+            user=user, title="Old", body="Old body", tag="old-tag"
+        )
+        # Manually age the notification
+        old_date = timezone.now() - timedelta(days=31)
+        Notification.objects.filter(pk=old_notif.pk).update(created_at=old_date)
+
+        out = StringIO()
+        call_command("cleanup_notifications", stdout=out)
+        assert "1 old notification(s) deleted" in out.getvalue()
+        assert not Notification.objects.filter(pk=old_notif.pk).exists()

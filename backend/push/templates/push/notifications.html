@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}ClearMoney — {% trans "Notifications" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto py-4 px-4 space-y-4">
+
+    <div class="flex items-center justify-between">
+        <h1 class="text-lg font-bold text-slate-800 dark:text-white">{% trans "Notifications" %}</h1>
+        {% if unread %}
+        <form method="POST" action="/notifications/mark-all-read"
+              hx-post="/notifications/mark-all-read"
+              hx-target="body"
+              hx-swap="outerHTML">
+            {% csrf_token %}
+            <button type="submit"
+                    class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 font-medium"
+                    aria-label="{% trans 'Mark all notifications as read' %}">
+                {% trans "Mark All as Read" %}
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if not unread and not read %}
+    <!-- Empty state -->
+    <div class="flex flex-col items-center justify-center py-16 text-center" role="status" aria-label="{% trans 'No notifications' %}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-slate-300 dark:text-slate-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        <p class="text-slate-500 dark:text-slate-400 font-medium">{% trans "No notifications yet" %}</p>
+        <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">{% trans "We'll alert you about budgets, credit cards, and recurring transactions." %}</p>
+    </div>
+    {% endif %}
+
+    {% if unread %}
+    <section aria-labelledby="unread-heading">
+        <h2 id="unread-heading" class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+            {% trans "New" %}
+        </h2>
+        <ul class="space-y-2" aria-label="{% trans 'Unread notifications' %}">
+            {% for notif in unread %}
+            <li>
+                <form method="POST" action="/notifications/{{ notif.id }}/read">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="w-full text-start bg-white dark:bg-slate-800 rounded-xl shadow-sm border-s-4 border-teal-500 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                            aria-label="{% blocktrans with title=notif.title %}Open notification: {{ title }}{% endblocktrans %}">
+                        <p class="font-semibold text-slate-800 dark:text-white text-sm">{{ notif.title }}</p>
+                        <p class="text-slate-600 dark:text-slate-300 text-sm mt-0.5">{{ notif.body }}</p>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">{{ notif.created_at|timesince }} {% trans "ago" %}</p>
+                    </button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    {% if read %}
+    <section aria-labelledby="read-heading" class="{% if unread %}pt-2{% endif %}">
+        <h2 id="read-heading" class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+            {% trans "Earlier" %}
+        </h2>
+        <ul class="space-y-2" aria-label="{% trans 'Read notifications' %}">
+            {% for notif in read %}
+            <li>
+                <a href="{{ notif.url|default:'/notifications' }}"
+                   class="block bg-white dark:bg-slate-800 rounded-xl shadow-sm px-4 py-3 opacity-70 hover:opacity-100 transition-opacity"
+                   aria-label="{% blocktrans with title=notif.title %}View notification: {{ title }}{% endblocktrans %}">
+                    <p class="font-medium text-slate-700 dark:text-slate-300 text-sm">{{ notif.title }}</p>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">{{ notif.body }}</p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">{{ notif.created_at|timesince }} {% trans "ago" %}</p>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+</div>
+{% endblock %}

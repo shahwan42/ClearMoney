@@ -17,6 +17,23 @@
         </button>
 
         <button id="theme-toggle" onclick="toggleTheme()" class="text-slate-300 hover:text-white text-sm p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="{% trans 'Toggle dark mode' %}" aria-label="{% trans 'Toggle dark mode' %}" aria-pressed="false">🌙</button>
+        <!-- Notification bell -->
+        <a href="/notifications"
+           class="relative text-slate-300 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
+           title="{% trans 'Notifications' %}"
+           aria-label="{% trans 'Notifications' %}">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+            <span id="notification-badge-container"
+                  hx-get="/notifications/badge"
+                  hx-trigger="load, every 60s"
+                  hx-swap="innerHTML">
+                {% if unread_notification_count %}
+                <span class="absolute -top-1 -end-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 leading-none" aria-hidden="true">{{ unread_notification_count }}</span>
+                {% endif %}
+            </span>
+        </a>
         <a href="/reports" class="text-slate-300 hover:text-white p-2 min-h-[44px] min-w-[44px] flex items-center justify-center" title="{% trans 'Reports' %}" aria-label="{% trans 'Reports' %}">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>

@@ -28,6 +28,7 @@ class Command(BaseCommand):
         jobs: list[tuple[str, dict[str, Any]]] = [
             ("cleanup_sessions", {}),
             ("process_recurring", {}),
+            ("generate_notifications", {}),
             ("reconcile_balances", {}),
             ("refresh_views", {}),
             ("take_snapshots", {}),

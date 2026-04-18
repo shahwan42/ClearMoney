@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from pytest_mock import MockerFixture
 
+import auth_app.models
 from accounts.types import AccountSummary, HealthWarning
 from budgets.types import BudgetWithSpending
 from push.services import NotificationService
@@ -504,3 +505,98 @@ class TestEdgeCases:
         assert "Budget Exceeded" in titles
         assert "Recurring Transaction Due" in titles
         assert len(notifications) == 4
+
+
+# ---------------------------------------------------------------------------
+# generate_and_persist tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestGenerateAndPersist:
+    """Tests for NotificationService.generate_and_persist()."""
+
+    def _make_user(self) -> "tuple[str, auth_app.models.User]":
+        from tests.factories import UserFactory
+
+        user = UserFactory()
+        return str(user.id), user
+
+    def _svc(self, user_id: str, mocker: MockerFixture) -> NotificationService:
+        svc = NotificationService(user_id, TZ)
+        mocker.patch.object(
+            svc,
+            "get_pending_notifications",
+            return_value=[
+                {
+                    "title": "Budget Alert",
+                    "body": "Over budget",
+                    "url": "/budgets",
+                    "tag": "budget-exceeded-1",
+                },
+            ],
+        )
+        return svc
+
+    def test_create_new_notification(self, mocker: MockerFixture) -> None:
+        from push.models import Notification
+
+        user_id, _ = self._make_user()
+        svc = self._svc(user_id, mocker)
+        stats = svc.generate_and_persist()
+
+        assert stats["created"] == 1
+        assert stats["updated"] == 0
+        assert Notification.objects.for_user(user_id).count() == 1
+
+    def test_update_existing_notification(self, mocker: MockerFixture) -> None:
+        from push.models import Notification
+
+        user_id, user = self._make_user()
+        Notification.objects.create(
+            user=user,
+            title="Old Title",
+            body="Old body",
+            url="/old",
+            tag="budget-exceeded-1",
+            is_read=True,
+        )
+        svc = self._svc(user_id, mocker)
+        stats = svc.generate_and_persist()
+
+        assert stats["created"] == 0
+        assert stats["updated"] == 1
+        notif = Notification.objects.get(user_id=user_id, tag="budget-exceeded-1")
+        assert notif.title == "Budget Alert"
+        assert notif.is_read is False  # reset to unread
+
+    def test_resolve_stale_unread_notifications(self, mocker: MockerFixture) -> None:
+        from push.models import Notification
+
+        user_id, user = self._make_user()
+        Notification.objects.create(
+            user=user, title="Stale", body="Gone", tag="stale-tag", is_read=False
+        )
+        svc = self._svc(user_id, mocker)
+        stats = svc.generate_and_persist()
+
+        assert stats["resolved"] == 1
+        assert not Notification.objects.filter(
+            user_id=user_id, tag="stale-tag"
+        ).exists()
+
+    def test_preserve_read_notifications_for_history(
+        self, mocker: MockerFixture
+    ) -> None:
+        from push.models import Notification
+
+        user_id, user = self._make_user()
+        Notification.objects.create(
+            user=user, title="Read", body="Done", tag="old-read-tag", is_read=True
+        )
+        svc = self._svc(user_id, mocker)
+        stats = svc.generate_and_persist()
+
+        # Read notification should NOT be deleted even if tag not in current set
+        assert stats["resolved"] == 0
+        assert Notification.objects.filter(user_id=user_id, tag="old-read-tag").exists()
