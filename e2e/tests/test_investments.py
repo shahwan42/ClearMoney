@@ -70,8 +70,11 @@ class TestInvestments:
     def test_delete_investment(self, page: Page) -> None:
         _add_fund(page)
         page.goto("/investments")
-        # Del button uses hx-confirm which fires a browser dialog
-        page.on("dialog", lambda d: d.accept())
+        # Custom confirm dialog appears when clicking Del
+        page.click('button:has-text("Del")')
+        expect(page.locator("#confirm-dialog")).to_be_visible()
+        
         with page.expect_response(lambda r: "/investments/" in r.url and r.request.method == "DELETE"):
-            page.click('button:has-text("Del")')
+            page.click("#confirm-dialog-confirm")
+            
         expect(page.locator("main")).to_contain_text("No investments yet")

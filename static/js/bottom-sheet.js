@@ -107,6 +107,19 @@ var BottomSheet = (function() {
 
         // Load content via HTMX if URL provided
         if (opts && opts.url) {
+            // Show skeleton placeholder while loading
+            if (s.content) {
+                s.content.innerHTML = '<div class="space-y-6 animate-pulse">' +
+                    '<div class="space-y-4">' +
+                        '<div class="h-3 w-20 skeleton"></div><div class="h-12 w-full skeleton"></div>' +
+                        '<div class="h-3 w-24 skeleton"></div><div class="h-12 w-full skeleton"></div>' +
+                        '<div class="grid grid-cols-2 gap-4"><div><div class="h-3 w-16 skeleton mb-2"></div><div class="h-12 w-full skeleton"></div></div><div><div class="h-3 w-16 skeleton mb-2"></div><div class="h-12 w-full skeleton"></div></div></div>' +
+                    '</div>' +
+                    '<div class="h-12 w-full skeleton mt-8"></div>' +
+                '</div>';
+                s.content.setAttribute('aria-busy', 'true');
+            }
+
             htmx.ajax('GET', opts.url, {
                 target: '#' + name + '-content',
                 swap: 'innerHTML'
@@ -114,6 +127,7 @@ var BottomSheet = (function() {
             // Focus first input after HTMX content settles
             s.content.addEventListener('htmx:afterSettle', function handler() {
                 s.content.removeEventListener('htmx:afterSettle', handler);
+                s.content.setAttribute('aria-busy', 'false');
                 focusFirstInput(s.content);
             });
         } else if (s.content) {

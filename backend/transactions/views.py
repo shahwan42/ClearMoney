@@ -805,16 +805,32 @@ def quick_entry_create(
         # Render success screen with Done/Add Another buttons
         response = render(request, "transactions/_quick_entry_success.html")
 
-        # OOB swaps: refresh dashboard balances without rendering inline
+        # OOB swaps: refresh dashboard balances with skeleton placeholders
+        nw_skeleton = (
+            '<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 animate-pulse">'
+            '<div class="h-4 w-24 skeleton mb-4"></div>'
+            '<div class="flex gap-4 mb-4"><div class="h-8 w-28 skeleton"></div><div class="h-8 w-28 skeleton"></div></div>'
+            '<div class="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-100 dark:border-slate-800">'
+            '<div class="h-10 skeleton"></div><div class="h-10 skeleton"></div>'
+            '</div></section>'
+        )
+        acc_skeleton = (
+            '<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 animate-pulse">'
+            '<div class="flex items-center justify-between mb-4"><div class="h-4 w-20 skeleton"></div><div class="h-4 w-12 skeleton"></div></div>'
+            '<div class="space-y-4">'
+            '<div class="h-12 skeleton"></div><div class="h-12 skeleton"></div><div class="h-12 skeleton"></div>'
+            '</div></section>'
+        )
+
         response.write(
-            '<div id="dashboard-net-worth" hx-swap-oob="true"'
+            f'<div id="dashboard-net-worth" hx-swap-oob="true"'
             ' hx-get="/partials/net-worth"'
-            ' hx-trigger="load" hx-swap="innerHTML"></div>'
+            f' hx-trigger="load" hx-swap="innerHTML" aria-busy="true">{nw_skeleton}</div>'
         )
         response.write(
-            '<div id="dashboard-accounts" hx-swap-oob="true"'
+            f'<div id="dashboard-accounts" hx-swap-oob="true"'
             ' hx-get="/partials/accounts"'
-            ' hx-trigger="load" hx-swap="innerHTML"></div>'
+            f' hx-trigger="load" hx-swap="innerHTML" aria-busy="true">{acc_skeleton}</div>'
         )
         return response
     except ValueError as e:
