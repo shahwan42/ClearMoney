@@ -73,6 +73,49 @@ def _fill_quick_entry(
 
 
 class TestQuickEntry:
+    def test_quick_entry_form_loads_immediately(self, page: Page) -> None:
+        """Quick-entry sheet: form is visible immediately on open (no empty state)."""
+        seed_basic_data(page)
+        page.goto("/", wait_until="domcontentloaded")
+
+        # Click FAB to open quick-entry sheet
+        page.click("button.fab-button", timeout=10000)
+
+        # Form should be immediately visible (no need to tap Transaction tab)
+        # Wait for the sheet to be visible and check for form elements
+        page.wait_for_selector("#quick-entry-sheet:not(.hidden)", timeout=5000)
+        expect(page.locator("#qe-amount")).to_be_visible(timeout=5000)
+
+        # Verify Transaction tab is visually selected (active styles)
+        tab_transaction = page.locator("#tab-transaction")
+        expect(tab_transaction).to_have_class(
+            "flex-1 py-3 text-sm font-medium text-center rounded-lg border bg-teal-50 text-teal-700 border-teal-200"
+        )
+
+    def test_quick_entry_form_resets_on_close(self, page: Page) -> None:
+        """Quick-entry sheet: form resets when closed and reopened."""
+        seed_basic_data(page)
+        page.goto("/", wait_until="domcontentloaded")
+
+        # Open sheet
+        page.click("button.fab-button", timeout=10000)
+        page.wait_for_selector("#qe-amount", timeout=5000)
+
+        # Fill in some data
+        page.fill("#qe-amount", "999")
+        page.fill("#qe-note-input", "Test note")
+
+        # Close sheet
+        page.click("#quick-entry-overlay")
+        page.wait_for_timeout(500)  # Wait for close animation
+
+        # Reopen sheet
+        page.click("button.fab-button", timeout=10000)
+        page.wait_for_selector("#qe-amount", timeout=5000)
+
+        # Form should be reset (amount field empty)
+        expect(page.locator("#qe-amount")).to_have_value("")
+
     def test_quick_entry_expense_updates_balance(self, page: Page) -> None:
         """Quick-entry expense: form submit -> success message -> dashboard balance decreases."""
         global _user_id

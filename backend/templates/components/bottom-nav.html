@@ -71,7 +71,10 @@
             {% trans "Move Money" %}
         </button>
     </div>
-    <div id="quick-entry-content" class="px-4 pb-6">
+    <div id="quick-entry-content" class="px-4 pb-6"
+         hx-get="/transactions/quick-form"
+         hx-trigger="load"
+         hx-swap="innerHTML">
     </div>
 </div>
 

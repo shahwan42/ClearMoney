@@ -15,7 +15,13 @@ function setQuickEntryTab(mode) {
 
 function openQuickEntry() {
     setQuickEntryTab('transaction');
-    BottomSheet.open('quick-entry', {url: '/transactions/quick-form'});
+    BottomSheet.open('quick-entry');
 }
 
-function closeQuickEntry() { BottomSheet.close('quick-entry'); }
+function closeQuickEntry() {
+    var form = document.getElementById('quick-entry-form');
+    if (form) form.reset();
+    var result = document.getElementById('quick-entry-result');
+    if (result) result.innerHTML = '';
+    BottomSheet.close('quick-entry');
+}
