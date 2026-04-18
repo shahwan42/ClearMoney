@@ -3,9 +3,9 @@ id: "120"
 title: "Bug: Move Money form date input has no max constraint — allows future dates"
 type: bug
 priority: medium
-status: pending
+status: done
 created: 2026-04-17
-updated: 2026-04-17
+updated: 2026-04-18
 ---
 
 ## Description
@@ -36,10 +36,11 @@ Per QA Guidelines (Section 6):
 
 ## Acceptance Criteria
 
-- [ ] Move Money form `date` input has `max="{{ today|date:'Y-m-d' }}"` attribute
-- [ ] Attempting to submit with a future date shows a validation error
-- [ ] Consistent behavior with the Transaction form
+- [x] Move Money form `date` input has `max="{{ today|date:'Y-m-d' }}"` attribute
+- [x] Attempting to submit with a future date shows a validation error
+- [x] Consistent behavior with the Transaction form
 
 ## Progress Notes
 
 - 2026-04-17: Filed during manual QA session (ticket #117). Verified via form inspection JS.
+- 2026-04-18: Applied `max` attribute to Move Money, Transfer, Exchange, Fawry, Batch Entry, Transaction New, and Transaction Edit forms. Updated `transaction_edit_form` view to include `today` in context. Verified with automated tests.

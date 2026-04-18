@@ -96,7 +96,7 @@
                     <button type="button" onclick="document.getElementById('date-picker').value='{{ today|date:'Y-m-d' }}'"
                             class="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-tight">{% trans "Today" %}</button>
                 </div>
-                <input type="date" id="date-picker" disabled name="date" value="{{ prefill.date|default:today|date:'Y-m-d' }}"
+                <input type="date" id="date-picker" disabled name="date" value="{{ prefill.date|default:today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"
                     class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
 

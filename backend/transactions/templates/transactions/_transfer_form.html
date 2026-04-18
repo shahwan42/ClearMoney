@@ -53,7 +53,7 @@
 
         <div>
             <label for="transfer-date" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Date" %}</label>
-            <input type="date" name="date" id="transfer-date" value="{{ today|date:'Y-m-d' }}"
+            <input type="date" name="date" id="transfer-date" value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}"
                    class="w-full min-w-0 max-w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
         </div>
 

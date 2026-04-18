@@ -286,6 +286,7 @@ def transaction_edit_form(
             "selected_va_id": selected_va_id or "",
             "existing_fee_amount": fee_tx.amount if fee_tx else "",
             "tag_names": tag_names,
+            "today": date.today(),
         },
     )
 
