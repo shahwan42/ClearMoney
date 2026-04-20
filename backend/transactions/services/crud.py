@@ -835,12 +835,15 @@ class TransactionServiceBase:
             Transaction.objects.for_user(self.user_id).filter(id=tx_id).delete()
 
             if is_linked:
-                # Transfer/exchange: F() atomically reverses the source debit
-                amount_decimal = Decimal(str(tx["amount"]))
+                # Reverse by negating balance_delta — works correctly whether
+                # tx is the debit leg (delta<0 → balance goes up) or credit leg
+                # (delta>0 → balance goes down). Previous code hardcoded direction
+                # and broke when the credit leg was deleted.
+                delta = Decimal(str(tx["balance_delta"]))
                 Account.objects.for_user(self.user_id).filter(
                     id=tx["account_id"]
                 ).update(
-                    current_balance=F("current_balance") + amount_decimal,
+                    current_balance=F("current_balance") - delta,
                     updated_at=now,
                 )
 
@@ -849,22 +852,21 @@ class TransactionServiceBase:
                 linked_obj = (
                     Transaction.objects.for_user(self.user_id)
                     .filter(id=linked_id)
-                    .values("amount", "account_id")
+                    .values("amount", "account_id", "balance_delta")
                     .first()
                 )
                 if linked_obj:
-                    linked_amount = Decimal(str(linked_obj["amount"]))
+                    linked_delta = Decimal(str(linked_obj["balance_delta"]))
                     linked_account_id = str(linked_obj["account_id"])
 
                     Transaction.objects.for_user(self.user_id).filter(
                         id=linked_id
                     ).delete()
 
-                    # F() atomically reverses the destination credit
                     Account.objects.for_user(self.user_id).filter(
                         id=linked_account_id
                     ).update(
-                        current_balance=F("current_balance") - linked_amount,
+                        current_balance=F("current_balance") - linked_delta,
                         updated_at=now,
                     )
             else:

@@ -483,6 +483,40 @@ class TestDelete:
         assert _get_balance(dest_id) == 5000
         assert str(credit["id"]) in related_ids
 
+    def test_delete_credit_leg_reverses_both_accounts_correctly(self, tx_data):
+        """Deleting the credit (destination) leg must reverse balances correctly.
+
+        Previously, the delete function hardcoded direction (always +amount on
+        deleted tx, -amount on linked), which caused both balances to move in
+        the wrong direction when the credit leg was deleted.
+        """
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest Account",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        dest_id = str(dest.id)
+        debit, credit = svc.create_transfer(
+            tx_data["egp_id"],
+            dest_id,
+            1000,
+            None,
+            None,
+            date(2026, 3, 15),
+        )
+        assert _get_balance(tx_data["egp_id"]) == 9000
+        assert _get_balance(dest_id) == 6000
+
+        # Delete the CREDIT leg (destination side) instead of the debit leg
+        related_ids = svc.delete(credit["id"])
+        assert _get_balance(tx_data["egp_id"]) == 10000
+        assert _get_balance(dest_id) == 5000
+        assert str(debit["id"]) in related_ids
+
     def test_not_found(self, tx_data):
         svc = _svc(tx_data["user_id"])
         with pytest.raises(ValueError, match="not found"):

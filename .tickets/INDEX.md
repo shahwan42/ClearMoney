@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-18
+Last updated: 2026-04-20
 
 ## In Progress
 
@@ -16,6 +16,7 @@ Last updated: 2026-04-18
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [137](done/137-fix-transfer-delete-balance-direction-bug.md) | Fix transfer delete balance direction bug | bug | high | 2026-04-20 |
 | [134](done/134-debt-breakdown-by-currency-net-worth.md) | Debt breakdown by currency in net worth dashboard | improvement | medium | 2026-04-18 |
 | [112](done/112-e2e-tests-notification-center.md) | E2E tests for notification center | test | medium | 2026-04-18 |
 | [111](done/111-mark-read-mark-all-read.md) | Mark as read + mark all as read | feature | high | 2026-04-18 |
