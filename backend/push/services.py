@@ -228,7 +228,7 @@ class NotificationService:
         created = updated = resolved = 0
 
         for payload in payloads:
-            _, was_created = Notification.objects.update_or_create(
+            notif, was_created = Notification.objects.get_or_create(
                 user_id=self.user_id,
                 tag=payload["tag"],
                 defaults={
@@ -241,6 +241,11 @@ class NotificationService:
             if was_created:
                 created += 1
             else:
+                # Update content but preserve is_read — user dismissals survive restarts
+                notif.title = payload["title"]
+                notif.body = payload["body"]
+                notif.url = payload.get("url", "")
+                notif.save(update_fields=["title", "body", "url", "updated_at"])
                 updated += 1
 
         # Auto-resolve: remove unread notifications that are no longer active

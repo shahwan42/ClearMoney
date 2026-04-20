@@ -568,7 +568,26 @@ class TestGenerateAndPersist:
         assert stats["updated"] == 1
         notif = Notification.objects.get(user_id=user_id, tag="budget-exceeded-1")
         assert notif.title == "Budget Alert"
-        assert notif.is_read is False  # reset to unread
+        assert notif.is_read is True  # read state preserved across restarts
+
+    def test_read_state_preserved_on_update(self, mocker: MockerFixture) -> None:
+        """Dismissed notifications must not reappear after app restart."""
+        from push.models import Notification
+
+        user_id, user = self._make_user()
+        Notification.objects.create(
+            user=user,
+            title="Budget Alert",
+            body="Over budget",
+            url="/budgets",
+            tag="budget-exceeded-1",
+            is_read=True,  # user dismissed it
+        )
+        svc = self._svc(user_id, mocker)
+        svc.generate_and_persist()
+
+        notif = Notification.objects.get(user_id=user_id, tag="budget-exceeded-1")
+        assert notif.is_read is True  # must survive restart
 
     def test_resolve_stale_unread_notifications(self, mocker: MockerFixture) -> None:
         from push.models import Notification
