@@ -1,13 +1,13 @@
 {
+  "env": {
+    "ENABLE_LSP_TOOL": "1"
+  },
   "permissions": {
     "allow": [
       "Edit(/.claude/skills/commit/**)",
       "Edit(/.claude/skills/deploy/**)",
       "Edit(/.claude/skills/qa-review/**)"
     ]
-  },
-  "env": {
-    "ENABLE_LSP_TOOL": "1"
   },
   "hooks": {
     "SessionStart": [
@@ -20,5 +20,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
   }
 }
