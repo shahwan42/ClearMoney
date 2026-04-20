@@ -9,10 +9,7 @@
     <div class="flex items-center justify-between">
         <h1 class="text-lg font-bold text-slate-800 dark:text-white">{% trans "Notifications" %}</h1>
         {% if unread %}
-        <form method="POST" action="/notifications/mark-all-read"
-              hx-post="/notifications/mark-all-read"
-              hx-target="body"
-              hx-swap="outerHTML">
+        <form method="POST" action="/notifications/mark-all-read" hx-boost="false">
             {% csrf_token %}
             <button type="submit"
                     class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 font-medium"
