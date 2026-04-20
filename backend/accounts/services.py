@@ -264,6 +264,10 @@ class AccountService:
         "metadata",
         "health_config",
         "last_reconciled_at",
+        "last_balance_check_at",
+        "last_checked_balance",
+        "last_balance_check_diff",
+        "last_balance_check_status",
         "created_at",
         "updated_at",
     )
@@ -607,6 +611,94 @@ class AccountService:
             self.user_id,
         )
 
+    def record_balance_check(
+        self, account_id: str, checked_balance: Decimal | float | str
+    ) -> dict[str, float | str]:
+        """Persist a user-entered balance check against the current app balance."""
+        account = self._qs().filter(id=account_id).values("current_balance").first()
+        if not account:
+            raise ValueError(gettext("Account not found: %(id)s") % {"id": account_id})
+
+        now = django_tz.now()
+        current_balance = Decimal(str(account["current_balance"]))
+        entered_balance = Decimal(str(checked_balance))
+        difference = entered_balance - current_balance
+        status = "matched" if abs(difference) < Decimal("0.01") else "mismatch"
+        stored_difference = Decimal("0.00") if status == "matched" else difference
+
+        self._qs().filter(id=account_id).update(
+            last_balance_check_at=now,
+            last_checked_balance=entered_balance,
+            last_balance_check_diff=stored_difference,
+            last_balance_check_status=status,
+            last_reconciled_at=now,
+            updated_at=now,
+        )
+        logger.info(
+            "account.balance_check_saved id=%s status=%s diff=%s user=%s",
+            account_id,
+            status,
+            stored_difference,
+            self.user_id,
+        )
+        return {"difference": float(stored_difference), "status": status}
+
+    def create_balance_correction(
+        self, account_id: str, checked_balance: Decimal | float | str
+    ) -> str:
+        """Create an explicit balance correction transaction and mark the check matched."""
+        account = (
+            self._qs()
+            .filter(id=account_id)
+            .values("current_balance", "currency")
+            .first()
+        )
+        if not account:
+            raise ValueError(gettext("Account not found: %(id)s") % {"id": account_id})
+
+        now = django_tz.now()
+        current_balance = Decimal(str(account["current_balance"]))
+        entered_balance = Decimal(str(checked_balance))
+        difference = entered_balance - current_balance
+
+        if abs(difference) < Decimal("0.01"):
+            self.record_balance_check(account_id, entered_balance)
+            return ""
+
+        tx_type = "income" if difference > 0 else "expense"
+        amount = abs(difference)
+        note = gettext("Balance correction")
+
+        with transaction.atomic():
+            tx = Transaction.objects.create(
+                user_id=self.user_id,
+                type=tx_type,
+                amount=amount,
+                currency=account["currency"],
+                account_id=account_id,
+                date=now.date(),
+                note=note,
+                balance_delta=difference,
+            )
+            self._qs().filter(id=account_id).update(
+                current_balance=F("current_balance") + difference,
+                last_balance_check_at=now,
+                last_checked_balance=entered_balance,
+                last_balance_check_diff=Decimal("0.00"),
+                last_balance_check_status="matched",
+                last_reconciled_at=now,
+                updated_at=now,
+            )
+
+        logger.info(
+            "account.balance_correction_created id=%s tx=%s diff=%s user=%s",
+            account_id,
+            tx.id,
+            difference,
+            self.user_id,
+        )
+        return str(tx.id)
+
     def get_linked_virtual_accounts(self, account_id: str) -> list[dict[str, Any]]:
         """Virtual accounts linked to this bank account (non-archived)."""
         rows = (
@@ -804,6 +896,18 @@ class AccountService:
             metadata=metadata,
             health_config=health_config,
             last_reconciled_at=row["last_reconciled_at"],
+            last_balance_check_at=row["last_balance_check_at"],
+            last_checked_balance=(
+                float(row["last_checked_balance"])
+                if row["last_checked_balance"] is not None
+                else None
+            ),
+            last_balance_check_diff=(
+                float(row["last_balance_check_diff"])
+                if row["last_balance_check_diff"] is not None
+                else None
+            ),
+            last_balance_check_status=row["last_balance_check_status"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             is_credit_type=is_credit,
@@ -1021,14 +1125,12 @@ def load_health_warnings(
             acc_id = acc.id
             current_balance = acc.current_balance
             health_config: dict[str, Any] | None = acc.health_config
-            last_reconciled_at = acc.last_reconciled_at
             acc_created_at = acc.created_at
         else:
             acc_name = acc["name"]
             acc_id = acc["id"]
             current_balance = acc["current_balance"]
             health_config = acc.get("health_config")
-            last_reconciled_at = acc.get("last_reconciled_at")
             acc_created_at = acc.get("created_at")
 
         cfg = parse_jsonb(health_config)
@@ -1086,7 +1188,16 @@ def load_health_warnings(
 
         # Check reconciliation status (30 days) - always at the end
         if include_stale_reconciliation:
-            if not last_reconciled_at:
+            if isinstance(acc, AccountSummary):
+                last_balance_check_at = (
+                    acc.last_balance_check_at or acc.last_reconciled_at
+                )
+            else:
+                last_balance_check_at = acc.get("last_balance_check_at") or acc.get(
+                    "last_reconciled_at"
+                )
+
+            if not last_balance_check_at:
                 # Skip banner for accounts created within the last 30 days —
                 # they haven't had time to need reconciliation yet.
                 created_dt = acc_created_at
@@ -1106,30 +1217,30 @@ def load_health_warnings(
                         HealthWarning(
                             account_name=acc_name,
                             account_id=acc_id,
-                            rule="reconciliation_missing",
-                            message=gettext("%(name)s has never been reconciled")
+                            rule="balance_check_missing",
+                            message=gettext("%(name)s hasn't been checked yet")
                             % {"name": acc_name},
                         )
                     )
             else:
-                if isinstance(last_reconciled_at, str):
-                    last_reconciled_at = datetime.fromisoformat(
-                        last_reconciled_at.replace("Z", "+00:00")
+                if isinstance(last_balance_check_at, str):
+                    last_balance_check_at = datetime.fromisoformat(
+                        last_balance_check_at.replace("Z", "+00:00")
                     )
 
-                assert isinstance(last_reconciled_at, datetime)
-                if (now - last_reconciled_at).days >= 30:
+                assert isinstance(last_balance_check_at, datetime)
+                if (now - last_balance_check_at).days >= 30:
                     warnings.append(
                         HealthWarning(
                             account_name=acc_name,
                             account_id=acc_id,
-                            rule="reconciliation_stale",
+                            rule="balance_check_stale",
                             message=gettext(
-                                "%(name)s was last reconciled %(days)d days ago"
+                                "%(name)s hasn't been checked in %(days)d days"
                             )
                             % {
                                 "name": acc_name,
-                                "days": (now - last_reconciled_at).days,
+                                "days": (now - last_balance_check_at).days,
                             },
                         )
                     )

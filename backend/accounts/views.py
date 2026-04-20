@@ -61,6 +61,39 @@ def _render_institution_list_oob(request: AuthenticatedRequest) -> str:
     return f'<div id="institution-list" class="space-y-3" hx-swap-oob="innerHTML">{inner_html}</div>'
 
 
+def _render_balance_check_page(
+    request: AuthenticatedRequest,
+    account_id: str,
+    *,
+    entered_balance: float | None = None,
+    error: str | None = None,
+) -> HttpResponse:
+    """Render the balance check page with optional entered balance context."""
+    svc = AccountService(request.user_id, request.tz)
+    account = svc.get_by_id(account_id)
+    if not account:
+        return HttpResponse("Not found", status=404)
+
+    difference = None
+    show_correction = False
+    if entered_balance is not None:
+        difference = entered_balance - account.current_balance
+        show_correction = abs(difference) >= 0.01
+
+    return render(
+        request,
+        "accounts/balance_check.html",
+        {
+            "account": account,
+            "entered_balance": entered_balance,
+            "difference": difference,
+            "show_correction": show_correction,
+            "error": error,
+            "active_tab": "accounts",
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
 # Page Views
 # ---------------------------------------------------------------------------
@@ -92,32 +125,62 @@ def account_detail(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["GET"])
 def reconcile_page(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """GET /accounts/<id>/reconcile - reconciliation workflow."""
-    svc = AccountService(request.user_id, request.tz)
-    account = svc.get_by_id(str(id))
-    if not account:
-        return HttpResponse("Not found", status=404)
-
-    unverified = svc.get_unverified_transactions(str(id))
-
-    return render(
-        request,
-        "accounts/reconcile.html",
-        {
-            "account": account,
-            "unverified": unverified,
-            "active_tab": "accounts",
-        },
-    )
+    """Legacy reconciliation URL — redirect to balance check."""
+    return redirect("account-balance-check", id=id)
 
 
 @general_rate
 @require_http_methods(["POST"])
 def reconcile_submit(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """POST /accounts/<id>/reconcile - complete reconciliation."""
+    """Legacy reconciliation submit URL — redirect to balance check."""
+    return redirect("account-balance-check", id=id)
+
+
+@general_rate
+@require_http_methods(["GET"])
+def balance_check_page(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
+    """GET /accounts/<id>/balance-check - account-level balance confirmation."""
+    return _render_balance_check_page(request, str(id))
+
+
+@general_rate
+@require_http_methods(["POST"])
+def balance_check_submit(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
+    """POST /accounts/<id>/balance-check/submit - save entered balance state."""
+    entered_balance = parse_float_or_none(request.POST.get("bank_balance", ""))
+    if entered_balance is None:
+        return _render_balance_check_page(
+            request,
+            str(id),
+            error="Enter the balance shown by your bank.",
+        )
+
     svc = AccountService(request.user_id, request.tz)
-    tx_ids = request.POST.getlist("verified_tx_ids")
-    svc.reconcile(str(id), tx_ids)
+    result = svc.record_balance_check(str(id), entered_balance)
+    if result["status"] == "matched":
+        return redirect("account-detail", id=id)
+
+    return _render_balance_check_page(
+        request,
+        str(id),
+        entered_balance=entered_balance,
+    )
+
+
+@general_rate
+@require_http_methods(["POST"])
+def balance_check_correct(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
+    """POST /accounts/<id>/balance-check/correct - add explicit correction."""
+    entered_balance = parse_float_or_none(request.POST.get("bank_balance", ""))
+    if entered_balance is None:
+        return _render_balance_check_page(
+            request,
+            str(id),
+            error="Enter the balance shown by your bank.",
+        )
+
+    svc = AccountService(request.user_id, request.tz)
+    svc.create_balance_correction(str(id), entered_balance)
     return redirect("account-detail", id=id)
 
 

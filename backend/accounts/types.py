@@ -48,6 +48,10 @@ class AccountSummary:
     metadata: dict | None
     health_config: dict | None
     last_reconciled_at: datetime | str | None = None
+    last_balance_check_at: datetime | str | None = None
+    last_checked_balance: float | None = None
+    last_balance_check_diff: float | None = None
+    last_balance_check_status: str | None = None
     created_at: object | None = None  # datetime
     updated_at: object | None = None  # datetime
 

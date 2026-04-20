@@ -12,7 +12,7 @@
                 <p class="text-xs text-gray-400 dark:text-slate-500">{{ data.institution_name }} &middot; {{ data.account.type|format_account_type }} &middot; {{ data.account.currency }}</p>
             </div>
             <div class="flex items-center gap-3">
-                <a href="{% url 'account-reconcile' data.account.id %}" class="text-sm text-teal-600 hover:text-teal-700 font-medium">{% trans "Reconcile" %}</a>
+                <a href="{% url 'account-balance-check' data.account.id %}" class="text-sm text-teal-600 hover:text-teal-700 font-medium">{% trans "Balance Check" %}</a>
                 <button onclick="openEditAccount()" class="text-sm text-teal-600 hover:text-teal-700 font-medium">{% trans "Edit" %}</button>
                 <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">{% trans "All Accounts" %}</a>
             </div>
@@ -57,6 +57,34 @@
             {% include "components/chart_sparkline.html" with values=data.balance_history color="var(--chart-1)" width=280 height=40 %}
         </div>
         {% endif %}
+
+        <div class="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700">
+            {% if data.account.last_balance_check_at %}
+                {% if data.account.last_balance_check_status == "mismatch" and data.account.last_balance_check_diff is not None %}
+                <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">{% trans "Balance check needs attention" %}</p>
+                            <p class="text-xs text-amber-700/80 dark:text-amber-300/80">
+                                {% blocktrans with checked=data.account.last_balance_check_at|date:"M j, Y" diff=data.account.last_balance_check_diff|format_currency:data.account.currency %}Checked {{ checked }} with a remaining difference of {{ diff }}.{% endblocktrans %}
+                            </p>
+                        </div>
+                        <a href="{% url 'account-balance-check' data.account.id %}" class="text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline">{% trans "Review" %}</a>
+                    </div>
+                </div>
+                {% else %}
+                <div class="flex items-center justify-between text-xs text-gray-500 dark:text-slate-400">
+                    <span>{% blocktrans with checked=data.account.last_balance_check_at|date:"M j, Y" %}Last checked {{ checked }}{% endblocktrans %}</span>
+                    <a href="{% url 'account-balance-check' data.account.id %}" class="text-teal-600 hover:text-teal-700 font-medium">{% trans "Check Again" %}</a>
+                </div>
+                {% endif %}
+            {% else %}
+            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-slate-400">
+                <span>{% trans "No balance check saved yet." %}</span>
+                <a href="{% url 'account-balance-check' data.account.id %}" class="text-teal-600 hover:text-teal-700 font-medium">{% trans "Check Now" %}</a>
+            </div>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Dormant toggle -->

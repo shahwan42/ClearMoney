@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load money %}
+{% load i18n %}
+
+{% block title %}ClearMoney - {% trans "Balance Check" %} {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto space-y-6 py-4 px-2">
+    <div class="flex items-center gap-3">
+        <a href="{% url 'account-detail' account.id %}" class="p-2 -ms-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" aria-label="{% trans "Back" %}">
+            <svg class="w-5 h-5 text-gray-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </a>
+        <div>
+            <h2 class="text-xl font-bold text-slate-800 dark:text-white">{% trans "Balance Check" %}</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400">{{ account.name }}</p>
+        </div>
+    </div>
+
+    <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5 space-y-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Current App Balance" %}</h3>
+                <p class="mt-1 text-lg font-bold text-slate-800 dark:text-white">{{ account.current_balance|money_format:account.currency }}</p>
+            </div>
+            {% if account.last_balance_check_at %}
+            <div class="text-right">
+                <p class="text-xs text-gray-400 dark:text-slate-500 uppercase font-bold">{% trans "Last Checked" %}</p>
+                <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ account.last_balance_check_at|date:"M j, Y" }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <p class="text-sm text-slate-600 dark:text-slate-300">{% trans "Enter the balance shown by your bank right now." %}</p>
+
+        <form action="{% url 'account-balance-check-submit' account.id %}" method="POST" class="space-y-4">
+            {% csrf_token %}
+            <div class="space-y-2">
+                <label for="bank-balance" class="block text-xs text-gray-500 dark:text-slate-400 uppercase font-bold">{% trans "Balance Shown By Your Bank" %}</label>
+                <div class="relative">
+                    <input type="number" id="bank-balance" name="bank_balance" step="0.01" placeholder="0.00"
+                           value="{% if entered_balance is not None %}{{ entered_balance }}{% endif %}"
+                           class="w-full text-2xl font-bold border border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                           oninput="calculateDiff()">
+                    <div class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">{{ account.currency }}</div>
+                </div>
+                {% if error %}
+                <p class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+                {% endif %}
+            </div>
+
+            <div id="diff-container" class="{% if entered_balance is None %}hidden {% endif %}p-3 rounded-xl flex items-center justify-between">
+                <span class="text-sm font-medium" id="diff-label">{% trans "Difference" %}</span>
+                <span class="text-lg font-bold" id="diff-value">0.00</span>
+            </div>
+
+            <button type="submit"
+                    class="w-full bg-teal-600 text-white py-3.5 rounded-2xl font-bold transition-all shadow-lg hover:bg-teal-700">
+                {% trans "Save Balance Check" %}
+            </button>
+        </form>
+    </section>
+
+    {% if show_correction %}
+    <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-4">
+        <div>
+            <h3 class="text-sm font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wide">{% trans "Difference Found" %}</h3>
+            <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">{% trans "Create a clear adjustment entry to match your bank balance right away." %}</p>
+        </div>
+        <form action="{% url 'account-balance-check-correct' account.id %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="bank_balance" value="{{ entered_balance }}">
+            <button type="submit"
+                    class="w-full bg-amber-600 text-white py-3 rounded-2xl font-bold hover:bg-amber-700 transition-colors">
+                {% trans "Create Balance Correction" %}
+            </button>
+        </form>
+    </section>
+    {% endif %}
+</div>
+
+<script>
+const currentBalance = parseFloat("{{ account.current_balance }}");
+const initialBalance = {% if entered_balance is not None %}parseFloat("{{ entered_balance }}"){% else %}null{% endif %};
+
+function updateDiffDisplay(diff) {
+    const container = document.getElementById('diff-container');
+    const valueEl = document.getElementById('diff-value');
+    const labelEl = document.getElementById('diff-label');
+
+    container.classList.remove('hidden');
+    valueEl.textContent = (diff > 0 ? '+' : '') + diff.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    if (Math.abs(diff) < 0.01) {
+        container.className = 'p-3 rounded-xl flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30';
+        labelEl.textContent = "{% trans "Looks Good" %}";
+    } else {
+        container.className = 'p-3 rounded-xl flex items-center justify-between bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/30';
+        labelEl.textContent = "{% trans "Difference" %}";
+    }
+}
+
+function calculateDiff() {
+    const bankVal = parseFloat(document.getElementById('bank-balance').value);
+    const container = document.getElementById('diff-container');
+
+    if (isNaN(bankVal)) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    updateDiffDisplay(bankVal - currentBalance);
+}
+
+if (initialBalance !== null && !Number.isNaN(initialBalance)) {
+    updateDiffDisplay(initialBalance - currentBalance);
+}
+</script>
+{% endblock %}

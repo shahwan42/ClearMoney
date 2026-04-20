@@ -41,6 +41,21 @@ urlpatterns = [
     path("accounts/<uuid:id>/edit", views.account_update, name="account-update"),
     path("accounts/<uuid:id>/delete", views.account_delete, name="account-delete"),
     path(
+        "accounts/<uuid:id>/balance-check",
+        views.balance_check_page,
+        name="account-balance-check",
+    ),
+    path(
+        "accounts/<uuid:id>/balance-check/submit",
+        views.balance_check_submit,
+        name="account-balance-check-submit",
+    ),
+    path(
+        "accounts/<uuid:id>/balance-check/correct",
+        views.balance_check_correct,
+        name="account-balance-check-correct",
+    ),
+    path(
         "accounts/<uuid:id>/reconcile", views.reconcile_page, name="account-reconcile"
     ),
     path(

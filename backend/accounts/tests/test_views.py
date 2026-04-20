@@ -167,6 +167,38 @@ class TestAccountDetail:
         # secondary info line — check the row secondary span specifically
         assert "· Main Savings" not in content
 
+    def test_shows_balance_check_cta(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}")
+        assert b"Balance Check" in response.content
+
+
+@pytest.mark.django_db
+class TestBalanceCheckPage:
+    def test_200(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get(f"/accounts/{accounts_data['savings_id']}/balance-check")
+        assert response.status_code == 200
+        assert b"Balance Check" in response.content
+
+    def test_submit_mismatch_shows_correction(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.post(
+            f"/accounts/{accounts_data['savings_id']}/balance-check/submit",
+            {"bank_balance": "14000"},
+        )
+        assert response.status_code == 200
+        assert b"Create Balance Correction" in response.content
+
+    def test_submit_match_redirects_to_detail(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.post(
+            f"/accounts/{accounts_data['savings_id']}/balance-check/submit",
+            {"bank_balance": "15000"},
+        )
+        assert response.status_code == 302
+        assert response.url == f"/accounts/{accounts_data['savings_id']}"
+
 
 # ---------------------------------------------------------------------------
 # HTMX partials

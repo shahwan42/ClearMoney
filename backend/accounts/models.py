@@ -87,6 +87,16 @@ class Account(models.Model):
         null=True, blank=True
     )  # JSONB: min_balance, min_monthly_deposit
     last_reconciled_at = models.DateTimeField(null=True, blank=True)
+    last_balance_check_at = models.DateTimeField(null=True, blank=True)
+    last_checked_balance = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
+    last_balance_check_diff = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
+    last_balance_check_status = models.CharField(
+        max_length=20, null=True, blank=True
+    )  # 'matched' | 'mismatch'
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
     updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 
