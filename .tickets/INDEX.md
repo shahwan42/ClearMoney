@@ -6,6 +6,7 @@ Last updated: 2026-04-20
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [138](wip/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-20 |
 | [135](wip/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-18 |
 
 ## Pending

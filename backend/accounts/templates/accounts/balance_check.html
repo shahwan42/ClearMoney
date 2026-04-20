@@ -81,8 +81,8 @@
 </div>
 
 <script>
-const currentBalance = parseFloat("{{ account.current_balance }}");
-const initialBalance = {% if entered_balance is not None %}parseFloat("{{ entered_balance }}"){% else %}null{% endif %};
+const currentBalance = {{ account.current_balance|stringformat:"g" }};
+const initialBalance = {% if entered_balance is not None %}{{ entered_balance|stringformat:"g" }}{% else %}null{% endif %};
 
 function updateDiffDisplay(diff) {
     const container = document.getElementById('diff-container');
