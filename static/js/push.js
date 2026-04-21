@@ -57,10 +57,9 @@ async function checkNotifications() {
 
     const notifications = await response.json();
     if (!notifications || notifications.length === 0) {
-      // No active notifications — clear banner and reset dismissed tags
+      // No active notifications — clear banner
       const container = document.getElementById('notification-banner');
       if (container) container.replaceChildren();
-      localStorage.removeItem('push_dismissed');
       return;
     }
 
@@ -70,12 +69,16 @@ async function checkNotifications() {
     // Auto-reset: remove dismissed tags that are no longer returned by server
     // (condition resolved — allow re-firing if it recurs)
     const currentTags = new Set(notifications.map(n => n.tag));
+    let changed = false;
     for (const tag in dismissedTags) {
       if (!currentTags.has(tag)) {
         delete dismissedTags[tag];
+        changed = true;
       }
     }
-    localStorage.setItem('push_dismissed', JSON.stringify(dismissedTags));
+    if (changed) {
+        localStorage.setItem('push_dismissed', JSON.stringify(dismissedTags));
+    }
 
     // Filter out dismissed notifications
     const visibleNotifications = notifications.filter(n => !(n.tag in dismissedTags));

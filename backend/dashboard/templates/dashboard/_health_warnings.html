@@ -1,19 +1,19 @@
 {% if data.health_warnings %}
-<section class="space-y-2" id="health-warnings">
+<section class="space-y-2 hidden" id="health-warnings">
     {% for warning in data.health_warnings %}
     <div class="relative" data-health-tag="health-{{ warning.rule }}-{{ warning.account_id }}">
         {% if warning.rule == "min_balance" %}
         <a href="/accounts/{{ warning.account_id }}" class="block bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-3 pe-8">
             <p class="text-sm font-medium text-red-700 dark:text-red-400">{{ warning.message }}</p>
         </a>
-        <button type="button" onclick="dismissHealthWarning(this)" class="absolute top-2 end-2 p-1 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300" aria-label="Dismiss warning">
+        <button type="button" onclick="dismissHealthWarning(this)" class="absolute top-2 end-2 z-10 p-1 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-300" aria-label="Dismiss warning">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
         {% else %}
         <a href="/accounts/{{ warning.account_id }}" class="block bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 pe-8">
             <p class="text-sm font-medium text-amber-700 dark:text-amber-400">{{ warning.message }}</p>
         </a>
-        <button type="button" onclick="dismissHealthWarning(this)" class="absolute top-2 end-2 p-1 text-amber-400 hover:text-amber-600 dark:text-amber-500 dark:hover:text-amber-300" aria-label="Dismiss warning">
+        <button type="button" onclick="dismissHealthWarning(this)" class="absolute top-2 end-2 z-10 p-1 text-amber-400 hover:text-amber-600 dark:text-amber-500 dark:hover:text-amber-300" aria-label="Dismiss warning">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
         {% endif %}
@@ -29,20 +29,33 @@ function dismissHealthWarning(btn) {
     dismissed[tag] = Date.now();
     localStorage.setItem('push_dismissed', JSON.stringify(dismissed));
     wrapper.remove();
+    
+    const section = document.getElementById('health-warnings');
+    if (section && section.querySelectorAll('[data-health-tag]').length === 0) {
+        section.remove();
+    }
 }
-// On load, hide already-dismissed warnings
-document.addEventListener('DOMContentLoaded', function() {
+
+(function() {
     const dismissed = JSON.parse(localStorage.getItem('push_dismissed') || '{}');
+    let visibleCount = 0;
+    
     document.querySelectorAll('[data-health-tag]').forEach(function(el) {
         if (el.getAttribute('data-health-tag') in dismissed) {
             el.remove();
+        } else {
+            visibleCount++;
         }
     });
-    // If all warnings dismissed, remove the section
+    
     const section = document.getElementById('health-warnings');
-    if (section && section.children.length === 0) {
-        section.remove();
+    if (section) {
+        if (visibleCount > 0) {
+            section.classList.remove('hidden');
+        } else {
+            section.remove();
+        }
     }
-});
+})();
 </script>
 {% endif %}
