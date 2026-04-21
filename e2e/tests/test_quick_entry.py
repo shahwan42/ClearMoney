@@ -89,7 +89,7 @@ class TestQuickEntry:
         # Verify Transaction tab is visually selected (active styles)
         tab_transaction = page.locator("#tab-transaction")
         expect(tab_transaction).to_have_class(
-            "flex-1 py-3 text-sm font-medium text-center rounded-lg border bg-teal-50 text-teal-700 border-teal-200"
+            "peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center"
         )
 
     def test_quick_entry_form_resets_on_close(self, page: Page) -> None:

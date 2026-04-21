@@ -128,16 +128,16 @@ After seeding, the QA user (`qa@clearmoney.app`) will have:
 ### CP-3: Transfer Between Accounts
 
 ```
-1. Dashboard → + → Move Money tab
+1. Dashboard → + → Transfer tab
 2. From: Main Checking EGP, To: Savings EGP, Amount: 1000
-3. Click Move Money
+3. Click Transfer
 4. Verify: Checking -1000, Savings +1000, net worth unchanged
 ```
 
 ### CP-2 Edge: Same-Account Transfer
 
 ```
-1. Move Money form → select same account for From and To
+1. Transfer form → select same account for From and To
 2. Submit → expect "Cannot transfer to the same account" error
 ```
 
@@ -222,7 +222,7 @@ See: `.tickets/attachments/qa-NN-<name>.png`
 |--------|-------|----------|
 | #118 | Liquid Cash mixes currencies without conversion | high |
 | #119 | PDF export returns 500 when WeasyPrint libs missing | medium |
-| #120 | Move Money form allows future dates | medium |
+| #120 | Transfer form allows future dates | medium |
 | #121 | Fee amount silently dropped on transaction create | high |
 | #122 | Multiple form inputs missing maxlength | low |
 | #123 | RTL: section headings untranslated, "d left" fragments | medium |

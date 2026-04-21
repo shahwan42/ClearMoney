@@ -164,13 +164,12 @@ All write operations use `django.db.transaction.atomic()`:
 | `/transactions/new` | GET | Full transaction form page |
 | `/transactions/quick-form` | GET | Quick-entry bottom sheet (HTMX partial) |
 | `/transactions/quick` | POST | Create quick-entry transaction |
-| `/transactions/quick-transfer` | GET | Transfer tab in quick-entry (HTMX partial) |
+| `/transactions/quick-transfer-unified` | GET | Unified transfer tab in quick-entry (HTMX partial) |
 | `/transactions/transfer` | POST | Create transfer with optional fee |
 | `/transactions/exchange-submit` | POST | Create currency exchange |
 | `/transactions/batch` | POST | Create multiple transactions |
 | `/batch-entry` | GET | Batch entry form page |
-| `/transfers/new` | GET | Transfer form page |
-| `/exchange/new` | GET | Exchange form page |
+| `/transfer/new` | GET | Unified transfer/exchange form page |
 | `/exchange/quick-form` | GET | Exchange tab in quick-entry (HTMX partial) |
 
 ### Detail Routes
@@ -194,8 +193,10 @@ All write operations use `django.db.transaction.atomic()`:
 
 ### Deprecated/Unified Routes
 
-The following routes have been unified into `/transfers/new`:
-- `POST /transactions/instapay-transfer` — redirects to `/transfers/new`
+The following routes have been unified into `/transfer/new`:
+- `POST /transactions/instapay-transfer` — redirects to `/transfer/new`
+- `GET /transfers/new` — redirects to `/transfer/new`
+- `GET /exchange/new` — redirects to `/transfer/new`
 
 InstaPay is now handled as a transfer with optional fees via the unified `create_transfer()` method.
 
@@ -207,8 +208,7 @@ InstaPay is now handled as a transfer with optional fees via the unified `create
 |----------|---------|
 | `backend/transactions/templates/transactions/transaction_new.html` | Full form for single transaction |
 | `backend/transactions/templates/transactions/transactions.html` | Filtered list with search, date range, filters |
-| `backend/transactions/templates/transactions/transfer.html` | Transfer form |
-| `backend/transactions/templates/transactions/exchange.html` | Exchange form |
+| `backend/transactions/templates/transactions/transfer_unified.html` | Unified transfer/exchange form |
 | `backend/transactions/templates/transactions/batch_entry.html` | Multiple transaction form |
 
 ### Partials
@@ -216,8 +216,8 @@ InstaPay is now handled as a transfer with optional fees via the unified `create
 | Template | Purpose |
 |----------|---------|
 | `backend/transactions/templates/transactions/_quick_entry.html` | Bottom sheet with smart suggestion |
-| `backend/transactions/templates/transactions/_quick_transfer.html` | Transfer in bottom sheet |
-| `backend/transactions/templates/transactions/_quick_exchange.html` | Exchange in bottom sheet |
+| `backend/transactions/templates/transactions/_quick_transfer_unified.html` | Unified transfer in bottom sheet |
+| `backend/transactions/templates/transactions/_transfer_unified_form.html` | Unified transfer form (partial) |
 | `backend/transactions/templates/transactions/_transaction_row.html` | Single row with edit/delete buttons |
 | `backend/transactions/templates/transactions/_transaction_list.html` | Container with "load more" |
 | `backend/transactions/templates/transactions/_transaction_edit_form.html` | Inline edit form |

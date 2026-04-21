@@ -13,11 +13,11 @@ run:
 
 # Run Django tests with verbose output (rate limiting disabled).
 test:
-	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest -v
+	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest
 
 # Run Django tests in parallel (rate limiting disabled).
 test-fast:
-	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest -v -n auto
+	cd backend && DATABASE_URL="$(DB_URL)" DISABLE_RATE_LIMIT=true uv run pytest -n auto
 
 # Auto-format code with ruff (modifies files).
 format:
@@ -37,7 +37,7 @@ dead:
 
 # Run end-to-end tests using Playwright.
 test-e2e:
-	cd e2e && DATABASE_URL="$(DB_URL)" uv run pytest -v
+	cd e2e && DATABASE_URL="$(DB_URL)" uv run pytest
 
 # Run tests with coverage report (HTML + terminal).
 coverage:

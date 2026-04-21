@@ -17,7 +17,7 @@
         <div class="flex gap-2">
             <label class="flex-1">
                 <input type="radio" name="type" value="expense" checked class="peer sr-only" onchange="qeToggleType('expense')">
-                <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
+                <div id="tab-transaction" class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
                     {% trans "Expense" %}
                 </div>
             </label>
@@ -29,7 +29,7 @@
             </label>
             <label class="flex-1">
                 <input type="radio" name="type" value="transfer" class="peer sr-only" onchange="qeToggleType('transfer')">
-                <div class="peer-checked:bg-blue-50 peer-checked:border-blue-400 peer-checked:text-blue-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
+                <div id="tab-transfer" class="peer-checked:bg-blue-50 peer-checked:border-blue-400 peer-checked:text-blue-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
                     {% trans "Transfer" %}
                 </div>
             </label>
@@ -179,7 +179,7 @@ function qeToggleType(mode) {
 
     var submitLabel = document.getElementById('qe-submit-label');
     if (submitLabel) {
-        submitLabel.textContent = isTransfer ? '{% trans "Transfer Money" %}' : '{% trans "Save" %}';
+        submitLabel.textContent = isTransfer ? '{% trans "Transfer" %}' : '{% trans "Save" %}';
     }
 }
 

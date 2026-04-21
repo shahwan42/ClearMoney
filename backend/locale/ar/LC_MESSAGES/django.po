@@ -1291,7 +1291,7 @@ msgstr "اقترضت"
 #: people/templates/people/_person_card.html:66
 #: recurring/templates/recurring/_form.html:42
 #: transactions/templates/transactions/_exchange_form.html:32
-#: transactions/templates/transactions/_move_money_form.html:36
+#: transactions/templates/transactions/_transfer_unified_form.html:36
 #: transactions/templates/transactions/_quick_entry.html:34
 #: transactions/templates/transactions/_transaction_edit_form.html:21
 #: transactions/templates/transactions/_transfer_form.html:31
@@ -1314,7 +1314,7 @@ msgstr "اختر الحساب..."
 #: people/templates/people/_person_card.html:92
 #: transactions/templates/transactions/_exchange_form.html:52
 #: transactions/templates/transactions/_fawry_cashout_form.html:63
-#: transactions/templates/transactions/_move_money_form.html:74
+#: transactions/templates/transactions/_transfer_unified_form.html:74
 #: transactions/templates/transactions/_quick_entry.html:74
 #: transactions/templates/transactions/_transaction_edit_form.html:36
 #: transactions/templates/transactions/_transfer_form.html:49
@@ -1428,26 +1428,26 @@ msgid "Account"
 msgstr ""
 
 #: recurring/templates/recurring/_form.html:52
-#: transactions/templates/transactions/_move_money_form.html:9
+#: transactions/templates/transactions/_transfer_unified_form.html:9
 #: transactions/templates/transactions/_transfer_form.html:9
 msgid "From Account"
 msgstr ""
 
 #: recurring/templates/recurring/_form.html:63
-#: transactions/templates/transactions/_move_money_form.html:21
+#: transactions/templates/transactions/_transfer_unified_form.html:21
 #: transactions/templates/transactions/_transfer_form.html:20
 msgid "To Account"
 msgstr ""
 
 #: recurring/templates/recurring/_form.html:65
 #: transactions/templates/transactions/_exchange_form.html:23
-#: transactions/templates/transactions/_move_money_form.html:25
+#: transactions/templates/transactions/_transfer_unified_form.html:25
 #: transactions/templates/transactions/_transfer_form.html:23
 msgid "Select destination..."
 msgstr ""
 
 #: recurring/templates/recurring/_form.html:74
-#: transactions/templates/transactions/_move_money_form.html:45
+#: transactions/templates/transactions/_transfer_unified_form.html:45
 #: transactions/templates/transactions/_quick_entry.html:99
 #: transactions/templates/transactions/_transaction_edit_form.html:59
 #: transactions/templates/transactions/_transfer_form.html:38
@@ -1901,13 +1901,6 @@ msgstr ""
 msgid "Transaction"
 msgstr ""
 
-#: templates/components/bottom-nav.html:71
-#: transactions/templates/transactions/_move_money_form.html:4
-#: transactions/templates/transactions/_move_money_form.html:87
-#: transactions/templates/transactions/_quick_move_money.html:3
-msgid "Move Money"
-msgstr ""
-
 #: templates/components/bottom-nav.html:88
 msgid "Money Management"
 msgstr ""
@@ -1995,7 +1988,7 @@ msgid "From Account (source currency)"
 msgstr ""
 
 #: transactions/templates/transactions/_exchange_form.html:12
-#: transactions/templates/transactions/_move_money_form.html:13
+#: transactions/templates/transactions/_transfer_unified_form.html:13
 #: transactions/templates/transactions/_transfer_form.html:12
 msgid "Select source..."
 msgstr ""
@@ -2005,18 +1998,18 @@ msgid "To Account (destination currency)"
 msgstr ""
 
 #: transactions/templates/transactions/_exchange_form.html:38
-#: transactions/templates/transactions/_move_money_form.html:59
+#: transactions/templates/transactions/_transfer_unified_form.html:59
 msgid "Rate"
 msgstr ""
 
 #: transactions/templates/transactions/_exchange_form.html:44
-#: transactions/templates/transactions/_move_money_form.html:65
+#: transactions/templates/transactions/_transfer_unified_form.html:65
 msgid "Result"
 msgstr ""
 
 #: transactions/templates/transactions/_exchange_form.html:58
 #: transactions/templates/transactions/_fawry_cashout_form.html:58
-#: transactions/templates/transactions/_move_money_form.html:80
+#: transactions/templates/transactions/_transfer_unified_form.html:80
 #: transactions/templates/transactions/_quick_entry.html:92
 #: transactions/templates/transactions/_transaction_detail_sheet.html:42
 #: transactions/templates/transactions/_transaction_edit_form.html:43
@@ -2058,7 +2051,7 @@ msgstr ""
 msgid "Process Cash-Out"
 msgstr ""
 
-#: transactions/templates/transactions/_move_money_form.html:51
+#: transactions/templates/transactions/_transfer_unified_form.html:51
 #: transactions/templates/transactions/_transfer_form.html:45
 msgid "Total from source:"
 msgstr ""
@@ -2214,9 +2207,9 @@ msgstr ""
 msgid "ClearMoney - Fawry Cash-Out"
 msgstr ""
 
-#: transactions/templates/transactions/move_money.html:3
-msgid "ClearMoney - Move Money"
-msgstr ""
+#: transactions/templates/transactions/transfer_unified.html:3
+msgid "ClearMoney - Transfer"
+msgstr "ClearMoney - تحويل"
 
 #: transactions/templates/transactions/transaction_new.html:5
 msgid "ClearMoney - New Transaction"

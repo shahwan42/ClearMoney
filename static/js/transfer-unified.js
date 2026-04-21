@@ -1,12 +1,12 @@
-// move-money.js — Unified transfer/exchange mode detection and field calculation.
+// transfer-unified.js — Unified transfer/exchange mode detection and field calculation.
 // Auto-detects transfer (same currency) vs exchange (different currencies)
 // based on selected account currencies.
 
 // Detect whether accounts have same or different currencies.
 // Returns 'transfer', 'exchange', or null (incomplete selection).
-function detectMoveMode() {
-    var srcSel = document.getElementById('move-src');
-    var dstSel = document.getElementById('move-dst');
+function detectTransferMode() {
+    var srcSel = document.getElementById('transfer-src');
+    var dstSel = document.getElementById('transfer-dst');
     if (!srcSel || !dstSel) return null;
     var srcOpt = srcSel.selectedOptions[0];
     var dstOpt = dstSel.selectedOptions[0];
@@ -18,13 +18,13 @@ function detectMoveMode() {
 
 // Called on account select change — shows/hides appropriate fields and
 // updates form action + button label.
-function updateMoveMode() {
-    var mode = detectMoveMode();
-    var transferFields = document.getElementById('move-transfer-fields');
-    var exchangeFields = document.getElementById('move-exchange-fields');
-    var form = document.getElementById('move-money-form');
-    var submitLabel = document.getElementById('move-submit-label');
-    var indicator = document.getElementById('move-mode-indicator');
+function updateTransferMode() {
+    var mode = detectTransferMode();
+    var transferFields = document.getElementById('transfer-transfer-fields');
+    var exchangeFields = document.getElementById('transfer-exchange-fields');
+    var form = document.getElementById('transfer-unified-form');
+    var submitLabel = document.getElementById('transfer-submit-label');
+    var indicator = document.getElementById('transfer-mode-indicator');
 
     if (mode === 'transfer') {
         // Show transfer fields, hide exchange fields
@@ -54,7 +54,7 @@ function updateMoveMode() {
         _setFieldsDisabled(transferFields, true);
         _clearFields(transferFields);
         // Hide total display
-        var totalDisplay = document.getElementById('move-total-display');
+        var totalDisplay = document.getElementById('transfer-total-display');
         if (totalDisplay) totalDisplay.classList.add('hidden');
         // Update form target
         form.setAttribute('hx-post', '/transactions/exchange-submit');
@@ -71,29 +71,29 @@ function updateMoveMode() {
         exchangeFields.setAttribute('aria-hidden', 'true');
         _setFieldsDisabled(transferFields, true);
         _setFieldsDisabled(exchangeFields, true);
-        submitLabel.textContent = 'Move Money';
+        submitLabel.textContent = 'Transfer';
         indicator.className = 'hidden';
         indicator.textContent = '';
     }
 }
 
 // Called on amount input — delegates to the right calc function.
-function onMoveAmountInput() {
-    var mode = detectMoveMode();
+function onTransferAmountInput() {
+    var mode = detectTransferMode();
     if (mode === 'transfer') {
-        updateMoveTotal();
+        updateTransferTotal();
     } else if (mode === 'exchange') {
-        calcMoveExchange('amount');
+        calcTransferExchange('amount');
     }
 }
 
 // Transfer mode: show total (amount + fee) when fee > 0.
-function updateMoveTotal() {
-    var amount = parseFloat(document.getElementById('move-amount').value) || 0;
-    var fee = parseFloat(document.getElementById('move-fee').value) || 0;
+function updateTransferTotal() {
+    var amount = parseFloat(document.getElementById('transfer-amount').value) || 0;
+    var fee = parseFloat(document.getElementById('transfer-fee').value) || 0;
     var total = amount + fee;
-    var display = document.getElementById('move-total-display');
-    var totalValue = document.getElementById('move-total-value');
+    var display = document.getElementById('transfer-total-display');
+    var totalValue = document.getElementById('transfer-total-value');
     if (fee > 0) {
         display.classList.remove('hidden');
         totalValue.textContent = total.toFixed(2);
@@ -104,14 +104,14 @@ function updateMoveTotal() {
 
 // Exchange mode: auto-calculate the third field when two are provided.
 // Rate always means "EGP per 1 USD" regardless of direction.
-function calcMoveExchange(changed) {
-    var amount = parseFloat(document.getElementById('move-amount').value) || 0;
-    var rate = parseFloat(document.getElementById('move-rate').value) || 0;
-    var counter = parseFloat(document.getElementById('move-counter').value) || 0;
+function calcTransferExchange(changed) {
+    var amount = parseFloat(document.getElementById('transfer-amount').value) || 0;
+    var rate = parseFloat(document.getElementById('transfer-rate').value) || 0;
+    var counter = parseFloat(document.getElementById('transfer-counter').value) || 0;
 
     // Detect currency direction from account selects
-    var srcSel = document.getElementById('move-src');
-    var dstSel = document.getElementById('move-dst');
+    var srcSel = document.getElementById('transfer-src');
+    var dstSel = document.getElementById('transfer-dst');
     var srcCur = srcSel && srcSel.selectedOptions[0] ? srcSel.selectedOptions[0].getAttribute('data-currency') : '';
     var dstCur = dstSel && dstSel.selectedOptions[0] ? dstSel.selectedOptions[0].getAttribute('data-currency') : '';
     var srcIsEGP = (srcCur === 'EGP' && dstCur === 'USD');
@@ -119,23 +119,23 @@ function calcMoveExchange(changed) {
     if (changed === 'amount' || changed === 'rate') {
         if (amount > 0 && rate > 0) {
             if (srcIsEGP) {
-                document.getElementById('move-counter').value = (amount / rate).toFixed(2);
+                document.getElementById('transfer-counter').value = (amount / rate).toFixed(2);
             } else {
-                document.getElementById('move-counter').value = (amount * rate).toFixed(2);
+                document.getElementById('transfer-counter').value = (amount * rate).toFixed(2);
             }
         }
     } else if (changed === 'counter') {
         if (amount > 0 && counter > 0) {
             if (srcIsEGP) {
-                document.getElementById('move-rate').value = (amount / counter).toFixed(4);
+                document.getElementById('transfer-rate').value = (amount / counter).toFixed(4);
             } else {
-                document.getElementById('move-rate').value = (counter / amount).toFixed(4);
+                document.getElementById('transfer-rate').value = (counter / amount).toFixed(4);
             }
         } else if (rate > 0 && counter > 0) {
             if (srcIsEGP) {
-                document.getElementById('move-amount').value = (counter * rate).toFixed(2);
+                document.getElementById('transfer-amount').value = (counter * rate).toFixed(2);
             } else {
-                document.getElementById('move-amount').value = (counter / rate).toFixed(2);
+                document.getElementById('transfer-amount').value = (counter / rate).toFixed(2);
             }
         }
     }

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "ClearMoney - Transfer" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto py-4">
+    {% include "transactions/_transfer_unified_form.html" %}
+</div>
+{% endblock %}

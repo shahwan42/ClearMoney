@@ -111,7 +111,7 @@ class TestQuickEntryTabTouchTargets:
             "#quick-entry-sheet:not(.translate-y-full)", timeout=3000
         )
 
-        for tab_id in ("tab-transaction", "tab-move"):
+        for tab_id in ("tab-transaction", "tab-transfer"):
             size = _measure(page, f"#{tab_id}")
             assert size is not None, f"Tab #{tab_id} not found"
             assert size["h"] >= MIN_TARGET, (

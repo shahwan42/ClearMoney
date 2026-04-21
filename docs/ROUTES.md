@@ -359,13 +359,8 @@ Transaction form page (expense or income).
 
 ---
 
-#### GET `/transfers/new`
-Transfer form page (between own accounts).
-
----
-
-#### GET `/exchange/new`
-Exchange form page (cross-currency transfer).
+#### GET `/transfer/new`
+Unified transfer and exchange form page. Auto-detects mode based on selected account currencies.
 
 ---
 
@@ -388,13 +383,8 @@ Quick entry form (from dashboard bottom sheet).
 
 ---
 
-#### GET `/transactions/quick-transfer`
-Quick transfer form (from dashboard).
-
----
-
-#### GET `/exchange/quick-form`
-Quick exchange form (from dashboard).
+#### GET `/transactions/quick-transfer-unified`
+Unified transfer/exchange form (HTMX partial).
 
 ---
 

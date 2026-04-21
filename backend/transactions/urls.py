@@ -14,7 +14,7 @@ urlpatterns = [
     path("transactions", views.transactions_list, name="transactions"),
     path("transactions/new", views.transaction_new, name="transaction-new"),
     path("batch-entry", views.batch_entry, name="batch-entry"),
-    path("move-money/new", views.move_money_new, name="move-money-new"),
+    path("transfer/new", views.transfer_new_unified, name="transfer-new-unified"),
     # --- Legacy Redirects ---
     path("transfers/new", views.transfer_new),
     path("exchange/new", views.exchange_new),
@@ -28,9 +28,9 @@ urlpatterns = [
         "transactions/quick-form", views.quick_entry_form, name="transaction-quick-form"
     ),
     path(
-        "transactions/quick-move",
-        views.quick_move_money_form,
-        name="transaction-quick-move",
+        "transactions/quick-transfer-unified",
+        views.quick_transfer_unified,
+        name="transaction-quick-transfer-unified",
     ),
     path(
         "transactions/quick-transfer",

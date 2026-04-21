@@ -1,5 +1,5 @@
 """
-Transaction views — all /transactions/*, /transfers/*, /exchange/*, /move-money/*,
+Transaction views — all /transactions/*, /transfers/*, /exchange/*, /transfer/new/*,
 /batch-entry, /fawry-cashout, and /sync/transactions routes.
 
 Like Laravel's TransactionController — thin views that delegate to services.
@@ -468,21 +468,21 @@ def transaction_row(
 
 
 # ---------------------------------------------------------------------------
-# Move Money Views (unified transfer/exchange)
+# Transfer Unified Views (unified transfer/exchange)
 # ---------------------------------------------------------------------------
 
 
 @inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def move_money_new(
+def transfer_new_unified(
     request: AuthenticatedRequest, svc: TransactionService
 ) -> HttpResponse:
-    """GET /move-money/new — unified move money form page."""
-    logger.info("page viewed: move-money, user=%s", request.user_email)
+    """GET /transfer/new — unified transfer form page."""
+    logger.info("page viewed: transfer-unified, user=%s", request.user_email)
     return render(
         request,
-        "transactions/move_money.html",
+        "transactions/transfer_unified.html",
         {
             "accounts": svc.get_accounts(),
             "today": date.today(),
@@ -493,14 +493,14 @@ def move_money_new(
 @inject_service(TransactionService)
 @general_rate
 @require_http_methods(["GET"])
-def quick_move_money_form(
+def quick_transfer_unified(
     request: AuthenticatedRequest, svc: TransactionService
 ) -> HttpResponse:
-    """GET /transactions/quick-move — quick move money partial for bottom sheet."""
-    logger.info("partial loaded: quick-move-money, user=%s", request.user_email)
+    """GET /transactions/quick-transfer-unified — quick transfer unified partial."""
+    logger.info("partial loaded: quick-transfer-unified, user=%s", request.user_email)
     return render(
         request,
-        "transactions/_quick_move_money.html",
+        "transactions/_quick_transfer_unified.html",
         {
             "accounts": svc.get_accounts(),
             "today": date.today(),
@@ -509,15 +509,15 @@ def quick_move_money_form(
 
 
 # ---------------------------------------------------------------------------
-# Transfer Views (legacy — redirects to move money)
+# Transfer Views (legacy — redirects to unified transfer)
 # ---------------------------------------------------------------------------
 
 
 @general_rate
 @require_http_methods(["GET"])
 def transfer_new(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /transfers/new — redirect to unified move money page."""
-    return HttpResponseRedirect("/move-money/new")
+    """GET /transfers/new — redirect to unified transfer page."""
+    return HttpResponseRedirect("/transfer/new")
 
 
 @inject_service(TransactionService)
@@ -552,20 +552,20 @@ def transfer_create(
 
 @require_http_methods(["POST"])
 def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /transactions/instapay-transfer — deprecated, redirect to move money."""
-    return HttpResponseRedirect("/move-money/new")
+    """POST /transactions/instapay-transfer — deprecated, redirect to unified transfer."""
+    return HttpResponseRedirect("/transfer/new")
 
 
 # ---------------------------------------------------------------------------
-# Exchange Views (legacy — redirects to move money)
+# Exchange Views (legacy — redirects to unified transfer)
 # ---------------------------------------------------------------------------
 
 
 @general_rate
 @require_http_methods(["GET"])
 def exchange_new(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /exchange/new — redirect to unified move money page."""
-    return HttpResponseRedirect("/move-money/new")
+    """GET /exchange/new — redirect to unified transfer page."""
+    return HttpResponseRedirect("/transfer/new")
 
 
 @inject_service(TransactionService)

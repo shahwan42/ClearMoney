@@ -10,6 +10,7 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
+addopts = "-x -vv"
 base_url = "http://localhost:8765"
 timeout = 30
 # Serial execution — tests share DB state
