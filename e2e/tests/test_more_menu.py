@@ -7,7 +7,7 @@ UI notes:
 - Sheet: data-bottom-sheet="more-menu" (uses translate-y-full class when closed)
 - Overlay: id="more-menu-overlay"
 - Links: /people, /budgets, /virtual-accounts, /investments,
-  /recurring, /batch-entry, /fawry-cashout, /settings
+  /recurring, /batch-entry, /settings
 """
 import re
 import sys

@@ -595,21 +595,6 @@ def exchange_create(
 
 
 # ---------------------------------------------------------------------------
-# Fawry Cashout Views
-# ---------------------------------------------------------------------------
-
-
-def fawry_cashout(request: AuthenticatedRequest) -> HttpResponse:
-    """GET /fawry-cashout — deprecated, redirect to move money."""
-    return HttpResponseRedirect("/move-money/new")
-
-
-def fawry_cashout_create(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /transactions/fawry-cashout — deprecated, redirect to unified transfer."""
-    return HttpResponseRedirect("/transfers/new")
-
-
-# ---------------------------------------------------------------------------
 # Batch Entry Views
 # ---------------------------------------------------------------------------
 

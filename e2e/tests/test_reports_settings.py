@@ -67,13 +67,6 @@ class TestReports:
         expect(page.locator("main")).to_be_visible()
 
 
-class TestFawryCashout:
-    def test_fawry_page_redirects_to_move_money(self, page: Page) -> None:
-        # /fawry-cashout → /transfers/new → /move-money/new (chain redirect)
-        page.goto("/fawry-cashout")
-        expect(page.locator("#move-amount")).to_be_visible()
-
-
 class TestBatchEntry:
     def test_batch_entry_page_shows_rows(self, page: Page) -> None:
         # Batch entry is at /batch-entry (not /transactions/batch)

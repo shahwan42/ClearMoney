@@ -18,7 +18,6 @@ urlpatterns = [
     # --- Legacy Redirects ---
     path("transfers/new", views.transfer_new),
     path("exchange/new", views.exchange_new),
-    path("fawry-cashout", views.fawry_cashout),
     # --- HTMX Partials ---
     path(
         "transactions/list",
@@ -65,7 +64,6 @@ urlpatterns = [
         name="transaction-exchange-create",
     ),
     path("transactions/instapay-transfer", views.instapay_transfer_create),
-    path("transactions/fawry-cashout-submit", views.fawry_cashout_create),
     # --- Detail / Edit Views ---
     path(
         "transactions/edit/<uuid:tx_id>",

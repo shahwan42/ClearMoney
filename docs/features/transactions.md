@@ -196,10 +196,8 @@ All write operations use `django.db.transaction.atomic()`:
 
 The following routes have been unified into `/transfers/new`:
 - `POST /transactions/instapay-transfer` — redirects to `/transfers/new`
-- `GET /fawry-cashout` — redirects to `/transfers/new`
-- `POST /transactions/fawry-cashout` — redirects to `/transfers/new`
 
-InstaPay and Fawry are now handled as transfers with optional fees via the unified `create_transfer()` method.
+InstaPay is now handled as a transfer with optional fees via the unified `create_transfer()` method.
 
 ## Templates
 

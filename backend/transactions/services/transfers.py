@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class TransferMixin:
-    """Mixin providing transfer, InstaPay, exchange, and Fawry cashout methods."""
+    """Mixin providing transfer, InstaPay, and exchange methods."""
 
     # -------------------------------------------------------------------
     # Transfers
@@ -389,106 +389,3 @@ class TransferMixin:
         debit_tx = self.get_by_id(debit_id)  # type: ignore[attr-defined]
         credit_tx = self.get_by_id(credit_id)  # type: ignore[attr-defined]
         return debit_tx or {}, credit_tx or {}
-
-    # -------------------------------------------------------------------
-    # Fawry Cashout
-    # -------------------------------------------------------------------
-
-    def create_fawry_cashout(
-        self,
-        credit_card_id: str,
-        prepaid_id: str,
-        amount: float,
-        fee: float,
-        currency: str | None,
-        note: str | None,
-        tx_date: date | str | None,
-        fees_category_id: str | None = None,
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """Create a Fawry credit card cash-out.
-
-        CC charged amount+fee (expense), prepaid gets amount (income).
-        """
-        if amount <= 0:
-            raise ValueError("Amount must be positive")
-        if fee < 0:
-            raise ValueError("Fee cannot be negative")
-        if not credit_card_id or not prepaid_id:
-            raise ValueError("Both credit card and prepaid account IDs are required")
-        if credit_card_id == prepaid_id:
-            raise ValueError("Credit card and prepaid account must be different")
-
-        if tx_date is None:
-            tx_date = date.today()
-        if isinstance(tx_date, str):
-            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
-
-        total_charge = amount + fee
-        cc_acc = self._get_account(credit_card_id)  # type: ignore[attr-defined]
-        actual_currency = cc_acc["currency"]
-
-        charge_note = "Fawry cash-out"
-        if note:
-            charge_note = f"{note} (Fawry cash-out)"
-        credit_note = "Fawry top-up"
-        if note:
-            credit_note = f"{note} (Fawry top-up)"
-
-        uid = self.user_id  # type: ignore[attr-defined]
-        charge_id = str(uuid.uuid4())
-        credit_id = str(uuid.uuid4())
-
-        with transaction.atomic():
-            # CC charge (expense: amount + fee)
-            Transaction.objects.create(
-                id=charge_id,
-                user_id=uid,
-                type="expense",
-                amount=total_charge,
-                currency=actual_currency,
-                account_id=credit_card_id,
-                counter_account_id=prepaid_id,
-                category_id=fees_category_id,
-                note=charge_note,
-                date=tx_date,
-                balance_delta=-total_charge,
-            )
-            # Prepaid credit (income: net amount)
-            Transaction.objects.create(
-                id=credit_id,
-                user_id=uid,
-                type="income",
-                amount=amount,
-                currency=actual_currency,
-                account_id=prepaid_id,
-                counter_account_id=credit_card_id,
-                note=credit_note,
-                date=tx_date,
-                balance_delta=amount,
-            )
-            # Link
-            Transaction.objects.for_user(uid).filter(id=charge_id).update(
-                linked_transaction_id=credit_id
-            )
-            Transaction.objects.for_user(uid).filter(id=credit_id).update(
-                linked_transaction_id=charge_id
-            )
-            # Atomic F() updates — CC debited total (amount+fee), prepaid credited net
-            now = django_tz.now()
-            Account.objects.for_user(uid).filter(id=credit_card_id).update(
-                current_balance=F("current_balance") - Decimal(str(total_charge)),
-                updated_at=now,
-            )
-            Account.objects.for_user(uid).filter(id=prepaid_id).update(
-                current_balance=F("current_balance") + Decimal(str(amount)),
-                updated_at=now,
-            )
-
-        logger.info(
-            "transaction.fawry_cashout_created currency=%s user=%s",
-            actual_currency,
-            self.user_id,  # type: ignore[attr-defined]
-        )
-        charge_tx = self.get_by_id(charge_id)  # type: ignore[attr-defined]
-        credit_tx = self.get_by_id(credit_id)  # type: ignore[attr-defined]
-        return charge_tx or {}, credit_tx or {}

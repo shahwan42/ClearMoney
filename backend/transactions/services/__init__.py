@@ -2,7 +2,7 @@
 
 Composes TransactionService from a base class and mixins:
 - TransactionServiceBase: __init__, private helpers, CRUD operations
-- TransferMixin: transfers, InstaPay, exchange, Fawry cashout
+- TransferMixin: transfers, InstaPay, exchange
 - HelperMixin: batch create, smart defaults, VA allocation, dropdowns
 
 CRITICAL INVARIANTS:

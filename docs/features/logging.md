@@ -62,7 +62,6 @@ Events use `entity.action` naming convention. Only IDs, types, and currencies ar
 | `transaction.transfer_created` | TransactionService | source, dest |
 | `transaction.exchange_created` | TransactionService | source, dest |
 | `transaction.instapay_created` | TransactionService | — |
-| `transaction.fawry_cashout_created` | TransactionService | — |
 | `account.created` | AccountService | type, currency |
 | `account.updated` | AccountService | id |
 | `account.deleted` | AccountService | id |

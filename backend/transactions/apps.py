@@ -1,7 +1,7 @@
 """Django app configuration for the transactions app.
 
 Handles all /transactions/*, /transfers/*, /exchange/*, /batch-entry,
-/fawry-cashout, and /sync/transactions routes.
+and /sync/transactions routes.
 """
 
 from django.apps import AppConfig

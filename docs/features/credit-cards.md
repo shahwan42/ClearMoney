@@ -128,18 +128,6 @@ Shown in the statement view when balance < 0:
 - Days until due countdown
 - Currently guidance is for full balance payment (no minimum payment logic)
 
-## Fawry Cash-Out
-
-**File:** `backend/transactions/services.py` — `create_fawry_cashout()`
-
-Converts credit card balance to prepaid cash:
-1. Creates expense on credit card for (amount + fee)
-2. Creates income on prepaid account for amount
-3. Both linked via `linked_transaction_id`
-4. All within single DB transaction
-
-**View:** `FawryCashout` (GET renders form, POST processes it) in `backend/transactions/views.py`.
-
 ## Dashboard Integration
 
 The dashboard shows credit cards with:
@@ -164,7 +152,6 @@ The dashboard shows credit cards with:
 | `backend/core/models.py` | Account model with credit_limit, metadata fields |
 | `backend/core/billing.py` | BillingCycle parsing, period computation |
 | `backend/accounts/services.py` | StatementData, utilization calculation |
-| `backend/transactions/services.py` | Fawry cash-out logic |
 | `backend/accounts/views.py` | AccountDetail, CreditCardStatement views |
 
 ## For Newcomers

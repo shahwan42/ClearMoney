@@ -614,12 +614,6 @@ class TestTransferViews:
         assert "instapay-toggle" not in content
         assert "InstaPay" not in content
 
-    def test_fawry_route_redirects_to_move_money(self, client, tx_view_data):
-        c = set_auth_cookie(client, tx_view_data["session_token"])
-        response = c.get("/fawry-cashout")
-        assert response.status_code == 302
-        assert "/move-money/new" in response.url  # type: ignore[attr-defined]
-
     def test_instapay_route_redirects_to_transfers(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
         response = c.post(
@@ -691,21 +685,6 @@ class TestBatchViews:
         response = c.get("/batch-entry")
         assert response.status_code == 200
         assert b"Batch Entry" in response.content
-
-
-# ---------------------------------------------------------------------------
-# Fawry
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db
-class TestFawryViews:
-    def test_fawry_cashout_redirects(self, client, tx_view_data):
-        """Fawry page now redirects to unified move money form."""
-        c = set_auth_cookie(client, tx_view_data["session_token"])
-        response = c.get("/fawry-cashout")
-        assert response.status_code == 302
-        assert "/move-money/new" in response.url  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------

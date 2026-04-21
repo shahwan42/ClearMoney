@@ -70,7 +70,6 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 - **Utilization donut** — visual spend vs limit
 - **Utilization trends** — historical utilization over time
 - **Payment guidance** — minimum payment, full balance, and statement balance options
-- **Fawry cash-out** — credit card to cash conversion with fee tracking
 
 ## Reports
 

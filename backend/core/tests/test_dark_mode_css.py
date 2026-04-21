@@ -294,15 +294,6 @@ class TestDarkModeEdgeCases:
             "_exchange_form.html missing dark bg — white card on dark page"
         )
 
-    def test_fawry_form_has_dark_bg(self) -> None:
-        """Fawry cashout form must have dark background."""
-        html = read_template(
-            "backend/transactions/templates/transactions/_fawry_cashout_form.html"
-        )
-        assert "dark:bg-slate-800" in html or "dark:bg-slate-900" in html, (
-            "_fawry_cashout_form.html missing dark bg"
-        )
-
     def test_quick_transfer_heading_has_dark_text(self) -> None:
         """Quick transfer heading (slate-800) must be visible in dark mode."""
         html = read_template(
