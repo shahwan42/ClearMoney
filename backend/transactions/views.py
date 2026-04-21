@@ -782,25 +782,43 @@ def quick_entry_create(
         att_err = _validate_attachment(attachment)
         if att_err:
             return error_response(att_err)
-        data = {
-            "type": request.POST.get("type", ""),
-            "amount": request.POST.get("amount", "0"),
-            "account_id": request.POST.get("account_id", ""),
-            "category_id": request.POST.get("category_id", ""),
-            "note": request.POST.get("note", ""),
-            "date": request.POST.get("date", ""),
-            "tags": request.POST.get("tags", ""),
-            "attachment": attachment,
-        }
-        tx, _ = svc.create(data)
 
-        # Handle fee and VA allocation via service helper
-        svc.apply_post_create_logic(
-            tx,
-            fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
-            va_id=request.POST.get("virtual_account_id"),
-            tx_date=data.get("date"),
-        )
+        tx_type = request.POST.get("type", "")
+        amount_str = request.POST.get("amount", "0")
+        amount = parse_float_or_none(amount_str)
+
+        if tx_type == "transfer":
+            if not amount:
+                return error_response("Amount is required", field="amount")
+            svc.create_transfer(
+                source_id=request.POST.get("account_id", ""),
+                dest_id=request.POST.get("dest_account_id", ""),
+                amount=amount,
+                currency=request.POST.get("currency"),
+                note=request.POST.get("note") or None,
+                tx_date=request.POST.get("date") or None,
+                fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
+            )
+        else:
+            data = {
+                "type": tx_type,
+                "amount": amount_str,
+                "account_id": request.POST.get("account_id", ""),
+                "category_id": request.POST.get("category_id", ""),
+                "note": request.POST.get("note", ""),
+                "date": request.POST.get("date", ""),
+                "tags": request.POST.get("tags", ""),
+                "attachment": attachment,
+            }
+            tx, _ = svc.create(data)
+
+            # Handle fee and VA allocation via service helper
+            svc.apply_post_create_logic(
+                tx,
+                fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
+                va_id=request.POST.get("virtual_account_id"),
+                tx_date=data.get("date"),
+            )
 
         # Render success screen with Done/Add Another buttons
         response = render(request, "transactions/_quick_entry_success.html")

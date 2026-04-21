@@ -16,15 +16,21 @@
         <legend class="sr-only">{% trans "Transaction type" %}</legend>
         <div class="flex gap-2">
             <label class="flex-1">
-                <input type="radio" name="type" value="expense" checked class="peer sr-only">
-                <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-200 rounded-xl py-3 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
+                <input type="radio" name="type" value="expense" checked class="peer sr-only" onchange="qeToggleType('expense')">
+                <div class="peer-checked:bg-red-50 peer-checked:border-red-400 peer-checked:text-red-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
                     {% trans "Expense" %}
                 </div>
             </label>
             <label class="flex-1">
-                <input type="radio" name="type" value="income" class="peer sr-only">
-                <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-200 rounded-xl py-3 min-h-[44px] text-center text-sm font-medium cursor-pointer transition-all flex items-center justify-center">
+                <input type="radio" name="type" value="income" class="peer sr-only" onchange="qeToggleType('income')">
+                <div class="peer-checked:bg-teal-50 peer-checked:border-teal-400 peer-checked:text-teal-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
                     {% trans "Income" %}
+                </div>
+            </label>
+            <label class="flex-1">
+                <input type="radio" name="type" value="transfer" class="peer sr-only" onchange="qeToggleType('transfer')">
+                <div class="peer-checked:bg-blue-50 peer-checked:border-blue-400 peer-checked:text-blue-700 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
+                    {% trans "Transfer" %}
                 </div>
             </label>
         </div>
@@ -41,7 +47,7 @@
     {# On tablet+, account and category display side-by-side #}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-account-select">{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-account-select" id="qe-account-label">{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span></label>
             <select name="account_id" required
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
                 id="qe-account-select">
@@ -52,7 +58,7 @@
             </select>
         </div>
 
-        <div>
+        <div id="qe-category-container">
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="qe-category-label">{% trans "Category" %}</label>
             <div data-category-combobox
                  data-categories='{{ categories|categories_json }}'
@@ -62,6 +68,17 @@
                  data-allow-empty="true"
                  id="qe-category-combobox">
             </div>
+        </div>
+
+        <div id="qe-dest-account-container" class="hidden">
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-dest-account-select">{% trans "To Account" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+            <select name="dest_account_id" id="qe-dest-account-select"
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                <option value="">{% trans "Select destination..." %}</option>
+                {% for acc in accounts %}
+                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                {% endfor %}
+            </select>
         </div>
     </div>
 
@@ -76,7 +93,7 @@
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
-    <div>
+    <div id="qe-tags-container">
         <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-tags-input">{% trans "Tags (comma-separated)" %}</label>
         <input type="text" name="tags" id="qe-tags-input" maxlength="500" placeholder="{% trans "vacation, wedding..." %}"
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
@@ -87,7 +104,7 @@
         aria-expanded="false" aria-controls="qe-more-options"
         class="text-sm text-teal-600 hover:text-teal-800 font-medium flex items-center gap-1 transition-colors min-h-[44px]">
         <svg id="qe-more-options-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
         </svg>
         {% trans "More options" %}<span id="qe-more-options-date-hint" class="text-gray-400 font-normal"></span>
     </button>
@@ -108,7 +125,7 @@
         </div>
 
         {% if virtual_accounts %}
-        <div>
+        <div id="qe-va-container">
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-va-select">{% trans "Virtual Account (optional)" %}</label>
             <select name="virtual_account_id" id="qe-va-select"
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
@@ -123,7 +140,7 @@
 
     <button type="submit"
         class="relative w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
-        <span class="btn-label">{% trans "Save" %}</span>
+        <span class="btn-label" id="qe-submit-label">{% trans "Save" %}</span>
         <span class="btn-spinner hidden">
             <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -134,6 +151,38 @@
 </form>
 
 <script>
+/**
+ * Toggle between Transaction (Expense/Income) and Transfer modes.
+ */
+function qeToggleType(mode) {
+    var isTransfer = (mode === 'transfer');
+    
+    // Toggle containers
+    document.getElementById('qe-category-container').classList.toggle('hidden', isTransfer);
+    document.getElementById('qe-tags-container').classList.toggle('hidden', isTransfer);
+    document.getElementById('qe-dest-account-container').classList.toggle('hidden', !isTransfer);
+    
+    var vaCont = document.getElementById('qe-va-container');
+    if (vaCont) vaCont.classList.toggle('hidden', isTransfer);
+
+    // Toggle required status
+    var destSelect = document.getElementById('qe-dest-account-select');
+    if (destSelect) destSelect.required = isTransfer;
+
+    // Update labels
+    var acctLabel = document.getElementById('qe-account-label');
+    if (acctLabel) {
+        acctLabel.innerHTML = isTransfer 
+            ? '{% trans "From Account" %} <span class="text-red-500" aria-hidden="true">*</span>'
+            : '{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span>';
+    }
+
+    var submitLabel = document.getElementById('qe-submit-label');
+    if (submitLabel) {
+        submitLabel.textContent = isTransfer ? '{% trans "Transfer Money" %}' : '{% trans "Save" %}';
+    }
+}
+
 (function() {
     // More options toggle — swaps hidden date input ↔ visible date picker
     var qeToggle = document.getElementById('qe-more-options-toggle');

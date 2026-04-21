@@ -766,6 +766,42 @@ class TestQuickEntryViews:
         # Date picker is inside the panel
         today = date.today().isoformat()
         assert f'value="{today}"' in content
+        # Type selection includes Transfer
+        assert 'value="transfer"' in content
+        assert 'qeToggleType' in content
+
+    def test_quick_entry_transfer_success(self, client, tx_view_data):
+        """POST /transactions/quick with type=transfer creates two legs."""
+        # Create a second account for destination
+        dest_acct = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="USD Savings",
+            currency="EGP",  # same currency for simple transfer
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "transfer",
+                "amount": "1000",
+                "account_id": tx_view_data["egp_id"],
+                "dest_account_id": str(dest_acct.id),
+                "currency": "EGP",
+                "note": "Quick transfer test",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert resp.status_code == 200
+        assert b"Transaction saved!" in resp.content
+        
+        # Verify both legs created
+        txs = Transaction.objects.filter(note="Quick transfer test")
+        assert txs.count() == 2
+        # One debit, one credit
+        assert any(t.amount == 1000 for t in txs)
+        assert any(str(t.account_id) == tx_view_data["egp_id"] for t in txs)
+        assert any(str(t.account_id) == str(dest_acct.id) for t in txs)
 
     def test_quick_transfer_form(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -1003,6 +1039,28 @@ class TestQuickEntryOOBSwaps:
         )
         content = resp.content.decode()
         # Verify both OOB swaps are present for income
+        assert 'id="dashboard-net-worth"' in content
+        assert 'id="dashboard-accounts"' in content
+        assert 'hx-swap-oob="true"' in content
+        assert 'hx-trigger="load"' in content
+
+    def test_quick_transfer_triggers_oob(self, client, tx_view_data):
+        dest_acct = AccountFactory(
+            user_id=tx_view_data["user_id"], institution_id=tx_view_data["inst_id"]
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        resp = c.post(
+            "/transactions/quick",
+            {
+                "type": "transfer",
+                "amount": "1000",
+                "account_id": tx_view_data["egp_id"],
+                "dest_account_id": str(dest_acct.id),
+                "currency": "EGP",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        content = resp.content.decode()
         assert 'id="dashboard-net-worth"' in content
         assert 'id="dashboard-accounts"' in content
         assert 'hx-swap-oob="true"' in content

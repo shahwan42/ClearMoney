@@ -56,26 +56,6 @@
             </svg>
         </button>
     </div>
-    <div class="flex gap-2 px-4 mb-3" id="quick-entry-tabs">
-        <button type="button"
-            class="flex-1 py-3 text-sm font-medium text-center rounded-lg border bg-teal-50 text-teal-700 border-teal-200"
-            id="tab-transaction"
-            hx-get="/transactions/quick-form"
-            hx-target="#quick-entry-content"
-            hx-swap="innerHTML"
-            onclick="setQuickEntryTab('transaction')">
-            {% trans "Transaction" %}
-        </button>
-        <button type="button"
-            class="flex-1 py-3 text-sm font-medium text-center rounded-lg border bg-gray-50 text-gray-500 border-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600"
-            id="tab-move"
-            hx-get="/transactions/quick-move"
-            hx-target="#quick-entry-content"
-            hx-swap="innerHTML"
-            onclick="setQuickEntryTab('move')">
-            {% trans "Move Money" %}
-        </button>
-    </div>
     <div id="quick-entry-content" class="px-4 pb-6"></div>
 </div>
 
