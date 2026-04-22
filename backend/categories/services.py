@@ -25,8 +25,6 @@ from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
 
-VALID_CATEGORY_TYPES = {"expense", "income"}
-
 _FIELDS = (
     "id",
     "user_id",

@@ -43,7 +43,6 @@ class AccountSummary:
     is_dormant: bool
     is_credit_type: bool
     available_credit: float | None
-    role_tags: list
     display_order: int
     metadata: dict | None
     health_config: dict | None

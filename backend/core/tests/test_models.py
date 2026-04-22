@@ -89,26 +89,3 @@ class TestVirtualAccountProgressPct:
             target_amount=None,
         )
         assert va.progress_pct() == 0.0
-
-
-@pytest.mark.django_db
-class TestInvestmentValuation:
-    """Investment.valuation() -> float"""
-
-    def test_basic_valuation(self) -> None:
-        user = UserFactory()
-        inv = InvestmentFactory(
-            user_id=user.id,
-            units=Decimal("10.0"),
-            last_unit_price=Decimal("50.0"),
-        )
-        assert inv.valuation() == 500.0
-
-    def test_zero_units(self) -> None:
-        user = UserFactory()
-        inv = InvestmentFactory(
-            user_id=user.id,
-            units=Decimal("0"),
-            last_unit_price=Decimal("50.0"),
-        )
-        assert inv.valuation() == 0.0

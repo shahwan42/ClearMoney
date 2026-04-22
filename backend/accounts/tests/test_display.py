@@ -3,7 +3,6 @@
 from decimal import Decimal
 
 from accounts.display import (
-    cap_progress_percentage,
     get_balance_color_class,
     get_utilization_color_hex,
     get_your_money_color_class,
@@ -90,29 +89,3 @@ class TestGetUtilizationColorHex:
         """Over-limit utilization (e.g., 150%) returns red."""
         result = get_utilization_color_hex(150.0)
         assert result == "#ef4444"
-
-
-class TestCapProgressPercentage:
-    """Test cap_progress_percentage helper."""
-
-    def test_percentage_under_100_returns_unchanged(self) -> None:
-        """Percentages under 100 are returned unchanged."""
-        assert cap_progress_percentage(50.0) == 50.0
-        assert cap_progress_percentage(99.9) == 99.9
-
-    def test_exactly_100_returns_100(self) -> None:
-        """Exactly 100% is returned unchanged."""
-        assert cap_progress_percentage(100.0) == 100.0
-
-    def test_percentage_over_100_is_capped(self) -> None:
-        """Percentages over 100 are capped at 100."""
-        assert cap_progress_percentage(120.0) == 100.0
-        assert cap_progress_percentage(200.5) == 100.0
-
-    def test_zero_percentage_returns_zero(self) -> None:
-        """Zero percentage is returned unchanged."""
-        assert cap_progress_percentage(0.0) == 0.0
-
-    def test_negative_percentage_returned_unchanged(self) -> None:
-        """Negative percentages are returned unchanged (edge case)."""
-        assert cap_progress_percentage(-10.0) == -10.0

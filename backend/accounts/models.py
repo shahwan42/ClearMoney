@@ -7,7 +7,6 @@ belongs in the accounts domain.
 
 import uuid
 
-from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models import Func
 from django.db.models.functions import Now
@@ -78,10 +77,8 @@ class Account(models.Model):
         max_digits=15, decimal_places=2, null=True, blank=True
     )
     is_dormant = models.BooleanField(default=False, db_default=False)
-    role_tags = ArrayField(
-        models.CharField(max_length=100), default=list, blank=True, null=True
-    )
     display_order = models.IntegerField(default=0, db_default=0)
+
     metadata = models.JSONField(null=True, blank=True)  # JSONB: billing cycle, etc.
     health_config = models.JSONField(
         null=True, blank=True

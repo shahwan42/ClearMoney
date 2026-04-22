@@ -286,11 +286,6 @@ WALLET_EXAMPLES: list[dict[str, str]] = [
 ]
 
 
-def is_image_icon(icon: str) -> bool:
-    """Return True if icon is an image filename (.png or .svg), False for emoji."""
-    return isinstance(icon, str) and icon.endswith((".png", ".svg"))
-
-
 # ---------------------------------------------------------------------------
 # Reverse lookup: stored DB value → full display name
 # e.g. "CIB" → "CIB - Commercial International Bank", "BM" → "Banque Misr"

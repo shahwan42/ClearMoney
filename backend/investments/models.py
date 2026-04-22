@@ -35,7 +35,3 @@ class Investment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.platform} — {self.fund_name}"
-
-    def valuation(self) -> float:
-        """units * last_unit_price."""
-        return float(self.units) * float(self.last_unit_price)

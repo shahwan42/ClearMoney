@@ -66,19 +66,3 @@ def get_utilization_color_hex(utilization_pct: float) -> str:
     if utilization_pct > 50:
         return "#f59e0b"  # amber-400
     return "#10b981"  # emerald-600
-
-
-def cap_progress_percentage(pct: float) -> float:
-    """
-    Cap a progress percentage at 100% for progress bar display.
-
-    Prevents progress bars from overflowing when actual progress exceeds target.
-    Common use case: virtual account balance exceeds target amount.
-
-    Args:
-        pct: Progress percentage (can be > 100)
-
-    Returns:
-        Capped percentage: min(pct, 100.0)
-    """
-    return min(pct, 100.0)

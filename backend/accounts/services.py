@@ -259,7 +259,6 @@ class AccountService:
         "initial_balance",
         "credit_limit",
         "is_dormant",
-        "role_tags",
         "display_order",
         "metadata",
         "health_config",
@@ -392,7 +391,6 @@ class AccountService:
             initial_balance=initial_balance,
             credit_limit=credit_limit,
             is_dormant=False,
-            role_tags=[],
             display_order=0,
             metadata={},
         )
@@ -891,7 +889,6 @@ class AccountService:
             initial_balance=float(row["initial_balance"]),
             credit_limit=credit_limit,
             is_dormant=row["is_dormant"],
-            role_tags=row["role_tags"] or [],
             display_order=row["display_order"],
             metadata=metadata,
             health_config=health_config,

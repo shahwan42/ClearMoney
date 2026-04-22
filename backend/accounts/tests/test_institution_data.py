@@ -13,8 +13,8 @@ from accounts.institution_data import (
     EGYPTIAN_FINTECHS,
     WALLET_EXAMPLES,
     get_display_name,
-    is_image_icon,
 )
+from core.templatetags.money import is_image_icon
 
 
 class TestInstitutionPresets:
