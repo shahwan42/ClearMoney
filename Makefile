@@ -64,17 +64,19 @@ clean:
 	rm -rf backend/staticfiles/ backend/locale/*/LC_MESSAGES/*.mo
 	rm -rf backend/staticfiles/
 
+COMPOSE := $(shell command -v docker-compose 2> /dev/null || echo "docker compose")
+
 # Start all Docker services in detached mode.
 up:
-	docker compose up -d --build
+	$(COMPOSE) up -d --build
 
 # Stop and remove all Docker containers.
 down:
-	docker compose down
+	$(COMPOSE) down
 
 # Stream logs from all Docker containers.
 logs:
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
 # Check if any account balances are out of sync with transaction history.
 reconcile:
