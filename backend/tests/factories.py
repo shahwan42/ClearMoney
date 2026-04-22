@@ -284,10 +284,6 @@ class UserConfigFactory(factory.django.DjangoModelFactory):
         model = UserConfig
 
     id = factory.LazyFunction(uuid.uuid4)
-    pin_hash = "pbkdf2_sha256$placeholder_hash"
-    session_key = factory.LazyFunction(lambda: str(uuid.uuid4()))
-    failed_attempts = 0
-    locked_until = None
 
 
 class DailySnapshotFactory(factory.django.DjangoModelFactory):

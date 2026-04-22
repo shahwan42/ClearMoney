@@ -30,7 +30,7 @@ class AuthTokenAdmin(admin.ModelAdmin):
 
 @admin.register(UserConfig)
 class UserConfigAdmin(admin.ModelAdmin):
-    list_display = ["id", "failed_attempts", "locked_until", "created_at"]
+    list_display = ["id", "created_at"]
     readonly_fields = ["id", "created_at", "updated_at"]
 
 
