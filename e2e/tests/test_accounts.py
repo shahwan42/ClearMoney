@@ -198,3 +198,36 @@ class TestAccounts:
         # (Full drag-and-drop test would require implementing reorder drag handlers)
         expect(page.locator("main")).to_contain_text("Current")
         expect(page.locator("main")).to_contain_text("Savings Account")
+
+    def test_edit_account_clear_name_auto_generates(self, page: Page) -> None:
+        """Test that clearing the name in edit mode auto-generates a new name."""
+        create_institution(page, "Auto Bank")
+        page.goto("/accounts")
+        # Add account with custom name
+        page.locator('button[aria-label="Add account to Auto Bank"]').click()
+        sheet_content = page.locator("#create-sheet-content")
+        sheet_content.locator('input[name="name"]').fill("Temporary Name")
+        sheet_content.locator('select[name="type"]').select_option("current")
+        with page.expect_response(lambda r: "/accounts/add" in r.url):
+            sheet_content.locator('button[type="submit"]').click()
+        
+        expect(page.locator("main")).to_contain_text("Temporary Name")
+        
+        # Click the account to go to detail page
+        page.get_by_text("Temporary Name").click()
+        page.wait_for_url(re.compile(r"/accounts/.*"))
+        
+        # Click Edit button - use more specific selector to avoid ambiguity with transaction row kebab edit
+        page.locator('button[onclick="openEditAccount()"]').click()
+        
+        # In edit form, clear the name
+        edit_sheet = page.locator("#edit-account-content")
+        edit_sheet.locator('input[name="name"]').wait_for(state="visible")
+        edit_sheet.locator('input[name="name"]').fill("")
+        
+        with page.expect_response(lambda r: "/edit" in r.url):
+            edit_sheet.locator('button[type="submit"]').click()
+            
+        # Should redirect back to detail page with auto-generated name
+        # "Auto Bank - Current"
+        expect(page.locator("main")).to_contain_text("Auto Bank - Current")

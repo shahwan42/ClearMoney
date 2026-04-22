@@ -417,11 +417,21 @@ class AccountService:
 
     def update(self, account_id: str, data: dict[str, Any]) -> AccountSummary | None:
         """Update account fields (not balance). Returns updated record or None."""
-        name = _require_trimmed_name(data.get("name", ""), "account name")
+        raw_name = (data.get("name", "") or "").strip()
         acc_type = data.get("type", "current")
         currency = data.get("currency", "EGP")
         credit_limit = data.get("credit_limit")
         now = django_tz.now()
+
+        if raw_name:
+            name = raw_name
+        else:
+            # Auto-generate name from institution + type if left blank
+            account = self._qs().filter(id=account_id).select_related("institution").first()
+            if not account:
+                return None
+            type_label = ACCOUNT_TYPE_LABELS.get(acc_type, acc_type)
+            name = f"{account.institution.name} - {type_label}"
 
         updated = (
             self._qs()
