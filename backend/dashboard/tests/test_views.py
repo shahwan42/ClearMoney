@@ -128,12 +128,15 @@ def test_recent_transactions_contains_data(client, dashboard_data):
 
 @pytest.mark.django_db
 def test_recent_transactions_rows_have_no_card_styling(client, dashboard_data):
-    # gap: functional — compact=True removes bg-white/rounded-xl/shadow-sm card classes
+    # gap: functional — compact=True removes bg-white/rounded-xl/shadow-sm card classes from ROWS
     cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
     response = client.get("/partials/recent-transactions", **cookie)
     content = response.content.decode()
-    # shadow-sm only appears on card-style rows, not compact rows
-    assert "shadow-sm" not in content
+    # The section container HAS shadow-sm now, but the rows should NOT have it.
+    # We verify that shadow-sm is NOT present multiple times (i.e. not on rows).
+    # Each transaction row would have added one shadow-sm if not compact.
+    # There are 3 transactions in dashboard_data + 1 container = 4 if bug exists.
+    assert content.count("shadow-sm") == 1
 
 
 @pytest.mark.django_db

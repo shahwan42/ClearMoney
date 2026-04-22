@@ -8,7 +8,7 @@
             <div class="flex items-center gap-2 overflow-hidden flex-1">
                 <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Recording Streak" %}</h2>
                 <div id="summary-streak" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    {{ data.streak.current_streak }} {% trans "day streak" %}
+                    {{ data.streak.consecutive_days }} {% trans "day streak" %}
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -23,15 +23,21 @@
                 <div class="text-3xl">🔥</div>
                 <div>
                     <p class="text-lg font-bold text-slate-800 dark:text-slate-100">
-                        {% blocktrans with days=data.streak.current_streak %}{{ days }} Day Streak{% endblocktrans %}
+                        {% blocktrans with days=data.streak.consecutive_days %}{{ days }} Day Streak{% endblocktrans %}
                     </p>
-                    <p class="text-xs text-gray-500 dark:text-slate-400">
-                        {% if data.streak.recorded_today %}
-                        {% trans "You've recorded today! Keep it up." %}
-                        {% else %}
-                        {% trans "Record a transaction today to maintain your streak." %}
-                        {% endif %}
-                    </p>
+                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+                        <span>
+                            {% if data.streak.active_today %}
+                            {% trans "You've recorded today! Keep it up." %}
+                            {% else %}
+                            {% trans "Record a transaction today to maintain your streak." %}
+                            {% endif %}
+                        </span>
+                        <span class="text-gray-300 dark:text-slate-700">&middot;</span>
+                        <span class="font-medium text-teal-600 dark:text-teal-400">
+                            {% blocktrans with count=data.streak.weekly_count %}{{ count }} this week{% endblocktrans %}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>

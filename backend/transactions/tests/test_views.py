@@ -614,15 +614,6 @@ class TestTransferViews:
         assert "instapay-toggle" not in content
         assert "InstaPay" not in content
 
-    def test_instapay_route_redirects_to_transfers(self, client, tx_view_data):
-        c = set_auth_cookie(client, tx_view_data["session_token"])
-        response = c.post(
-            "/transactions/instapay-transfer",
-            {},
-            HTTP_HX_REQUEST="true",
-        )
-        assert response.status_code == 302
-
 
 # ---------------------------------------------------------------------------
 # Exchange

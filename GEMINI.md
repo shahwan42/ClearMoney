@@ -100,6 +100,20 @@ symbols = basedpyright.document_symbols("core/models.py")
 - Materialized views: `mv_monthly_category_totals`, `mv_daily_tx_counts`
 - Startup jobs (`run_startup_jobs`): cleanup_sessions → process_recurring → reconcile_balances → refresh_views → take_snapshots
 
+## Testing
+
+### Unit Tests
+Run from the `backend/` directory or use `make test`.
+```bash
+make test
+```
+
+### E2E Tests
+Run from the root using `make test-e2e`. The E2E environment is isolated from Django (it spawns its own server); `pytest-django` is explicitly disabled in `e2e/pyproject.toml` to prevent `ImportError: No module named clearmoney`.
+```bash
+make test-e2e
+```
+
 ## Git Workflow
 
 See `.gemini/rules/git-workflow.md` for:

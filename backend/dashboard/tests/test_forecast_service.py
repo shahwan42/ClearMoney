@@ -152,7 +152,7 @@ class TestCalculateForecast:
                 forecast_data, type="income", amount=10000.0, note="Salary"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=date.today() + timedelta(days=1),
             is_active=True,
             auto_confirm=False,
         )
@@ -164,7 +164,7 @@ class TestCalculateForecast:
                 forecast_data, type="expense", amount=2000.0, note="Rent"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=10),
+            next_due_date=date.today() + timedelta(days=2),
             is_active=True,
             auto_confirm=False,
         )
