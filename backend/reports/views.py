@@ -17,7 +17,7 @@ except Exception:
     HTML = None
 
 from budgets.services import BudgetService
-from auth_app.currency import get_user_selected_display_currency
+from auth_app.currency import resolve_user_currency_choice
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from reports.services import get_monthly_report
@@ -38,9 +38,12 @@ def reports_page(request: AuthenticatedRequest) -> HttpResponse:
     month = int(month_str) if month_str.isdigit() else now.month
 
     account_id = request.GET.get("account_id", "")
-    currency = request.GET.get("currency", "") or get_user_selected_display_currency(
-        request.user_id
-    )
+    try:
+        currency = resolve_user_currency_choice(
+            request.user_id, request.GET.get("currency", "")
+        )
+    except ValueError as exc:
+        return HttpResponse(str(exc), status=400)
 
     months = 6
     months_str = request.GET.get("months", "")
@@ -72,9 +75,12 @@ def export_pdf_report(request: AuthenticatedRequest) -> HttpResponse:
     month = int(month_str) if month_str.isdigit() else now.month
 
     account_id = request.GET.get("account_id", "")
-    currency = request.GET.get("currency", "") or get_user_selected_display_currency(
-        request.user_id
-    )
+    try:
+        currency = resolve_user_currency_choice(
+            request.user_id, request.GET.get("currency", "")
+        )
+    except ValueError as exc:
+        return HttpResponse(str(exc), status=400)
 
     # Always use 6 months for trends in PDF
     report_data = get_monthly_report(

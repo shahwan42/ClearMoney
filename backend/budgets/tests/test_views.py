@@ -11,11 +11,15 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.test import Client
 
+from auth_app.currency import (
+    set_user_active_currencies,
+    set_user_selected_display_currency,
+)
 from auth_app.models import Session, User
 from budgets.services import BudgetService
 from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.middleware import COOKIE_NAME
-from tests.factories import CategoryFactory
+from tests.factories import CategoryFactory, CurrencyFactory
 
 
 @pytest.fixture
@@ -71,6 +75,20 @@ class TestBudgetsPage:
         assert response.status_code == 200
         assert b"Groceries" in response.content
         assert b"Transport" in response.content
+
+    def test_total_budget_form_defaults_to_selected_display_currency(
+        self, client, budget_view_data
+    ):
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(budget_view_data["user_id"], ["EGP", "EUR"])
+        set_user_selected_display_currency(budget_view_data["user_id"], "EUR")
+
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        response = c.get("/budgets")
+
+        assert response.status_code == 200
+        assert b'name="currency" value="EUR"' in response.content
 
     def test_unauthenticated_redirects(self, client):
         response = client.get("/budgets")
@@ -153,6 +171,42 @@ class TestBudgetAdd:
                 "currency": "EGP",
             },
         )
+        assert response.status_code == 400
+
+    def test_accepts_active_non_default_currency(self, client, budget_view_data):
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(budget_view_data["user_id"], ["EGP", "EUR"])
+
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        response = c.post(
+            "/budgets/add",
+            {
+                "category_id": budget_view_data["cat1_id"],
+                "monthly_limit": "3000",
+                "currency": "EUR",
+            },
+        )
+
+        assert response.status_code == 302
+        page = c.get("/budgets")
+        assert b"EUR" in page.content
+
+    def test_rejects_inactive_currency(self, client, budget_view_data):
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(budget_view_data["user_id"], ["EGP"])
+
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        response = c.post(
+            "/budgets/add",
+            {
+                "category_id": budget_view_data["cat1_id"],
+                "monthly_limit": "3000",
+                "currency": "EUR",
+            },
+        )
+
         assert response.status_code == 400
 
 
@@ -379,6 +433,24 @@ class TestTotalBudgetViews:
                 "currency": "EGP",
             },
         )
+        assert resp.status_code == 400
+
+    def test_set_total_budget_rejects_inactive_currency(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(budget_view_data["user_id"], ["EGP"])
+
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        resp = c.post(
+            "/budgets/total/set",
+            {
+                "monthly_limit": "15000",
+                "currency": "EUR",
+            },
+        )
+
         assert resp.status_code == 400
 
     def test_total_budget_has_aria_progressbar(

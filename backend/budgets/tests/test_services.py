@@ -11,12 +11,17 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from auth_app.currency import (
+    set_user_active_currencies,
+    set_user_selected_display_currency,
+)
 from budgets.services import BudgetService
 from conftest import SessionFactory, UserFactory
 from tests.factories import (
     AccountFactory,
     BudgetFactory,
     CategoryFactory,
+    CurrencyFactory,
     InstitutionFactory,
     TransactionFactory,
 )
@@ -42,6 +47,12 @@ def budget_data(db):
 
 def _svc(user_id: str) -> BudgetService:
     return BudgetService(user_id, TZ)
+
+
+def _enable_currencies(user_id: str, *codes: str) -> None:
+    for index, code in enumerate(codes):
+        CurrencyFactory(code=code, name=code, display_order=index)
+    set_user_active_currencies(user_id, list(codes))
 
 
 # ---------------------------------------------------------------------------
@@ -145,10 +156,13 @@ class TestBudgetCreate:
         assert result["is_active"] is True
 
     def test_defaults_currency_to_egp(self, budget_data):
+        _enable_currencies(budget_data["user_id"], "EGP", "EUR")
+        set_user_selected_display_currency(budget_data["user_id"], "EUR")
+
         svc = _svc(budget_data["user_id"])
         result = svc.create(budget_data["cat1_id"], 1000.0, "")
 
-        assert result["currency"] == "EGP"
+        assert result["currency"] == "EUR"
 
     def test_missing_category_raises(self, budget_data):
         svc = _svc(budget_data["user_id"])
@@ -175,6 +189,8 @@ class TestBudgetCreate:
                 svc.create(budget_data["cat1_id"], 2000.0, "EGP")
 
     def test_same_category_different_currency_ok(self, budget_data):
+        _enable_currencies(budget_data["user_id"], "EGP", "USD")
+
         svc = _svc(budget_data["user_id"])
         svc.create(budget_data["cat1_id"], 1000.0, "EGP")
         result = svc.create(budget_data["cat1_id"], 500.0, "USD")
@@ -612,6 +628,7 @@ class TestTotalBudgetService:
 
     def test_different_currencies_independent(self, db: None) -> None:
         user = UserFactory()
+        _enable_currencies(str(user.id), "EGP", "USD")
         svc = _svc(str(user.id))
         svc.set_total_budget(Decimal("15000"), "EGP")
         svc.set_total_budget(Decimal("500"), "USD")

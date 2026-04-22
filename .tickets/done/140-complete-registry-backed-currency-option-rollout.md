@@ -3,7 +3,7 @@ id: "140"
 title: "Complete registry-backed currency option rollout"
 type: improvement
 priority: high
-status: pending
+status: done
 created: 2026-04-22
 updated: 2026-04-22
 ---
@@ -27,11 +27,11 @@ depends on a fixed two-currency option list.
 
 ## Acceptance Criteria
 
-- [ ] No editable currency selector is hard-coded to `EGP` / `USD`
-- [ ] No hidden form field silently forces `EGP` when user choice is expected
-- [ ] Account-adjacent and settings-adjacent forms support a third active currency
-- [ ] Validation rejects inactive currencies for user-selectable inputs
-- [ ] Remaining fixed-currency paths are either removed or explicitly documented
+- [x] No editable currency selector is hard-coded to `EGP` / `USD`
+- [x] No hidden form field silently forces `EGP` when user choice is expected
+- [x] Account-adjacent and settings-adjacent forms support a third active currency
+- [x] Validation rejects inactive currencies for user-selectable inputs
+- [x] Remaining fixed-currency paths are either removed or explicitly documented
 
 ## Critical Files
 
@@ -48,10 +48,13 @@ depends on a fixed two-currency option list.
 
 ## Unit Tests
 
-- Account validation accepts active non-USD/EGP currencies
-- User-selectable forms reject inactive currencies
-- View defaults prefer active or selected currencies instead of hard-coded values
-- Regression coverage for any remaining legacy FX-only branches
+- Account, budget, investment, and report currency validation accepts active
+  non-USD/EGP currencies and rejects inactive ones
+- Budget and investment defaults now follow the user's selected display
+  currency rather than a hard-coded fallback
+- Report filters reject inactive currencies and default to the selected display
+  currency when omitted
+- Full backend regression suite remains green after the rollout
 
 ## E2E Tests
 
@@ -60,6 +63,9 @@ depends on a fixed two-currency option list.
 - Navigate forms that previously defaulted to `EGP` and confirm they now honor
   active currencies or user selection
 
+Not added in this ticket. Existing automated coverage was extended at the unit /
+view layer and the full backend test suite was run successfully.
+
 ## Dependencies
 
 - Depends on `#139`
@@ -67,4 +73,12 @@ depends on a fixed two-currency option list.
 ## Progress Notes
 
 - 2026-04-22: Created after `#139` to finish the registry-backed option rollout
-
+- 2026-04-22: Replaced remaining user-selectable `EGP` fallbacks in budget,
+  investment, and report flows with active-currency-aware resolution tied to
+  the selected display currency when no explicit choice is submitted
+- 2026-04-22: Added validation so budgets, investments, and reports reject
+  inactive user-selectable currencies instead of silently accepting or
+  defaulting them
+- 2026-04-22: Verified with targeted currency rollout pytest coverage,
+  `python backend/manage.py makemigrations --check --dry-run`, and full backend
+  `pytest -q` with 1531 tests passing

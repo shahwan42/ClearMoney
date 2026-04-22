@@ -21,6 +21,7 @@ from django.db.models import DecimalField, OuterRef, Subquery, Sum
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Coalesce
 
+from auth_app.currency import resolve_user_currency_choice
 from budgets.models import Budget, TotalBudget
 from budgets.types import BudgetWithSpending
 from core.dates import month_range
@@ -245,7 +246,7 @@ class BudgetService:
         self,
         category_id: str,
         monthly_limit: float,
-        currency: str = "EGP",
+        currency: str = "",
         rollover_enabled: bool = False,
         max_rollover: float | None = None,
     ) -> dict[str, Any]:
@@ -254,8 +255,7 @@ class BudgetService:
             raise ValueError("Category is required")
         if monthly_limit <= 0:
             raise ValueError("Monthly limit must be positive")
-        if not currency:
-            currency = "EGP"
+        currency = resolve_user_currency_choice(self.user_id, currency)
 
         budget = Budget.objects.create(
             user_id=self.user_id,
@@ -347,8 +347,9 @@ class BudgetService:
         count, _ = self._qs().filter(id=budget_id).delete()
         return bool(count > 0)
 
-    def get_total_budget(self, currency: str = "EGP") -> dict[str, Any] | None:
+    def get_total_budget(self, currency: str = "") -> dict[str, Any] | None:
         """Get the total monthly budget limit for a currency with spending stats."""
+        currency = resolve_user_currency_choice(self.user_id, currency)
         try:
             budget = (
                 TotalBudget.objects.for_user(self.user_id)
@@ -392,10 +393,11 @@ class BudgetService:
             "category_sum_exceeds": category_sum > limit_amt,
         }
 
-    def set_total_budget(self, limit: Decimal, currency: str = "EGP") -> dict[str, Any]:
+    def set_total_budget(self, limit: Decimal, currency: str = "") -> dict[str, Any]:
         """Create or update the total monthly budget limit."""
         if limit <= 0:
             raise ValueError("Monthly limit must be positive")
+        currency = resolve_user_currency_choice(self.user_id, currency)
 
         budget, _ = TotalBudget.objects.update_or_create(
             user_id=self.user_id,
@@ -414,8 +416,9 @@ class BudgetService:
             "currency": budget.currency,
         }
 
-    def delete_total_budget(self, currency: str = "EGP") -> bool:
+    def delete_total_budget(self, currency: str = "") -> bool:
         """Remove the total monthly budget limit for a currency."""
+        currency = resolve_user_currency_choice(self.user_id, currency)
         count, _ = (
             TotalBudget.objects.for_user(self.user_id)
             .filter(currency=currency)

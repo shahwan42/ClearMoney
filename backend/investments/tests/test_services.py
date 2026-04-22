@@ -9,8 +9,13 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from auth_app.currency import (
+    set_user_active_currencies,
+    set_user_selected_display_currency,
+)
 from conftest import SessionFactory, UserFactory
 from investments.services import InvestmentService
+from tests.factories import CurrencyFactory
 
 TZ = ZoneInfo("Africa/Cairo")
 
@@ -47,14 +52,23 @@ class TestCreate:
         assert investments[0]["last_unit_price"] == 10.5
 
     def test_defaults_platform_and_currency(self, inv_data: dict) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(inv_data["user_id"], ["EGP", "EUR"])
+        set_user_selected_display_currency(inv_data["user_id"], "EUR")
+
         svc = _svc(inv_data["user_id"])
         svc.create({"fund_name": "BMF", "units": 50, "unit_price": 20})
 
         investments = svc.get_all()
         assert investments[0]["platform"] == "Thndr"
-        assert investments[0]["currency"] == "EGP"
+        assert investments[0]["currency"] == "EUR"
 
     def test_custom_platform_and_currency(self, inv_data: dict) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="USD", name="US Dollar", display_order=1)
+        set_user_active_currencies(inv_data["user_id"], ["EGP", "USD"])
+
         svc = _svc(inv_data["user_id"])
         svc.create(
             {
@@ -84,6 +98,22 @@ class TestCreate:
         svc = _svc(inv_data["user_id"])
         with pytest.raises(ValueError, match="Unit price"):
             svc.create({"fund_name": "AZG", "units": 10, "unit_price": -5})
+
+    def test_rejects_inactive_currency(self, inv_data: dict) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(inv_data["user_id"], ["EGP"])
+
+        svc = _svc(inv_data["user_id"])
+        with pytest.raises(ValueError, match="Invalid currency: EUR"):
+            svc.create(
+                {
+                    "fund_name": "AZG",
+                    "units": 10,
+                    "unit_price": 10,
+                    "currency": "EUR",
+                }
+            )
 
 
 # ---------------------------------------------------------------------------

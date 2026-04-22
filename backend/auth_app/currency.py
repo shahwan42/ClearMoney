@@ -90,7 +90,20 @@ def get_user_selected_display_currency(user_id: str) -> str:
     return get_or_create_user_currency_preferences(user_id).selected_display_currency
 
 
-def set_user_active_currencies(user_id: str, codes: list[str]) -> UserCurrencyPreference:
+def resolve_user_currency_choice(user_id: str, currency_code: str | None) -> str:
+    """Resolve a user-selectable currency choice to an active currency code."""
+    code = str(currency_code or "").upper().strip()
+    if code:
+        active_codes = get_user_active_currency_codes(user_id)
+        if code not in active_codes:
+            raise ValueError(f"Invalid currency: {code}")
+        return code
+    return get_user_selected_display_currency(user_id)
+
+
+def set_user_active_currencies(
+    user_id: str, codes: list[str]
+) -> UserCurrencyPreference:
     """Replace the user's active currencies, enforcing at least one active code."""
     normalized = _normalize_codes(codes)
     if not normalized:
@@ -121,4 +134,3 @@ def set_user_selected_display_currency(
     prefs.selected_display_currency = code
     prefs.save(update_fields=["selected_display_currency", "updated_at"])
     return prefs
-

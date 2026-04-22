@@ -10,8 +10,10 @@ from typing import Any
 import pytest
 from django.test import Client
 
+from auth_app.currency import set_user_active_currencies
 from conftest import SessionFactory, UserFactory, set_auth_cookie
 from investments.models import Investment
+from tests.factories import CurrencyFactory
 
 
 @pytest.fixture
@@ -122,6 +124,51 @@ class TestInvestmentAdd:
             "/investments/add",
             {"fund_name": "AZG", "units": "0", "unit_price": "10"},
         )
+        assert response.status_code == 400
+
+    def test_accepts_active_non_default_currency(
+        self, client: Client, inv_view_data: dict[str, Any]
+    ) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(inv_view_data["user_id"], ["EGP", "EUR"])
+
+        c = set_auth_cookie(client, inv_view_data["session_token"])
+        response = c.post(
+            "/investments/add",
+            {
+                "platform": "Thndr",
+                "fund_name": "AZG",
+                "units": "50",
+                "unit_price": "12.5",
+                "currency": "EUR",
+            },
+        )
+
+        assert response.status_code in (200, 302)
+
+        investment = Investment.objects.get(user_id=inv_view_data["user_id"])
+        assert investment.currency == "EUR"
+
+    def test_rejects_inactive_currency(
+        self, client: Client, inv_view_data: dict[str, Any]
+    ) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(inv_view_data["user_id"], ["EGP"])
+
+        c = set_auth_cookie(client, inv_view_data["session_token"])
+        response = c.post(
+            "/investments/add",
+            {
+                "platform": "Thndr",
+                "fund_name": "AZG",
+                "units": "50",
+                "unit_price": "12.5",
+                "currency": "EUR",
+            },
+        )
+
         assert response.status_code == 400
 
 

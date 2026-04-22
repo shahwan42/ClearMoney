@@ -6,11 +6,17 @@ from unittest.mock import patch
 
 import pytest
 from django.test import Client
+from django.http import HttpResponse
 
+from auth_app.currency import (
+    set_user_active_currencies,
+    set_user_selected_display_currency,
+)
 from tests.factories import (
     AccountFactory,
     BudgetFactory,
     CategoryFactory,
+    CurrencyFactory,
     InstitutionFactory,
     TransactionFactory,
 )
@@ -142,6 +148,36 @@ class TestReportsPage:
     def test_accepts_currency_filter(self, auth_client: Client) -> None:
         response = auth_client.get("/reports?currency=EGP")
         assert response.status_code == 200
+
+    def test_defaults_to_selected_display_currency(
+        self, auth_client: Client, auth_user: tuple[str, str, str]
+    ) -> None:
+        user_id, _, _ = auth_user
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(user_id, ["EGP", "EUR"])
+        set_user_selected_display_currency(user_id, "EUR")
+
+        with (
+            patch("reports.views.get_monthly_report") as mock_report,
+            patch("reports.views.render") as mock_render,
+        ):
+            mock_render.return_value = HttpResponse("ok")
+            response = auth_client.get("/reports")
+
+        assert response.status_code == 200
+        assert mock_report.call_args.args[4] == "EUR"
+
+    def test_rejects_inactive_currency_filter(
+        self, auth_client: Client, auth_user: tuple[str, str, str]
+    ) -> None:
+        user_id, _, _ = auth_user
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(user_id, ["EGP"])
+
+        response = auth_client.get("/reports?currency=EUR")
+        assert response.status_code == 400
 
     def test_invalid_year_defaults_gracefully(self, auth_client: Client) -> None:
         response = auth_client.get("/reports?year=abc")

@@ -16,6 +16,7 @@ from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 
+from auth_app.currency import resolve_user_currency_choice
 from investments.models import Investment
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ class InvestmentService:
             raise ValueError("Unit price must be positive")
 
         platform = (data.get("platform") or "").strip() or "Thndr"
-        currency = (data.get("currency") or "").strip() or "EGP"
+        currency = resolve_user_currency_choice(self.user_id, data.get("currency"))
 
         inv = Investment.objects.create(
             user_id=self.user_id,

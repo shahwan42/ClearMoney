@@ -70,7 +70,7 @@
     <form method="POST" action="{% url 'total-budget-set' %}" class="flex flex-wrap items-center gap-2"
           hx-post="{% url 'total-budget-set' %}" hx-target="#total-budget-card" hx-swap="outerHTML">
         {% csrf_token %}
-        <input type="hidden" name="currency" value="EGP">
+        <input type="hidden" name="currency" value="{{ total_budget_currency }}">
         <label for="total-limit-new" class="sr-only">{% trans "Monthly total limit" %}</label>
         <input type="number" name="monthly_limit" id="total-limit-new" step="0.01" min="0.01" required
                placeholder="e.g. 15000"
