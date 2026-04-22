@@ -231,6 +231,22 @@ class AuthService:
 
         return self._send_magic_link(email, "login", accept_language=accept_language)
 
+    def request_registration_link(
+        self, email: str, accept_language: str | None = None
+    ) -> tuple[SendResult, str | None]:
+        """Send a magic link to a new user's email for registration."""
+        email = email.strip().lower()
+        if not email:
+            return SendResult.SKIPPED, str(_("Email is required"))
+
+        # Check if user already exists
+        if User.objects.filter(email__iexact=email).exists():
+            return SendResult.SKIPPED, str(_("User already exists"))
+
+        return self._send_magic_link(
+            email, "registration", accept_language=accept_language
+        )
+
     def request_access_link(
         self, email: str, accept_language: str | None = None
     ) -> tuple[SendResult, str | None, bool]:
@@ -245,13 +261,13 @@ class AuthService:
         user_exists = User.objects.filter(email__iexact=email).exists()
 
         if user_exists:
-            result, error = self._send_magic_link(
-                email, "login", accept_language=accept_language
+            result, error = self.request_login_link(
+                email, accept_language=accept_language
             )
             return result, error, False
         else:
-            result, error = self._send_magic_link(
-                email, "registration", accept_language=accept_language
+            result, error = self.request_registration_link(
+                email, accept_language=accept_language
             )
             return result, error, True
 
