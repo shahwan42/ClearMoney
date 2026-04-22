@@ -110,6 +110,20 @@ def django_server() -> Generator[None, None, None]:
         "DATABASE_URL": DB_URL,
         "DJANGO_SETTINGS_MODULE": "clearmoney.settings",
     }
+    _repair_partial_currency_migration_state()
+    migrate = subprocess.run(
+        ["uv", "run", "python", "manage.py", "migrate", "--noinput"],
+        cwd=os.path.join(_BASE_DIR, "backend"),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if migrate.returncode != 0:
+        raise RuntimeError(
+            "Django migrations failed before E2E startup:\n"
+            f"{migrate.stdout}\n{migrate.stderr}"
+        )
+
     proc = subprocess.Popen(
         ["uv", "run", "python", "manage.py", "runserver", "--noreload", "0.0.0.0:8765"],
         cwd=os.path.join(_BASE_DIR, "backend"),
@@ -141,6 +155,26 @@ def _conn() -> psycopg.Connection:
     return psycopg.connect(DB_URL)
 
 
+def _repair_partial_currency_migration_state() -> None:
+    """Remove half-applied auth_app 0007 artifacts before running migrations."""
+    with _conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1
+                FROM django_migrations
+                WHERE app = 'auth_app' AND name = '0007_currency_registry_and_preferences'
+                LIMIT 1
+                """
+            )
+            if cur.fetchone() is not None:
+                conn.commit()
+                return
+            cur.execute("DROP TABLE IF EXISTS user_currency_preferences CASCADE")
+            cur.execute("DROP TABLE IF EXISTS currencies CASCADE")
+        conn.commit()
+
+
 def reset_database() -> str:
     """Truncate all user tables, create the test user, seed 25 categories.
 
@@ -170,6 +204,7 @@ def reset_database() -> str:
                     account_snapshots, daily_snapshots, transactions,
                     accounts, institutions, categories, persons,
                     recurring_rules, investments,
+                    user_currency_preferences,
                     sessions, auth_tokens, user_config, users
                 RESTART IDENTITY CASCADE
             """)
@@ -183,6 +218,28 @@ def reset_database() -> str:
             row = cur.fetchone()
             assert row is not None
             user_id: str = str(row[0])
+
+            cur.execute(
+                "SELECT code FROM currencies WHERE is_enabled = TRUE ORDER BY display_order, code"
+            )
+            active_currency_codes = [str(row[0]) for row in cur.fetchall()]
+            if not active_currency_codes:
+                active_currency_codes = ["EGP"]
+            selected_display_currency = (
+                "EGP"
+                if "EGP" in active_currency_codes
+                else active_currency_codes[0]
+            )
+            cur.execute(
+                "INSERT INTO user_currency_preferences"
+                " (user_id, active_currency_codes, selected_display_currency)"
+                " VALUES (%s, %s, %s)",
+                (
+                    user_id,
+                    json.dumps(active_currency_codes),
+                    selected_display_currency,
+                ),
+            )
 
             expense_categories = [
                 "Food & Dining",

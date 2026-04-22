@@ -8,7 +8,7 @@
         <form method="POST" action="{% url 'total-budget-delete' %}" hx-post="{% url 'total-budget-delete' %}" hx-target="#total-budget-card" hx-swap="outerHTML">
             {% csrf_token %}
             <input type="hidden" name="currency" value="{{ total_budget.currency }}">
-            <button type="submit" class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400" aria-label="{% trans "Remove total budget" %}">{% trans "Remove" %}</button>
+            <button type="submit" style="min-height: 44px;" class="inline-flex items-center text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400" aria-label="{% trans "Remove total budget" %}">{% trans "Remove" %}</button>
         </form>
     </div>
     <div class="flex justify-between text-sm mb-1.5">
@@ -40,7 +40,7 @@
                value="{{ total_budget.monthly_limit|floatformat:'2' }}" placeholder="0.00"
                data-validate="required,min:0.01"
                class="flex-1 min-w-[120px] border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-1.5 text-sm">
-        <button type="submit"
+        <button type="submit" style="min-height: 44px;"
                 class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700">
             {% trans "Update" %}
         </button>
@@ -76,7 +76,7 @@
                placeholder="e.g. 15000"
                data-validate="required,min:0.01"
                class="flex-1 min-w-[120px] border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-1.5 text-sm">
-        <button type="submit"
+        <button type="submit" style="min-height: 44px;"
                 class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-teal-700">
             {% trans "Set Total Budget" %}
         </button>

@@ -85,7 +85,11 @@ def test_hint_hidden_when_data_exists(page: Page):
     # Add a person via API or UI
     page.goto("http://localhost:8765/people")
     page.get_by_placeholder("Person name...").fill("John Doe")
-    page.get_by_role("button", name="Add", exact=True).click()
+    with page.expect_response(
+        lambda r: "/people/add" in r.url and r.request.method == "POST"
+    ):
+        page.get_by_role("button", name="Add", exact=True).click()
+    expect(page.locator("#people-list")).to_contain_text("John Doe")
     
     # Reload page
     page.goto("http://localhost:8765/people")

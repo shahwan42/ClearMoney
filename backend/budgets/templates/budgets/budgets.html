@@ -24,7 +24,7 @@
             <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "New Budget" %}</h3>
             <form method="POST" action="{% url 'budget-copy-last-month' %}">
                 {% csrf_token %}
-                <button type="submit" class="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 font-medium">
+                <button type="submit" style="min-height: 44px;" class="inline-flex items-center px-2 text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 font-medium">
                     {% trans "Copy last month" %}
                 </button>
             </form>
