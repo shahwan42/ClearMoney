@@ -6,6 +6,10 @@
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
+    {% if not accounts %}
+    {% include "components/_feature_hint.html" with hint_id="va-hint" hint_key="virtual_accounts" title=_("Virtual Accounts") description=_("Create savings envelopes for your goals") cta_text=_("Got it") %}
+    {% endif %}
+
     <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Virtual Accounts" %}</h2>
         <a href="/" class="flex items-center min-h-[44px] px-1 text-sm text-teal-600 hover:text-teal-700">{% trans "Dashboard" %}</a>

@@ -6,6 +6,10 @@
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
+    {% if not budgets %}
+    {% include "components/_feature_hint.html" with hint_id="budgets-hint" hint_key="budgets" title=_("Budgets") description=_("Set spending limits per category to stay on track") cta_text=_("Got it") %}
+    {% endif %}
+
     <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold text-slate-800 dark:text-white">{% trans "Budgets" %}</h2>
         <a href="/settings" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400">{% trans "Settings" %}</a>

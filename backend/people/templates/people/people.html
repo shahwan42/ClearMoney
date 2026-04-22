@@ -6,6 +6,9 @@
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
+    {% if not data.persons %}
+    {% include "components/_feature_hint.html" with hint_id="people-hint" hint_key="people" title=_("People Tracking") description=_("Track loans and debts with friends and family") cta_text=_("Got it") %}
+    {% endif %}
 
     <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "People" %}</h2>
