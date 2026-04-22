@@ -1762,45 +1762,6 @@ class TestDropdownHelpers:
 
 
 @pytest.mark.django_db
-class TestJSONApiHelpers:
-    def test_get_recent_limit_handling(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        svc.create({"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]})
-        # limit=0 returns 15 implicitly
-        assert len(svc.get_recent(limit=0)) > 0
-        assert len(svc.get_recent(limit=-1)) > 0
-
-    def test_get_by_account_filters(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        svc.create({"type": "expense", "amount": 100, "account_id": tx_data["usd_id"]})
-        res = svc.get_by_account(tx_data["usd_id"])
-        assert len(res) == 1
-        assert res[0]["account_id"] == tx_data["usd_id"]
-        res_limit = svc.get_by_account(tx_data["usd_id"], limit=0)
-        assert len(res_limit) == 1
-
-    def test_dict_from_values(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        import uuid
-        from decimal import Decimal
-
-        uid = uuid.uuid4()
-        row = {
-            "id": uid,
-            "user_id": uid,
-            "amount": Decimal("100.50"),
-            "tags": ["a", "b"],
-            "currency": "USD",
-        }
-        res = svc._dict_from_values(row)
-        assert res["id"] == str(uid)
-        assert res["user_id"] == str(uid)
-        assert res["amount"] == 100.5
-        assert res["tags"] == ["a", "b"]
-        assert res["currency"] == "USD"
-
-
-@pytest.mark.django_db
 class TestApplyPostCreateLogic:
     def test_apply_post_create_logic_with_va(self, tx_data):
         svc = _svc(tx_data["user_id"])

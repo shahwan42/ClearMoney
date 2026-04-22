@@ -324,79 +324,6 @@ class HelperMixin:
             for r in rows
         ]
 
-    # -------------------------------------------------------------------
-    # JSON API — bare transaction lists
-    # -------------------------------------------------------------------
-
-    _BARE_TX_COLS = [
-        "id",
-        "user_id",
-        "type",
-        "amount",
-        "currency",
-        "account_id",
-        "counter_account_id",
-        "category_id",
-        "date",
-        "time",
-        "note",
-        "tags",
-        "exchange_rate",
-        "counter_amount",
-        "person_id",
-        "linked_transaction_id",
-        "recurring_rule_id",
-        "balance_delta",
-        "created_at",
-        "updated_at",
-    ]
-
-    def _dict_from_values(self, row: dict[str, Any]) -> dict[str, Any]:
-        """Convert an ORM .values() dict to the same format as _scan_tx_row.
-
-        Casts UUIDs to str and Decimals to float for JSON-serializable output.
-        """
-        d: dict[str, Any] = {}
-        for col in self._BARE_TX_COLS:
-            val = row.get(col)
-            if col in (
-                "id",
-                "user_id",
-                "account_id",
-                "counter_account_id",
-                "category_id",
-                "person_id",
-                "linked_transaction_id",
-                "recurring_rule_id",
-            ):
-                val = str(val) if val is not None else None
-            elif col in (
-                "amount",
-                "balance_delta",
-                "exchange_rate",
-                "counter_amount",
-            ):
-                val = float(val) if val is not None else None
-            elif col == "tags":
-                val = val if isinstance(val, list) else []
-            d[col] = val
-        return d
-
-    def get_recent(self, limit: int = 15) -> list[dict[str, Any]]:
-        """Bare transaction list (not enriched), for JSON API.
-
-        Returns transactions ordered by date DESC, created_at DESC.
-        """
-        if limit <= 0:
-            limit = 15
-        uid = self.user_id  # type: ignore[attr-defined]
-        rows = (
-            Transaction.objects.for_user(uid)
-            .order_by("-date", "-created_at")
-            .values(*self._BARE_TX_COLS)[:limit]
-        )
-        return [self._dict_from_values(r) for r in rows]
-
     def search(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Global search across transactions for the current user.
 
@@ -507,16 +434,3 @@ class HelperMixin:
             bd = Decimal(balance_delta_raw) if balance_delta_raw is not None else None
             tx["amount_color_class"] = get_tx_amount_color_class(tx.get("type", ""), bd)
         return results
-
-    def get_by_account(self, account_id: str, limit: int = 15) -> list[dict[str, Any]]:
-        """Bare transactions for an account, for JSON API."""
-        if limit <= 0:
-            limit = 15
-        uid = self.user_id  # type: ignore[attr-defined]
-        rows = (
-            Transaction.objects.for_user(uid)
-            .filter(account_id=account_id)
-            .order_by("-date", "-created_at")
-            .values(*self._BARE_TX_COLS)[:limit]
-        )
-        return [self._dict_from_values(r) for r in rows]
