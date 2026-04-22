@@ -63,7 +63,6 @@ urlpatterns = [
         views.exchange_create,
         name="transaction-exchange-create",
     ),
-    path("transactions/instapay-transfer", views.instapay_transfer_create),
     # --- Detail / Edit Views ---
     path(
         "transactions/edit/<uuid:tx_id>",

@@ -3,9 +3,8 @@ id: "126"
 title: "Dead payment methods: create_instapay_transfer, create_fawry_cashout"
 type: chore
 priority: medium
-status: pending
-created: 2026-04-18
-updated: 2026-04-18
+status: done
+updated: 2026-04-22
 ---
 
 ## Description
@@ -19,11 +18,13 @@ These appear to be payment method integrations (InstaPay, Fawry cashout) that we
 
 ## Acceptance Criteria
 
-- [ ] Confirm neither method is reachable from any URL or called anywhere
-- [ ] Decision: either wire them up (add views + URLs) or delete them
-- [ ] If deleted, remove any dead helper code they depend on exclusively
-- [ ] `make dead` no longer reports them
+- [x] Confirm neither method is reachable from any URL or called anywhere
+- [x] Decision: either wire them up (add views + URLs) or delete them
+- [x] If deleted, remove any dead helper code they depend on exclusively
+- [x] `make dead` no longer reports them
 
 ## Progress Notes
 
 - 2026-04-18: Created — identified by vulture dead code scan
+- 2026-04-22: Deleted `create_instapay_transfer`, its helper `calculate_instapay_fee`, and `get_fees_category_id`. Confirmed `create_fawry_cashout` was already gone. Cleaned up docstrings and tests.
+

@@ -324,17 +324,6 @@ class HelperMixin:
             for r in rows
         ]
 
-    def get_fees_category_id(self) -> str | None:
-        """Look up the 'Fees & Charges' category ID."""
-        uid = self.user_id  # type: ignore[attr-defined]
-        result = (
-            Category.objects.for_user(uid)
-            .filter(name__en="Fees & Charges")
-            .values_list("id", flat=True)
-            .first()
-        )
-        return str(result) if result else None
-
     # -------------------------------------------------------------------
     # JSON API — bare transaction lists
     # -------------------------------------------------------------------

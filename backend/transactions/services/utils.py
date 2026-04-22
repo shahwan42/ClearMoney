@@ -65,16 +65,6 @@ def _parse_tags(value: Any) -> list[str]:
     return []
 
 
-def calculate_instapay_fee(amount: float) -> float:
-    """Compute InstaPay fee: 0.1% of amount, min 0.5, max 20 EGP."""
-    fee = amount * 0.001
-    if fee < 0.5:
-        fee = 0.5
-    if fee > 20:
-        fee = 20
-    return round(fee, 2)
-
-
 def resolve_exchange_fields(
     amount: float | None,
     rate: float | None,

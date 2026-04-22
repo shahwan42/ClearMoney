@@ -1,6 +1,6 @@
 """
 Transaction views — all /transactions/*, /transfers/*, /exchange/*, /transfer/new/*,
-/batch-entry, /fawry-cashout, and /sync/transactions routes.
+/batch-entry, and /sync/transactions routes.
 
 Like Laravel's TransactionController — thin views that delegate to services.
 """
@@ -548,12 +548,6 @@ def transfer_create(
         )
     except ValueError as e:
         return error_response(str(e))
-
-
-@require_http_methods(["POST"])
-def instapay_transfer_create(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /transactions/instapay-transfer — deprecated, redirect to unified transfer."""
-    return HttpResponseRedirect("/transfer/new")
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 """
 Transaction service tests — tests for TransactionService CRUD, transfer, exchange,
-Fawry, batch, smart defaults, and suggest category.
+batch, smart defaults, and suggest category.
 """
 
 import uuid
@@ -22,7 +22,6 @@ from tests.factories import (
 from transactions.models import Transaction, VirtualAccountAllocation
 from transactions.services import (
     TransactionService,
-    calculate_instapay_fee,
     resolve_exchange_fields,
 )
 from virtual_accounts.models import VirtualAccount
@@ -115,17 +114,6 @@ class TestResolveExchangeFields:
     def test_only_one_fails(self):
         with pytest.raises(ValueError, match="at least two"):
             resolve_exchange_fields(100, None, None)
-
-
-class TestInstapayFee:
-    def test_normal(self):
-        assert calculate_instapay_fee(1000) == 1.0
-
-    def test_minimum(self):
-        assert calculate_instapay_fee(100) == 0.5
-
-    def test_maximum(self):
-        assert calculate_instapay_fee(50000) == 20.0
 
 
 # ---------------------------------------------------------------------------
@@ -1191,113 +1179,6 @@ class TestTransferWithFee:
             )
 
 
-@pytest.mark.django_db
-class TestInstapayTransfer:
-    def test_deducts_fee_from_source(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        dest = AccountFactory(
-            user_id=tx_data["user_id"],
-            institution_id=tx_data["inst_id"],
-            name="Dest",
-            currency="EGP",
-            current_balance=5000,
-            initial_balance=5000,
-        )
-        dest_id = str(dest.id)
-        _, _, fee = svc.create_instapay_transfer(
-            tx_data["egp_id"],
-            dest_id,
-            1000,
-            None,
-            "Test",
-            date(2026, 3, 15),
-            fees_category_id=tx_data["fees_cat_id"],
-        )
-        assert fee == 1.0
-        # Source: 10000 - 1000 - 1 = 8999
-        assert _get_balance(tx_data["egp_id"]) == 8999
-        # Dest: 5000 + 1000 = 6000
-        assert _get_balance(dest_id) == 6000
-
-    def test_validation_same_account_rejected(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        with pytest.raises(ValueError, match="same account"):
-            svc.create_instapay_transfer(
-                tx_data["egp_id"],
-                tx_data["egp_id"],
-                1000,
-                None,
-                None,
-                None,
-            )
-
-    def test_validation_different_currency_rejected(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        with pytest.raises(ValueError, match="same currency"):
-            svc.create_instapay_transfer(
-                tx_data["egp_id"],
-                tx_data["usd_id"],
-                1000,
-                None,
-                None,
-                None,
-            )
-
-    def test_validation_zero_amount_rejected(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        dest = AccountFactory(
-            user_id=tx_data["user_id"],
-            institution_id=tx_data["inst_id"],
-            name="Dest",
-            currency="EGP",
-            current_balance=5000,
-            initial_balance=5000,
-        )
-        with pytest.raises(ValueError, match="positive"):
-            svc.create_instapay_transfer(
-                tx_data["egp_id"],
-                str(dest.id),
-                0,
-                None,
-                None,
-                None,
-            )
-
-    def test_validation_missing_accounts_rejected(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        with pytest.raises(ValueError, match="required"):
-            svc.create_instapay_transfer(
-                tx_data["egp_id"],
-                "",
-                1000,
-                None,
-                None,
-                None,
-            )
-
-    def test_tx_date_defaults_to_today(self, tx_data):
-        from datetime import date
-
-        svc = _svc(tx_data["user_id"])
-        dest = AccountFactory(
-            user_id=tx_data["user_id"],
-            institution_id=tx_data["inst_id"],
-            name="Dest",
-            currency="EGP",
-            current_balance=5000,
-            initial_balance=5000,
-        )
-        debit, _, _ = svc.create_instapay_transfer(
-            tx_data["egp_id"],
-            str(dest.id),
-            1000,
-            None,
-            None,
-            None,  # tx_date defaults to today
-        )
-        assert str(debit["date"]) == str(date.today())
-
-
 # ---------------------------------------------------------------------------
 # Exchange tests
 # ---------------------------------------------------------------------------
@@ -1795,14 +1676,6 @@ class TestDropdownHelpers:
         VirtualAccountFactory(user_id=tx_data["user_id"], name="Test VA")
         vas = svc.get_virtual_accounts()
         assert len(vas) >= 1
-
-    def test_get_fees_category_id_missing(self, tx_data):
-        svc = _svc(tx_data["user_id"])
-        from categories.models import Category
-
-        # Remove fees category
-        Category.objects.filter(id=tx_data["fees_cat_id"]).delete()
-        assert svc.get_fees_category_id() is None
 
     def test_get_categories_with_cat_type(self, tx_data):
         svc = _svc(tx_data["user_id"])

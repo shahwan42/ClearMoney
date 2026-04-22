@@ -1,4 +1,4 @@
-"""Transfer, exchange, and Fawry cashout operations.
+"""Transfer and exchange operations.
 
 TransferMixin is mixed into TransactionService and relies on methods from
 TransactionServiceBase (self._get_account, self.get_by_id, self.user_id, etc.).
@@ -19,13 +19,13 @@ from categories.models import Category
 from exchange_rates.models import ExchangeRateLog
 from transactions.models import Transaction
 
-from .utils import calculate_instapay_fee, resolve_exchange_fields
+from .utils import resolve_exchange_fields
 
 logger = logging.getLogger(__name__)
 
 
 class TransferMixin:
-    """Mixin providing transfer, InstaPay, and exchange methods."""
+    """Mixin providing transfer and exchange methods."""
 
     # -------------------------------------------------------------------
     # Transfers
@@ -153,116 +153,6 @@ class TransferMixin:
         credit_tx = self.get_by_id(credit_id)  # type: ignore[attr-defined]
         return debit_tx or {}, credit_tx or {}
 
-    def create_instapay_transfer(
-        self,
-        source_id: str,
-        dest_id: str,
-        amount: float,
-        currency: str | None,
-        note: str | None,
-        tx_date: date | str | None,
-        fees_category_id: str | None = None,
-    ) -> tuple[dict[str, Any], dict[str, Any], float]:
-        """Create an InstaPay transfer with automatic fee.
-
-        Source loses amount + fee, dest gains amount.
-        Returns (debit_tx, credit_tx, fee_amount).
-        """
-        if amount <= 0:
-            raise ValueError("Amount must be positive")
-        if not source_id or not dest_id:
-            raise ValueError("Both source and destination account_id required")
-        if source_id == dest_id:
-            raise ValueError("Cannot transfer to the same account")
-
-        src_acc = self._get_account(source_id)  # type: ignore[attr-defined]
-        dest_acc = self._get_account(dest_id)  # type: ignore[attr-defined]
-        if src_acc["currency"] != dest_acc["currency"]:
-            raise ValueError("InstaPay requires same currency")
-
-        actual_currency = src_acc["currency"]
-        fee = calculate_instapay_fee(amount)
-
-        if tx_date is None:
-            tx_date = date.today()
-        if isinstance(tx_date, str):
-            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
-
-        instapay_note = "InstaPay transfer"
-        if note:
-            instapay_note = f"{note} (InstaPay)"
-
-        uid = self.user_id  # type: ignore[attr-defined]
-        debit_id = str(uuid.uuid4())
-        credit_id = str(uuid.uuid4())
-        fee_tx_id = str(uuid.uuid4())
-
-        with transaction.atomic():
-            # Debit leg
-            Transaction.objects.create(
-                id=debit_id,
-                user_id=uid,
-                type="transfer",
-                amount=amount,
-                currency=actual_currency,
-                account_id=source_id,
-                counter_account_id=dest_id,
-                note=instapay_note,
-                date=tx_date,
-                balance_delta=-amount,
-            )
-            # Credit leg
-            Transaction.objects.create(
-                id=credit_id,
-                user_id=uid,
-                type="transfer",
-                amount=amount,
-                currency=actual_currency,
-                account_id=dest_id,
-                counter_account_id=source_id,
-                note=instapay_note,
-                date=tx_date,
-                balance_delta=amount,
-            )
-            # Link
-            Transaction.objects.for_user(uid).filter(id=debit_id).update(
-                linked_transaction_id=credit_id
-            )
-            Transaction.objects.for_user(uid).filter(id=credit_id).update(
-                linked_transaction_id=debit_id
-            )
-            # Fee transaction (separate expense)
-            Transaction.objects.create(
-                id=fee_tx_id,
-                user_id=uid,
-                type="expense",
-                amount=fee,
-                currency=actual_currency,
-                account_id=source_id,
-                category_id=fees_category_id,
-                note="InstaPay fee",
-                date=tx_date,
-                balance_delta=-fee,
-            )
-            # Atomic F() updates — source debited amount+fee, dest credited amount only
-            now = django_tz.now()
-            Account.objects.for_user(uid).filter(id=source_id).update(
-                current_balance=F("current_balance") - Decimal(str(amount + fee)),
-                updated_at=now,
-            )
-            Account.objects.for_user(uid).filter(id=dest_id).update(
-                current_balance=F("current_balance") + Decimal(str(amount)),
-                updated_at=now,
-            )
-
-        logger.info(
-            "transaction.instapay_created currency=%s user=%s",
-            actual_currency,
-            self.user_id,  # type: ignore[attr-defined]
-        )
-        debit_tx = self.get_by_id(debit_id)  # type: ignore[attr-defined]
-        credit_tx = self.get_by_id(credit_id)  # type: ignore[attr-defined]
-        return debit_tx or {}, credit_tx or {}, fee
 
     # -------------------------------------------------------------------
     # Exchange

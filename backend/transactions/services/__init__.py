@@ -21,7 +21,6 @@ from .transfers import TransferMixin
 from .utils import (
     CREDIT_ACCOUNT_TYPES,
     VALID_TX_TYPES,
-    calculate_instapay_fee,
     resolve_exchange_fields,
 )
 
@@ -44,7 +43,6 @@ __all__ = [
     "TagService",
     "VALID_TX_TYPES",
     "CREDIT_ACCOUNT_TYPES",
-    "calculate_instapay_fee",
     "resolve_exchange_fields",
     "CsvImportService",
     # Activity (extracted from dashboard)
