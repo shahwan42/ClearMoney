@@ -3,6 +3,21 @@
 <header class="fixed top-0 start-0 end-0 z-50 bg-slate-900 text-white h-14 flex items-center justify-between px-4 shadow-md">
     <a href="/" class="text-lg font-bold tracking-tight text-white no-underline">{% trans "ClearMoney" %}</a>
     <div class="flex items-center gap-3">
+        {% if active_currencies %}
+        <form method="post" action="{% url 'set-display-currency' %}" class="hidden sm:block">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <label class="sr-only" for="header-display-currency">{% trans "Display currency" %}</label>
+            <select id="header-display-currency"
+                    name="currency"
+                    onchange="this.form.submit()"
+                    class="bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-2 py-1 text-xs min-h-[36px]">
+                {% for currency in active_currencies %}
+                <option value="{{ currency.code }}" {% if selected_display_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
         <!-- Global search trigger -->
         <button id="global-search-btn"
                 onclick="GlobalSearch.open()"

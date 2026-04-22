@@ -14,6 +14,7 @@ from conftest import SessionFactory, UserFactory, set_auth_cookie
 from tests.factories import (
     AccountFactory,
     CategoryFactory,
+    CurrencyFactory,
     InstitutionFactory,
     TransactionFactory,
 )
@@ -109,6 +110,20 @@ class TestAccountsList:
         response = client.get("/accounts")
         assert response.status_code == 302
         assert "/login" in response.url
+
+    def test_header_shows_selected_currency_selector(self, client, accounts_data):
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        from auth_app.currency import set_user_active_currencies, set_user_selected_display_currency
+
+        set_user_active_currencies(accounts_data["user_id"], ["EGP", "EUR"])
+        set_user_selected_display_currency(accounts_data["user_id"], "EUR")
+
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        response = c.get("/accounts")
+        assert response.status_code == 200
+        assert b'header-display-currency' in response.content
+        assert b'value="EUR" selected' in response.content
 
 
 # ---------------------------------------------------------------------------

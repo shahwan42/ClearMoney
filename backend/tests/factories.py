@@ -22,7 +22,15 @@ import factory
 from django.utils import timezone
 
 from accounts.models import Account, AccountSnapshot, Institution
-from auth_app.models import AuthToken, DailySnapshot, Session, User, UserConfig
+from auth_app.models import (
+    AuthToken,
+    Currency,
+    DailySnapshot,
+    Session,
+    User,
+    UserConfig,
+    UserCurrencyPreference,
+)
 from budgets.models import Budget
 from categories.models import Category
 from exchange_rates.models import ExchangeRateLog
@@ -284,6 +292,31 @@ class UserConfigFactory(factory.django.DjangoModelFactory):
         model = UserConfig
 
     id = factory.LazyFunction(uuid.uuid4)
+
+
+class CurrencyFactory(factory.django.DjangoModelFactory):
+    """Factory for supported currency registry entries."""
+
+    class Meta:
+        model = Currency
+        django_get_or_create = ("code",)
+
+    code = factory.Sequence(lambda n: f"X{n:02d}"[-3:])
+    name = factory.Sequence(lambda n: f"Currency {n}")
+    symbol = ""
+    is_enabled = True
+    display_order = factory.Sequence(int)
+
+
+class UserCurrencyPreferenceFactory(factory.django.DjangoModelFactory):
+    """Factory for per-user currency preferences."""
+
+    class Meta:
+        model = UserCurrencyPreference
+
+    user = factory.SubFactory(UserFactory)
+    active_currency_codes = ["EGP"]
+    selected_display_currency = "EGP"
 
 
 class DailySnapshotFactory(factory.django.DjangoModelFactory):

@@ -38,8 +38,9 @@ Context: account (dict with id, name, type, currency, is_credit_type, credit_lim
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Currency" %}</label>
             <select name="currency"
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-                <option value="EGP" {% if account.currency == "EGP" %}selected{% endif %}>EGP</option>
-                <option value="USD" {% if account.currency == "USD" %}selected{% endif %}>USD</option>
+                {% for currency in active_currencies %}
+                <option value="{{ currency.code }}" {% if account.currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+                {% endfor %}
             </select>
         </div>
     </div>

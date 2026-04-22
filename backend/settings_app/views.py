@@ -13,6 +13,12 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
+from auth_app.currency import (
+    get_supported_currencies,
+    get_user_selected_display_currency,
+    set_user_active_currencies,
+    set_user_selected_display_currency,
+)
 from auth_app.models import User
 from categories.services import CategoryService
 from core.ratelimit import general_rate
@@ -119,7 +125,45 @@ def settings_page(request: AuthenticatedRequest) -> HttpResponse:
     No server data needed — all interactivity is client-side JS.
     """
     logger.info("page viewed: settings, user=%s", request.user_email)
-    return render(request, "settings_app/settings.html")
+    return render(
+        request,
+        "settings_app/settings.html",
+        {
+            "supported_currencies": get_supported_currencies(),
+            "current_display_currency": get_user_selected_display_currency(
+                request.user_id
+            ),
+        },
+    )
+
+
+@general_rate
+@require_http_methods(["POST"])
+def set_active_currencies(request: AuthenticatedRequest) -> HttpResponse:
+    """Update the user's active currency list."""
+    codes = request.POST.getlist("active_currency_codes")
+    try:
+        set_user_active_currencies(request.user_id, codes)
+    except ValueError as exc:
+        return HttpResponse(str(exc), status=400)
+    logger.info("settings.active_currencies_updated user=%s", request.user_email)
+    return redirect("settings")
+
+
+@general_rate
+@require_http_methods(["POST"])
+def set_display_currency(request: AuthenticatedRequest) -> HttpResponse:
+    """Update the user's selected display currency."""
+    next_url = request.POST.get("next", "").strip() or "/settings"
+    try:
+        set_user_selected_display_currency(
+            request.user_id,
+            request.POST.get("currency", ""),
+        )
+    except ValueError as exc:
+        return HttpResponse(str(exc), status=400)
+    logger.info("settings.display_currency_updated user=%s", request.user_email)
+    return redirect(next_url)
 
 
 @general_rate

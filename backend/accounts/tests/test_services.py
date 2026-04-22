@@ -11,6 +11,7 @@ import pytest
 
 from accounts.models import Institution
 from accounts.services import AccountService, InstitutionService
+from tests.factories import CurrencyFactory
 from conftest import SessionFactory, UserFactory
 from core.billing import (
     compute_due_date,
@@ -134,6 +135,51 @@ class TestInterestFreeRemaining:
         remaining, urgent = interest_free_remaining(date(2026, 3, 15), date(2026, 5, 4))
         assert remaining == 5
         assert urgent is True
+
+
+@pytest.mark.django_db
+class TestDynamicCurrencies:
+    def test_create_accepts_user_active_currency(self) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        user = UserFactory()
+        SessionFactory(user=user)
+        inst = InstitutionFactory(user_id=user.id)
+        from auth_app.currency import set_user_active_currencies
+
+        set_user_active_currencies(str(user.id), ["EGP", "EUR"])
+        svc = AccountService(str(user.id), ZoneInfo("Africa/Cairo"))
+
+        account = svc.create(
+            {
+                "institution_id": str(inst.id),
+                "name": "Euro Savings",
+                "type": "savings",
+                "currency": "EUR",
+                "initial_balance": 10.0,
+            }
+        )
+
+        assert account["currency"] == "EUR"
+
+    def test_create_rejects_inactive_currency(self) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        user = UserFactory()
+        SessionFactory(user=user)
+        inst = InstitutionFactory(user_id=user.id)
+        svc = AccountService(str(user.id), ZoneInfo("Africa/Cairo"))
+
+        with pytest.raises(ValueError, match="invalid currency"):
+            svc.create(
+                {
+                    "institution_id": str(inst.id),
+                    "name": "Euro Savings",
+                    "type": "savings",
+                    "currency": "EUR",
+                    "initial_balance": 10.0,
+                }
+            )
 
 
 # ---------------------------------------------------------------------------

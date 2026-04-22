@@ -22,6 +22,7 @@ from django.utils import timezone as django_tz
 from django.utils.translation import gettext, gettext_lazy
 
 from accounts.models import Account, AccountSnapshot, Institution
+from auth_app.currency import get_user_active_currency_codes
 from accounts.types import (
     AccountDropdownItem,
     AccountSummary,
@@ -56,8 +57,6 @@ VALID_ACCOUNT_TYPES = {
 }
 CREDIT_ACCOUNT_TYPES = {"credit_card", "credit_limit"}
 VALID_INSTITUTION_TYPES = {"bank", "fintech", "wallet"}
-VALID_CURRENCIES = {"EGP", "USD"}
-
 # Human-readable labels for auto-generated account names
 ACCOUNT_TYPE_LABELS: dict[str, Any] = {
     "savings": gettext_lazy("Savings"),
@@ -364,8 +363,9 @@ class AccountService:
             type_label = ACCOUNT_TYPE_LABELS.get(acc_type, acc_type)
             name = f"{institution.name} - {type_label}"
 
-        currency = data.get("currency", "EGP")
-        if currency not in VALID_CURRENCIES:
+        allowed_currencies = set(get_user_active_currency_codes(self.user_id))
+        currency = str(data.get("currency", "EGP")).upper()
+        if currency not in allowed_currencies:
             raise ValueError(
                 gettext("invalid currency: %(currency)s") % {"currency": currency}
             )
@@ -419,7 +419,12 @@ class AccountService:
         """Update account fields (not balance). Returns updated record or None."""
         raw_name = (data.get("name", "") or "").strip()
         acc_type = data.get("type", "current")
-        currency = data.get("currency", "EGP")
+        allowed_currencies = set(get_user_active_currency_codes(self.user_id))
+        currency = str(data.get("currency", "EGP")).upper()
+        if currency not in allowed_currencies:
+            raise ValueError(
+                gettext("invalid currency: %(currency)s") % {"currency": currency}
+            )
         credit_limit = data.get("credit_limit")
         now = django_tz.now()
 
@@ -865,7 +870,7 @@ class AccountService:
                 }
             ),
             "account_type": "current",
-            "account_currency": "EGP",
+            "account_currency": get_user_active_currency_codes(self.user_id)[0],
             "account_name": "",
             "account_balance": "",
             "account_credit_limit": "",

@@ -81,6 +81,48 @@ class UserConfig(models.Model):
         db_table = "user_config"
 
 
+class Currency(models.Model):
+    """Supported currency registry used by forms and display preferences."""
+
+    code = models.CharField(max_length=3, primary_key=True)
+    name = models.CharField(max_length=50)
+    symbol = models.CharField(max_length=8, blank=True, default="")
+    is_enabled = models.BooleanField(default=True, db_default=True)
+    display_order = models.IntegerField(default=0, db_default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
+
+    class Meta:
+        db_table = "currencies"
+        ordering = ["display_order", "code"]
+
+    def __str__(self) -> str:
+        return self.code
+
+
+class UserCurrencyPreference(models.Model):
+    """Per-user active currencies and selected display currency."""
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        db_column="user_id",
+        primary_key=True,
+        related_name="currency_preferences",
+    )
+    active_currency_codes = models.JSONField(default=list, db_default="[]")
+    selected_display_currency = models.CharField(
+        max_length=3,
+        default="EGP",
+        db_default="EGP",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
+
+    class Meta:
+        db_table = "user_currency_preferences"
+
+
 class DailySnapshot(models.Model):
     """Append-only daily financial state. Used for sparklines and MoM comparisons.
 

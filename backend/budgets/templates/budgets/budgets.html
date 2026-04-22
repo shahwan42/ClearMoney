@@ -49,8 +49,9 @@
                 <div>
                     <label for="cat-currency" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Currency" %}</label>
                     <select name="currency" id="cat-currency" class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
-                        <option value="EGP">EGP</option>
-                        <option value="USD">USD</option>
+                        {% for currency in active_currencies %}
+                        <option value="{{ currency.code }}" {% if selected_display_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>

@@ -14,6 +14,8 @@ from . import views, views_import
 urlpatterns = [
     path("settings", views.settings_page, name="settings"),
     path("settings/language", views.set_language, name="set-language"),
+    path("settings/currencies", views.set_active_currencies, name="set-active-currencies"),
+    path("settings/display-currency", views.set_display_currency, name="set-display-currency"),
     path("settings/categories", views.categories_page, name="categories"),
     path("settings/categories/add", views.category_add, name="category-add"),
     path(

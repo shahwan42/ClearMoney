@@ -44,8 +44,9 @@ Context: institution_id, institution_name, error (optional string).
                     <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Currency" %}</label>
                     <select name="currency"
                         class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-                        <option value="EGP">EGP</option>
-                        <option value="USD">USD</option>
+                        {% for currency in active_currencies %}
+                        <option value="{{ currency.code }}" {% if selected_display_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>

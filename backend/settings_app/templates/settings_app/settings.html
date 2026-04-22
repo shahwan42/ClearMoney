@@ -47,6 +47,50 @@
         </div>
     </section>
 
+    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 space-y-4">
+        <div>
+            <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Currencies" %}</h3>
+            <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Choose the currencies you actively use and the default display currency." %}</p>
+        </div>
+
+        <form method="POST" action="{% url 'set-active-currencies' %}" class="space-y-3">
+            {% csrf_token %}
+            <div class="grid grid-cols-2 gap-2">
+                {% for currency in supported_currencies %}
+                <label class="flex items-center gap-2 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 min-h-[44px]">
+                    <input type="checkbox"
+                           name="active_currency_codes"
+                           value="{{ currency.code }}"
+                           {% for active in active_currencies %}{% if active.code == currency.code %}checked{% endif %}{% endfor %}>
+                    <span class="text-sm text-slate-700 dark:text-slate-200">{{ currency.code }}</span>
+                    <span class="text-xs text-gray-400 dark:text-slate-500">{{ currency.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="w-full bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 py-2 min-h-[44px] rounded-lg text-sm font-semibold">
+                {% trans "Save Active Currencies" %}
+            </button>
+        </form>
+
+        <form method="POST" action="{% url 'set-display-currency' %}" class="space-y-3">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="/settings">
+            <div>
+                <label for="settings-display-currency" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Display Currency" %}</label>
+                <select id="settings-display-currency"
+                        name="currency"
+                        class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
+                    {% for currency in active_currencies %}
+                    <option value="{{ currency.code }}" {% if current_display_currency == currency.code %}selected{% endif %}>{{ currency.code }} — {{ currency.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-teal-600 text-white py-2 min-h-[44px] rounded-lg text-sm font-semibold">
+                {% trans "Save Display Currency" %}
+            </button>
+        </form>
+    </section>
+
     {# Export — standard GET form (not HTMX), hx-boost="false" for browser download #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Export Transactions" %}</h3>

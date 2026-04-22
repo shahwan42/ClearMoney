@@ -40,9 +40,9 @@
     <div class="flex gap-2">
         <select onchange="location.href='/reports?year={{ data.year }}&month={{ data.month }}&currency='+this.value"
                 class="flex-1 border dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm dark:bg-slate-700 dark:text-slate-200">
-            <option value="">{% trans "All currencies" %}</option>
-            <option value="EGP" {% if data.filter_currency == "EGP" %}selected{% endif %}>EGP</option>
-            <option value="USD" {% if data.filter_currency == "USD" %}selected{% endif %}>USD</option>
+            {% for currency in active_currencies %}
+            <option value="{{ currency.code }}" {% if data.filter_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+            {% endfor %}
         </select>
         <a href="/exchange-rates" class="flex items-center min-h-[44px] px-2 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300">{% trans "Rate History" %}</a>
     </div>

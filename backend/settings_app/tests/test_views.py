@@ -10,6 +10,7 @@ from django.test import Client
 from tests.factories import (
     AccountFactory,
     CategoryFactory,
+    CurrencyFactory,
     InstitutionFactory,
     TransactionFactory,
     UserFactory,
@@ -19,6 +20,7 @@ from tests.factories import (
 @pytest.mark.django_db
 class TestSettingsPage:
     def test_renders_200(self, auth_client: Client) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
         response = auth_client.get("/settings")
         assert response.status_code == 200
 
@@ -26,6 +28,51 @@ class TestSettingsPage:
         client = Client()
         response = client.get("/settings")
         assert response.status_code == 302
+
+    def test_settings_shows_currency_controls(self, auth_client: Client) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        response = auth_client.get("/settings")
+        assert response.status_code == 200
+        assert b"Display Currency" in response.content
+        assert b"EUR" in response.content
+
+
+@pytest.mark.django_db
+class TestCurrencySettings:
+    def test_can_update_active_currencies(
+        self, auth_client: Client, auth_user: tuple[str, str, str]
+    ) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+
+        response = auth_client.post(
+            "/settings/currencies",
+            {"active_currency_codes": ["EGP", "EUR"]},
+        )
+        assert response.status_code == 302
+
+        page = auth_client.get("/settings")
+        assert b"EUR" in page.content
+
+    def test_can_update_display_currency(
+        self, auth_client: Client, auth_user: tuple[str, str, str]
+    ) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        auth_client.post(
+            "/settings/currencies",
+            {"active_currency_codes": ["EGP", "EUR"]},
+        )
+
+        response = auth_client.post(
+            "/settings/display-currency",
+            {"currency": "EUR", "next": "/settings"},
+        )
+        assert response.status_code == 302
+
+        page = auth_client.get("/settings")
+        assert b'value="EUR" selected' in page.content
 
 
 @pytest.mark.django_db

@@ -42,7 +42,15 @@
                            class="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-200">
                 </div>
             </div>
-            <input type="hidden" name="currency" value="EGP">
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Currency" %}</label>
+                <select name="currency"
+                        class="w-full border dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-gray-200">
+                    {% for currency in active_currencies %}
+                    <option value="{{ currency.code }}" {% if selected_display_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <button type="submit" class="w-full bg-indigo-600 text-white rounded-lg text-sm font-semibold min-h-[44px]">
                 {% trans "Add Investment" %}
             </button>
