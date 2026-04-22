@@ -155,6 +155,11 @@ def budget_edit(
         monthly_limit = float(monthly_limit_str) if monthly_limit_str else None
         max_rollover = float(max_rollover_str) if max_rollover_str else None
     except ValueError:
+        if request.htmx:
+            # We need the budget to re-render the card with error
+            budgets = svc.get_all_with_spending()
+            budget = next((b for b in budgets if b.id == str(budget_id)), None)
+            return render(request, "budgets/_budget_card.html", {"budget": budget, "error": "Invalid amount"})
         return HttpResponse("Invalid monthly limit or max rollover", status=400)
 
     try:
@@ -166,9 +171,18 @@ def budget_edit(
                 max_rollover=max_rollover,
             )
     except ValueError as e:
+        if request.htmx:
+            budgets = svc.get_all_with_spending()
+            budget = next((b for b in budgets if b.id == str(budget_id)), None)
+            return render(request, "budgets/_budget_card.html", {"budget": budget, "error": str(e)})
         return HttpResponse(str(e), status=400)
     except ObjectDoesNotExist:
         return HttpResponse("Budget not found", status=404)
+
+    if request.htmx:
+        budgets = svc.get_all_with_spending()
+        budget = next((b for b in budgets if b.id == str(budget_id)), None)
+        return render(request, "budgets/_budget_card.html", {"budget": budget, "saved": True})
 
     return redirect("budgets")
 
@@ -186,12 +200,22 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
 
         monthly_limit = Decimal(monthly_limit_str) if monthly_limit_str else Decimal(0)
     except (ValueError, InvalidOperation):
+        if request.htmx:
+            total_budget = svc.get_total_budget(currency)
+            return render(request, "budgets/_total_budget_card.html", {"total_budget": total_budget, "error": "Invalid amount"})
         return HttpResponse("Invalid monthly limit", status=400)
 
     try:
         svc.set_total_budget(monthly_limit, currency)
     except ValueError as e:
+        if request.htmx:
+            total_budget = svc.get_total_budget(currency)
+            return render(request, "budgets/_total_budget_card.html", {"total_budget": total_budget, "error": str(e)})
         return HttpResponse(str(e), status=400)
+
+    if request.htmx:
+        total_budget = svc.get_total_budget(currency)
+        return render(request, "budgets/_total_budget_card.html", {"total_budget": total_budget, "saved": True})
 
     return redirect("budgets")
 
@@ -205,6 +229,10 @@ def total_budget_delete(
     """POST /budgets/total/delete — delete the total monthly budget."""
     currency = request.POST.get("currency", "EGP")
     svc.delete_total_budget(currency)
+    
+    if request.htmx:
+        return render(request, "budgets/_total_budget_card.html", {"total_budget": None})
+        
     return redirect("budgets")
 
 

@@ -3,9 +3,9 @@ id: "099"
 title: "Budget save feedback"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-22
 ---
 
 ## Description
@@ -14,13 +14,13 @@ Inline budget edit (updating the monthly limit) has no success or error indicati
 
 ## Acceptance Criteria
 
-- [ ] After updating a budget limit: brief "Saved" text appears next to the field (green, fades after 2s)
-- [ ] After updating total budget: same "Saved" confirmation
-- [ ] On error: "Failed to save" message in red with retry hint
-- [ ] Confirmation uses `aria-live="polite"` for screen reader announcement
-- [ ] Visual feedback doesn't shift layout (use absolute positioning or reserved space)
-- [ ] Works for both individual budget edit and total budget set
-- [ ] E2E test for editing budget → "Saved" appears → fades
+- [x] After updating a budget limit: brief "Saved" text appears next to the field (green, fades after 2s)
+- [x] After updating total budget: same "Saved" confirmation
+- [x] On error: "Failed to save" message in red with retry hint
+- [x] Confirmation uses `aria-live="polite"` for screen reader announcement
+- [x] Visual feedback doesn't shift layout (use absolute positioning or reserved space)
+- [x] Works for both individual budget edit and total budget set
+- [x] E2E test for editing budget → "Saved" appears → fades
 
 ## Technical Notes
 
@@ -33,3 +33,4 @@ Inline budget edit (updating the monthly limit) has no success or error indicati
 ## Progress Notes
 
 - 2026-03-31: Created — addresses missing feedback on budget inline edit
+- 2026-04-22: Implemented HTMX-based feedback for budget edits. Extracted budget sections into partials. Added "Saved" message with auto-dismiss and aria-live. Verified with E2E tests.

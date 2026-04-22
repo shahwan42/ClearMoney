@@ -129,3 +129,33 @@ class TestBudgets:
         page.click('button:has-text("Delete")')
         page.wait_for_load_state()
         expect(page.locator("main")).not_to_contain_text("2,000")
+
+    def test_budget_save_feedback(self, page: Page) -> None:
+        _create_budget(page, _category_id, "2000")
+        page.goto("/budgets")
+        edit_input = page.locator('input[name="monthly_limit"][value="2000.00"]')
+        edit_input.fill("3500")
+        # The update button is in the same div/flex-wrap as the input now
+        page.locator('button:has-text("Update")').first.click()
+        # Verify "Saved" appears
+        expect(page.locator('text="Saved"')).to_be_visible()
+        # Verify it has aria-live="polite"
+        expect(page.locator('text="Saved"')).to_have_attribute("aria-live", "polite")
+        # Verify it fades (wait a bit)
+        page.wait_for_timeout(2500)
+        expect(page.locator('text="Saved"')).not_to_be_visible()
+
+    def test_total_budget_save_feedback(self, page: Page) -> None:
+        page.goto("/budgets")
+        page.fill('input#total-limit-new', "10000")
+        page.click('button:has-text("Set Total Budget")')
+        expect(page.locator('text="Saved"')).to_be_visible()
+
+        # Update it
+        page.fill('input#total-limit-edit', "12000")
+        # Second update button (first one is for individual budget if any, but we cleared DB)
+        page.locator('button:has-text("Update")').click()
+        expect(page.locator('text="Saved"')).to_be_visible()
+
+        page.wait_for_timeout(2500)
+        expect(page.locator('text="Saved"')).not_to_be_visible()
