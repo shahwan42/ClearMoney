@@ -1,56 +1,76 @@
 {% load money %}
 {% load i18n %}
 {% if data.credit_cards %}
-<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
-    <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Credit Cards" %}</h2>
-    <div class="space-y-3">
-        {% for cc in data.credit_cards %}
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                {# Mini utilization ring #}
-                <div class="relative w-10 h-10 flex-shrink-0">
-                    <svg viewBox="0 0 36 36" class="w-10 h-10 transform -rotate-90">
-                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3"/>
-                        <circle cx="18" cy="18" r="15.9" fill="none"
-                            stroke="{% if cc.utilization > 80 %}#ef4444{% elif cc.utilization > 50 %}#f59e0b{% else %}#10b981{% endif %}"
-                            stroke-width="3"
-                            stroke-dasharray="{{ cc.utilization_pct|floatformat:'0' }}, 100"
-                            stroke-linecap="round"/>
-                    </svg>
-                    <div class="absolute inset-0 flex items-center justify-center">
-                        <span class="text-[9px] font-bold text-slate-700 dark:text-slate-300">{{ cc.utilization|floatformat:"0" }}%</span>
-                    </div>
-                </div>
-                <div>
-                    <a href="/accounts/{{ cc.account_id }}" class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-teal-600">{{ cc.account_name }}</a>
-                    {% if cc.has_billing_cycle %}
-                    <p class="text-xs text-gray-400 dark:text-slate-500">
-                        {% trans "Due" %} {{ cc.due_date|format_date_short }}
-                        {% if cc.is_due_soon %}<span class="text-red-500 font-medium">({{ cc.days_until_due }}{% trans "d" %})</span>{% endif %}
-                    </p>
-                    {% endif %}
+<section id="section-credit-cards" data-section="credit-cards" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+    <div class="p-5">
+        <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
+             role="button" tabindex="0" data-dashboard-toggle aria-expanded="true" aria-controls="content-credit-cards"
+             onclick="Dashboard.toggleSection('credit-cards')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+            <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Credit Cards" %}</h2>
+                <div id="summary-credit-cards" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
+                    {{ data.credit_cards|length }} {% trans "cards" %}
                 </div>
             </div>
-            <div class="text-end">
-                <p class="text-sm font-semibold {% if cc.balance < 0 %}text-red-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">
-                    {{ cc.balance|format_egp }}
-                </p>
-                <div class="flex items-center gap-2 justify-end mt-0.5">
-                    {% if cc.balance < 0 %}
-                    <button type="button"
-                            onclick="openQuickEntry(); setQuickEntryTab('transfer'); setTimeout(function(){ var s=document.querySelector('#quick-entry-content [name=dest_account_id]'); if(s){s.value='{{ cc.account_id }}';} },500);"
-                            class="text-[10px] font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
-                            aria-label="{% blocktrans with name=cc.account_name %}Record payment for {{ name }}{% endblocktrans %}">
-                        {% trans "Pay" %}
-                    </button>
-                    {% endif %}
-                    {% if cc.has_billing_cycle %}
-                    <a href="/accounts/{{ cc.account_id }}/statement" class="text-[10px] text-teal-600 hover:text-teal-700">{% trans "Statement" %}</a>
-                    {% endif %}
-                </div>
+            <div class="flex items-center gap-3">
+                <svg id="chevron-credit-cards" class="w-5 h-5 text-gray-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
             </div>
         </div>
-        {% endfor %}
+
+        <div id="content-credit-cards" class="mt-3 section-content">
+            <div class="space-y-3">
+                {% for cc in data.credit_cards %}
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        {# Mini utilization ring #}
+                        <div class="relative w-10 h-10 flex-shrink-0">
+                            <svg viewBox="0 0 36 36" class="w-10 h-10 transform -rotate-90">
+                                <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                                <circle cx="18" cy="18" r="15.9" fill="none"
+                                    stroke="{% if cc.utilization > 80 %}#ef4444{% elif cc.utilization > 50 %}#f59e0b{% else %}#10b981{% endif %}"
+                                    stroke-width="3"
+                                    stroke-dasharray="{{ cc.utilization_pct|floatformat:'0' }}, 100"
+                                    stroke-linecap="round"/>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-[9px] font-bold text-slate-700 dark:text-slate-300">{{ cc.utilization|floatformat:"0" }}%</span>
+                            </div>
+                        </div>
+                        <div>
+                            <a href="/accounts/{{ cc.account_id }}" class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-teal-600" onclick="event.stopPropagation()">{{ cc.account_name }}</a>
+                            {% if cc.has_billing_cycle %}
+                            <p class="text-xs text-gray-400 dark:text-slate-500">
+                                {% trans "Due" %} {{ cc.due_date|format_date_short }}
+                                {% if cc.is_due_soon %}<span class="text-red-500 font-medium">({{ cc.days_until_due }}{% trans "d" %})</span>{% endif %}
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <p class="text-sm font-semibold {% if cc.balance < 0 %}text-red-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">
+                            {{ cc.balance|format_egp }}
+                        </p>
+                        <div class="flex items-center gap-2 justify-end mt-0.5">
+                            {% if cc.balance < 0 %}
+                            <button type="button"
+                                    onclick="event.stopPropagation(); openQuickEntry(); setQuickEntryTab('transfer'); setTimeout(function(){ var s=document.querySelector('#quick-entry-content [name=dest_account_id]'); if(s){s.value='{{ cc.account_id }}';} },500);"
+                                    class="text-[10px] font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
+                                    aria-label="{% blocktrans with name=cc.account_name %}Record payment for {{ name }}{% endblocktrans %}">
+                                {% trans "Pay" %}
+                            </button>
+                            {% endif %}
+                            {% if cc.has_billing_cycle %}
+                            <a href="/accounts/{{ cc.account_id }}/statement" class="text-[10px] text-teal-600 hover:text-teal-700" onclick="event.stopPropagation()">{% trans "Statement" %}</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 </section>
 {% endif %}

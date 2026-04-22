@@ -99,6 +99,86 @@ class TestDashboard:
         expect(page.locator("main")).to_contain_text("Liquid Cash")
         expect(page.locator("main")).to_contain_text("Test Bank")
 
+    def test_reordering_recent_transactions_above_spending(self, page: Page) -> None:
+        """Verify Recent Transactions appears before Spending sections."""
+        _, account_id = seed_basic_data(page)
+        category_id = get_category_id("expense", _user_id)
+        create_transaction(page, account_id, category_id, "100", "expense")
+
+        page.goto("/")
+
+        # Get all section titles in order
+        titles = page.locator("h2").all_text_contents()
+        clean_titles = [t.strip() for t in titles if t.strip()]
+
+        # Recent Transactions should be before This Month vs Last (Spending)
+        idx_recent = clean_titles.index("Recent Transactions")
+        idx_spending = clean_titles.index("This Month vs Last")
+        assert idx_recent < idx_spending
+
+    def test_collapse_expand_persistence(self, page: Page) -> None:
+        """Verify collapsing a section hides content, shows summary, and persists after reload."""
+        seed_basic_data(page)
+        page.goto("/")
+
+        # Locate Net Worth section
+        section = page.locator("#section-net-worth")
+        header = section.locator("[data-dashboard-toggle]")
+        content = page.locator("#content-net-worth")
+        summary = page.locator("#summary-net-worth")
+
+        # Initially expanded
+        expect(content).to_be_visible()
+        expect(summary).not_to_be_visible()
+
+        # Click header to collapse
+        header.click()
+
+        # Verify collapsed state
+        expect(content).not_to_be_visible()
+        expect(summary).to_be_visible()
+        expect(summary).to_contain_text("EGP")
+
+        # Reload page
+        page.reload()
+
+        # Verify persistence (should stay collapsed)
+        section = page.locator("#section-net-worth")
+        content = page.locator("#content-net-worth")
+        summary = page.locator("#summary-net-worth")
+
+        expect(content).not_to_be_visible()
+        expect(summary).to_be_visible()
+
+        # Click again to expand
+        header = section.locator("[data-dashboard-toggle]")
+        header.click()
+
+        # Verify expanded state
+        expect(content).to_be_visible()
+        expect(summary).not_to_be_visible()
+
+    def test_keyboard_accessibility(self, page: Page) -> None:
+        """Verify section toggle works with keyboard (Enter/Space)."""
+        seed_basic_data(page)
+        page.goto("/")
+
+        section = page.locator("#section-net-worth")
+        header = section.locator("[data-dashboard-toggle]")
+        content = page.locator("#content-net-worth")
+
+        # Initial state: expanded
+        expect(content).to_be_visible()
+
+        # Focus and press Enter
+        header.focus()
+        page.keyboard.press("Enter")
+        expect(content).not_to_be_visible()
+
+        # Press Space
+        page.keyboard.press("Space")
+        expect(content).to_be_visible()
+
 
 def _create_budget_via_sql(
     user_id: str, category_id: str, monthly_limit: int = 3000

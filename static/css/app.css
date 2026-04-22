@@ -299,7 +299,23 @@ input, select, textarea, button {
     max-width: 100%;
 }
 
-/* Optimize main scrolling container for momentum scroll performance on iOS.
+/* Collapsible dashboard sections */
+.section-content {
+    transition: all 300ms ease-in-out;
+}
+.section-summary {
+    transition: opacity 300ms ease-in-out;
+}
+.dashboard-section[data-state="collapsed"] .section-content {
+    display: none;
+}
+.dashboard-section[data-state="collapsed"] .section-summary {
+    display: block;
+    opacity: 1;
+}
+
+/* Optimize main scrolling container for momentum scroll performance on iOS. */
+
    -webkit-overflow-scrolling: touch enables hardware-accelerated momentum scrolling.
    Hide scrollbar for cleaner mobile look. */
 main::-webkit-scrollbar {

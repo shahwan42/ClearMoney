@@ -1,16 +1,40 @@
 {% load i18n %}
-{% if transactions %}
-<div class="space-y-2">
-    {% for tx in transactions %}
-    {% include "transactions/_transaction_row.html" with tx=tx hide_kebab=True compact=True %}
-    {% endfor %}
-</div>
-{% else %}
-<div class="text-center py-4">
-    <svg class="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
-    </svg>
-    <p class="text-sm text-gray-400">{% trans "No transactions yet." %}</p>
-    <p class="text-xs text-gray-400 mt-1">{% trans "Tap + to record your first transaction." %}</p>
-</div>
-{% endif %}
+<section id="section-recent-transactions" data-section="recent-transactions" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+    <div class="p-5">
+        <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
+             role="button" tabindex="0" data-dashboard-toggle aria-expanded="true" aria-controls="content-recent-transactions"
+             onclick="Dashboard.toggleSection('recent-transactions')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+            <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Recent Transactions" %}</h2>
+                <div id="summary-recent-transactions" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
+                    {{ transactions|length }} {% trans "recent" %}
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/transactions" class="view-all-link text-sm text-teal-600 hover:text-teal-700" onclick="event.stopPropagation()">{% trans "View All" %}</a>
+                <svg id="chevron-recent-transactions" class="w-5 h-5 text-gray-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+        </div>
+
+        <div id="content-recent-transactions" class="mt-3 section-content">
+            {% if transactions %}
+            <div class="space-y-2">
+                {% for tx in transactions %}
+                {% include "transactions/_transaction_row.html" with tx=tx hide_kebab=True compact=True %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <svg class="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+                </svg>
+                <p class="text-sm text-gray-400">{% trans "No transactions yet." %}</p>
+                <p class="text-xs text-gray-400 mt-1">{% trans "Tap + to record your first transaction." %}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>

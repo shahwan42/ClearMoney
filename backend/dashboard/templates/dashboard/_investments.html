@@ -1,8 +1,30 @@
 {% load money %}
 {% load i18n %}
-{% if data.investment_total > 0 %}
-<a href="/investments" class="block bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3">
-    <p class="text-xs text-indigo-600 dark:text-indigo-400 font-medium uppercase tracking-wide">{% trans "Investments" %}</p>
-    <p class="text-lg font-bold text-slate-800 dark:text-slate-200 mt-0.5">{{ data.investment_total|format_egp }}</p>
-</a>
-{% endif %}
+<section id="section-investments" data-section="investments" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+    <div class="p-5">
+        <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
+             role="button" tabindex="0" data-dashboard-toggle aria-expanded="true" aria-controls="content-investments"
+             onclick="Dashboard.toggleSection('investments')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+            <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Investments" %}</h2>
+                <div id="summary-investments" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
+                    {{ data.investment_total|format_egp }}
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/investments" class="view-all-link text-sm text-teal-600 hover:text-teal-700" onclick="event.stopPropagation()">{% trans "Details" %}</a>
+                <svg id="chevron-investments" class="w-5 h-5 text-gray-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+        </div>
+
+        <div id="content-investments" class="mt-3 section-content">
+            <div>
+                <p class="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">{% trans "Portfolio Value" %}</p>
+                <p class="text-xl font-bold text-teal-600">{{ data.investment_total|format_egp }}</p>
+            </div>
+        </div>
+    </div>
+</section>

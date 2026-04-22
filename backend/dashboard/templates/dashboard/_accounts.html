@@ -1,51 +1,68 @@
 {% load money %}
 {% load i18n %}
-<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
-    <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Accounts" %}</h2>
-        <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">{% trans "Manage" %}</a>
-    </div>
-
-    {% if data.institutions %}
-        <div class="space-y-2">
-        {% for group in data.institutions %}
-            <details class="group">
-                <summary class="flex items-center justify-between py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 rounded-lg px-2 -mx-2">
-                    <div class="flex items-center gap-2">
-                        <div class="w-6 h-6 rounded-full bg-slate-800 dark:bg-slate-600 flex items-center justify-center text-white text-xs font-bold">
-                            {{ group.initial }}
-                        </div>
-                        <span class="font-medium text-slate-700 dark:text-slate-200 text-sm">{{ group.name }}</span>
-                    </div>
-                    <span class="text-sm font-semibold {% if group.total < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">
-                        {{ group.total|format_egp }}
-                    </span>
-                </summary>
-                <div class="ms-8 mt-1 space-y-1">
-                    {% for acc in group.accounts %}
-                    <div class="flex items-center justify-between py-1 text-sm">
-                        <span class="text-gray-600 dark:text-slate-400">{{ acc.name }} <span class="text-gray-400 dark:text-slate-500">{{ acc.currency }}</span></span>
-                        <div class="flex items-center gap-2">
-                            {% if data.account_sparklines %}
-                                {% with sparkline=data.account_sparklines|get_item:acc.id %}
-                                {% if sparkline %}
-                                <div class="flex-shrink-0">
-                                    {% include "components/chart_sparkline.html" with values=sparkline color="var(--chart-sparkline-neutral)" width=48 height=16 %}
-                                </div>
-                                {% endif %}
-                                {% endwith %}
-                            {% endif %}
-                            <span class="{% if acc.current_balance < 0 %}text-red-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">
-                                {{ acc.current_balance|format_currency:acc.currency }}
-                            </span>
-                        </div>
-                    </div>
-                    {% endfor %}
+<section id="section-accounts" data-section="accounts" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+    <div class="p-5">
+        <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
+             role="button" tabindex="0" data-dashboard-toggle aria-expanded="true" aria-controls="content-accounts"
+             onclick="Dashboard.toggleSection('accounts')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+            <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Accounts" %}</h2>
+                <div id="summary-accounts" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
+                    {{ data.institutions|length }} {% trans "groups" %}
                 </div>
-            </details>
-        {% endfor %}
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/accounts" class="view-all-link text-sm text-teal-600 hover:text-teal-700" onclick="event.stopPropagation()">{% trans "Manage" %}</a>
+                <svg id="chevron-accounts" class="w-5 h-5 text-gray-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
         </div>
-    {% else %}
-        <p class="text-sm text-gray-400 dark:text-slate-500">{% blocktrans %}No accounts yet. <a href="/accounts" class="text-teal-600 underline">Add your first account</a>{% endblocktrans %}</p>
-    {% endif %}
+
+        <div id="content-accounts" class="mt-3 section-content">
+            {% if data.institutions %}
+                <div class="space-y-2">
+                {% for group in data.institutions %}
+                    <details class="group" onclick="event.stopPropagation()">
+                        <summary class="flex items-center justify-between py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 rounded-lg px-2 -mx-2">
+                            <div class="flex items-center gap-2">
+                                <div class="w-6 h-6 rounded-full bg-slate-800 dark:bg-slate-600 flex items-center justify-center text-white text-xs font-bold">
+                                    {{ group.initial }}
+                                </div>
+                                <span class="font-medium text-slate-700 dark:text-slate-200 text-sm">{{ group.name }}</span>
+                            </div>
+                            <span class="text-sm font-semibold {% if group.total < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">
+                                {{ group.total|format_egp }}
+                            </span>
+                        </summary>
+                        <div class="ms-8 mt-1 space-y-1">
+                            {% for acc in group.accounts %}
+                            <div class="flex items-center justify-between py-1 text-sm">
+                                <span class="text-gray-600 dark:text-slate-400">{{ acc.name }} <span class="text-gray-400 dark:text-slate-500">{{ acc.currency }}</span></span>
+                                <div class="flex items-center gap-2">
+                                    {% if data.account_sparklines %}
+                                        {% with sparkline=data.account_sparklines|get_item:acc.id %}
+                                        {% if sparkline %}
+                                        <div class="flex-shrink-0">
+                                            {% include "components/chart_sparkline.html" with values=sparkline color="var(--chart-sparkline-neutral)" width=48 height=16 %}
+                                        </div>
+                                        {% endif %}
+                                        {% endwith %}
+                                    {% endif %}
+                                    <span class="{% if acc.current_balance < 0 %}text-red-600{% else %}text-slate-700 dark:text-slate-300{% endif %}">
+                                        {{ acc.current_balance|format_currency:acc.currency }}
+                                    </span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-sm text-gray-400 dark:text-slate-500">{% blocktrans %}No accounts yet. <a href="/accounts" class="text-teal-600 underline" onclick="event.stopPropagation()">Add your first account</a>{% endblocktrans %}</p>
+            {% endif %}
+        </div>
+    </div>
 </section>

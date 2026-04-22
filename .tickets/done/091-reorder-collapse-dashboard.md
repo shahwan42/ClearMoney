@@ -3,9 +3,9 @@ id: "091"
 title: "Reorder and collapse dashboard panels"
 type: improvement
 priority: high
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-21
 ---
 
 ## Description
@@ -14,14 +14,14 @@ Dashboard has 11+ sections requiring extensive scrolling. Recent Transactions �
 
 ## Acceptance Criteria
 
-- [ ] Reorder panels: Alerts → Net Worth → Recent Transactions → Spending → Budgets → rest
-- [ ] Each section has a collapse/expand toggle (chevron icon)
-- [ ] Collapsed state persisted per user via localStorage
-- [ ] Collapsed sections show header only (one line) with key metric summary
-- [ ] "View All" link on collapsed sections navigates to full page
-- [ ] Smooth expand/collapse animation (CSS transition)
-- [ ] Keyboard accessible: Enter/Space toggles, focus visible
-- [ ] E2E test for collapsing a section → refreshing → section stays collapsed
+- [x] Reorder panels: Alerts → Net Worth → Recent Transactions → Spending → Budgets → rest
+- [x] Each section has a collapse/expand toggle (chevron icon)
+- [x] Collapsed state persisted per user via localStorage
+- [x] Collapsed sections show header only (one line) with key metric summary
+- [x] "View All" link on collapsed sections navigates to full page
+- [x] Smooth expand/collapse animation (CSS transition)
+- [x] Keyboard accessible: Enter/Space toggles, focus visible
+- [x] E2E test for collapsing a section → refreshing → section stays collapsed
 
 ## Technical Notes
 
@@ -34,3 +34,4 @@ Dashboard has 11+ sections requiring extensive scrolling. Recent Transactions �
 ## Progress Notes
 
 - 2026-03-31: Created — addresses information overload and buried Recent Transactions
+- 2026-04-21: Implemented reordering and collapse logic. Added `static/js/dashboard.js` and updated all dashboard partials. All E2E tests pass.

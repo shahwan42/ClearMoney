@@ -1,24 +1,42 @@
 {% load money %}
 {% load i18n %}
 {% if data.budgets %}
-<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
-    <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Budgets" %}</h2>
-        <a href="/budgets" class="text-sm text-teal-600 hover:text-teal-700">{% trans "Manage" %}</a>
-    </div>
-    <div class="space-y-3">
-        {% for b in data.budgets %}
-        <div>
-            <div class="flex justify-between text-sm mb-1">
-                <span class="text-slate-700 dark:text-slate-300">{% if b.category_icon %}{{ b.category_icon }} {% endif %}{{ b.category_name }}</span>
-                <span class="text-xs text-gray-400 dark:text-slate-500">{{ b.spent|format_egp }} / {{ b.monthly_limit|format_egp }}</span>
+<section id="section-budgets" data-section="budgets" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+    <div class="p-5">
+        <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
+             role="button" tabindex="0" data-dashboard-toggle aria-expanded="true" aria-controls="content-budgets"
+             onclick="Dashboard.toggleSection('budgets')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+            <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Budgets" %}</h2>
+                <div id="summary-budgets" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
+                    {{ data.budgets|length }} {% trans "active" %}
+                </div>
             </div>
-            <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2">
-                <div class="h-2 rounded-full transition-all {% if b.status == 'red' %}bg-red-500{% elif b.status == 'amber' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
-                     style="width: {% if b.percentage > 100 %}100{% else %}{{ b.percentage|floatformat:"0" }}{% endif %}%"></div>
+            <div class="flex items-center gap-3">
+                <a href="/budgets" class="view-all-link text-sm text-teal-600 hover:text-teal-700" onclick="event.stopPropagation()">{% trans "Manage" %}</a>
+                <svg id="chevron-budgets" class="w-5 h-5 text-gray-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
             </div>
         </div>
-        {% endfor %}
+
+        <div id="content-budgets" class="mt-3 section-content">
+            <div class="space-y-3">
+                {% for b in data.budgets %}
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-slate-700 dark:text-slate-300">{% if b.category_icon %}{{ b.category_icon }} {% endif %}{{ b.category_name }}</span>
+                        <span class="text-xs text-gray-400 dark:text-slate-500">{{ b.spent|format_egp }} / {{ b.monthly_limit|format_egp }}</span>
+                    </div>
+                    <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2">
+                        <div class="h-2 rounded-full transition-all {% if b.status == 'red' %}bg-red-500{% elif b.status == 'amber' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
+                             style="width: {% if b.percentage > 100 %}100{% else %}{{ b.percentage|floatformat:"0" }}{% endif %}%"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 </section>
 {% endif %}

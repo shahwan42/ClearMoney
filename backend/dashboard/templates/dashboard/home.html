@@ -9,57 +9,50 @@
 
     {% if data.institutions %}
 
-    {# 1. ALERTS — actionable, time-sensitive items first #}
+    {# 1. ALERTS — actionable, time-sensitive items first (Always visible) #}
     {% include "dashboard/_due_date_warning.html" %}
-
     {% include "dashboard/_health_warnings.html" %}
 
-    {# 2. NET WORTH + SUMMARY BREAKDOWN #}
+    {# 2. NET WORTH #}
     <div id="dashboard-net-worth" aria-live="polite">
-    {% include "dashboard/_net_worth.html" %}
+        {% include "dashboard/_net_worth.html" %}
     </div>
 
-    {# 3. SPENDING — Month-over-Month + Velocity #}
-    {% include "dashboard/_spending.html" %}
+    {# 3. RECENT TRANSACTIONS (Moved up from #12) #}
+    <div id="recent-transactions">
+        {% include "dashboard/_recent_transactions.html" with transactions=data.recent_transactions %}
+    </div>
 
-    {# 4. CASH FLOW FORECAST #}
-    {% include "dashboard/_cash_flow_forecast.html" %}
+    {# 4. SPENDING (Moved down from #3) #}
+    {% include "dashboard/_spending.html" %}
 
     {# 5. BUDGETS #}
     {% include "dashboard/_budgets.html" %}
 
-    {# 6. CREDIT CARDS #}
+    {# 6. CASH FLOW FORECAST (Moved down from #4) #}
+    {% include "dashboard/_cash_flow_forecast.html" %}
+
+    {# 7. CREDIT CARDS (Moved down from #6) #}
     {% include "dashboard/_credit_cards.html" %}
 
-    {# 7. VIRTUAL ACCOUNTS #}
+    {# 8. VIRTUAL ACCOUNTS (Moved down from #7) #}
     {% include "dashboard/_virtual_accounts.html" %}
 
-    {# 8. ACCOUNTS BY INSTITUTION #}
+    {# 9. ACCOUNTS BY INSTITUTION (Moved down from #8) #}
     <div id="dashboard-accounts" aria-live="polite">
-    {% include "dashboard/_accounts.html" %}
+        {% include "dashboard/_accounts.html" %}
     </div>
 
-    {# 9. PEOPLE #}
+    {# 10. PEOPLE (Moved down from #9) #}
     {% if data.has_people_activity %}
-    {% include "dashboard/_people_summary.html" %}
+        {% include "dashboard/_people_summary.html" %}
     {% endif %}
 
-    {# 10. INVESTMENTS #}
+    {# 11. INVESTMENTS (Moved down from #10) #}
     {% include "dashboard/_investments.html" %}
 
-    {# 11. STREAK #}
+    {# 12. STREAK (Moved down from #11) #}
     {% include "dashboard/_streak.html" %}
-
-    {# 12. RECENT TRANSACTIONS #}
-    <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
-        <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Recent Transactions" %}</h2>
-            <a href="/transactions" class="text-sm text-teal-600 hover:text-teal-700">{% trans "View All" %}</a>
-        </div>
-        <div id="recent-transactions">
-            {% include "dashboard/_recent_transactions.html" with transactions=data.recent_transactions %}
-        </div>
-    </section>
 
     {% else %}
 
@@ -74,6 +67,7 @@
 {% include "components/bottom_sheet.html" with name="nw-breakdown" aria_label="Net worth breakdown" %}
 {% include "components/bottom_sheet.html" with name="tx-edit" aria_label="Edit transaction" %}
 
+<script src="/static/js/dashboard.js"></script>
 <script>
 document.body.addEventListener('closeEditSheet', function() {
     BottomSheet.close('tx-edit');

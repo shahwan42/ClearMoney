@@ -1,162 +1,181 @@
 {% load money %}
 {% load i18n %}
 {% if data.spending_by_currency %}
-<section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">
-    <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "This Month vs Last" %}</h2>
-        {% if data.spending_by_currency|length > 1 %}
-        <select id="spending-currency-select"
-            onchange="switchSpendingTab(this.value)"
-            class="text-sm font-medium border border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 text-teal-700 dark:text-teal-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500">
-            {% for cs in data.spending_by_currency %}
-            <option value="{{ cs.currency }}" {% if forloop.first %}selected{% endif %}>{{ cs.currency }}</option>
-            {% endfor %}
-        </select>
-        {% endif %}
-    </div>
-    {% for cs in data.spending_by_currency %}
-    <div id="spending-panel-{{ cs.currency }}" class="{% if not forloop.first %}hidden{% endif %}">
-        <div class="space-y-2 mb-3">
-            <div class="flex items-center justify-between">
-                <div>
-                    <span class="text-xs text-gray-400 dark:text-slate-500">{% if cs.this_month_label %}{{ cs.this_month_label }}{% else %}{% trans "This month" %}{% endif %}</span>
-                    <span class="text-xl font-bold text-slate-900 dark:text-slate-100 ms-2">{{ cs.this_month|format_currency:cs.currency }}</span>
+<section id="section-spending" data-section="spending" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+    <div class="p-5">
+        <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
+             role="button" tabindex="0" data-dashboard-toggle aria-expanded="true" aria-controls="content-spending"
+             onclick="Dashboard.toggleSection('spending')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+            <div class="flex items-center gap-2 overflow-hidden flex-1">
+                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "This Month vs Last" %}</h2>
+                <div id="summary-spending" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
+                    {{ data.spending_by_currency.0.this_month|format_currency:data.spending_by_currency.0.currency }}
                 </div>
-                {% if cs.change != 0 %}
-                {% include "components/chart_trend.html" with change=cs.change label="" is_good=cs.change_is_good %}
+            </div>
+            <div class="flex items-center gap-3">
+                <svg id="chevron-spending" class="w-5 h-5 text-gray-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+        </div>
+
+        <div id="content-spending" class="mt-3 section-content">
+            <div class="flex items-center justify-between mb-3">
+                <div class="text-sm font-medium text-gray-400">{% trans "Comparison" %}</div>
+                {% if data.spending_by_currency|length > 1 %}
+                <select id="spending-currency-select"
+                    onchange="switchSpendingTab(this.value)" onclick="event.stopPropagation()"
+                    class="text-sm font-medium border border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 text-teal-700 dark:text-teal-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    {% for cs in data.spending_by_currency %}
+                    <option value="{{ cs.currency }}" {% if forloop.first %}selected{% endif %}>{{ cs.currency }}</option>
+                    {% endfor %}
+                </select>
                 {% endif %}
             </div>
-            <div class="flex items-center justify-between">
-                <div>
-                    <span class="text-xs text-gray-400 dark:text-slate-500">{% if cs.last_month_label %}{{ cs.last_month_label }}{% else %}{% trans "Last month" %}{% endif %}</span>
-                    <span class="text-sm font-medium text-gray-500 dark:text-slate-400 ms-2">{{ cs.last_month|format_currency:cs.currency }}</span>
+            {% for cs in data.spending_by_currency %}
+            <div id="spending-panel-{{ cs.currency }}" class="{% if not forloop.first %}hidden{% endif %}">
+                <div class="space-y-2 mb-3">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-gray-400 dark:text-slate-500">{% if cs.this_month_label %}{{ cs.this_month_label }}{% else %}{% trans "This month" %}{% endif %}</span>
+                            <span class="text-xl font-bold text-slate-900 dark:text-slate-100 ms-2">{{ cs.this_month|format_currency:cs.currency }}</span>
+                        </div>
+                        {% if cs.change != 0 %}
+                        {% include "components/chart_trend.html" with change=cs.change label="" is_good=cs.change_is_good %}
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-gray-400 dark:text-slate-500">{% if cs.last_month_label %}{{ cs.last_month_label }}{% else %}{% trans "Last month" %}{% endif %}</span>
+                            <span class="text-sm font-medium text-gray-500 dark:text-slate-400 ms-2">{{ cs.last_month|format_currency:cs.currency }}</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-        {% if cs.top_categories %}
-        <div class="pt-3 border-t border-gray-100 dark:border-slate-700 space-y-2">
-            {% for cat in cs.top_categories %}
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-slate-600 dark:text-slate-300">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</span>
-                <div class="flex items-center gap-2">
-                    <span class="font-medium text-slate-800 dark:text-slate-200">{{ cat.amount|format_currency:cs.currency }}</span>
-                    {% if cat.change != 0 %}
-                    {% include "components/chart_trend.html" with change=cat.change label="" is_good=cat.change_is_good %}
-                    {% endif %}
+                {% if cs.top_categories %}
+                <div class="pt-3 border-t border-gray-100 dark:border-slate-700 space-y-2">
+                    {% for cat in cs.top_categories %}
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-600 dark:text-slate-300">{% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium text-slate-800 dark:text-slate-200">{{ cat.amount|format_currency:cs.currency }}</span>
+                            {% if cat.change != 0 %}
+                            {% include "components/chart_trend.html" with change=cat.change label="" is_good=cat.change_is_good %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
+                {% endif %}
             </div>
             {% endfor %}
-        </div>
-        {% endif %}
-    </div>
-    {% endfor %}
 
-    {# ── Spending Velocity + Projections ───────────────────────────────────── #}
-    {% if data.spending_velocity.days_total > 0 %}
-    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700" id="spending-velocity-section">
-
-        {# Header row: label + days left #}
-        <div class="flex items-center justify-between mb-1.5">
-            <span class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Spending Pace" %}</span>
-            <div class="flex items-center gap-3">
-                <span class="text-xs text-slate-600 dark:text-slate-300">{{ data.spending_velocity.percentage|floatformat:"0" }}% {% trans "of last month" %}</span>
-                <span class="text-xs text-gray-400 dark:text-gray-500">{% blocktrans with days=data.spending_velocity.days_left %}{{ days }} days left{% endblocktrans %}</span>
-            </div>
-        </div>
-
-        {# Progress bar: current spend vs last month total, with today marker #}
-        <div class="relative w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2 mb-3">
-            <div class="h-2 rounded-full transition-all {% if data.spending_velocity.status == 'green' %}bg-emerald-500{% elif data.spending_velocity.status == 'amber' %}bg-amber-500{% else %}bg-red-500{% endif %}"
-                 style="width: {% if data.spending_velocity.percentage > 100 %}100{% else %}{{ data.spending_velocity.percentage|floatformat:"0" }}{% endif %}%"></div>
-            <div class="absolute top-0 h-2 border-r-2 border-slate-400 dark:border-slate-300" style="left: {{ data.spending_velocity.day_progress|floatformat:"0" }}%"></div>
-        </div>
-
-        {# Daily budget remaining card #}
-        {% if data.spending_velocity.budget_total > 0 %}
-        <div class="rounded-xl p-3 mb-3
-            {% if data.spending_velocity.status == 'green' %}bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800
-            {% elif data.spending_velocity.status == 'amber' %}bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800
-            {% else %}bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800{% endif %}"
-            id="daily-budget-card">
-
-            {# Status dot + label #}
-            <div class="flex items-start justify-between gap-2">
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="inline-block w-2 h-2 rounded-full flex-shrink-0
-                        {% if data.spending_velocity.status == 'green' %}bg-emerald-500
-                        {% elif data.spending_velocity.status == 'amber' %}bg-amber-500
-                        {% else %}bg-red-500{% endif %}"></span>
-                    <div class="min-w-0">
-                        {# Primary line: daily budget remaining #}
-                        {% if data.spending_velocity.daily_remaining > 0 %}
-                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug" id="daily-budget-remaining">
-                            {% blocktrans with amount=data.spending_velocity.daily_remaining|format_egp days=data.spending_velocity.days_left %}Daily budget: {{ amount }}/day for {{ days }} days{% endblocktrans %}
-                        </p>
-                        {% else %}
-                        <p class="text-sm font-semibold text-red-700 dark:text-red-400 leading-snug" id="daily-budget-remaining">
-                            {% trans "Budget already exceeded this month" %}
-                        </p>
-                        {% endif %}
-
-                        {# Secondary line: projection #}
-                        {% if data.spending_velocity.projected_total > 0 %}
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="projected-spend">
-                            {% blocktrans with projected=data.spending_velocity.projected_total|format_egp budget=data.spending_velocity.budget_total|format_egp %}At this pace, you'll spend {{ projected }} vs {{ budget }} last month{% endblocktrans %}
-                        </p>
-                        {% endif %}
+            {# ── Spending Velocity + Projections ───────────────────────────────────── #}
+            {% if data.spending_velocity.days_total > 0 %}
+            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700" id="spending-velocity-section">
+                {# Header row: label + days left #}
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Spending Pace" %}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-600 dark:text-slate-300">{{ data.spending_velocity.percentage|floatformat:"0" }}% {% trans "of last month" %}</span>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">{% blocktrans with days=data.spending_velocity.days_left %}{{ days }} days left{% endblocktrans %}</span>
                     </div>
                 </div>
 
-                {# Status badge #}
-                <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0
-                    {% if data.spending_velocity.status == 'green' %}bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300
-                    {% elif data.spending_velocity.status == 'amber' %}bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300
-                    {% else %}bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300{% endif %}"
-                    id="velocity-status-badge">
-                    {% if data.spending_velocity.status == 'green' %}{% trans "On Track" %}{% elif data.spending_velocity.status == 'amber' %}{% trans "At Risk" %}{% else %}{% trans "Overspending" %}{% endif %}
-                </span>
-            </div>
+                {# Progress bar: current spend vs last month total, with today marker #}
+                <div class="relative w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2 mb-3">
+                    <div class="h-2 rounded-full transition-all {% if data.spending_velocity.status == 'green' %}bg-emerald-500{% elif data.spending_velocity.status == 'amber' %}bg-amber-500{% else %}bg-red-500{% endif %}"
+                         style="width: {% if data.spending_velocity.percentage > 100 %}100{% else %}{{ data.spending_velocity.percentage|floatformat:"0" }}{% endif %}%"></div>
+                    <div class="absolute top-0 h-2 border-r-2 border-slate-400 dark:border-slate-300" style="left: {{ data.spending_velocity.day_progress|floatformat:"0" }}%"></div>
+                </div>
 
-            {# Actionable advice: reduce_by when amber or red #}
-            {% if data.spending_velocity.status != 'green' and data.spending_velocity.reduce_by > 0 %}
-            <p class="text-xs mt-2 font-medium
-                {% if data.spending_velocity.status == 'amber' %}text-amber-700 dark:text-amber-400
-                {% else %}text-red-700 dark:text-red-400{% endif %}"
-                id="velocity-advice">
-                {% blocktrans with amount=data.spending_velocity.reduce_by|format_egp %}Reduce by {{ amount }}/day to stay on track{% endblocktrans %}
-            </p>
+                {# Daily budget remaining card #}
+                {% if data.spending_velocity.budget_total > 0 %}
+                <div class="rounded-xl p-3 mb-3
+                    {% if data.spending_velocity.status == 'green' %}bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800
+                    {% elif data.spending_velocity.status == 'amber' %}bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800
+                    {% else %}bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800{% endif %}"
+                    id="daily-budget-card">
+
+                    {# Status dot + label #}
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="inline-block w-2 h-2 rounded-full flex-shrink-0
+                                {% if data.spending_velocity.status == 'green' %}bg-emerald-500
+                                {% elif data.spending_velocity.status == 'amber' %}bg-amber-500
+                                {% else %}bg-red-500{% endif %}"></span>
+                            <div class="min-w-0">
+                                {# Primary line: daily budget remaining #}
+                                {% if data.spending_velocity.daily_remaining > 0 %}
+                                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug" id="daily-budget-remaining">
+                                    {% blocktrans with amount=data.spending_velocity.daily_remaining|format_egp days=data.spending_velocity.days_left %}Daily budget: {{ amount }}/day for {{ days }} days{% endblocktrans %}
+                                </p>
+                                {% else %}
+                                <p class="text-sm font-semibold text-red-700 dark:text-red-400 leading-snug" id="daily-budget-remaining">
+                                    {% trans "Budget already exceeded this month" %}
+                                </p>
+                                {% endif %}
+
+                                {# Secondary line: projection #}
+                                {% if data.spending_velocity.projected_total > 0 %}
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="projected-spend">
+                                    {% blocktrans with projected=data.spending_velocity.projected_total|format_egp budget=data.spending_velocity.budget_total|format_egp %}At this pace, you'll spend {{ projected }} vs {{ budget }} last month{% endblocktrans %}
+                                </p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {# Status badge #}
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0
+                            {% if data.spending_velocity.status == 'green' %}bg-emerald-100 dark:bg-emerald-800 text-emerald-700 dark:text-emerald-300
+                            {% elif data.spending_velocity.status == 'amber' %}bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300
+                            {% else %}bg-red-100 dark:bg-red-800 text-red-700 dark:text-red-300{% endif %}"
+                            id="velocity-status-badge">
+                            {% if data.spending_velocity.status == 'green' %}{% trans "On Track" %}{% elif data.spending_velocity.status == 'amber' %}{% trans "At Risk" %}{% else %}{% trans "Overspending" %}{% endif %}
+                        </span>
+                    </div>
+
+                    {# Actionable advice: reduce_by when amber or red #}
+                    {% if data.spending_velocity.status != 'green' and data.spending_velocity.reduce_by > 0 %}
+                    <p class="text-xs mt-2 font-medium
+                        {% if data.spending_velocity.status == 'amber' %}text-amber-700 dark:text-amber-400
+                        {% else %}text-red-700 dark:text-red-400{% endif %}"
+                        id="velocity-advice">
+                        {% blocktrans with amount=data.spending_velocity.reduce_by|format_egp %}Reduce by {{ amount }}/day to stay on track{% endblocktrans %}
+                    </p>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                {# Per-category velocity (only when budgeted categories exist) #}
+                {% if data.category_velocities %}
+                <div class="space-y-2" id="category-velocity-list">
+                    <p class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">{% trans "By Category" %}</p>
+                    {% for cv in data.category_velocities %}
+                    <div class="flex items-center gap-3" id="category-velocity-{{ forloop.counter }}">
+                        {# Category label #}
+                        <span class="text-sm text-slate-600 dark:text-slate-300 w-28 flex-shrink-0 truncate">
+                            {% if cv.category_icon %}{{ cv.category_icon }} {% endif %}{{ cv.category_name }}
+                        </span>
+                        {# Mini progress bar #}
+                        <div class="flex-1 bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 relative">
+                            <div class="h-1.5 rounded-full
+                                {% if cv.status == 'green' %}bg-emerald-500{% elif cv.status == 'amber' %}bg-amber-500{% else %}bg-red-500{% endif %}"
+                                style="width: {% if cv.percentage > 100 %}100{% else %}{{ cv.percentage|floatformat:"0" }}{% endif %}%"></div>
+                        </div>
+                        {# Daily remaining #}
+                        <span class="text-xs font-medium flex-shrink-0 w-20 text-right
+                            {% if cv.daily_remaining > 0 %}text-slate-600 dark:text-slate-300{% else %}text-red-600 dark:text-red-400{% endif %}">
+                            {% if cv.daily_remaining > 0 %}{{ cv.daily_remaining|format_currency:cv.currency }}/d{% else %}{% trans "Over" %}{% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
             {% endif %}
         </div>
-        {% endif %}
-
-        {# Per-category velocity (only when budgeted categories exist) #}
-        {% if data.category_velocities %}
-        <div class="space-y-2" id="category-velocity-list">
-            <p class="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">{% trans "By Category" %}</p>
-            {% for cv in data.category_velocities %}
-            <div class="flex items-center gap-3" id="category-velocity-{{ forloop.counter }}">
-                {# Category label #}
-                <span class="text-sm text-slate-600 dark:text-slate-300 w-28 flex-shrink-0 truncate">
-                    {% if cv.category_icon %}{{ cv.category_icon }} {% endif %}{{ cv.category_name }}
-                </span>
-                {# Mini progress bar #}
-                <div class="flex-1 bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 relative">
-                    <div class="h-1.5 rounded-full
-                        {% if cv.status == 'green' %}bg-emerald-500{% elif cv.status == 'amber' %}bg-amber-500{% else %}bg-red-500{% endif %}"
-                        style="width: {% if cv.percentage > 100 %}100{% else %}{{ cv.percentage|floatformat:"0" }}{% endif %}%"></div>
-                </div>
-                {# Daily remaining #}
-                <span class="text-xs font-medium flex-shrink-0 w-20 text-right
-                    {% if cv.daily_remaining > 0 %}text-slate-600 dark:text-slate-300{% else %}text-red-600 dark:text-red-400{% endif %}">
-                    {% if cv.daily_remaining > 0 %}{{ cv.daily_remaining|format_currency:cv.currency }}/d{% else %}{% trans "Over" %}{% endif %}
-                </span>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
     </div>
-    {% endif %}
 </section>
 <script>
 function switchSpendingTab(currency) {
