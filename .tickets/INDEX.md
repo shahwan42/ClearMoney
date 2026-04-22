@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-20
+Last updated: 2026-04-22
 
 ## In Progress
 
@@ -25,6 +25,7 @@ Last updated: 2026-04-20
 | [109](done/109-bell-icon-unread-badge-header.md) | Bell icon with unread badge in header | feature | high | 2026-04-18 |
 | [108](done/108-notification-generation-pipeline.md) | Notification generation pipeline | feature | high | 2026-04-18 |
 | [107](done/107-notification-model-and-migration.md) | Notification model and migration | feature | high | 2026-04-18 |
+| [102](done/102-transaction-detail-enhancements.md) | Transaction detail enhancements | improvement | low | 2026-04-22 |
 
 ## Rejected
 

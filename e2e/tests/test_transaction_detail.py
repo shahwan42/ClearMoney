@@ -1,11 +1,12 @@
 """Transaction detail bottom sheet tests.
 
 Verifies that tapping a transaction row opens a detail bottom sheet
-with read-only info, and that Edit/Delete actions work from the sheet.
+with read-only info, and that Edit/Duplicate/Delete actions work from the sheet.
 """
 
 import sys
 import os
+import re
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -118,12 +119,34 @@ class TestTransactionDetailSheet:
         row.click()
         page.wait_for_selector("#tx-detail-content h4", timeout=5000)
         content = page.locator("#tx-detail-content")
-        content.locator("button:has-text('Delete')").click()
-        # hx-ext="confirm-dialog" shows custom branded dialog, not browser confirm()
-        expect(page.locator("#confirm-dialog-confirm")).to_be_visible(timeout=5000)
+        delete_btn = content.locator("button.tx-delete-btn")
+        
+        # First click arms the button (two-step delete)
+        delete_btn.click()
+        expect(delete_btn).to_contain_text("Tap again to confirm delete")
+        
+        # Second click performs the deletion
         with page.expect_response(lambda r: r.request.method == "DELETE"):
-            page.click("#confirm-dialog-confirm")
+            delete_btn.click()
+            
         expect(page.locator(f"#{row_id}")).to_have_count(0, timeout=5000)
+
+    def test_duplicate_transaction(self, page: Page) -> None:
+        """Duplicate button opens new transaction form with prefilled data."""
+        category_id = get_category_id("expense", _user_id)
+        create_transaction(
+            page, _account_id, category_id, "50.50", "expense", note="ToDuplicate"
+        )
+        page.goto("/transactions")
+        _open_detail_sheet(page)
+        
+        # Click Duplicate
+        page.locator("#tx-detail-content a:has-text('Duplicate')").click()
+        
+        # Should be on /transactions/new with prefilled data
+        expect(page).to_have_url(re.compile(r"/transactions/new\?dup=.*"))
+        expect(page.locator("input[name='amount']")).to_have_value("50.50")
+        expect(page.locator("input[name='note']")).to_have_value("ToDuplicate")
 
     def test_kebab_menu_still_works(self, page: Page) -> None:
         _create_test_transaction(page)

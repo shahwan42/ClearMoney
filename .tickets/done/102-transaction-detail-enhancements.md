@@ -1,11 +1,10 @@
----
 id: "102"
 title: "Transaction detail enhancements"
 type: improvement
 priority: low
-status: pending
+status: done
 created: 2026-03-31
-updated: 2026-03-31
+updated: 2026-04-22
 ---
 
 ## Description
@@ -14,12 +13,12 @@ Transaction detail bottom sheet is missing several useful actions and indicators
 
 ## Acceptance Criteria
 
-- [ ] Recurring indicator: if transaction has `recurring_rule_id`, show "Recurring: [rule name]" badge
-- [ ] "Duplicate" button: creates new transaction pre-filled with same data (amount, category, account, note) and today's date
-- [ ] Delete confirmation: replace `hx-confirm` browser dialog with app-native inline confirmation (red "Confirm Delete" button that appears on first tap)
-- [ ] Delete confirmation auto-resets after 3 seconds (same pattern as account delete)
-- [ ] All actions keyboard accessible
-- [ ] E2E test for duplicating a transaction from detail sheet
+- [x] Recurring indicator: if transaction has `recurring_rule_id`, show "Recurring: [rule name]" badge
+- [x] "Duplicate" button: creates new transaction pre-filled with same data (amount, category, account, note) and today's date
+- [x] Delete confirmation: replace `hx-confirm` browser dialog with app-native inline confirmation (red "Confirm Delete" button that appears on first tap)
+- [x] Delete confirmation auto-resets after 3 seconds (same pattern as account delete)
+- [x] All actions keyboard accessible
+- [x] E2E test for duplicating a transaction from detail sheet
 
 ## Technical Notes
 
@@ -31,3 +30,4 @@ Transaction detail bottom sheet is missing several useful actions and indicators
 ## Progress Notes
 
 - 2026-03-31: Created — makes transaction detail more actionable
+- 2026-04-22: Implemented recurring badge, duplicate action, and two-step delete confirmation. Added unit and E2E tests.

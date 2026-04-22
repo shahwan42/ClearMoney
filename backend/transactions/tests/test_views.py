@@ -18,6 +18,7 @@ from tests.factories import (
     CategoryFactory,
     InstitutionFactory,
     PersonFactory,
+    RecurringRuleFactory,
     TransactionFactory,
     VirtualAccountAllocationFactory,
     VirtualAccountFactory,
@@ -1710,6 +1711,49 @@ class TestTransactionDetailSheet:
         content = response.content.decode()
         # counter_amount must NOT appear with wrong EGP default when counter account is gone
         assert "Counter amount" not in content
+
+    def test_shows_recurring_badge(self, client, tx_view_data):
+        rule = RecurringRuleFactory(
+            user_id=tx_view_data["user_id"],
+            template_transaction={"note": "Monthly Subscription", "amount": 100},
+            frequency="monthly",
+            next_due_date=date(2026, 4, 1),
+        )
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            recurring_rule_id=rule.id,
+            amount=100,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-100,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx.id}")
+        content = response.content.decode()
+        assert "Recurring: Monthly Subscription" in content
+
+    def test_shows_duplicate_action(self, client, tx_view_data):
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx.id}")
+        content = response.content.decode()
+        assert f"/transactions/new?dup={tx.id}" in content
+
+    def test_shows_two_step_delete_button(self, client, tx_view_data):
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/detail/{tx.id}")
+        content = response.content.decode()
+        assert "tx-delete-btn" in content
+        assert "Delete Transaction" in content
+        assert "Tap again to confirm delete" in content
 
 
 # ---------------------------------------------------------------------------

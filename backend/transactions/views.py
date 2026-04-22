@@ -351,6 +351,20 @@ def transaction_detail_sheet(
         context["fee_amount"] = fee_tx["amount"]
         context["fee_currency"] = fee_tx["currency"]
 
+    # Recurring rule info
+    if tx.get("recurring_rule_id"):
+        from recurring.models import RecurringRule
+
+        rule = (
+            RecurringRule.objects.for_user(request.user_id)
+            .filter(id=tx["recurring_rule_id"])
+            .first()
+        )
+        if rule:
+            context["recurring_rule_name"] = (
+                rule.template_transaction.get("note") or rule.frequency.capitalize()
+            )
+
     logger.info("partial loaded: transaction-detail-sheet, user=%s", request.user_email)
     return render(request, "transactions/_transaction_detail_sheet.html", context)
 
