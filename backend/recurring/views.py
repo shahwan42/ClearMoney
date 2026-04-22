@@ -77,17 +77,6 @@ def _render_rule_list(
     return render(request, "recurring/_rule_list.html", {"rules": rule_views})
 
 
-def _lookup_account_currency(user_id: str, account_id: str) -> str:
-    """Look up an account's currency. Returns 'EGP' as fallback."""
-    return (
-        Account.objects.for_user(user_id)
-        .filter(id=account_id)
-        .values_list("currency", flat=True)
-        .first()
-        or "EGP"
-    )
-
-
 # ---------------------------------------------------------------------------
 # Page view
 # ---------------------------------------------------------------------------

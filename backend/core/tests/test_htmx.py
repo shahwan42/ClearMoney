@@ -9,7 +9,6 @@ from core.htmx import (
     operational_error_response,
     render_htmx_result,
     success_html,
-    success_response,
     validation_error_response,
 )
 
@@ -160,15 +159,6 @@ class TestErrorResponse:
         response = error_response("Invalid amount")
         assert response.status_code == 400
         assert "Invalid amount" in response.content.decode()
-
-
-class TestSuccessResponse:
-    """success_response returns HttpResponse with status 200."""
-
-    def test_status_200(self) -> None:
-        response = success_response("Done!")
-        assert response.status_code == 200
-        assert "Done!" in response.content.decode()
 
 
 class TestValidationErrorResponse:

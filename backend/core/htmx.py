@@ -204,8 +204,3 @@ def operational_error_response(message: str, field: str = "") -> HttpResponse:
         field: Optional form field name (see ``validation_error_response``).
     """
     return HttpResponse(error_html(message, field=field), status=400)
-
-
-def success_response(message: str) -> HttpResponse:
-    """Return success toast HTML fragment as HttpResponse."""
-    return HttpResponse(success_html(message))
