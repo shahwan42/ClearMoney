@@ -98,6 +98,7 @@ class TestPersonCRUD:
         assert person["net_balance_egp"] == 0
         assert person["net_balance_usd"] == 0
         assert person["balances"] == []
+        assert person["active_balances"] == []
 
     def test_create_empty_name_fails(self, people_data):
         svc = _svc(people_data["user_id"])
@@ -331,6 +332,28 @@ class TestRecordRepayment:
 
 @pytest.mark.django_db
 class TestDebtSummary:
+    def test_by_currency_breakdown_follows_registry_order(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Ordered")
+
+        svc.record_loan(person["id"], people_data["eur_id"], 50, "loan_out")
+        svc.record_loan(person["id"], people_data["usd_id"], 100, "loan_out")
+        svc.record_loan(person["id"], people_data["egp_id"], 2000, "loan_out")
+
+        summary = svc.get_debt_summary(person["id"])
+
+        assert summary is not None
+        assert [balance["currency"] for balance in summary["person"]["balances"]] == [
+            "EGP",
+            "USD",
+            "EUR",
+        ]
+        assert [cd["currency"] for cd in summary["by_currency"]] == [
+            "EGP",
+            "USD",
+            "EUR",
+        ]
+
     def test_by_currency_breakdown(self, people_data):
         svc = _svc(people_data["user_id"])
         person = svc.create("Summary")
@@ -461,6 +484,54 @@ class TestDebtSummary:
         # remaining = 700, payments_needed = 7.0
         # days_to_payoff = 7
         assert summary["projected_payoff"] == date.today() + timedelta(days=7)
+
+    def test_multi_currency_progress_and_payoff_stay_per_currency(self, people_data):
+        from datetime import date, timedelta
+
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Mixed Progress")
+
+        svc.record_loan(
+            person["id"],
+            people_data["egp_id"],
+            1000,
+            "loan_out",
+            tx_date=date(2026, 4, 1),
+        )
+        svc.record_repayment(
+            person["id"], people_data["egp_id"], 100, tx_date=date(2026, 4, 2)
+        )
+        svc.record_repayment(
+            person["id"], people_data["egp_id"], 100, tx_date=date(2026, 4, 4)
+        )
+
+        svc.record_loan(
+            person["id"],
+            people_data["usd_id"],
+            50,
+            "loan_out",
+            tx_date=date(2026, 4, 1),
+        )
+        svc.record_repayment(
+            person["id"], people_data["usd_id"], 10, tx_date=date(2026, 4, 3)
+        )
+        svc.record_repayment(
+            person["id"], people_data["usd_id"], 10, tx_date=date(2026, 4, 5)
+        )
+
+        summary = svc.get_debt_summary(person["id"])
+
+        assert summary is not None
+        assert summary["progress_pct"] is None
+        assert summary["projected_payoff"] is None
+
+        egp = next(cd for cd in summary["by_currency"] if cd["currency"] == "EGP")
+        usd = next(cd for cd in summary["by_currency"] if cd["currency"] == "USD")
+
+        assert egp["progress_pct"] == 20.0
+        assert egp["projected_payoff"] == date.today() + timedelta(days=16)
+        assert usd["progress_pct"] == 40.0
+        assert usd["projected_payoff"] == date.today() + timedelta(days=6)
 
 
 # ---------------------------------------------------------------------------

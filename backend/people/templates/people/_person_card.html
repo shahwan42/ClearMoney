@@ -14,12 +14,10 @@
             </div>
             <div class="text-end space-y-0.5">
                 {% if person.has_open_balance %}
-                    {% for balance in person.balances %}
-                    {% if balance.balance != 0 %}
-                    <p class="text-sm font-semibold {% if balance.balance > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {% for balance in person.active_balances %}
+                    <p data-currency="{{ balance.currency }}" class="text-sm font-semibold {% if balance.balance > 0 %}text-green-600{% else %}text-red-600{% endif %}">
                         {% if balance.balance > 0 %}+{% endif %}{{ balance.balance|format_currency:balance.currency }}
                     </p>
-                    {% endif %}
                     {% endfor %}
                 {% else %}
                 <p class="text-sm font-semibold text-gray-400 dark:text-slate-500">{% trans "Settled" %}</p>

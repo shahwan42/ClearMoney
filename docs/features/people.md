@@ -1,24 +1,31 @@
 # People (Loans & Debts)
 
-Track informal lending and borrowing with people. Record loans, borrowings, and repayments with automatic per-currency balance tracking and payoff projections.
+Track informal lending and borrowing with people. Record loans, borrowings, and
+repayments with automatic per-currency balance tracking and payoff projections.
 
 ## Concept
 
-Each person has per-currency balances (`net_balance_egp` and `net_balance_usd`) that independently track the financial relationship in each currency:
+Each person has generalized per-currency balances (`PersonCurrencyBalance`
+rows) that independently track the financial relationship in each currency:
 
 - **Positive balance** = they owe you (you lent more than they repaid)
 - **Negative balance** = you owe them (you borrowed more than you repaid)
 - **Zero** = settled
 
-A single person can have debts in both EGP and USD simultaneously — e.g., they owe you EGP 5,000 while you owe them $200.
+A single person can have debts in any number of currencies simultaneously, such
+as EGP, USD, and EUR at the same time.
 
 ## Model
 
 **File:** `backend/core/models.py`
 
-The `Person` model has `net_balance_egp` and `net_balance_usd` as `NUMERIC(15,2)` columns, plus a legacy `net_balance` (sum of both for backward compat).
+The `Person` model keeps legacy `net_balance_egp` and `net_balance_usd`
+compatibility columns plus a legacy `net_balance` total, while
+`PersonCurrencyBalance` stores the exact generalized per-currency balances.
 
-`net_balance_egp` and `net_balance_usd` are denormalized caches — updated atomically alongside transactions. The legacy `net_balance` is kept in sync as the sum of both.
+The legacy columns are denormalized caches updated atomically alongside
+transactions. New code should read generalized `balances` / `balance_map`
+payloads from the service layer instead of assuming exactly two currencies.
 
 ## Transaction Types for People
 
@@ -55,10 +62,15 @@ The `Person` model has `net_balance_egp` and `net_balance_usd` as `NUMERIC(15,2)
 Comprehensive summary returned by `get_debt_summary`:
 - `person` — the person record
 - `transactions` — list of loan/repayment transactions (up to 200)
-- `by_currency` — list of `CurrencyDebt` objects (EGP first then USD), each with:
-  - `currency`, `total_lent`, `total_borrowed`, `total_repaid`, `net_balance`, `progress_pct` (0–100)
-- `aggregate_totals` — across all currencies: `total_lent`, `total_borrowed`, `total_repaid`, `progress_pct`
-- `projected_payoff` — estimated date (requires at least 2 repayments per currency)
+- `by_currency` — list of `CurrencyDebt` objects in registry display order, each
+  with:
+  - `currency`, `total_lent`, `total_borrowed`, `total_repaid`, `net_balance`,
+    `progress_pct` (0–100), `projected_payoff`
+- `aggregate_totals` — across all currencies: `total_lent`, `total_borrowed`,
+  `total_repaid`
+- `progress_pct` / `projected_payoff` — only emitted at the top level when the
+  summary is effectively single-currency; mixed-currency summaries use the
+  per-currency rows instead of inventing a cross-currency aggregate
 
 ## Views
 
@@ -113,8 +125,9 @@ Comprehensive summary returned by `get_debt_summary`:
 ### Person Card
 
 Each card shows:
-- Name, avatar, per-currency balances (color-coded: green = they owe, red = you owe)
-- "Settled" if both EGP and USD balances are zero
+- Name, avatar, dynamic per-currency balances (color-coded: green = they owe,
+  red = you owe)
+- "Settled" if all balances are zero
 - Hidden loan form (loan_out/loan_in toggle, amount, account, note)
 - Hidden repay form (amount, account, note)
 - JavaScript toggles for showing/hiding forms
@@ -122,7 +135,7 @@ Each card shows:
 ### Person Detail
 
 Shows:
-- Person header with avatar, name, per-currency balance status
+- Person header with avatar, name, dynamic per-currency balance status
 - Per-currency summary grids: TotalLent, TotalBorrowed, TotalRepaid
 - Per-currency payoff progress bars
 - Transaction history (color-coded by type, amounts shown in transaction currency)
@@ -163,8 +176,7 @@ They're shown separately so you can see both your liquid position (NetWorth) and
 ## Dashboard Integration
 
 Dashboard shows per-currency people summary:
-- "Owed to me (EGP)" / "I owe (EGP)" totals
-- "Owed to me (USD)" / "I owe (USD)" totals (only if non-zero)
+- "Owed to me" / "I owe" totals per active currency
 - Rendered via `people-summary` partial
 - Uses `PeopleByCurrency []PeopleCurrencySummary` from `DashboardData`
 
@@ -182,8 +194,10 @@ Dashboard shows per-currency people summary:
 
 ## For Newcomers
 
-- **Per-currency balances** — each person has independent EGP and USD balances. The currency is determined by the account used for the loan.
-- **Legacy net_balance** — kept for backward compatibility, always equals `net_balance_egp + net_balance_usd`. New code should use the per-currency fields.
+- **Per-currency balances** — each person has independent balances for any
+  active currency. The currency is determined by the account used for the loan.
+- **Legacy net_balance fields** — kept for backward compatibility, while new
+  code should use generalized balance payloads from the service layer.
 - **Auto-detected repayment direction** — the service reads the per-currency balance to determine if money enters or leaves the account. No need for the user to specify.
 - **Payoff projection** — simple linear model. Requires at least 2 repayments to compute.
 - **Two-table atomicity** — record_loan/record_repayment update both account and person balances in a single DB transaction.

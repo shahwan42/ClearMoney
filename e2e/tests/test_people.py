@@ -10,6 +10,7 @@ UI notes:
 - Repay HTMX: hx-post="/people/{id}/repay", target="#people-list"
 - No category_id in loan/repay forms
 """
+
 import sys
 import os
 
@@ -24,6 +25,7 @@ from conftest import (
 )
 
 _account_id: str = ""
+_usd_account_id: str = ""
 _eur_account_id: str = ""
 _user_id: str = ""
 
@@ -31,7 +33,7 @@ _user_id: str = ""
 @pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     """Reset DB and create test institution + account directly via SQL."""
-    global _account_id, _eur_account_id, _user_id
+    global _account_id, _usd_account_id, _eur_account_id, _user_id
     _user_id = reset_database()
     with _conn() as conn:
         with conn.cursor() as cur:
@@ -51,7 +53,14 @@ def db() -> None:
             cur.execute(
                 "INSERT INTO accounts"
                 " (user_id, institution_id, name, type, currency, current_balance, initial_balance, display_order)"
-                " VALUES (%s, %s, 'Euro Wallet', 'current', 'EUR', 500, 500, 1) RETURNING id",
+                " VALUES (%s, %s, 'Dollar Wallet', 'current', 'USD', 300, 300, 1) RETURNING id",
+                (_user_id, inst_id),
+            )
+            _usd_account_id = str(cur.fetchone()[0])  # type: ignore[index]
+            cur.execute(
+                "INSERT INTO accounts"
+                " (user_id, institution_id, name, type, currency, current_balance, initial_balance, display_order)"
+                " VALUES (%s, %s, 'Euro Wallet', 'current', 'EUR', 500, 500, 2) RETURNING id",
                 (_user_id, inst_id),
             )
             _eur_account_id = str(cur.fetchone()[0])  # type: ignore[index]
@@ -180,3 +189,35 @@ class TestPeople:
 
         expect(page.locator("main")).to_contain_text("EUR")
         expect(page.locator("main")).to_contain_text("100")
+
+    def test_person_card_and_detail_support_three_currencies(self, page: Page) -> None:
+        _add_person(page, "Multi Currency")
+
+        for account_id, amount in (
+            (_eur_account_id, "30"),
+            (_usd_account_id, "20"),
+            (_account_id, "10"),
+        ):
+            page.goto("/people")
+            page.click('button:has-text("Record Loan")')
+            loan_form = page.locator('[id^="loan-form-"]').first
+            loan_form.locator('input[name="amount"]').fill(amount)
+            loan_form.locator('select[name="account_id"]').select_option(account_id)
+            with page.expect_response(
+                lambda r: "/loan" in r.url and r.request.method == "POST"
+            ):
+                loan_form.locator('button[type="submit"]').click()
+
+        page.goto("/people")
+        card_balances = page.locator('#people-list [id^="person-"] [data-currency]')
+        expect(card_balances).to_have_count(3)
+        expect(card_balances.nth(0)).to_have_attribute("data-currency", "EGP")
+        expect(card_balances.nth(1)).to_have_attribute("data-currency", "USD")
+        expect(card_balances.nth(2)).to_have_attribute("data-currency", "EUR")
+
+        page.get_by_role("link", name="Multi Currency").click()
+        detail_balances = page.locator("section:first-of-type [data-currency]")
+        expect(detail_balances).to_have_count(3)
+        expect(detail_balances.nth(0)).to_have_attribute("data-currency", "EGP")
+        expect(detail_balances.nth(1)).to_have_attribute("data-currency", "USD")
+        expect(detail_balances.nth(2)).to_have_attribute("data-currency", "EUR")

@@ -20,12 +20,10 @@
             <div>
                 <h1 class="text-xl font-bold text-slate-900 dark:text-slate-100">{{ data.summary.person.name }}</h1>
                 <div class="space-y-0.5">
-                    {% for balance in data.summary.person.balances %}
-                    {% if balance.balance != 0 %}
-                    <p class="text-sm {% if balance.balance > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
+                    {% for balance in data.summary.person.active_balances %}
+                    <p data-currency="{{ balance.currency }}" class="text-sm {% if balance.balance > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
                         {% if balance.balance > 0 %}{% blocktrans with amount=balance.balance|format_currency:balance.currency %}They owe you {{ amount }}{% endblocktrans %}{% else %}{% blocktrans with amount=balance.balance|neg|format_currency:balance.currency %}You owe them {{ amount }}{% endblocktrans %}{% endif %}
                     </p>
-                    {% endif %}
                     {% endfor %}
                     {% if not data.summary.person.has_open_balance %}
                     <p class="text-sm text-gray-400 dark:text-slate-500">{% trans "Settled up" %}</p>
@@ -63,7 +61,7 @@
 
     {% for cd in data.summary.by_currency %}
     {% if cd.progress_pct > 0 %}
-    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+    <section data-currency="{{ cd.currency }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% blocktrans with currency=cd.currency %}Payoff Progress ({{ currency }}){% endblocktrans %}</h2>
         {% include "people/_debt_progress.html" with currency_debt=cd %}
     </section>

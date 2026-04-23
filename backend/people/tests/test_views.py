@@ -278,6 +278,48 @@ class TestPersonDetail:
         assert b"EUR" in response.content
         assert b"125" in response.content
 
+    def test_detail_page_renders_dynamic_balance_rows_in_registry_order(
+        self, client, people_view_data
+    ):
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        c.post("/people/add", {"name": "Order Detail"})
+        persons = json.loads(c.get("/api/persons").content)
+        person_id = persons[0]["id"]
+
+        c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "10",
+                "account_id": people_view_data["eur_id"],
+                "loan_type": "loan_out",
+            },
+        )
+        c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "20",
+                "account_id": people_view_data["usd_id"],
+                "loan_type": "loan_out",
+            },
+        )
+        c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "30",
+                "account_id": people_view_data["egp_id"],
+                "loan_type": "loan_out",
+            },
+        )
+
+        response = c.get(f"/people/{person_id}")
+        assert response.status_code == 200
+
+        html = response.content.decode()
+        egp_index = html.index('data-currency="EGP"')
+        usd_index = html.index('data-currency="USD"')
+        eur_index = html.index('data-currency="EUR"')
+        assert egp_index < usd_index < eur_index
+
     def test_404_nonexistent(self, client, people_view_data):
         c = set_auth_cookie(client, people_view_data["session_token"])
         fake_id = str(uuid.uuid4())

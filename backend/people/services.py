@@ -62,11 +62,13 @@ def _with_balance_payload(
 ) -> dict[str, Any]:
     """Attach generalized balances and compatibility-derived helpers."""
     normalized = _normalize_balance_rows(person, balances)
+    active_balances = [balance for balance in normalized if balance["balance"] != 0]
     person["balances"] = normalized
+    person["active_balances"] = active_balances
     person["balance_map"] = {
         balance["currency"]: balance["balance"] for balance in normalized
     }
-    person["has_open_balance"] = any(balance["balance"] != 0 for balance in normalized)
+    person["has_open_balance"] = len(active_balances) > 0
     return person
 
 
@@ -494,7 +496,10 @@ class PersonService:
         return [_tx_to_dict(row) for row in rows]
 
     def _compute_currency_breakdown(
-        self, txns: list[dict[str, Any]], person: dict[str, Any]
+        self,
+        txns: list[dict[str, Any]],
+        person: dict[str, Any],
+        repayment_dates_by_currency: dict[str, list[date]],
     ) -> list[dict[str, Any]]:
         """Compute per-currency loan tallies and progress for a person's transactions.
 
@@ -507,8 +512,8 @@ class PersonService:
 
         Returns:
             List of per-currency dicts, each containing currency, total_lent,
-            total_borrowed, total_repaid, net_balance, and progress_pct.
-            Ordered by currency registry display order.
+            total_borrowed, total_repaid, net_balance, progress_pct, and
+            projected_payoff. Ordered by currency registry display order.
         """
         currency_map: dict[str, dict[str, float]] = {}
         for tx in txns:
@@ -551,6 +556,11 @@ class PersonService:
                 if total_debt > 0
                 else 0.0
             )
+            projected_payoff = self._compute_projected_payoff(
+                repayment_dates_by_currency.get(cur, []),
+                abs(net),
+                cd["total_repaid"],
+            )
             by_currency.append(
                 {
                     "currency": cur,
@@ -559,6 +569,7 @@ class PersonService:
                     "total_repaid": cd["total_repaid"],
                     "net_balance": net,
                     "progress_pct": progress,
+                    "projected_payoff": projected_payoff,
                 }
             )
         return by_currency
@@ -566,7 +577,7 @@ class PersonService:
     def _compute_aggregate_progress(
         self, total_lent: float, total_borrowed: float, total_repaid: float
     ) -> float:
-        """Compute aggregate repayment progress percentage across all currencies.
+        """Compute aggregate repayment progress percentage for one currency slice.
 
         Computes total debt (lent + borrowed) and expresses repaid amount as a
         capped percentage. Caps at 100% to handle over-repayments gracefully.
@@ -635,7 +646,8 @@ class PersonService:
         Returns:
             Dict with keys: person, transactions, by_currency, total_lent,
             total_borrowed, total_repaid, progress_pct, projected_payoff.
-            Returns None if person_id does not exist.
+            Top-level progress/payoff are only populated for effectively
+            single-currency summaries. Returns None if person_id does not exist.
         """
         person = self.get_by_id(person_id)
         if not person:
@@ -646,7 +658,7 @@ class PersonService:
         total_lent = 0.0
         total_borrowed = 0.0
         total_repaid = 0.0
-        repayment_dates: list[date] = []
+        repayment_dates_by_currency: dict[str, list[date]] = {}
 
         for tx in txns:
             if tx["type"] == "loan_out":
@@ -656,16 +668,32 @@ class PersonService:
             elif tx["type"] == "loan_repayment":
                 total_repaid += tx["amount"]
                 if isinstance(tx["date"], date):
-                    repayment_dates.append(tx["date"])
+                    repayment_dates_by_currency.setdefault(tx["currency"], []).append(
+                        tx["date"]
+                    )
 
-        by_currency = self._compute_currency_breakdown(txns, person)
-        progress_pct = self._compute_aggregate_progress(
-            total_lent, total_borrowed, total_repaid
+        by_currency = self._compute_currency_breakdown(
+            txns, person, repayment_dates_by_currency
         )
-        remaining = sum(abs(balance["balance"]) for balance in person["balances"])
-        projected_payoff = self._compute_projected_payoff(
-            repayment_dates, remaining, total_repaid
-        )
+        active_currency_summaries = [
+            currency_summary
+            for currency_summary in by_currency
+            if (
+                currency_summary["total_lent"] > 0
+                or currency_summary["total_borrowed"] > 0
+                or currency_summary["total_repaid"] > 0
+                or currency_summary["net_balance"] != 0
+            )
+        ]
+        if len(active_currency_summaries) == 1:
+            progress_pct: float | None = active_currency_summaries[0]["progress_pct"]
+            projected_payoff = active_currency_summaries[0]["projected_payoff"]
+        elif active_currency_summaries:
+            progress_pct = None
+            projected_payoff = None
+        else:
+            progress_pct = 0.0
+            projected_payoff = None
 
         return {
             "person": person,

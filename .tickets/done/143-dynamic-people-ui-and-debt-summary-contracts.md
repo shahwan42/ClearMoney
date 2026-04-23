@@ -3,9 +3,9 @@ id: "143"
 title: "Dynamic people UI and debt summary contracts"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -27,11 +27,11 @@ arbitrary per-currency data.
 
 ## Acceptance Criteria
 
-- [ ] People list and detail pages render any number of currencies
-- [ ] No people template references `net_balance_egp` or `net_balance_usd`
-- [ ] Currency-breakdown output is dynamic and deterministic
-- [ ] Existing EGP/USD users see unchanged results after migration
-- [ ] Progress and payoff data remain correct with multi-currency balances
+- [x] People list and detail pages render any number of currencies
+- [x] No people template references `net_balance_egp` or `net_balance_usd`
+- [x] Currency-breakdown output is dynamic and deterministic
+- [x] Existing EGP/USD users see unchanged results after migration
+- [x] Progress and payoff data remain correct with multi-currency balances
 
 ## Critical Files
 
@@ -60,4 +60,5 @@ arbitrary per-currency data.
 ## Progress Notes
 
 - 2026-04-22: Created to consume generalized people balances from `#142`
-
+- 2026-04-23: Started implementation from `wip`; verified current dynamic balance rendering, then targeted remaining contract gaps around deterministic ordering and multi-currency progress/payoff semantics.
+- 2026-04-23: Completed — added dynamic active-balance rows in people list/detail, extended debt-summary contracts with per-currency projected payoff data and mixed-currency-safe top-level progress/payoff behavior, updated people docs, and verified with full backend (`1547 passed`) plus full E2E (`272 passed`) suites.
