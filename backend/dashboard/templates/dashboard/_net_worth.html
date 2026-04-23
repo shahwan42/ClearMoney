@@ -39,17 +39,11 @@
                 {% else %}
                 <div></div>
                 {% endif %}
-                {% with history=data.net_worth_history_by_currency|get_item:data.selected_currency %}
-                {% if history %}
-                <div class="flex-shrink-0">
-                    {% include "components/chart_sparkline.html" with values=history color="var(--chart-1)" width=100 height=36 %}
-                </div>
-                {% elif data.net_worth_history %}
+                {% if data.net_worth_history %}
                 <div class="flex-shrink-0">
                     {% include "components/chart_sparkline.html" with values=data.net_worth_history color="var(--chart-1)" width=100 height=36 %}
                 </div>
                 {% endif %}
-                {% endwith %}
             </div>
 
             {# Summary breakdown: Liquid Cash, Credit Used, Credit Available, Debt #}

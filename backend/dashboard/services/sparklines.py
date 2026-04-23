@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from accounts.models import AccountSnapshot
-from auth_app.currency import get_user_selected_display_currency
 from auth_app.models import HistoricalSnapshot
 
 if TYPE_CHECKING:
@@ -15,19 +14,30 @@ if TYPE_CHECKING:
 
 
 def load_net_worth_history(user_id: str, data: DashboardData, tz: ZoneInfo) -> None:
-    """Load 30-day net worth sparkline for the selected display currency."""
-    today = datetime.now(tz).date()
-    start = today - timedelta(days=30)
-    selected_currency = get_user_selected_display_currency(user_id)
+    """Load net worth sparkline for the selected display currency.
 
-    rows = (
-        HistoricalSnapshot.objects.for_user(user_id)
-        .filter(date__gte=start, date__lte=today, currency=selected_currency)
-        .order_by("date")
-        .values_list("net_worth", flat=True)
-    )
+    Updates:
+    - data.net_worth_history: Values for selected_currency
+    - data.net_worth_change: Percentage change over the period
+    """
+    if not data.selected_currency:
+        return
 
-    values = [float(v) for v in rows]
+    # Use existing history from per-currency lookup if already loaded
+    if data.selected_currency in data.net_worth_history_by_currency:
+        values = data.net_worth_history_by_currency[data.selected_currency]
+    else:
+        # Load from DB if not already in memory
+        today = datetime.now(tz).date()
+        start = today - timedelta(days=30)
+        rows = (
+            HistoricalSnapshot.objects.for_user(user_id)
+            .filter(date__gte=start, date__lte=today, currency=data.selected_currency)
+            .order_by("date")
+            .values_list("net_worth", flat=True)
+        )
+        values = [float(v) for v in rows]
+
     if len(values) >= 2:
         data.net_worth_history = values
         oldest = values[0]
@@ -52,7 +62,6 @@ def load_net_worth_by_currency(user_id: str, data: DashboardData, tz: ZoneInfo) 
         return
 
     # Group by (date, currency) and sum balances
-    # Then restructure into per-currency lists ordered by date
     from collections import defaultdict
 
     currency_by_date: dict[str, dict[str, float]] = defaultdict(

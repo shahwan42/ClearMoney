@@ -90,7 +90,6 @@ class DashboardData:
 
     # Net worth
     net_worth: float = 0.0
-    net_worth_egp: float = 0.0
     totals_by_currency: dict[str, float] = field(default_factory=dict)
     cash_by_currency: dict[str, float] = field(default_factory=dict)
     debt_by_currency: dict[str, float] = field(default_factory=dict)
@@ -328,19 +327,19 @@ class DashboardService:
 
         Steps 12, 13, 14 from original get_dashboard().
         """
-        # 12. Net worth sparkline
-        try:
-            self._load_net_worth_history(data)
-        except Exception:
-            logger.warning("dashboard: failed to load net worth history")
-
-        # 13. Per-currency sparkline
+        # 1. Per-currency sparkline (load first so selected_currency history can reuse it)
         try:
             self._load_net_worth_by_currency(data)
         except Exception:
             logger.warning("dashboard: failed to load per-currency history")
 
-        # 14. Per-account sparklines
+        # 2. Net worth sparkline for selected currency
+        try:
+            self._load_net_worth_history(data)
+        except Exception:
+            logger.warning("dashboard: failed to load net worth history")
+
+        # 3. Per-account sparklines
         try:
             self._load_account_sparklines(data, all_accounts)
         except Exception:

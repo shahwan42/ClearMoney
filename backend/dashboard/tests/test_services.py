@@ -1570,6 +1570,65 @@ def test_load_activity_data_populates_transactions_and_virtual_accounts(svc_data
 
 
 @pytest.mark.django_db
+def test_load_net_worth_history_dynamic_currency(svc_data):
+    """load_net_worth_history() should load history for the selected currency."""
+    today = date.today()
+    user = svc_data["user"]
+
+    # Create history for EGP
+    for i in range(5):
+        HistoricalSnapshotFactory(
+            user=user,
+            date=today - timedelta(days=4 - i),
+            currency="EGP",
+            net_worth=1000 + i * 100,
+        )
+
+    # Create history for USD
+    for i in range(5):
+        HistoricalSnapshotFactory(
+            user=user,
+            date=today - timedelta(days=4 - i),
+            currency="USD",
+            net_worth=20 + i * 5,
+        )
+
+    # 1. Test EGP (default)
+    svc = DashboardService(str(user.id), TZ, selected_currency="EGP")
+    from dashboard.services import DashboardData
+
+    data = DashboardData(selected_currency="EGP")
+    svc._load_sparklines(data, [])
+
+    assert data.net_worth_history == [1000.0, 1100.0, 1200.0, 1300.0, 1400.0]
+    # (1400 - 1000) / 1000 = 0.4 = 40%
+    assert data.net_worth_change == pytest.approx(40.0)
+
+    # 2. Test USD
+    data_usd = DashboardData(selected_currency="USD")
+    svc_usd = DashboardService(str(user.id), TZ, selected_currency="USD")
+    svc_usd._load_sparklines(data_usd, [])
+
+    assert data_usd.net_worth_history == [20.0, 25.0, 30.0, 35.0, 40.0]
+    # (40 - 20) / 20 = 1.0 = 100%
+    assert data_usd.net_worth_change == pytest.approx(100.0)
+
+
+@pytest.mark.django_db
+def test_load_net_worth_history_no_history(svc_data):
+    """load_net_worth_history() should handle empty history gracefully."""
+    user = svc_data["user"]
+    svc = DashboardService(str(user.id), TZ, selected_currency="EUR")
+    from dashboard.services import DashboardData
+
+    data = DashboardData(selected_currency="EUR")
+    svc._load_sparklines(data, [])
+
+    assert data.net_worth_history == []
+    assert data.net_worth_change == 0.0
+
+
+@pytest.mark.django_db
 def test_load_sparklines_populates_history_data(svc_data):
     """_load_sparklines() should populate net worth history and sparklines."""
     svc = DashboardService(str(svc_data["user_id"]), TZ)

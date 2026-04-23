@@ -1,11 +1,10 @@
----
 id: "151"
 title: "Dashboard and historical sparkline consumption rewrite"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -23,9 +22,9 @@ instead of fixed EGP/USD history keys and dual-series template assumptions.
 
 ## Acceptance Criteria
 
-- [ ] Dashboard net-worth history works for any active currency
-- [ ] No sparkline template depends on fixed EGP/USD keys
-- [ ] Currencies with no history show a clean empty-state behavior
+- [x] Dashboard net-worth history works for any active currency
+- [x] No sparkline template depends on fixed EGP/USD keys
+- [x] Currencies with no history show a clean empty-state behavior
 
 ## Critical Files
 
@@ -52,4 +51,4 @@ instead of fixed EGP/USD history keys and dual-series template assumptions.
 ## Progress Notes
 
 - 2026-04-22: Created for dashboard history consumption updates
-
+- 2026-04-23: Consolidated sparkline loading in services, simplified templates, and added verification tests. All dashboard service tests passing.

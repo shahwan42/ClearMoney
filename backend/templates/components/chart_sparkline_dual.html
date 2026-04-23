@@ -1,7 +1,7 @@
 {% comment %}
 Dual sparkline — two lines in separate vertical bands on the same SVG.
 Port of Go's chart-sparkline-dual partial.
-Usage: {% include "components/chart_sparkline_dual.html" with values1=egp_list color1="#0d9488" values2=usd_list color2="#3b82f6" width=100 height=36 %}
+Usage: {% include "components/chart_sparkline_dual.html" with values1=list1 color1="#0d9488" values2=list2 color2="#3b82f6" width=100 height=36 %}
 {% endcomment %}
 {% load money %}
 {% if values1 %}
