@@ -23,7 +23,6 @@ Last updated: 2026-04-23
 | [147](pending/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-22 |
 | [146](pending/146-dashboard-selected-currency-behavior.md) | Dashboard selected-currency behavior | feature | high | 2026-04-22 |
 | [145](pending/145-generalize-net-worth-summary-data-structures.md) | Generalize net worth summary data structures | feature | high | 2026-04-22 |
-| [144](pending/144-generalized-dashboard-people-summary-and-debt-aggregation.md) | Generalized dashboard people summary and debt aggregation | feature | high | 2026-04-22 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [100](pending/100-smarter-more-menu.md) | Smarter More menu organization | improvement | medium | 2026-03-31 |
@@ -49,6 +48,7 @@ Last updated: 2026-04-23
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [144](done/144-generalized-dashboard-people-summary-and-debt-aggregation.md) | Generalized dashboard people summary and debt aggregation | feature | high | 2026-04-23 |
 | [143](done/143-dynamic-people-ui-and-debt-summary-contracts.md) | Dynamic people UI and debt summary contracts | feature | high | 2026-04-23 |
 | [142](done/142-generalized-person-currency-balance-storage.md) | Generalized person currency balance storage | feature | high | 2026-04-23 |
 | [141](done/141-complete-selected-currency-plumbing-rollout.md) | Complete selected-currency plumbing rollout | improvement | high | 2026-04-23 |

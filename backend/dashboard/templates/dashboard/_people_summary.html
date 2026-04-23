@@ -9,7 +9,7 @@
             <div class="flex items-center gap-2 overflow-hidden flex-1">
                 <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "People" %}</h2>
                 <div id="summary-people" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    {% if data.has_people_activity %}{{ data.people_owed_to_me|subtract:data.people_i_owe|format_egp }}{% endif %}
+                    {% if data.selected_people_summary %}{{ data.people_owed_to_me|subtract:data.people_i_owe|format_currency:data.selected_people_summary.currency }}{% endif %}
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -21,28 +21,26 @@
         </div>
 
         <div id="content-people" class="mt-3 section-content">
-            {% if data.people_by_currency %}
-                {% for pcs in data.people_by_currency %}
-                <div class="flex justify-between {% if pcs.currency != 'EGP' %}mt-2 pt-2 border-t border-gray-100 dark:border-slate-700{% endif %}">
-                    <div>
-                        <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=pcs.currency %}Owed to me ({{ currency }}){% endblocktrans %}</p>
-                        <p class="text-sm font-semibold text-green-600 dark:text-green-400">{{ pcs.owed_to_me|format_currency:pcs.currency }}</p>
-                    </div>
-                    <div class="text-end">
-                        <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=pcs.currency %}I owe ({{ currency }}){% endblocktrans %}</p>
-                        <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ pcs.i_owe|format_currency:pcs.currency }}</p>
-                    </div>
+            {% if data.selected_people_summary %}
+            <div class="flex justify-between">
+                <div>
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=data.selected_people_summary.currency %}Owed to me ({{ currency }}){% endblocktrans %}</p>
+                    <p class="text-sm font-semibold text-green-600 dark:text-green-400">{{ data.selected_people_summary.owed_to_me|format_currency:data.selected_people_summary.currency }}</p>
                 </div>
-                {% endfor %}
+                <div class="text-end">
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=data.selected_people_summary.currency %}I owe ({{ currency }}){% endblocktrans %}</p>
+                    <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ data.selected_people_summary.i_owe|format_currency:data.selected_people_summary.currency }}</p>
+                </div>
+            </div>
             {% else %}
             <div class="flex justify-between">
                 <div>
-                    <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "Owed to me" %}</p>
-                    <p class="text-sm font-semibold text-green-600 dark:text-green-400">{{ data.people_owed_to_me|format_egp }}</p>
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=data.selected_currency %}Owed to me ({{ currency }}){% endblocktrans %}</p>
+                    <p class="text-sm font-semibold text-green-600 dark:text-green-400">{{ data.people_owed_to_me|format_currency:data.selected_currency }}</p>
                 </div>
                 <div class="text-end">
-                    <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "I owe" %}</p>
-                    <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ data.people_i_owe|format_egp }}</p>
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with currency=data.selected_currency %}I owe ({{ currency }}){% endblocktrans %}</p>
+                    <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ data.people_i_owe|format_currency:data.selected_currency }}</p>
                 </div>
             </div>
             {% endif %}

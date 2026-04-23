@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from auth_app.currency import get_supported_currencies
 from people.models import Person
 
 # Re-export from transactions service (canonical location)
@@ -32,50 +33,75 @@ class PeopleCurrencySummary:
     owed_to_me: float = 0.0
     i_owe: float = 0.0
 
+    @property
+    def has_activity(self) -> bool:
+        return self.owed_to_me != 0 or self.i_owe != 0
+
+
+def _currency_sort_key(currency: str) -> tuple[int, str]:
+    """Sort currencies by registry display order, then alphabetically."""
+    supported_codes = [row.code for row in get_supported_currencies()]
+    if currency in supported_codes:
+        return (supported_codes.index(currency), currency)
+    return (len(supported_codes), currency)
+
+
+def _person_balance_map(person: Person) -> dict[str, float]:
+    """Return generalized per-currency balances with legacy fallback."""
+    balances = {
+        row.currency_id: float(row.balance) for row in person.currency_balances.all()
+    }
+    if "EGP" not in balances and person.net_balance_egp:
+        balances["EGP"] = float(person.net_balance_egp)
+    if "USD" not in balances and person.net_balance_usd:
+        balances["USD"] = float(person.net_balance_usd)
+    return balances
+
 
 def load_people_summary(user_id: str, data: DashboardData) -> None:
     """Load people ledger grouped by currency."""
-    rows = (
-        Person.objects.for_user(user_id)
-        .order_by("name")
-        .values_list("name", "net_balance", "net_balance_egp", "net_balance_usd")
+    summaries: dict[str, PeopleCurrencySummary] = {}
+    debt_by_currency: dict[str, float] = {}
+    people = Person.objects.for_user(user_id).prefetch_related("currency_balances")
+
+    for person in people:
+        for currency, balance in _person_balance_map(person).items():
+            summary = summaries.setdefault(
+                currency,
+                PeopleCurrencySummary(currency=currency),
+            )
+            if balance > 0:
+                summary.owed_to_me += balance
+            elif balance < 0:
+                summary.i_owe += balance
+                debt_by_currency[currency] = debt_by_currency.get(currency, 0.0) + abs(
+                    balance
+                )
+
+    data.people_by_currency = [
+        summary
+        for currency, summary in sorted(summaries.items(), key=lambda item: _currency_sort_key(item[0]))
+        if summary.has_activity
+    ]
+    data.debt_by_currency = {
+        currency: debt_by_currency[currency]
+        for currency in sorted(debt_by_currency, key=_currency_sort_key)
+    }
+    data.debt_egp = data.debt_by_currency.get("EGP", 0.0)
+    data.debt_usd = data.debt_by_currency.get("USD", 0.0)
+    data.selected_people_summary = next(
+        (
+            summary
+            for summary in data.people_by_currency
+            if summary.currency == data.selected_currency
+        ),
+        None,
     )
-
-    egp = PeopleCurrencySummary(currency="EGP")
-    usd = PeopleCurrencySummary(currency="USD")
-
-    for _name, net_balance, net_balance_egp, net_balance_usd in rows:
-        nb = float(net_balance)
-        nb_egp = float(net_balance_egp)
-        nb_usd = float(net_balance_usd)
-
-        if nb_egp > 0:
-            egp.owed_to_me += nb_egp
-        elif nb_egp < 0:
-            egp.i_owe += nb_egp
-            data.debt_egp += abs(nb_egp)
-
-        if nb_usd > 0:
-            usd.owed_to_me += nb_usd
-        elif nb_usd < 0:
-            usd.i_owe += nb_usd
-            data.debt_usd += abs(nb_usd)
-
-        if nb > 0:
-            data.people_owed_to_me += nb
-        elif nb < 0:
-            data.people_i_owe += nb
-
-    if egp.owed_to_me != 0 or egp.i_owe != 0:
-        data.people_by_currency.append(egp)
-    if usd.owed_to_me != 0 or usd.i_owe != 0:
-        data.people_by_currency.append(usd)
-
-    data.has_people_activity = (
-        len(data.people_by_currency) > 0
-        or data.people_owed_to_me != 0
-        or data.people_i_owe != 0
-    )
+    if data.selected_people_summary is not None:
+        data.people_owed_to_me = data.selected_people_summary.owed_to_me
+        data.people_i_owe = data.selected_people_summary.i_owe
+    data.selected_debt = data.debt_by_currency.get(data.selected_currency, 0.0)
+    data.has_people_activity = data.selected_people_summary is not None
 
 
 # load_streak and load_recent_transactions are re-exported from

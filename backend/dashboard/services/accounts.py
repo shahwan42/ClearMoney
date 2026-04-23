@@ -233,34 +233,28 @@ def _get_people_debt(user_id: str) -> list[dict[str, Any]]:
     """Return people records where the user owes them money (negative net_balance).
 
     Each returned dict has name, balance, currency, institution_name ('People'),
-    and institution_icon ('👤').  Only currency-specific negative balances are
-    returned — e.g. a person with net_balance_egp=-300 and net_balance_usd=50
-    yields one row in EGP only.
+    and institution_icon ('👤'). Rows are emitted from generalized per-currency
+    balances, with legacy EGP/USD fallback only when generalized rows are missing.
     """
-    people_rows = (
-        Person.objects.for_user(user_id)
-        .filter(net_balance__lt=0)
-        .order_by("name")
-        .values_list("name", "net_balance_egp", "net_balance_usd")
-    )
     rows = []
-    for name, nb_egp, nb_usd in people_rows:
-        if nb_egp is not None and nb_egp < 0:
+    people = Person.objects.for_user(user_id).prefetch_related("currency_balances")
+    for person in people.order_by("name"):
+        balances = {
+            row.currency_id: float(row.balance) for row in person.currency_balances.all()
+        }
+        if "EGP" not in balances and person.net_balance_egp:
+            balances["EGP"] = float(person.net_balance_egp)
+        if "USD" not in balances and person.net_balance_usd:
+            balances["USD"] = float(person.net_balance_usd)
+
+        for currency, balance in balances.items():
+            if balance >= 0:
+                continue
             rows.append(
                 {
-                    "name": name,
-                    "balance": float(nb_egp),
-                    "currency": "EGP",
-                    "institution_name": "People",
-                    "institution_icon": "👤",
-                }
-            )
-        if nb_usd is not None and nb_usd < 0:
-            rows.append(
-                {
-                    "name": name,
-                    "balance": float(nb_usd),
-                    "currency": "USD",
+                    "name": person.name,
+                    "balance": balance,
+                    "currency": currency,
                     "institution_name": "People",
                     "institution_icon": "👤",
                 }

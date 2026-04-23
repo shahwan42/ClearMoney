@@ -25,12 +25,15 @@ from tests.factories import (
     AccountSnapshotFactory,
     BudgetFactory,
     CategoryFactory,
+    CurrencyFactory,
     DailySnapshotFactory,
     ExchangeRateLogFactory,
     InstitutionFactory,
     InvestmentFactory,
+    PersonCurrencyBalanceFactory,
     PersonFactory,
     TransactionFactory,
+    UserCurrencyPreferenceFactory,
     VirtualAccountFactory,
 )
 
@@ -266,32 +269,33 @@ def test_load_streak_with_gap(svc_data):
 
 @pytest.mark.django_db
 def test_load_people_summary(svc_data):
-    """Groups people by currency."""
-    PersonFactory(
-        user_id=svc_data["user"].id,
-        name="Alice",
-        net_balance=500,
-        net_balance_egp=500,
-        net_balance_usd=0,
+    """Groups people by currency using generalized balance rows."""
+    CurrencyFactory(code="USD", display_order=1)
+    CurrencyFactory(code="EUR", display_order=2)
+    UserCurrencyPreferenceFactory(
+        user=svc_data["user"],
+        active_currency_codes=["EGP", "USD", "EUR"],
+        selected_display_currency="EUR",
     )
-    PersonFactory(
-        user_id=svc_data["user"].id,
-        name="Bob",
-        net_balance=-200,
-        net_balance_egp=-200,
-        net_balance_usd=0,
-    )
+    alice = PersonFactory(user_id=svc_data["user"].id, name="Alice")
+    bob = PersonFactory(user_id=svc_data["user"].id, name="Bob")
+    PersonCurrencyBalanceFactory(person=alice, currency_id="EUR", balance=500)
+    PersonCurrencyBalanceFactory(person=bob, currency_id="EUR", balance=-200)
+    PersonCurrencyBalanceFactory(person=alice, currency_id="USD", balance=50)
 
     svc = DashboardService(svc_data["user_id"], TZ)
     from dashboard.services import DashboardData
 
-    data = DashboardData()
+    data = DashboardData(selected_currency="EUR")
     svc._load_people_summary(data)
     assert data.has_people_activity is True
-    assert len(data.people_by_currency) >= 1
-    assert data.people_by_currency[0].currency == "EGP"
-    assert data.people_by_currency[0].owed_to_me == 500.0
-    assert data.people_by_currency[0].i_owe == -200.0
+    assert [summary.currency for summary in data.people_by_currency] == ["USD", "EUR"]
+    assert data.selected_people_summary is not None
+    assert data.selected_people_summary.currency == "EUR"
+    assert data.selected_people_summary.owed_to_me == 500.0
+    assert data.selected_people_summary.i_owe == -200.0
+    assert data.people_owed_to_me == 500.0
+    assert data.people_i_owe == -200.0
 
 
 # ---------------------------------------------------------------------------
@@ -1382,6 +1386,23 @@ def test_debt_total_includes_people_i_owe(svc_data):
 
 
 @pytest.mark.django_db
+def test_debt_total_includes_generalized_people_debt_by_currency(svc_data):
+    """Debt aggregation sums generalized people debt without fixed currency branches."""
+    CurrencyFactory(code="USD", display_order=1)
+    CurrencyFactory(code="EUR", display_order=2)
+    ali = PersonFactory(user_id=svc_data["user"].id, name="Ali")
+    sara = PersonFactory(user_id=svc_data["user"].id, name="Sara")
+    PersonCurrencyBalanceFactory(person=ali, currency_id="EUR", balance=-300)
+    PersonCurrencyBalanceFactory(person=sara, currency_id="USD", balance=-50)
+
+    svc = DashboardService(svc_data["user_id"], TZ)
+    result = svc.get_dashboard()
+
+    assert result["debt_by_currency"] == {"USD": 50.0, "EUR": 300.0}
+    assert result["debt_total"] == pytest.approx(2350.0)
+
+
+@pytest.mark.django_db
 def test_debt_total_zero_when_no_debt(db):
     """debt_total is 0 when all balances are positive and no people owed."""
     user = UserFactory()
@@ -1418,6 +1439,33 @@ def test_debt_total_only_people_no_account_debt(db):
     svc = DashboardService(str(user.id), TZ)
     result = svc.get_dashboard()
     assert result["debt_total"] == pytest.approx(300.0)
+
+
+@pytest.mark.django_db
+def test_load_people_summary_with_selected_currency_and_third_currency(svc_data):
+    """Selected-currency slice is derived from the generalized currency collection."""
+    CurrencyFactory(code="USD", display_order=1)
+    CurrencyFactory(code="EUR", display_order=2)
+    UserCurrencyPreferenceFactory(
+        user=svc_data["user"],
+        active_currency_codes=["EGP", "USD", "EUR"],
+        selected_display_currency="USD",
+    )
+    ali = PersonFactory(user_id=svc_data["user"].id, name="Ali")
+    sara = PersonFactory(user_id=svc_data["user"].id, name="Sara")
+    PersonCurrencyBalanceFactory(person=ali, currency_id="EUR", balance=300)
+    PersonCurrencyBalanceFactory(person=ali, currency_id="USD", balance=125)
+    PersonCurrencyBalanceFactory(person=sara, currency_id="USD", balance=-25)
+
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    result = svc.get_dashboard()
+
+    assert [summary["currency"] if isinstance(summary, dict) else summary.currency for summary in result["people_by_currency"]] == ["USD", "EUR"]
+    assert result["selected_currency"] == "USD"
+    assert result["selected_people_summary"].currency == "USD"
+    assert result["people_owed_to_me"] == 125.0
+    assert result["people_i_owe"] == -25.0
+    assert result["selected_debt"] == 25.0
 
 
 # ==================== Tests for decomposed sub-methods ====================
@@ -1526,14 +1574,10 @@ def test_dashboard_usd_exchange_rate_fallback(svc_data):
 
 @pytest.mark.django_db
 def test_get_net_worth_breakdown_people_debt_usd(svc_data):
-    """Test get_net_worth_breakdown for debt card includes USD debt from people (line 258)."""
-    PersonFactory(
-        user_id=svc_data["user"].id,
-        name="John Doe",
-        net_balance=-50,
-        net_balance_egp=0,
-        net_balance_usd=-50,
-    )
+    """Debt breakdown includes generalized per-currency people debt rows."""
+    CurrencyFactory(code="USD", display_order=1)
+    person = PersonFactory(user_id=svc_data["user"].id, name="John Doe")
+    PersonCurrencyBalanceFactory(person=person, currency_id="USD", balance=-50)
     result = get_net_worth_breakdown(str(svc_data["user_id"]), "debt")
     names = [row["name"] for row in result["accounts"]]
     assert "John Doe" in names
@@ -1623,21 +1667,25 @@ def test_compute_credit_card_summaries_metadata(svc_data):
 
 @pytest.mark.django_db
 def test_load_people_summary_usd_and_negative_nb(svc_data):
-    """Test load_people_summary logic correctly populates usd.owed_to_me and people_i_owe."""
-    PersonFactory(
-        user_id=svc_data["user"].id,
-        name="USD Debtor",
-        net_balance=-100,  # covers nb < 0 (data.people_i_owe += nb)
-        net_balance_egp=0,
-        net_balance_usd=100,  # covers nb_usd > 0
+    """Selected-currency helpers resolve from generalized summary output."""
+    CurrencyFactory(code="USD", display_order=1)
+    UserCurrencyPreferenceFactory(
+        user=svc_data["user"],
+        active_currency_codes=["EGP", "USD"],
+        selected_display_currency="USD",
     )
+    debtor = PersonFactory(user_id=svc_data["user"].id, name="USD Debtor")
+    PersonCurrencyBalanceFactory(person=debtor, currency_id="USD", balance=100)
     svc = DashboardService(str(svc_data["user_id"]), TZ)
     from dashboard.services import DashboardData
 
-    data = DashboardData()
+    data = DashboardData(selected_currency="USD")
     svc._load_people_summary(data)
 
-    assert data.people_i_owe == -100.0
+    assert data.people_i_owe == 0.0
+    assert data.people_owed_to_me == 100.0
+    assert data.selected_people_summary is not None
+    assert data.selected_people_summary.currency == "USD"
     usd_summary = next(c for c in data.people_by_currency if c.currency == "USD")
     assert usd_summary.owed_to_me == 100.0
 

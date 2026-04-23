@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from auth_app.currency import get_user_selected_display_currency
+
 # Re-export all dataclasses so external code can do:
 #   from dashboard.services import DashboardService, DueSoonCard, HealthWarning
 from .accounts import (
@@ -98,6 +100,8 @@ class DashboardData:
     debt_total: float = 0.0
     debt_egp: float = 0.0
     debt_usd: float = 0.0
+    debt_by_currency: dict[str, float] = field(default_factory=dict)
+    selected_debt: float = 0.0
     exchange_rate: float = 0.0
     usd_in_egp: float = 0.0
 
@@ -105,9 +109,11 @@ class DashboardData:
     institutions: list[InstitutionGroup] = field(default_factory=list)
 
     # People
+    selected_currency: str = "EGP"
     people_owed_to_me: float = 0.0
     people_i_owe: float = 0.0
     people_by_currency: list[PeopleCurrencySummary] = field(default_factory=list)
+    selected_people_summary: PeopleCurrencySummary | None = None
     has_people_activity: bool = False
 
     # Investments
@@ -166,6 +172,7 @@ class DashboardService:
     def __init__(self, user_id: str, tz: ZoneInfo) -> None:
         self.user_id = user_id
         self.tz = tz
+        self.selected_currency = get_user_selected_display_currency(user_id)
 
     def get_dashboard(self) -> dict[str, Any]:
         """Compute the full dashboard data. Called once per page load.
@@ -173,7 +180,7 @@ class DashboardService:
         Returns a flat dict suitable for Django template rendering.
         Each data source is loaded independently — failures are logged and skipped.
         """
-        data = DashboardData()
+        data = DashboardData(selected_currency=self.selected_currency)
 
         # Load core data (net worth, institutions, accounts, exchange rate)
         all_accounts = self._load_core_data(data)
@@ -263,9 +270,8 @@ class DashboardService:
         except Exception:
             logger.warning("dashboard: failed to load people")
 
-        # 7b. Finalize debt total: accounts debt (from step 3) + people I owe (from step 7)
-        if data.people_i_owe < 0:
-            data.debt_total += abs(data.people_i_owe)
+        # 7b. Finalize debt total: accounts debt (from step 3) + people debt (all currencies)
+        data.debt_total += sum(data.debt_by_currency.values())
 
         # 9. Investments
         try:

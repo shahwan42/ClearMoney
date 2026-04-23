@@ -7,13 +7,18 @@ from datetime import date, timedelta
 import pytest
 from django.utils import timezone
 
+from auth_app.models import User
 from conftest import SessionFactory, UserFactory, set_auth_cookie
 from core.middleware import COOKIE_NAME
 from tests.factories import (
     AccountFactory,
     CategoryFactory,
+    CurrencyFactory,
     InstitutionFactory,
+    PersonCurrencyBalanceFactory,
+    PersonFactory,
     TransactionFactory,
+    UserCurrencyPreferenceFactory,
 )
 
 
@@ -189,6 +194,30 @@ def test_people_summary_partial_200(client, dashboard_data):
     cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
     response = client.get("/partials/people-summary", **cookie)
     assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_people_summary_partial_uses_selected_currency(client, dashboard_data):
+    """People summary renders only the selected-currency slice."""
+    CurrencyFactory(code="USD", display_order=1)
+    CurrencyFactory(code="EUR", display_order=2)
+    user = User.objects.get(id=dashboard_data["user_id"])
+    UserCurrencyPreferenceFactory(
+        user=user,
+        active_currency_codes=["EGP", "USD", "EUR"],
+        selected_display_currency="EUR",
+    )
+    person = PersonFactory(user_id=user.id, name="Nadia")
+    PersonCurrencyBalanceFactory(person=person, currency_id="USD", balance=75)
+    PersonCurrencyBalanceFactory(person=person, currency_id="EUR", balance=-30)
+
+    cookie = {"HTTP_COOKIE": f"{COOKIE_NAME}={dashboard_data['session_token']}"}
+    response = client.get("/partials/people-summary", **cookie)
+
+    content = response.content.decode()
+    assert "Owed to me (EUR)" in content
+    assert "I owe (EUR)" in content
+    assert "Owed to me (USD)" not in content
 
 
 # ---------------------------------------------------------------------------

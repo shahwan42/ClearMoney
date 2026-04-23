@@ -3,9 +3,9 @@ id: "144"
 title: "Generalized dashboard people summary and debt aggregation"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -23,10 +23,10 @@ aggregation logic so dashboard cards can consume generalized per-currency data.
 
 ## Acceptance Criteria
 
-- [ ] Dashboard people summary supports any active currency
-- [ ] Debt aggregation no longer assumes exactly two currencies
-- [ ] Selected-currency values can be derived from the generalized output
-- [ ] Dashboard templates no longer depend on fixed EGP/USD people-summary data
+- [x] Dashboard people summary supports any active currency
+- [x] Debt aggregation no longer assumes exactly two currencies
+- [x] Selected-currency values can be derived from the generalized output
+- [x] Dashboard templates no longer depend on fixed EGP/USD people-summary data
 
 ## Critical Files
 
@@ -54,4 +54,5 @@ aggregation logic so dashboard cards can consume generalized per-currency data.
 ## Progress Notes
 
 - 2026-04-22: Created for dashboard-side people/debt generalization
-
+- 2026-04-23: Started — moving dashboard people summary and debt breakdown off fixed EGP/USD fields onto generalized person currency balances, with selected-currency helpers for dashboard cards.
+- 2026-04-23: Completed — switched dashboard people/debt aggregation to generalized person currency balances with legacy fallback, added selected-currency people/debt helpers for dashboard consumers, updated the dashboard people partial to render the selected-currency slice, and verified with full backend (`1550 passed`) and full E2E (`272 passed`) suites.
