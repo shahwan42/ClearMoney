@@ -15,8 +15,14 @@
         <a href="/settings" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400">{% trans "Settings" %}</a>
     </div>
 
-    <section id="total-budget-section">
-        {% include "budgets/_total_budget_card.html" %}
+    <section id="total-budget-section" class="space-y-4">
+        {% for total_budget in total_budgets %}
+            {% include "budgets/_total_budget_card.html" with total_budget=total_budget total_budget_currency=total_budget.currency %}
+        {% endfor %}
+
+        {% for currency_code in missing_total_currencies %}
+            {% include "budgets/_total_budget_card.html" with total_budget=None total_budget_currency=currency_code %}
+        {% endfor %}
     </section>
 
     <section class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-5">

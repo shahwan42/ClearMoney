@@ -28,7 +28,7 @@ class Budget(models.Model):
         related_name="+",
     )
     monthly_limit = models.DecimalField(max_digits=15, decimal_places=2)
-    currency = models.CharField(max_length=3, db_default="EGP")
+    currency = models.CharField(max_length=3)
     rollover_enabled = models.BooleanField(default=False, db_default=False)
     max_rollover = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True
@@ -58,7 +58,7 @@ class TotalBudget(models.Model):
         "auth_app.User", on_delete=models.CASCADE, db_column="user_id", db_index=True
     )
     monthly_limit = models.DecimalField(max_digits=15, decimal_places=2)
-    currency = models.CharField(max_length=3, db_default="EGP")
+    currency = models.CharField(max_length=3)
     is_active = models.BooleanField(default=True, db_default=True)
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
     updated_at = models.DateTimeField(auto_now=True, db_default=Now())

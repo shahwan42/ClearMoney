@@ -3,9 +3,9 @@ id: "148"
 title: "Dynamic budgets and total budgets"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -25,10 +25,10 @@ and no longer rely on EGP-oriented defaults or assumptions.
 
 ## Acceptance Criteria
 
-- [ ] Budgets can be created and managed in any active currency
-- [ ] Total budgets work for any active currency
-- [ ] Budget views no longer treat `EGP` as a special default
-- [ ] Budget widgets remain consistent with selected-currency rules
+- [x] Budgets can be created and managed in any active currency
+- [x] Total budgets work for any active currency
+- [x] Budget views no longer treat `EGP` as a special default
+- [x] Budget widgets remain consistent with selected-currency rules
 
 ## Critical Files
 
@@ -59,4 +59,4 @@ and no longer rely on EGP-oriented defaults or assumptions.
 ## Progress Notes
 
 - 2026-04-22: Created for budget-side multi-currency completion
-
+- 2026-04-23: Implemented multi-currency total budgets, generalized models/views, and added tests.

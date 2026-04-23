@@ -359,6 +359,20 @@ class BudgetService:
         except ObjectDoesNotExist:
             return None
 
+        return self._build_total_budget_stats(budget)
+
+    def get_active_total_budgets(self) -> list[dict[str, Any]]:
+        """Get all active total budgets for the user with spending stats."""
+        budgets = (
+            TotalBudget.objects.for_user(self.user_id)
+            .filter(is_active=True)
+            .order_by("currency")
+        )
+        return [self._build_total_budget_stats(b) for b in budgets]
+
+    def _build_total_budget_stats(self, budget: TotalBudget) -> dict[str, Any]:
+        """Helper to compute spending stats for a TotalBudget instance."""
+        currency = budget.currency
         month_start, month_end = self._month_range()
         limit_amt = Decimal(str(budget.monthly_limit))
 

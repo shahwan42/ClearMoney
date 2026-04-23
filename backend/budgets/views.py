@@ -54,8 +54,15 @@ def budgets_page(request: AuthenticatedRequest, svc: BudgetService) -> HttpRespo
         .order_by("-usage_count", "name_en")
     )
     display_currency = get_user_display_currency_context(request.user_id)
-    total_budget_currency = display_currency.selected_currency
-    total_budget = svc.get_total_budget(total_budget_currency)
+    total_budgets = svc.get_active_total_budgets()
+
+    # Find active currencies that don't have a total budget yet
+    existing_total_currencies = {b["currency"] for b in total_budgets}
+    missing_total_currencies = [
+        c.code
+        for c in display_currency.active_currencies
+        if c.code not in existing_total_currencies
+    ]
 
     return render(
         request,
@@ -63,8 +70,9 @@ def budgets_page(request: AuthenticatedRequest, svc: BudgetService) -> HttpRespo
         {
             "budgets": budgets,
             "categories": categories,
-            "total_budget": total_budget,
-            "total_budget_currency": total_budget_currency,
+            "total_budgets": total_budgets,
+            "missing_total_currencies": missing_total_currencies,
+            "display_currency": display_currency,
             "active_tab": "more",
         },
     )
@@ -207,7 +215,13 @@ def budget_edit(
 def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpResponse:
     """POST /budgets/total/set — create or update the total monthly budget."""
     monthly_limit_str = request.POST.get("monthly_limit", "")
-    currency = request.POST.get("currency", "")
+    currency_raw = request.POST.get("currency", "")
+
+    from auth_app.currency import resolve_user_currency_choice
+    try:
+        currency = resolve_user_currency_choice(request.user_id, currency_raw)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
 
     try:
         from decimal import Decimal, InvalidOperation
@@ -215,15 +229,13 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
         monthly_limit = Decimal(monthly_limit_str) if monthly_limit_str else Decimal(0)
     except (ValueError, InvalidOperation):
         if request.htmx:
-            total_budget = svc.get_total_budget()
+            total_budget = svc.get_total_budget(currency)
             return render(
                 request,
                 "budgets/_total_budget_card.html",
                 {
                     "total_budget": total_budget,
-                    "total_budget_currency": get_user_display_currency_context(
-                        request.user_id
-                    ).selected_currency,
+                    "total_budget_currency": currency,
                     "error": "Invalid amount",
                 },
             )
@@ -233,15 +245,13 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
         svc.set_total_budget(monthly_limit, currency)
     except ValueError as e:
         if request.htmx:
-            total_budget = svc.get_total_budget()
+            total_budget = svc.get_total_budget(currency)
             return render(
                 request,
                 "budgets/_total_budget_card.html",
                 {
                     "total_budget": total_budget,
-                    "total_budget_currency": get_user_display_currency_context(
-                        request.user_id
-                    ).selected_currency,
+                    "total_budget_currency": currency,
                     "error": str(e),
                 },
             )
@@ -254,9 +264,7 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
             "budgets/_total_budget_card.html",
             {
                 "total_budget": total_budget,
-                "total_budget_currency": total_budget["currency"]
-                if total_budget
-                else "",
+                "total_budget_currency": currency,
                 "saved": True,
             },
         )
@@ -271,8 +279,10 @@ def total_budget_delete(
     request: AuthenticatedRequest, svc: BudgetService
 ) -> HttpResponse:
     """POST /budgets/total/delete — delete the total monthly budget."""
-    currency = request.POST.get("currency", "")
+    currency_raw = request.POST.get("currency", "")
+    from auth_app.currency import resolve_user_currency_choice
     try:
+        currency = resolve_user_currency_choice(request.user_id, currency_raw)
         svc.delete_total_budget(currency)
     except ValueError as e:
         return HttpResponse(str(e), status=400)
@@ -283,9 +293,7 @@ def total_budget_delete(
             "budgets/_total_budget_card.html",
             {
                 "total_budget": None,
-                "total_budget_currency": get_user_display_currency_context(
-                    request.user_id
-                ).selected_currency,
+                "total_budget_currency": currency,
             },
         )
 
