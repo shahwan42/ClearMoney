@@ -111,6 +111,41 @@ class TestVirtualAccountsPage:
         assert response.status_code == 200
         assert b"exceed" in response.content.lower()
 
+    def test_uses_linked_account_currency_in_list(self, client, va_view_data):
+        inst = InstitutionFactory(user_id=va_view_data["user_id"])
+        usd_account = AccountFactory(
+            user_id=va_view_data["user_id"],
+            institution_id=inst.id,
+            name="USD Checking",
+            currency="USD",
+            current_balance=1000,
+            initial_balance=1000,
+        )
+        c = set_auth_cookie(client, va_view_data["session_token"])
+        c.post(
+            "/virtual-accounts/add",
+            {
+                "name": "USD Goal",
+                "target_amount": "250",
+                "account_id": str(usd_account.id),
+            },
+        )
+
+        response = c.get("/virtual-accounts")
+
+        assert response.status_code == 200
+        assert b"USD Goal" in response.content
+        assert b"$0.00" in response.content
+
+    def test_shows_unlinked_currency_fallback(self, client, va_view_data):
+        c = set_auth_cookie(client, va_view_data["session_token"])
+        c.post("/virtual-accounts/add", {"name": "Unlinked Goal"})
+
+        response = c.get("/virtual-accounts")
+
+        assert response.status_code == 200
+        assert b"Link an account to inherit currency" in response.content
+
 
 # ---------------------------------------------------------------------------
 # Create
@@ -187,6 +222,52 @@ class TestVirtualAccountDetail:
         fake_id = str(uuid.uuid4())
         response = c.get(f"/virtual-accounts/{fake_id}")
         assert response.status_code == 404
+
+    def test_uses_linked_account_currency_in_detail(self, client, va_view_data):
+        inst = InstitutionFactory(user_id=va_view_data["user_id"])
+        usd_account = AccountFactory(
+            user_id=va_view_data["user_id"],
+            institution_id=inst.id,
+            name="USD Checking",
+            currency="USD",
+            current_balance=1000,
+            initial_balance=1000,
+        )
+        c = set_auth_cookie(client, va_view_data["session_token"])
+        c.post(
+            "/virtual-accounts/add",
+            {
+                "name": "USD Goal",
+                "target_amount": "250",
+                "account_id": str(usd_account.id),
+            },
+        )
+        page = c.get("/virtual-accounts")
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f-]{36})"',
+            page.content.decode(),
+        )
+        assert match is not None
+
+        response = c.get(f"/virtual-accounts/{match.group(1)}")
+
+        assert response.status_code == 200
+        assert b"$0.00" in response.content
+
+    def test_shows_unlinked_currency_fallback_in_detail(self, client, va_view_data):
+        c = set_auth_cookie(client, va_view_data["session_token"])
+        c.post("/virtual-accounts/add", {"name": "Unlinked Goal"})
+        page = c.get("/virtual-accounts")
+        match = re.search(
+            r'/virtual-accounts/([0-9a-f-]{36})"',
+            page.content.decode(),
+        )
+        assert match is not None
+
+        response = c.get(f"/virtual-accounts/{match.group(1)}")
+
+        assert response.status_code == 200
+        assert b"Link an account to inherit currency" in response.content
 
 
 # ---------------------------------------------------------------------------

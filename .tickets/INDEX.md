@@ -20,7 +20,6 @@ Last updated: 2026-04-23
 | [150](pending/150-generalized-snapshot-model-and-historical-backfill.md) | Generalized snapshot model and historical backfill | feature | high | 2026-04-22 |
 | [149](pending/149-dynamic-reports-filters-and-exact-currency-reporting.md) | Dynamic reports filters and exact-currency reporting | feature | medium | 2026-04-22 |
 | [148](pending/148-dynamic-budgets-and-total-budgets.md) | Dynamic budgets and total budgets | feature | medium | 2026-04-22 |
-| [147](pending/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-22 |
 | [146](pending/146-dashboard-selected-currency-behavior.md) | Dashboard selected-currency behavior | feature | high | 2026-04-22 |
 | [145](pending/145-generalize-net-worth-summary-data-structures.md) | Generalize net worth summary data structures | feature | high | 2026-04-22 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
@@ -48,6 +47,7 @@ Last updated: 2026-04-23
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [147](done/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-23 |
 | [144](done/144-generalized-dashboard-people-summary-and-debt-aggregation.md) | Generalized dashboard people summary and debt aggregation | feature | high | 2026-04-23 |
 | [143](done/143-dynamic-people-ui-and-debt-summary-contracts.md) | Dynamic people UI and debt summary contracts | feature | high | 2026-04-23 |
 | [142](done/142-generalized-person-currency-balance-storage.md) | Generalized person currency balance storage | feature | high | 2026-04-23 |

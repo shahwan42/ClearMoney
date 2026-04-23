@@ -167,9 +167,9 @@
                         <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ va.name }}</span>
                     </div>
                     <div class="text-end flex-shrink-0 ms-3">
-                        <p class="text-sm font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_egp }}</p>
+                        <p class="text-sm font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_currency:va.currency }}</p>
                         {% if va.target_amount %}
-                        <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with target=va.target_amount|deref_float|format_egp %}of {{ target }}{% endblocktrans %}</p>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with target=va.target_amount|deref_float|format_currency:va.currency %}of {{ target }}{% endblocktrans %}</p>
                         {% endif %}
                     </div>
                 </div>

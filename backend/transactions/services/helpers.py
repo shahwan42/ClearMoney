@@ -309,7 +309,14 @@ class HelperMixin:
             VirtualAccount.objects.for_user(uid)
             .filter(is_archived=False)
             .order_by("name")
-            .values("id", "name", "account_id", "target_amount", "current_balance")
+            .values(
+                "id",
+                "name",
+                "account_id",
+                "target_amount",
+                "current_balance",
+                "account__currency",
+            )
         )
         return [
             {
@@ -320,6 +327,7 @@ class HelperMixin:
                 "current_balance": (
                     float(r["current_balance"]) if r["current_balance"] else 0
                 ),
+                "currency": r["account__currency"],
             }
             for r in rows
         ]

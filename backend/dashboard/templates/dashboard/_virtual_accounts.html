@@ -28,7 +28,7 @@
                     {% if va.icon %}<span class="text-lg">{{ va.icon }}</span>{% endif %}
                     <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 truncate">{{ va.name }}</p>
                     {% if va.exclude_from_net_worth %}<span class="text-[9px] text-amber-600 dark:text-amber-400">held</span>{% endif %}
-                    <p class="text-sm font-bold mt-0.5" style="color: {{ va.color }}">{{ va.current_balance|format_currency:data.selected_currency }}</p>
+                    <p class="text-sm font-bold mt-0.5" style="color: {{ va.color }}">{{ va.current_balance|format_currency:va.currency }}</p>
                     {% if va.target_amount %}
                     <div class="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-1.5 mt-1.5">
                         <div class="h-1.5 rounded-full" style="width: {% if va.progress_pct > 100 %}100{% else %}{{ va.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ va.color }}"></div>

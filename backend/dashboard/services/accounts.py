@@ -234,7 +234,8 @@ def _get_people_debt(user_id: str, selected_currency: str) -> list[dict[str, Any
     people = Person.objects.for_user(user_id).prefetch_related("currency_balances")
     for person in people.order_by("name"):
         balances = {
-            row.currency_id: float(row.balance) for row in person.currency_balances.all()
+            row.currency_id: float(row.balance)
+            for row in person.currency_balances.all()
         }
         if "EGP" not in balances and person.net_balance_egp:
             balances["EGP"] = float(person.net_balance_egp)

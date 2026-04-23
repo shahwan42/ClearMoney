@@ -809,6 +809,7 @@ class TestGetLinkedVirtualAccounts:
 
         assert len(result) == 1
         assert result[0]["id"] == str(va.id)
+        assert result[0]["currency"] == account.currency
         assert result[0]["progress_pct"] == pytest.approx(75.0)
 
     def test_excludes_archived_vas(self, db: None) -> None:

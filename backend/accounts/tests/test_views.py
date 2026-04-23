@@ -17,6 +17,7 @@ from tests.factories import (
     CurrencyFactory,
     InstitutionFactory,
     TransactionFactory,
+    VirtualAccountFactory,
 )
 from transactions.models import Transaction
 
@@ -189,6 +190,32 @@ class TestAccountDetail:
         c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get(f"/accounts/{accounts_data['savings_id']}")
         assert b"Balance Check" in response.content
+
+    def test_linked_virtual_accounts_use_account_currency(self, client, accounts_data):
+        usd_account = AccountFactory(
+            user_id=accounts_data["user_id"],
+            institution_id=accounts_data["institution_id"],
+            name="USD Savings",
+            type="savings",
+            currency="USD",
+            current_balance=1000,
+            initial_balance=1000,
+        )
+        VirtualAccountFactory(
+            user_id=accounts_data["user_id"],
+            account=usd_account,
+            name="USD Goal",
+            current_balance=150,
+            target_amount=250,
+        )
+        c = set_auth_cookie(client, accounts_data["session_token"])
+
+        response = c.get(f"/accounts/{usd_account.id}")
+
+        assert response.status_code == 200
+        assert b"USD Goal" in response.content
+        assert b"$150.00" in response.content
+        assert b"EGP 150.00" not in response.content
 
 
 @pytest.mark.django_db

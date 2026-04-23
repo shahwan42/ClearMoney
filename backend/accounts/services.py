@@ -731,6 +731,7 @@ class AccountService:
                 "exclude_from_net_worth",
                 "display_order",
                 "account_id",
+                "account__currency",
             )
         )
         result = []
@@ -750,6 +751,7 @@ class AccountService:
                     "exclude_from_net_worth": row["exclude_from_net_worth"],
                     "display_order": row["display_order"],
                     "account_id": str(row["account_id"]),
+                    "currency": row["account__currency"],
                     "progress_pct": min(100.0, progress),
                 }
             )

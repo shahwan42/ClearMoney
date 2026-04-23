@@ -189,8 +189,12 @@ def compute_spending_comparison(
 
     # Totals ONLY for selected_currency (no cross-currency conversion)
     selected_cs = next(
-        (cs for cs in data.spending_by_currency if cs.currency == data.selected_currency),
-        None
+        (
+            cs
+            for cs in data.spending_by_currency
+            if cs.currency == data.selected_currency
+        ),
+        None,
     )
     data.selected_spending = selected_cs
     total_this = selected_cs.this_month if selected_cs else 0.0
@@ -243,7 +247,9 @@ def compute_spending_comparison(
     )
 
 
-def compute_category_velocities(user_id: str, tz: ZoneInfo, selected_currency: str) -> list[CategoryVelocity]:
+def compute_category_velocities(
+    user_id: str, tz: ZoneInfo, selected_currency: str
+) -> list[CategoryVelocity]:
     """Compute per-category spending velocity for all active budgets.
 
     For each active budget:

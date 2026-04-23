@@ -47,6 +47,7 @@ _VA_FIELDS = (
     "created_at",
     "updated_at",
 )
+_VA_VALUE_FIELDS = (*_VA_FIELDS, "account__currency")
 
 
 def _compute_progress_pct(target: float | None, balance: float) -> float:
@@ -95,6 +96,7 @@ def _row_to_va(row: dict[str, Any]) -> dict[str, Any]:
     out["months_remaining"] = _compute_months_remaining(
         out["target_amount"], out["current_balance"], out["monthly_target"]
     )
+    out["currency"] = row.get("account__currency")
     return out
 
 
@@ -108,6 +110,9 @@ def _instance_to_va(inst: VirtualAccount) -> dict[str, Any]:
     )
     out["months_remaining"] = _compute_months_remaining(
         out["target_amount"], out["current_balance"], out["monthly_target"]
+    )
+    out["currency"] = (
+        inst.account.currency if inst.account_id and inst.account else None
     )
     return out
 
@@ -136,13 +141,13 @@ class VirtualAccountService:
             self._qs()
             .filter(is_archived=False)
             .order_by("display_order", "created_at")
-            .values(*_VA_FIELDS)
+            .values(*_VA_VALUE_FIELDS)
         )
         return [_row_to_va(row) for row in rows]
 
     def get_by_id(self, va_id: str) -> dict[str, Any] | None:
         """Return a single virtual account by ID, or None if not found."""
-        row = self._qs().filter(id=va_id).values(*_VA_FIELDS).first()
+        row = self._qs().filter(id=va_id).values(*_VA_VALUE_FIELDS).first()
         if not row:
             return None
         return _row_to_va(row)
@@ -153,7 +158,7 @@ class VirtualAccountService:
             self._qs()
             .filter(account_id=account_id, is_archived=False)
             .order_by("display_order", "created_at")
-            .values(*_VA_FIELDS)
+            .values(*_VA_VALUE_FIELDS)
         )
         return [_row_to_va(row) for row in rows]
 
@@ -263,7 +268,9 @@ class VirtualAccountService:
         )
 
         logger.info("virtual_account.created name=%s user=%s", name, self.user_id)
-        return _instance_to_va(va)
+        created = self.get_by_id(str(va.id))
+        assert created is not None
+        return created
 
     def update(
         self,

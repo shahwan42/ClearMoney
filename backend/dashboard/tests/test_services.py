@@ -1194,6 +1194,54 @@ class TestLoadVirtualAccounts:
         assert len(vas) == 1
         assert vas[0]["progress_pct"] == pytest.approx(0.0)
 
+    @pytest.mark.django_db
+    def test_uses_linked_account_currency_for_filtering(self, svc_data):
+        usd_account = AccountFactory(
+            user_id=svc_data["user"].id,
+            institution_id=svc_data["inst_id"],
+            name="Savings USD",
+            type="savings",
+            currency="USD",
+            current_balance=500,
+        )
+        VirtualAccountFactory(
+            user_id=svc_data["user"].id,
+            account=usd_account,
+            name="USD Goal",
+            current_balance=120,
+            is_archived=False,
+        )
+        VirtualAccountFactory(
+            user_id=svc_data["user"].id,
+            account=svc_data["savings"],
+            name="EGP Goal",
+            current_balance=1200,
+            is_archived=False,
+        )
+
+        svc = DashboardService(svc_data["user_id"], TZ, selected_currency="USD")
+        vas = svc._load_virtual_accounts()
+
+        assert [va["name"] for va in vas] == ["USD Goal"]
+        assert vas[0]["currency"] == "USD"
+
+    @pytest.mark.django_db
+    def test_excludes_unlinked_virtual_accounts_from_selected_currency_widget(
+        self, svc_data
+    ):
+        VirtualAccountFactory(
+            user_id=svc_data["user"].id,
+            account=None,
+            name="Unlinked Goal",
+            current_balance=400,
+            is_archived=False,
+        )
+
+        svc = DashboardService(svc_data["user_id"], TZ, selected_currency="EGP")
+        vas = svc._load_virtual_accounts()
+
+        assert vas == []
+
 
 # ---------------------------------------------------------------------------
 # Investments Total
@@ -1468,7 +1516,10 @@ def test_load_people_summary_with_selected_currency_and_third_currency(svc_data)
     svc = DashboardService(str(svc_data["user_id"]), TZ)
     result = svc.get_dashboard()
 
-    assert [summary["currency"] if isinstance(summary, dict) else summary.currency for summary in result["people_by_currency"]] == ["USD", "EUR"]
+    assert [
+        summary["currency"] if isinstance(summary, dict) else summary.currency
+        for summary in result["people_by_currency"]
+    ] == ["USD", "EUR"]
     assert result["selected_currency"] == "USD"
     assert result["selected_people_summary"].currency == "USD"
     assert result["people_owed_to_me"] == 125.0

@@ -86,6 +86,37 @@ class TestVirtualAccounts:
             page.click('button[type="submit"]')
         expect(page.locator("main")).to_contain_text("Emergency Fund")
 
+    def test_linked_usd_account_uses_inherited_currency(self, page: Page) -> None:
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO institutions (user_id, name, type, display_order)"
+                    " VALUES (%s, 'USD Bank', 'bank', 1) RETURNING id",
+                    (_user_id,),
+                )
+                usd_inst_id = str(cur.fetchone()[0])  # type: ignore[index]
+                cur.execute(
+                    "INSERT INTO accounts"
+                    " (user_id, institution_id, name, type, currency, current_balance, initial_balance, display_order)"
+                    " VALUES (%s, %s, 'USD Current', 'current', 'USD', 500, 500, 1) RETURNING id",
+                    (_user_id, usd_inst_id),
+                )
+                usd_account_id = str(cur.fetchone()[0])  # type: ignore[index]
+            conn.commit()
+
+        _create_virtual_account(
+            page,
+            usd_account_id,
+            name="USD Goal",
+            target_amount="250",
+        )
+
+        expect(page.locator("main")).to_contain_text("USD Goal")
+        expect(page.locator("main")).to_contain_text("$0.00")
+        page.click('a:has-text("USD Goal")')
+        expect(page.locator("main")).to_contain_text("$0.00")
+        expect(page.locator("main")).to_contain_text("$250.00")
+
     def test_detail_page_shows_sections(self, page: Page) -> None:
         _create_virtual_account(page, _account_id)
         page.goto("/virtual-accounts")
@@ -176,4 +207,3 @@ class TestVirtualAccounts:
         # Check that VA has 500 allocated
         page.click('a:has-text("Project Savings")')
         expect(page.locator("main")).to_contain_text("500")
-

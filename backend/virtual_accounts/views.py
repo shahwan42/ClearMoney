@@ -61,9 +61,11 @@ def virtual_accounts_page(
     # Build lookup maps for over-allocation warnings
     account_balances: dict[str, float | None] = {}
     account_names: dict[str, str] = {}
+    account_currencies: dict[str, str] = {}
     for ba in bank_accounts:
         account_balances[ba.id] = ba.current_balance
         account_names[ba.id] = ba.name
+        account_currencies[ba.id] = ba.currency
 
     # Sum VA balances per linked bank account
     va_group_totals: dict[str, float] = {}
@@ -74,14 +76,17 @@ def virtual_accounts_page(
             )
 
     # Generate warning messages for over-allocated account groups
-    warnings: list[str] = []
+    warnings: list[dict[str, float | str]] = []
     for acct_id, total_va in va_group_totals.items():
         balance = account_balances.get(acct_id)
         if balance is not None and total_va > balance:
             warnings.append(
-                f"Total virtual account allocations (EGP {total_va:,.2f}) "
-                f"exceed {account_names[acct_id]} balance "
-                f"(EGP {balance:,.2f})"
+                {
+                    "total_va": total_va,
+                    "account_name": account_names[acct_id],
+                    "account_balance": balance,
+                    "currency": account_currencies[acct_id],
+                }
             )
 
     # Attach per-VA over-allocation info for template rendering

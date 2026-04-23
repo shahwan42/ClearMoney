@@ -1673,9 +1673,22 @@ class TestDropdownHelpers:
 
     def test_get_virtual_accounts(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        VirtualAccountFactory(user_id=tx_data["user_id"], name="Test VA")
+        VirtualAccountFactory(
+            user_id=tx_data["user_id"],
+            name="Test VA",
+            account_id=tx_data["usd_id"],
+        )
         vas = svc.get_virtual_accounts()
         assert len(vas) >= 1
+        assert any(va["name"] == "Test VA" and va["currency"] == "USD" for va in vas)
+
+    def test_get_virtual_accounts_keeps_unlinked_currency_empty(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        VirtualAccountFactory(user_id=tx_data["user_id"], name="Unlinked VA")
+
+        vas = svc.get_virtual_accounts()
+
+        assert any(va["name"] == "Unlinked VA" and va["currency"] is None for va in vas)
 
     def test_get_categories_with_cat_type(self, tx_data):
         svc = _svc(tx_data["user_id"])

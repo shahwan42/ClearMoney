@@ -202,19 +202,26 @@ class TestSpendingVelocityCard:
     """E2E tests for ticket 076 — spending velocity projections on the dashboard."""
 
     def test_velocity_section_visible_with_spending(self, page: Page) -> None:
-        """Dashboard shows spending pace section after transactions exist.
-
-        The velocity section only renders when spending_velocity.days_total > 0,
-        which is always true.  After adding transactions the "Spending Pace" heading
-        and the velocity progress bar should be visible.
-        """
+        """Dashboard shows spending pace section when a last-month baseline exists."""
         _, account_id = seed_basic_data(page)
         category_id = get_category_id("expense", _user_id)
-        # Add a transaction so there is this-month spending
+        from datetime import date, timedelta
+
+        last_month = date.today().replace(day=1) - timedelta(days=1)
+        last_month_first = last_month.replace(day=1)
+        with _conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO transactions"
+                    " (user_id, account_id, type, amount, currency, date, balance_delta)"
+                    " VALUES (%s, %s, 'expense', 1200, 'EGP', %s, -1200)",
+                    (_user_id, account_id, last_month_first),
+                )
+            conn.commit()
+
         create_transaction(page, account_id, category_id, "500", "expense")
 
         page.goto("/")
-        # The velocity section heading
         expect(page.locator("#spending-velocity-section")).to_be_visible()
 
     def test_velocity_card_shows_daily_budget(self, page: Page) -> None:

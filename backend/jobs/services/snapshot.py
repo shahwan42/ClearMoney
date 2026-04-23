@@ -138,7 +138,9 @@ class SnapshotService:
                 balance = float(current_balance) - future_deltas
 
             net_worth_raw += balance
-            totals_by_currency[currency] = totals_by_currency.get(currency, 0.0) + balance
+            totals_by_currency[currency] = (
+                totals_by_currency.get(currency, 0.0) + balance
+            )
             account_balances.append((acc_id, balance))
 
         # Subtract excluded virtual account balances

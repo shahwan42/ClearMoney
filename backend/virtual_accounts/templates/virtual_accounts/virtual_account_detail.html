@@ -17,14 +17,25 @@
                 <a href="{% url 'virtual-accounts' %}" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300">{% trans "All Virtual Accounts" %}</a>
             </div>
         </div>
+        {% if account.currency %}
         <p class="text-3xl font-bold mt-2" style="color: {{ account.color }}">
-            {{ account.current_balance|format_egp }}
+            {{ account.current_balance|format_currency:account.currency }}
         </p>
+        {% else %}
+        <p class="text-3xl font-bold mt-2" style="color: {{ account.color }}">
+            {{ account.current_balance|format_num }}
+        </p>
+        <p class="text-xs text-gray-400 dark:text-slate-500 mt-1">{% trans "Link an account to inherit currency." %}</p>
+        {% endif %}
         {% if account.target_amount %}
         <div class="mt-3">
             <div class="flex justify-between text-xs text-gray-400 mb-1">
                 <span>{% trans "Progress" %}</span>
-                <span>{% blocktrans with pct=account.progress_pct|floatformat:"0" target=account.target_amount|format_egp %}{{ pct }}% of {{ target }}{% endblocktrans %}</span>
+                {% if account.currency %}
+                <span>{% blocktrans with pct=account.progress_pct|floatformat:"0" target=account.target_amount|format_currency:account.currency %}{{ pct }}% of {{ target }}{% endblocktrans %}</span>
+                {% else %}
+                <span>{% blocktrans with pct=account.progress_pct|floatformat:"0" target=account.target_amount|format_num %}{{ pct }}% of {{ target }}{% endblocktrans %}</span>
+                {% endif %}
             </div>
             <div class="w-full bg-gray-100 rounded-full h-3">
                 <div class="h-3 rounded-full transition-all" style="width: {% if account.progress_pct > 100 %}100{% else %}{{ account.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ account.color }}"></div>
@@ -52,13 +63,13 @@
     {% if over_allocated %}
     <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
         <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
-            {% blocktrans with va_balance=account.current_balance|format_egp linked_balance=linked_account.current_balance|format_egp %}This virtual account's balance ({{ va_balance }}) exceeds the linked account balance ({{ linked_balance }}).{% endblocktrans %}
+            {% blocktrans with va_balance=account.current_balance|format_currency:account.currency linked_balance=linked_account.current_balance|format_currency:linked_account.currency %}This virtual account's balance ({{ va_balance }}) exceeds the linked account balance ({{ linked_balance }}).{% endblocktrans %}
         </p>
     </section>
     {% elif account_over_allocated %}
     <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
         <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
-            {% blocktrans with total_va=total_va_balance|format_egp linked_balance=linked_account.current_balance|format_egp %}Total virtual account allocations ({{ total_va }}) exceed the linked account balance ({{ linked_balance }}).{% endblocktrans %}
+            {% blocktrans with total_va=total_va_balance|format_currency:linked_account.currency linked_balance=linked_account.current_balance|format_currency:linked_account.currency %}Total virtual account allocations ({{ total_va }}) exceed the linked account balance ({{ linked_balance }}).{% endblocktrans %}
         </p>
     </section>
     {% endif %}
@@ -105,7 +116,7 @@
                     {% if alloc.allocated_at %}<p class="text-xs text-gray-400">{{ alloc.allocated_at|format_date_short }}</p>{% endif %}
                 </div>
                 <span class="font-medium text-sm {% if alloc.amount > 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                    {% if alloc.amount > 0 %}+{% endif %}{{ alloc.amount|format_egp }}
+                    {% if alloc.amount > 0 %}+{% endif %}{% if account.currency %}{{ alloc.amount|format_currency:account.currency }}{% else %}{{ alloc.amount|format_num }}{% endif %}
                 </span>
             </div>
             {% endif %}
@@ -117,7 +128,7 @@
                     <p class="text-xs text-gray-400">{{ tx.date|format_date_short }}</p>
                 </div>
                 <span class="font-medium text-sm {% if tx.type == 'income' %}text-green-600{% else %}text-red-600{% endif %}">
-                    {% if tx.type == 'income' %}+{% else %}-{% endif %}{{ tx.amount|format_egp }}
+                    {% if tx.type == 'income' %}+{% else %}-{% endif %}{{ tx.amount|format_currency:tx.currency }}
                 </span>
             </div>
             {% endfor %}

@@ -3,9 +3,9 @@ id: "147"
 title: "Virtual accounts inherit container currency everywhere"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -24,10 +24,10 @@ and selected-currency filtering.
 
 ## Acceptance Criteria
 
-- [ ] Linked virtual accounts display in their container account currency
-- [ ] Virtual-account summaries participate correctly in selected-currency views
-- [ ] No virtual-account path hard-codes `EGP`
-- [ ] Unlinked virtual accounts have a safe, explicit fallback state
+- [x] Linked virtual accounts display in their container account currency
+- [x] Virtual-account summaries participate correctly in selected-currency views
+- [x] No virtual-account path hard-codes `EGP`
+- [x] Unlinked virtual accounts have a safe, explicit fallback state
 
 ## Critical Files
 
@@ -56,4 +56,5 @@ and selected-currency filtering.
 ## Progress Notes
 
 - 2026-04-22: Created for virtual-account currency normalization
-
+- 2026-04-23: Started — auditing service, dashboard, account-detail, and transaction dropdown paths for linked-account currency inheritance
+- 2026-04-23: Completed — added inherited-currency payloads for virtual accounts, updated list/detail/dashboard/transaction goal rendering, added explicit unlinked fallbacks, and verified with `make test`, `make lint`, and `make test-e2e`

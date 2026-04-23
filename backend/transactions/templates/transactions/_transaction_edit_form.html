@@ -60,7 +60,7 @@
             <select name="virtual_account_id" class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">{% trans "No goal" %}</option>
                 {% for va in virtual_accounts %}
-                <option value="{{ va.id }}" {% if va.id|stringformat:"s" == selected_va_id|stringformat:"s" %}selected{% endif %}>{{ va.name }} ({{ va.current_balance|format_egp }})</option>
+                <option value="{{ va.id }}" {% if va.id|stringformat:"s" == selected_va_id|stringformat:"s" %}selected{% endif %}>{{ va.name }} ({% if va.currency %}{{ va.current_balance|format_currency:va.currency }}{% else %}{{ va.current_balance|format_num }} · {% trans "Unlinked" %}{% endif %})</option>
                 {% endfor %}
             </select>
         </div>

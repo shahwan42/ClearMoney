@@ -56,6 +56,7 @@ def load_virtual_accounts(user_id: str, selected_currency: str) -> list[dict[str
     rows = (
         VirtualAccount.objects.for_user(user_id)
         .filter(is_archived=False, account__currency=selected_currency)
+        .select_related("account")
         .order_by("display_order", "name")
     )
 
@@ -75,7 +76,9 @@ def load_virtual_accounts(user_id: str, selected_currency: str) -> list[dict[str
                 "exclude_from_net_worth": row.exclude_from_net_worth,
                 "display_order": row.display_order,
                 "progress_pct": progress,
-                "currency": selected_currency,
+                "currency": row.account.currency
+                if row.account_id and row.account
+                else None,
             }
         )
 
@@ -87,8 +90,10 @@ def load_virtual_accounts(user_id: str, selected_currency: str) -> list[dict[str
 def load_investments_total(user_id: str, selected_currency: str) -> float:
     """Load total investment portfolio value for selected_currency."""
     # Aggregate: SUM(units * last_unit_price) — F() product computed in-DB
-    result = Investment.objects.for_user(user_id).filter(currency=selected_currency).aggregate(
-        total=Coalesce(Sum(F("units") * F("last_unit_price")), Decimal(0))
+    result = (
+        Investment.objects.for_user(user_id)
+        .filter(currency=selected_currency)
+        .aggregate(total=Coalesce(Sum(F("units") * F("last_unit_price")), Decimal(0)))
     )
     return float(result["total"])
 
@@ -99,7 +104,11 @@ def load_excluded_va_total(user_id: str, selected_currency: str) -> float:
     """
     result = (
         VirtualAccount.objects.for_user(user_id)
-        .filter(exclude_from_net_worth=True, is_archived=False, account__currency=selected_currency)
+        .filter(
+            exclude_from_net_worth=True,
+            is_archived=False,
+            account__currency=selected_currency,
+        )
         .aggregate(total=Coalesce(Sum("current_balance"), Decimal(0)))
     )
     return float(result["total"])

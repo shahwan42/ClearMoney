@@ -78,7 +78,9 @@
 
     {% for warning in warnings %}
     <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
-        <p class="text-sm font-medium text-amber-700 dark:text-amber-400">{{ warning }}</p>
+        <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
+            {% blocktrans with total_va=warning.total_va|format_currency:warning.currency account_name=warning.account_name linked_balance=warning.account_balance|format_currency:warning.currency %}Total virtual account allocations ({{ total_va }}) exceed {{ account_name }} balance ({{ linked_balance }}).{% endblocktrans %}
+        </p>
     </section>
     {% endfor %}
 
@@ -90,7 +92,8 @@
                 <div class="flex items-center gap-2">
                     {% if va.icon %}<span class="text-lg">{{ va.icon }}</span>{% endif %}
                     <a href="{% url 'va-detail' va.id %}" class="font-semibold text-slate-800 dark:text-slate-100 hover:text-teal-600">{{ va.name }}</a>
-                    {% if va.exclude_from_net_worth %}<span class="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">{% trans "held" %}</span>{% endif %}
+                {% if va.exclude_from_net_worth %}<span class="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">{% trans "held" %}</span>{% endif %}
+                {% if not va.currency %}<span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded-full">{% trans "unlinked" %}</span>{% endif %}
                 </div>
                 <form method="POST" action="{% url 'va-archive' va.id %}">
                     {% csrf_token %}
@@ -99,12 +102,21 @@
             </div>
             <div class="flex items-end justify-between">
                 <div>
-                    <p class="text-xl font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_egp }}</p>
+                    {% if va.currency %}
+                    <p class="text-xl font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_currency:va.currency }}</p>
+                    {% else %}
+                    <p class="text-xl font-bold" style="color: {{ va.color }}">{{ va.current_balance|format_num }}</p>
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "Link an account to inherit currency." %}</p>
+                    {% endif %}
                     {% if va.target_amount %}
-                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with target=va.target_amount|format_egp %}of {{ target }} target{% endblocktrans %}</p>
+                    {% if va.currency %}
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with target=va.target_amount|format_currency:va.currency %}of {{ target }} target{% endblocktrans %}</p>
+                    {% else %}
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% blocktrans with target=va.target_amount|format_num %}of {{ target }} target{% endblocktrans %}</p>
+                    {% endif %}
                     {% endif %}
                     {% if va.exceeds_account_balance %}
-                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{% blocktrans with va_balance=va.account_balance_display|format_egp %}Exceeds account balance ({{ va_balance }}){% endblocktrans %}</p>
+                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{% blocktrans with va_balance=va.account_balance_display|format_currency:va.currency %}Exceeds account balance ({{ va_balance }}){% endblocktrans %}</p>
                     {% endif %}
                 </div>
                 {% if va.target_amount %}

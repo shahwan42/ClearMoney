@@ -79,6 +79,14 @@ class TestGetAll:
         assert result[0]["name"] == "First"
         assert result[1]["name"] == "Second"
 
+    def test_inherits_linked_account_currency(self, va_data):
+        svc = _svc(va_data["user_id"])
+        svc.create(name="USD Goal", account_id=va_data["account_id"])
+
+        result = svc.get_all()
+
+        assert result[0]["currency"] == "EGP"
+
 
 # ---------------------------------------------------------------------------
 # get_by_id
@@ -107,6 +115,15 @@ class TestGetByID:
         other_svc = _svc(str(uuid.uuid4()))
         result = other_svc.get_by_id(created["id"])
         assert result is None
+
+    def test_returns_none_currency_when_unlinked(self, va_data):
+        svc = _svc(va_data["user_id"])
+        created = svc.create(name="Unlinked")
+
+        result = svc.get_by_id(created["id"])
+
+        assert result is not None
+        assert result["currency"] is None
 
 
 # ---------------------------------------------------------------------------
