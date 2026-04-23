@@ -280,7 +280,9 @@ class PersonService:
     def _get_person_balance_value(self, person_id: str, currency: str) -> float:
         """Return the current balance for one person/currency pair."""
         balance = (
-            PersonCurrencyBalance.objects.filter(person_id=person_id, currency_id=currency)
+            PersonCurrencyBalance.objects.filter(
+                person_id=person_id, currency_id=currency
+            )
             .values_list("balance", flat=True)
             .first()
         )
@@ -308,7 +310,9 @@ class PersonService:
             legacy_updates["net_balance_egp"] = F("net_balance_egp") + delta
         elif currency == "USD":
             legacy_updates["net_balance_usd"] = F("net_balance_usd") + delta
-        Person.objects.for_user(self.user_id).filter(id=person_id).update(**legacy_updates)
+        Person.objects.for_user(self.user_id).filter(id=person_id).update(
+            **legacy_updates
+        )
 
     def record_loan(
         self,
@@ -535,7 +539,10 @@ class PersonService:
 
         by_currency: list[dict[str, Any]] = []
         balance_map = person["balance_map"]
-        for cur in sorted(currency_map, key=lambda code: _currency_sort_key({"currency": code, "balance": 0.0})):
+        for cur in sorted(
+            currency_map,
+            key=lambda code: _currency_sort_key({"currency": code, "balance": 0.0}),
+        ):
             cd = currency_map[cur]
             net = balance_map.get(cur, 0.0)
             total_debt = cd["total_lent"] + cd["total_borrowed"]

@@ -153,7 +153,6 @@ class TransferMixin:
         credit_tx = self.get_by_id(credit_id)  # type: ignore[attr-defined]
         return debit_tx or {}, credit_tx or {}
 
-
     # -------------------------------------------------------------------
     # Exchange
     # -------------------------------------------------------------------

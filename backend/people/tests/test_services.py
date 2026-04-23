@@ -355,7 +355,9 @@ class TestDebtSummary:
         assert usd["total_lent"] == 100
         assert usd["total_repaid"] == 0
 
-    def test_summary_includes_backfilled_balance_without_transactions(self, people_data):
+    def test_summary_includes_backfilled_balance_without_transactions(
+        self, people_data
+    ):
         svc = _svc(people_data["user_id"])
         person = Person.objects.create(
             user_id=people_data["user_id"],

@@ -49,27 +49,72 @@ def backfill_person_currency_balances(apps: Any, schema_editor: Any) -> None:
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('auth_app', '0007_currency_registry_and_preferences'),
-        ('people', '0002_retarget_user_fk'),
+        ("auth_app", "0007_currency_registry_and_preferences"),
+        ("people", "0002_retarget_user_fk"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='PersonCurrencyBalance',
+            name="PersonCurrencyBalance",
             fields=[
-                ('id', models.UUIDField(db_default=models.Func(function='gen_random_uuid'), default=uuid.uuid4, primary_key=True, serialize=False)),
-                ('balance', models.DecimalField(db_default=0, decimal_places=2, default=0, max_digits=15)),
-                ('created_at', models.DateTimeField(auto_now_add=True, db_default=django.db.models.functions.datetime.Now())),
-                ('updated_at', models.DateTimeField(auto_now=True, db_default=django.db.models.functions.datetime.Now())),
-                ('currency', models.ForeignKey(db_column='currency_code', on_delete=django.db.models.deletion.CASCADE, related_name='person_balances', to='auth_app.currency')),
-                ('person', models.ForeignKey(db_column='person_id', on_delete=django.db.models.deletion.CASCADE, related_name='currency_balances', to='people.person')),
+                (
+                    "id",
+                    models.UUIDField(
+                        db_default=models.Func(function="gen_random_uuid"),
+                        default=uuid.uuid4,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "balance",
+                    models.DecimalField(
+                        db_default=0, decimal_places=2, default=0, max_digits=15
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True,
+                        db_default=django.db.models.functions.datetime.Now(),
+                    ),
+                ),
+                (
+                    "currency",
+                    models.ForeignKey(
+                        db_column="currency_code",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="person_balances",
+                        to="auth_app.currency",
+                    ),
+                ),
+                (
+                    "person",
+                    models.ForeignKey(
+                        db_column="person_id",
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="currency_balances",
+                        to="people.person",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'person_currency_balances',
-                'ordering': ['currency_id'],
-                'constraints': [models.UniqueConstraint(fields=('person', 'currency'), name='person_currency_balances_person_currency_unique')],
+                "db_table": "person_currency_balances",
+                "ordering": ["currency_id"],
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("person", "currency"),
+                        name="person_currency_balances_person_currency_unique",
+                    )
+                ],
             },
         ),
         migrations.RunPython(

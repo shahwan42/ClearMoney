@@ -4,26 +4,25 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('auth_app', '0005_alter_user_language'),
+        ("auth_app", "0005_alter_user_language"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='userconfig',
-            name='failed_attempts',
+            model_name="userconfig",
+            name="failed_attempts",
         ),
         migrations.RemoveField(
-            model_name='userconfig',
-            name='locked_until',
+            model_name="userconfig",
+            name="locked_until",
         ),
         migrations.RemoveField(
-            model_name='userconfig',
-            name='pin_hash',
+            model_name="userconfig",
+            name="pin_hash",
         ),
         migrations.RemoveField(
-            model_name='userconfig',
-            name='session_key',
+            model_name="userconfig",
+            name="session_key",
         ),
     ]

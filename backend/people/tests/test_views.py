@@ -172,7 +172,9 @@ class TestPeopleLoan:
         )
         assert response.status_code == 400
 
-    def test_third_currency_loan_renders_generalized_balance(self, client, people_view_data):
+    def test_third_currency_loan_renders_generalized_balance(
+        self, client, people_view_data
+    ):
         c = set_auth_cookie(client, people_view_data["session_token"])
         c.post("/people/add", {"name": "Euro"})
         persons = json.loads(c.get("/api/persons").content)
