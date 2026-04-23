@@ -1,18 +1,19 @@
 import datetime
-from decimal import Decimal
+
 import pytest
 from django.test import Client
+
 from reports.services import get_monthly_report
 from tests.factories import (
     AccountFactory,
+    BudgetFactory,
     CategoryFactory,
+    CurrencyFactory,
     InstitutionFactory,
     TransactionFactory,
     UserFactory,
-    BudgetFactory,
-    CurrencyFactory,
 )
-from budgets.services import BudgetService
+
 
 @pytest.mark.django_db
 class TestMultiCurrencyReports:
@@ -21,18 +22,21 @@ class TestMultiCurrencyReports:
     def test_report_isolation_by_currency(self):
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
-        
+
         # EGP Account
         egp_acc = AccountFactory(
-            user_id=user.id, institution_id=inst.id, currency="EGP", current_balance=1000
+            user_id=user.id,
+            institution_id=inst.id,
+            currency="EGP",
+            current_balance=1000,
         )
         # EUR Account
         eur_acc = AccountFactory(
             user_id=user.id, institution_id=inst.id, currency="EUR", current_balance=100
         )
-        
+
         category = CategoryFactory(user_id=user.id, name={"en": "Food"}, type="expense")
-        
+
         # Transaction in EGP
         TransactionFactory(
             user_id=user.id,
@@ -43,7 +47,7 @@ class TestMultiCurrencyReports:
             currency="EGP",
             date=datetime.date(2026, 4, 15),
         )
-        
+
         # Transaction in EUR
         TransactionFactory(
             user_id=user.id,
@@ -54,34 +58,37 @@ class TestMultiCurrencyReports:
             currency="EUR",
             date=datetime.date(2026, 4, 16),
         )
-        
+
         # EUR Report
         report = get_monthly_report(str(user.id), 2026, 4, currency="EUR")
-        
+
         assert report["filter_currency"] == "EUR"
         assert report["total_spending"] == 20.0
         assert len(report["spending_by_category"]) == 1
         assert report["spending_by_category"][0]["amount"] == 20.0
-        
+
         # Net worth projection should only consider EUR account
-        # Current NW = 100 EUR. 
-        # Discretionary = (avg of last 3 months). 
+        # Current NW = 100 EUR.
+        # Discretionary = (avg of last 3 months).
         # Since we have no history, discretionary = 0.
         # No recurring rules, so projection should stay at 100 EUR.
         assert report["projection"]["points"][0]["value"] == 100.0
 
-    def test_pdf_export_filters_budgets_by_currency(self, auth_client: Client, auth_user: tuple):
+    def test_pdf_export_filters_budgets_by_currency(
+        self, auth_client: Client, auth_user: tuple
+    ):
         user_id, _, _ = auth_user
         from unittest.mock import patch
+
         from auth_app.currency import set_user_active_currencies
-        
+
         # Create currencies
         CurrencyFactory(code="EGP", symbol="EGP")
         CurrencyFactory(code="EUR", symbol="€")
         set_user_active_currencies(user_id, ["EGP", "EUR"])
-        
+
         category = CategoryFactory(user_id=user_id, name={"en": "Food"}, type="expense")
-        
+
         # EUR Budget
         BudgetFactory(
             user_id=user_id, category_id=category.id, currency="EUR", monthly_limit=100
@@ -90,15 +97,17 @@ class TestMultiCurrencyReports:
         BudgetFactory(
             user_id=user_id, category_id=category.id, currency="EGP", monthly_limit=1000
         )
-        
+
         with patch("reports.views.HTML") as mock_html:
             mock_html.return_value.write_pdf.return_value = b"%PDF-1.4 fake"
             # Request EUR PDF
             with patch("reports.views.render_to_string") as mock_render:
                 mock_render.return_value = "<html>EUR report</html>"
-                resp = auth_client.get("/reports/export-pdf?year=2026&month=4&currency=EUR")
+                resp = auth_client.get(
+                    "/reports/export-pdf?year=2026&month=4&currency=EUR"
+                )
                 assert resp.status_code == 200
-                
+
                 # Check that only EUR budget was passed to template
                 context = mock_render.call_args[0][1]
                 budgets = context["budgets"]

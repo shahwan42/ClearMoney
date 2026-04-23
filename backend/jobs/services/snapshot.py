@@ -12,25 +12,29 @@ Snapshots power:
 Key patterns:
     - UPSERT (update_or_create) for idempotency
     - Historical balance = current_balance - SUM(future balance_deltas)
-    - USD → EGP conversion using latest exchange rate
-    - Excluded virtual account balances subtracted from net worth
+    - Canonical history is stored per date per currency
+    - DailySnapshot remains as a legacy compatibility projection
 """
 
 import logging
+from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import cast
 from zoneinfo import ZoneInfo
 
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
 from accounts.models import Account, AccountSnapshot
-from auth_app.models import DailySnapshot, User
+from auth_app.models import DailySnapshot, HistoricalSnapshot, User
 from exchange_rates.models import ExchangeRateLog
 from transactions.models import Transaction
 from virtual_accounts.models import VirtualAccount
 
 logger = logging.getLogger(__name__)
+
+ZERO = Decimal("0")
 
 
 class SnapshotService:
@@ -40,13 +44,7 @@ class SnapshotService:
         self.tz = tz
 
     def take_all_user_snapshots(self, days: int = 90) -> int:
-        """Take today's snapshot + backfill for all users.
-
-        Iterates all users, takes today's snapshot, then backfills missing days.
-
-        Returns:
-            Total number of days backfilled across all users.
-        """
+        """Take today's snapshot + backfill for all users."""
         user_ids = self._get_all_user_ids()
         total_backfilled = 0
 
@@ -65,34 +63,22 @@ class SnapshotService:
         return total_backfilled
 
     def take_snapshot(self, user_id: str) -> None:
-        """Capture today's financial state as a daily snapshot.
-
-        Safe to call multiple times (update_or_create semantics).
-        """
-        today = self._today()
-        self._take_snapshot_for_date(user_id, today, use_current_balances=True)
+        """Capture today's financial state as a daily snapshot."""
+        self._take_snapshot_for_date(user_id, self._today(), use_current_balances=True)
 
     def backfill_snapshots(self, user_id: str, days: int = 90) -> int:
-        """Fill in missing daily snapshots for the last N days.
-
-        Historical balances are computed by subtracting future transaction deltas
-        from current balance.
-
-        Returns:
-            Number of days backfilled (0 if all days already had snapshots).
-        """
+        """Refresh the last N days and count dates missing canonical history."""
         today = self._today()
         count = 0
 
         for i in range(days, -1, -1):
             snapshot_date = today - timedelta(days=i)
-            if self._snapshot_exists(user_id, snapshot_date):
-                continue
-
             use_current = i == 0
+            existed = self._historical_snapshot_exists(user_id, snapshot_date)
             try:
                 self._take_snapshot_for_date(user_id, snapshot_date, use_current)
-                count += 1
+                if not existed:
+                    count += 1
             except Exception:
                 logger.warning(
                     "snapshot.backfill_day_failed date=%s user_id=%s",
@@ -102,6 +88,45 @@ class SnapshotService:
 
         return count
 
+    def backfill_historical_snapshots_from_account_snapshots(self, user_id: str) -> int:
+        """Rebuild canonical per-currency history from stored account snapshots."""
+        totals_by_date: dict[date, dict[str, Decimal]] = defaultdict(
+            lambda: defaultdict(lambda: ZERO)
+        )
+        rows = (
+            AccountSnapshot.objects.filter(user_id=user_id)
+            .select_related("account")
+            .order_by("date", "account__currency")
+            .values_list("date", "account__currency", "balance")
+        )
+        for snapshot_date, currency, balance in rows:
+            totals_by_date[snapshot_date][currency] += balance
+
+        today = self._today()
+        if today not in totals_by_date:
+            current_totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+            for _account_id, currency, balance in self._get_all_accounts(user_id):
+                current_totals[currency] += balance
+            current_totals["EGP"] = current_totals.get(
+                "EGP", ZERO
+            ) - self._get_excluded_va_balance(user_id)
+            if current_totals:
+                totals_by_date[today] = current_totals
+
+        daily_expense_rows = self._get_daily_transaction_rows(user_id, "expense")
+        daily_income_rows = self._get_daily_transaction_rows(user_id, "income")
+
+        for snapshot_date, totals in totals_by_date.items():
+            self._sync_historical_snapshots(
+                user_id=user_id,
+                snapshot_date=snapshot_date,
+                totals_by_currency=dict(totals),
+                spending_by_currency=daily_expense_rows.get(snapshot_date, {}),
+                income_by_currency=daily_income_rows.get(snapshot_date, {}),
+            )
+
+        return len(totals_by_date)
+
     # ------------------------------------------------------------------
     # Core logic
     # ------------------------------------------------------------------
@@ -109,73 +134,60 @@ class SnapshotService:
     def _take_snapshot_for_date(
         self, user_id: str, snapshot_date: date, use_current_balances: bool
     ) -> None:
-        """Capture financial state for a specific date.
-
-        Steps:
-        1. Get all institutions → accounts for user
-        2. Sum balances → net_worth_raw (historical if backfilling)
-        3. Track USD total separately
-        4. Subtract excluded virtual account balances
-        5. Convert USD → EGP using latest exchange rate
-        6. Get daily spending/income
-        7. Upsert daily + account snapshots
-        """
-        # Get all accounts grouped by institution
+        """Capture financial state for a specific date."""
         accounts = self._get_all_accounts(user_id)
 
-        net_worth_raw = 0.0
-        totals_by_currency: dict[str, float] = {}
-        account_balances: list[tuple[str, float]] = []
+        net_worth_raw = ZERO
+        totals_by_currency: dict[str, Decimal] = defaultdict(lambda: ZERO)
+        account_balances: list[tuple[str, Decimal]] = []
 
         for acc_id, currency, current_balance in accounts:
-            if use_current_balances:
-                balance = float(current_balance)
-            else:
-                # Historical: current_balance - future deltas
-                future_deltas = self._get_balance_delta_after_date(
+            balance = current_balance
+            if not use_current_balances:
+                balance -= self._get_balance_delta_after_date(
                     user_id, acc_id, snapshot_date
                 )
-                balance = float(current_balance) - future_deltas
 
             net_worth_raw += balance
-            totals_by_currency[currency] = (
-                totals_by_currency.get(currency, 0.0) + balance
-            )
+            totals_by_currency[currency] += balance
             account_balances.append((acc_id, balance))
 
-        # Subtract excluded virtual account balances
         excluded = self._get_excluded_va_balance(user_id)
         net_worth_raw -= excluded
-        # Subtract from EGP totals (VA exclusion is currently EGP-only in business logic)
-        if "EGP" in totals_by_currency:
-            totals_by_currency["EGP"] -= excluded
+        totals_by_currency["EGP"] = totals_by_currency.get("EGP", ZERO) - excluded
 
-        # Get exchange rate for USD → EGP conversion
         exchange_rate = self._get_latest_exchange_rate()
-        if exchange_rate > 0:
-            # Recompute net worth EGP: Sum all currencies converted to EGP
-            # Currently only USD/EGP is supported for conversion, others stay as-is
-            usd_total = totals_by_currency.get("USD", 0.0)
-            net_worth_egp = (net_worth_raw - usd_total) + (usd_total * exchange_rate)
-        else:
-            net_worth_egp = net_worth_raw
-
-        # Get daily spending and income
-        spending = self._get_daily_spending(user_id, snapshot_date)
-        income = self._get_daily_income(user_id, snapshot_date)
-
-        # Upsert daily snapshot
-        self._upsert_daily(
-            user_id,
-            snapshot_date,
-            net_worth_egp,
-            net_worth_raw,
-            exchange_rate,
-            spending,
-            income,
+        net_worth_egp = self._convert_totals_to_egp(
+            dict(totals_by_currency), exchange_rate
         )
 
-        # Upsert per-account snapshots
+        spending_by_currency = self._get_daily_total_by_currency(
+            user_id, snapshot_date, "expense"
+        )
+        income_by_currency = self._get_daily_total_by_currency(
+            user_id, snapshot_date, "income"
+        )
+        daily_spending = sum(spending_by_currency.values(), start=ZERO)
+        daily_income = sum(income_by_currency.values(), start=ZERO)
+
+        self._sync_historical_snapshots(
+            user_id=user_id,
+            snapshot_date=snapshot_date,
+            totals_by_currency=dict(totals_by_currency),
+            spending_by_currency=spending_by_currency,
+            income_by_currency=income_by_currency,
+        )
+
+        self._upsert_daily(
+            user_id=user_id,
+            snapshot_date=snapshot_date,
+            net_worth_egp=net_worth_egp,
+            net_worth_raw=net_worth_raw,
+            exchange_rate=exchange_rate,
+            daily_spending=daily_spending,
+            daily_income=daily_income,
+        )
+
         for acc_id, balance in account_balances:
             try:
                 self._upsert_account(user_id, snapshot_date, acc_id, balance)
@@ -191,94 +203,132 @@ class SnapshotService:
     # ------------------------------------------------------------------
 
     def _get_all_user_ids(self) -> list[str]:
-        """Get all user IDs."""
         return [str(uid) for uid in User.objects.values_list("id", flat=True)]
 
-    def _get_all_accounts(self, user_id: str) -> list[tuple[str, str, float]]:
-        """Get all non-dormant accounts for a user.
-
-        Returns list of (account_id, currency, current_balance).
-        Ordered by institution display_order then account display_order.
-        """
+    def _get_all_accounts(self, user_id: str) -> list[tuple[str, str, Decimal]]:
         rows = (
             Account.objects.filter(user_id=user_id, is_dormant=False)
             .order_by("institution__display_order", "display_order")
             .values_list("id", "currency", "current_balance")
         )
-        return [(str(row[0]), row[1], float(row[2])) for row in rows]
+        return [(str(row[0]), row[1], row[2]) for row in rows]
 
     def _get_balance_delta_after_date(
         self, user_id: str, account_id: str, snapshot_date: date
-    ) -> float:
-        """Sum of balance_delta for transactions after the given date.
-
-        Used to compute historical balances for backfill.
-        """
+    ) -> Decimal:
         total = Transaction.objects.filter(
             user_id=user_id,
             account_id=account_id,
             date__gt=snapshot_date,
-        ).aggregate(total=Coalesce(Sum("balance_delta"), Decimal("0")))["total"]
-        return float(total)
+        ).aggregate(total=Coalesce(Sum("balance_delta"), ZERO))["total"]
+        return cast(Decimal, total)
 
-    def _get_excluded_va_balance(self, user_id: str) -> float:
-        """Total balance of VAs excluded from net worth."""
+    def _get_excluded_va_balance(self, user_id: str) -> Decimal:
         total = VirtualAccount.objects.filter(
             user_id=user_id,
             exclude_from_net_worth=True,
             is_archived=False,
-        ).aggregate(total=Coalesce(Sum("current_balance"), Decimal("0")))["total"]
-        return float(total)
+        ).aggregate(total=Coalesce(Sum("current_balance"), ZERO))["total"]
+        return cast(Decimal, total)
 
-    def _get_latest_exchange_rate(self) -> float:
-        """Latest USD/EGP exchange rate. No user_id — global data."""
+    def _get_latest_exchange_rate(self) -> Decimal:
         rate = (
             ExchangeRateLog.objects.order_by("-date", "-created_at")
             .values_list("rate", flat=True)
             .first()
         )
-        return float(rate) if rate is not None else 0.0
+        return rate if rate is not None else ZERO
 
-    def _get_daily_spending(self, user_id: str, snapshot_date: date) -> float:
-        """Sum of expense amounts for a given date."""
-        total = Transaction.objects.filter(
+    def _get_daily_total_by_currency(
+        self, user_id: str, snapshot_date: date, tx_type: str
+    ) -> dict[str, Decimal]:
+        rows = Transaction.objects.filter(
             user_id=user_id,
             date=snapshot_date,
-            type="expense",
-        ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
-        return float(total)
+            type=tx_type,
+        ).values_list("currency", "amount")
+        totals: dict[str, Decimal] = defaultdict(lambda: ZERO)
+        for currency, amount in rows:
+            totals[currency] += amount
+        return dict(totals)
 
-    def _get_daily_income(self, user_id: str, snapshot_date: date) -> float:
-        """Sum of income amounts for a given date."""
-        total = Transaction.objects.filter(
-            user_id=user_id,
-            date=snapshot_date,
-            type="income",
-        ).aggregate(total=Coalesce(Sum("amount"), Decimal("0")))["total"]
-        return float(total)
+    def _get_daily_transaction_rows(
+        self, user_id: str, tx_type: str
+    ) -> dict[date, dict[str, Decimal]]:
+        rows = Transaction.objects.filter(user_id=user_id, type=tx_type).values_list(
+            "date", "currency", "amount"
+        )
+        totals_by_date: dict[date, dict[str, Decimal]] = defaultdict(
+            lambda: defaultdict(lambda: ZERO)
+        )
+        for tx_date, currency, amount in rows:
+            totals_by_date[tx_date][currency] += amount
+        return {
+            tx_date: dict(currency_totals)
+            for tx_date, currency_totals in totals_by_date.items()
+        }
 
-    def _snapshot_exists(self, user_id: str, snapshot_date: date) -> bool:
-        """Check if a daily snapshot already exists."""
-        return DailySnapshot.objects.filter(
+    def _historical_snapshot_exists(self, user_id: str, snapshot_date: date) -> bool:
+        return HistoricalSnapshot.objects.filter(
             user_id=user_id, date=snapshot_date
         ).exists()
+
+    def _convert_totals_to_egp(
+        self, totals_by_currency: dict[str, Decimal], exchange_rate: Decimal
+    ) -> Decimal:
+        net_worth_egp = ZERO
+        for currency, total in totals_by_currency.items():
+            if currency == "USD" and exchange_rate > ZERO:
+                net_worth_egp += total * exchange_rate
+            else:
+                net_worth_egp += total
+        return net_worth_egp
+
+    def _sync_historical_snapshots(
+        self,
+        user_id: str,
+        snapshot_date: date,
+        totals_by_currency: dict[str, Decimal],
+        spending_by_currency: dict[str, Decimal],
+        income_by_currency: dict[str, Decimal],
+    ) -> None:
+        active_currencies = {
+            *totals_by_currency.keys(),
+            *spending_by_currency.keys(),
+            *income_by_currency.keys(),
+        }
+        if not active_currencies:
+            HistoricalSnapshot.objects.filter(
+                user_id=user_id, date=snapshot_date
+            ).delete()
+            return
+
+        for currency in active_currencies:
+            HistoricalSnapshot.objects.update_or_create(
+                user_id=user_id,
+                date=snapshot_date,
+                currency=currency,
+                defaults={
+                    "net_worth": totals_by_currency.get(currency, ZERO),
+                    "daily_spending": spending_by_currency.get(currency, ZERO),
+                    "daily_income": income_by_currency.get(currency, ZERO),
+                },
+            )
+
+        HistoricalSnapshot.objects.filter(user_id=user_id, date=snapshot_date).exclude(
+            currency__in=active_currencies
+        ).delete()
 
     def _upsert_daily(
         self,
         user_id: str,
         snapshot_date: date,
-        net_worth_egp: float,
-        net_worth_raw: float,
-        exchange_rate: float,
-        daily_spending: float,
-        daily_income: float,
+        net_worth_egp: Decimal,
+        net_worth_raw: Decimal,
+        exchange_rate: Decimal,
+        daily_spending: Decimal,
+        daily_income: Decimal,
     ) -> None:
-        """Upsert a daily snapshot row (idempotent).
-
-        update_or_create issues SELECT + INSERT/UPDATE (two round-trips), unlike
-        INSERT ... ON CONFLICT which is atomic. Safe here — the job runs once daily
-        and any IntegrityError from a concurrent run is caught by the caller.
-        """
         DailySnapshot.objects.update_or_create(
             user_id=user_id,
             date=snapshot_date,
@@ -292,9 +342,8 @@ class SnapshotService:
         )
 
     def _upsert_account(
-        self, user_id: str, snapshot_date: date, account_id: str, balance: float
+        self, user_id: str, snapshot_date: date, account_id: str, balance: Decimal
     ) -> None:
-        """Upsert an account snapshot row (idempotent). See _upsert_daily for atomicity note."""
         AccountSnapshot.objects.update_or_create(
             user_id=user_id,
             date=snapshot_date,
@@ -303,7 +352,6 @@ class SnapshotService:
         )
 
     def _today(self) -> date:
-        """Today's date in the configured timezone."""
         from datetime import datetime
 
         return datetime.now(self.tz).date()

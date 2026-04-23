@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from auth_app.models import AuthToken, DailySnapshot, Session, User, UserConfig
+from auth_app.models import (
+    AuthToken,
+    DailySnapshot,
+    HistoricalSnapshot,
+    Session,
+    User,
+    UserConfig,
+)
 
 
 @admin.register(User)
@@ -38,5 +45,14 @@ class UserConfigAdmin(admin.ModelAdmin):
 class DailySnapshotAdmin(admin.ModelAdmin):
     list_display = ["user", "date", "net_worth_egp", "daily_spending", "daily_income"]
     list_filter = ["date"]
+    readonly_fields = ["id", "created_at"]
+    date_hierarchy = "date"
+
+
+@admin.register(HistoricalSnapshot)
+class HistoricalSnapshotAdmin(admin.ModelAdmin):
+    list_display = ["user", "date", "currency", "net_worth", "daily_spending"]
+    list_filter = ["date", "currency"]
+    search_fields = ["user__email", "currency"]
     readonly_fields = ["id", "created_at"]
     date_hierarchy = "date"

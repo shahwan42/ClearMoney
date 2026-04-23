@@ -195,7 +195,7 @@ class TestBudgetFormValidation:
     def test_total_budget_limit_validates_required(self, page: Page) -> None:
         """Total budget limit validates required field."""
         page.goto("/budgets")
-        limit_input = page.locator("#total-limit-new")
+        limit_input = page.locator("#total-limit-new-EGP")
 
         # Clear and blur
         limit_input.fill("")
@@ -203,7 +203,7 @@ class TestBudgetFormValidation:
 
         # Should show error
         expect(limit_input).to_have_attribute("aria-invalid", "true")
-        expect(page.locator("#total-limit-new-error")).to_contain_text(
+        expect(page.locator("#total-limit-new-EGP-error")).to_contain_text(
             "This field is required"
         )
 

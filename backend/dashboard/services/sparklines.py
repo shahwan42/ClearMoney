@@ -7,22 +7,24 @@ from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from accounts.models import AccountSnapshot
-from auth_app.models import DailySnapshot
+from auth_app.currency import get_user_selected_display_currency
+from auth_app.models import HistoricalSnapshot
 
 if TYPE_CHECKING:
     from . import DashboardData
 
 
 def load_net_worth_history(user_id: str, data: DashboardData, tz: ZoneInfo) -> None:
-    """Load 30-day net worth sparkline from daily_snapshots."""
+    """Load 30-day net worth sparkline for the selected display currency."""
     today = datetime.now(tz).date()
     start = today - timedelta(days=30)
+    selected_currency = get_user_selected_display_currency(user_id)
 
     rows = (
-        DailySnapshot.objects.for_user(user_id)
-        .filter(date__gte=start, date__lte=today)
+        HistoricalSnapshot.objects.for_user(user_id)
+        .filter(date__gte=start, date__lte=today, currency=selected_currency)
         .order_by("date")
-        .values_list("net_worth_egp", flat=True)
+        .values_list("net_worth", flat=True)
     )
 
     values = [float(v) for v in rows]
@@ -35,16 +37,15 @@ def load_net_worth_history(user_id: str, data: DashboardData, tz: ZoneInfo) -> N
 
 
 def load_net_worth_by_currency(user_id: str, data: DashboardData, tz: ZoneInfo) -> None:
-    """Load per-currency net worth history for dual sparkline."""
+    """Load per-currency net worth history from canonical historical snapshots."""
     today = datetime.now(tz).date()
     start = today - timedelta(days=30)
 
     rows = (
-        AccountSnapshot.objects.for_user(user_id)
+        HistoricalSnapshot.objects.for_user(user_id)
         .filter(date__gte=start, date__lte=today)
-        .select_related("account")
         .order_by("date")
-        .values_list("date", "account__currency", "balance")
+        .values_list("date", "currency", "net_worth")
     )
 
     if not rows:

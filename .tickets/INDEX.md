@@ -13,7 +13,6 @@ Last updated: 2026-04-23
 | [153](pending/153-cleanup-compatibility-removal-docs-and-guardrails.md) | Cleanup, compatibility removal, docs, and guardrails | chore | medium | 2026-04-22 |
 | [152](pending/152-currency-formatting-and-template-cleanup.md) | Currency formatting and template cleanup | improvement | medium | 2026-04-22 |
 | [151](pending/151-dashboard-and-historical-sparkline-consumption-rewrite.md) | Dashboard and historical sparkline consumption rewrite | feature | medium | 2026-04-22 |
-| [150](pending/150-generalized-snapshot-model-and-historical-backfill.md) | Generalized snapshot model and historical backfill | feature | high | 2026-04-22 |
 | [149](pending/149-dynamic-reports-filters-and-exact-currency-reporting.md) | Dynamic reports filters and exact-currency reporting | feature | medium | 2026-04-22 |
 | [148](pending/148-dynamic-budgets-and-total-budgets.md) | Dynamic budgets and total budgets | feature | medium | 2026-04-22 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
@@ -48,6 +47,7 @@ Last updated: 2026-04-23
 | [143](done/143-dynamic-people-ui-and-debt-summary-contracts.md) | Dynamic people UI and debt summary contracts | feature | high | 2026-04-23 |
 | [142](done/142-generalized-person-currency-balance-storage.md) | Generalized person currency balance storage | feature | high | 2026-04-23 |
 | [141](done/141-complete-selected-currency-plumbing-rollout.md) | Complete selected-currency plumbing rollout | improvement | high | 2026-04-23 |
+| [150](done/150-generalized-snapshot-model-and-historical-backfill.md) | Generalized snapshot model and historical backfill | feature | high | 2026-04-23 |
 | [138](done/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-23 |
 | [136](done/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-23 |
 | [135](done/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-23 |

@@ -218,6 +218,7 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
     currency_raw = request.POST.get("currency", "")
 
     from auth_app.currency import resolve_user_currency_choice
+
     try:
         currency = resolve_user_currency_choice(request.user_id, currency_raw)
     except ValueError as e:
@@ -281,6 +282,7 @@ def total_budget_delete(
     """POST /budgets/total/delete — delete the total monthly budget."""
     currency_raw = request.POST.get("currency", "")
     from auth_app.currency import resolve_user_currency_choice
+
     try:
         currency = resolve_user_currency_choice(request.user_id, currency_raw)
         svc.delete_total_budget(currency)

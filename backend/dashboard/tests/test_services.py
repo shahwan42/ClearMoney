@@ -26,8 +26,8 @@ from tests.factories import (
     BudgetFactory,
     CategoryFactory,
     CurrencyFactory,
-    DailySnapshotFactory,
     ExchangeRateLogFactory,
+    HistoricalSnapshotFactory,
     InstitutionFactory,
     InvestmentFactory,
     PersonCurrencyBalanceFactory,
@@ -364,15 +364,14 @@ def test_load_health_warnings(svc_data):
 
 @pytest.mark.django_db
 def test_load_net_worth_history(svc_data):
-    """Returns sparkline values from daily_snapshots."""
+    """Returns sparkline values from canonical historical snapshots."""
     today = date.today()
     for i in range(5):
-        DailySnapshotFactory(
+        HistoricalSnapshotFactory(
             user=svc_data["user"],
             date=today - timedelta(days=10 - i),
-            net_worth_egp=10000 + i * 100,
-            net_worth_raw=10000 + i * 100,
-            exchange_rate=50.0,
+            currency="EGP",
+            net_worth=10000 + i * 100,
         )
 
     svc = DashboardService(svc_data["user_id"], TZ)
@@ -1008,7 +1007,7 @@ class TestLoadNetWorthByCurrency:
         # gap: functional — load_net_worth_by_currency never directly tested
         today = date.today()
         # Create 2 EGP accounts and 1 USD account with snapshots across 3 days
-        usd_acc = AccountFactory(
+        AccountFactory(
             user_id=svc_data["user"].id,
             institution_id=svc_data["inst_id"],
             name="USD Savings",
@@ -1018,19 +1017,17 @@ class TestLoadNetWorthByCurrency:
         )
         for i in range(3):
             snap_date = today - timedelta(days=5 - i)
-            # EGP account snapshot
-            AccountSnapshotFactory(
+            HistoricalSnapshotFactory(
                 user=svc_data["user"],
-                account=svc_data["savings"],
                 date=snap_date,
-                balance=10000 + i * 100,
+                currency="EGP",
+                net_worth=10000 + i * 100,
             )
-            # USD account snapshot
-            AccountSnapshotFactory(
+            HistoricalSnapshotFactory(
                 user=svc_data["user"],
-                account=usd_acc,
                 date=snap_date,
-                balance=500 + i * 10,
+                currency="USD",
+                net_worth=500 + i * 10,
             )
 
         svc = DashboardService(svc_data["user_id"], TZ)

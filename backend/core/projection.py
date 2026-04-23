@@ -121,7 +121,9 @@ class ProjectionService:
 
         for i in range(1, 4):
             dt = today - relativedelta(months=i)
-            summary = get_month_summary(self.user_id, dt.year, dt.month, currency=currency)
+            summary = get_month_summary(
+                self.user_id, dt.year, dt.month, currency=currency
+            )
             total_expenses = summary["expenses"]
 
             qs = Transaction.objects.for_user(self.user_id).filter(

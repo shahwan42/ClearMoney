@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('budgets', '0003_budget_max_rollover_budget_rollover_enabled'),
+        ("budgets", "0003_budget_max_rollover_budget_rollover_enabled"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='budget',
-            name='currency',
+            model_name="budget",
+            name="currency",
             field=models.CharField(max_length=3),
         ),
         migrations.AlterField(
-            model_name='totalbudget',
-            name='currency',
+            model_name="totalbudget",
+            name="currency",
             field=models.CharField(max_length=3),
         ),
     ]

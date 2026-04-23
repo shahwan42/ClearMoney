@@ -26,6 +26,7 @@ from auth_app.models import (
     AuthToken,
     Currency,
     DailySnapshot,
+    HistoricalSnapshot,
     Session,
     User,
     UserConfig,
@@ -343,6 +344,21 @@ class DailySnapshotFactory(factory.django.DjangoModelFactory):
     net_worth_egp = factory.LazyFunction(lambda: Decimal("50000.00"))
     net_worth_raw = factory.LazyFunction(lambda: Decimal("50000.00"))
     exchange_rate = factory.LazyFunction(lambda: Decimal("50.8500"))
+    daily_spending = factory.LazyFunction(lambda: Decimal("250.00"))
+    daily_income = factory.LazyFunction(lambda: Decimal("0.00"))
+
+
+class HistoricalSnapshotFactory(factory.django.DjangoModelFactory):
+    """Factory for per-currency historical snapshots."""
+
+    class Meta:
+        model = HistoricalSnapshot
+
+    id = factory.LazyFunction(uuid.uuid4)
+    user = factory.SubFactory(UserFactory)
+    date = factory.LazyFunction(lambda: timezone.now().date())
+    currency = "EGP"
+    net_worth = factory.LazyFunction(lambda: Decimal("50000.00"))
     daily_spending = factory.LazyFunction(lambda: Decimal("250.00"))
     daily_income = factory.LazyFunction(lambda: Decimal("0.00"))
 

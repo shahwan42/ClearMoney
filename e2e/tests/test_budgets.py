@@ -147,12 +147,12 @@ class TestBudgets:
 
     def test_total_budget_save_feedback(self, page: Page) -> None:
         page.goto("/budgets")
-        page.fill('input#total-limit-new', "10000")
+        page.fill("#total-limit-new-EGP", "10000")
         page.click('button:has-text("Set Total Budget")')
         expect(page.locator('text="Saved"')).to_be_visible()
 
         # Update it
-        page.fill('input#total-limit-edit', "12000")
+        page.fill("#total-limit-edit-EGP", "12000")
         # Second update button (first one is for individual budget if any, but we cleared DB)
         page.locator('button:has-text("Update")').click()
         expect(page.locator('text="Saved"')).to_be_visible()

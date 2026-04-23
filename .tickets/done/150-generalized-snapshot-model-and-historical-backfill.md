@@ -3,9 +3,9 @@ id: "150"
 title: "Generalized snapshot model and historical backfill"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -26,10 +26,10 @@ fields.
 
 ## Acceptance Criteria
 
-- [ ] Historical per-currency totals can be queried for any active currency
-- [ ] Existing users retain historical continuity after migration
-- [ ] Snapshot generation no longer depends on EGP-canonical net-worth fields
-- [ ] Backfill can be rerun safely without duplicating or corrupting history
+- [x] Historical per-currency totals can be queried for any active currency
+- [x] Existing users retain historical continuity after migration
+- [x] Snapshot generation no longer depends on EGP-canonical net-worth fields
+- [x] Backfill can be rerun safely without duplicating or corrupting history
 
 ## Critical Files
 
@@ -59,4 +59,5 @@ fields.
 ## Progress Notes
 
 - 2026-04-22: Created for historical multi-currency support
-
+- 2026-04-23: Started — planned generalized per-currency historical snapshots, snapshot job refactor, migration backfill, and dashboard query updates
+- 2026-04-23: Completed — added canonical `HistoricalSnapshot` storage, migration backfill from account/daily snapshot data, dashboard history reads from canonical rows, idempotent snapshot/backfill coverage, and repo-wide verification (`make test`, `make lint`, full E2E suite)
