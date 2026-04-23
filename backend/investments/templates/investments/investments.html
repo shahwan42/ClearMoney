@@ -11,7 +11,7 @@
     {# Total portfolio value — gradient header #}
     <div class="bg-gradient-to-r from-indigo-500 to-purple-500 rounded-2xl p-5 text-white">
         <p class="text-xs uppercase tracking-wide opacity-80">{% trans "Total Portfolio Value" %}</p>
-        <p class="text-2xl font-bold mt-1">{{ total_valuation|format_egp }}</p>
+        <p class="text-2xl font-bold mt-1">{{ total_valuation|format_currency:"EGP" }}</p>
     </div>
 
     {# Add investment form #}
@@ -70,7 +70,7 @@
                         <p class="text-xs text-gray-400">{{ inv.platform }} &middot; {{ inv.units }} {% trans "units" %}</p>
                     </div>
                     <div class="text-end">
-                        <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ inv.valuation|format_egp }}</p>
+                        <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ inv.valuation|format_currency:inv.currency }}</p>
                         <p class="text-xs text-gray-400">@ {{ inv.last_unit_price|floatformat:4 }}/{% trans "unit" %}</p>
                     </div>
                 </div>

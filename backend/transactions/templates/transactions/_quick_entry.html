@@ -53,7 +53,7 @@
                 id="qe-account-select">
                 <option value="">{% trans "Select account..." %}</option>
                 {% for acc in accounts %}
-                <option value="{{ acc.id }}" {% if acc.id == last_account_id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
+                <option value="{{ acc.id }}" data-currency="{{ acc.currency }}" {% if acc.id == last_account_id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
             </select>
         </div>
@@ -82,7 +82,7 @@
         </div>
     </div>
 
-    <input type="hidden" name="currency" value="EGP" id="qe-currency-input">
+    <input type="hidden" name="currency" value="{{ last_account_currency|default:'EGP' }}" id="qe-currency-input">
 
     <!-- Hidden date submitted when "More options" is collapsed -->
     <input type="hidden" name="date" id="qe-date-input" value="{{ today|date:'Y-m-d' }}">
@@ -215,15 +215,15 @@ function qeToggleType(mode) {
     var acctSelect = document.getElementById('qe-account-select');
     if (acctSelect && acctSelect.value) {
         var sel = acctSelect.options[acctSelect.selectedIndex];
-        if (sel && sel.text.includes('USD')) {
-            document.getElementById('qe-currency-input').value = 'USD';
-        }
+        var cur = sel ? sel.getAttribute('data-currency') : 'EGP';
+        document.getElementById('qe-currency-input').value = cur;
     }
 
     if (acctSelect) {
         acctSelect.addEventListener('change', function() {
             var sel = this.options[this.selectedIndex];
-            document.getElementById('qe-currency-input').value = (sel && sel.text.includes('USD')) ? 'USD' : 'EGP';
+            var cur = sel ? sel.getAttribute('data-currency') : 'EGP';
+            document.getElementById('qe-currency-input').value = cur;
             filterQeVirtualAccounts();
         });
     }

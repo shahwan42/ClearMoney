@@ -73,6 +73,15 @@ def test_format_currency_usd():
     assert format_currency(500, "USD") == "$500.00"
 
 
+def test_format_currency_eur():
+    assert format_currency(123.45, "EUR") == "€123.45"
+
+
+def test_format_currency_fallback():
+    # KWD doesn't have a default symbol in the dict, so it should use the code
+    assert format_currency(10.5, "KWD") == "KWD 10.50"
+
+
 def test_format_currency_default_egp():
     """No currency specified defaults to EGP."""
     assert format_currency(100) == "EGP 100.00"
@@ -80,6 +89,12 @@ def test_format_currency_default_egp():
 
 def test_format_currency_case_insensitive():
     assert format_currency(100, "usd") == "$100.00"
+
+
+def test_format_currency_none_invalid():
+    assert format_currency(None) == "EGP 0.00"
+    assert format_currency("") == "EGP 0.00"
+    assert format_currency("abc") == "EGP 0.00"
 
 
 def test_neg_positive():

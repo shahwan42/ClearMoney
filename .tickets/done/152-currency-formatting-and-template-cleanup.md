@@ -3,7 +3,7 @@ id: "152"
 title: "Currency formatting and template cleanup"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-04-22
 updated: 2026-04-22
 ---
@@ -24,9 +24,9 @@ fixed-currency filters or branches.
 
 ## Acceptance Criteria
 
-- [ ] Third-currency values render correctly across the app
-- [ ] Dynamic templates do not depend on fixed-currency formatting branches
-- [ ] Supported currencies without a custom symbol remain readable
+- [x] Third-currency values render correctly across the app
+- [x] Dynamic templates do not depend on fixed-currency formatting branches
+- [x] Supported currencies without a custom symbol remain readable
 
 ## Critical Files
 
@@ -56,4 +56,4 @@ fixed-currency filters or branches.
 ## Progress Notes
 
 - 2026-04-22: Created for currency-generic formatting cleanup
-
+- 2026-04-24: Refactored format_currency to handle spacing and symbols generically. Updated templates and added tests.

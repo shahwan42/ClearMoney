@@ -43,7 +43,12 @@ def _format_number(n: float) -> str:
     return f"{n:,.2f}"
 
 
-_CURRENCY_SYMBOLS: dict[str, str] = {}
+_CURRENCY_SYMBOLS: dict[str, str] = {
+    "USD": "$",
+    "EUR": "€",
+    "GBP": "£",
+    "EGP": "EGP",
+}
 
 
 def get_currency_symbol(code: str) -> str:
@@ -70,17 +75,27 @@ def get_currency_symbol(code: str) -> str:
 def format_currency(amount: object, currency: object = "EGP") -> str:
     """Format with currency symbol."""
     try:
-        amt = float(str(amount)) if amount is not None else 0.0
+        if amount is None or str(amount).strip() == "":
+            amt = 0.0
+        else:
+            amt = float(str(amount))
     except (ValueError, TypeError):
         amt = 0.0
-    cur = str(currency).upper() if currency else "EGP"
-    symbol = get_currency_symbol(cur)
 
-    # Special case for USD to keep $100.00 format (no space)
-    if cur == "USD" or symbol == "$":
-        return f"${_format_number(amt)}"
+    if amt == 0:
+        amt = 0.0  # Eliminate negative zero
 
-    return f"{symbol} {_format_number(amt)}"
+    cur_code = str(currency).upper() if currency else "EGP"
+    symbol = get_currency_symbol(cur_code)
+
+    formatted_num = _format_number(amt)
+
+    # Standard convention: single-character symbols like $, £, € often don't have a space.
+    # ISO codes like EGP, USD or multi-char symbols like SAR, Rp usually do.
+    if len(symbol) > 1 or symbol == cur_code:
+        return f"{symbol} {formatted_num}"
+
+    return f"{symbol}{formatted_num}"
 
 
 @register.filter

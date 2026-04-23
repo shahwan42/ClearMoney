@@ -22,19 +22,19 @@
         <div class="mt-4 grid grid-cols-2 gap-3">
             <div class="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3">
                 <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Opening Balance" %}</p>
-                <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ data.statement.opening_balance|format_egp }}</p>
+                <p class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ data.statement.opening_balance|format_currency:data.statement.account.currency }}</p>
             </div>
             <div class="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3">
                 <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Closing Balance" %}</p>
-                <p class="text-sm font-bold {% if data.statement.closing_balance < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">{{ data.statement.closing_balance|format_egp }}</p>
+                <p class="text-sm font-bold {% if data.statement.closing_balance < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">{{ data.statement.closing_balance|format_currency:data.statement.account.currency }}</p>
             </div>
             <div class="bg-red-50 rounded-lg p-3">
                 <p class="text-xs text-red-500 dark:text-red-400">{% trans "Total Spending" %}</p>
-                <p class="text-sm font-bold text-red-600">{{ data.statement.total_spending|format_egp }}</p>
+                <p class="text-sm font-bold text-red-600">{{ data.statement.total_spending|format_currency:data.statement.account.currency }}</p>
             </div>
             <div class="bg-emerald-50 rounded-lg p-3">
                 <p class="text-xs text-emerald-500 dark:text-emerald-400">{% trans "Total Payments" %}</p>
-                <p class="text-sm font-bold text-emerald-600">{{ data.statement.total_payments|format_egp }}</p>
+                <p class="text-sm font-bold text-emerald-600">{{ data.statement.total_payments|format_currency:data.statement.account.currency }}</p>
             </div>
         </div>
     </section>
@@ -58,7 +58,7 @@
                 <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "of credit limit used" %}</p>
                 {% if data.statement.account.credit_limit %}
                 <p class="text-xs text-gray-400 dark:text-slate-500 mt-1">
-                    {% blocktrans with limit=data.statement.account.credit_limit|deref_float|format_egp %}Limit: {{ limit }}{% endblocktrans %}
+                    {% blocktrans with limit=data.statement.account.credit_limit|deref_float|format_currency:data.statement.account.currency %}Limit: {{ limit }}{% endblocktrans %}
                 </p>
                 {% endif %}
             </div>
@@ -94,7 +94,7 @@
     {% if data.statement.closing_balance < 0 %}
     <section class="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <p class="text-sm font-medium text-blue-800">
-            {% blocktrans with amount=data.statement.closing_balance|neg|format_egp due=data.statement.billing_cycle.due_date|format_date_short %}Pay {{ amount }} by {{ due }} to avoid interest charges.{% endblocktrans %}
+            {% blocktrans with amount=data.statement.closing_balance|neg|format_currency:data.statement.account.currency due=data.statement.billing_cycle.due_date|format_date_short %}Pay {{ amount }} by {{ due }} to avoid interest charges.{% endblocktrans %}
         </p>
         {% if data.statement.billing_cycle.days_until_due > 0 %}
         <p class="text-xs text-blue-600 mt-1">{% blocktrans with days=data.statement.billing_cycle.days_until_due %}{{ days }} days until due date{% endblocktrans %}</p>
@@ -116,7 +116,7 @@
                     <p class="text-xs text-gray-400 dark:text-slate-500">{{ tx.date|format_date_short }}</p>
                 </div>
                 <span class="text-sm font-semibold {% if tx.balance_delta < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">
-                    {% if tx.balance_delta > 0 %}+{% endif %}{{ tx.balance_delta|format_egp }}
+                    {% if tx.balance_delta > 0 %}+{% endif %}{{ tx.balance_delta|format_currency:data.statement.account.currency }}
                 </span>
             </div>
             {% endfor %}
@@ -139,7 +139,7 @@
                     </p>
                     <p class="text-xs text-gray-400 dark:text-slate-500">{{ payment.date|format_date_short }}</p>
                 </div>
-                <span class="text-sm font-semibold text-emerald-600">+{{ payment.amount|format_egp }}</span>
+                <span class="text-sm font-semibold text-emerald-600">+{{ payment.amount|format_currency:data.statement.account.currency }}</span>
             </div>
             {% endfor %}
         </div>
