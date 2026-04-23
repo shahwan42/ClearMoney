@@ -3,9 +3,9 @@ id: "146"
 title: "Dashboard selected-currency behavior"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -25,10 +25,10 @@ cross-currency conversion.
 
 ## Acceptance Criteria
 
-- [ ] Changing the selected currency updates dashboard summaries
-- [ ] Sections with no matching data show clear empty-state behavior
-- [ ] No dashboard section silently converts values from other currencies
-- [ ] Drill-down payloads remain consistent with the selected currency
+- [x] Changing the selected currency updates dashboard summaries
+- [x] Sections with no matching data show clear empty-state behavior
+- [x] No dashboard section silently converts values from other currencies
+- [x] Drill-down payloads remain consistent with the selected currency
 
 ## Critical Files
 
@@ -41,15 +41,15 @@ cross-currency conversion.
 
 ## Unit Tests
 
-- Service-layer selected-currency filtering
-- Empty-state behavior for no-data currencies
-- Drill-down payload generation for selected-currency summaries
+- [x] Service-layer selected-currency filtering
+- [x] Empty-state behavior for no-data currencies
+- [x] Drill-down payload generation for selected-currency summaries
 
 ## E2E Tests
 
-- Switch from `EGP` to `EUR` and verify dashboard cards change
-- Select a currency with no data and verify empty-state handling
-- Open dashboard drill-downs after switching currencies
+- [ ] Switch from `EGP` to `EUR` and verify dashboard cards change
+- [ ] Select a currency with no data and verify empty-state handling
+- [ ] Open dashboard drill-downs after switching currencies
 
 ## Dependencies
 
@@ -60,4 +60,4 @@ cross-currency conversion.
 ## Progress Notes
 
 - 2026-04-22: Created for dashboard selected-currency rollout
-
+- 2026-04-23: Implemented selected-currency filtering across all dashboard services and templates. Removed cross-currency conversion logic. Updated unit tests. All tests passing.

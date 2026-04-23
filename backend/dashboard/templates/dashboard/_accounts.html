@@ -33,7 +33,7 @@
                                 <span class="font-medium text-slate-700 dark:text-slate-200 text-sm">{{ group.name }}</span>
                             </div>
                             <span class="text-sm font-semibold {% if group.total < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">
-                                {{ group.total|format_egp }}
+                                {{ group.total|format_currency:data.selected_currency }}
                             </span>
                         </summary>
                         <div class="ms-8 mt-1 space-y-1">

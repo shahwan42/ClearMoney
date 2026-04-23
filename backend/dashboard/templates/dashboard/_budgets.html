@@ -1,6 +1,5 @@
 {% load money %}
 {% load i18n %}
-{% if data.budgets %}
 <section id="section-budgets" data-section="budgets" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
     <div class="p-5">
         <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
@@ -22,12 +21,13 @@
         </div>
 
         <div id="content-budgets" class="mt-3 section-content">
+            {% if data.budgets %}
             <div class="space-y-3">
                 {% for b in data.budgets %}
                 <div>
                     <div class="flex justify-between text-sm mb-1">
                         <span class="text-slate-700 dark:text-slate-300">{% if b.category_icon %}{{ b.category_icon }} {% endif %}{{ b.category_name }}</span>
-                        <span class="text-xs text-gray-400 dark:text-slate-500">{{ b.spent|format_egp }} / {{ b.monthly_limit|format_egp }}</span>
+                        <span class="text-xs text-gray-400 dark:text-slate-500">{{ b.spent|format_currency:data.selected_currency }} / {{ b.monthly_limit|format_currency:data.selected_currency }}</span>
                     </div>
                     <div class="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-2">
                         <div class="h-2 rounded-full transition-all {% if b.status == 'red' %}bg-red-500{% elif b.status == 'amber' %}bg-amber-500{% else %}bg-emerald-500{% endif %}"
@@ -36,7 +36,19 @@
                 </div>
                 {% endfor %}
             </div>
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-8 text-center">
+                <div class="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-slate-400">
+                    {% blocktrans with currency=data.selected_currency %}No budgets for {{ currency }}.{% endblocktrans %}
+                </p>
+                <a href="/budgets" class="mt-3 text-sm text-teal-600 font-medium hover:text-teal-700">{% trans "Set up budgets" %} →</a>
+            </div>
+            {% endif %}
         </div>
     </div>
 </section>
-{% endif %}

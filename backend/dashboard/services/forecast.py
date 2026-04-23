@@ -75,13 +75,15 @@ class ForecastService:
     def calculate_forecast(
         self,
         account_id: str | None = None,
+        currency: str = "EGP",
         include_rules: list[str] | None = None,
         exclude_rules: list[str] | None = None,
     ) -> CashFlowForecast:
         """Calculate cash flow forecast for the current month.
 
         Args:
-            account_id: Optional single account to forecast. If None, forecasts all accounts.
+            account_id: Optional single account to forecast. If None, forecasts all accounts of currency.
+            currency: Currency to forecast.
             include_rules: Optional list of rule IDs to include (for "what if" toggle).
             exclude_rules: Optional list of rule IDs to exclude (for "what if" toggle).
 
@@ -99,16 +101,15 @@ class ForecastService:
             current_balance = float(account.current_balance)
             currency = account.currency
         else:
-            # All accounts forecast (sum of all EGP accounts)
+            # All accounts forecast (sum of all accounts matching currency)
             from decimal import Decimal
 
             total = (
                 Account.objects.for_user(self.user_id)
-                .filter(currency="EGP", is_dormant=False)
+                .filter(currency=currency, is_dormant=False)
                 .aggregate(total=Coalesce(Sum("current_balance"), Decimal("0")))
             )
             current_balance = float(total["total"] or 0)
-            currency = "EGP"
 
         # 2. Get month range
         today = date.today()
@@ -119,7 +120,7 @@ class ForecastService:
 
         # 3. Get active recurring rules for the rest of the month
         rules = self._get_forecast_rules(
-            forecast_start, month_end, include_rules, exclude_rules
+            forecast_start, month_end, currency, include_rules, exclude_rules
         )
 
         # 4. Build day-by-day forecast
@@ -153,6 +154,7 @@ class ForecastService:
         self,
         start_date: date,
         end_date: date,
+        currency: str,
         include_rules: list[str] | None,
         exclude_rules: list[str] | None,
     ) -> list[dict[str, Any]]:
@@ -161,6 +163,7 @@ class ForecastService:
         Args:
             start_date: Forecast start date
             end_date: Forecast end date
+            currency: Filter rules by this currency
             include_rules: Optional whitelist of rule IDs
             exclude_rules: Optional blacklist of rule IDs
 
@@ -168,7 +171,9 @@ class ForecastService:
             List of dicts with rule metadata and calculated occurrence dates.
         """
         # Base queryset: active rules only
-        rules_qs = RecurringRule.objects.for_user(self.user_id).filter(is_active=True)
+        rules_qs = RecurringRule.objects.for_user(self.user_id).filter(
+            is_active=True, template_transaction__currency=currency
+        )
 
         # Apply include/exclude filters
         if include_rules:
@@ -319,7 +324,7 @@ class ForecastService:
 
         return days
 
-    def get_forecast_summary(self) -> dict[str, Any]:
+    def get_forecast_summary(self, currency: str = "EGP") -> dict[str, Any]:
         """Get a concise forecast summary for the dashboard.
 
         Returns a dict suitable for template rendering with:
@@ -331,7 +336,7 @@ class ForecastService:
         - expense_total: Total expected expenses
         - currency: Primary currency
         """
-        forecast = self.calculate_forecast()
+        forecast = self.calculate_forecast(currency=currency)
 
         change_pct = (
             (forecast.change / forecast.current_balance * 100)

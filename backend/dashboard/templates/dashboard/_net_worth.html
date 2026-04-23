@@ -9,7 +9,9 @@
             <div class="flex items-center gap-2 overflow-hidden flex-1">
                 <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Net Worth" %}</h2>
                 <div id="summary-net-worth" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    {{ data.selected_currency }} {{ data.totals_by_currency.EGP|default:0|format_num }}
+                    {% with total=data.totals_by_currency|get_item:data.selected_currency %}
+                    {{ total|default:0|format_currency:data.selected_currency }}
+                    {% endwith %}
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -21,11 +23,11 @@
 
         <div id="content-net-worth" class="mt-3 section-content">
             <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 mt-3">
-                {% for currency, total in data.totals_by_currency.items %}
-                <p class="text-xl font-bold {% if total < 0 %}text-red-600{% else %}{% if currency == 'EGP' %}text-teal-600{% else %}text-blue-500{% endif %}{% endif %}">
-                    <span class="text-sm font-medium text-gray-400 dark:text-slate-500 me-1">{{ currency }}</span>{{ total|format_num }}
+                {% with total=data.totals_by_currency|get_item:data.selected_currency %}
+                <p class="text-xl font-bold {% if total < 0 %}text-red-600{% else %}text-teal-600{% endif %}">
+                    <span class="text-sm font-medium text-gray-400 dark:text-slate-500 me-1">{{ data.selected_currency }}</span>{{ total|default:0|format_num }}
                 </p>
-                {% endfor %}
+                {% endwith %}
             </div>
 
             {# Trend + sparkline row #}
@@ -37,17 +39,17 @@
                 {% else %}
                 <div></div>
                 {% endif %}
-                {% if data.net_worth_history_by_currency %}
+                {% with history=data.net_worth_history_by_currency|get_item:data.selected_currency %}
+                {% if history %}
                 <div class="flex-shrink-0">
-                    {% with egp_vals=data.net_worth_history_by_currency.EGP usd_vals=data.net_worth_history_by_currency.USD %}
-                    {% include "components/chart_sparkline_dual.html" with values1=egp_vals color1="var(--chart-1)" values2=usd_vals color2="var(--chart-3)" width=100 height=36 %}
-                    {% endwith %}
+                    {% include "components/chart_sparkline.html" with values=history color="var(--chart-1)" width=100 height=36 %}
                 </div>
                 {% elif data.net_worth_history %}
                 <div class="flex-shrink-0">
                     {% include "components/chart_sparkline.html" with values=data.net_worth_history color="var(--chart-1)" width=100 height=36 %}
                 </div>
                 {% endif %}
+                {% endwith %}
             </div>
 
             {# Summary breakdown: Liquid Cash, Credit Used, Credit Available, Debt #}
@@ -57,42 +59,44 @@
                      onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/liquid_cash'})"
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
                     <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Liquid Cash" %}</p>
-                    {% for currency, total in data.cash_by_currency.items %}
-                    <p class="{% if forloop.first %}text-lg font-semibold text-teal-700 dark:text-teal-400{% else %}text-sm font-medium text-blue-500{% endif %}">
-                        {{ total|format_currency:currency }}
+                    {% with total=data.cash_by_currency|get_item:data.selected_currency %}
+                    <p class="text-lg font-semibold text-teal-700 dark:text-teal-400">
+                        {{ total|default:0|format_currency:data.selected_currency }}
                     </p>
-                    {% empty %}
-                    <p class="text-lg font-semibold text-teal-700 dark:text-teal-400">0.00</p>
-                    {% endfor %}
+                    {% endwith %}
                 </div>
                 <div role="button" tabindex="0" aria-label="View Credit Used breakdown"
                      class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                      onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/credit_used'})"
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
                     <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Credit Used" %}</p>
-                    <p class="text-lg font-semibold {% if data.credit_used < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">
-                        {{ data.credit_used|neg|format_egp }}
+                    {% with total=data.credit_used_by_currency|get_item:data.selected_currency %}
+                    <p class="text-lg font-semibold {% if total < 0 %}text-red-600{% else %}text-slate-800 dark:text-slate-200{% endif %}">
+                        {{ total|default:0|neg|format_currency:data.selected_currency }}
                     </p>
+                    {% endwith %}
                 </div>
                 <div role="button" tabindex="0" aria-label="View Credit Available breakdown"
                      class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                      onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/credit_available'})"
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
                     <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Credit Available" %}</p>
-                    <p class="text-lg font-semibold text-blue-600 dark:text-blue-400">{{ data.credit_avail|format_egp }}</p>
+                    {% with total=data.credit_avail_by_currency|get_item:data.selected_currency %}
+                    <p class="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                        {{ total|default:0|format_currency:data.selected_currency }}
+                    </p>
+                    {% endwith %}
                 </div>
                 <div role="button" tabindex="0" aria-label="View Debt breakdown"
                      class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
                      onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/debt'})"
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
                     <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Debt" %}</p>
-                    {% for currency, total in data.debt_by_currency.items %}
-                    <p class="{% if forloop.first %}text-lg font-semibold text-slate-800 dark:text-slate-200{% else %}text-sm font-medium text-blue-500{% endif %}">
-                        {{ total|format_currency:currency }}
+                    {% with total=data.debt_by_currency|get_item:data.selected_currency %}
+                    <p class="text-lg font-semibold text-slate-800 dark:text-slate-200">
+                        {{ total|default:0|format_currency:data.selected_currency }}
                     </p>
-                    {% empty %}
-                    <p class="text-lg font-semibold text-slate-800 dark:text-slate-200">0.00</p>
-                    {% endfor %}
+                    {% endwith %}
                 </div>
             </div>
         </div>

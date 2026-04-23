@@ -20,11 +20,14 @@ from investments.models import Investment
 from virtual_accounts.models import VirtualAccount
 
 
-def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any]]:
+def load_budgets_with_spending(
+    user_id: str, tz: ZoneInfo, selected_currency: str
+) -> list[dict[str, Any]]:
     """Load budgets with current month's actual spending.
 
     Delegates to BudgetService.get_all_with_spending() and converts typed
     BudgetWithSpending dataclasses to dicts for template rendering.
+    Filtered by selected_currency.
     """
     svc = BudgetService(user_id, tz)
     typed_budgets = svc.get_all_with_spending()
@@ -42,14 +45,17 @@ def load_budgets_with_spending(user_id: str, tz: ZoneInfo) -> list[dict[str, Any
             "status": b.status,
         }
         for b in typed_budgets
+        if b.currency == selected_currency
     ]
 
 
-def load_virtual_accounts(user_id: str) -> list[dict[str, Any]]:
-    """Load active virtual accounts for dashboard widget."""
+def load_virtual_accounts(user_id: str, selected_currency: str) -> list[dict[str, Any]]:
+    """Load active virtual accounts for dashboard widget.
+    Filtered by selected_currency.
+    """
     rows = (
         VirtualAccount.objects.for_user(user_id)
-        .filter(is_archived=False)
+        .filter(is_archived=False, account__currency=selected_currency)
         .order_by("display_order", "name")
     )
 
@@ -69,6 +75,7 @@ def load_virtual_accounts(user_id: str) -> list[dict[str, Any]]:
                 "exclude_from_net_worth": row.exclude_from_net_worth,
                 "display_order": row.display_order,
                 "progress_pct": progress,
+                "currency": selected_currency,
             }
         )
 
@@ -77,20 +84,22 @@ def load_virtual_accounts(user_id: str) -> list[dict[str, Any]]:
     return result
 
 
-def load_investments_total(user_id: str) -> float:
-    """Load total investment portfolio value."""
+def load_investments_total(user_id: str, selected_currency: str) -> float:
+    """Load total investment portfolio value for selected_currency."""
     # Aggregate: SUM(units * last_unit_price) — F() product computed in-DB
-    result = Investment.objects.for_user(user_id).aggregate(
+    result = Investment.objects.for_user(user_id).filter(currency=selected_currency).aggregate(
         total=Coalesce(Sum(F("units") * F("last_unit_price")), Decimal(0))
     )
     return float(result["total"])
 
 
-def load_excluded_va_total(user_id: str) -> float:
-    """Load total balance of virtual accounts excluded from net worth."""
+def load_excluded_va_total(user_id: str, selected_currency: str) -> float:
+    """Load total balance of virtual accounts excluded from net worth.
+    Filtered by selected_currency.
+    """
     result = (
         VirtualAccount.objects.for_user(user_id)
-        .filter(exclude_from_net_worth=True, is_archived=False)
+        .filter(exclude_from_net_worth=True, is_archived=False, account__currency=selected_currency)
         .aggregate(total=Coalesce(Sum("current_balance"), Decimal(0)))
     )
     return float(result["total"])

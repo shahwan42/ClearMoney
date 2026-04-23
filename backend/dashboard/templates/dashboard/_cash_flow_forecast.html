@@ -1,7 +1,6 @@
 {% load money %}
 {% load i18n %}
 
-{% if data.cash_flow_forecast %}
 <section id="section-forecast" data-section="forecast" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
     <div class="p-5">
         <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
@@ -11,7 +10,7 @@
             <div class="flex items-center gap-2 overflow-hidden flex-1">
                 <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Cash Flow Forecast" %}</h2>
                 <div id="summary-forecast" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    {{ data.cash_flow_forecast.projected_balance|format_egp }}
+                    {% if data.cash_flow_forecast %}{{ data.cash_flow_forecast.projected_balance|format_currency:data.selected_currency }}{% endif %}
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -23,19 +22,20 @@
         </div>
 
         <div id="content-forecast" class="mt-3 section-content">
+            {% if data.cash_flow_forecast and data.cash_flow_forecast.days %}
             <div class="space-y-4">
                 {# Summary card #}
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Current Balance" %}</p>
                         <p class="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                            {{ data.cash_flow_forecast.current_balance|format_egp }}
+                            {{ data.cash_flow_forecast.current_balance|format_currency:data.selected_currency }}
                         </p>
                     </div>
                     <div class="text-right">
                         <p class="text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Projected (Month End)" %}</p>
                         <p class="text-lg font-semibold {% if data.cash_flow_forecast.projected_balance >= data.cash_flow_forecast.current_balance %}text-emerald-600{% else %}text-amber-600{% endif %}">
-                            {{ data.cash_flow_forecast.projected_balance|format_egp }}
+                            {{ data.cash_flow_forecast.projected_balance|format_currency:data.selected_currency }}
                         </p>
                     </div>
                 </div>
@@ -44,10 +44,7 @@
                 <div class="flex items-center justify-between text-sm">
                     <span class="text-gray-600 dark:text-slate-400">{% trans "Expected Change" %}</span>
                     <span class="font-medium {% if data.cash_flow_forecast.change >= 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
-                        {% if data.cash_flow_forecast.change >= 0 %}+{% endif %}{{ data.cash_flow_forecast.change|format_egp }}
-                        {% if data.cash_flow_forecast.current_balance > 0 %}
-                            ({% widthratio data.cash_flow_forecast.change data.cash_flow_forecast.current_balance 100 %}%)
-                        {% endif %}
+                        {% if data.cash_flow_forecast.change >= 0 %}+{% endif %}{{ data.cash_flow_forecast.change|format_currency:data.selected_currency }}
                     </span>
                 </div>
 
@@ -55,11 +52,11 @@
                 <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-slate-700">
                     <div>
                         <p class="text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Expected Income" %}</p>
-                        <p class="text-sm font-medium text-emerald-600">+{{ data.cash_flow_forecast.income_total|format_egp }}</p>
+                        <p class="text-sm font-medium text-emerald-600">+{{ data.cash_flow_forecast.income_total|format_currency:data.selected_currency }}</p>
                     </div>
                     <div class="text-right">
                         <p class="text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Expected Expenses" %}</p>
-                        <p class="text-sm font-medium text-red-600">-{{ data.cash_flow_forecast.expense_total|format_egp }}</p>
+                        <p class="text-sm font-medium text-red-600">-{{ data.cash_flow_forecast.expense_total|format_currency:data.selected_currency }}</p>
                     </div>
                 </div>
 
@@ -75,25 +72,14 @@
                     </p>
                 </div>
                 {% endif %}
-
-                {# Mini sparkline / stepped chart placeholder #}
-                {% if data.cash_flow_forecast.days %}
-                <div class="pt-2">
-                    <div class="flex items-end justify-between h-12 gap-1">
-                        {% for day in data.cash_flow_forecast.days %}
-                            {% if forloop.counter|divisibleby:3 or forloop.first or forloop.last %}
-                            <div class="flex-1 flex flex-col items-center gap-1">
-                                <div class="w-full rounded-t {% if day.is_negative %}bg-red-300 dark:bg-red-700{% elif day.change >= 0 %}bg-emerald-300 dark:bg-emerald-700{% else %}bg-amber-300 dark:bg-amber-700{% endif %}"
-                                     style="height: {% widthratio day.balance 100 100 %}%"></div>
-                                <span class="text-[10px] text-gray-400 dark:text-slate-500">{{ day.date|date:"j" }}</span>
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
             </div>
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-6 text-center">
+                <p class="text-sm text-gray-400 dark:text-slate-500">
+                    {% blocktrans with currency=data.selected_currency %}No forecast data for {{ currency }}.{% endblocktrans %}
+                </p>
+            </div>
+            {% endif %}
         </div>
     </div>
 </section>
-{% endif %}

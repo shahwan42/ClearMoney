@@ -695,9 +695,10 @@ def test_load_budgets_currency_isolation(svc_data):
         date=today,
         balance_delta=-500,
     )
-    svc = DashboardService(svc_data["user_id"], TZ)
+    svc = DashboardService(svc_data["user_id"], TZ, selected_currency="USD")
     budgets = svc._load_budgets_with_spending()
     usd_budget = next(b for b in budgets if b["currency"] == "USD")
+
     assert usd_budget["spent"] == pytest.approx(0.0)
 
 
@@ -1126,6 +1127,7 @@ class TestLoadVirtualAccounts:
         # gap: functional — load_virtual_accounts never directly tested
         VirtualAccountFactory(
             user_id=svc_data["user"].id,
+            account=svc_data["savings"],
             name="Emergency Fund",
             current_balance=5000,
             target_amount=10000,
@@ -1155,6 +1157,7 @@ class TestLoadVirtualAccounts:
         # gap: functional — archived VAs must be filtered out
         VirtualAccountFactory(
             user_id=svc_data["user"].id,
+            account=svc_data["savings"],
             name="Active VA",
             current_balance=1000,
             is_archived=False,
@@ -1162,6 +1165,7 @@ class TestLoadVirtualAccounts:
         )
         VirtualAccountFactory(
             user_id=svc_data["user"].id,
+            account=svc_data["savings"],
             name="Archived VA",
             current_balance=2000,
             is_archived=True,
@@ -1178,6 +1182,7 @@ class TestLoadVirtualAccounts:
         # gap: functional — VA with no target_amount → progress_pct=0
         VirtualAccountFactory(
             user_id=svc_data["user"].id,
+            account=svc_data["savings"],
             name="No Target VA",
             current_balance=3000,
             is_archived=False,
@@ -1288,7 +1293,7 @@ class TestNetWorthBreakdown:
         }
 
     def test_liquid_cash_includes_non_credit_positive(self, nw_data):
-        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash")
+        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash", "EGP")
         names = [a["name"] for a in result["accounts"]]
         assert "Savings" in names
         assert "Current" in names
@@ -1296,33 +1301,33 @@ class TestNetWorthBreakdown:
         assert "Old" not in names  # dormant excluded
 
     def test_liquid_cash_sorted_by_balance_desc(self, nw_data):
-        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash")
+        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash", "EGP")
         balances = [a["balance"] for a in result["accounts"]]
         assert balances == sorted(balances, reverse=True)
 
     def test_credit_used_includes_cc(self, nw_data):
-        result = get_net_worth_breakdown(nw_data["user_id"], "credit_used")
+        result = get_net_worth_breakdown(nw_data["user_id"], "credit_used", "EGP")
         names = [a["name"] for a in result["accounts"]]
         assert "CC" in names
         assert "Savings" not in names
 
     def test_credit_available(self, nw_data):
-        result = get_net_worth_breakdown(nw_data["user_id"], "credit_available")
+        result = get_net_worth_breakdown(nw_data["user_id"], "credit_available", "EGP")
         cc = result["accounts"][0]
         # Available = credit_limit + current_balance = 20000 + (-5000) = 15000
         assert cc["available"] == 15000
 
     def test_debt_includes_negative_balances(self, nw_data):
-        result = get_net_worth_breakdown(nw_data["user_id"], "debt")
+        result = get_net_worth_breakdown(nw_data["user_id"], "debt", "EGP")
         names = [a["name"] for a in result["accounts"]]
         assert "CC" in names
 
     def test_invalid_card_type(self, nw_data):
         with pytest.raises(ValueError):
-            get_net_worth_breakdown(nw_data["user_id"], "invalid")
+            get_net_worth_breakdown(nw_data["user_id"], "invalid", "EGP")
 
     def test_title_matches_card_type(self, nw_data):
-        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash")
+        result = get_net_worth_breakdown(nw_data["user_id"], "liquid_cash", "EGP")
         assert result["title"] == "Liquid Cash"
 
     def test_debt_breakdown_includes_people_i_owe(self, nw_data):
@@ -1333,7 +1338,7 @@ class TestNetWorthBreakdown:
             net_balance=-300,
             net_balance_egp=-300,
         )
-        result = get_net_worth_breakdown(nw_data["user_id"], "debt")
+        result = get_net_worth_breakdown(nw_data["user_id"], "debt", "EGP")
         names = [a["name"] for a in result["accounts"]]
         assert "Ali" in names
         assert "CC" in names
@@ -1346,13 +1351,13 @@ class TestNetWorthBreakdown:
             net_balance=500,
             net_balance_egp=500,
         )
-        result = get_net_worth_breakdown(nw_data["user_id"], "debt")
+        result = get_net_worth_breakdown(nw_data["user_id"], "debt", "EGP")
         names = [a["name"] for a in result["accounts"]]
         assert "Omar" not in names
 
     def test_empty_result(self, db):
         user = UserFactory()
-        result = get_net_worth_breakdown(str(user.id), "liquid_cash")
+        result = get_net_worth_breakdown(str(user.id), "liquid_cash", "EGP")
         assert result["accounts"] == []
 
 
@@ -1548,7 +1553,7 @@ def test_load_constraints_populates_health_warnings(svc_data):
 
 @pytest.mark.django_db
 def test_dashboard_usd_exchange_rate_fallback(svc_data):
-    """Test accounts in USD are converted using exchange rate and compute net worth correctly."""
+    """Test accounts in USD are filtered correctly and net worth is computed per-currency."""
     AccountFactory(
         user_id=svc_data["user"].id,
         institution_id=svc_data["inst_id"],
@@ -1557,22 +1562,26 @@ def test_dashboard_usd_exchange_rate_fallback(svc_data):
         currency="USD",
         current_balance=100,
     )
-    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    # Default currency is EGP
+    svc = DashboardService(str(svc_data["user_id"]), TZ, selected_currency="EGP")
     from dashboard.services import DashboardData
 
     data = DashboardData()
-    data.exchange_rate = 50.0  # exchange rate > 0
+    data.selected_currency = "EGP"
     all_accounts = svc._load_institutions_with_accounts(data)
 
-    # 1. Test load_institutions_with_accounts (line 174)
+    # 1. Test load_institutions_with_accounts
     inst = data.institutions[0]
-    # USD Savings (100*50=5000), Savings EGP (10000), CC EGP (-2000)
-    # Total = 5000 + 10000 - 2000 = 13000
-    assert inst.total == pytest.approx(13000.0)
+    # Savings EGP (10000), CC EGP (-2000)
+    # Total = 10000 - 2000 = 8000
+    assert inst.total == pytest.approx(8000.0)
 
-    # 2. Test compute_net_worth exchange rate recalculation (line 225)
+    # 2. Test compute_net_worth
     svc._compute_net_worth(data, all_accounts)
-    assert inst.total == pytest.approx(13000.0)
+    # EGP total = 8000
+    # USD total = 100
+    assert data.totals_by_currency["EGP"] == pytest.approx(8000.0)
+    assert data.totals_by_currency["USD"] == pytest.approx(100.0)
 
 
 @pytest.mark.django_db
@@ -1581,7 +1590,8 @@ def test_get_net_worth_breakdown_people_debt_usd(svc_data):
     CurrencyFactory(code="USD", display_order=1)
     person = PersonFactory(user_id=svc_data["user"].id, name="John Doe")
     PersonCurrencyBalanceFactory(person=person, currency_id="USD", balance=-50)
-    result = get_net_worth_breakdown(str(svc_data["user_id"]), "debt")
+    # Filter by USD
+    result = get_net_worth_breakdown(str(svc_data["user_id"]), "debt", "USD")
     names = [row["name"] for row in result["accounts"]]
     assert "John Doe" in names
     row = next(r for r in result["accounts"] if r["name"] == "John Doe")

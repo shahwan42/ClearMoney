@@ -187,17 +187,14 @@ def compute_spending_comparison(
     days_left = days_in_month - days_elapsed
     day_progress = days_elapsed / days_in_month * 100
 
-    # Aggregate EGP-equivalent totals (USD converted at current exchange rate)
-    total_this = 0.0
-    total_last = 0.0
-    for cs in data.spending_by_currency:
-        rate = (
-            data.exchange_rate
-            if cs.currency == "USD" and data.exchange_rate > 0
-            else 1.0
-        )
-        total_this += cs.this_month * rate
-        total_last += cs.last_month * rate
+    # Totals ONLY for selected_currency (no cross-currency conversion)
+    selected_cs = next(
+        (cs for cs in data.spending_by_currency if cs.currency == data.selected_currency),
+        None
+    )
+    data.selected_spending = selected_cs
+    total_this = selected_cs.this_month if selected_cs else 0.0
+    total_last = selected_cs.last_month if selected_cs else 0.0
 
     pct = (total_this / total_last * 100) if total_last > 0 else 0.0
 
@@ -246,7 +243,7 @@ def compute_spending_comparison(
     )
 
 
-def compute_category_velocities(user_id: str, tz: ZoneInfo) -> list[CategoryVelocity]:
+def compute_category_velocities(user_id: str, tz: ZoneInfo, selected_currency: str) -> list[CategoryVelocity]:
     """Compute per-category spending velocity for all active budgets.
 
     For each active budget:
@@ -254,7 +251,8 @@ def compute_category_velocities(user_id: str, tz: ZoneInfo) -> list[CategoryVelo
     - Calculates projected_total: extrapolated month-end spend at current pace
     - Assigns traffic-light status mirroring the global velocity logic
 
-    Returns an empty list when the user has no active budgets.
+    Returns an empty list when the user has no active budgets or none matching
+    the selected currency.
     """
     today = datetime.now(tz).date()
     _, days_in_month = monthrange(today.year, today.month)
@@ -266,6 +264,9 @@ def compute_category_velocities(user_id: str, tz: ZoneInfo) -> list[CategoryVelo
 
     result: list[CategoryVelocity] = []
     for b in budgets:
+        if b.currency != selected_currency:
+            continue
+
         spent = b.spent
         limit = b.effective_limit  # respects rollover
 

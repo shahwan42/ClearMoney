@@ -128,7 +128,7 @@ class InstitutionGroup:
     color: str
     icon: str
     accounts: list[dict[str, Any]]
-    total: float  # sum of account balances (USD converted to EGP)
+    total: float  # sum of account balances in selected currency
 
 
 def load_institutions_with_accounts(
@@ -167,13 +167,12 @@ def load_institutions_with_accounts(
             account_list.append(acc)
             all_accounts.append(acc)
 
-        # Institution total: convert USD to EGP for consistent display
-        inst_total = 0.0
-        for acc in account_list:
-            if acc["currency"] == "USD" and data.exchange_rate > 0:
-                inst_total += acc["current_balance"] * data.exchange_rate
-            else:
-                inst_total += acc["current_balance"]
+        # Institution total: sum ONLY accounts matching selected_currency
+        inst_total = sum(
+            acc["current_balance"]
+            for acc in account_list
+            if acc["currency"] == data.selected_currency
+        )
 
         data.institutions.append(
             InstitutionGroup(
@@ -204,36 +203,32 @@ def load_exchange_rate() -> float:
 def compute_net_worth(data: DashboardData, all_accounts: list[dict[str, Any]]) -> None:
     """Compute net worth totals from loaded accounts.
 
-    Delegates to accounts.services.compute_net_worth() for the core computation,
-    then applies institution-level exchange rate recalculation.
+    Delegates to accounts.services.compute_net_worth() for the core computation.
     """
     summary = _compute_net_worth_impl(all_accounts)
     data.net_worth = summary.net_worth
     data.totals_by_currency = summary.totals_by_currency
     data.cash_by_currency = summary.cash_by_currency
     data.debt_by_currency = summary.debt_by_currency
+    data.credit_used_by_currency = summary.credit_used_by_currency
+    data.credit_avail_by_currency = summary.credit_avail_by_currency
     data.credit_used = summary.credit_used
     data.credit_avail = summary.credit_avail
     data.debt_total = summary.debt_total
 
-    # Recalculate institution totals now that exchange rate is loaded
-    if data.exchange_rate > 0:
-        for group in data.institutions:
-            total = 0.0
-            for acc in group.accounts:
-                if acc["currency"] == "USD":
-                    total += acc["current_balance"] * data.exchange_rate
-                else:
-                    total += acc["current_balance"]
-            group.total = total
+    # Recalculate institution totals for selected_currency
+    for group in data.institutions:
+        group.total = sum(
+            acc["current_balance"]
+            for acc in group.accounts
+            if acc["currency"] == data.selected_currency
+        )
 
 
-def _get_people_debt(user_id: str) -> list[dict[str, Any]]:
+def _get_people_debt(user_id: str, selected_currency: str) -> list[dict[str, Any]]:
     """Return people records where the user owes them money (negative net_balance).
 
-    Each returned dict has name, balance, currency, institution_name ('People'),
-    and institution_icon ('👤'). Rows are emitted from generalized per-currency
-    balances, with legacy EGP/USD fallback only when generalized rows are missing.
+    Filtered by selected_currency.
     """
     rows = []
     people = Person.objects.for_user(user_id).prefetch_related("currency_balances")
@@ -246,14 +241,13 @@ def _get_people_debt(user_id: str) -> list[dict[str, Any]]:
         if "USD" not in balances and person.net_balance_usd:
             balances["USD"] = float(person.net_balance_usd)
 
-        for currency, balance in balances.items():
-            if balance >= 0:
-                continue
+        balance = balances.get(selected_currency, 0.0)
+        if balance < 0:
             rows.append(
                 {
                     "name": person.name,
                     "balance": balance,
-                    "currency": currency,
+                    "currency": selected_currency,
                     "institution_name": "People",
                     "institution_icon": "👤",
                 }
@@ -261,14 +255,18 @@ def _get_people_debt(user_id: str) -> list[dict[str, Any]]:
     return rows
 
 
-def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
+def get_net_worth_breakdown(
+    user_id: str, card_type: str, selected_currency: str
+) -> dict[str, Any]:
     """Return accounts contributing to a specific net worth sub-card.
 
     Like drilling down from a KPI card to its underlying data.
+    Filtered by selected_currency.
 
     Args:
         user_id: The authenticated user's ID.
         card_type: One of 'liquid_cash', 'credit_used', 'credit_available', 'debt'.
+        selected_currency: Filter by this currency.
 
     Returns:
         {"title": str, "accounts": [{"name", "balance", "currency", ...}]}
@@ -280,6 +278,7 @@ def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
 
     accounts = (
         Account.objects.for_user(user_id)
+        .filter(currency=selected_currency)
         .select_related("institution")
         .order_by("institution__name", "name")
     )
@@ -303,7 +302,7 @@ def get_net_worth_breakdown(user_id: str, card_type: str) -> dict[str, Any]:
         result_accounts.append(row)
 
     if card_type == "debt":
-        result_accounts.extend(_get_people_debt(user_id))
+        result_accounts.extend(_get_people_debt(user_id, selected_currency))
 
     result_accounts.sort(
         key=lambda a: a[strategy.sort_key], reverse=strategy.sort_reverse

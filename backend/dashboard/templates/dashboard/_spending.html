@@ -1,6 +1,5 @@
 {% load money %}
 {% load i18n %}
-{% if data.spending_by_currency %}
 <section id="section-spending" data-section="spending" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
     <div class="p-5">
         <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
@@ -10,7 +9,7 @@
             <div class="flex items-center gap-2 overflow-hidden flex-1">
                 <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "This Month vs Last" %}</h2>
                 <div id="summary-spending" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    {{ data.spending_by_currency.0.this_month|format_currency:data.spending_by_currency.0.currency }}
+                    {% if data.selected_spending %}{{ data.selected_spending.this_month|format_currency:data.selected_spending.currency }}{% endif %}
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -21,20 +20,9 @@
         </div>
 
         <div id="content-spending" class="mt-3 section-content">
-            <div class="flex items-center justify-between mb-3">
-                <div class="text-sm font-medium text-gray-400">{% trans "Comparison" %}</div>
-                {% if data.spending_by_currency|length > 1 %}
-                <select id="spending-currency-select"
-                    onchange="switchSpendingTab(this.value)" onclick="event.stopPropagation()"
-                    class="text-sm font-medium border border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 text-teal-700 dark:text-teal-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-teal-500">
-                    {% for cs in data.spending_by_currency %}
-                    <option value="{{ cs.currency }}" {% if forloop.first %}selected{% endif %}>{{ cs.currency }}</option>
-                    {% endfor %}
-                </select>
-                {% endif %}
-            </div>
-            {% for cs in data.spending_by_currency %}
-            <div id="spending-panel-{{ cs.currency }}" class="{% if not forloop.first %}hidden{% endif %}">
+            {% if data.selected_spending %}
+            {% with cs=data.selected_spending %}
+            <div id="spending-panel-{{ cs.currency }}">
                 <div class="space-y-2 mb-3">
                     <div class="flex items-center justify-between">
                         <div>
@@ -68,10 +56,9 @@
                 </div>
                 {% endif %}
             </div>
-            {% endfor %}
 
             {# ── Spending Velocity + Projections ───────────────────────────────────── #}
-            {% if data.spending_velocity.days_total > 0 %}
+            {% if data.spending_velocity.days_total > 0 and data.spending_velocity.budget_total > 0 %}
             <div class="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700" id="spending-velocity-section">
                 {# Header row: label + days left #}
                 <div class="flex items-center justify-between mb-1.5">
@@ -90,7 +77,6 @@
                 </div>
 
                 {# Daily budget remaining card #}
-                {% if data.spending_velocity.budget_total > 0 %}
                 <div class="rounded-xl p-3 mb-3
                     {% if data.spending_velocity.status == 'green' %}bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800
                     {% elif data.spending_velocity.status == 'amber' %}bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800
@@ -108,7 +94,7 @@
                                 {# Primary line: daily budget remaining #}
                                 {% if data.spending_velocity.daily_remaining > 0 %}
                                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug" id="daily-budget-remaining">
-                                    {% blocktrans with amount=data.spending_velocity.daily_remaining|format_egp days=data.spending_velocity.days_left %}Daily budget: {{ amount }}/day for {{ days }} days{% endblocktrans %}
+                                    {% blocktrans with amount=data.spending_velocity.daily_remaining|format_currency:data.selected_currency days=data.spending_velocity.days_left %}Daily budget: {{ amount }}/day for {{ days }} days{% endblocktrans %}
                                 </p>
                                 {% else %}
                                 <p class="text-sm font-semibold text-red-700 dark:text-red-400 leading-snug" id="daily-budget-remaining">
@@ -119,7 +105,7 @@
                                 {# Secondary line: projection #}
                                 {% if data.spending_velocity.projected_total > 0 %}
                                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5" id="projected-spend">
-                                    {% blocktrans with projected=data.spending_velocity.projected_total|format_egp budget=data.spending_velocity.budget_total|format_egp %}At this pace, you'll spend {{ projected }} vs {{ budget }} last month{% endblocktrans %}
+                                    {% blocktrans with projected=data.spending_velocity.projected_total|format_currency:data.selected_currency budget=data.spending_velocity.budget_total|format_currency:data.selected_currency %}At this pace, you'll spend {{ projected }} vs {{ budget }} last month{% endblocktrans %}
                                 </p>
                                 {% endif %}
                             </div>
@@ -141,7 +127,7 @@
                         {% if data.spending_velocity.status == 'amber' %}text-amber-700 dark:text-amber-400
                         {% else %}text-red-700 dark:text-red-400{% endif %}"
                         id="velocity-advice">
-                        {% blocktrans with amount=data.spending_velocity.reduce_by|format_egp %}Reduce by {{ amount }}/day to stay on track{% endblocktrans %}
+                        {% blocktrans with amount=data.spending_velocity.reduce_by|format_currency:data.selected_currency %}Reduce by {{ amount }}/day to stay on track{% endblocktrans %}
                     </p>
                     {% endif %}
                 </div>
@@ -173,6 +159,18 @@
                 </div>
                 {% endif %}
             </div>
+            {% endwith %}
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-8 text-center">
+                <div class="w-12 h-12 bg-gray-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-3">
+                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <p class="text-sm text-gray-500 dark:text-slate-400">
+                    {% blocktrans with currency=data.selected_currency %}No spending data for {{ currency }} this month.{% endblocktrans %}
+                </p>
+            </div>
             {% endif %}
         </div>
     </div>
@@ -186,4 +184,3 @@ function switchSpendingTab(currency) {
     if (panel) panel.classList.remove('hidden');
 }
 </script>
-{% endif %}

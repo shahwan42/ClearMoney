@@ -1,6 +1,5 @@
 {% load money %}
 {% load i18n %}
-{% if data.virtual_accounts %}
 <section id="section-virtual-accounts" data-section="virtual-accounts" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
     <div class="p-5">
         <div class="flex items-center justify-between cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg p-1 -m-1"
@@ -22,13 +21,14 @@
         </div>
 
         <div id="content-virtual-accounts" class="mt-3 section-content">
+            {% if data.virtual_accounts %}
             <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
                 {% for va in data.virtual_accounts %}
                 <a href="/virtual-accounts/{{ va.id }}" class="flex-shrink-0 w-36 rounded-xl p-3 border" style="border-color: {{ va.color }}20; background: {{ va.color }}08" onclick="event.stopPropagation()">
                     {% if va.icon %}<span class="text-lg">{{ va.icon }}</span>{% endif %}
                     <p class="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 truncate">{{ va.name }}</p>
                     {% if va.exclude_from_net_worth %}<span class="text-[9px] text-amber-600 dark:text-amber-400">held</span>{% endif %}
-                    <p class="text-sm font-bold mt-0.5" style="color: {{ va.color }}">{{ va.current_balance|format_egp }}</p>
+                    <p class="text-sm font-bold mt-0.5" style="color: {{ va.color }}">{{ va.current_balance|format_currency:data.selected_currency }}</p>
                     {% if va.target_amount %}
                     <div class="w-full bg-gray-200 dark:bg-slate-600 rounded-full h-1.5 mt-1.5">
                         <div class="h-1.5 rounded-full" style="width: {% if va.progress_pct > 100 %}100{% else %}{{ va.progress_pct|floatformat:"0" }}{% endif %}%; background-color: {{ va.color }}"></div>
@@ -37,7 +37,13 @@
                 </a>
                 {% endfor %}
             </div>
+            {% else %}
+            <div class="flex flex-col items-center justify-center py-6 text-center">
+                <p class="text-sm text-gray-400 dark:text-slate-500">
+                    {% blocktrans with currency=data.selected_currency %}No virtual accounts for {{ currency }}.{% endblocktrans %}
+                </p>
+            </div>
+            {% endif %}
         </div>
     </div>
 </section>
-{% endif %}

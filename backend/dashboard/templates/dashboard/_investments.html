@@ -9,22 +9,31 @@
             <div class="flex items-center gap-2 overflow-hidden flex-1">
                 <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Investments" %}</h2>
                 <div id="summary-investments" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    {{ data.investment_total|format_egp }}
+                    {{ data.investment_total|format_currency:data.selected_currency }}
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <a href="/investments" class="view-all-link text-sm text-teal-600 hover:text-teal-700" onclick="event.stopPropagation()">{% trans "Details" %}</a>
+                <a href="/investments" class="view-all-link text-sm text-teal-600 hover:text-teal-700" onclick="event.stopPropagation()">{% trans "Manage" %}</a>
                 <svg id="chevron-investments" class="w-5 h-5 text-gray-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
-        </div>
-
-        <div id="content-investments" class="mt-3 section-content">
-            <div>
-                <p class="text-xs text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">{% trans "Portfolio Value" %}</p>
-                <p class="text-xl font-bold text-teal-600">{{ data.investment_total|format_egp }}</p>
             </div>
-        </div>
+
+            <div id="content-investments" class="mt-3 section-content">
+            {% if data.investment_total > 0 %}
+            <div class="py-2">
+                <p class="text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Portfolio Value" %}</p>
+                <p class="text-xl font-bold text-teal-600">{{ data.investment_total|format_currency:data.selected_currency }}</p>
+            </div>
+            {% else %}
+            <div class="py-2">
+                <p class="text-sm text-gray-400 dark:text-slate-500">
+                    {% blocktrans with currency=data.selected_currency %}No investments in {{ currency }}.{% endblocktrans %}
+                </p>
+            </div>
+            {% endif %}
+            </div>
+
     </div>
 </section>

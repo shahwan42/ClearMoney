@@ -66,6 +66,8 @@ class NetWorthSummary:
     totals_by_currency: dict[str, float] = field(default_factory=dict)
     cash_by_currency: dict[str, float] = field(default_factory=dict)
     debt_by_currency: dict[str, float] = field(default_factory=dict)
+    credit_used_by_currency: dict[str, float] = field(default_factory=dict)
+    credit_avail_by_currency: dict[str, float] = field(default_factory=dict)
     credit_used: float = 0.0
     credit_avail: float = 0.0
     debt_total: float = 0.0

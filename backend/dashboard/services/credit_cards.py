@@ -23,6 +23,7 @@ class CreditCardSummary:
     account_name: str
     balance: float  # negative = owed
     credit_limit: float
+    currency: str
     utilization: float  # 0-100 %
     utilization_pct: float  # same, for chart
     has_billing_cycle: bool
@@ -40,6 +41,7 @@ class DueSoonCard:
     due_date: date
     days_until_due: int
     balance: float
+    currency: str
 
 
 def _compute_due_date(statement_day: int, due_day: int, today: date) -> date:
@@ -78,6 +80,7 @@ def compute_credit_card_summaries(
             account_name=acc["name"],
             balance=balance,
             credit_limit=limit,
+            currency=acc["currency"],
             utilization=utilization,
             utilization_pct=utilization,
             has_billing_cycle=False,
@@ -102,6 +105,7 @@ def compute_credit_card_summaries(
                             due_date=due_date,
                             days_until_due=cc.days_until_due,
                             balance=balance,
+                            currency=acc["currency"],
                         )
                     )
 

@@ -1295,10 +1295,17 @@ def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
         # 3. Credit vs Cash
         if acc["type"] in CREDIT_ACCOUNT_TYPES:
             summary.credit_used += balance  # negative for CCs (display negates)
+            summary.credit_used_by_currency[currency] = (
+                summary.credit_used_by_currency.get(currency, 0.0) + balance
+            )
             limit = acc["credit_limit"]
             if limit is not None and limit > 0:
                 # available = limit + balance (balance is negative, so this subtracts debt)
-                summary.credit_avail += limit + balance
+                avail = limit + balance
+                summary.credit_avail += avail
+                summary.credit_avail_by_currency[currency] = (
+                    summary.credit_avail_by_currency.get(currency, 0.0) + avail
+                )
         else:
             # Liquid cash (positive non-credit balances)
             if balance > 0:

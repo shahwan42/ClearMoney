@@ -133,8 +133,11 @@ def net_worth_breakdown_partial(
     GET /dashboard/net-worth/<card_type> — returns account list HTML
     for the bottom sheet drill-down.
     """
+    from auth_app.currency import get_user_selected_display_currency
+
+    selected_currency = get_user_selected_display_currency(request.user_id)
     try:
-        result = get_net_worth_breakdown(request.user_id, card_type)
+        result = get_net_worth_breakdown(request.user_id, card_type, selected_currency)
     except ValueError:
         return HttpResponse("Invalid card type", status=400)
 
@@ -145,6 +148,7 @@ def net_worth_breakdown_partial(
             "title": result["title"],
             "accounts": result["accounts"],
             "card_type": card_type,
+            "selected_currency": selected_currency,
         },
     )
 

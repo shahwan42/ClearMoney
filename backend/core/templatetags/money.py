@@ -261,6 +261,43 @@ def money_format(amount: object, currency: object = "EGP") -> str:
 
 
 @register.filter
+def find_all_by_attr(value: list[Any], val: str, attr: str = "currency") -> list[Any]:
+    """Find all objects in a list by attribute value. Defaults to 'currency'."""
+    if not isinstance(value, list):
+        return []
+    result = []
+    for item in value:
+        item_val = None
+        if isinstance(item, dict):
+            item_val = item.get(attr)
+        else:
+            item_val = getattr(item, attr, None)
+
+        if str(item_val) == str(val):
+            result.append(item)
+    return result
+
+
+@register.filter
+def find_by_attr(value: list[Any], arg: str) -> Any:
+    """Find an object in a list by attribute value. Arg format: 'attr:value'."""
+    if not isinstance(value, list) or ":" not in arg:
+        return None
+    attr, val = arg.split(":", 1)
+    for item in value:
+        # Check if item is a dict or an object
+        item_val = None
+        if isinstance(item, dict):
+            item_val = item.get(attr)
+        else:
+            item_val = getattr(item, attr, None)
+
+        if str(item_val) == val:
+            return item
+    return None
+
+
+@register.filter
 def get_item(dictionary: object, key: object) -> Any:
     """Look up a dict key in a template."""
     if isinstance(dictionary, dict):

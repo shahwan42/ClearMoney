@@ -94,6 +94,8 @@ class DashboardData:
     totals_by_currency: dict[str, float] = field(default_factory=dict)
     cash_by_currency: dict[str, float] = field(default_factory=dict)
     debt_by_currency: dict[str, float] = field(default_factory=dict)
+    credit_used_by_currency: dict[str, float] = field(default_factory=dict)
+    credit_avail_by_currency: dict[str, float] = field(default_factory=dict)
     credit_used: float = 0.0
     credit_avail: float = 0.0
     debt_total: float = 0.0
@@ -133,6 +135,7 @@ class DashboardData:
 
     # Spending
     spending_by_currency: list[CurrencySpending] = field(default_factory=list)
+    selected_spending: CurrencySpending | None = None
     spending_velocity: SpendingVelocity = field(
         default_factory=lambda: SpendingVelocity(0, 0, 0, 0, 0, "green")
     )
@@ -165,10 +168,10 @@ class DashboardService:
     or Django's TemplateView.get_context_data() pulling from many QuerySets.
     """
 
-    def __init__(self, user_id: str, tz: ZoneInfo) -> None:
+    def __init__(self, user_id: str, tz: ZoneInfo, selected_currency: str | None = None) -> None:
         self.user_id = user_id
         self.tz = tz
-        self.selected_currency = get_user_selected_display_currency(user_id)
+        self.selected_currency = selected_currency or get_user_selected_display_currency(user_id)
 
     def get_dashboard(self) -> dict[str, Any]:
         """Compute the full dashboard data. Called once per page load.
@@ -235,19 +238,13 @@ class DashboardService:
             if excluded > 0:
                 data.excluded_va_total = excluded
                 data.net_worth -= excluded
-                # Subtract from EGP totals (VA exclusion is currently EGP-only in business logic)
-                if "EGP" in data.totals_by_currency:
-                    data.totals_by_currency["EGP"] -= excluded
-                if "EGP" in data.cash_by_currency:
-                    data.cash_by_currency["EGP"] -= excluded
+                # Subtract from totals
+                if data.selected_currency in data.totals_by_currency:
+                    data.totals_by_currency[data.selected_currency] -= excluded
+                if data.selected_currency in data.cash_by_currency:
+                    data.cash_by_currency[data.selected_currency] -= excluded
         except Exception:
             logger.warning("dashboard: failed to load excluded VA total")
-
-        # 6. Recompute net worth EGP after VA exclusion
-        if data.exchange_rate > 0:
-            usd_total = data.totals_by_currency.get("USD", 0.0)
-            data.usd_in_egp = usd_total * data.exchange_rate
-            data.net_worth_egp = (data.net_worth - usd_total) + data.usd_in_egp
 
         return all_accounts
 
@@ -381,16 +378,16 @@ class DashboardService:
         compute_credit_card_summaries(data, all_accounts, self.tz)
 
     def _load_excluded_va_total(self) -> float:
-        return load_excluded_va_total(self.user_id)
+        return load_excluded_va_total(self.user_id, self.selected_currency)
 
     def _load_people_summary(self, data: DashboardData) -> None:
         load_people_summary(self.user_id, data)
 
     def _load_virtual_accounts(self) -> list[dict[str, Any]]:
-        return load_virtual_accounts(self.user_id)
+        return load_virtual_accounts(self.user_id, self.selected_currency)
 
     def _load_investments_total(self) -> float:
-        return load_investments_total(self.user_id)
+        return load_investments_total(self.user_id, self.selected_currency)
 
     def _load_streak(self) -> StreakInfo:
         return load_streak(self.user_id, self.tz)
@@ -418,18 +415,18 @@ class DashboardService:
         )
 
     def _load_budgets_with_spending(self) -> list[dict[str, Any]]:
-        return load_budgets_with_spending(self.user_id, self.tz)
+        return load_budgets_with_spending(self.user_id, self.tz, self.selected_currency)
 
     def _compute_spending_comparison(self, data: DashboardData) -> None:
         compute_spending_comparison(self.user_id, data, self.tz)
 
     def _compute_category_velocities(self) -> list[CategoryVelocity]:
-        return compute_category_velocities(self.user_id, self.tz)
+        return compute_category_velocities(self.user_id, self.tz, self.selected_currency)
 
     def _load_cash_flow_forecast(self, data: DashboardData) -> None:
         """Load cash flow forecast for the current month."""
         try:
             forecast_svc = ForecastService(self.user_id, self.tz)
-            data.cash_flow_forecast = forecast_svc.calculate_forecast()
+            data.cash_flow_forecast = forecast_svc.calculate_forecast(currency=data.selected_currency)
         except Exception:
             logger.warning("dashboard: failed to load cash flow forecast")
