@@ -82,6 +82,7 @@ After seeding, the QA user (`qa@clearmoney.app`) will have:
 | Account: Main Checking EGP | Current, EGP, balance 10,000 |
 | Account: Savings EGP | Savings, EGP, balance 0 |
 | Account: USD Account | Current, USD, balance 500 |
+| Account: EUR Savings | Savings, EUR, balance 250 |
 | Account: Credit Card EGP | Credit Card, EGP, balance -2,000, limit 20,000 |
 | Transactions | 4 transactions: salary (income 5,000), grocery (expense 500), transport (expense 200), restaurant (expense 1,000) |
 | Budget: Food & Groceries | 3,000 EGP/month |

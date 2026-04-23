@@ -27,15 +27,6 @@ class Person(models.Model):
     )
     name = models.CharField(max_length=100)
     note = models.TextField(null=True, blank=True)
-    net_balance = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )  # legacy
-    net_balance_egp = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )
-    net_balance_usd = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0, db_default=0
-    )
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
     updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 

@@ -2,7 +2,6 @@ from django.contrib import admin
 
 from auth_app.models import (
     AuthToken,
-    DailySnapshot,
     HistoricalSnapshot,
     Session,
     User,
@@ -39,14 +38,6 @@ class AuthTokenAdmin(admin.ModelAdmin):
 class UserConfigAdmin(admin.ModelAdmin):
     list_display = ["id", "created_at"]
     readonly_fields = ["id", "created_at", "updated_at"]
-
-
-@admin.register(DailySnapshot)
-class DailySnapshotAdmin(admin.ModelAdmin):
-    list_display = ["user", "date", "net_worth_egp", "daily_spending", "daily_income"]
-    list_filter = ["date"]
-    readonly_fields = ["id", "created_at"]
-    date_hierarchy = "date"
 
 
 @admin.register(HistoricalSnapshot)

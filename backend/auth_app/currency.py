@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from django.db.models import Exists, OuterRef
+
 from auth_app.models import Currency, UserCurrencyPreference
 
 
@@ -127,6 +129,48 @@ def resolve_user_currency_choice(user_id: str, currency_code: str | None) -> str
     return context.selected_currency
 
 
+def is_currency_in_use(user_id: str, code: str) -> bool:
+    """
+    Check if a currency code is referenced by any live data for the user.
+
+    Checks:
+    - Accounts (primary usage)
+    - Transactions
+    - Budgets
+    - Investments
+    - Recurring Rules
+    """
+    from accounts.models import Account
+    from budgets.models import Budget
+    from investments.models import Investment
+    from recurring.models import RecurringRule
+    from transactions.models import Transaction
+
+    # Check Accounts
+    if Account.objects.filter(user_id=user_id, currency=code).exists():
+        return True
+
+    # Check Transactions
+    if Transaction.objects.filter(user_id=user_id, currency=code).exists():
+        return True
+
+    # Check Budgets
+    if Budget.objects.filter(user_id=user_id, currency=code).exists():
+        return True
+
+    # Check Investments
+    if Investment.objects.filter(user_id=user_id, currency=code).exists():
+        return True
+
+    # Check Recurring Rules
+    if RecurringRule.objects.filter(
+        user_id=user_id, template_transaction__currency=code
+    ).exists():
+        return True
+
+    return False
+
+
 def set_user_active_currencies(
     user_id: str, codes: list[str]
 ) -> UserCurrencyPreference:
@@ -134,6 +178,16 @@ def set_user_active_currencies(
     normalized = _normalize_codes(codes)
     if not normalized:
         raise ValueError("Select at least one currency")
+
+    # Guardrail: Prevent deactivating currencies still in use
+    current_active = get_user_active_currency_codes(user_id)
+    deactivated = set(current_active) - set(normalized)
+    for code in deactivated:
+        if is_currency_in_use(user_id, code):
+            raise ValueError(
+                f"Cannot deactivate {code} because it is referenced by existing data (accounts, transactions, or budgets)."
+            )
+
     prefs = get_or_create_user_currency_preferences(user_id)
     prefs.active_currency_codes = normalized
     if prefs.selected_display_currency not in normalized:

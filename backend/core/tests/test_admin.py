@@ -44,7 +44,6 @@ class TestAdminModelRegistration:
             "auth_app.User",
             "auth_app.Session",
             "auth_app.AuthToken",
-            "auth_app.DailySnapshot",
             "accounts.Institution",
             "accounts.Account",
             "transactions.Transaction",

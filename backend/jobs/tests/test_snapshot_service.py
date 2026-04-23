@@ -11,8 +11,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from accounts.models import AccountSnapshot
-from auth_app.models import DailySnapshot, HistoricalSnapshot
-from exchange_rates.models import ExchangeRateLog
+from auth_app.models import HistoricalSnapshot
 from jobs.services.snapshot import SnapshotService
 from tests.factories import (
     AccountFactory,
@@ -37,7 +36,7 @@ class TestSnapshotService:
         self.inst = InstitutionFactory(user_id=self.uid)
 
     def test_take_snapshot_basic_egp(self) -> None:
-        """Single EGP account writes canonical and legacy history."""
+        """Single EGP account writes canonical history."""
         AccountFactory(
             user_id=self.uid,
             institution_id=self.inst.id,
@@ -48,17 +47,14 @@ class TestSnapshotService:
 
         self.svc.take_snapshot(str(self.uid))
 
-        snap = DailySnapshot.objects.filter(user_id=self.uid).first()
         hist = HistoricalSnapshot.objects.filter(
             user_id=self.uid, currency="EGP"
         ).first()
-        assert snap is not None
         assert hist is not None
-        assert float(snap.net_worth_raw) == pytest.approx(5000, abs=0.01)
         assert float(hist.net_worth) == pytest.approx(5000, abs=0.01)
 
-    def test_take_snapshot_with_usd_conversion(self) -> None:
-        """Exact USD rows are preserved while legacy EGP projection still works."""
+    def test_take_snapshot_multi_currency(self) -> None:
+        """Multi-currency rows are preserved correctly."""
         AccountFactory(
             user_id=self.uid,
             institution_id=self.inst.id,
@@ -73,24 +69,16 @@ class TestSnapshotService:
             current_balance=100,
             initial_balance=100,
         )
-        ExchangeRateLog.objects.create(
-            date=date.today(), rate=50.0, source="test-snapshot"
-        )
 
         self.svc.take_snapshot(str(self.uid))
 
-        snap = DailySnapshot.objects.filter(user_id=self.uid).first()
-        usd_hist = HistoricalSnapshot.objects.filter(
-            user_id=self.uid, currency="USD"
-        ).first()
-        assert snap is not None
-        assert usd_hist is not None
-        assert float(snap.net_worth_egp) == pytest.approx(10000, abs=0.01)
-        assert float(snap.exchange_rate) == pytest.approx(50.0, abs=0.01)
+        egp_hist = HistoricalSnapshot.objects.get(user_id=self.uid, currency="EGP")
+        usd_hist = HistoricalSnapshot.objects.get(user_id=self.uid, currency="USD")
+        assert float(egp_hist.net_worth) == pytest.approx(5000, abs=0.01)
         assert float(usd_hist.net_worth) == pytest.approx(100, abs=0.01)
 
     def test_take_snapshot_excludes_virtual_accounts(self) -> None:
-        """Excluded virtual account balance reduces EGP history and legacy totals."""
+        """Excluded virtual account balance reduces history totals."""
         AccountFactory(
             user_id=self.uid,
             institution_id=self.inst.id,
@@ -106,13 +94,10 @@ class TestSnapshotService:
 
         self.svc.take_snapshot(str(self.uid))
 
-        snap = DailySnapshot.objects.filter(user_id=self.uid).first()
         hist = HistoricalSnapshot.objects.filter(
             user_id=self.uid, currency="EGP"
         ).first()
-        assert snap is not None
         assert hist is not None
-        assert float(snap.net_worth_raw) == pytest.approx(4000, abs=0.01)
         assert float(hist.net_worth) == pytest.approx(4000, abs=0.01)
 
     def test_upsert_idempotent(self) -> None:
@@ -128,7 +113,6 @@ class TestSnapshotService:
         self.svc.take_snapshot(str(self.uid))
         self.svc.take_snapshot(str(self.uid))
 
-        assert DailySnapshot.objects.filter(user_id=self.uid).count() == 1
         assert HistoricalSnapshot.objects.filter(user_id=self.uid).count() == 1
 
     def test_account_snapshots_created(self) -> None:
@@ -161,7 +145,6 @@ class TestSnapshotService:
 
         backfilled = self.svc.backfill_snapshots(str(self.uid), days=3)
 
-        assert DailySnapshot.objects.filter(user_id=self.uid).count() == 4
         assert HistoricalSnapshot.objects.filter(user_id=self.uid).count() == 4
         assert backfilled == 4
 
@@ -219,19 +202,14 @@ class TestSnapshotService:
         self.svc.backfill_snapshots(str(self.uid), days=3)
 
         three_days_ago = date.today() - timedelta(days=3)
-        snap = DailySnapshot.objects.filter(
-            user_id=self.uid, date=three_days_ago
-        ).first()
         hist = HistoricalSnapshot.objects.filter(
             user_id=self.uid, date=three_days_ago, currency="EGP"
         ).first()
-        assert snap is not None
         assert hist is not None
-        assert float(snap.net_worth_raw) == pytest.approx(800, abs=0.01)
         assert float(hist.net_worth) == pytest.approx(800, abs=0.01)
 
     def test_dormant_account_excluded_from_snapshot(self) -> None:
-        """Dormant account balance is not included in net_worth_raw."""  # gap: functional
+        """Dormant account balance is not included in history."""
         AccountFactory(
             user_id=self.uid,
             institution_id=self.inst.id,
@@ -251,13 +229,10 @@ class TestSnapshotService:
 
         self.svc.take_snapshot(str(self.uid))
 
-        snap = DailySnapshot.objects.filter(user_id=self.uid).first()
         hist = HistoricalSnapshot.objects.filter(
             user_id=self.uid, currency="EGP"
         ).first()
-        assert snap is not None
         assert hist is not None
-        assert float(snap.net_worth_raw) == pytest.approx(5000, abs=0.01)
         assert float(hist.net_worth) == pytest.approx(5000, abs=0.01)
 
     def test_daily_spending_and_income(self) -> None:
@@ -289,14 +264,10 @@ class TestSnapshotService:
 
         self.svc.take_snapshot(str(self.uid))
 
-        snap = DailySnapshot.objects.filter(user_id=self.uid).first()
         hist = HistoricalSnapshot.objects.filter(
             user_id=self.uid, currency="EGP"
         ).first()
-        assert snap is not None
         assert hist is not None
-        assert float(snap.daily_spending) == pytest.approx(150, abs=0.01)
-        assert float(snap.daily_income) == pytest.approx(300, abs=0.01)
         assert float(hist.daily_spending) == pytest.approx(150, abs=0.01)
         assert float(hist.daily_income) == pytest.approx(300, abs=0.01)
 

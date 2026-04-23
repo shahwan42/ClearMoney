@@ -46,18 +46,6 @@ def _currency_sort_key(currency: str) -> tuple[int, str]:
     return (len(supported_codes), currency)
 
 
-def _person_balance_map(person: Person) -> dict[str, float]:
-    """Return generalized per-currency balances with legacy fallback."""
-    balances = {
-        row.currency_id: float(row.balance) for row in person.currency_balances.all()
-    }
-    if "EGP" not in balances and person.net_balance_egp:
-        balances["EGP"] = float(person.net_balance_egp)
-    if "USD" not in balances and person.net_balance_usd:
-        balances["USD"] = float(person.net_balance_usd)
-    return balances
-
-
 def load_people_summary(user_id: str, data: DashboardData) -> None:
     """Load people ledger grouped by currency."""
     summaries: dict[str, PeopleCurrencySummary] = {}
@@ -65,7 +53,11 @@ def load_people_summary(user_id: str, data: DashboardData) -> None:
     people = Person.objects.for_user(user_id).prefetch_related("currency_balances")
 
     for person in people:
-        for currency, balance in _person_balance_map(person).items():
+        balances = {
+            row.currency_id: float(row.balance)
+            for row in person.currency_balances.all()
+        }
+        for currency, balance in balances.items():
             summary = summaries.setdefault(
                 currency,
                 PeopleCurrencySummary(currency=currency),

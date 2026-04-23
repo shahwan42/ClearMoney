@@ -12,7 +12,7 @@ import pytest
 from django.core.management import call_command
 from pytest_mock import MockerFixture
 
-from auth_app.models import DailySnapshot
+from auth_app.models import HistoricalSnapshot
 from tests.factories import (
     AccountFactory,
     InstitutionFactory,
@@ -78,7 +78,7 @@ class TestCommands:
         )
         call_command("take_snapshots", "--days", "3", stdout=self.out)
         assert "complete" in self.out.getvalue().lower()
-        assert DailySnapshot.objects.filter(user_id=self.uid).exists()
+        assert HistoricalSnapshot.objects.filter(user_id=self.uid).exists()
 
     def test_take_snapshots_days_flag(self) -> None:
         """--days flag controls backfill range."""
@@ -90,8 +90,8 @@ class TestCommands:
             initial_balance=1000,
         )
         call_command("take_snapshots", "--days", "2", stdout=self.out)
-        # Should have 3 snapshots: today + 2 backfilled days
-        count = DailySnapshot.objects.filter(user_id=self.uid).count()
+        # Should have 3 snapshots: today + 2 backfilled days (per currency)
+        count = HistoricalSnapshot.objects.filter(user_id=self.uid).count()
         assert count == 3
 
     def test_process_recurring_command(self) -> None:
@@ -139,7 +139,7 @@ class TestStartupJobsPartialFailure:
     def test_single_job_failure_does_not_stop_others(
         self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """One failing sub-command should not prevent the rest from running."""  # gap: functional
+        """One failing sub-command should not prevent the rest from running."""
         # Make reconcile_balances blow up
         original_call_command = call_command
 

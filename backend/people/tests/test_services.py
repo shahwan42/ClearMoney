@@ -70,16 +70,12 @@ def _get_balance(account_id: str) -> float:
 
 
 def _get_person_balance(person_id: str) -> dict[str, Any]:
-    """Fetch person balance columns plus generalized rows via ORM."""
-    p = Person.objects.get(id=person_id)
+    """Fetch generalized balances via ORM."""
     balances = {
         balance.currency_id: float(balance.balance)
         for balance in PersonCurrencyBalance.objects.filter(person_id=person_id)
     }
     return {
-        "net_balance": float(p.net_balance),
-        "net_balance_egp": float(p.net_balance_egp),
-        "net_balance_usd": float(p.net_balance_usd),
         "balances": balances,
     }
 
@@ -95,8 +91,6 @@ class TestPersonCRUD:
         svc = _svc(people_data["user_id"])
         person = svc.create("Ahmed")
         assert person["name"] == "Ahmed"
-        assert person["net_balance_egp"] == 0
-        assert person["net_balance_usd"] == 0
         assert person["balances"] == []
         assert person["active_balances"] == []
 
@@ -148,8 +142,6 @@ class TestRecordLoan:
         svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == 1000
-        assert bal["net_balance_usd"] == 0
         assert bal["balances"] == {"EGP": 1000}
         assert _get_balance(people_data["egp_id"]) == 9000  # 10000 - 1000
 
@@ -161,7 +153,6 @@ class TestRecordLoan:
         svc.record_loan(person["id"], people_data["egp_id"], 2000, "loan_in")
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == -2000
         assert bal["balances"] == {"EGP": -2000}
         assert _get_balance(people_data["egp_id"]) == 12000  # 10000 + 2000
 
@@ -174,11 +165,7 @@ class TestRecordLoan:
         svc.record_loan(person["id"], people_data["usd_id"], 200, "loan_in")
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == 5000
-        assert bal["net_balance_usd"] == -200
         assert bal["balances"] == {"EGP": 5000, "USD": -200}
-        # Legacy net_balance = sum of deltas: +5000 + (-200) = 4800
-        assert bal["net_balance"] == 4800
 
     def test_third_currency_creates_generalized_balance_row(self, people_data):
         """Non-legacy currencies persist through generalized balance rows."""
@@ -188,9 +175,6 @@ class TestRecordLoan:
         svc.record_loan(person["id"], people_data["eur_id"], 125, "loan_out")
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance"] == 125
-        assert bal["net_balance_egp"] == 0
-        assert bal["net_balance_usd"] == 0
         assert bal["balances"] == {"EUR": 125}
 
     def test_invalid_amount_fails(self, people_data):
@@ -240,7 +224,6 @@ class TestRecordRepayment:
         svc.record_repayment(person["id"], people_data["egp_id"], 500)
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == 500
         assert bal["balances"] == {"EGP": 500}
         # Account: 10000 - 1000 (loan out) + 500 (repayment enters) = 9500
         assert _get_balance(people_data["egp_id"]) == 9500
@@ -254,7 +237,6 @@ class TestRecordRepayment:
         svc.record_repayment(person["id"], people_data["egp_id"], 400)
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == -600
         assert bal["balances"] == {"EGP": -600}
         # Account: 10000 + 1000 (loan in) - 400 (repayment leaves) = 10600
         assert _get_balance(people_data["egp_id"]) == 10600
@@ -269,8 +251,6 @@ class TestRecordRepayment:
         svc.record_repayment(person["id"], people_data["usd_id"], 300)
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == 1000  # unchanged
-        assert bal["net_balance_usd"] == -200  # -500 + 300
         assert bal["balances"] == {"EGP": 1000, "USD": -200}
 
     def test_full_lifecycle_lend_repay_settle(self, people_data):
@@ -283,9 +263,7 @@ class TestRecordRepayment:
         svc.record_repayment(person["id"], people_data["egp_id"], 500)
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == 0
         assert bal["balances"] == {"EGP": 0}
-        assert bal["net_balance"] == 0
 
     def test_record_repayment_date_parsing(self, people_data):
         svc = _svc(people_data["user_id"])
@@ -307,7 +285,6 @@ class TestRecordRepayment:
         person = svc.create("ZeroBal")
         svc.record_repayment(person["id"], people_data["usd_id"], 50)
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_usd"] == 50
         assert bal["balances"] == {"USD": 50}
         assert _get_balance(people_data["usd_id"]) == 450
 
@@ -320,7 +297,6 @@ class TestRecordRepayment:
         svc.record_repayment(person["id"], people_data["eur_id"], 160)
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance"] == -60
         assert bal["balances"] == {"EUR": -60}
         assert _get_balance(people_data["eur_id"]) == 860
 
@@ -377,24 +353,6 @@ class TestDebtSummary:
         assert usd["currency"] == "USD"
         assert usd["total_lent"] == 100
         assert usd["total_repaid"] == 0
-
-    def test_summary_includes_backfilled_balance_without_transactions(
-        self, people_data
-    ):
-        svc = _svc(people_data["user_id"])
-        person = Person.objects.create(
-            user_id=people_data["user_id"],
-            name="Legacy",
-            net_balance=300,
-            net_balance_egp=300,
-        )
-
-        summary = svc.get_debt_summary(str(person.id))
-
-        assert summary is not None
-        assert summary["person"]["balances"] == [{"currency": "EGP", "balance": 300.0}]
-        assert summary["by_currency"][0]["currency"] == "EGP"
-        assert summary["by_currency"][0]["net_balance"] == 300.0
 
     def test_progress_percentage(self, people_data):
         svc = _svc(people_data["user_id"])
@@ -544,7 +502,7 @@ class TestOverRepayment:
     """Tests for repaying more than owed — balance flips sign."""
 
     def test_over_repay_positive_flips_to_negative(self, people_data: dict) -> None:
-        """Person owes me 500 EGP, repay 800 → net_balance_egp = -300 (now I owe them)."""
+        """Person owes me 500 EGP, repay 800 → balance = -300 (now I owe them)."""
         svc = _svc(people_data["user_id"])
         person = svc.create("OverPayPos")
 
@@ -552,14 +510,12 @@ class TestOverRepayment:
         svc.record_repayment(person["id"], people_data["egp_id"], 800)
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == -300
-        assert bal["net_balance"] == -300
         assert bal["balances"] == {"EGP": -300}
         # Account: 10000 - 500 (loan out) + 800 (repayment enters) = 10300
         assert _get_balance(people_data["egp_id"]) == 10300
 
     def test_over_repay_negative_flips_to_positive(self, people_data: dict) -> None:
-        """I owe person 500 EGP, repay 800 → net_balance_egp = 300 (now they owe me)."""
+        """I owe person 500 EGP, repay 800 → balance = 300 (now they owe me)."""
         svc = _svc(people_data["user_id"])
         person = svc.create("OverPayNeg")
 
@@ -567,8 +523,6 @@ class TestOverRepayment:
         svc.record_repayment(person["id"], people_data["egp_id"], 800)
 
         bal = _get_person_balance(person["id"])
-        assert bal["net_balance_egp"] == 300
-        assert bal["net_balance"] == 300
         assert bal["balances"] == {"EGP": 300}
         # Account: 10000 + 500 (loan in) - 800 (repayment leaves) = 9700
         assert _get_balance(people_data["egp_id"]) == 9700

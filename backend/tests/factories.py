@@ -25,7 +25,6 @@ from accounts.models import Account, AccountSnapshot, Institution
 from auth_app.models import (
     AuthToken,
     Currency,
-    DailySnapshot,
     HistoricalSnapshot,
     Session,
     User,
@@ -281,9 +280,6 @@ class PersonFactory(factory.django.DjangoModelFactory):
     id = factory.LazyFunction(uuid.uuid4)
     user_id = factory.LazyFunction(uuid.uuid4)  # override with real user_id in tests
     name = factory.Sequence(lambda n: f"Person {n}")
-    net_balance = 0
-    net_balance_egp = 0
-    net_balance_usd = 0
 
 
 class UserConfigFactory(factory.django.DjangoModelFactory):
@@ -330,22 +326,6 @@ class PersonCurrencyBalanceFactory(factory.django.DjangoModelFactory):
     person = factory.SubFactory(PersonFactory)
     currency = factory.SubFactory(CurrencyFactory, code="EGP")
     balance = 0
-
-
-class DailySnapshotFactory(factory.django.DjangoModelFactory):
-    """Factory for daily net worth snapshots."""
-
-    class Meta:
-        model = DailySnapshot
-
-    id = factory.LazyFunction(uuid.uuid4)
-    user = factory.SubFactory(UserFactory)
-    date = factory.LazyFunction(lambda: timezone.now().date())
-    net_worth_egp = factory.LazyFunction(lambda: Decimal("50000.00"))
-    net_worth_raw = factory.LazyFunction(lambda: Decimal("50000.00"))
-    exchange_rate = factory.LazyFunction(lambda: Decimal("50.8500"))
-    daily_spending = factory.LazyFunction(lambda: Decimal("250.00"))
-    daily_income = factory.LazyFunction(lambda: Decimal("0.00"))
 
 
 class HistoricalSnapshotFactory(factory.django.DjangoModelFactory):

@@ -226,23 +226,18 @@ def compute_net_worth(data: DashboardData, all_accounts: list[dict[str, Any]]) -
 
 
 def _get_people_debt(user_id: str, selected_currency: str) -> list[dict[str, Any]]:
-    """Return people records where the user owes them money (negative net_balance).
+    """Return people records where the user owes them money (negative balance).
 
     Filtered by selected_currency.
     """
     rows = []
     people = Person.objects.for_user(user_id).prefetch_related("currency_balances")
     for person in people.order_by("name"):
-        balances = {
-            row.currency_id: float(row.balance)
-            for row in person.currency_balances.all()
-        }
-        if "EGP" not in balances and person.net_balance_egp:
-            balances["EGP"] = float(person.net_balance_egp)
-        if "USD" not in balances and person.net_balance_usd:
-            balances["USD"] = float(person.net_balance_usd)
+        balance_row = person.currency_balances.filter(
+            currency_id=selected_currency
+        ).first()
+        balance = float(balance_row.balance) if balance_row else 0.0
 
-        balance = balances.get(selected_currency, 0.0)
         if balance < 0:
             rows.append(
                 {

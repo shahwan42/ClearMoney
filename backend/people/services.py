@@ -41,9 +41,6 @@ def _person_to_dict(row: dict[str, Any]) -> dict[str, Any]:
             "user_id": "user_id",
             "name": "name",
             "note": "note",
-            "net_balance": "net_balance",
-            "net_balance_egp": "net_balance_egp",
-            "net_balance_usd": "net_balance_usd",
             "created_at": "created_at",
             "updated_at": "updated_at",
         },
@@ -61,7 +58,7 @@ def _with_balance_payload(
     person: dict[str, Any], balances: list[dict[str, Any]]
 ) -> dict[str, Any]:
     """Attach generalized balances and compatibility-derived helpers."""
-    normalized = _normalize_balance_rows(person, balances)
+    normalized = _normalize_balance_rows(balances)
     active_balances = [balance for balance in normalized if balance["balance"] != 0]
     person["balances"] = normalized
     person["active_balances"] = active_balances
@@ -73,16 +70,10 @@ def _with_balance_payload(
 
 
 def _normalize_balance_rows(
-    person: dict[str, Any], balances: list[dict[str, Any]]
+    balances: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Normalize balance rows and fall back to legacy fields when needed."""
-    seen = {balance["currency"] for balance in balances}
-    normalized = list(balances)
-    for currency, field in (("EGP", "net_balance_egp"), ("USD", "net_balance_usd")):
-        legacy_balance = float(person.get(field, 0) or 0)
-        if currency not in seen and legacy_balance != 0:
-            normalized.append({"currency": currency, "balance": legacy_balance})
-    return sorted(normalized, key=_currency_sort_key)
+    """Normalize balance rows."""
+    return sorted(balances, key=_currency_sort_key)
 
 
 def _currency_sort_key(balance: dict[str, Any]) -> tuple[int, str]:
@@ -136,9 +127,6 @@ _PERSON_FIELDS = (
     "user_id",
     "name",
     "note",
-    "net_balance",
-    "net_balance_egp",
-    "net_balance_usd",
     "created_at",
     "updated_at",
 )
@@ -293,7 +281,7 @@ class PersonService:
     def _update_person_balance(
         self, person_id: str, currency: str, delta: Decimal, *, now: Any
     ) -> None:
-        """Atomically apply a delta to generalized and compatibility balances."""
+        """Atomically apply a delta to generalized balances."""
         balance_row, _ = PersonCurrencyBalance.objects.get_or_create(
             person_id=person_id,
             currency_id=currency,
@@ -304,16 +292,8 @@ class PersonService:
             updated_at=now,
         )
 
-        legacy_updates: dict[str, Any] = {
-            "net_balance": F("net_balance") + delta,
-            "updated_at": now,
-        }
-        if currency == "EGP":
-            legacy_updates["net_balance_egp"] = F("net_balance_egp") + delta
-        elif currency == "USD":
-            legacy_updates["net_balance_usd"] = F("net_balance_usd") + delta
         Person.objects.for_user(self.user_id).filter(id=person_id).update(
-            **legacy_updates
+            updated_at=now
         )
 
     def record_loan(
@@ -325,11 +305,7 @@ class PersonService:
         note: str | None = None,
         tx_date: date | None = None,
     ) -> dict[str, Any]:
-        """Record a loan (lend or borrow) and atomically update balances.
-
-        loan_out: I lent money -> account_delta = -amount, person_delta = +amount
-        loan_in:  I borrowed   -> account_delta = +amount, person_delta = -amount
-        """
+        """Record a loan (lend or borrow) and atomically update balances."""
         if amount <= 0:
             raise ValueError("amount must be positive")
         if not person_id or not account_id:
@@ -372,7 +348,7 @@ class PersonService:
                 balance_delta=account_delta,
             )
 
-            # 2. Atomic F() update — avoids race conditions on concurrent balance changes
+            # 2. Atomic F() update
             Account.objects.for_user(self.user_id).filter(id=account_id).update(
                 current_balance=F("current_balance") + account_delta_decimal,
                 updated_at=now,
@@ -401,12 +377,7 @@ class PersonService:
         note: str | None = None,
         tx_date: date | None = None,
     ) -> dict[str, Any]:
-        """Record a loan repayment and atomically update balances.
-
-        Direction determined by current balance:
-        - Positive (they owe me): money enters my account -> account_delta = +amount
-        - Negative (I owe them): money leaves my account -> account_delta = -amount
-        """
+        """Record a loan repayment and atomically update balances."""
         if amount <= 0:
             raise ValueError("amount must be positive")
         if not person_id or not account_id:
@@ -456,7 +427,7 @@ class PersonService:
                 balance_delta=account_delta,
             )
 
-            # 2. Atomic F() update — avoids race conditions on concurrent balance changes
+            # 2. Atomic F() update
             Account.objects.for_user(self.user_id).filter(id=account_id).update(
                 current_balance=F("current_balance") + account_delta_decimal,
                 updated_at=now,
@@ -501,20 +472,7 @@ class PersonService:
         person: dict[str, Any],
         repayment_dates_by_currency: dict[str, list[date]],
     ) -> list[dict[str, Any]]:
-        """Compute per-currency loan tallies and progress for a person's transactions.
-
-        Accumulates totals (lent/borrowed/repaid) per currency from the transaction
-        list, then builds a sorted-by-currency breakdown with progress percentages.
-
-        Args:
-            txns: List of transaction dicts (from get_person_transactions).
-            person: Person dict with generalized `balances`.
-
-        Returns:
-            List of per-currency dicts, each containing currency, total_lent,
-            total_borrowed, total_repaid, net_balance, progress_pct, and
-            projected_payoff. Ordered by currency registry display order.
-        """
+        """Compute per-currency loan tallies and progress."""
         currency_map: dict[str, dict[str, float]] = {}
         for tx in txns:
             cur = tx["currency"]
@@ -577,19 +535,7 @@ class PersonService:
     def _compute_aggregate_progress(
         self, total_lent: float, total_borrowed: float, total_repaid: float
     ) -> float:
-        """Compute aggregate repayment progress percentage for one currency slice.
-
-        Computes total debt (lent + borrowed) and expresses repaid amount as a
-        capped percentage. Caps at 100% to handle over-repayments gracefully.
-
-        Args:
-            total_lent: Sum of all loan_out amounts across all currencies.
-            total_borrowed: Sum of all loan_in amounts across all currencies.
-            total_repaid: Sum of all loan_repayment amounts across all currencies.
-
-        Returns:
-            Progress percentage from 0.0 to 100.0, or 0.0 when total debt is zero.
-        """
+        """Compute aggregate repayment progress percentage."""
         total_debt_all = total_lent + total_borrowed
         return (
             min((total_repaid / total_debt_all) * 100, 100.0)
@@ -600,23 +546,7 @@ class PersonService:
     def _compute_projected_payoff(
         self, repayment_dates: list[date], remaining: float, total_repaid: float
     ) -> date | None:
-        """Project the estimated payoff date based on repayment history.
-
-        Calculates the average repayment interval from the sorted repayment dates,
-        then extrapolates how many payments are needed to clear the remaining balance.
-
-        Requires at least two repayment events to establish an interval. Returns
-        None if inputs are insufficient or if the average interval is invalid.
-
-        Args:
-            repayment_dates: Sorted list of repayment transaction dates.
-            remaining: Absolute sum of net balances across all currencies.
-            total_repaid: Total amount repaid to date.
-
-        Returns:
-            Estimated payoff date (date.today() + projected days), or None if
-            insufficient data to project.
-        """
+        """Project the estimated payoff date based on repayment history."""
         if len(repayment_dates) < 2 or remaining <= 0 or total_repaid <= 0:
             return None
         avg_repayment = total_repaid / len(repayment_dates)
@@ -633,22 +563,7 @@ class PersonService:
         return date.today() + timedelta(days=days_to_payoff)
 
     def get_debt_summary(self, person_id: str) -> dict[str, Any] | None:
-        """Compute full debt/loan summary for a person.
-
-        Returns person info, per-currency breakdown, aggregate totals,
-        progress percentages, and projected payoff date.
-
-        Delegates to three sub-functions:
-          - _compute_currency_breakdown: per-currency tallies and progress
-          - _compute_aggregate_progress: overall repayment percentage
-          - _compute_projected_payoff: estimated payoff date from repayment cadence
-
-        Returns:
-            Dict with keys: person, transactions, by_currency, total_lent,
-            total_borrowed, total_repaid, progress_pct, projected_payoff.
-            Top-level progress/payoff are only populated for effectively
-            single-currency summaries. Returns None if person_id does not exist.
-        """
+        """Compute full debt/loan summary for a person."""
         person = self.get_by_id(person_id)
         if not person:
             return None

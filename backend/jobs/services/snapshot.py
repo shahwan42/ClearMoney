@@ -13,7 +13,6 @@ Key patterns:
     - UPSERT (update_or_create) for idempotency
     - Historical balance = current_balance - SUM(future balance_deltas)
     - Canonical history is stored per date per currency
-    - DailySnapshot remains as a legacy compatibility projection
 """
 
 import logging
@@ -27,8 +26,7 @@ from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
 from accounts.models import Account, AccountSnapshot
-from auth_app.models import DailySnapshot, HistoricalSnapshot, User
-from exchange_rates.models import ExchangeRateLog
+from auth_app.models import HistoricalSnapshot, User
 from transactions.models import Transaction
 from virtual_accounts.models import VirtualAccount
 
@@ -137,7 +135,6 @@ class SnapshotService:
         """Capture financial state for a specific date."""
         accounts = self._get_all_accounts(user_id)
 
-        net_worth_raw = ZERO
         totals_by_currency: dict[str, Decimal] = defaultdict(lambda: ZERO)
         account_balances: list[tuple[str, Decimal]] = []
 
@@ -148,18 +145,11 @@ class SnapshotService:
                     user_id, acc_id, snapshot_date
                 )
 
-            net_worth_raw += balance
             totals_by_currency[currency] += balance
             account_balances.append((acc_id, balance))
 
         excluded = self._get_excluded_va_balance(user_id)
-        net_worth_raw -= excluded
         totals_by_currency["EGP"] = totals_by_currency.get("EGP", ZERO) - excluded
-
-        exchange_rate = self._get_latest_exchange_rate()
-        net_worth_egp = self._convert_totals_to_egp(
-            dict(totals_by_currency), exchange_rate
-        )
 
         spending_by_currency = self._get_daily_total_by_currency(
             user_id, snapshot_date, "expense"
@@ -167,8 +157,6 @@ class SnapshotService:
         income_by_currency = self._get_daily_total_by_currency(
             user_id, snapshot_date, "income"
         )
-        daily_spending = sum(spending_by_currency.values(), start=ZERO)
-        daily_income = sum(income_by_currency.values(), start=ZERO)
 
         self._sync_historical_snapshots(
             user_id=user_id,
@@ -176,16 +164,6 @@ class SnapshotService:
             totals_by_currency=dict(totals_by_currency),
             spending_by_currency=spending_by_currency,
             income_by_currency=income_by_currency,
-        )
-
-        self._upsert_daily(
-            user_id=user_id,
-            snapshot_date=snapshot_date,
-            net_worth_egp=net_worth_egp,
-            net_worth_raw=net_worth_raw,
-            exchange_rate=exchange_rate,
-            daily_spending=daily_spending,
-            daily_income=daily_income,
         )
 
         for acc_id, balance in account_balances:
@@ -231,14 +209,6 @@ class SnapshotService:
         ).aggregate(total=Coalesce(Sum("current_balance"), ZERO))["total"]
         return cast(Decimal, total)
 
-    def _get_latest_exchange_rate(self) -> Decimal:
-        rate = (
-            ExchangeRateLog.objects.order_by("-date", "-created_at")
-            .values_list("rate", flat=True)
-            .first()
-        )
-        return rate if rate is not None else ZERO
-
     def _get_daily_total_by_currency(
         self, user_id: str, snapshot_date: date, tx_type: str
     ) -> dict[str, Decimal]:
@@ -272,17 +242,6 @@ class SnapshotService:
         return HistoricalSnapshot.objects.filter(
             user_id=user_id, date=snapshot_date
         ).exists()
-
-    def _convert_totals_to_egp(
-        self, totals_by_currency: dict[str, Decimal], exchange_rate: Decimal
-    ) -> Decimal:
-        net_worth_egp = ZERO
-        for currency, total in totals_by_currency.items():
-            if currency == "USD" and exchange_rate > ZERO:
-                net_worth_egp += total * exchange_rate
-            else:
-                net_worth_egp += total
-        return net_worth_egp
 
     def _sync_historical_snapshots(
         self,
@@ -318,28 +277,6 @@ class SnapshotService:
         HistoricalSnapshot.objects.filter(user_id=user_id, date=snapshot_date).exclude(
             currency__in=active_currencies
         ).delete()
-
-    def _upsert_daily(
-        self,
-        user_id: str,
-        snapshot_date: date,
-        net_worth_egp: Decimal,
-        net_worth_raw: Decimal,
-        exchange_rate: Decimal,
-        daily_spending: Decimal,
-        daily_income: Decimal,
-    ) -> None:
-        DailySnapshot.objects.update_or_create(
-            user_id=user_id,
-            date=snapshot_date,
-            defaults={
-                "net_worth_egp": net_worth_egp,
-                "net_worth_raw": net_worth_raw,
-                "exchange_rate": exchange_rate,
-                "daily_spending": daily_spending,
-                "daily_income": daily_income,
-            },
-        )
 
     def _upsert_account(
         self, user_id: str, snapshot_date: date, account_id: str, balance: Decimal

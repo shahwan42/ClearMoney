@@ -91,6 +91,17 @@ class Command(BaseCommand):
                 "initial_balance": Decimal("500.00"),
             },
         )
+        eur, _ = Account.objects.get_or_create(
+            user_id=uid,
+            name="EUR Savings",
+            defaults={
+                "institution": inst,
+                "type": "savings",
+                "currency": "EUR",
+                "current_balance": Decimal("250.00"),
+                "initial_balance": Decimal("250.00"),
+            },
+        )
         cc, _ = Account.objects.get_or_create(
             user_id=uid,
             name="Credit Card EGP",
@@ -104,10 +115,7 @@ class Command(BaseCommand):
             },
         )
         self.stdout.write(
-            f"  Accounts: {egp1.name} ({egp1.current_balance}), "
-            f"{egp2.name} ({egp2.current_balance}), "
-            f"{usd.name} ({usd.current_balance}), "
-            f"{cc.name} ({cc.current_balance})"
+            f"  Accounts: {egp1.name}, {egp2.name}, {usd.name}, {eur.name}, {cc.name}"
         )
 
         # ── Categories (by name, from seeded defaults) ───────────────────────
@@ -194,6 +202,7 @@ class Command(BaseCommand):
         budget_data = [
             (food_id, 3000.0, "EGP"),
             (transport_id, 500.0, "EGP"),
+            (food_id, 50.0, "EUR"),
         ]
         budget_count = 0
         for cat_id, limit, currency in budget_data:

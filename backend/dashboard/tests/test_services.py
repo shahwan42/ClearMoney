@@ -1377,12 +1377,8 @@ class TestNetWorthBreakdown:
 
     def test_debt_breakdown_includes_people_i_owe(self, nw_data):
         """Debt breakdown includes people with negative net_balance."""
-        PersonFactory(
-            user_id=nw_data["cc"].user_id,
-            name="Ali",
-            net_balance=-300,
-            net_balance_egp=-300,
-        )
+        person = PersonFactory(user_id=nw_data["cc"].user_id, name="Ali")
+        PersonCurrencyBalanceFactory(person=person, currency_id="EGP", balance=-300)
         result = get_net_worth_breakdown(nw_data["user_id"], "debt", "EGP")
         names = [a["name"] for a in result["accounts"]]
         assert "Ali" in names
@@ -1390,12 +1386,8 @@ class TestNetWorthBreakdown:
 
     def test_debt_breakdown_excludes_people_with_positive_balance(self, nw_data):
         """People who owe me should not appear in debt breakdown."""
-        PersonFactory(
-            user_id=nw_data["cc"].user_id,
-            name="Omar",
-            net_balance=500,
-            net_balance_egp=500,
-        )
+        person = PersonFactory(user_id=nw_data["cc"].user_id, name="Omar")
+        PersonCurrencyBalanceFactory(person=person, currency_id="EGP", balance=500)
         result = get_net_worth_breakdown(nw_data["user_id"], "debt", "EGP")
         names = [a["name"] for a in result["accounts"]]
         assert "Omar" not in names
@@ -1423,12 +1415,8 @@ def test_debt_total_from_negative_accounts(svc_data):
 @pytest.mark.django_db
 def test_debt_total_includes_people_i_owe(svc_data):
     """debt_total includes abs(people_i_owe)."""
-    PersonFactory(
-        user_id=svc_data["user"].id,
-        name="Ali",
-        net_balance=-500,
-        net_balance_egp=-500,
-    )
+    person = PersonFactory(user_id=svc_data["user"].id, name="Ali")
+    PersonCurrencyBalanceFactory(person=person, currency_id="EGP", balance=-500)
     svc = DashboardService(svc_data["user_id"], TZ)
     result = svc.get_dashboard()
     # CC -2000 + person -500 → debt_total = 2500
@@ -1487,7 +1475,8 @@ def test_debt_total_only_people_no_account_debt(db):
         currency="EGP",
         current_balance=5000,
     )
-    PersonFactory(user_id=user.id, name="Sara", net_balance=-300, net_balance_egp=-300)
+    person = PersonFactory(user_id=user.id, name="Sara")
+    PersonCurrencyBalanceFactory(person=person, currency_id="EGP", balance=-300)
     ExchangeRateLogFactory(date=date.today(), rate=50.0)
     svc = DashboardService(str(user.id), TZ)
     result = svc.get_dashboard()

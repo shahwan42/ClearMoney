@@ -5,7 +5,7 @@ from people.models import Person, PersonCurrencyBalance
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
-    list_display = ["name", "user", "net_balance", "net_balance_egp", "net_balance_usd"]
+    list_display = ["name", "user", "created_at"]
     search_fields = ["name"]
     readonly_fields = ["id", "created_at", "updated_at"]
 

@@ -201,7 +201,7 @@ def reset_database() -> str:
                 TRUNCATE TABLE
                     notifications,
                     budgets, virtual_account_allocations, virtual_accounts,
-                    account_snapshots, daily_snapshots, transactions,
+                    account_snapshots, transactions,
                     accounts, institutions, categories, persons,
                     recurring_rules, investments,
                     user_currency_preferences,
