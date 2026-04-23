@@ -20,17 +20,14 @@
             <div>
                 <h1 class="text-xl font-bold text-slate-900 dark:text-slate-100">{{ data.summary.person.name }}</h1>
                 <div class="space-y-0.5">
-                    {% if data.summary.person.net_balance_egp != 0 %}
-                    <p class="text-sm {% if data.summary.person.net_balance_egp > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
-                        {% if data.summary.person.net_balance_egp > 0 %}{% blocktrans with amount=data.summary.person.net_balance_egp|format_currency:"EGP" %}They owe you {{ amount }}{% endblocktrans %}{% else %}{% blocktrans with amount=data.summary.person.net_balance_egp|neg|format_currency:"EGP" %}You owe them {{ amount }}{% endblocktrans %}{% endif %}
+                    {% for balance in data.summary.person.balances %}
+                    {% if balance.balance != 0 %}
+                    <p class="text-sm {% if balance.balance > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
+                        {% if balance.balance > 0 %}{% blocktrans with amount=balance.balance|format_currency:balance.currency %}They owe you {{ amount }}{% endblocktrans %}{% else %}{% blocktrans with amount=balance.balance|neg|format_currency:balance.currency %}You owe them {{ amount }}{% endblocktrans %}{% endif %}
                     </p>
                     {% endif %}
-                    {% if data.summary.person.net_balance_usd != 0 %}
-                    <p class="text-sm {% if data.summary.person.net_balance_usd > 0 %}text-emerald-600{% else %}text-red-600{% endif %}">
-                        {% if data.summary.person.net_balance_usd > 0 %}{% blocktrans with amount=data.summary.person.net_balance_usd|format_currency:"USD" %}They owe you {{ amount }}{% endblocktrans %}{% else %}{% blocktrans with amount=data.summary.person.net_balance_usd|neg|format_currency:"USD" %}You owe them {{ amount }}{% endblocktrans %}{% endif %}
-                    </p>
-                    {% endif %}
-                    {% if data.summary.person.net_balance_egp == 0 and data.summary.person.net_balance_usd == 0 %}
+                    {% endfor %}
+                    {% if not data.summary.person.has_open_balance %}
                     <p class="text-sm text-gray-400 dark:text-slate-500">{% trans "Settled up" %}</p>
                     {% endif %}
                 </div>
@@ -38,7 +35,7 @@
         </div>
 
         {% for cd in data.summary.by_currency %}
-        <div class="{% if cd.currency != 'EGP' %}mt-3 pt-3 border-t border-gray-100 dark:border-slate-700{% endif %}">
+        <div class="{% if not forloop.first %}mt-3 pt-3 border-t border-gray-100 dark:border-slate-700{% endif %}">
             <p class="text-xs text-gray-400 dark:text-slate-500 font-medium mb-2">{{ cd.currency }}</p>
             <div class="grid grid-cols-3 gap-3 text-center">
                 {% if cd.total_lent > 0 %}

@@ -24,13 +24,14 @@ from conftest import (
 )
 
 _account_id: str = ""
+_eur_account_id: str = ""
 _user_id: str = ""
 
 
 @pytest.fixture(scope="function", autouse=True)
 def db() -> None:
     """Reset DB and create test institution + account directly via SQL."""
-    global _account_id, _user_id
+    global _account_id, _eur_account_id, _user_id
     _user_id = reset_database()
     with _conn() as conn:
         with conn.cursor() as cur:
@@ -47,6 +48,13 @@ def db() -> None:
                 (_user_id, inst_id),
             )
             _account_id = str(cur.fetchone()[0])  # type: ignore[index]
+            cur.execute(
+                "INSERT INTO accounts"
+                " (user_id, institution_id, name, type, currency, current_balance, initial_balance, display_order)"
+                " VALUES (%s, %s, 'Euro Wallet', 'current', 'EUR', 500, 500, 1) RETURNING id",
+                (_user_id, inst_id),
+            )
+            _eur_account_id = str(cur.fetchone()[0])  # type: ignore[index]
         conn.commit()
 
 
@@ -145,3 +153,30 @@ class TestPeople:
         # After lending 500 and receiving 200 back, owed_to_me = 300
         expect(page.locator("main")).to_contain_text("People")
         expect(page.locator("main")).to_contain_text("300")
+
+    def test_record_loan_and_repayment_in_eur(self, page: Page) -> None:
+        _add_person(page, "Euro Friend")
+        page.goto("/people")
+        page.click('button:has-text("Record Loan")')
+        loan_form = page.locator('[id^="loan-form-"]').first
+        loan_form.locator('input[name="amount"]').fill("125")
+        loan_form.locator('select[name="account_id"]').select_option(_eur_account_id)
+        with page.expect_response(
+            lambda r: "/loan" in r.url and r.request.method == "POST"
+        ):
+            loan_form.locator('button[type="submit"]').click()
+
+        expect(page.locator("main")).to_contain_text("EUR")
+        expect(page.locator("main")).to_contain_text("125")
+
+        page.click('button:has-text("Repayment")')
+        repay_form = page.locator('[id^="repay-form-"]').first
+        repay_form.locator('input[name="amount"]').fill("25")
+        repay_form.locator('select[name="account_id"]').select_option(_eur_account_id)
+        with page.expect_response(
+            lambda r: "/repay" in r.url and r.request.method == "POST"
+        ):
+            repay_form.locator('button[type="submit"]').click()
+
+        expect(page.locator("main")).to_contain_text("EUR")
+        expect(page.locator("main")).to_contain_text("100")

@@ -4,22 +4,27 @@ Person service tests — CRUD, loan/repayment, multi-currency, debt summary.
 
 import uuid
 from datetime import date
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.db import IntegrityError
 
 from accounts.models import Account
 from conftest import SessionFactory, UserFactory
-from people.models import Person
+from people.models import Person, PersonCurrencyBalance
 from people.services import PersonService
-from tests.factories import AccountFactory, InstitutionFactory
+from tests.factories import AccountFactory, CurrencyFactory, InstitutionFactory
 
 TZ = ZoneInfo("Africa/Cairo")
 
 
 @pytest.fixture
 def people_data(db):
-    """User + institution + EGP account (10000) + USD account (500) + person."""
+    """User + institution + EGP, USD, EUR accounts for people tests."""
+    CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+    CurrencyFactory(code="USD", name="US Dollar", symbol="$", display_order=1)
+    CurrencyFactory(code="EUR", name="Euro", display_order=2)
     user = UserFactory()
     SessionFactory(user=user)
     institution = InstitutionFactory(user_id=user.id, name="Test Bank")
@@ -39,10 +44,19 @@ def people_data(db):
         current_balance=500,
         initial_balance=500,
     )
+    eur_account = AccountFactory(
+        user_id=user.id,
+        institution_id=institution.id,
+        name="EUR Savings",
+        currency="EUR",
+        current_balance=800,
+        initial_balance=800,
+    )
     yield {
         "user_id": str(user.id),
         "egp_id": str(egp_account.id),
         "usd_id": str(usd_account.id),
+        "eur_id": str(eur_account.id),
     }
 
 
@@ -55,13 +69,18 @@ def _get_balance(account_id: str) -> float:
     return float(Account.objects.get(id=account_id).current_balance)
 
 
-def _get_person_balance(person_id: str) -> dict[str, float]:
-    """Fetch person balance columns via ORM."""
+def _get_person_balance(person_id: str) -> dict[str, Any]:
+    """Fetch person balance columns plus generalized rows via ORM."""
     p = Person.objects.get(id=person_id)
+    balances = {
+        balance.currency_id: float(balance.balance)
+        for balance in PersonCurrencyBalance.objects.filter(person_id=person_id)
+    }
     return {
         "net_balance": float(p.net_balance),
         "net_balance_egp": float(p.net_balance_egp),
         "net_balance_usd": float(p.net_balance_usd),
+        "balances": balances,
     }
 
 
@@ -78,6 +97,7 @@ class TestPersonCRUD:
         assert person["name"] == "Ahmed"
         assert person["net_balance_egp"] == 0
         assert person["net_balance_usd"] == 0
+        assert person["balances"] == []
 
     def test_create_empty_name_fails(self, people_data):
         svc = _svc(people_data["user_id"])
@@ -129,6 +149,7 @@ class TestRecordLoan:
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == 1000
         assert bal["net_balance_usd"] == 0
+        assert bal["balances"] == {"EGP": 1000}
         assert _get_balance(people_data["egp_id"]) == 9000  # 10000 - 1000
 
     def test_loan_in_updates_balances(self, people_data):
@@ -140,6 +161,7 @@ class TestRecordLoan:
 
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == -2000
+        assert bal["balances"] == {"EGP": -2000}
         assert _get_balance(people_data["egp_id"]) == 12000  # 10000 + 2000
 
     def test_multi_currency_isolation(self, people_data):
@@ -153,8 +175,22 @@ class TestRecordLoan:
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == 5000
         assert bal["net_balance_usd"] == -200
+        assert bal["balances"] == {"EGP": 5000, "USD": -200}
         # Legacy net_balance = sum of deltas: +5000 + (-200) = 4800
         assert bal["net_balance"] == 4800
+
+    def test_third_currency_creates_generalized_balance_row(self, people_data):
+        """Non-legacy currencies persist through generalized balance rows."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Euro")
+
+        svc.record_loan(person["id"], people_data["eur_id"], 125, "loan_out")
+
+        bal = _get_person_balance(person["id"])
+        assert bal["net_balance"] == 125
+        assert bal["net_balance_egp"] == 0
+        assert bal["net_balance_usd"] == 0
+        assert bal["balances"] == {"EUR": 125}
 
     def test_invalid_amount_fails(self, people_data):
         svc = _svc(people_data["user_id"])
@@ -204,6 +240,7 @@ class TestRecordRepayment:
 
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == 500
+        assert bal["balances"] == {"EGP": 500}
         # Account: 10000 - 1000 (loan out) + 500 (repayment enters) = 9500
         assert _get_balance(people_data["egp_id"]) == 9500
 
@@ -217,6 +254,7 @@ class TestRecordRepayment:
 
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == -600
+        assert bal["balances"] == {"EGP": -600}
         # Account: 10000 + 1000 (loan in) - 400 (repayment leaves) = 10600
         assert _get_balance(people_data["egp_id"]) == 10600
 
@@ -232,6 +270,7 @@ class TestRecordRepayment:
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == 1000  # unchanged
         assert bal["net_balance_usd"] == -200  # -500 + 300
+        assert bal["balances"] == {"EGP": 1000, "USD": -200}
 
     def test_full_lifecycle_lend_repay_settle(self, people_data):
         """Lend 1000 → repay 500 → repay 500 → settled (0)."""
@@ -244,6 +283,7 @@ class TestRecordRepayment:
 
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == 0
+        assert bal["balances"] == {"EGP": 0}
         assert bal["net_balance"] == 0
 
     def test_record_repayment_date_parsing(self, people_data):
@@ -267,7 +307,21 @@ class TestRecordRepayment:
         svc.record_repayment(person["id"], people_data["usd_id"], 50)
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_usd"] == 50
+        assert bal["balances"] == {"USD": 50}
         assert _get_balance(people_data["usd_id"]) == 450
+
+    def test_third_currency_repayment_crosses_through_zero(self, people_data):
+        """Repayment direction is based on the generalized row for that currency."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("EuroFlip")
+
+        svc.record_loan(person["id"], people_data["eur_id"], 100, "loan_out")
+        svc.record_repayment(person["id"], people_data["eur_id"], 160)
+
+        bal = _get_person_balance(person["id"])
+        assert bal["net_balance"] == -60
+        assert bal["balances"] == {"EUR": -60}
+        assert _get_balance(people_data["eur_id"]) == 860
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +354,22 @@ class TestDebtSummary:
         assert usd["currency"] == "USD"
         assert usd["total_lent"] == 100
         assert usd["total_repaid"] == 0
+
+    def test_summary_includes_backfilled_balance_without_transactions(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = Person.objects.create(
+            user_id=people_data["user_id"],
+            name="Legacy",
+            net_balance=300,
+            net_balance_egp=300,
+        )
+
+        summary = svc.get_debt_summary(str(person.id))
+
+        assert summary is not None
+        assert summary["person"]["balances"] == [{"currency": "EGP", "balance": 300.0}]
+        assert summary["by_currency"][0]["currency"] == "EGP"
+        assert summary["by_currency"][0]["net_balance"] == 300.0
 
     def test_progress_percentage(self, people_data):
         svc = _svc(people_data["user_id"])
@@ -411,6 +481,7 @@ class TestOverRepayment:
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == -300
         assert bal["net_balance"] == -300
+        assert bal["balances"] == {"EGP": -300}
         # Account: 10000 - 500 (loan out) + 800 (repayment enters) = 10300
         assert _get_balance(people_data["egp_id"]) == 10300
 
@@ -425,5 +496,24 @@ class TestOverRepayment:
         bal = _get_person_balance(person["id"])
         assert bal["net_balance_egp"] == 300
         assert bal["net_balance"] == 300
+        assert bal["balances"] == {"EGP": 300}
         # Account: 10000 + 500 (loan in) - 800 (repayment leaves) = 9700
         assert _get_balance(people_data["egp_id"]) == 9700
+
+
+@pytest.mark.django_db
+class TestPersonCurrencyBalanceModel:
+    def test_unique_person_currency_invariant(self, people_data):
+        person = Person.objects.create(user_id=people_data["user_id"], name="Unique")
+        PersonCurrencyBalance.objects.create(
+            person_id=person.id,
+            currency_id="EUR",
+            balance=10,
+        )
+
+        with pytest.raises(IntegrityError):
+            PersonCurrencyBalance.objects.create(
+                person_id=person.id,
+                currency_id="EUR",
+                balance=20,
+            )

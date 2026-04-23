@@ -3,9 +3,9 @@ id: "142"
 title: "Generalized person currency balance storage"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -25,11 +25,11 @@ currency without dual-field branching.
 
 ## Acceptance Criteria
 
-- [ ] People balances persist correctly for any active currency
-- [ ] Existing EGP and USD balances are fully backfilled
-- [ ] Loan and repayment flows write to generalized currency rows
-- [ ] Unique `(person, currency)` balance invariants are enforced
-- [ ] No people mutation path depends on `net_balance_egp` / `net_balance_usd`
+- [x] People balances persist correctly for any active currency
+- [x] Existing EGP and USD balances are fully backfilled
+- [x] Loan and repayment flows write to generalized currency rows
+- [x] Unique `(person, currency)` balance invariants are enforced
+- [x] No people mutation path depends on `net_balance_egp` / `net_balance_usd`
 
 ## Critical Files
 
@@ -58,4 +58,16 @@ currency without dual-field branching.
 ## Progress Notes
 
 - 2026-04-22: Created as the first domain-model generalization ticket
-
+- 2026-04-23: Moved to `wip` and implemented `PersonCurrencyBalance` with a
+  migration backfill from the legacy `net_balance_egp` / `net_balance_usd`
+  columns while preserving those fields as compatibility mirrors
+- 2026-04-23: Switched loan and repayment writes to the generalized balance
+  rows, updated people service payloads and templates to render dynamic balance
+  lists, and added admin/factory support plus migration, service, view, and E2E
+  coverage for third-currency behavior
+- 2026-04-23: Verified with `make test` (1544 passed), `make test-e2e` (271
+  passed), `python backend/manage.py makemigrations --check --dry-run`,
+  `python backend/manage.py check`, targeted `ruff check`, and targeted `mypy`
+  on the touched modules
+- 2026-04-23: Completed — people balances now persist per person and per
+  registry-backed currency without dual-field branching in mutation paths

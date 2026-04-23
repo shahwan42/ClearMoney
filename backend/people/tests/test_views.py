@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from conftest import SessionFactory, UserFactory, set_auth_cookie
-from tests.factories import AccountFactory, InstitutionFactory
+from tests.factories import AccountFactory, CurrencyFactory, InstitutionFactory
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -19,7 +19,10 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def people_view_data(db):
-    """User + session + institution + EGP account (10000) + USD account (500)."""
+    """User + session + institution + EGP, USD, EUR accounts."""
+    CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+    CurrencyFactory(code="USD", name="US Dollar", symbol="$", display_order=1)
+    CurrencyFactory(code="EUR", name="Euro", display_order=2)
     user = UserFactory()
     session = SessionFactory(user=user)
     user_id = str(user.id)
@@ -43,12 +46,22 @@ def people_view_data(db):
         current_balance=500,
         initial_balance=500,
     )
+    eur_acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="EUR Savings",
+        type="savings",
+        currency="EUR",
+        current_balance=800,
+        initial_balance=800,
+    )
 
     yield {
         "user_id": user_id,
         "session_token": session.token,
         "egp_id": str(egp_acct.id),
         "usd_id": str(usd_acct.id),
+        "eur_id": str(eur_acct.id),
     }
 
 
@@ -159,6 +172,25 @@ class TestPeopleLoan:
         )
         assert response.status_code == 400
 
+    def test_third_currency_loan_renders_generalized_balance(self, client, people_view_data):
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        c.post("/people/add", {"name": "Euro"})
+        persons = json.loads(c.get("/api/persons").content)
+        person_id = persons[0]["id"]
+
+        response = c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "125",
+                "account_id": people_view_data["eur_id"],
+                "loan_type": "loan_out",
+            },
+        )
+
+        assert response.status_code == 200
+        assert b"125" in response.content
+        assert b"EUR" in response.content
+
 
 # ---------------------------------------------------------------------------
 # Repayment
@@ -222,6 +254,27 @@ class TestPersonDetail:
         assert b"DetailTest" in response.content
         assert b"Lent" in response.content
         assert b"5,000" in response.content
+
+    def test_detail_page_shows_third_currency_balance(self, client, people_view_data):
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        c.post("/people/add", {"name": "Euro Detail"})
+        persons = json.loads(c.get("/api/persons").content)
+        person_id = persons[0]["id"]
+
+        c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "125",
+                "account_id": people_view_data["eur_id"],
+                "loan_type": "loan_out",
+            },
+        )
+
+        response = c.get(f"/people/{person_id}")
+        assert response.status_code == 200
+        assert b"Euro Detail" in response.content
+        assert b"EUR" in response.content
+        assert b"125" in response.content
 
     def test_404_nonexistent(self, client, people_view_data):
         c = set_auth_cookie(client, people_view_data["session_token"])

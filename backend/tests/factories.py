@@ -35,7 +35,7 @@ from budgets.models import Budget
 from categories.models import Category
 from exchange_rates.models import ExchangeRateLog
 from investments.models import Investment
-from people.models import Person
+from people.models import Person, PersonCurrencyBalance
 from recurring.models import RecurringRule
 from transactions.models import Transaction, VirtualAccountAllocation
 from virtual_accounts.models import VirtualAccount
@@ -317,6 +317,18 @@ class UserCurrencyPreferenceFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory(UserFactory)
     active_currency_codes = ["EGP"]
     selected_display_currency = "EGP"
+
+
+class PersonCurrencyBalanceFactory(factory.django.DjangoModelFactory):
+    """Factory for per-person-per-currency balances."""
+
+    class Meta:
+        model = PersonCurrencyBalance
+
+    id = factory.LazyFunction(uuid.uuid4)
+    person = factory.SubFactory(PersonFactory)
+    currency = factory.SubFactory(CurrencyFactory, code="EGP")
+    balance = 0
 
 
 class DailySnapshotFactory(factory.django.DjangoModelFactory):

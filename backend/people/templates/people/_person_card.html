@@ -13,17 +13,14 @@
                 </div>
             </div>
             <div class="text-end space-y-0.5">
-                {% if person.net_balance_egp != 0 or person.net_balance_usd != 0 %}
-                    {% if person.net_balance_egp != 0 %}
-                    <p class="text-sm font-semibold {% if person.net_balance_egp > 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        {% if person.net_balance_egp > 0 %}+{% endif %}{{ person.net_balance_egp|format_currency:"EGP" }}
+                {% if person.has_open_balance %}
+                    {% for balance in person.balances %}
+                    {% if balance.balance != 0 %}
+                    <p class="text-sm font-semibold {% if balance.balance > 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                        {% if balance.balance > 0 %}+{% endif %}{{ balance.balance|format_currency:balance.currency }}
                     </p>
                     {% endif %}
-                    {% if person.net_balance_usd != 0 %}
-                    <p class="text-sm font-semibold {% if person.net_balance_usd > 0 %}text-green-600{% else %}text-red-600{% endif %}">
-                        {% if person.net_balance_usd > 0 %}+{% endif %}{{ person.net_balance_usd|format_currency:"USD" }}
-                    </p>
-                    {% endif %}
+                    {% endfor %}
                 {% else %}
                 <p class="text-sm font-semibold text-gray-400 dark:text-slate-500">{% trans "Settled" %}</p>
                 {% endif %}
@@ -35,7 +32,7 @@
                     class="flex-1 text-xs text-teal-600 border border-teal-200 rounded-lg py-1.5 hover:bg-teal-50">
                 {% trans "Record Loan" %}
             </button>
-            {% if person.net_balance_egp != 0 or person.net_balance_usd != 0 %}
+            {% if person.has_open_balance %}
             <button onclick="toggleRepayForm('{{ person.id }}')"
                     class="flex-1 text-xs text-amber-600 border border-amber-200 rounded-lg py-1.5 hover:bg-amber-50">
                 {% trans "Repayment" %}

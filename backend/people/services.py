@@ -13,6 +13,7 @@ CRITICAL INVARIANTS:
 
 import logging
 import uuid
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -23,8 +24,9 @@ from django.db.models import F
 from django.utils import timezone as django_tz
 
 from accounts.models import Account
+from auth_app.currency import get_supported_currencies
 from core.serializers import serialize_instance, serialize_row
-from people.models import Person
+from people.models import Person, PersonCurrencyBalance
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
@@ -32,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 def _person_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     """Convert a .values() row to the expected dict format."""
-    return serialize_row(
+    person = serialize_row(
         row,
         {
             "id": "id",
@@ -46,11 +48,60 @@ def _person_to_dict(row: dict[str, Any]) -> dict[str, Any]:
             "updated_at": "updated_at",
         },
     )
+    return _with_balance_payload(person, [])
 
 
 def _person_instance_to_dict(p: Person) -> dict[str, Any]:
     """Convert a Person model instance to a dict."""
-    return serialize_instance(p, _PERSON_FIELDS)
+    person = serialize_instance(p, _PERSON_FIELDS)
+    return _with_balance_payload(person, [])
+
+
+def _with_balance_payload(
+    person: dict[str, Any], balances: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Attach generalized balances and compatibility-derived helpers."""
+    normalized = _normalize_balance_rows(person, balances)
+    person["balances"] = normalized
+    person["balance_map"] = {
+        balance["currency"]: balance["balance"] for balance in normalized
+    }
+    person["has_open_balance"] = any(balance["balance"] != 0 for balance in normalized)
+    return person
+
+
+def _normalize_balance_rows(
+    person: dict[str, Any], balances: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Normalize balance rows and fall back to legacy fields when needed."""
+    seen = {balance["currency"] for balance in balances}
+    normalized = list(balances)
+    for currency, field in (("EGP", "net_balance_egp"), ("USD", "net_balance_usd")):
+        legacy_balance = float(person.get(field, 0) or 0)
+        if currency not in seen and legacy_balance != 0:
+            normalized.append({"currency": currency, "balance": legacy_balance})
+    return sorted(normalized, key=_currency_sort_key)
+
+
+def _currency_sort_key(balance: dict[str, Any]) -> tuple[int, str]:
+    """Sort balances by registry order, then alphabetically."""
+    supported_codes = [currency.code for currency in get_supported_currencies()]
+    code = balance["currency"]
+    if code in supported_codes:
+        return (supported_codes.index(code), code)
+    return (len(supported_codes), code)
+
+
+def _serialize_balance_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Convert a balance .values() row to a dict."""
+    return serialize_row(
+        dict(row),
+        {
+            "person_id": "person_id",
+            "currency": "currency_id",
+            "balance": "balance",
+        },
+    )
 
 
 def _tx_to_dict(row: dict[str, Any]) -> dict[str, Any]:
@@ -126,15 +177,24 @@ class PersonService:
 
     def get_all(self) -> list[dict[str, Any]]:
         """List all persons for the user, ordered by name."""
-        rows = self._qs().order_by("name").values(*_PERSON_FIELDS)
-        return [_person_to_dict(row) for row in rows]
+        rows = list(self._qs().order_by("name").values(*_PERSON_FIELDS))
+        person_ids = [row["id"] for row in rows]
+        balances_by_person = self._get_balances_by_person(person_ids)
+        return [
+            _with_balance_payload(
+                _person_to_dict(row),
+                balances_by_person.get(str(row["id"]), []),
+            )
+            for row in rows
+        ]
 
     def get_by_id(self, person_id: str) -> dict[str, Any] | None:
         """Fetch a single person by ID. Returns None if not found."""
         row = self._qs().filter(id=person_id).values(*_PERSON_FIELDS).first()
         if not row:
             return None
-        return _person_to_dict(row)
+        balances = self._get_balances_by_person([row["id"]]).get(str(row["id"]), [])
+        return _with_balance_payload(_person_to_dict(row), balances)
 
     def create(self, name: str) -> dict[str, Any]:
         """Create a new person. Name is required."""
@@ -195,11 +255,60 @@ class PersonService:
             "current_balance": float(row["current_balance"]),
         }
 
-    def _balance_col_for_currency(self, currency: str) -> str:
-        """Return the person balance column for the given currency."""
-        if currency == "USD":
-            return "net_balance_usd"
-        return "net_balance_egp"
+    def _get_balances_by_person(
+        self, person_ids: list[str] | list[uuid.UUID]
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Return generalized balance rows grouped by person."""
+        if not person_ids:
+            return {}
+        rows = (
+            PersonCurrencyBalance.objects.filter(person_id__in=person_ids)
+            .order_by("currency_id")
+            .values("person_id", "currency_id", "balance")
+        )
+        balances_by_person: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            balance = _serialize_balance_row(row)
+            balances_by_person.setdefault(balance["person_id"], []).append(
+                {
+                    "currency": balance["currency"],
+                    "balance": balance["balance"],
+                }
+            )
+        return balances_by_person
+
+    def _get_person_balance_value(self, person_id: str, currency: str) -> float:
+        """Return the current balance for one person/currency pair."""
+        balance = (
+            PersonCurrencyBalance.objects.filter(person_id=person_id, currency_id=currency)
+            .values_list("balance", flat=True)
+            .first()
+        )
+        return float(balance) if balance is not None else 0.0
+
+    def _update_person_balance(
+        self, person_id: str, currency: str, delta: Decimal, *, now: Any
+    ) -> None:
+        """Atomically apply a delta to generalized and compatibility balances."""
+        balance_row, _ = PersonCurrencyBalance.objects.get_or_create(
+            person_id=person_id,
+            currency_id=currency,
+            defaults={"balance": Decimal("0")},
+        )
+        PersonCurrencyBalance.objects.filter(id=balance_row.id).update(
+            balance=F("balance") + delta,
+            updated_at=now,
+        )
+
+        legacy_updates: dict[str, Any] = {
+            "net_balance": F("net_balance") + delta,
+            "updated_at": now,
+        }
+        if currency == "EGP":
+            legacy_updates["net_balance_egp"] = F("net_balance_egp") + delta
+        elif currency == "USD":
+            legacy_updates["net_balance_usd"] = F("net_balance_usd") + delta
+        Person.objects.for_user(self.user_id).filter(id=person_id).update(**legacy_updates)
 
     def record_loan(
         self,
@@ -238,7 +347,9 @@ class PersonService:
             tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
 
         tx_id = uuid.uuid4()
-        balance_col = self._balance_col_for_currency(currency)
+        person_delta_decimal = Decimal(str(person_delta))
+        account_delta_decimal = Decimal(str(account_delta))
+        now = django_tz.now()
 
         with transaction.atomic():
             # 1. Create transaction
@@ -257,16 +368,15 @@ class PersonService:
 
             # 2. Atomic F() update — avoids race conditions on concurrent balance changes
             Account.objects.for_user(self.user_id).filter(id=account_id).update(
-                current_balance=F("current_balance") + Decimal(str(account_delta)),
-                updated_at=django_tz.now(),
+                current_balance=F("current_balance") + account_delta_decimal,
+                updated_at=now,
             )
 
-            # 3. Dynamic column via **kwargs — balance_col resolves to
-            # "net_balance_egp" or "net_balance_usd" based on account currency
-            Person.objects.for_user(self.user_id).filter(id=person_id).update(
-                **{balance_col: F(balance_col) + Decimal(str(person_delta))},
-                net_balance=F("net_balance") + Decimal(str(person_delta)),
-                updated_at=django_tz.now(),
+            self._update_person_balance(
+                person_id,
+                currency,
+                person_delta_decimal,
+                now=now,
             )
 
         logger.info(
@@ -305,12 +415,7 @@ class PersonService:
         if not person:
             raise ValueError(f"Person not found: {person_id}")
 
-        balance_col = self._balance_col_for_currency(currency)
-        relevant_balance = (
-            person["net_balance_egp"]
-            if currency != "USD"
-            else person["net_balance_usd"]
-        )
+        relevant_balance = self._get_person_balance_value(person_id, currency)
 
         if relevant_balance > 0:
             # They owe me -> they're paying back -> money enters my account
@@ -326,6 +431,9 @@ class PersonService:
             tx_date = datetime.strptime(tx_date, "%Y-%m-%d").date()
 
         tx_id = uuid.uuid4()
+        person_delta_decimal = Decimal(str(person_delta))
+        account_delta_decimal = Decimal(str(account_delta))
+        now = django_tz.now()
 
         with transaction.atomic():
             # 1. Create loan_repayment transaction
@@ -344,16 +452,15 @@ class PersonService:
 
             # 2. Atomic F() update — avoids race conditions on concurrent balance changes
             Account.objects.for_user(self.user_id).filter(id=account_id).update(
-                current_balance=F("current_balance") + Decimal(str(account_delta)),
-                updated_at=django_tz.now(),
+                current_balance=F("current_balance") + account_delta_decimal,
+                updated_at=now,
             )
 
-            # 3. Dynamic column via **kwargs — balance_col resolves to
-            # "net_balance_egp" or "net_balance_usd" based on account currency
-            Person.objects.for_user(self.user_id).filter(id=person_id).update(
-                **{balance_col: F(balance_col) + Decimal(str(person_delta))},
-                net_balance=F("net_balance") + Decimal(str(person_delta)),
-                updated_at=django_tz.now(),
+            self._update_person_balance(
+                person_id,
+                currency,
+                person_delta_decimal,
+                now=now,
             )
 
         logger.info(
@@ -392,12 +499,12 @@ class PersonService:
 
         Args:
             txns: List of transaction dicts (from get_person_transactions).
-            person: Person dict with net_balance_egp and net_balance_usd fields.
+            person: Person dict with generalized `balances`.
 
         Returns:
             List of per-currency dicts, each containing currency, total_lent,
             total_borrowed, total_repaid, net_balance, and progress_pct.
-            Ordered EGP then USD to match display conventions.
+            Ordered by currency registry display order.
         """
         currency_map: dict[str, dict[str, float]] = {}
         for tx in txns:
@@ -416,14 +523,21 @@ class PersonService:
             elif tx["type"] == "loan_repayment":
                 cd["total_repaid"] += tx["amount"]
 
-        by_currency: list[dict[str, Any]] = []
-        for cur in ["EGP", "USD"]:
-            if cur not in currency_map:
-                continue
-            cd = currency_map[cur]
-            net = (
-                person["net_balance_egp"] if cur == "EGP" else person["net_balance_usd"]
+        for balance in person["balances"]:
+            currency_map.setdefault(
+                balance["currency"],
+                {
+                    "total_lent": 0.0,
+                    "total_borrowed": 0.0,
+                    "total_repaid": 0.0,
+                },
             )
+
+        by_currency: list[dict[str, Any]] = []
+        balance_map = person["balance_map"]
+        for cur in sorted(currency_map, key=lambda code: _currency_sort_key({"currency": code, "balance": 0.0})):
+            cd = currency_map[cur]
+            net = balance_map.get(cur, 0.0)
             total_debt = cd["total_lent"] + cd["total_borrowed"]
             progress = (
                 min((cd["total_repaid"] / total_debt) * 100, 100.0)
@@ -541,7 +655,7 @@ class PersonService:
         progress_pct = self._compute_aggregate_progress(
             total_lent, total_borrowed, total_repaid
         )
-        remaining = abs(person["net_balance_egp"]) + abs(person["net_balance_usd"])
+        remaining = sum(abs(balance["balance"]) for balance in person["balances"])
         projected_payoff = self._compute_projected_payoff(
             repayment_dates, remaining, total_repaid
         )
