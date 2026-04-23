@@ -6,8 +6,10 @@ Fixtures create test data via factory_boy factories, tests hit endpoints via Dja
 
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import pytest
+from django.utils.translation import override
 
 from accounts.models import Account, Institution
 from conftest import SessionFactory, UserFactory, set_auth_cookie
@@ -225,6 +227,27 @@ class TestBalanceCheckPage:
         response = c.get(f"/accounts/{accounts_data['savings_id']}/balance-check")
         assert response.status_code == 200
         assert b"Balance Check" in response.content
+
+    def test_balance_literals_are_locale_neutral_in_arabic(
+        self, client, accounts_data
+    ) -> None:
+        account = Account.objects.get(id=accounts_data["savings_id"])
+        account.current_balance = Decimal("3118.10")
+        account.save(update_fields=["current_balance", "updated_at"])
+
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        with override("ar"):
+            response = c.post(
+                f"/accounts/{accounts_data['savings_id']}/balance-check/submit",
+                {"bank_balance": "3117.55"},
+            )
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "const currentBalance = 3118.1;" in content
+        assert "const initialBalance = 3117.55;" in content
+        assert "const currentBalance = 3118,1;" not in content
+        assert "const initialBalance = 3117,55;" not in content
 
     def test_submit_mismatch_shows_correction(self, client, accounts_data):
         c = set_auth_cookie(client, accounts_data["session_token"])

@@ -6,7 +6,6 @@ Last updated: 2026-04-23
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [138](wip/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-20 |
 | [135](wip/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-18 |
 
 ## Pending
@@ -46,6 +45,7 @@ Last updated: 2026-04-23
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [138](done/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-23 |
 | [136](done/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-23 |
 | [147](done/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-23 |
 | [144](done/144-generalized-dashboard-people-summary-and-debt-aggregation.md) | Generalized dashboard people summary and debt aggregation | feature | high | 2026-04-23 |
