@@ -80,12 +80,21 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 
 ## Budgets
 
-Monthly spending limits per category. Dashboard shows progress bars with three states:
+Per-category monthly spending limits plus an optional per-currency total budget.
+Dashboard and `/budgets` both show computed progress with three states:
 - **Green** — under 80% of limit
-- **Amber** — 80-100% of limit
-- **Red** — over limit
+- **Amber** — 80% to under 100% of limit
+- **Red** — at or over limit
 
-CRUD via `/budgets` page. Budget data stored with category association and monthly limit.
+Current behavior includes:
+
+- category budgets scoped by category + currency
+- total budgets scoped by currency
+- current-month expense matching only
+- optional rollover with capped carryover
+- "copy last month" creation from prior-month spending
+- active-currency validation, with blank user input defaulting to the selected
+  display currency
 
 ## Virtual Accounts
 

@@ -1,154 +1,231 @@
 # Budgets
 
-Monthly spending limits per category with traffic-light progress tracking. Budget progress is shown on both the dedicated budgets page and the dashboard.
+Monthly spending limits per category with traffic-light progress tracking.
+Budget status appears on both the dedicated budgets page and the dashboard.
 
 ## Concept
 
-ClearMoney supports two types of budgets:
+ClearMoney currently supports two related budget types:
 
-1. **Per-category budgets** — spending limits for individual expense categories
-2. **Total monthly budget** — overall spending cap for all categories combined
+1. **Per-category budgets** — spending limits for one expense category in one
+   currency
+2. **Total monthly budgets** — an optional overall spending cap per currency
 
-### Per-Category Budget
+### Per-Category Budgets
 
-A budget ties a monthly spending limit to a specific expense category and currency. As you spend in that category during the month, the progress bar fills up with color-coded status:
+A category budget is scoped to:
 
-- **Green** — under 80% of limit
-- **Amber** — 80-99% of limit
-- **Red** — at or over 100% of limit
+- one user
+- one expense category
+- one currency
 
-### Total Monthly Budget
+Current-month spending counts against that budget only when the transaction is:
 
-An optional overall spending cap across all categories in a specific currency. If set, the dashboard warns if individual category budgets sum to more than the total budget.
+- owned by the same user
+- `type = "expense"`
+- in the current month (or supplied target month)
+- in the same category
+- in the same currency
+
+Status colors use the computed spending percentage:
+
+- **Green** — under 80% of effective limit
+- **Amber** — 80% to under 100%
+- **Red** — 100% or more
+
+### Rollover
+
+Category budgets can optionally carry unused money from the previous month into
+the current month.
+
+- When `rollover_enabled` is on, unused prior-month budget is added to the
+  current month’s effective limit.
+- Carryover is computed as `max(0, monthly_limit - previous_month_spent)`.
+- If `max_rollover` is set, carryover is capped at that amount.
+
+Current limitation:
+
+- The list/dashboard budget calculations apply rollover.
+- The budget detail page does **not** currently apply rollover to its displayed
+  percentage/remaining math.
+
+### Copy Last Month
+
+The budgets page includes a **Copy last month** action.
+
+- It looks at last month’s expense spending grouped by `category + currency`.
+- For each group without an existing budget, it creates a new budget using last
+  month’s spending total as the monthly limit.
+- Existing category/currency budgets are skipped.
+
+### Total Monthly Budgets
+
+A total budget is optional and is scoped to:
+
+- one user
+- one currency
+
+It measures all current-month expense spending in that currency, regardless of
+category.
+
+- Uncategorized expense transactions still count toward the total budget.
+- The UI warns when the sum of category budgets in a currency exceeds the total
+  budget for that currency.
 
 ## Models
 
-**File:** `backend/core/models.py` — `Budget`
+**File:** `backend/budgets/models.py`
+
+### Budget
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `category` | FK → Category | Required |
 | `user` | FK → User | Per-user isolation |
 | `monthly_limit` | NUMERIC(15,2) | Must be > 0 |
-| `currency` | varchar | `EGP` or `USD` |
+| `currency` | varchar(3) | User-selectable active currency |
+| `rollover_enabled` | bool | Enables prior-month carryover |
+| `max_rollover` | NUMERIC(15,2), nullable | Optional cap on carryover |
 | `is_active` | bool | Defaults to True |
 
-Unique constraint: `(user_id, category_id, currency)` — prevents duplicate budgets for the same category+currency.
+Unique constraint: `(user_id, category_id, currency)` — one budget per
+category per currency for a user.
 
-### TotalBudget Model
-
-**File:** `backend/core/models.py` — `TotalBudget`
+### TotalBudget
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `user` | FK → User | Per-user isolation |
-| `amount` | NUMERIC(15,2) | Monthly total spending cap, must be > 0 |
-| `currency` | varchar | `EGP` or `USD` |
-| `month` | DATE | First day of month (YYYY-MM-01) |
+| `monthly_limit` | NUMERIC(15,2) | Must be > 0 |
+| `currency` | varchar(3) | Per-currency total cap |
+| `is_active` | bool | Defaults to True |
 
-Unique constraint: `(user_id, month, currency)` — one total budget per month per currency.
+Unique constraint: `(user_id, currency)` — one total budget per currency for a
+user.
 
-**Purpose:** Sets an overall spending ceiling for a month. Dashboard warns if individual category budgets sum to more than the total budget.
-
-## Service
+## Service Behavior
 
 **File:** `backend/budgets/services.py`
 
-**Per-Category Budget Methods:**
+### Main Methods
 
 | Function | Purpose |
 |----------|---------|
-| `get_all_with_spending(user_id, year, month)` | Returns budgets with computed spent/remaining/percentage/status |
-| `create(user_id, data)` | Validates: category required, limit > 0, defaults currency to EGP |
-| `delete(user_id, budget_id)` | Hard delete |
+| `get_all_with_spending(target_date=None)` | Returns active budgets with computed spent/remaining/percentage/status and rollover-adjusted effective limit |
+| `copy_last_month_budgets()` | Creates missing category budgets from last month’s expense totals |
+| `get_budget_with_transactions(budget_id)` | Returns one budget plus matching current-month transactions |
+| `create(category_id, monthly_limit, currency="", rollover_enabled=False, max_rollover=None)` | Validates and creates a budget |
+| `update(budget_id, monthly_limit=None, rollover_enabled=None, max_rollover=None)` | Updates mutable budget fields |
+| `delete(budget_id)` | Hard deletes a category budget |
+| `get_total_budget(currency="")` | Returns total budget with computed spending/status, or `None` |
+| `set_total_budget(limit, currency="")` | Creates or updates the total budget for a currency |
+| `delete_total_budget(currency="")` | Deletes the total budget for a currency |
 
-**Total Budget Methods:**
+### Currency Resolution
 
-| Function | Purpose |
-|----------|---------|
-| `get_total_budget(user_id, currency)` | Returns TotalBudget with computed spending + status (red/amber/green), or None if not set |
-| `set_total_budget(user_id, limit, currency)` | Create or update total monthly budget |
-| `delete_total_budget(user_id, currency)` | Delete total budget |
+User-selectable budget currency is not hard-coded.
 
-### Spending Query
+- Budget create and total-budget create/update accept any **active** user
+  currency.
+- If the submitted currency is blank, it resolves to the user’s selected
+  display currency.
+- Inactive currencies are rejected.
 
-`get_all_with_spending` JOINs budgets with categories and LEFT JOINs transactions filtered by:
-- `type = 'expense'`
-- Date within the target month
-- Currency match
+### Spending Calculation
 
-Computes `spent` via `COALESCE(SUM(t.amount), 0)`. The remaining/percentage/status fields are computed in Python after the query:
+`get_all_with_spending()` computes budget spending from matching expense
+transactions and then calculates:
 
-```python
-spent = Decimal(row["spent"])
-remaining = budget.monthly_limit - spent
-percentage = float(spent / budget.monthly_limit * 100) if budget.monthly_limit else 0
-status = "red" if percentage >= 100 else "amber" if percentage >= 80 else "green"
-```
+- `spent`
+- `remaining`
+- `percentage`
+- `status`
+- `rollover_amount`
+- `effective_limit`
 
-## Views
+The total-budget calculation separately aggregates:
 
-**File:** `backend/budgets/views.py`
+- all expense spending in the currency
+- the sum of active category budgets in the currency
 
-**Per-Category Budget Routes:**
+## Views and UI
+
+**Files:** `backend/budgets/views.py`,
+`backend/budgets/templates/budgets/budgets.html`,
+`backend/budgets/templates/budgets/_total_budget_card.html`
+
+### Routes
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/budgets` | GET | Page with form + active budgets + total budget section |
-| `/budgets/add` | POST | Create per-category budget, redirect to /budgets |
-| `/budgets/{id}/delete` | POST | Delete per-category budget, redirect to /budgets |
+| `/budgets` | GET | Budgets page with total budget card, create form, and existing category budgets |
+| `/budgets/add` | POST | Create a per-category budget |
+| `/budgets/copy-last-month` | POST | Create missing budgets from last month’s spending |
+| `/budgets/<id>/` | GET | Budget detail with contributing current-month transactions |
+| `/budgets/<id>/edit` | POST | Update monthly limit and rollover settings |
+| `/budgets/<id>/delete` | POST | Delete a category budget |
+| `/budgets/total/set` | POST | Create or update a per-currency total budget |
+| `/budgets/total/delete` | POST | Delete a per-currency total budget |
 
-**Total Budget Routes:**
+### Budgets Page
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/budgets/total/set` | POST | Create or update total monthly budget |
-| `/budgets/total/delete` | POST | Delete total monthly budget |
+The page currently contains:
 
-## Templates
+1. **Total budget card**
+   - shows spent, limit, remaining, and status for the selected currency’s
+     total budget
+   - warns when category-budget sum exceeds total budget
+   - supports set, update, and delete
+2. **Create budget form**
+   - expense-category selector
+   - monthly limit input
+   - active-currency selector
+   - rollover toggle
+   - optional max carryover input
+3. **Copy last month** button
+4. **Active budget cards**
+   - category name/icon
+   - spent vs limit
+   - progress bar
+   - remaining / over-budget message
 
-**File:** `backend/budgets/templates/budgets/budgets.html`
+### Defaults
 
-Sections:
-1. **Total budget section** (if set):
-   - Display total limit + current month spending
-   - "Over total budget" warning if categories sum exceeds total
-   - Set/update total button
-   - Delete button if total exists
-2. **Create per-category form** — category dropdown (expense categories), monthly limit input, currency select
-3. **Active per-category budgets** — for each budget:
-   - Category name + icon
-   - Delete button
-   - "Spent / Limit" text
-   - Progress bar with color-coded width
-   - Remaining amount (or "Over budget by X" if negative)
-4. **Empty state** if no budgets
+- The category-budget create form uses the user’s active currencies and selects
+  the current display currency by default.
+- The empty total-budget form defaults to the selected display currency.
 
 ## Dashboard Integration
 
-`DashboardData.budgets` holds a list of budget dicts with spending data from `get_all_with_spending()`. Dashboard shows budgets as compact status badges with colored dots (green/amber/red) and links to `/budgets` management page.
+Dashboard budget summaries use the same category-budget spending computation as
+the budgets module. The dashboard displays compact budget status data sourced
+from `get_all_with_spending()`.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `backend/core/models.py` | Budget and TotalBudget models |
-| `backend/budgets/services.py` | Budget and TotalBudget services — spending calculation, validation, creation/deletion |
-| `backend/budgets/views.py` | budgets_page, budget_add, budget_delete, total_budget_set, total_budget_delete views |
-| `backend/budgets/templates/budgets/budgets.html` | Budgets page template (per-category + total budget sections) |
-| `backend/budgets/tests/` | Service and view tests |
+| `backend/budgets/models.py` | `Budget` and `TotalBudget` models |
+| `backend/budgets/services.py` | Spending calculation, rollover, copy-last-month, validation, total budget logic |
+| `backend/budgets/views.py` | Budgets page, budget CRUD, total budget handlers |
+| `backend/budgets/templates/budgets/budgets.html` | Main budgets page |
+| `backend/budgets/templates/budgets/_total_budget_card.html` | Total budget UI |
+| `backend/budgets/tests/` | Service and view coverage |
 
-## For Newcomers
+## Notes for Newcomers
 
-- **One budget per category+currency** — enforced by unique constraint.
-- **Status thresholds** (80%/100%) are computed in Python, not stored in the DB.
-- **Spending is recalculated each request** — no caching. Budget progress always reflects real-time spending.
+- Budget progress is recalculated from transactions on each request.
+- Category budgets are category+currency scoped, not month-row scoped.
+- Total budgets are currency scoped, not month-row scoped.
+- Total budgets count uncategorized expenses; category budgets do not.
 
 ## Logging
 
 **Service events:**
 
-- `budget.created` — new budget created (currency, category_id)
-- `budget.deleted` — budget removed (id)
+- `budget.created` — new budget created (`currency`, `category_id`)
+- `budget.updated` — budget updated (`id`)
+- `total_budget.set` — total budget created or updated
+- `total_budget.deleted` — total budget removed
 
 **Page views:** `budgets`

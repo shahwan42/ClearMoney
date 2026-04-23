@@ -565,11 +565,13 @@ Monthly spending report page.
 ## Budgets
 
 ### GET `/budgets`
-Budget management page. Shows all category budgets + total monthly budget.
+Budget management page. Shows category budgets plus the per-currency total
+budget card for the user's selected display currency.
 
 **Includes:**
-- Add budget form (category + limit)
-- Set total budget button
+- Add budget form (category + monthly limit + active currency + rollover)
+- Copy last month button
+- Set/update total budget button
 - Warnings if categories exceed total
 
 ---
@@ -577,9 +579,30 @@ Budget management page. Shows all category budgets + total monthly budget.
 ### POST `/budgets/add`
 Create per-category budget.
 
-**Fields:** `category_id`, `limit` (amount)
+**Fields:** `category_id`, `monthly_limit`, `currency`,
+`rollover_enabled`, `max_rollover`
 
-**Validation:** Category must exist, limit > 0
+**Validation:** Category required, monthly limit > 0, currency must be active
+(blank currency resolves to selected display currency)
+
+---
+
+### POST `/budgets/copy-last-month`
+Create missing budgets from last month's expense totals grouped by category and
+currency.
+
+---
+
+### GET `/budgets/<id>/`
+Budget detail page for one category budget.
+
+Shows current-month matching expense transactions for the same category and
+currency.
+
+---
+
+### POST `/budgets/<id>/edit`
+Update a category budget's monthly limit and rollover settings.
 
 ---
 
@@ -589,11 +612,12 @@ Delete per-category budget.
 ---
 
 ### POST `/budgets/total/set`
-Create or update total monthly budget (cap on all spending).
+Create or update the per-currency total monthly budget.
 
-**Fields:** `total_limit` (amount)
+**Fields:** `monthly_limit`, `currency`
 
-**Validation:** limit > 0
+**Validation:** limit > 0, currency must be active (blank currency resolves to
+selected display currency)
 
 ---
 
