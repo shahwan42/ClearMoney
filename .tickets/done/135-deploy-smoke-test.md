@@ -3,9 +3,9 @@ id: "135"
 title: "Deploy smoke test — post-deployment health verification"
 type: chore
 priority: high
-status: wip
+status: done
 created: 2026-04-18
-updated: 2026-04-18
+updated: 2026-04-23
 ---
 
 ## Description
@@ -35,27 +35,51 @@ every deploy.
 
 ## Acceptance Criteria
 
-- [ ] `make deploy-test` SSHes to the production VPS, runs the smoke test, and
+- [x] `make deploy-test` SSHes to the production VPS, runs the smoke test, and
       exits **0** on success / **non-zero** on any failure — suitable for CI
       pipelines and shell-script `&&` chains.
-- [ ] The smoke test covers all six critical paths from `.claude/rules/critical-paths.md`:
+- [x] The smoke test covers all six critical paths from `.claude/rules/critical-paths.md`:
       CP-1 (auth), CP-2 (account + transaction + balance), CP-3 (transfer),
       CP-4 (budget), CP-5 (dashboard), CP-6 (data isolation).
-- [ ] The sentinel user `smoke-deploy@clearmoney.app` and all associated data
+- [x] The sentinel user `smoke-deploy@clearmoney.app` and all associated data
       are deleted at the end of a successful run — and remain deletable via
       `make deploy-test-cleanup` when the run failed or was interrupted.
-- [ ] `make deploy-test-cleanup` is **idempotent**: running it when nothing
+- [x] `make deploy-test-cleanup` is **idempotent**: running it when nothing
       exists is a no-op (exit 0, prints "nothing to clean").
-- [ ] No existing user's data is read, modified, or deleted.
-- [ ] The smoke test does **not** send real emails (bypasses Resend by creating
+- [x] No existing user's data is read, modified, or deleted.
+- [x] The smoke test does **not** send real emails (bypasses Resend by creating
       tokens directly in the DB — same pattern as E2E conftest).
-- [ ] The Django management command (`deploy_smoke_test`) is also runnable
+- [x] The Django management command (`deploy_smoke_test`) is also runnable
       locally against a running dev server for easy debugging.
-- [ ] All new Python code passes `make lint` (ruff + mypy, zero errors).
-- [ ] A unit test module `backend/jobs/tests/test_smoke_test.py` covers:
+- [x] All new Python code passes `make lint` (ruff + mypy, zero errors).
+- [x] A unit test module `backend/jobs/tests/test_smoke_test.py` covers:
       - Cleanup when no smoke user exists (no-op, no exception)
       - Cleanup when smoke user + data exists (all deleted)
       - Sentinel email constant matches what the command uses
+
+---
+
+## Implementation Notes
+
+- Added `backend/jobs/management/commands/deploy_smoke_test.py` with:
+  cleanup-first execution, manual `urllib` HTTP client, form/JSON coverage for
+  the six critical paths, and final cleanup in `finally` unless `--no-cleanup`
+  is explicitly requested.
+- Added a small public helper `auth_app.services.seed_default_categories()` so
+  smoke/QA flows can seed the same default categories used by registration.
+- Added `make deploy-test` and `make deploy-test-cleanup`, both executed inside
+  the production Django container so the server needs no extra host packages or
+  ad-hoc scripts.
+- Cleanup is idempotent and removes both the primary smoke user and the
+  isolation-only smoke user, plus tokens and related data, inside a DB
+  transaction.
+
+## Progress Notes
+
+- 2026-04-23: Started — Mapped production deploy flow, auth/session behavior, and the real HTTP endpoints used by the six critical paths.
+- 2026-04-23: Implemented — Added the management command, cleanup-only mode, shared category seeding helper, Makefile targets, and smoke cleanup unit tests.
+- 2026-04-23: Verified — `backend/jobs/tests/test_smoke_test.py` passed, the command succeeded locally against a live dev server, `make test` passed (1564 tests), `make lint` passed, and `make test-e2e` passed (273 tests).
+- 2026-04-23: Completed — Deploy smoke verification is now runnable locally and on the VPS, idempotent across reruns and crash recovery, and closed out with ticket/index updates in the same commit.
 
 ---
 

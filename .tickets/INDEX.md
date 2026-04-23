@@ -4,9 +4,7 @@ Last updated: 2026-04-23
 
 ## In Progress
 
-| ID | Title | Type | Priority | Updated |
-| --- | --- | --- | --- | --- |
-| [135](wip/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-18 |
+(none)
 
 ## Pending
 
@@ -18,8 +16,6 @@ Last updated: 2026-04-23
 | [150](pending/150-generalized-snapshot-model-and-historical-backfill.md) | Generalized snapshot model and historical backfill | feature | high | 2026-04-22 |
 | [149](pending/149-dynamic-reports-filters-and-exact-currency-reporting.md) | Dynamic reports filters and exact-currency reporting | feature | medium | 2026-04-22 |
 | [148](pending/148-dynamic-budgets-and-total-budgets.md) | Dynamic budgets and total budgets | feature | medium | 2026-04-22 |
-| [146](pending/146-dashboard-selected-currency-behavior.md) | Dashboard selected-currency behavior | feature | high | 2026-04-22 |
-| [145](pending/145-generalize-net-worth-summary-data-structures.md) | Generalize net worth summary data structures | feature | high | 2026-04-22 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [100](pending/100-smarter-more-menu.md) | Smarter More menu organization | improvement | medium | 2026-03-31 |
@@ -45,13 +41,16 @@ Last updated: 2026-04-23
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [138](done/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-23 |
-| [136](done/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-23 |
 | [147](done/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-23 |
+| [146](done/146-dashboard-selected-currency-behavior.md) | Dashboard selected-currency behavior | feature | high | 2026-04-23 |
+| [145](done/145-generalize-net-worth-summary-data-structures.md) | Generalize net worth summary data structures | feature | high | 2026-04-23 |
 | [144](done/144-generalized-dashboard-people-summary-and-debt-aggregation.md) | Generalized dashboard people summary and debt aggregation | feature | high | 2026-04-23 |
 | [143](done/143-dynamic-people-ui-and-debt-summary-contracts.md) | Dynamic people UI and debt summary contracts | feature | high | 2026-04-23 |
 | [142](done/142-generalized-person-currency-balance-storage.md) | Generalized person currency balance storage | feature | high | 2026-04-23 |
 | [141](done/141-complete-selected-currency-plumbing-rollout.md) | Complete selected-currency plumbing rollout | improvement | high | 2026-04-23 |
+| [138](done/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-23 |
+| [136](done/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-23 |
+| [135](done/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-23 |
 | [140](done/140-complete-registry-backed-currency-option-rollout.md) | Complete registry-backed currency option rollout | improvement | high | 2026-04-22 |
 | [139](done/139-dynamic-multi-currency-foundation.md) | Dynamic multi-currency foundation | feature | high | 2026-04-22 |
 | [130](done/130-dead-utility-functions-db-htmx-helpers.md) | Dead utility functions: row_to_dict, rows_to_dicts, success_response, _lookup_account_currency | chore | low | 2026-04-22 |

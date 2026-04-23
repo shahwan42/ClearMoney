@@ -519,6 +519,12 @@ _email_service = EmailService(
     app_url=os.environ.get("APP_URL", "http://localhost:8000"),
 )
 
+
+def seed_default_categories(user_id: str) -> None:
+    """Public wrapper for default-category seeding used by smoke/QA flows."""
+    auth_service._seed_default_categories(user_id)
+
+
 auth_service = AuthService(
     email_service=_email_service,
     max_daily_emails=int(os.environ.get("MAX_DAILY_EMAILS", "50")),
