@@ -7,7 +7,7 @@ data building for the monthly reports page.
 import dataclasses
 import logging
 from datetime import date
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
@@ -516,7 +516,7 @@ def get_fee_analytics(
     by_type = [
         {"name": k.capitalize(), "amount": v} for k, v in by_type_map.items() if v > 0
     ]
-    by_type.sort(key=lambda x: x["amount"], reverse=True)
+    by_type.sort(key=lambda x: cast(float, x["amount"]), reverse=True)
 
     # Trend (Last 6 months)
     trend = []

@@ -7,7 +7,6 @@ import pytest
 from tests.factories import (
     AccountFactory,
     InstitutionFactory,
-    InvestmentFactory,
     UserFactory,
     VirtualAccountFactory,
 )

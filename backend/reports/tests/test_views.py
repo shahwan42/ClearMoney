@@ -5,8 +5,8 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
-from django.test import Client
 from django.http import HttpResponse
+from django.test import Client
 
 from auth_app.currency import (
     set_user_active_currencies,

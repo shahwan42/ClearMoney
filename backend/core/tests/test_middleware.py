@@ -1,14 +1,17 @@
 """Tests for TimezoneMiddleware, LanguageMiddleware and context processors."""
 
 import zoneinfo
+from typing import cast
 
 import pytest
 from django.http import HttpResponse
 from django.test import RequestFactory
 from django.utils import translation
 
+from auth_app.currency import CurrencyOption, DisplayCurrencyContext
 from core.context_processors import active_tab, currency_preferences
 from core.middleware import LanguageMiddleware, TimezoneMiddleware
+from core.types import AuthenticatedRequest
 from tests.factories import CurrencyFactory, UserCurrencyPreferenceFactory, UserFactory
 
 
@@ -18,8 +21,8 @@ class TestTimezoneMiddleware:
         request = factory.get("/")
 
         def get_response(req: object) -> HttpResponse:
-            assert hasattr(req, "tz")
-            assert isinstance(req.tz, zoneinfo.ZoneInfo)
+            auth_req = cast(AuthenticatedRequest, req)
+            assert isinstance(auth_req.tz, zoneinfo.ZoneInfo)
             return HttpResponse("ok")
 
         middleware = TimezoneMiddleware(get_response)
@@ -30,7 +33,8 @@ class TestTimezoneMiddleware:
         request = factory.get("/")
 
         def get_response(req: object) -> HttpResponse:
-            assert str(req.tz) == "Africa/Cairo"  # type: ignore[attr-defined]
+            auth_req = cast(AuthenticatedRequest, req)
+            assert str(auth_req.tz) == "Africa/Cairo"
             return HttpResponse("ok")
 
         middleware = TimezoneMiddleware(get_response)
@@ -91,10 +95,11 @@ class TestCurrencyPreferencesContext:
         request = factory.get("/")
 
         result = currency_preferences(request)
+        display_currency = cast(DisplayCurrencyContext, result["display_currency"])
 
         assert result["active_currencies"] == []
         assert result["selected_display_currency"] == "EGP"
-        assert result["display_currency"].selected_currency == "EGP"
+        assert display_currency.selected_currency == "EGP"
 
     @pytest.mark.django_db
     def test_authenticated_request_exposes_effective_display_currency(self) -> None:
@@ -112,10 +117,12 @@ class TestCurrencyPreferencesContext:
         request.user_id = str(user.id)  # type: ignore[attr-defined]
 
         result = currency_preferences(request)
+        active_currencies = cast(list[CurrencyOption], result["active_currencies"])
+        display_currency = cast(DisplayCurrencyContext, result["display_currency"])
 
-        assert [currency.code for currency in result["active_currencies"]] == ["EUR"]
+        assert [currency.code for currency in active_currencies] == ["EUR"]
         assert result["selected_display_currency"] == "EUR"
-        assert result["display_currency"].selected_currency == "EUR"
+        assert display_currency.selected_currency == "EUR"
 
     @pytest.mark.django_db
     def test_authenticated_user_default_english(self) -> None:

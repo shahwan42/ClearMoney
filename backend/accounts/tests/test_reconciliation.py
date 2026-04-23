@@ -158,6 +158,7 @@ class TestAccountBalanceCheck:
         from accounts.services import load_health_warnings
 
         summary = svc.get_by_id(str(acc.id))
+        assert summary is not None
         warnings = load_health_warnings(
             str(user.id), [summary], ZoneInfo("UTC"), include_stale_reconciliation=True
         )

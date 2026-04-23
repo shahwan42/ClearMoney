@@ -739,7 +739,7 @@ class TestQuickEntryViews:
         assert f'value="{today}"' in content
         # Type selection includes Transfer
         assert 'value="transfer"' in content
-        assert 'qeToggleType' in content
+        assert "qeToggleType" in content
 
     def test_quick_entry_transfer_success(self, client, tx_view_data):
         """POST /transactions/quick with type=transfer creates two legs."""
@@ -765,7 +765,7 @@ class TestQuickEntryViews:
         )
         assert resp.status_code == 200
         assert b"Transaction saved!" in resp.content
-        
+
         # Verify both legs created
         txs = Transaction.objects.filter(note="Quick transfer test")
         assert txs.count() == 2
@@ -2111,7 +2111,9 @@ class TestTransactionSubmitUX:
         content = resp.content.decode()
         assert "hx-disabled-elt" in content
 
-    def test_transfer_unified_form_has_spinner_button(self, client, tx_view_data) -> None:
+    def test_transfer_unified_form_has_spinner_button(
+        self, client, tx_view_data
+    ) -> None:
         """Transfer form submit button has spinner markup."""
         c = set_auth_cookie(client, tx_view_data["session_token"])
         resp = c.get("/transfer/new")

@@ -114,7 +114,10 @@ class TestAccountsList:
     def test_header_shows_selected_currency_selector(self, client, accounts_data):
         CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
         CurrencyFactory(code="EUR", name="Euro", display_order=1)
-        from auth_app.currency import set_user_active_currencies, set_user_selected_display_currency
+        from auth_app.currency import (
+            set_user_active_currencies,
+            set_user_selected_display_currency,
+        )
 
         set_user_active_currencies(accounts_data["user_id"], ["EGP", "EUR"])
         set_user_selected_display_currency(accounts_data["user_id"], "EUR")
@@ -122,7 +125,7 @@ class TestAccountsList:
         c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.get("/accounts")
         assert response.status_code == 200
-        assert b'header-display-currency' in response.content
+        assert b"header-display-currency" in response.content
         assert b'value="EUR" selected' in response.content
 
 
@@ -212,7 +215,9 @@ class TestBalanceCheckPage:
             {"bank_balance": "15000"},
         )
         assert response.status_code == 302
-        assert response.url == f"/accounts/{accounts_data['savings_id']}"
+        assert (
+            response.headers["Location"] == f"/accounts/{accounts_data['savings_id']}"
+        )
 
 
 # ---------------------------------------------------------------------------

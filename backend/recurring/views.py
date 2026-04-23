@@ -21,7 +21,6 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from accounts.models import Account
 from accounts.services import AccountService
 from categories.models import Category
 from core.decorators import inject_service

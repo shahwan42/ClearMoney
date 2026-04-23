@@ -16,8 +16,8 @@ try:
 except Exception:
     HTML = None
 
-from budgets.services import BudgetService
 from auth_app.currency import resolve_user_currency_choice
+from budgets.services import BudgetService
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from reports.services import get_monthly_report

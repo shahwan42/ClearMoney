@@ -14,8 +14,8 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from auth_app.currency import (
-    get_user_display_currency_context,
     get_supported_currencies,
+    get_user_display_currency_context,
     set_user_active_currencies,
     set_user_selected_display_currency,
 )

@@ -26,3 +26,4 @@ class AuthenticatedRequest(HttpRequest):
     user_id: str
     user_email: str
     tz: zoneinfo.ZoneInfo
+    htmx: bool

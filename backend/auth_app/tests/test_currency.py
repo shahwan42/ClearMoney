@@ -3,8 +3,8 @@
 import pytest
 
 from auth_app.currency import (
-    get_user_display_currency_context,
     get_user_active_currency_codes,
+    get_user_display_currency_context,
     get_user_selected_display_currency,
     resolve_user_currency_choice,
     set_user_active_currencies,

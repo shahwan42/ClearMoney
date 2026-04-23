@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from accounts.models import Account, Institution
 from auth_app.models import User
@@ -25,7 +25,7 @@ from transactions.services import TransactionService
 class Command(BaseCommand):
     help = "Seed standard QA test data for a given user (idempotent)."
 
-    def add_arguments(self, parser: object) -> None:
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             "--email",
             default="qa@clearmoney.app",
@@ -33,7 +33,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: object, **options: object) -> None:
-        email: str = options["email"]
+        email = str(options["email"])
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
@@ -201,7 +201,6 @@ class Command(BaseCommand):
                 user_id=uid,
                 category_id=cat_id,
                 currency=currency,
-                month=today.replace(day=1),
             ).exists()
             if not exists:
                 bsvc.create(cat_id, limit, currency)

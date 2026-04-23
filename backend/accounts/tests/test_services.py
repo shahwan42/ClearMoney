@@ -11,7 +11,6 @@ import pytest
 
 from accounts.models import Institution
 from accounts.services import AccountService, InstitutionService
-from tests.factories import CurrencyFactory
 from conftest import SessionFactory, UserFactory
 from core.billing import (
     compute_due_date,
@@ -23,6 +22,7 @@ from core.billing import (
 from tests.factories import (
     AccountFactory,
     CategoryFactory,
+    CurrencyFactory,
     InstitutionFactory,
     TransactionFactory,
     VirtualAccountFactory,

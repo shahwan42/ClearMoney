@@ -296,7 +296,7 @@ class TestWhatIfScenarios:
             auto_confirm=False,
         )
 
-        rule2 = RecurringRule.objects.create(
+        RecurringRule.objects.create(
             user_id=forecast_data["user_id"],
             template_transaction=_make_template(
                 forecast_data, type="income", amount=3000.0, note="Bonus"
@@ -318,7 +318,7 @@ class TestWhatIfScenarios:
         svc = _svc(forecast_data["user_id"])
 
         # Create two expense rules
-        rule1 = RecurringRule.objects.create(
+        RecurringRule.objects.create(
             user_id=forecast_data["user_id"],
             template_transaction=_make_template(
                 forecast_data, type="expense", amount=500.0, note="Netflix"

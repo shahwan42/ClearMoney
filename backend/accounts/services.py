@@ -22,13 +22,13 @@ from django.utils import timezone as django_tz
 from django.utils.translation import gettext, gettext_lazy
 
 from accounts.models import Account, AccountSnapshot, Institution
-from auth_app.currency import get_user_active_currency_codes
 from accounts.types import (
     AccountDropdownItem,
     AccountSummary,
     HealthWarning,
     NetWorthSummary,
 )
+from auth_app.currency import get_user_active_currency_codes
 from core.billing import (
     BillingCycleInfo,
     get_billing_cycle_info,
@@ -432,7 +432,9 @@ class AccountService:
             name = raw_name
         else:
             # Auto-generate name from institution + type if left blank
-            account = self._qs().filter(id=account_id).select_related("institution").first()
+            account = (
+                self._qs().filter(id=account_id).select_related("institution").first()
+            )
             if not account:
                 return None
             type_label = ACCOUNT_TYPE_LABELS.get(acc_type, acc_type)
