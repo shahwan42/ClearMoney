@@ -7,9 +7,9 @@ from django.http import HttpResponse
 from django.test import RequestFactory
 from django.utils import translation
 
-from core.context_processors import active_tab
+from core.context_processors import active_tab, currency_preferences
 from core.middleware import LanguageMiddleware, TimezoneMiddleware
-from tests.factories import UserFactory
+from tests.factories import CurrencyFactory, UserCurrencyPreferenceFactory, UserFactory
 
 
 class TestTimezoneMiddleware:
@@ -83,6 +83,39 @@ class TestLanguageMiddleware:
         middleware = LanguageMiddleware(get_response)
         response = middleware(request)
         assert response.status_code == 200
+
+
+class TestCurrencyPreferencesContext:
+    def test_anonymous_request_uses_safe_defaults(self) -> None:
+        factory = RequestFactory()
+        request = factory.get("/")
+
+        result = currency_preferences(request)
+
+        assert result["active_currencies"] == []
+        assert result["selected_display_currency"] == "EGP"
+        assert result["display_currency"].selected_currency == "EGP"
+
+    @pytest.mark.django_db
+    def test_authenticated_request_exposes_effective_display_currency(self) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        user = UserFactory()
+        UserCurrencyPreferenceFactory(
+            user=user,
+            active_currency_codes=["EUR", "BOGUS"],
+            selected_display_currency="USD",
+        )
+
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user_id = str(user.id)  # type: ignore[attr-defined]
+
+        result = currency_preferences(request)
+
+        assert [currency.code for currency in result["active_currencies"]] == ["EUR"]
+        assert result["selected_display_currency"] == "EUR"
+        assert result["display_currency"].selected_currency == "EUR"
 
     @pytest.mark.django_db
     def test_authenticated_user_default_english(self) -> None:

@@ -168,6 +168,20 @@ class TestReportsPage:
         assert response.status_code == 200
         assert mock_report.call_args.args[4] == "EUR"
 
+    def test_page_marks_effective_selected_currency_in_filter(
+        self, auth_client: Client, auth_user: tuple[str, str, str]
+    ) -> None:
+        user_id, _, _ = auth_user
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(user_id, ["EGP", "EUR"])
+        set_user_selected_display_currency(user_id, "EUR")
+
+        response = auth_client.get("/reports")
+
+        assert response.status_code == 200
+        assert b'<option value="EUR" selected>' in response.content
+
     def test_rejects_inactive_currency_filter(
         self, auth_client: Client, auth_user: tuple[str, str, str]
     ) -> None:

@@ -19,7 +19,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
-from auth_app.currency import get_user_selected_display_currency
+from auth_app.currency import get_user_display_currency_context
 from budgets.services import BudgetService
 from categories.models import Category
 from core.decorators import inject_service
@@ -53,7 +53,8 @@ def budgets_page(request: AuthenticatedRequest, svc: BudgetService) -> HttpRespo
         )
         .order_by("-usage_count", "name_en")
     )
-    total_budget_currency = get_user_selected_display_currency(request.user_id)
+    display_currency = get_user_display_currency_context(request.user_id)
+    total_budget_currency = display_currency.selected_currency
     total_budget = svc.get_total_budget(total_budget_currency)
 
     return render(
@@ -220,9 +221,9 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
                 "budgets/_total_budget_card.html",
                 {
                     "total_budget": total_budget,
-                    "total_budget_currency": get_user_selected_display_currency(
+                    "total_budget_currency": get_user_display_currency_context(
                         request.user_id
-                    ),
+                    ).selected_currency,
                     "error": "Invalid amount",
                 },
             )
@@ -238,9 +239,9 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
                 "budgets/_total_budget_card.html",
                 {
                     "total_budget": total_budget,
-                    "total_budget_currency": get_user_selected_display_currency(
+                    "total_budget_currency": get_user_display_currency_context(
                         request.user_id
-                    ),
+                    ).selected_currency,
                     "error": str(e),
                 },
             )
@@ -282,9 +283,9 @@ def total_budget_delete(
             "budgets/_total_budget_card.html",
             {
                 "total_budget": None,
-                "total_budget_currency": get_user_selected_display_currency(
+                "total_budget_currency": get_user_display_currency_context(
                     request.user_id
-                ),
+                ).selected_currency,
             },
         )
 

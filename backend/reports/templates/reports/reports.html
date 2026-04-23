@@ -40,7 +40,7 @@
     <div class="flex gap-2">
         <select onchange="location.href='/reports?year={{ data.year }}&month={{ data.month }}&currency='+this.value"
                 class="flex-1 border dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm dark:bg-slate-700 dark:text-slate-200">
-            {% for currency in active_currencies %}
+            {% for currency in display_currency.active_currencies %}
             <option value="{{ currency.code }}" {% if data.filter_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
             {% endfor %}
         </select>

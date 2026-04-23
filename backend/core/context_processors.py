@@ -8,8 +8,8 @@ These run on every template render and inject common data.
 from django.http import HttpRequest
 
 from auth_app.currency import (
-    get_user_active_currencies,
-    get_user_selected_display_currency,
+    DisplayCurrencyContext,
+    get_user_display_currency_context,
 )
 
 
@@ -35,11 +35,18 @@ def currency_preferences(request: HttpRequest) -> dict[str, object]:
     """Expose active currencies and the selected display currency to templates."""
     user_id = getattr(request, "user_id", "")
     if not user_id:
+        display_currency = DisplayCurrencyContext(
+            active_currencies=[],
+            selected_currency="EGP",
+        )
         return {
-            "active_currencies": [],
-            "selected_display_currency": "EGP",
+            "display_currency": display_currency,
+            "active_currencies": display_currency.active_currencies,
+            "selected_display_currency": display_currency.selected_currency,
         }
+    display_currency = get_user_display_currency_context(user_id)
     return {
-        "active_currencies": get_user_active_currencies(user_id),
-        "selected_display_currency": get_user_selected_display_currency(user_id),
+        "display_currency": display_currency,
+        "active_currencies": display_currency.active_currencies,
+        "selected_display_currency": display_currency.selected_currency,
     }

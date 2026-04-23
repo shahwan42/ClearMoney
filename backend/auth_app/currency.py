@@ -16,6 +16,14 @@ class CurrencyOption:
     symbol: str = ""
 
 
+@dataclass(frozen=True)
+class DisplayCurrencyContext:
+    """Normalized active/display currency state for one user."""
+
+    active_currencies: list[CurrencyOption]
+    selected_currency: str
+
+
 DEFAULT_DISPLAY_CURRENCY = "EGP"
 
 
@@ -85,20 +93,38 @@ def get_user_active_currencies(user_id: str) -> list[CurrencyOption]:
     return [by_code[code] for code in codes if code in by_code]
 
 
+def get_user_display_currency_context(user_id: str) -> DisplayCurrencyContext:
+    """Return the canonical effective display-currency state for a user."""
+    prefs = get_or_create_user_currency_preferences(user_id)
+    supported_by_code = {
+        currency.code: currency for currency in get_supported_currencies()
+    }
+    active_currencies = [
+        supported_by_code.get(code, CurrencyOption(code=code, name=code))
+        for code in prefs.active_currency_codes
+    ]
+    selected_currency = prefs.selected_display_currency
+    return DisplayCurrencyContext(
+        active_currencies=active_currencies,
+        selected_currency=selected_currency,
+    )
+
+
 def get_user_selected_display_currency(user_id: str) -> str:
     """Return the user's selected display currency."""
-    return get_or_create_user_currency_preferences(user_id).selected_display_currency
+    return get_user_display_currency_context(user_id).selected_currency
 
 
 def resolve_user_currency_choice(user_id: str, currency_code: str | None) -> str:
     """Resolve a user-selectable currency choice to an active currency code."""
     code = str(currency_code or "").upper().strip()
+    context = get_user_display_currency_context(user_id)
     if code:
-        active_codes = get_user_active_currency_codes(user_id)
+        active_codes = [currency.code for currency in context.active_currencies]
         if code not in active_codes:
             raise ValueError(f"Invalid currency: {code}")
         return code
-    return get_user_selected_display_currency(user_id)
+    return context.selected_currency
 
 
 def set_user_active_currencies(

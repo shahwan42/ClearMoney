@@ -3,7 +3,7 @@
 
 <div class="space-y-2" id="spending-by-category">
     {% if data.spending_by_category %}
-    {% with cur=data.filter_currency|default:"EGP" %}
+    {% with cur=data.filter_currency %}
     {% for cat in data.spending_by_category %}
     <div>
         <div class="flex justify-between text-sm mb-1">

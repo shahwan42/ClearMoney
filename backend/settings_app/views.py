@@ -14,8 +14,8 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
 from auth_app.currency import (
+    get_user_display_currency_context,
     get_supported_currencies,
-    get_user_selected_display_currency,
     set_user_active_currencies,
     set_user_selected_display_currency,
 )
@@ -125,14 +125,14 @@ def settings_page(request: AuthenticatedRequest) -> HttpResponse:
     No server data needed — all interactivity is client-side JS.
     """
     logger.info("page viewed: settings, user=%s", request.user_email)
+    display_currency = get_user_display_currency_context(request.user_id)
     return render(
         request,
         "settings_app/settings.html",
         {
             "supported_currencies": get_supported_currencies(),
-            "current_display_currency": get_user_selected_display_currency(
-                request.user_id
-            ),
+            "display_currency": display_currency,
+            "current_display_currency": display_currency.selected_currency,
         },
     )
 

@@ -453,6 +453,27 @@ class TestTotalBudgetViews:
 
         assert resp.status_code == 400
 
+    def test_htmx_invalid_total_budget_preserves_selected_currency(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        set_user_active_currencies(budget_view_data["user_id"], ["EGP", "EUR"])
+        set_user_selected_display_currency(budget_view_data["user_id"], "EUR")
+
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        resp = c.post(
+            "/budgets/total/set",
+            {
+                "monthly_limit": "abc",
+                "currency": "",
+            },
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert resp.status_code == 200
+        assert b'name="currency" value="EUR"' in resp.content
+
     def test_total_budget_has_aria_progressbar(
         self, client: Client, budget_view_data: dict
     ) -> None:

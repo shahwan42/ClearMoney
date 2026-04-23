@@ -12,8 +12,8 @@
                     name="currency"
                     onchange="this.form.submit()"
                     class="bg-slate-800 border border-slate-700 text-slate-100 rounded-lg px-2 py-1 text-xs min-h-[36px]">
-                {% for currency in active_currencies %}
-                <option value="{{ currency.code }}" {% if selected_display_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+                {% for currency in display_currency.active_currencies %}
+                <option value="{{ currency.code }}" {% if display_currency.selected_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
                 {% endfor %}
             </select>
         </form>

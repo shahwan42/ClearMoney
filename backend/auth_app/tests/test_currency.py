@@ -3,8 +3,10 @@
 import pytest
 
 from auth_app.currency import (
+    get_user_display_currency_context,
     get_user_active_currency_codes,
     get_user_selected_display_currency,
+    resolve_user_currency_choice,
     set_user_active_currencies,
     set_user_selected_display_currency,
 )
@@ -33,6 +35,21 @@ class TestCurrencyPreferences:
         assert get_user_active_currency_codes(str(user.id)) == ["EUR"]
         assert get_user_selected_display_currency(str(user.id)) == "EUR"
 
+    def test_display_currency_context_returns_effective_selection(self) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        user = UserFactory()
+        UserCurrencyPreferenceFactory(
+            user=user,
+            active_currency_codes=["EUR", "BOGUS"],
+            selected_display_currency="USD",
+        )
+
+        context = get_user_display_currency_context(str(user.id))
+
+        assert [currency.code for currency in context.active_currencies] == ["EUR"]
+        assert context.selected_currency == "EUR"
+
     def test_set_active_currencies_requires_at_least_one(self) -> None:
         CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
         user = UserFactory()
@@ -59,3 +76,15 @@ class TestCurrencyPreferences:
         set_user_active_currencies(str(user.id), ["EGP"])
 
         assert get_user_selected_display_currency(str(user.id)) == "EGP"
+
+    def test_resolve_user_currency_choice_defaults_to_effective_selection(self) -> None:
+        CurrencyFactory(code="EGP", name="Egyptian Pound", display_order=0)
+        CurrencyFactory(code="EUR", name="Euro", display_order=1)
+        user = UserFactory()
+        UserCurrencyPreferenceFactory(
+            user=user,
+            active_currency_codes=["EUR"],
+            selected_display_currency="USD",
+        )
+
+        assert resolve_user_currency_choice(str(user.id), None) == "EUR"

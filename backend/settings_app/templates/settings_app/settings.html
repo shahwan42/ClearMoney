@@ -61,7 +61,7 @@
                     <input type="checkbox"
                            name="active_currency_codes"
                            value="{{ currency.code }}"
-                           {% for active in active_currencies %}{% if active.code == currency.code %}checked{% endif %}{% endfor %}>
+                           {% for active in display_currency.active_currencies %}{% if active.code == currency.code %}checked{% endif %}{% endfor %}>
                     <span class="text-sm text-slate-700 dark:text-slate-200">{{ currency.code }}</span>
                     <span class="text-xs text-gray-400 dark:text-slate-500">{{ currency.name }}</span>
                 </label>
@@ -80,8 +80,8 @@
                 <select id="settings-display-currency"
                         name="currency"
                         class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2 text-sm">
-                    {% for currency in active_currencies %}
-                    <option value="{{ currency.code }}" {% if current_display_currency == currency.code %}selected{% endif %}>{{ currency.code }} — {{ currency.name }}</option>
+                    {% for currency in display_currency.active_currencies %}
+                    <option value="{{ currency.code }}" {% if display_currency.selected_currency == currency.code %}selected{% endif %}>{{ currency.code }} — {{ currency.name }}</option>
                     {% endfor %}
                 </select>
             </div>
