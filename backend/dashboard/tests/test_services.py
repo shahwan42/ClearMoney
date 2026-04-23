@@ -1398,7 +1398,10 @@ def test_debt_total_includes_generalized_people_debt_by_currency(svc_data):
     svc = DashboardService(svc_data["user_id"], TZ)
     result = svc.get_dashboard()
 
-    assert result["debt_by_currency"] == {"USD": 50.0, "EUR": 300.0}
+    assert result["debt_by_currency"]["USD"] == pytest.approx(50.0)
+    assert result["debt_by_currency"]["EUR"] == pytest.approx(300.0)
+    assert result["debt_by_currency"]["EGP"] == pytest.approx(2000.0)
+
     assert result["debt_total"] == pytest.approx(2350.0)
 
 
@@ -2050,5 +2053,5 @@ def test_liquid_cash_splits_by_currency(svc_data):
         },
     ]
     summary = compute_net_worth(accounts)
-    assert summary.cash_total == pytest.approx(13300.0), "EGP only in cash_total"
-    assert summary.cash_usd == pytest.approx(500.0), "USD in cash_usd"
+    assert summary.cash_by_currency["EGP"] == pytest.approx(13300.0)
+    assert summary.cash_by_currency["USD"] == pytest.approx(500.0)

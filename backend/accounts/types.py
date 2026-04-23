@@ -5,7 +5,7 @@ HealthWarning is exported to push/services.py and re-exported through
 dashboard/services for backward compatibility.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
@@ -63,15 +63,12 @@ class NetWorthSummary:
     """
 
     net_worth: float = 0.0
-    egp_total: float = 0.0
-    usd_total: float = 0.0
-    cash_total: float = 0.0  # EGP liquid cash (non-credit, positive balance)
-    cash_usd: float = 0.0  # USD liquid cash (non-credit, positive balance)
+    totals_by_currency: dict[str, float] = field(default_factory=dict)
+    cash_by_currency: dict[str, float] = field(default_factory=dict)
+    debt_by_currency: dict[str, float] = field(default_factory=dict)
     credit_used: float = 0.0
     credit_avail: float = 0.0
     debt_total: float = 0.0
-    debt_egp: float = 0.0
-    debt_usd: float = 0.0
 
 
 @dataclass(frozen=True)

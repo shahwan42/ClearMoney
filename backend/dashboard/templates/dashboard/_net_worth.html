@@ -9,7 +9,7 @@
             <div class="flex items-center gap-2 overflow-hidden flex-1">
                 <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Net Worth" %}</h2>
                 <div id="summary-net-worth" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    EGP {{ data.egp_total|format_num }}
+                    {{ data.selected_currency }} {{ data.totals_by_currency.EGP|default:0|format_num }}
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -20,15 +20,12 @@
         </div>
 
         <div id="content-net-worth" class="mt-3 section-content">
-            <div class="flex items-baseline gap-4 mt-3">
-                <p class="text-xl font-bold {% if data.egp_total < 0 %}text-red-600{% else %}text-teal-600{% endif %}">
-                    <span class="text-sm font-medium text-gray-400 dark:text-slate-500 me-1">EGP</span>{{ data.egp_total|format_num }}
+            <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 mt-3">
+                {% for currency, total in data.totals_by_currency.items %}
+                <p class="text-xl font-bold {% if total < 0 %}text-red-600{% else %}{% if currency == 'EGP' %}text-teal-600{% else %}text-blue-500{% endif %}{% endif %}">
+                    <span class="text-sm font-medium text-gray-400 dark:text-slate-500 me-1">{{ currency }}</span>{{ total|format_num }}
                 </p>
-                {% if data.usd_total != 0 %}
-                <p class="text-xl font-bold {% if data.usd_total < 0 %}text-red-600{% else %}text-blue-500{% endif %}">
-                    <span class="text-sm font-medium text-gray-400 dark:text-slate-500 me-1">USD</span>{{ data.usd_total|format_num }}
-                </p>
-                {% endif %}
+                {% endfor %}
             </div>
 
             {# Trend + sparkline row #}
@@ -60,10 +57,13 @@
                      onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/liquid_cash'})"
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
                     <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Liquid Cash" %}</p>
-                    <p class="text-lg font-semibold text-teal-700 dark:text-teal-400">{{ data.cash_total|format_egp }}</p>
-                    {% if data.cash_usd != 0 %}
-                    <p class="text-sm font-medium text-blue-500">{{ data.cash_usd|format_currency:"USD" }}</p>
-                    {% endif %}
+                    {% for currency, total in data.cash_by_currency.items %}
+                    <p class="{% if forloop.first %}text-lg font-semibold text-teal-700 dark:text-teal-400{% else %}text-sm font-medium text-blue-500{% endif %}">
+                        {{ total|format_currency:currency }}
+                    </p>
+                    {% empty %}
+                    <p class="text-lg font-semibold text-teal-700 dark:text-teal-400">0.00</p>
+                    {% endfor %}
                 </div>
                 <div role="button" tabindex="0" aria-label="View Credit Used breakdown"
                      class="rounded-lg p-2 -m-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
@@ -86,10 +86,13 @@
                      onclick="BottomSheet.open('nw-breakdown',{url:'/dashboard/net-worth/debt'})"
                      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
                     <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Debt" %}</p>
-                    <p class="text-lg font-semibold text-slate-800 dark:text-slate-200">{{ data.debt_egp|format_egp }}</p>
-                    {% if data.debt_usd != 0 %}
-                    <p class="text-sm font-medium text-blue-500">{{ data.debt_usd|format_currency:"USD" }}</p>
-                    {% endif %}
+                    {% for currency, total in data.debt_by_currency.items %}
+                    <p class="{% if forloop.first %}text-lg font-semibold text-slate-800 dark:text-slate-200{% else %}text-sm font-medium text-blue-500{% endif %}">
+                        {{ total|format_currency:currency }}
+                    </p>
+                    {% empty %}
+                    <p class="text-lg font-semibold text-slate-800 dark:text-slate-200">0.00</p>
+                    {% endfor %}
                 </div>
             </div>
         </div>

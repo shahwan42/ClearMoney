@@ -3,9 +3,9 @@ id: "145"
 title: "Generalize net worth summary data structures"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -25,10 +25,10 @@ fields.
 
 ## Acceptance Criteria
 
-- [ ] Net-worth computation is currency-agnostic
-- [ ] Third currencies are represented explicitly, not folded into EGP buckets
-- [ ] Dashboard callers can render selected-currency values without conversion
-- [ ] Credit-used and credit-available logic remains correct across currencies
+- [x] Net-worth computation is currency-agnostic
+- [x] Third currencies are represented explicitly, not folded into EGP buckets
+- [x] Dashboard callers can render selected-currency values without conversion
+- [x] Credit-used and credit-available logic remains correct across currencies
 
 ## Critical Files
 
@@ -56,4 +56,4 @@ fields.
 ## Progress Notes
 
 - 2026-04-22: Created for generalized net-worth data contracts
-
+- 2026-04-23: Implemented generalized NetWorthSummary and DashboardData with dicts. Updated compute_net_worth and template to iterate over all currencies. All tests passed.

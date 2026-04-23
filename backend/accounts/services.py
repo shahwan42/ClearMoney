@@ -1276,19 +1276,23 @@ def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
 
     for acc in all_accounts:
         balance = acc["current_balance"]
+        currency = acc["currency"]
         summary.net_worth += balance
+
+        # 1. Total by currency
+        summary.totals_by_currency[currency] = (
+            summary.totals_by_currency.get(currency, 0.0) + balance
+        )
+
+        # 2. Debt by currency (negative balances)
         if balance < 0:
-            summary.debt_total += abs(balance)
-            if acc["currency"] == "USD":
-                summary.debt_usd += abs(balance)
-            elif acc["currency"] == "EGP":
-                summary.debt_egp += abs(balance)
+            abs_bal = abs(balance)
+            summary.debt_total += abs_bal
+            summary.debt_by_currency[currency] = (
+                summary.debt_by_currency.get(currency, 0.0) + abs_bal
+            )
 
-        if acc["currency"] == "USD":
-            summary.usd_total += balance
-        elif acc["currency"] == "EGP":
-            summary.egp_total += balance
-
+        # 3. Credit vs Cash
         if acc["type"] in CREDIT_ACCOUNT_TYPES:
             summary.credit_used += balance  # negative for CCs (display negates)
             limit = acc["credit_limit"]
@@ -1296,9 +1300,10 @@ def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
                 # available = limit + balance (balance is negative, so this subtracts debt)
                 summary.credit_avail += limit + balance
         else:
-            if acc["currency"] == "USD":
-                summary.cash_usd += balance
-            else:
-                summary.cash_total += balance  # EGP (and any other currency)
+            # Liquid cash (positive non-credit balances)
+            if balance > 0:
+                summary.cash_by_currency[currency] = (
+                    summary.cash_by_currency.get(currency, 0.0) + balance
+                )
 
     return summary

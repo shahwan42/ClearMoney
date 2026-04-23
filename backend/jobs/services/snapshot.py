@@ -124,7 +124,7 @@ class SnapshotService:
         accounts = self._get_all_accounts(user_id)
 
         net_worth_raw = 0.0
-        usd_total = 0.0
+        totals_by_currency: dict[str, float] = {}
         account_balances: list[tuple[str, float]] = []
 
         for acc_id, currency, current_balance in accounts:
@@ -138,17 +138,22 @@ class SnapshotService:
                 balance = float(current_balance) - future_deltas
 
             net_worth_raw += balance
-            if currency == "USD":
-                usd_total += balance
+            totals_by_currency[currency] = totals_by_currency.get(currency, 0.0) + balance
             account_balances.append((acc_id, balance))
 
         # Subtract excluded virtual account balances
         excluded = self._get_excluded_va_balance(user_id)
         net_worth_raw -= excluded
+        # Subtract from EGP totals (VA exclusion is currently EGP-only in business logic)
+        if "EGP" in totals_by_currency:
+            totals_by_currency["EGP"] -= excluded
 
         # Get exchange rate for USD → EGP conversion
         exchange_rate = self._get_latest_exchange_rate()
         if exchange_rate > 0:
+            # Recompute net worth EGP: Sum all currencies converted to EGP
+            # Currently only USD/EGP is supported for conversion, others stay as-is
+            usd_total = totals_by_currency.get("USD", 0.0)
             net_worth_egp = (net_worth_raw - usd_total) + (usd_total * exchange_rate)
         else:
             net_worth_egp = net_worth_raw

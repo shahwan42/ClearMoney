@@ -84,11 +84,9 @@ def load_people_summary(user_id: str, data: DashboardData) -> None:
         if summary.has_activity
     ]
     data.debt_by_currency = {
-        currency: debt_by_currency[currency]
-        for currency in sorted(debt_by_currency, key=_currency_sort_key)
+        currency: debt_by_currency.get(currency, 0.0) + data.debt_by_currency.get(currency, 0.0)
+        for currency in sorted(set(debt_by_currency.keys()) | set(data.debt_by_currency.keys()), key=_currency_sort_key)
     }
-    data.debt_egp = data.debt_by_currency.get("EGP", 0.0)
-    data.debt_usd = data.debt_by_currency.get("USD", 0.0)
     data.selected_people_summary = next(
         (
             summary

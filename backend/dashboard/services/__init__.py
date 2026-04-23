@@ -91,16 +91,12 @@ class DashboardData:
     # Net worth
     net_worth: float = 0.0
     net_worth_egp: float = 0.0
-    egp_total: float = 0.0
-    usd_total: float = 0.0
-    cash_total: float = 0.0  # EGP liquid cash
-    cash_usd: float = 0.0  # USD liquid cash
+    totals_by_currency: dict[str, float] = field(default_factory=dict)
+    cash_by_currency: dict[str, float] = field(default_factory=dict)
+    debt_by_currency: dict[str, float] = field(default_factory=dict)
     credit_used: float = 0.0
     credit_avail: float = 0.0
     debt_total: float = 0.0
-    debt_egp: float = 0.0
-    debt_usd: float = 0.0
-    debt_by_currency: dict[str, float] = field(default_factory=dict)
     selected_debt: float = 0.0
     exchange_rate: float = 0.0
     usd_in_egp: float = 0.0
@@ -239,15 +235,19 @@ class DashboardService:
             if excluded > 0:
                 data.excluded_va_total = excluded
                 data.net_worth -= excluded
-                data.egp_total -= excluded
-                data.cash_total -= excluded
+                # Subtract from EGP totals (VA exclusion is currently EGP-only in business logic)
+                if "EGP" in data.totals_by_currency:
+                    data.totals_by_currency["EGP"] -= excluded
+                if "EGP" in data.cash_by_currency:
+                    data.cash_by_currency["EGP"] -= excluded
         except Exception:
             logger.warning("dashboard: failed to load excluded VA total")
 
         # 6. Recompute net worth EGP after VA exclusion
         if data.exchange_rate > 0:
-            data.usd_in_egp = data.usd_total * data.exchange_rate
-            data.net_worth_egp = (data.net_worth - data.usd_total) + data.usd_in_egp
+            usd_total = data.totals_by_currency.get("USD", 0.0)
+            data.usd_in_egp = usd_total * data.exchange_rate
+            data.net_worth_egp = (data.net_worth - usd_total) + data.usd_in_egp
 
         return all_accounts
 
@@ -270,8 +270,8 @@ class DashboardService:
         except Exception:
             logger.warning("dashboard: failed to load people")
 
-        # 7b. Finalize debt total: accounts debt (from step 3) + people debt (all currencies)
-        data.debt_total += sum(data.debt_by_currency.values())
+        # 7b. Finalize debt total: sum of all currencies (accounts + people)
+        data.debt_total = sum(data.debt_by_currency.values())
 
         # 9. Investments
         try:
