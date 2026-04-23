@@ -43,6 +43,29 @@ def _format_number(n: float) -> str:
     return f"{n:,.2f}"
 
 
+_CURRENCY_SYMBOLS: dict[str, str] = {}
+
+
+def get_currency_symbol(code: str) -> str:
+    """Return the symbol for a currency code, using a local cache."""
+    code = code.upper()
+    if code not in _CURRENCY_SYMBOLS:
+        # Avoid top-level import to prevent circular dependencies
+        from auth_app.models import Currency
+
+        try:
+            # We don't use .get() to avoid DB hits on every call if it doesn't exist
+            # but since it's a small table it's fine for now.
+            cur = Currency.objects.filter(code=code).first()
+            if cur and cur.symbol:
+                _CURRENCY_SYMBOLS[code] = cur.symbol
+            else:
+                _CURRENCY_SYMBOLS[code] = code
+        except Exception:
+            _CURRENCY_SYMBOLS[code] = code
+    return _CURRENCY_SYMBOLS[code]
+
+
 @register.filter
 def format_currency(amount: object, currency: object = "EGP") -> str:
     """Format with currency symbol."""
@@ -51,9 +74,13 @@ def format_currency(amount: object, currency: object = "EGP") -> str:
     except (ValueError, TypeError):
         amt = 0.0
     cur = str(currency).upper() if currency else "EGP"
-    if cur == "USD":
+    symbol = get_currency_symbol(cur)
+
+    # Special case for USD to keep $100.00 format (no space)
+    if cur == "USD" or symbol == "$":
         return f"${_format_number(amt)}"
-    return f"EGP {_format_number(amt)}"
+
+    return f"{symbol} {_format_number(amt)}"
 
 
 @register.filter

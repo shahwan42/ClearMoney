@@ -28,18 +28,18 @@ class ProjectionService:
         self.tz = tz
 
     def get_projection(
-        self, current_net_worth: float, months: int = 12
+        self, current_net_worth: float, months: int = 12, currency: str = ""
     ) -> dict[str, Any]:
         """Generate net worth projection for the next N months."""
         today = datetime.now(self.tz).date()
-        avg_discretionary = self._get_avg_discretionary(today)
+        avg_discretionary = self._get_avg_discretionary(today, currency=currency)
         recurring_svc = RecurringService(self.user_id, self.tz)
 
         monthly_recurring: list[float] = []
         for i in range(1, months + 1):
             target_month = today + relativedelta(months=i)
             recurring_events = recurring_svc.get_calendar_data(
-                target_month.year, target_month.month
+                target_month.year, target_month.month, currency=currency
             )
             monthly_net = 0.0
             for event in recurring_events:
@@ -61,6 +61,8 @@ class ProjectionService:
         nw_exp = current_net_worth
         nw_opt = current_net_worth
         nw_pes = current_net_worth
+
+        currency_display = currency or "EGP"
 
         for i in range(months):
             target_month = today + relativedelta(months=i + 1)
@@ -87,7 +89,7 @@ class ProjectionService:
                     reached.add(target)
                     milestones.append(
                         {
-                            "title": f"{target:,.0f} EGP",
+                            "title": f"{target:,.0f} {currency_display}",
                             "date": target_month.strftime("%B %Y"),
                         }
                     )
@@ -113,21 +115,25 @@ class ProjectionService:
             tiers = [next_m, next_m * 2, next_m * 5]
         return [float(t) for t in tiers if t > current_net_worth][:3]
 
-    def _get_avg_discretionary(self, today: date) -> float:
+    def _get_avg_discretionary(self, today: date, currency: str = "") -> float:
         """Calculate average non-recurring spending over the last 3 months."""
         discretionary_totals = []
 
         for i in range(1, 4):
             dt = today - relativedelta(months=i)
-            summary = get_month_summary(self.user_id, dt.year, dt.month)
+            summary = get_month_summary(self.user_id, dt.year, dt.month, currency=currency)
             total_expenses = summary["expenses"]
 
-            recurring_spent = Transaction.objects.for_user(self.user_id).filter(
+            qs = Transaction.objects.for_user(self.user_id).filter(
                 date__gte=month_range(dt)[0],
                 date__lt=month_range(dt)[1],
                 recurring_rule__isnull=False,
                 type="expense",
-            ).aggregate(total=Sum("amount"))["total"] or Decimal(0)
+            )
+            if currency:
+                qs = qs.filter(currency=currency)
+
+            recurring_spent = qs.aggregate(total=Sum("amount"))["total"] or Decimal(0)
 
             discretionary = total_expenses - float(recurring_spent)
             discretionary_totals.append(max(0.0, discretionary))

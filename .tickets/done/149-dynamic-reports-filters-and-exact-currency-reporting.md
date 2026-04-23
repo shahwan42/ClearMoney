@@ -3,9 +3,9 @@ id: "149"
 title: "Dynamic reports filters and exact-currency reporting"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-04-22
-updated: 2026-04-22
+updated: 2026-04-23
 ---
 
 ## Description
@@ -25,10 +25,10 @@ currencies with no cross-currency consolidation.
 
 ## Acceptance Criteria
 
-- [ ] Reports support a third currency across queries and partials
-- [ ] Report defaults resolve from the selected display currency consistently
-- [ ] PDF export matches the on-screen report currency
-- [ ] No report path silently converts or re-buckets currencies
+- [x] Reports support a third currency across queries and partials
+- [x] Report defaults resolve from the selected display currency consistently
+- [x] PDF export matches the on-screen report currency
+- [x] No report path silently converts or re-buckets currencies
 
 ## Critical Files
 
@@ -58,4 +58,4 @@ currencies with no cross-currency consolidation.
 ## Progress Notes
 
 - 2026-04-22: Created for full reports-side multi-currency support
-
+- 2026-04-23: Implemented dynamic currency reporting, generalized format_currency, fixed ProjectionService isolation, and added automated verification (Unit + E2E)

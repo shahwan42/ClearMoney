@@ -50,7 +50,7 @@ class BudgetService:
         return month_range(datetime.now(self.tz).date())
 
     def get_all_with_spending(
-        self, target_date: date | None = None
+        self, target_date: date | None = None, currency: str | None = None
     ) -> list[BudgetWithSpending]:
         """Return active budgets with current month's actual spending.
 
@@ -79,10 +79,12 @@ class BudgetService:
             output_field=DecimalField(),
         )
 
+        qs = self._qs().filter(is_active=True)
+        if currency:
+            qs = qs.filter(currency=currency)
+
         rows = (
-            self._qs()
-            .filter(is_active=True)
-            .select_related("category")
+            qs.select_related("category")
             .annotate(
                 spent_amount=Coalesce(spending_subquery, Decimal(0)),
                 category_name_en=KeyTextTransform("en", "category__name"),

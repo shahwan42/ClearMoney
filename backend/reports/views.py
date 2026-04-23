@@ -89,7 +89,9 @@ def export_pdf_report(request: AuthenticatedRequest) -> HttpResponse:
 
     # Budget status for the reported month
     budget_svc = BudgetService(request.user_id, request.tz)
-    budgets = budget_svc.get_all_with_spending(target_date=date(year, month, 1))
+    budgets = budget_svc.get_all_with_spending(
+        target_date=date(year, month, 1), currency=currency
+    )
 
     html_string = render_to_string(
         "reports/pdf_report.html",

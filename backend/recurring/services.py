@@ -411,7 +411,9 @@ class RecurringService:
         # Default to monthly
         return current + relativedelta(months=1)
 
-    def get_calendar_data(self, year: int, month: int) -> list[dict[str, Any]]:
+    def get_calendar_data(
+        self, year: int, month: int, currency: str = ""
+    ) -> list[dict[str, Any]]:
         """Get all recurring rule occurrences for a specific month.
 
         Calculates occurrences by projecting active rules into the target month.
@@ -420,7 +422,12 @@ class RecurringService:
 
         start_date, end_date = month_range(date(year, month, 1))
 
-        rules = self._qs().filter(is_active=True)
+        qs = self._qs().filter(is_active=True)
+        if currency:
+            # Django's JSONField supports __ lookup
+            qs = qs.filter(template_transaction__currency=currency)
+
+        rules = qs
         occurrences = []
 
         for rule_inst in rules:

@@ -91,11 +91,15 @@ def get_monthly_report(
     # Estimate current net worth from latest summaries
     acc_svc = AccountService(user_id, ZoneInfo("UTC"))
     all_accs = acc_svc.get_all()
+    if currency:
+        all_accs = [a for a in all_accs if a.currency == currency]
 
     # Convert summaries to dicts for compute_net_worth
     acc_dicts = [dataclasses.asdict(a) for a in all_accs]
     nw_summary = compute_net_worth(acc_dicts)
-    projection = proj_svc.get_projection(nw_summary.net_worth, months=12)
+    projection = proj_svc.get_projection(
+        nw_summary.net_worth, months=12, currency=currency
+    )
 
     month_name = date(year, month, 1).strftime("%B")
 
@@ -536,5 +540,5 @@ def get_fee_analytics(
         "by_account": by_account,
         "by_type": by_type,
         "trend": trend,
-        "currency": currency or "EGP",
+        "currency": currency,
     }
