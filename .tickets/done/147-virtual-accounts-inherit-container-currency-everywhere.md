@@ -21,6 +21,8 @@ and selected-currency filtering.
 - Make selected-currency inclusion and exclusion depend on the linked account
   currency
 - Define safe behavior for unlinked virtual accounts
+- Keep the rollout read-path only: no server prerequisite, no data backfill, and
+  no one-time migration step required for the feature to behave correctly
 
 ## Acceptance Criteria
 
@@ -58,3 +60,4 @@ and selected-currency filtering.
 - 2026-04-22: Created for virtual-account currency normalization
 - 2026-04-23: Started — auditing service, dashboard, account-detail, and transaction dropdown paths for linked-account currency inheritance
 - 2026-04-23: Completed — added inherited-currency payloads for virtual accounts, updated list/detail/dashboard/transaction goal rendering, added explicit unlinked fallbacks, and verified with `make test`, `make lint`, and `make test-e2e`
+- 2026-04-23: Verified — audited the landed implementation and confirmed it is read-path only, needs no server-side prerequisite or backfill, remains safe across repeated deploys/runs, and still passes `make test`, `make lint`, and `make test-e2e`
