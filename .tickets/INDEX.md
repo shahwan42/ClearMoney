@@ -7,7 +7,6 @@ Last updated: 2026-04-23
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
 | [138](wip/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-20 |
-| [136](wip/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-20 |
 | [135](wip/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-18 |
 
 ## Pending
@@ -47,6 +46,7 @@ Last updated: 2026-04-23
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [136](done/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-23 |
 | [147](done/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-23 |
 | [144](done/144-generalized-dashboard-people-summary-and-debt-aggregation.md) | Generalized dashboard people summary and debt aggregation | feature | high | 2026-04-23 |
 | [143](done/143-dynamic-people-ui-and-debt-summary-contracts.md) | Dynamic people UI and debt summary contracts | feature | high | 2026-04-23 |
@@ -62,7 +62,6 @@ Last updated: 2026-04-23
 | [099](done/099-budget-save-feedback.md) | Budget save feedback | improvement | medium | 2026-04-22 |
 | [091](done/091-reorder-collapse-dashboard.md) | Reorder and collapse dashboard panels | improvement | high | 2026-04-21 |
 | [137](done/137-fix-transfer-delete-balance-direction-bug.md) | Fix transfer delete balance direction bug | bug | high | 2026-04-20 |
-| [136](done/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-20 |
 | [134](done/134-debt-breakdown-by-currency-net-worth.md) | Debt breakdown by currency in net worth dashboard | improvement | medium | 2026-04-18 |
 | [133](done/133-compact-buttons-inputs-mobile.md) | Compact buttons and inputs for better mobile visuals | improvement | medium | 2026-04-18 |
 | [132](done/132-usage-ordered-accounts-categories-in-transaction-forms.md) | Usage-ordered accounts and categories in transaction forms | improvement | medium | 2026-04-18 |

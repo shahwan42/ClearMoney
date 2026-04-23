@@ -215,8 +215,8 @@ class NotificationService:
     def generate_and_persist(self) -> PersistStats:
         """Generate notifications and persist them to the database.
 
-        - Upserts each current payload by (user, tag).
-        - Resets is_read=False on upsert so re-triggered conditions re-alert.
+        - Creates missing notifications for each current payload by (user, tag).
+        - Updates existing notification content without resetting is_read.
         - Auto-resolves: deletes UNREAD notifications whose tags are not in
           the current payload set (condition no longer active).
         - Preserves READ notifications for history (cleaned up after 30 days).

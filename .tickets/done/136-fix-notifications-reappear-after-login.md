@@ -5,7 +5,7 @@ type: bug
 priority: medium
 status: done
 created: 2026-04-20
-updated: 2026-04-20
+updated: 2026-04-23
 ---
 
 ## Description
@@ -24,3 +24,4 @@ Root cause: `generate_and_persist` uses `update_or_create` with `is_read=False` 
 
 - 2026-04-20: Started — fixing `generate_and_persist` to not reset `is_read` on update
 - 2026-04-20: Completed — switched to `get_or_create` + manual field update; `is_read` never reset on existing notifications; 68 push tests passing
+- 2026-04-23: Verified — confirmed the fix in `NotificationService.generate_and_persist()`, ran `backend/push/tests/test_services.py` (16 passed), removed the duplicate WIP ticket entry, and corrected stale implementation notes
