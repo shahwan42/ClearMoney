@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 
 ## In Progress
 
@@ -40,6 +40,7 @@ Last updated: 2026-04-23
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [154](done/154-fix-pull-to-refresh-scroll-bug.md) | Fix pull-to-refresh scroll bug | bug | high | 2026-04-24 |
 | [147](done/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-23 |
 | [146](done/146-dashboard-selected-currency-behavior.md) | Dashboard selected-currency behavior | feature | high | 2026-04-23 |
 | [145](done/145-generalize-net-worth-summary-data-structures.md) | Generalize net worth summary data structures | feature | high | 2026-04-23 |

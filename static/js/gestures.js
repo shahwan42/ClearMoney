@@ -31,8 +31,14 @@
     document.addEventListener('touchstart', function(e) {
         var target = e.target.closest('[data-pull-refresh]');
         if (!target) return;
-        // Must be exactly at the top — scrollY > 0 means content is still scrolling.
-        if (window.scrollY > 0) return;
+
+        // Find the scrolling container. In our app it's usually <main>, but could be a modal/sheet.
+        var scroller = target.closest('.overflow-y-auto') || target.closest('main') || window;
+        var scrollTop = (scroller === window) ? window.scrollY : scroller.scrollTop;
+
+        // Must be exactly at the top.
+        if (scrollTop > 0) return;
+
         // Ignore if the page was scrolling within the last 400 ms (momentum arrival).
         // This prevents a fast scroll-to-top from arming pull-to-refresh.
         if (Date.now() - lastScrollTime < 400) return;
@@ -46,13 +52,28 @@
         if (!pulling) return;
 
         // Cancel if the page somehow gained scroll offset during the gesture.
-        if (window.scrollY > 0) {
+        var target = e.target.closest('[data-pull-refresh]');
+        var scroller = target ? (target.closest('.overflow-y-auto') || target.closest('main') || window) : window;
+        var scrollTop = (scroller === window) ? window.scrollY : scroller.scrollTop;
+
+        if (scrollTop > 0) {
             pulling = false;
+            if (pullIndicator) {
+                pullIndicator.remove();
+                pullIndicator = null;
+            }
             return;
         }
 
         var distance = e.touches[0].clientY - pullStart;
-        if (distance < 0) { pulling = false; return; }
+        if (distance < 0) {
+            pulling = false;
+            if (pullIndicator) {
+                pullIndicator.remove();
+                pullIndicator = null;
+            }
+            return;
+        }
 
         // Only show indicator once we cross 60px; don't update on subsequent moves
         if (distance > 60 && !distanceThresholdExceeded) {
