@@ -108,3 +108,9 @@ See `.claude/rules/git-workflow.md` for:
 - Workflow (show changes → ask → wait for approval → commit)
 - Commit message format (conventional commits)
 - Handling unrelated changes
+
+## Repo Memory
+
+- This repo has a real ticketing system in `.tickets/`, not just external GitHub issues.
+- Before creating a new ticket, check `.tickets/INDEX.md` and the relevant `.tickets/pending/`, `.tickets/wip/`, and `.tickets/done/` files for duplicates or prior work.
+- When asked to create or track backlog items for this repo, prefer adding/updating `.tickets/` entries unless the user explicitly wants an external issue tracker instead.

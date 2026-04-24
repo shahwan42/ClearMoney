@@ -10,6 +10,8 @@ Last updated: 2026-04-24
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [156](pending/156-rank-transaction-account-choices-by-usage-within-selected-transaction-type.md) | Rank transaction account choices by usage within selected transaction type | improvement | medium | 2026-04-24 |
+| [155](pending/155-improve-transaction-account-picker-ux-with-icons-and-search.md) | Improve transaction account picker UX with icons and search | improvement | medium | 2026-04-24 |
 | [153](pending/153-cleanup-compatibility-removal-docs-and-guardrails.md) | Cleanup, compatibility removal, docs, and guardrails | chore | medium | 2026-04-22 |
 | [152](pending/152-currency-formatting-and-template-cleanup.md) | Currency formatting and template cleanup | improvement | medium | 2026-04-22 |
 | [151](pending/151-dashboard-and-historical-sparkline-consumption-rewrite.md) | Dashboard and historical sparkline consumption rewrite | feature | medium | 2026-04-22 |
