@@ -121,9 +121,12 @@ Track informal lending and borrowing:
 
 Automate repetitive transactions:
 
+- **Expense, income, and transfer rules**
+- **Transfer support** — destination account plus optional fee
 - **Auto-confirm** — transaction created automatically on schedule
-- **Manual-confirm** — notification/prompt to confirm or skip
-- Processed on app startup for any due rules
+- **Manual-confirm** — pending rule that can be confirmed or skipped
+- **Flexible frequencies** — weekly, biweekly, monthly, quarterly, yearly
+- Processed on app startup for any due auto-confirm rules
 
 ## Investments
 
