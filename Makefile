@@ -120,15 +120,29 @@ setup-hooks:
 	chmod +x .git/hooks/pre-commit
 	@echo "Git hooks installed."
 
-# Deploy to production VPS via SSH.
+# Deploy to production VPS and tag the deployed commit with an auto-generated UTC CalVer.
 DEPLOY_HOST ?= hetzner-keeper
 DEPLOY_DIR ?= ~/ClearMoney
 deploy:
-	@echo "Pushing latest changes..."
-	git checkout main
-	git push
-	@echo "Deploying to $(DEPLOY_HOST)..."
-	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && git pull && sudo docker compose -f docker-compose.prod.yml up -d --build"
+	@date_prefix=$$(date -u +%Y.%m.%d); \
+	release_timestamp=$$(date -u +%Y-%m-%dT%H:%M:%SZ); \
+	latest_today_tag=$$(git tag --list "v$$date_prefix*" --sort=-v:refname | head -n 1); \
+	if [ -z "$$latest_today_tag" ]; then \
+		release_version="$$date_prefix.1"; \
+	else \
+		seq=$${latest_today_tag##*.}; \
+		release_version="$$date_prefix.$$((seq + 1))"; \
+	fi; \
+	tag_name="v$$release_version"; \
+	echo "Pushing latest changes..."; \
+	git checkout main; \
+	git push; \
+	echo "Deploying to $(DEPLOY_HOST)..."; \
+	ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && git pull && sudo docker compose -f docker-compose.prod.yml up -d --build"; \
+	deployed_sha=$$(ssh $(DEPLOY_HOST) "cd $(DEPLOY_DIR) && git rev-parse HEAD"); \
+	echo "Tagging deployed commit $$deployed_sha as $$tag_name..."; \
+	git tag -a "$$tag_name" "$$deployed_sha" -m "Release $$tag_name ($$release_timestamp)"; \
+	git push origin "$$tag_name"
 	@echo "Deploy complete. App running at https://clearmoney.shahwan.me"
 
 # Run post-deploy smoke verification inside the production Django container.
