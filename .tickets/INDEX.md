@@ -10,6 +10,7 @@ Last updated: 2026-04-24
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [158](pending/158-refactor-new-budget-form-to-bottom-sheet.md) | Refactor New budget form to bottom sheet | improvement | medium | 2026-04-24 |
 | [156](pending/156-rank-transaction-account-choices-by-usage-within-selected-transaction-type.md) | Rank transaction account choices by usage within selected transaction type | improvement | medium | 2026-04-24 |
 | [155](pending/155-improve-transaction-account-picker-ux-with-icons-and-search.md) | Improve transaction account picker UX with icons and search | improvement | medium | 2026-04-24 |
 | [153](pending/153-cleanup-compatibility-removal-docs-and-guardrails.md) | Cleanup, compatibility removal, docs, and guardrails | chore | medium | 2026-04-22 |
