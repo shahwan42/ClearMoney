@@ -158,7 +158,8 @@ The total-budget calculation separately aggregates:
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/budgets` | GET | Budgets page with total budget card, create form, and existing category budgets |
+| `/budgets` | GET | Budgets page with total budget card and existing category budgets |
+| `/budgets/add-form` | GET | Render the new budget form partial for the bottom sheet |
 | `/budgets/add` | POST | Create a per-category budget |
 | `/budgets/copy-last-month` | POST | Create missing budgets from last month’s spending |
 | `/budgets/<id>/` | GET | Budget detail with contributing current-month transactions |
@@ -171,18 +172,20 @@ The total-budget calculation separately aggregates:
 
 The page currently contains:
 
-1. **Total budget card**
+1. **Header Actions**
+   - **+ Budget** button to open the creation bottom sheet
+   - **Copy last month** button
+2. **Total budget card**
    - shows spent, limit, remaining, and status for the selected currency’s
      total budget
    - warns when category-budget sum exceeds total budget
    - supports set, update, and delete
-2. **Create budget form**
+3. **Create budget bottom sheet**
    - expense-category selector
    - monthly limit input
    - active-currency selector
    - rollover toggle
    - optional max carryover input
-3. **Copy last month** button
 4. **Active budget cards**
    - category name/icon
    - spent vs limit

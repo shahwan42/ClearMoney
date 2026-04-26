@@ -37,6 +37,35 @@ def budgets_page(request: AuthenticatedRequest, svc: BudgetService) -> HttpRespo
     """GET /budgets — budget management page with creation form and active budget list."""
     logger.info("page viewed: budgets, user=%s", request.user_email)
     budgets = svc.get_all_with_spending()
+    display_currency = get_user_display_currency_context(request.user_id)
+    total_budgets = svc.get_active_total_budgets()
+
+    # Find active currencies that don't have a total budget yet
+    existing_total_currencies = {b["currency"] for b in total_budgets}
+    missing_total_currencies = [
+        c.code
+        for c in display_currency.active_currencies
+        if c.code not in existing_total_currencies
+    ]
+
+    return render(
+        request,
+        "budgets/budgets.html",
+        {
+            "budgets": budgets,
+            "total_budgets": total_budgets,
+            "missing_total_currencies": missing_total_currencies,
+            "display_currency": display_currency,
+            "active_tab": "more",
+        },
+    )
+
+
+@inject_service(BudgetService)
+@general_rate
+@require_http_methods(["GET"])
+def budget_add_form(request: AuthenticatedRequest, svc: BudgetService) -> HttpResponse:
+    """GET /budgets/add-form — render the new budget form partial."""
     usage_sq = Subquery(
         TransactionModel.objects.filter(category_id=OuterRef("id"))
         .values("category_id")
@@ -54,26 +83,13 @@ def budgets_page(request: AuthenticatedRequest, svc: BudgetService) -> HttpRespo
         .order_by("-usage_count", "name_en")
     )
     display_currency = get_user_display_currency_context(request.user_id)
-    total_budgets = svc.get_active_total_budgets()
-
-    # Find active currencies that don't have a total budget yet
-    existing_total_currencies = {b["currency"] for b in total_budgets}
-    missing_total_currencies = [
-        c.code
-        for c in display_currency.active_currencies
-        if c.code not in existing_total_currencies
-    ]
 
     return render(
         request,
-        "budgets/budgets.html",
+        "budgets/_add_budget_form.html",
         {
-            "budgets": budgets,
             "categories": categories,
-            "total_budgets": total_budgets,
-            "missing_total_currencies": missing_total_currencies,
             "display_currency": display_currency,
-            "active_tab": "more",
         },
     )
 

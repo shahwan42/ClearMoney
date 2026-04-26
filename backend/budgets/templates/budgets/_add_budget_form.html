@@ -1,0 +1,58 @@
+{% load money %}
+{% load i18n %}
+
+<div class="space-y-4">
+    <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg font-bold text-slate-800 dark:text-white">{% trans "New Budget" %}</h3>
+        <button type="button" onclick="BottomSheet.close('add-budget-sheet')" class="text-gray-400 hover:text-gray-500">
+            <span class="sr-only">{% trans "Close" %}</span>
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+
+    <form method="POST" action="{% url 'budget-add' %}" class="space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1" id="budget-category-label">{% trans "Category" %}</label>
+            <div data-category-combobox
+                 data-categories='{{ categories|categories_json }}'
+                 data-name="category_id"
+                 data-placeholder="{% trans "Select category..." %}"
+                 data-allow-empty="false">
+            </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label for="cat-monthly-limit" class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{% trans "Monthly Limit" %}</label>
+                <input type="number" name="monthly_limit" id="cat-monthly-limit" step="0.01" min="0.01" required
+                       placeholder="0.00" data-validate="required,min:0.01" class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
+            </div>
+            <div>
+                <label for="cat-currency" class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">{% trans "Currency" %}</label>
+                <select name="currency" id="cat-currency" class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
+                    {% for currency in display_currency.active_currencies %}
+                    <option value="{{ currency.code }}" {% if display_currency.selected_currency == currency.code %}selected{% endif %}>{{ currency.code }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="flex items-center gap-6 py-2">
+            <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="rollover_enabled" class="w-5 h-5 text-teal-600 border-gray-300 rounded focus:ring-teal-500">
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-300">{% trans "Enable rollover" %}</span>
+            </label>
+            <div class="flex-1">
+                <input type="number" name="max_rollover" step="0.01" min="0" placeholder="{% trans "Max carryover" %}"
+                       class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
+            </div>
+        </div>
+        <div class="pt-2">
+            <button type="submit"
+                    class="w-full bg-teal-600 text-white rounded-xl py-4 text-base font-bold hover:bg-teal-700 active:scale-[0.98] transition-all shadow-md shadow-teal-500/20">
+                {% trans "Create Budget" %}
+            </button>
+        </div>
+    </form>
+</div>

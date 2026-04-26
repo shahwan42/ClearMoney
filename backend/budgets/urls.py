@@ -12,6 +12,7 @@ from budgets import views
 urlpatterns = [
     path("budgets", views.budgets_page, name="budgets"),
     path("budgets/add", views.budget_add, name="budget-add"),
+    path("budgets/add-form", views.budget_add_form, name="budget-add-form"),
     path(
         "budgets/copy-last-month",
         views.budget_copy_last_month,

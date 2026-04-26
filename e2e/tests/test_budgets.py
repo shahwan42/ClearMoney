@@ -33,12 +33,17 @@ _category_id: str = ""
 def _create_budget(page: Page, category_id: str, limit: str = "2000") -> None:
     """Create a budget via the UI."""
     page.goto("/budgets")
+    # Open the bottom sheet
+    page.click('button:has-text("+ Budget")')
+    # Wait for the form to load (it's loaded via HTMX)
+    page.wait_for_selector("[data-category-combobox]")
+
     # Category uses a custom combobox — select via its programmatic API
     page.evaluate(
         f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
     )
     # Use the budget form's specific input ID (page has two monthly_limit inputs)
-    page.fill('input#cat-monthly-limit', limit)
+    page.fill("input#cat-monthly-limit", limit)
     with page.expect_response(
         lambda r: "/budgets" in r.url and r.request.method == "POST"
     ):

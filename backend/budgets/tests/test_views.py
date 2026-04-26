@@ -71,7 +71,7 @@ class TestBudgetsPage:
 
     def test_shows_category_dropdown(self, client, budget_view_data):
         c = set_auth_cookie(client, budget_view_data["session_token"])
-        response = c.get("/budgets")
+        response = c.get("/budgets/add-form")
         assert response.status_code == 200
         assert b"Groceries" in response.content
         assert b"Transport" in response.content
