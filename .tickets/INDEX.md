@@ -36,6 +36,7 @@ Last updated: 2026-04-26
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [161](done/161-rename-virtual-accounts-to-pots.md) | Rename Virtual Accounts to Pots in UI | improvement | medium | 2026-04-26 |
 | [160](done/160-recurring-create-feedback.md) | Better feedback after recurring rule creation | improvement | medium | 2026-04-26 |
 | [158](done/158-refactor-new-budget-form-to-bottom-sheet.md) | Refactor New budget form to bottom sheet | improvement | medium | 2026-04-26 |
 | [157](done/157-remove-swipe-to-delete-from-history-page.md) | Remove swipe-to-delete from history page | improvement | medium | 2026-04-26 |

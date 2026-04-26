@@ -167,7 +167,7 @@ def virtual_account_detail(
     logger.info("page viewed: virtual-account-detail, user=%s", request.user_email)
     va = svc.get_by_id(str(va_id))
     if not va:
-        return HttpResponse("Virtual account not found", status=404)
+        return HttpResponse("Pot not found", status=404)
 
     transactions = svc.get_transactions(str(va_id), limit=50)
     allocations = svc.get_allocations(str(va_id), limit=50)
@@ -293,7 +293,7 @@ def virtual_account_toggle_exclude(
 ) -> HttpResponse:
     """POST /virtual-accounts/{id}/toggle-exclude — toggle net worth exclusion."""
     if not svc.toggle_exclude(str(va_id)):
-        return HttpResponse("Virtual account not found", status=404)
+        return HttpResponse("Pot not found", status=404)
     return htmx_redirect(request, f"/virtual-accounts/{va_id}")
 
 
@@ -318,7 +318,7 @@ def virtual_account_edit_form(
     )
     va = svc.get_by_id(str(va_id))
     if not va:
-        return HttpResponse("Virtual account not found", status=404)
+        return HttpResponse("Pot not found", status=404)
 
     bank_accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
         include_balance=True
@@ -370,7 +370,7 @@ def virtual_account_update(
         return validation_error_response(str(e))
 
     if not updated:
-        return HttpResponse("Virtual account not found", status=404)
+        return HttpResponse("Pot not found", status=404)
 
     return htmx_redirect(request, f"/virtual-accounts/{va_id}")
 

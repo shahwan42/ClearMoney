@@ -144,7 +144,7 @@ class HelperMixin:
             .first()
         )
         if not va:
-            raise ValueError(f"Virtual account not found: {va_id}")
+            raise ValueError(f"Pot not found: {va_id}")
 
         va_account_id = str(va["account_id"]) if va["account_id"] else None
         tx = self.get_by_id(tx_id)  # type: ignore[attr-defined]
@@ -152,7 +152,7 @@ class HelperMixin:
             raise ValueError(f"Transaction not found: {tx_id}")
 
         if va_account_id and va_account_id != tx["account_id"]:
-            raise ValueError("Virtual account is linked to a different account")
+            raise ValueError("Pot is linked to a different account")
 
         with transaction.atomic():
             VirtualAccountAllocation.objects.create(

@@ -49,8 +49,8 @@ class TestVirtualAccountsPage:
         c = set_auth_cookie(client, va_view_data["session_token"])
         response = c.get("/virtual-accounts")
         assert response.status_code == 200
-        assert b"Virtual Accounts" in response.content
-        assert b"No virtual accounts yet" in response.content
+        assert b"Pots" in response.content
+        assert b"No pots yet" in response.content
 
     def test_200_with_vas(self, client, va_view_data):
         c = set_auth_cookie(client, va_view_data["session_token"])
@@ -296,7 +296,7 @@ class TestVirtualAccountArchive:
 
         # Should show empty state
         page = c.get("/virtual-accounts")
-        assert b"No virtual accounts yet" in page.content
+        assert b"No pots yet" in page.content
 
 
 # ---------------------------------------------------------------------------
@@ -415,7 +415,7 @@ class TestVirtualAccountEditForm:
 
         response = c.get(f"/virtual-accounts/{va_id}/edit-form")
         assert response.status_code == 200
-        assert b"Edit Virtual Account" in response.content
+        assert b"Edit Pot" in response.content
         assert b'name="name"' in response.content
 
     def test_404_nonexistent(self, client, va_view_data):

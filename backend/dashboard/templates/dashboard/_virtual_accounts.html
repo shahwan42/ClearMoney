@@ -7,9 +7,9 @@
              onclick="Dashboard.toggleSection('virtual-accounts')"
              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
             <div class="flex items-center gap-2 overflow-hidden flex-1">
-                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Virtual Accounts" %}</h2>
+                <h2 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide truncate">{% trans "Pots" %}</h2>
                 <div id="summary-virtual-accounts" class="section-summary text-sm font-semibold text-teal-600 truncate hidden">
-                    {{ data.virtual_accounts|length }} {% trans "envelopes" %}
+                    {{ data.virtual_accounts|length }} {% trans "pots" %}
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -40,7 +40,7 @@
             {% else %}
             <div class="flex flex-col items-center justify-center py-6 text-center">
                 <p class="text-sm text-gray-400 dark:text-slate-500">
-                    {% blocktrans with currency=data.selected_currency %}No virtual accounts for {{ currency }}.{% endblocktrans %}
+                    {% blocktrans with currency=data.selected_currency %}No pots for {{ currency }}.{% endblocktrans %}
                 </p>
             </div>
             {% endif %}

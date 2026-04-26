@@ -2,21 +2,21 @@
 {% load money %}
 {% load i18n %}
 
-{% block title %}ClearMoney - {% trans "Virtual Accounts" %}{% endblock %}
+{% block title %}ClearMoney - {% trans "Pots" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto space-y-4 py-4">
     {% if not accounts %}
-    {% include "components/_feature_hint.html" with hint_id="va-hint" hint_key="virtual_accounts" title=_("Virtual Accounts") description=_("Create savings envelopes for your goals") cta_text=_("Got it") %}
+    {% include "components/_feature_hint.html" with hint_id="va-hint" hint_key="virtual_accounts" title=_("Pots") description=_("Set money aside for your goals") cta_text=_("Got it") %}
     {% endif %}
 
     <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Virtual Accounts" %}</h2>
+        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Pots" %}</h2>
         <a href="/" class="flex items-center min-h-[44px] px-1 text-sm text-teal-600 hover:text-teal-700">{% trans "Dashboard" %}</a>
     </div>
 
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "New Virtual Account" %}</h3>
+        <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "New Pot" %}</h3>
         <form method="POST" action="{% url 'va-add' %}" class="space-y-3">
             {% csrf_token %}
             <div>
@@ -79,7 +79,7 @@
     {% for warning in warnings %}
     <section class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
         <p class="text-sm font-medium text-amber-700 dark:text-amber-400">
-            {% blocktrans with total_va=warning.total_va|format_currency:warning.currency account_name=warning.account_name linked_balance=warning.account_balance|format_currency:warning.currency %}Total virtual account allocations ({{ total_va }}) exceed {{ account_name }} balance ({{ linked_balance }}).{% endblocktrans %}
+            {% blocktrans with total_va=warning.total_va|format_currency:warning.currency account_name=warning.account_name linked_balance=warning.account_balance|format_currency:warning.currency %}Total pot allocations ({{ total_va }}) exceed {{ account_name }} balance ({{ linked_balance }}).{% endblocktrans %}
         </p>
     </section>
     {% endfor %}
@@ -133,7 +133,7 @@
     </section>
     {% else %}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 text-center">
-        <p class="text-gray-400 dark:text-slate-500 text-sm">{% trans "No virtual accounts yet. Create one above!" %}</p>
+        <p class="text-gray-400 dark:text-slate-500 text-sm">{% trans "No pots yet. Create one above!" %}</p>
     </section>
     {% endif %}
 </div>

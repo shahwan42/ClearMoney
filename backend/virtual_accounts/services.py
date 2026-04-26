@@ -251,7 +251,7 @@ class VirtualAccountService:
             ValueError: If name is empty.
         """
         if not name.strip():
-            raise ValueError("Virtual account name is required")
+            raise ValueError("Pot name is required")
         if not color:
             color = "#0d9488"
 
@@ -292,7 +292,7 @@ class VirtualAccountService:
             ValueError: If name is empty.
         """
         if not name.strip():
-            raise ValueError("Virtual account name is required")
+            raise ValueError("Pot name is required")
 
         count = (
             self._qs()

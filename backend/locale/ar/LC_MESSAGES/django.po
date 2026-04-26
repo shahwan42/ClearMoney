@@ -449,8 +449,8 @@ msgstr ""
 #: templates/components/bottom-nav.html:113
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:5
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:10
-msgid "Virtual Accounts"
-msgstr "الحسابات الافتراضية"
+msgid "Pots"
+msgstr "المدخرات"
 
 #: accounts/templates/accounts/account_detail.html:130
 #: dashboard/templates/dashboard/home.html:54
@@ -2074,8 +2074,8 @@ msgstr ""
 
 #: transactions/templates/transactions/_quick_entry.html:106
 #: transactions/templates/transactions/transaction_new.html:121
-msgid "Virtual Account (optional)"
-msgstr ""
+msgid "Pot (optional)"
+msgstr "مدخرة (اختياري)"
 
 #: transactions/templates/transactions/_quick_entry.html:109
 #: transactions/templates/transactions/transaction_new.html:124
@@ -2289,8 +2289,8 @@ msgid "ClearMoney - Transfer"
 msgstr ""
 
 #: virtual_accounts/templates/virtual_accounts/_edit_form.html:2
-msgid "Edit Virtual Account"
-msgstr "تعديل حساب افتراضي"
+msgid "Edit Pot"
+msgstr "تعديل المدخرة"
 
 #: virtual_accounts/templates/virtual_accounts/_edit_form.html:20
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:25
@@ -2318,8 +2318,8 @@ msgid "Not my money (exclude from net worth)"
 msgstr "ليس مالي (استثناؤه من صافي الثروة)"
 
 #: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:17
-msgid "All Virtual Accounts"
-msgstr "جميع الحسابات الافتراضية"
+msgid "All Pots"
+msgstr "جميع المدخرات"
 
 #: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:26
 msgid "Progress"
@@ -2341,14 +2341,14 @@ msgstr "مستثنى من صافي الثروة"
 #: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:46
 #, python-format
 msgid ""
-"This virtual account's balance (%(va_balance)s) exceeds the linked account "
+"This pot's balance (%(va_balance)s) exceeds the linked account "
 "balance (%(linked_balance)s)."
 msgstr ""
 
 #: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:52
 #, python-format
 msgid ""
-"Total virtual account allocations (%(total_va)s) exceed the linked account "
+"Total pot allocations (%(total_va)s) exceed the linked account "
 "balance (%(linked_balance)s)."
 msgstr ""
 
@@ -2385,8 +2385,8 @@ msgid "Dashboard"
 msgstr "لوحة التحكم"
 
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:15
-msgid "New Virtual Account"
-msgstr "حساب افتراضي جديد"
+msgid "New Pot"
+msgstr "مدخرة جديدة"
 
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:20
 msgid "e.g. Emergency Fund"
@@ -2411,8 +2411,8 @@ msgid "Exceeds account balance (%(va_balance)s)"
 msgstr "يتجاوز رصيد الحساب (%(va_balance)s)"
 
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:105
-msgid "No virtual accounts yet. Create one above!"
-msgstr "لا توجد حسابات افتراضية بعد. أنشئ واحدة أعلاه!"
+msgid "No pots yet. Create one above!"
+msgstr "لا توجد مدخرات بعد. أنشئ واحدة أعلاه!"
 
 msgid "By Category"
 msgstr "حسب الفئة"

@@ -30,7 +30,7 @@ class MoreMenuGroupingTest(TestCase):
         content = resp.content.decode()
         assert "Track loans and debts" in content
         assert "Monthly spending limits" in content
-        assert "Envelope budgeting" in content
+        assert "Set money aside for goals" in content
         assert "Auto-create transactions" in content
 
     def test_more_menu_includes_reports_link(self) -> None:

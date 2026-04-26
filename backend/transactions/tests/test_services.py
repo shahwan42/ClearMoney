@@ -1635,7 +1635,7 @@ class TestTransactionBoundaryAmounts:
 class TestAllocateToVirtualAccount:
     def test_va_not_found(self, tx_data):
         svc = _svc(tx_data["user_id"])
-        with pytest.raises(ValueError, match="Virtual account not found"):
+        with pytest.raises(ValueError, match="Pot not found"):
             svc.allocate_to_virtual_account(
                 "00000000-0000-0000-0000-000000000000",
                 "11111111-1111-1111-1111-111111111111",
@@ -1658,9 +1658,7 @@ class TestAllocateToVirtualAccount:
         tx, _ = svc.create(
             {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
         )
-        with pytest.raises(
-            ValueError, match="Virtual account is linked to a different account"
-        ):
+        with pytest.raises(ValueError, match="Pot is linked to a different account"):
             svc.allocate_to_virtual_account(tx["id"], str(va.id), 100)
 
 
