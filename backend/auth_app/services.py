@@ -419,6 +419,15 @@ class AuthService:
 
             # Seed default categories
             self._seed_default_categories(user_id)
+            # Seed default fee presets (InstaPay / ATM for EGP)
+            try:
+                from fee_presets.services import seed_default_fee_presets
+
+                seed_default_fee_presets(user_id)
+            except Exception:
+                logger.exception(
+                    "auth.fee_preset_seed_failed user_id=%s", user_id
+                )
             logger.info("auth.user_registered email=%s", at.email)
 
         else:

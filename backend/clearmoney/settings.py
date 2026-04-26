@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "exchange_rates",  # Exchange rate history
     "push",  # Push notification API
     "categories",  # Category JSON API
+    "fee_presets",  # User fee templates (InstaPay, ATM, custom)
     "jobs",  # Background jobs (management commands)
     "auth_app",  # Magic link authentication
 ]

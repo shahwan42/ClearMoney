@@ -109,6 +109,14 @@ class Transaction(models.Model):
         db_column="recurring_rule_id",
         related_name="+",
     )
+    fee_preset = models.ForeignKey(
+        "fee_presets.FeePreset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="fee_preset_id",
+        related_name="+",
+    )
     balance_delta = models.DecimalField(
         max_digits=15, decimal_places=2, default=0, db_default=0
     )

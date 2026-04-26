@@ -170,9 +170,18 @@ class TestVerifyMagicLink:
         cat_count = Category.objects.filter(user_id=user.id).count()
         assert cat_count == 27
 
+        # Fee presets seeded (InstaPay + ATM for EGP)
+        from fee_presets.models import FeePreset
+
+        preset_names = set(
+            FeePreset.objects.filter(user_id=user.id).values_list("name", flat=True)
+        )
+        assert {"InstaPay", "ATM"} <= preset_names
+
         # Cleanup
         session_token = response.cookies[SESSION_COOKIE_NAME].value
         Category.objects.filter(user_id=user.id).delete()
+        FeePreset.objects.filter(user_id=user.id).delete()
         Session.objects.filter(token=session_token).delete()
         AuthToken.objects.filter(id=token.id).delete()
         User.objects.filter(id=user.id).delete()
