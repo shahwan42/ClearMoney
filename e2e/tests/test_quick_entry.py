@@ -57,8 +57,11 @@ def _fill_quick_entry(
     # Fill amount
     page.fill("#qe-amount", amount)
 
-    # Select the first real account option (index 0 is placeholder "Select account...")
-    page.locator("#qe-account-select").select_option(index=1)
+    # Select the first available account through the account combobox.
+    page.evaluate("""() => {
+        const combo = document.getElementById('qe-account-combobox')._accountCombobox;
+        combo.selectById(combo.accounts[0].id);
+    }""")
 
     # Category — use the combobox JS API
     category_type = "income" if tx_type == "income" else "expense"

@@ -58,7 +58,7 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 ### Other Features
 - Search and filter by date range, account, category, type
 - Tag filtering
-- Swipe-to-delete gesture (mobile)
+- Explicit edit/delete actions from each transaction row menu
 - Each transaction stores a `balance_delta` field for reconciliation auditing
 - Balance updates are atomic (transaction INSERT + balance UPDATE in a single DB transaction)
 - Category dropdowns show emoji icons and group options by type (Expense / Income)
@@ -187,7 +187,7 @@ Reusable slide-up sheet with swipe-to-dismiss. Shared across accounts (4 sheets)
 - **Success animations** — toast notifications on form submissions
 - **Skeleton loading** — placeholder cards/lists during HTMX requests
 - **Smart category suggestions** — API endpoint suggests category based on transaction note
-- **Swipe gestures** — swipe-to-delete on transaction rows
+- **Pull-to-refresh** — mobile refresh gesture on supported pages
 - **Empty states** — helpful messaging when lists are empty
 - **Dark mode** — full dark mode with class-based toggling
 - **Clickable header** — ClearMoney logo/title navigates to dashboard

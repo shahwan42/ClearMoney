@@ -11,7 +11,6 @@ Last updated: 2026-04-26
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
 | [158](pending/158-refactor-new-budget-form-to-bottom-sheet.md) | Refactor New budget form to bottom sheet | improvement | medium | 2026-04-24 |
-| [157](pending/157-remove-swipe-to-delete-from-history-page.md) | Remove swipe-to-delete from history page | improvement | medium | 2026-04-24 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [100](pending/100-smarter-more-menu.md) | Smarter More menu organization | improvement | medium | 2026-03-31 |
@@ -37,6 +36,7 @@ Last updated: 2026-04-26
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [157](done/157-remove-swipe-to-delete-from-history-page.md) | Remove swipe-to-delete from history page | improvement | medium | 2026-04-26 |
 | [156](done/156-rank-transaction-account-choices-by-usage-within-selected-transaction-type.md) | Rank transaction account choices by usage within selected transaction type | improvement | medium | 2026-04-26 |
 | [155](done/155-improve-transaction-account-picker-ux-with-icons-and-search.md) | Improve transaction account picker UX with icons and search | improvement | medium | 2026-04-26 |
 | [154](done/154-fix-pull-to-refresh-scroll-bug.md) | Fix pull-to-refresh scroll bug | bug | high | 2026-04-24 |

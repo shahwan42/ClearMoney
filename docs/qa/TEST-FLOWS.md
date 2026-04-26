@@ -516,31 +516,32 @@ def test_cannot_access_other_users_account(self, ...):
 
 ---
 
-### 4.7 Swipe to Delete
+### 4.7 Transaction Deletion
 
-**Layer:** E2E (gesture must be tested in browser)
+**Layer:** Unit + E2E
 
 **Preconditions:** Transaction in list view
 
 **Scenarios:**
 
-**A. Swipe left → delete button appears**
+**A. Swipe left → no delete button appears**
 - Touch/mouse drag left on transaction row
-- Delete button reveals
+- Row remains visible
+- No swipe delete button or confirmation dialog appears
 
-**B. Click delete → transaction removed, balance restored**
-- Click revealed delete button
-- Confirmation dialog (optional)
-- POST `/transactions/<id>/delete`
+**B. Menu delete → transaction removed, balance restored**
+- Open row actions menu
+- Click Delete
+- Confirmation dialog appears
+- DELETE `/transactions/<id>`
 - Transaction removed from DB
 - Balance updated in UI
 
-**C. Keyboard alternative: delete button accessible without gesture**
-- Tab to delete button (keyboard nav)
+**C. Keyboard access: delete button accessible without gesture**
+- Tab to the row actions menu
+- Open the menu
+- Tab to delete button
 - Press Enter to delete
-- Or always show delete button, not just on swipe
-
-**GAP:** E2E swipe test exists but only verifies row is visible post-delete, not full flow (delete → DB verified, balance updated). Enhance test coverage.
 
 ---
 

@@ -3,9 +3,9 @@ id: "157"
 title: "Remove swipe-to-delete from history page"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-04-26
 ---
 
 ## Description
@@ -20,12 +20,12 @@ Current state:
 
 ## Acceptance Criteria
 
-- [ ] History page transaction rows no longer expose swipe-to-delete behavior
-- [ ] Swipe hint text is removed from the history page
-- [ ] Transaction deletion remains available through an explicit non-gesture control already present on the row
-- [ ] No dashboard or compact transaction rows regress as a side effect
-- [ ] Mobile interaction tests are updated to reflect the removal of swipe-to-delete
-- [ ] Documentation describing swipe-to-delete on the history page is updated or removed where applicable
+- [x] History page transaction rows no longer expose swipe-to-delete behavior
+- [x] Swipe hint text is removed from the history page
+- [x] Transaction deletion remains available through an explicit non-gesture control already present on the row
+- [x] No dashboard or compact transaction rows regress as a side effect
+- [x] Mobile interaction tests are updated to reflect the removal of swipe-to-delete
+- [x] Documentation describing swipe-to-delete on the history page is updated or removed where applicable
 
 ## Technical Notes
 
@@ -36,3 +36,5 @@ Current state:
 ## Progress Notes
 
 - 2026-04-24: Created from backlog request. Confirmed the current history page still renders `data-swipe-delete`, a swipe hint, and shared gesture handling in `static/js/gestures.js`.
+- 2026-04-26: Started — Removing history-page swipe deletion while preserving explicit delete controls and non-history transaction row behavior.
+- 2026-04-26: Completed — Removed transaction-row swipe delete attributes, history swipe hint UI, and stale swipe-delete JS/CSS. Updated backend, E2E, and docs coverage; also refreshed stale E2E selectors/date fixtures found while running the full suite. Verified `make test`, `make lint`, and `make test-e2e` pass.

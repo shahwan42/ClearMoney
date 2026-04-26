@@ -576,7 +576,7 @@ class TestTransactionCRUD:
         # OOB swap element for the linked transaction
         assert f'id="tx-{credit.id}"'.encode() in response.content
         assert b'hx-swap-oob="delete"' in response.content
-        # Header for swipe-to-delete path
+        # Header for direct-fetch delete path
         assert response["X-Related-Deleted"] == str(credit.id)
 
     def test_row_partial(self, client, tx_view_data):

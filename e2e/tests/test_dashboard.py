@@ -4,6 +4,7 @@ Converts: 04-dashboard.spec.ts
 """
 
 import sys, os
+from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -305,18 +306,19 @@ class TestCashFlowForecast:
         """Cash flow forecast card shows when recurring rules exist."""
         global _user_id
         _, account_id = seed_basic_data(page)
+        next_due_date = date.today() + timedelta(days=5)
 
         # Create a recurring income rule via SQL
-        category_id = get_category_id("income", _user_id)
         with _conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "INSERT INTO recurring_rules "
                     "(user_id, template_transaction, frequency, next_due_date, is_active, auto_confirm) "
-                    "VALUES (%s, %s, 'monthly', '2026-04-25', true, false) RETURNING id",
+                    "VALUES (%s, %s, 'monthly', %s, true, false) RETURNING id",
                     (
                         _user_id,
                         f'{{"type": "income", "amount": 5000, "currency": "EGP", "account_id": "{account_id}", "note": "Salary"}}',
+                        next_due_date,
                     ),
                 )
             conn.commit()
@@ -332,18 +334,19 @@ class TestCashFlowForecast:
         """Forecast displays warning when balance goes negative."""
         global _user_id
         _, account_id = seed_basic_data(page)
+        next_due_date = date.today() + timedelta(days=5)
 
         # Create a large recurring expense that exceeds balance
-        category_id = get_category_id("expense", _user_id)
         with _conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "INSERT INTO recurring_rules "
                     "(user_id, template_transaction, frequency, next_due_date, is_active, auto_confirm) "
-                    "VALUES (%s, %s, 'monthly', '2026-04-25', true, false) RETURNING id",
+                    "VALUES (%s, %s, 'monthly', %s, true, false) RETURNING id",
                     (
                         _user_id,
                         f'{{"type": "expense", "amount": 20000, "currency": "EGP", "account_id": "{account_id}", "note": "Big Purchase"}}',
+                        next_due_date,
                     ),
                 )
             conn.commit()

@@ -234,11 +234,9 @@ Transactions can be allocated to virtual accounts (envelopes) for budget trackin
 
 ## UX Features
 
-### Swipe-to-Delete
+### Delete Transactions
 
-**Frontend:** `static/js/gestures.js` — detects touch drag left >80px, shows red delete indicator, sends DELETE request.
-
-**Backend:** View returns empty 200 OK; HTMX removes the row from DOM via `hx-swap="outerHTML"`.
+Transaction rows expose deletion through the explicit row menu. The delete action uses `hx-delete` with the app-native confirmation dialog, then removes the row from the DOM via `hx-swap="outerHTML"`.
 
 ### Category Suggestions
 

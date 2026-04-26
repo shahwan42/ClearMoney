@@ -94,20 +94,15 @@ class TestTransactionFormValidation:
         expect(amount_input).not_to_have_attribute("aria-invalid", "true")
         expect(page.locator("#amount-input-error")).not_to_be_visible()
 
-    def test_required_field_shows_error_on_empty(self, page: Page) -> None:
-        """Required field shows error when empty."""
+    def test_account_picker_requires_selection(self, page: Page) -> None:
+        """Account picker requires a selected account."""
         page.goto("/transactions/new")
-        account_select = page.locator('#account-select')
+        account_input = page.locator("#account-picker-input")
+        hidden_input = page.locator('input[name="account_id"]')
 
-        # Select empty option then trigger blur validation via JS
-        account_select.select_option("")
-        account_select.evaluate("el => el.dispatchEvent(new Event('blur'))")
-
-        # Should show error
-        expect(account_select).to_have_attribute("aria-invalid", "true")
-        expect(page.locator("#account-select-error")).to_contain_text(
-            "This field is required"
-        )
+        expect(account_input).to_have_attribute("required", "")
+        expect(hidden_input).to_have_value("")
+        assert account_input.evaluate("el => el.checkValidity()") is False
 
     def test_note_field_shows_character_count(self, page: Page) -> None:
         """Note field shows character count with maxlength."""

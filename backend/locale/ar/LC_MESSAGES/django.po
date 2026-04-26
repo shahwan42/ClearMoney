@@ -2284,10 +2284,6 @@ msgstr ""
 msgid "Dismiss tip"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:87
-msgid "Swipe left on a transaction to delete, or use the menu"
-msgstr ""
-
 #: transactions/templates/transactions/transfer.html:3
 msgid "ClearMoney - Transfer"
 msgstr ""

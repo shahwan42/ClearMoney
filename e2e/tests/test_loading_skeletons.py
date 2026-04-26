@@ -35,7 +35,10 @@ def _fill_quick_entry(
     """Fill in the quick-entry form fields."""
     page.click(f"input[name='type'][value='{tx_type}']", force=True)
     page.fill("#qe-amount", amount)
-    page.locator("#qe-account-select").select_option(index=1)
+    page.evaluate("""() => {
+        const combo = document.getElementById('qe-account-combobox')._accountCombobox;
+        combo.selectById(combo.accounts[0].id);
+    }""")
     category_type = "income" if tx_type == "income" else "expense"
     category_id = get_category_id(category_type, _user_id)
     page.evaluate(

@@ -34,27 +34,14 @@ Three animation keyframes:
 **Backend:** `backend/transactions/views.py` → `helpers.suggest_category()` → Django ORM
 **Frontend:** JavaScript in `backend/transactions/templates/transactions/_quick_entry.html` with debounced fetch
 
-## Swipe-to-Delete Gestures
-
-**File:** `static/js/gestures.js` (lines ~52-113)
-
-Works on elements with `[data-swipe-delete]` attribute:
-1. Detects touch drag left >80px
-2. Shows red delete indicator when drag >50px
-3. On release with dx < -60: `confirm()` prompt, then DELETE request
-4. Animates removal with opacity fade (0.3s)
-5. Sets `HX-Request: true` header for HTMX compatibility
-
-**Backend:** Delete handler returns empty 200 OK; HTMX removes the row via `hx-swap="outerHTML"`.
-
 ## Pull-to-Refresh
 
-**File:** `static/js/gestures.js` (lines ~13-50)
+**File:** `static/js/gestures.js`
 
 Works on elements with `[data-pull-refresh]` attribute:
-1. Detects touch drag down >60px from top
-2. Shows "Release to refresh" indicator
-3. On release: `window.location.reload()`
+1. Detects a downward touch drag only while the scroll container is at the top
+2. Shows a release-to-refresh indicator after the threshold is crossed
+3. Reloads the page on release after a valid pull
 
 ## Empty States
 
