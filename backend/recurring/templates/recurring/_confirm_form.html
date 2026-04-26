@@ -3,7 +3,7 @@
 <div class="space-y-6">
     <div class="text-center space-y-1">
         <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100">{% trans "Confirm Transaction" %}</h3>
-        <p class="text-xs text-slate-500 uppercase tracking-widest font-bold">{% trans "Recurring" %}: {{ rule.note }}</p>
+        <p class="text-xs text-slate-500 uppercase tracking-widest font-bold">{% trans "Automation" %}: {{ rule.note }}</p>
     </div>
 
     <form hx-post="{% url 'recurring-confirm' rule.id %}"

@@ -8,7 +8,7 @@
 <div class="max-w-2xl mx-auto space-y-6 py-4 px-2">
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <a href="{% url 'recurring' %}" class="p-2 -ms-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" aria-label="{% trans "Back to Recurring Rules" %}">
+            <a href="{% url 'recurring' %}" class="p-2 -ms-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors" aria-label="{% trans "Back to Automations" %}">
                 <svg class="w-5 h-5 text-gray-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
@@ -147,7 +147,7 @@
         <div class="text-center py-12 text-gray-400 dark:text-slate-500">
             <svg class="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             <p class="text-sm">{% trans "No recurring transactions due this month." %}</p>
-            <a href="{% url 'recurring' %}" class="mt-2 inline-block text-sm text-teal-600 hover:underline">{% trans "Manage recurring rules" %}</a>
+            <a href="{% url 'recurring' %}" class="mt-2 inline-block text-sm text-teal-600 hover:underline">{% trans "Manage automations" %}</a>
         </div>
         {% endif %}
     </div>
