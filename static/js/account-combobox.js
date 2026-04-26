@@ -302,6 +302,27 @@ var AccountCombobox = (function() {
         }
     };
 
+    AccountCombobox.prototype.setAccounts = function(accounts) {
+        var selectedId = this.hiddenInput.value;
+        this.accounts = accounts || [];
+
+        if (selectedId) {
+            for (var i = 0; i < this.accounts.length; i++) {
+                if (this.accounts[i].id === selectedId) {
+                    this._selectAccount(this.accounts[i]);
+                    if (this.isOpen) this._renderOptions();
+                    return;
+                }
+            }
+        }
+
+        this.hiddenInput.value = '';
+        this.textInput.value = '';
+        this._syncSelectedDataset(null);
+        this._syncValidity();
+        if (this.isOpen) this._renderOptions();
+    };
+
     AccountCombobox.prototype._getOptionElements = function() {
         return Array.prototype.slice.call(this.listbox.querySelectorAll('[role="option"]'));
     };

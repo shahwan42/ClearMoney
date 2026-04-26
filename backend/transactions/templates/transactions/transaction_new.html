@@ -39,6 +39,8 @@
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="account-picker-input" id="account-picker-label">{% trans "Account" %}</label>
             <div data-account-combobox
                  data-accounts='{{ accounts|accounts_json }}'
+                 data-expense-accounts='{{ expense_accounts|accounts_json }}'
+                 data-income-accounts='{{ income_accounts|accounts_json }}'
                  data-name="account_id"
                  data-input-id="account-picker-input"
                  data-labelledby="account-picker-label"
@@ -167,6 +169,19 @@
     const dateDefault = document.getElementById('date-default');
     const dateInput = document.getElementById('date-picker');
     const txForm = document.getElementById('tx-form');
+    const typeSelect = document.getElementById('type-select');
+    const accountComboEl = txForm.querySelector('[data-account-combobox]');
+
+    function accountListForType(txType) {
+        const attr = txType === 'income' ? 'data-income-accounts' : 'data-expense-accounts';
+        return JSON.parse(accountComboEl.getAttribute(attr) || '[]');
+    }
+
+    function applyAccountRanking() {
+        if (!window.AccountCombobox || !accountComboEl) return;
+        if (!accountComboEl._accountCombobox) new AccountCombobox(accountComboEl);
+        accountComboEl._accountCombobox.setAccounts(accountListForType(typeSelect.value));
+    }
 
     toggle.addEventListener('click', function() {
         const isHidden = moreOptions.classList.contains('hidden');
@@ -200,7 +215,6 @@
         const draft = localStorage.getItem(DRAFT_KEY);
         if (!draft) return;
         const obj = JSON.parse(draft);
-        const accountComboEl = txForm.querySelector('[data-account-combobox]');
         if (window.AccountCombobox && accountComboEl && !accountComboEl._accountCombobox) {
             new AccountCombobox(accountComboEl);
         }
@@ -208,10 +222,13 @@
             const el = txForm.querySelector(`[name="${key}"]`);
             if (el && el.type !== 'file') el.value = obj[key];
         });
+        applyAccountRanking();
         if (accountComboEl && accountComboEl._accountCombobox && obj.account_id) {
             accountComboEl._accountCombobox.selectById(obj.account_id);
         }
     }
+
+    if (typeSelect) typeSelect.addEventListener('change', applyAccountRanking);
 
     if (txForm) {
         ['input', 'change'].forEach(function(event) {

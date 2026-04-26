@@ -155,17 +155,22 @@ def transaction_new(
     """GET /transactions/new — full transaction form page. Supports ?dup=<id>."""
     from transactions.services import TagService
 
-    accounts = svc.get_accounts()
+    prefill = None
+    dup_id = request.GET.get("dup")
+    if dup_id:
+        prefill = svc.get_by_id(dup_id)
+
+    selected_type = (
+        "income" if prefill and prefill.get("type") == "income" else "expense"
+    )
+    expense_accounts = svc.get_accounts("expense")
+    income_accounts = svc.get_accounts("income")
+    accounts = income_accounts if selected_type == "income" else expense_accounts
     categories = svc.get_categories()
     virtual_accounts = svc.get_virtual_accounts()
     tag_names = [
         t["name"] for t in TagService(request.user_id, request.tz).get_all_with_usage()
     ]
-
-    prefill = None
-    dup_id = request.GET.get("dup")
-    if dup_id:
-        prefill = svc.get_by_id(dup_id)
 
     logger.info("page viewed: transaction-new, user=%s", request.user_email)
     return render(
@@ -173,6 +178,8 @@ def transaction_new(
         "transactions/transaction_new.html",
         {
             "accounts": accounts,
+            "expense_accounts": expense_accounts,
+            "income_accounts": income_accounts,
             "categories": categories,
             "virtual_accounts": virtual_accounts,
             "today": date.today(),
@@ -744,7 +751,9 @@ def quick_entry_form(
 ) -> HttpResponse:
     """GET /transactions/quick-form — quick entry partial for bottom sheet."""
     defaults = svc.get_smart_defaults("expense")
-    accounts = svc.get_accounts()
+    expense_accounts = svc.get_accounts("expense")
+    income_accounts = svc.get_accounts("income")
+    transfer_accounts = svc.get_accounts()
     categories = svc.get_categories()
     virtual_accounts = svc.get_virtual_accounts()
 
@@ -753,7 +762,10 @@ def quick_entry_form(
         request,
         "transactions/_quick_entry.html",
         {
-            "accounts": accounts,
+            "accounts": expense_accounts,
+            "expense_accounts": expense_accounts,
+            "income_accounts": income_accounts,
+            "transfer_accounts": transfer_accounts,
             "categories": categories,
             "virtual_accounts": virtual_accounts,
             "last_account_id": defaults["last_account_id"],

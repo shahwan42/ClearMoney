@@ -7,6 +7,7 @@ Uses factory_boy fixtures for test data setup (no raw SQL).
 
 import html
 import json
+import re
 import uuid
 from datetime import date
 
@@ -165,6 +166,36 @@ class TestTransactionNew:
         assert match
         data = json.loads(html.unescape(match.group(1)))
         assert any(account["name"] == "Ahmed's <Main>" for account in data)
+
+    def test_new_form_includes_type_specific_account_rankings(
+        self, client, tx_view_data
+    ):
+        income_account = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="Income Account",
+            currency="EGP",
+        )
+        TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=income_account.id,
+            type="income",
+            amount=100,
+            currency="EGP",
+            balance_delta=100,
+        )
+
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+
+        income_match = re.search(r"data-income-accounts='(.+?)'", content)
+        expense_match = re.search(r"data-expense-accounts='(.+?)'", content)
+        assert income_match
+        assert expense_match
+
+        income_accounts = json.loads(html.unescape(income_match.group(1)))
+        assert income_accounts[0]["id"] == str(income_account.id)
 
     def test_duplicate_date_shown_in_date_picker(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -775,6 +806,38 @@ class TestQuickEntryViews:
         # Type selection includes Transfer
         assert 'value="transfer"' in content
         assert "qeToggleType" in content
+
+    def test_quick_entry_includes_type_specific_account_rankings(
+        self, client, tx_view_data
+    ):
+        income_account = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="Income Account",
+            currency="EGP",
+        )
+        TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=income_account.id,
+            type="income",
+            amount=100,
+            currency="EGP",
+            balance_delta=100,
+        )
+
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+
+        income_match = re.search(r"data-income-accounts='(.+?)'", content)
+        expense_match = re.search(r"data-expense-accounts='(.+?)'", content)
+        transfer_match = re.search(r"data-transfer-accounts='(.+?)'", content)
+        assert income_match
+        assert expense_match
+        assert transfer_match
+
+        income_accounts = json.loads(html.unescape(income_match.group(1)))
+        assert income_accounts[0]["id"] == str(income_account.id)
 
     def test_quick_entry_transfer_success(self, client, tx_view_data):
         """POST /transactions/quick with type=transfer creates two legs."""

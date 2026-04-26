@@ -12,12 +12,6 @@ Last updated: 2026-04-26
 | --- | --- | --- | --- | --- |
 | [158](pending/158-refactor-new-budget-form-to-bottom-sheet.md) | Refactor New budget form to bottom sheet | improvement | medium | 2026-04-24 |
 | [157](pending/157-remove-swipe-to-delete-from-history-page.md) | Remove swipe-to-delete from history page | improvement | medium | 2026-04-24 |
-| [156](pending/156-rank-transaction-account-choices-by-usage-within-selected-transaction-type.md) | Rank transaction account choices by usage within selected transaction type | improvement | medium | 2026-04-24 |
-| [153](pending/153-cleanup-compatibility-removal-docs-and-guardrails.md) | Cleanup, compatibility removal, docs, and guardrails | chore | medium | 2026-04-22 |
-| [152](pending/152-currency-formatting-and-template-cleanup.md) | Currency formatting and template cleanup | improvement | medium | 2026-04-22 |
-| [151](pending/151-dashboard-and-historical-sparkline-consumption-rewrite.md) | Dashboard and historical sparkline consumption rewrite | feature | medium | 2026-04-22 |
-| [149](pending/149-dynamic-reports-filters-and-exact-currency-reporting.md) | Dynamic reports filters and exact-currency reporting | feature | medium | 2026-04-22 |
-| [148](pending/148-dynamic-budgets-and-total-budgets.md) | Dynamic budgets and total budgets | feature | medium | 2026-04-22 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
 | [100](pending/100-smarter-more-menu.md) | Smarter More menu organization | improvement | medium | 2026-03-31 |
@@ -43,8 +37,14 @@ Last updated: 2026-04-26
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [156](done/156-rank-transaction-account-choices-by-usage-within-selected-transaction-type.md) | Rank transaction account choices by usage within selected transaction type | improvement | medium | 2026-04-26 |
 | [155](done/155-improve-transaction-account-picker-ux-with-icons-and-search.md) | Improve transaction account picker UX with icons and search | improvement | medium | 2026-04-26 |
 | [154](done/154-fix-pull-to-refresh-scroll-bug.md) | Fix pull-to-refresh scroll bug | bug | high | 2026-04-24 |
+| [153](done/153-cleanup-compatibility-removal-docs-and-guardrails.md) | Cleanup, compatibility removal, docs, and guardrails | chore | medium | 2026-04-24 |
+| [151](done/151-dashboard-and-historical-sparkline-consumption-rewrite.md) | Dashboard and historical sparkline consumption rewrite | feature | medium | 2026-04-23 |
+| [150](done/150-generalized-snapshot-model-and-historical-backfill.md) | Generalized snapshot model and historical backfill | feature | high | 2026-04-23 |
+| [149](done/149-dynamic-reports-filters-and-exact-currency-reporting.md) | Dynamic reports filters and exact-currency reporting | feature | medium | 2026-04-23 |
+| [148](done/148-dynamic-budgets-and-total-budgets.md) | Dynamic budgets and total budgets | feature | medium | 2026-04-23 |
 | [147](done/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-23 |
 | [146](done/146-dashboard-selected-currency-behavior.md) | Dashboard selected-currency behavior | feature | high | 2026-04-23 |
 | [145](done/145-generalize-net-worth-summary-data-structures.md) | Generalize net worth summary data structures | feature | high | 2026-04-23 |
@@ -52,16 +52,18 @@ Last updated: 2026-04-26
 | [143](done/143-dynamic-people-ui-and-debt-summary-contracts.md) | Dynamic people UI and debt summary contracts | feature | high | 2026-04-23 |
 | [142](done/142-generalized-person-currency-balance-storage.md) | Generalized person currency balance storage | feature | high | 2026-04-23 |
 | [141](done/141-complete-selected-currency-plumbing-rollout.md) | Complete selected-currency plumbing rollout | improvement | high | 2026-04-23 |
-| [150](done/150-generalized-snapshot-model-and-historical-backfill.md) | Generalized snapshot model and historical backfill | feature | high | 2026-04-23 |
 | [138](done/138-fix-balance-check-js-locale-diff.md) | Fix balance check JS diff calculation with locale-sensitive number rendering | bug | high | 2026-04-23 |
 | [136](done/136-fix-notifications-reappear-after-login.md) | Fix notifications reappearing after login | bug | medium | 2026-04-23 |
 | [135](done/135-deploy-smoke-test.md) | Deploy smoke test — post-deployment health verification | chore | high | 2026-04-23 |
+| [152](done/152-currency-formatting-and-template-cleanup.md) | Currency formatting and template cleanup | improvement | medium | 2026-04-22 |
 | [140](done/140-complete-registry-backed-currency-option-rollout.md) | Complete registry-backed currency option rollout | improvement | high | 2026-04-22 |
 | [139](done/139-dynamic-multi-currency-foundation.md) | Dynamic multi-currency foundation | feature | high | 2026-04-22 |
 | [130](done/130-dead-utility-functions-db-htmx-helpers.md) | Dead utility functions: row_to_dict, rows_to_dicts, success_response, _lookup_account_currency | chore | low | 2026-04-22 |
 | [129](done/129-dead-auth-service-request-login-link.md) | Investigate unused auth_app/services.py::request_login_link | chore | medium | 2026-04-22 |
 | [128](done/128-stale-2fa-schema-fields.md) | Stale 2FA schema: pin_hash, session_key, failed_attempts, locked_until on Session model | chore | medium | 2026-04-22 |
+| [127](done/127-dead-transaction-helper-methods.md) | Dead transaction helper methods: get_fees_category_id, get_recent, get_by_account | chore | low | 2026-04-22 |
 | [126](done/126-dead-payment-methods-instapay-fawry.md) | Dead payment methods: create_instapay_transfer, create_fawry_cashout | chore | medium | 2026-04-22 |
+| [102](done/102-transaction-detail-enhancements.md) | Transaction detail enhancements | improvement | low | 2026-04-22 |
 | [101](done/101-account-custom-name-visible.md) | Account custom name always visible | improvement | low | 2026-04-22 |
 | [099](done/099-budget-save-feedback.md) | Budget save feedback | improvement | medium | 2026-04-22 |
 | [091](done/091-reorder-collapse-dashboard.md) | Reorder and collapse dashboard panels | improvement | high | 2026-04-21 |

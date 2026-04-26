@@ -247,15 +247,21 @@ class HelperMixin:
     # Helpers for views
     # -------------------------------------------------------------------
 
-    def get_accounts(self) -> list[dict[str, Any]]:
-        """Get all non-dormant accounts for dropdowns, ordered by usage then display_order."""
+    def get_accounts(self, tx_type: str | None = None) -> list[dict[str, Any]]:
+        """Get non-dormant accounts for dropdowns.
+
+        When ``tx_type`` is provided, usage ranking is scoped to that transaction
+        type. Callers without a selected type retain the global usage ordering.
+        """
         uid = self.user_id  # type: ignore[attr-defined]
+        usage_filter = Q(transactions__user_id=uid)
+        if tx_type:
+            usage_filter &= Q(transactions__type=tx_type)
+
         rows = (
             Account.objects.for_user(uid)
             .filter(is_dormant=False)
-            .annotate(
-                tx_count=Count("transactions", filter=Q(transactions__user_id=uid))
-            )
+            .annotate(tx_count=Count("transactions", filter=usage_filter))
             .order_by("-tx_count", "display_order", "name")
             .values(
                 "id",

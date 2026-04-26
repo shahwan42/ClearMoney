@@ -3,9 +3,9 @@ id: "156"
 title: "Rank transaction account choices by usage within selected transaction type"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-04-26
 ---
 
 ## Description
@@ -19,13 +19,13 @@ Current state:
 
 ## Acceptance Criteria
 
-- [ ] Account ranking uses usage counts filtered by the active transaction type
-- [ ] Expense and income forms each rank accounts using their own history
-- [ ] Deterministic fallback ordering remains in place after usage score ties
-- [ ] Full transaction form uses the type-aware ordering
-- [ ] Quick-entry form uses the type-aware ordering
-- [ ] Behavior is user-scoped; one user's usage does not affect another's ordering
-- [ ] Tests cover ranking by transaction type and isolation
+- [x] Account ranking uses usage counts filtered by the active transaction type
+- [x] Expense and income forms each rank accounts using their own history
+- [x] Deterministic fallback ordering remains in place after usage score ties
+- [x] Full transaction form uses the type-aware ordering
+- [x] Quick-entry form uses the type-aware ordering
+- [x] Behavior is user-scoped; one user's usage does not affect another's ordering
+- [x] Tests cover ranking by transaction type and isolation
 
 ## Technical Notes
 
@@ -36,3 +36,5 @@ Current state:
 ## Progress Notes
 
 - 2026-04-24: Created from feature triage. Confirmed current ordering is usage-based but global, so the "most used per transaction type" part is not implemented yet.
+- 2026-04-26: Started — Inspecting transaction account option ordering and tests before implementing type-aware ranking.
+- 2026-04-26: Completed — Added transaction-type-scoped account ranking for expense/income forms, preserved global transfer ordering, covered ordering fallback and user isolation, and verified lint plus 1,586 backend tests.

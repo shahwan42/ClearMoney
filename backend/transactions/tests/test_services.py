@@ -1701,16 +1701,43 @@ class TestDropdownHelpers:
         assert all(c["type"] == "income" for c in cats)
 
     def test_get_accounts_ordered_by_usage(self, tx_data):
-        """Most-used account comes first in the dropdown."""
+        """Most-used account for the selected transaction type comes first."""
         svc = _svc(tx_data["user_id"])
-        # Create 3 transactions on usd_id so it has more usage than egp_id (0 tx)
         for _ in range(3):
             svc.create(
                 {"type": "expense", "amount": 1, "account_id": tx_data["usd_id"]}
             )
-        accounts = svc.get_accounts()
+        for _ in range(5):
+            svc.create({"type": "income", "amount": 1, "account_id": tx_data["egp_id"]})
+        for _ in range(10):
+            svc.create(
+                {
+                    "type": "transfer",
+                    "amount": 1,
+                    "account_id": tx_data["cc_id"],
+                    "counter_account_id": tx_data["egp_id"],
+                }
+            )
+
+        expense_ids = [a["id"] for a in svc.get_accounts("expense")]
+        income_ids = [a["id"] for a in svc.get_accounts("income")]
+
+        assert expense_ids.index(tx_data["usd_id"]) < expense_ids.index(
+            tx_data["egp_id"]
+        )
+        assert income_ids.index(tx_data["egp_id"]) < income_ids.index(tx_data["usd_id"])
+        assert expense_ids.index(tx_data["usd_id"]) < expense_ids.index(
+            tx_data["cc_id"]
+        )
+
+    def test_get_accounts_tie_falls_back_to_display_order(self, tx_data):
+        """Equal type-specific usage keeps the existing deterministic fallback."""
+        svc = _svc(tx_data["user_id"])
+
+        accounts = svc.get_accounts("expense")
         ids = [a["id"] for a in accounts]
-        assert ids.index(tx_data["usd_id"]) < ids.index(tx_data["egp_id"])
+
+        assert ids.index(tx_data["egp_id"]) < ids.index(tx_data["usd_id"])
 
     def test_get_accounts_isolation(self, tx_data):
         """User B's transaction count does not affect user A's account ordering."""
@@ -1725,7 +1752,7 @@ class TestDropdownHelpers:
             svc_b.create({"type": "expense", "amount": 1, "account_id": str(acc_b.id)})
 
         svc_a = _svc(tx_data["user_id"])
-        accounts_a = svc_a.get_accounts()
+        accounts_a = svc_a.get_accounts("expense")
         # user_a can only see their own accounts
         ids_a = {a["id"] for a in accounts_a}
         assert str(acc_b.id) not in ids_a
