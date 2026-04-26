@@ -36,6 +36,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [163](done/163-loan-repayment-fee-option.md) | Loan repayment fee option | feature | medium | 2026-04-27 |
 | [162](done/162-rename-recurring-rules-to-automations.md) | Rename 'Recurring Rules' to 'Automations' in UI | improvement | medium | 2026-04-27 |
 | [161](done/161-rename-virtual-accounts-to-pots.md) | Rename Virtual Accounts to Pots in UI | improvement | medium | 2026-04-26 |
 | [160](done/160-recurring-create-feedback.md) | Better feedback after recurring rule creation | improvement | medium | 2026-04-26 |

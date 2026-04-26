@@ -166,6 +166,7 @@ def people_repay(
     amount = parse_float_or_none(request.POST.get("amount"))
     account_id = request.POST.get("account_id", "")
     note = request.POST.get("note", "").strip() or None
+    fee_amount = parse_float_or_none(request.POST.get("fee_amount", ""))
 
     if not amount or amount <= 0:
         return error_response("Amount is required", field="amount")
@@ -176,6 +177,7 @@ def people_repay(
             account_id=account_id,
             amount=amount,
             note=note,
+            fee_amount=fee_amount if fee_amount and fee_amount > 0 else None,
         )
     except ValueError as e:
         return error_response(str(e))
@@ -287,12 +289,16 @@ def api_person_repayment(
     if body is None:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
+    fee_raw = body.get("fee_amount")
+    fee_amount = float(fee_raw) if fee_raw else None
+
     try:
         tx = svc.record_repayment(
             person_id=str(person_id),
             account_id=body.get("account_id", ""),
             amount=float(body.get("amount", 0)),
             note=body.get("note"),
+            fee_amount=fee_amount if fee_amount and fee_amount > 0 else None,
         )
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": str(e)}, status=400)

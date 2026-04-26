@@ -374,6 +374,7 @@ class PersonService:
         amount: float,
         note: str | None = None,
         tx_date: date | None = None,
+        fee_amount: float | None = None,
     ) -> dict[str, Any]:
         """Record a loan repayment and atomically update balances."""
         if amount <= 0:
@@ -436,6 +437,15 @@ class PersonService:
                 currency,
                 person_delta_decimal,
                 now=now,
+            )
+
+        if fee_amount and fee_amount > 0:
+            from transactions.services import TransactionService
+
+            TransactionService(self.user_id, self.tz).create_fee_for_transaction(
+                parent_tx=_tx_instance_to_dict(tx),
+                fee_amount=fee_amount,
+                tx_date=tx_date,
             )
 
         logger.info(

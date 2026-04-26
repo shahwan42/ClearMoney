@@ -300,6 +300,53 @@ class TestRecordRepayment:
         assert bal["balances"] == {"EUR": -60}
         assert _get_balance(people_data["eur_id"]) == 860
 
+    def test_repayment_with_fee_creates_linked_fee_tx(self, people_data):
+        """Fee creates a linked expense transaction on the same account."""
+        from decimal import Decimal
+
+        from transactions.models import Transaction
+
+        svc = _svc(people_data["user_id"])
+        person = svc.create("FeeDebtor")
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
+        tx = svc.record_repayment(person["id"], people_data["egp_id"], 500, fee_amount=25)
+
+        fee_tx = Transaction.objects.get(linked_transaction_id=tx["id"])
+        assert fee_tx.type == "expense"
+        assert Decimal(str(fee_tx.amount)) == Decimal("25")
+        assert str(fee_tx.account_id) == people_data["egp_id"]
+        assert str(fee_tx.linked_transaction_id) == tx["id"]
+
+    def test_repayment_fee_does_not_affect_person_balance(self, people_data):
+        """Fee deducts from account but person balance only reflects repayment amount."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("FeeDebtorBalance")
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
+        svc.record_repayment(person["id"], people_data["egp_id"], 500, fee_amount=25)
+
+        bal = _get_person_balance(person["id"])
+        assert bal["balances"] == {"EGP": 500}  # only repayment amount settles debt
+
+    def test_repayment_fee_deducts_from_account(self, people_data):
+        """Account balance reduced by repayment amount + fee (they're paying back, fee still leaves)."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("FeeDebtorAccount")
+        # They owe me: loan_out reduces account, repayment brings money back, fee leaves
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
+        # Account: 10000 - 1000 = 9000 after loan
+        svc.record_repayment(person["id"], people_data["egp_id"], 500, fee_amount=25)
+        # Account: 9000 + 500 (repayment in) - 25 (fee) = 9475
+        assert _get_balance(people_data["egp_id"]) == 9475
+
+    def test_repayment_zero_fee_ignored(self, people_data):
+        """Zero fee_amount behaves same as no fee."""
+        svc = _svc(people_data["user_id"])
+        person = svc.create("ZeroFee")
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
+        svc.record_repayment(person["id"], people_data["egp_id"], 500, fee_amount=0)
+        # Account: 10000 - 1000 + 500 = 9500 (no fee deduction)
+        assert _get_balance(people_data["egp_id"]) == 9500
+
 
 # ---------------------------------------------------------------------------
 # Debt Summary Tests
