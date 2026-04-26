@@ -567,6 +567,40 @@ class RecurringService:
             "counter_account_name": counter_name,
         }
 
+    def _get_account_and_category_names(
+        self, account_id: str, category_id: str | None
+    ) -> dict[str, str]:
+        """Look up account and category names for an expense/income rule.
+
+        Args:
+            account_id: source account UUID
+            category_id: category UUID (optional)
+
+        Returns:
+            dict with keys: account_name, category_name (if applicable)
+        """
+        from accounts.models import Account
+        from categories.models import Category
+
+        account_name = (
+            Account.objects.filter(id=account_id).values_list("name", flat=True).first()
+            or "Unknown"
+        )
+
+        result = {"account_name": account_name}
+
+        if category_id:
+            category_name = (
+                Category.objects.filter(id=category_id).values_list("name", flat=True).first()
+            )
+            if category_name:
+                if isinstance(category_name, dict):
+                    result["category_name"] = category_name.get("en", str(category_name))
+                else:
+                    result["category_name"] = str(category_name)
+
+        return result
+
     def rule_to_view(self, rule: RecurringRulePending) -> dict[str, Any]:
         """Enrich a rule with display fields for templates.
 
@@ -574,10 +608,11 @@ class RecurringService:
         - Core fields: id, user_id, frequency, next_due_date, etc.
         - Template display fields: note, amount_display, is_transfer
         - Transfer-specific fields: source_account_name, counter_account_name, fee_display
+        - Expense/Income fields: account_name, category_name
 
         Extracts note and amount from JSONB template without re-querying.
-        For transfers, performs additional DB lookup to fetch account names
-        (accounts may have been deleted; returns "Unknown" as fallback).
+        For transfers, performs additional DB lookup to fetch account names.
+        For non-transfers, fetches account and category names.
 
         Args:
             rule: RecurringRulePending dataclass with JSONB template_transaction
@@ -607,12 +642,18 @@ class RecurringService:
         # Merge template display fields
         result.update(template_display)
 
-        # For transfers, look up and add account names
+        # Look up and add specific account/category names
         if template_display["is_transfer"]:
             account_names = self._get_account_names(
                 tmpl.get("account_id", ""),
                 tmpl.get("counter_account_id", ""),
             )
             result.update(account_names)
+        else:
+            meta = self._get_account_and_category_names(
+                tmpl.get("account_id", ""),
+                tmpl.get("category_id"),
+            )
+            result.update(meta)
 
         return result

@@ -10,6 +10,8 @@
                     {{ rule.source_account_name }} &rarr; {{ rule.counter_account_name }}
                     {% if rule.fee_display %}&middot; {% trans "Fee" %}: {{ rule.fee_display }}{% endif %}
                     &middot;
+                {% else %}
+                    {{ rule.account_name }}{% if rule.category_name %} &middot; {{ rule.category_name }}{% endif %} &middot;
                 {% endif %}
                 {% trans rule.frequency %} &middot; {% trans "Next" %}: {{ rule.next_due_date|date:"M j, Y" }}
                 {% if rule.auto_confirm %}<span class="text-teal-600 dark:text-teal-400">{% trans "auto" %}</span>{% endif %}

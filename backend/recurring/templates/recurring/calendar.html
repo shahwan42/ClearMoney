@@ -96,8 +96,12 @@
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ occ.note }}</p>
                             <p class="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold">
-                                {{ occ.template_transaction.type }}
-                                {% if occ.frequency %}&middot; {{ occ.frequency }}{% endif %}
+                                {% if occ.is_transfer %}
+                                    {{ occ.source_account_name }} &rarr; {{ occ.counter_account_name }}
+                                {% else %}
+                                    {{ occ.account_name }}{% if occ.category_name %} &middot; {{ occ.category_name }}{% endif %}
+                                {% endif %}
+                                &middot; {{ occ.frequency }}
                             </p>
                         </div>
                     </div>

@@ -32,6 +32,8 @@
                         {% if rule.is_transfer %}
                             &middot; {{ rule.source_account_name }} &rarr; {{ rule.counter_account_name }}
                             {% if rule.fee_display %}&middot; {% trans "Fee" %}: {{ rule.fee_display }}{% endif %}
+                        {% else %}
+                            &middot; {{ rule.account_name }}{% if rule.category_name %} &middot; {{ rule.category_name }}{% endif %}
                         {% endif %}
                     </p>
                 </div>
