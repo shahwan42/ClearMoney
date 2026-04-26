@@ -76,6 +76,19 @@
     {# List View (mobile + always-visible detail) #}
     <div class="space-y-3" id="recurring-calendar-list" aria-live="polite">
         {% if calendar_days %}
+        <div class="flex items-center justify-between px-1 mb-1">
+            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider">{% trans "Upcoming" %}</h3>
+            <button hx-post="{% url 'recurring-confirm-all' %}?year={{ year }}&month={{ month }}"
+                    hx-target="#recurring-calendar-list"
+                    hx-swap="outerHTML"
+                    hx-vals='{"year": "{{ year }}", "month": "{{ month }}"}'
+                    hx-ext="confirm-dialog"
+                    hx-confirm="{% trans "Confirm all pending transactions for this month?" %}"
+                    class="text-xs font-bold text-teal-600 hover:text-teal-700 dark:text-teal-400">
+                {% trans "Confirm All" %}
+            </button>
+        </div>
+
         {% for day, occs in calendar_days.items|dictsort:0 %}
         <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 overflow-hidden">
             <div class="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border-b border-gray-100 dark:border-slate-700 flex items-center gap-2">
@@ -86,7 +99,9 @@
             </div>
             <div class="divide-y dark:divide-slate-800">
                 {% for occ in occs %}
-                <div class="px-4 py-3 flex items-center justify-between gap-3">
+                <div id="occ-{{ occ.id }}"
+                     class="px-4 py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors"
+                     onclick="BottomSheet.open('tx-detail', {url: '{% url 'recurring-confirm-form' occ.id %}'})">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="w-2 h-2 flex-shrink-0 rounded-full
                             {% if occ.template_transaction.type == 'expense' %}bg-red-400
@@ -113,25 +128,14 @@
                             {{ occ.template_transaction.amount|money_format:occ.template_transaction.currency }}
                         </span>
                         {% if occ.is_due %}
-                        <form hx-post="{% url 'recurring-confirm' occ.id %}"
-                              hx-target="#recurring-calendar-list"
-                              hx-swap="outerHTML"
-                              class="flex items-center gap-1">
-                            {% csrf_token %}
-                            {# Actual amount input — prefilled with template; user can override #}
-                            <input type="number"
-                                   name="actual_amount"
-                                   value="{{ occ.template_transaction.amount }}"
-                                   step="0.01"
-                                   min="0.01"
-                                   aria-label="{% trans "Actual amount" %}"
-                                   class="w-20 text-xs border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500">
-                            <button type="submit"
-                                    class="text-[10px] font-bold bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 rounded-lg transition-colors"
-                                    aria-label="{% blocktrans with note=occ.note %}Confirm {{ note }}{% endblocktrans %}">
-                                {% trans "Confirm" %}
-                            </button>
-                        </form>
+                        <button hx-post="{% url 'recurring-confirm' occ.id %}"
+                                hx-target="#occ-{{ occ.id }}"
+                                hx-swap="outerHTML"
+                                onclick="event.stopPropagation()"
+                                class="text-[10px] font-bold bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1.5 rounded-lg transition-colors"
+                                aria-label="{% blocktrans with note=occ.note %}Quick Confirm {{ note }}{% endblocktrans %}">
+                            {% trans "Confirm" %}
+                        </button>
                         {% endif %}
                     </div>
                 </div>
@@ -148,4 +152,6 @@
         {% endif %}
     </div>
 </div>
+
+{% include "components/bottom_sheet.html" with name="tx-detail" %}
 {% endblock %}

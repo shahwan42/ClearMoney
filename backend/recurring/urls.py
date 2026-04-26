@@ -20,6 +20,16 @@ urlpatterns = [
         name="recurring-confirm",
     ),
     path(
+        "recurring/<uuid:rule_id>/confirm/form",
+        views.recurring_confirm_form,
+        name="recurring-confirm-form",
+    ),
+    path(
+        "recurring/confirm-all",
+        views.recurring_confirm_all,
+        name="recurring-confirm-all",
+    ),
+    path(
         "recurring/<uuid:rule_id>/skip",
         views.recurring_skip,
         name="recurring-skip",

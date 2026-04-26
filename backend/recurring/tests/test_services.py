@@ -267,7 +267,7 @@ class TestConfirm:
         )
 
         # Actual charge was 475 (cheaper than expected)
-        svc.confirm(rule.id, actual_amount=475.0)
+        svc.confirm(rule.id, overrides={"amount": 475.0})
 
         tx = Transaction.objects.get(recurring_rule_id=UUID(rule.id))
         assert float(tx.amount) == 475.0
@@ -285,7 +285,7 @@ class TestConfirm:
             }
         )
 
-        svc.confirm(rule.id, actual_amount=600.0)
+        svc.confirm(rule.id, overrides={"amount": 600.0})
 
         balance = float(Account.objects.get(id=rec_data["account_id"]).current_balance)
         assert balance == 49400.0  # 50000 - 600 (actual)

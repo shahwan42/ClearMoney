@@ -156,16 +156,18 @@ class RecurringService:
         logger.info("recurring.created frequency=%s user=%s", frequency, self.user_id)
         return _instance_to_rule(rule)
 
-    def confirm(self, rule_id: str, actual_amount: float | None = None) -> None:
+    def confirm(self, rule_id: str, overrides: dict[str, Any] | None = None) -> None:
         """Execute a pending rule — create transaction + advance due date.
 
-        If actual_amount is provided and differs from the template amount,
-        the transaction is created with the actual amount (expected-vs-actual tracking).
+        If overrides are provided, they take precedence over the template transaction.
+        Supported overrides: amount, account_id, category_id, note, date, counter_account_id.
         """
         rule = self.get_by_id(rule_id)
         if not rule:
             raise ValueError("Rule not found")
-        self._execute_rule(rule, actual_amount=actual_amount)
+        self._execute_rule(rule, overrides=overrides)
+
+        actual_amount = overrides.get("amount") if overrides else None
         if actual_amount is not None:
             expected = float(rule.template_transaction.get("amount", 0))
             if expected != actual_amount:
@@ -181,6 +183,32 @@ class RecurringService:
                 logger.info("recurring.confirmed id=%s user=%s", rule_id, self.user_id)
         else:
             logger.info("recurring.confirmed id=%s user=%s", rule_id, self.user_id)
+
+    def confirm_all(self, year: int | None = None, month: int | None = None) -> int:
+        """Confirm all due rules for a specific month (default: today).
+
+        Returns count of transactions created.
+        """
+        if year and month:
+            # Last day of month
+            import calendar
+
+            _, last_day = calendar.monthrange(year, month)
+            due_by = date(year, month, last_day)
+        else:
+            due_by = date.today()
+
+        rules = self._get_due(due_by)
+        confirmed = 0
+        for rule in rules:
+            try:
+                self.confirm(rule.id)
+                confirmed += 1
+            except Exception:
+                logger.exception(
+                    "recurring.confirm_all_failed id=%s user=%s", rule.id, self.user_id
+                )
+        return confirmed
 
     def skip(self, rule_id: str) -> None:
         """Advance next_due_date without creating a transaction."""
@@ -296,7 +324,7 @@ class RecurringService:
     # ------------------------------------------------------------------
 
     def _execute_rule(
-        self, rule: RecurringRulePending, actual_amount: float | None = None
+        self, rule: RecurringRulePending, overrides: dict[str, Any] | None = None
     ) -> None:
         """Create a transaction from the rule template and advance the due date.
 
@@ -307,11 +335,17 @@ class RecurringService:
         3. Route to create_transfer() for transfers, or create() for expense/income
         4. Advance next_due_date and persist
 
-        actual_amount: if provided, overrides the template amount (expected-vs-actual).
+        overrides: if provided, takes precedence over the template fields.
         """
         tmpl = rule.template_transaction
+        overrides = overrides or {}
 
-        account_id = tmpl.get("account_id", "")
+        # Fields with overrides
+        account_id = overrides.get("account_id") or tmpl.get("account_id", "")
+        amount = overrides.get("amount") if overrides.get("amount") is not None else tmpl.get("amount", 0)
+        tx_date = overrides.get("date") or rule.next_due_date
+        note = overrides.get("note") if overrides.get("note") is not None else tmpl.get("note")
+
         if not account_id:
             raise ValueError(
                 f"Recurring rule {rule.id} has no account_id "
@@ -319,10 +353,9 @@ class RecurringService:
             )
 
         tx_svc = TransactionService(self.user_id, self.tz)
-        amount = actual_amount if actual_amount is not None else tmpl.get("amount", 0)
 
         if tmpl.get("type") == "transfer":
-            counter_account_id = tmpl.get("counter_account_id", "")
+            counter_account_id = overrides.get("counter_account_id") or tmpl.get("counter_account_id", "")
             if not counter_account_id:
                 raise ValueError(
                     f"Recurring rule {rule.id} has no counter_account_id "
@@ -333,22 +366,23 @@ class RecurringService:
                 dest_id=counter_account_id,
                 amount=amount,
                 currency=None,
-                note=tmpl.get("note"),
-                tx_date=rule.next_due_date,
+                note=note,
+                tx_date=tx_date,
                 fee_amount=tmpl.get("fee_amount"),
             )
         else:
+            category_id = overrides.get("category_id") or tmpl.get("category_id")
             tx_data: dict[str, Any] = {
                 "type": tmpl.get("type", "expense"),
                 "amount": amount,
                 "account_id": account_id,
-                "date": rule.next_due_date,
+                "date": tx_date,
                 "recurring_rule_id": rule.id,
             }
-            if tmpl.get("category_id"):
-                tx_data["category_id"] = tmpl["category_id"]
-            if tmpl.get("note"):
-                tx_data["note"] = tmpl["note"]
+            if category_id:
+                tx_data["category_id"] = category_id
+            if note:
+                tx_data["note"] = note
             tx_svc.create(tx_data)
 
         next_date = self._advance_due_date(rule)
@@ -551,16 +585,21 @@ class RecurringService:
         """
         from accounts.models import Account
 
-        source_name = (
-            Account.objects.filter(id=account_id).values_list("name", flat=True).first()
-            or "Unknown"
-        )
-        counter_name = (
-            Account.objects.filter(id=counter_account_id)
-            .values_list("name", flat=True)
-            .first()
-            or "Unknown"
-        )
+        source_name = "Unknown"
+        if account_id:
+            source_name = (
+                Account.objects.filter(id=account_id).values_list("name", flat=True).first()
+                or "Unknown"
+            )
+
+        counter_name = "Unknown"
+        if counter_account_id:
+            counter_name = (
+                Account.objects.filter(id=counter_account_id)
+                .values_list("name", flat=True)
+                .first()
+                or "Unknown"
+            )
 
         return {
             "source_account_name": source_name,
@@ -581,6 +620,9 @@ class RecurringService:
         """
         from accounts.models import Account
         from categories.models import Category
+
+        if not account_id:
+            return {"account_name": "Unknown"}
 
         account_name = (
             Account.objects.filter(id=account_id).values_list("name", flat=True).first()

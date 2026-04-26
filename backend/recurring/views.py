@@ -230,6 +230,37 @@ def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpR
 # ---------------------------------------------------------------------------
 # Confirm / Skip / Delete
 # ---------------------------------------------------------------------------
+from core.htmx import success_html
+from core.utils import parse_float_or_none
+
+logger = logging.getLogger(__name__)
+
+
+@inject_service(RecurringService)
+@general_rate
+@require_http_methods(["GET"])
+def recurring_confirm_form(
+    request: AuthenticatedRequest, svc: RecurringService, rule_id: UUID
+) -> HttpResponse:
+    """GET /recurring/{id}/confirm — load confirmation sheet partial."""
+    rule = svc.get_by_id(str(rule_id))
+    if not rule:
+        return HttpResponse("Not found", status=404)
+
+    rule_view = svc.rule_to_view(rule)
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
+    categories = _get_categories(request)
+
+    return render(
+        request,
+        "recurring/_confirm_form.html",
+        {
+            "rule": rule_view,
+            "accounts": accounts,
+            "categories": categories,
+            "today": datetime.now(request.tz).date(),
+        },
+    )
 
 
 @inject_service(RecurringService)
@@ -240,22 +271,61 @@ def recurring_confirm(
 ) -> HttpResponse:
     """POST /recurring/{id}/confirm — confirm pending rule, create transaction.
 
-    Optional POST param ``actual_amount``: if provided, overrides the template
-    amount so users can record the real charge (expected-vs-actual tracking).
+    Supports optional overrides: actual_amount, account_id, category_id, note, date.
     """
-    actual_amount: float | None = None
-    raw = request.POST.get("actual_amount", "").strip()
-    if raw:
-        try:
-            actual_amount = float(raw)
-        except ValueError:
-            return HttpResponse("actual_amount must be a number", status=400)
+    overrides: dict[str, Any] = {}
+
+    # Extract amount
+    amount_raw = request.POST.get("amount") or request.POST.get("actual_amount")
+    if amount_raw:
+        amount = parse_float_or_none(amount_raw)
+        if amount is None:
+            return HttpResponse("Amount must be a number", status=400)
+        overrides["amount"] = amount
+
+    # Extract other fields
+    if "account_id" in request.POST:
+        overrides["account_id"] = request.POST.get("account_id")
+    if "category_id" in request.POST:
+        overrides["category_id"] = request.POST.get("category_id")
+    if "note" in request.POST:
+        overrides["note"] = request.POST.get("note")
+    if "date" in request.POST:
+        overrides["date"] = request.POST.get("date")
+    if "counter_account_id" in request.POST:
+        overrides["counter_account_id"] = request.POST.get("counter_account_id")
 
     try:
-        svc.confirm(str(rule_id), actual_amount=actual_amount)
+        svc.confirm(str(rule_id), overrides=overrides)
     except ValueError as e:
         return HttpResponse(str(e), status=400)
+
+    # If it's a sheet submission, return success toast
+    if request.headers.get("HX-Target") == "recurring-calendar-list":
+        # We need to refresh the calendar list, so we might want to return the whole list
+        # but for individual row confirmation, returning empty or toast is enough if we use OOB
+        # However, the current calendar.html targets #recurring-calendar-list.
+        # If we target the row, we can just remove it.
+        return HttpResponse(success_html("Confirmed!"))
+
     return _render_rule_list(request)
+
+
+@inject_service(RecurringService)
+@general_rate
+@require_http_methods(["POST"])
+def recurring_confirm_all(
+    request: AuthenticatedRequest, svc: RecurringService
+) -> HttpResponse:
+    """POST /recurring/confirm-all — confirm all due rules for a specific month."""
+    year_str = request.POST.get("year", "")
+    month_str = request.POST.get("month", "")
+
+    year = int(year_str) if year_str.isdigit() else None
+    month = int(month_str) if month_str.isdigit() else None
+
+    count = svc.confirm_all(year=year, month=month)
+    return HttpResponse(success_html(f"Confirmed {count} transactions!"))
 
 
 @inject_service(RecurringService)
