@@ -1,0 +1,43 @@
+{% load i18n %}
+<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 space-y-4" role="status" aria-live="polite">
+    <div class="flex items-center gap-2">
+        <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+            </svg>
+        </span>
+        <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">{% trans "Rule created" %}</h3>
+    </div>
+
+    <p class="text-sm text-slate-700 dark:text-slate-300">{{ summary_line }}</p>
+
+    <p class="text-xs text-gray-500 dark:text-gray-400">
+        {% if rule.auto_confirm %}
+            {% blocktrans with amount=rule.amount_display date=rule.next_due_date|date:"M j, Y" %}Will auto-post {{ amount }} on {{ date }}.{% endblocktrans %}
+        {% else %}
+            {% blocktrans with date=rule.next_due_date|date:"M j, Y" %}Next reminder: {{ date }}.{% endblocktrans %}
+        {% endif %}
+    </p>
+
+    <div class="flex gap-2">
+        <button type="button"
+                hx-get="/recurring/form"
+                hx-target="#recurring-form-container"
+                hx-swap="innerHTML"
+                class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-xl text-sm font-semibold">
+            {% trans "Done" %}
+        </button>
+        <button type="button"
+                hx-get="/recurring/form?account_id={{ sticky.account_id }}&frequency={{ sticky.frequency }}{% if sticky.auto_confirm %}&auto_confirm=true{% endif %}"
+                hx-target="#recurring-form-container"
+                hx-swap="innerHTML"
+                class="flex-1 bg-teal-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-teal-700">
+            {% trans "Add another" %}
+        </button>
+    </div>
+</div>
+
+{# OOB swap: refresh active rule list behind the form #}
+<div id="recurring-list" hx-swap-oob="innerHTML">
+    {% include "recurring/_rule_list.html" with rules=rules_for_oob %}
+</div>

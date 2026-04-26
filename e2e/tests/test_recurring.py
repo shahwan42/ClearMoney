@@ -108,6 +108,60 @@ class TestRecurring:
         expect(page.locator("#recurring-list")).to_contain_text("Netflix")
         expect(page.locator("#recurring-list")).to_contain_text("monthly")
 
+    def test_create_shows_success_sheet(self, page: Page) -> None:
+        """After creation, success sheet replaces form with summary + next-due copy."""
+        _create_recurring_rule(page, note="Vodafone bill", amount="500")
+        sheet = page.locator("#recurring-form-container")
+        expect(sheet).to_contain_text("Rule created")
+        expect(sheet).to_contain_text("Vodafone bill")
+        expect(sheet).to_contain_text("monthly")
+        expect(sheet).to_contain_text("Next reminder")
+        # OOB list refresh shows new rule
+        expect(page.locator("#recurring-list")).to_contain_text("Vodafone bill")
+
+    def test_add_another_keeps_sticky_values(self, page: Page) -> None:
+        """'Add another' reloads form preserving account + frequency + auto_confirm."""
+        page.goto("/recurring")
+        # Create with auto_confirm checked
+        category_id = get_category_id("expense", _user_id)
+        page.fill('input[name="amount"]', "300")
+        page.select_option('select[name="account_id"]', _account_id_2)
+        page.evaluate(
+            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+        )
+        page.fill('input[name="note"]', "Internet")
+        page.select_option('select[name="frequency"]', "quarterly")
+        page.fill('input[name="next_due_date"]', "2026-04-01")
+        page.check('input[name="auto_confirm"]')
+        with page.expect_response(
+            lambda r: "/recurring/add" in r.url and r.request.method == "POST"
+        ):
+            page.click('button[type="submit"]')
+        # Click "Add another"
+        with page.expect_response(
+            lambda r: "/recurring/form" in r.url and r.request.method == "GET"
+        ):
+            page.click('button:has-text("Add another")')
+        # Sticky fields preserved
+        expect(page.locator('select[name="account_id"]')).to_have_value(_account_id_2)
+        expect(page.locator('select[name="frequency"]')).to_have_value("quarterly")
+        expect(page.locator('input[name="auto_confirm"]')).to_be_checked()
+        # Reset fields blank
+        expect(page.locator('input[name="amount"]')).to_have_value("")
+        expect(page.locator('input[name="note"]')).to_have_value("")
+
+    def test_done_resets_form(self, page: Page) -> None:
+        """'Done' button reloads blank form."""
+        _create_recurring_rule(page, note="One-off", amount="100")
+        with page.expect_response(
+            lambda r: "/recurring/form" in r.url and r.request.method == "GET"
+        ):
+            page.click('button:has-text("Done")')
+        # Form is back, blank
+        expect(page.locator('input[name="amount"]')).to_have_value("")
+        expect(page.locator('input[name="note"]')).to_have_value("")
+        expect(page.locator('input[name="auto_confirm"]')).not_to_be_checked()
+
     def test_delete_recurring_rule(self, page: Page) -> None:
         _create_recurring_rule(page)
         # Verify rule exists before deleting

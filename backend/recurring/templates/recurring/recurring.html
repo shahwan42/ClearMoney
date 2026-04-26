@@ -55,7 +55,9 @@
     {% endif %}
 
     {# Create new rule form #}
-    {% include "recurring/_form.html" %}
+    <div id="recurring-form-container">
+        {% include "recurring/_form.html" %}
+    </div>
 
     {# Active rules list #}
     <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5">

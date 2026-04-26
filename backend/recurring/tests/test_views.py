@@ -141,8 +141,107 @@ class TestRecurringAdd:
             },
         )
         assert response.status_code == 200
-        # Rule list partial returned with the new rule
+        # Success sheet returned with summary line containing the note
         assert b"Insurance" in response.content
+        assert b"Rule created" in response.content
+
+    def test_success_sheet_summary_and_auto_post_copy(self, client, rec_view_data):
+        """auto_confirm=true → 'auto-post' copy in success sheet."""
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "expense",
+                "amount": "500",
+                "account_id": rec_view_data["account_id"],
+                "category_id": rec_view_data["category_id"],
+                "note": "Vodafone bill",
+                "frequency": "monthly",
+                "next_due_date": "2026-04-30",
+                "auto_confirm": "true",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        assert b"Rule created" in body
+        assert b"Vodafone bill" in body
+        assert b"monthly" in body
+        assert b"auto-post" in body
+        assert b"Next reminder" not in body
+
+    def test_success_sheet_manual_reminder_copy(self, client, rec_view_data):
+        """auto_confirm=false → 'Next reminder' copy in success sheet."""
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "expense",
+                "amount": "200",
+                "account_id": rec_view_data["account_id"],
+                "category_id": rec_view_data["category_id"],
+                "note": "Gym",
+                "frequency": "weekly",
+                "next_due_date": "2026-04-30",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        assert b"Next reminder" in body
+        assert b"auto-post" not in body
+
+    def test_success_response_includes_oob_list_swap(self, client, rec_view_data):
+        """Response contains an OOB swap targeting #recurring-list."""
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "expense",
+                "amount": "75",
+                "account_id": rec_view_data["account_id"],
+                "category_id": rec_view_data["category_id"],
+                "note": "Netflix",
+                "frequency": "monthly",
+                "next_due_date": "2026-04-15",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        # OOB swap container present
+        assert b'id="recurring-list"' in body
+        assert b'hx-swap-oob="innerHTML"' in body
+
+    def test_form_get_with_sticky_prefills(self, client, rec_view_data):
+        """GET /recurring/form with sticky params prefills account/frequency/auto_confirm."""
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        response = c.get(
+            "/recurring/form",
+            {
+                "account_id": rec_view_data["account_id"],
+                "frequency": "quarterly",
+                "auto_confirm": "true",
+            },
+        )
+        assert response.status_code == 200
+        body = response.content
+        # account selected
+        sel = (f'value="{rec_view_data["account_id"]}" selected').encode()
+        assert sel in body
+        # quarterly selected
+        assert b'value="quarterly" selected' in body
+        # auto_confirm checked
+        assert b'name="auto_confirm" value="true" checked' in body
+
+    def test_form_get_blank_no_sticky(self, client, rec_view_data):
+        """GET /recurring/form without params returns blank form (no auto_confirm)."""
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        response = c.get("/recurring/form")
+        assert response.status_code == 200
+        body = response.content
+        assert (
+            b"checked" not in body
+            or b"auto_confirm" not in body
+            or (b'name="auto_confirm" value="true" checked' not in body)
+        )
 
     def test_missing_amount_400(self, client, rec_view_data):
         c = set_auth_cookie(client, rec_view_data["session_token"])

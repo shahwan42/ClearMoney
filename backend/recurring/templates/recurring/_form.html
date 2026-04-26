@@ -3,7 +3,7 @@
 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 space-y-3">
     <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">{% trans "New Recurring Rule" %}</h3>
 
-    <form hx-post="/recurring/add" hx-target="#recurring-list" hx-swap="innerHTML" class="space-y-3">
+    <form hx-post="/recurring/add" hx-target="#recurring-form-container" hx-swap="innerHTML" class="space-y-3">
         {% csrf_token %}
 
         {# Transaction type radio #}
@@ -54,7 +54,7 @@
                    class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Account" %}</label>
             <select name="account_id" id="recurring-account-select" required data-validate="required" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
                 {% for acc in accounts %}
-                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                <option value="{{ acc.id }}"{% if sticky.account_id == acc.id %} selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
             </select>
         </div>
@@ -102,11 +102,11 @@
             <div>
                 <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Frequency" %}</label>
                 <select name="frequency" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
-                    <option value="weekly">{% trans "Weekly" %}</option>
-                    <option value="biweekly">{% trans "Bi-weekly" %}</option>
-                    <option value="monthly">{% trans "Monthly" %}</option>
-                    <option value="quarterly">{% trans "Quarterly" %}</option>
-                    <option value="yearly">{% trans "Yearly" %}</option>
+                    <option value="weekly"{% if sticky.frequency == "weekly" %} selected{% endif %}>{% trans "Weekly" %}</option>
+                    <option value="biweekly"{% if sticky.frequency == "biweekly" %} selected{% endif %}>{% trans "Bi-weekly" %}</option>
+                    <option value="monthly"{% if sticky.frequency == "monthly" %} selected{% endif %}>{% trans "Monthly" %}</option>
+                    <option value="quarterly"{% if sticky.frequency == "quarterly" %} selected{% endif %}>{% trans "Quarterly" %}</option>
+                    <option value="yearly"{% if sticky.frequency == "yearly" %} selected{% endif %}>{% trans "Yearly" %}</option>
                 </select>
             </div>
             <div>
@@ -120,7 +120,7 @@
         {# Auto-confirm checkbox #}
         <div>
             <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                <input type="checkbox" name="auto_confirm" value="true" class="rounded">
+                <input type="checkbox" name="auto_confirm" value="true"{% if sticky.auto_confirm %} checked{% endif %} class="rounded">
                 {% trans "Auto-create (no confirmation needed)" %}
             </label>
         </div>

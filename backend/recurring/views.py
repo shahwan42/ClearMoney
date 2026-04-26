@@ -24,8 +24,10 @@ from django.views.decorators.http import require_http_methods
 from accounts.services import AccountService
 from categories.models import Category
 from core.decorators import inject_service
+from core.htmx import success_html
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
+from core.utils import parse_float_or_none
 from recurring.services import RecurringService
 from transactions.models import Transaction
 
@@ -192,13 +194,53 @@ def recurring_page(
 # ---------------------------------------------------------------------------
 
 
+_FREQUENCY_LABELS = {
+    "weekly": "weekly",
+    "biweekly": "bi-weekly",
+    "monthly": "monthly",
+    "quarterly": "quarterly",
+    "yearly": "yearly",
+}
+
+
+def _build_summary_line(rule_view: dict[str, Any]) -> str:
+    """Build the success-sheet summary line for a freshly-created rule.
+
+    Format: "[Type: ]{amount_display} — {note or category} — {frequency}"
+    Type prefix is shown only when type ≠ expense.
+    """
+    tmpl = rule_view.get("template_transaction") or {}
+    amount_display = rule_view.get("amount_display") or ""
+    note = (tmpl.get("note") or "").strip()
+    descriptor = note or rule_view.get("category_name") or ""
+    if not descriptor and rule_view.get("is_transfer"):
+        src = rule_view.get("source_account_name") or ""
+        dst = rule_view.get("counter_account_name") or ""
+        descriptor = f"{src} → {dst}".strip(" →")
+    frequency_label = _FREQUENCY_LABELS.get(rule_view.get("frequency", ""), "")
+
+    parts = [amount_display]
+    if descriptor:
+        parts.append(descriptor)
+    if frequency_label:
+        parts.append(frequency_label)
+    summary = " — ".join(p for p in parts if p)
+
+    type_str = tmpl.get("type", "expense")
+    if type_str and type_str != "expense":
+        return f"{type_str.capitalize()}: {summary}"
+    return summary
+
+
 @inject_service(RecurringService)
 @general_rate
 @require_http_methods(["POST"])
 def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpResponse:
-    """POST /recurring/add — create new recurring rule."""
-    from datetime import datetime
+    """POST /recurring/add — create new recurring rule.
 
+    On success returns the success sheet (replaces #recurring-form-container)
+    plus an OOB swap that refreshes #recurring-list.
+    """
     # Parse next_due_date
     next_due_str = request.POST.get("next_due_date", "")
     next_due = None
@@ -210,7 +252,7 @@ def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpR
 
     try:
         template = svc.build_template_transaction(request.POST)
-        svc.create(
+        rule = svc.create(
             {
                 "template_transaction": template,
                 "frequency": request.POST.get("frequency", ""),
@@ -224,16 +266,65 @@ def recurring_add(request: AuthenticatedRequest, svc: RecurringService) -> HttpR
             status=400,
         )
 
-    return _render_rule_list(request)
+    rule_view = svc.rule_to_view(rule)
+    summary_line = _build_summary_line(rule_view)
+
+    # Sticky values for "Add another" — carry over account/frequency/auto_confirm
+    sticky = {
+        "account_id": template.get("account_id", ""),
+        "frequency": rule.frequency,
+        "auto_confirm": rule.auto_confirm,
+    }
+
+    rules = svc.get_all()
+    rules_for_oob = [svc.rule_to_view(r) for r in rules]
+
+    return render(
+        request,
+        "recurring/_create_success.html",
+        {
+            "rule": rule_view,
+            "summary_line": summary_line,
+            "sticky": sticky,
+            "rules_for_oob": rules_for_oob,
+        },
+    )
+
+
+@inject_service(RecurringService)
+@general_rate
+@require_http_methods(["GET"])
+def recurring_form(
+    request: AuthenticatedRequest, svc: RecurringService
+) -> HttpResponse:
+    """GET /recurring/form — return the create-rule form partial.
+
+    Optional query params for sticky prefill: account_id, frequency, auto_confirm.
+    Used by the success sheet's "Done" (no params → blank form) and
+    "Add another" (params → sticky prefill) buttons.
+    """
+    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
+    categories = _get_categories(request)
+    sticky = {
+        "account_id": request.GET.get("account_id", ""),
+        "frequency": request.GET.get("frequency", ""),
+        "auto_confirm": request.GET.get("auto_confirm") == "true",
+    }
+    return render(
+        request,
+        "recurring/_form.html",
+        {
+            "accounts": accounts,
+            "categories": categories,
+            "today": datetime.now(request.tz).date(),
+            "sticky": sticky,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # Confirm / Skip / Delete
 # ---------------------------------------------------------------------------
-from core.htmx import success_html
-from core.utils import parse_float_or_none
-
-logger = logging.getLogger(__name__)
 
 
 @inject_service(RecurringService)

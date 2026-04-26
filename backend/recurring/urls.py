@@ -13,6 +13,7 @@ urlpatterns = [
     path("recurring", views.recurring_page, name="recurring"),
     path("recurring/calendar", views.recurring_calendar, name="recurring-calendar"),
     path("recurring/add", views.recurring_add, name="recurring-add"),
+    path("recurring/form", views.recurring_form, name="recurring-form"),
     # UUID paths (confirm/skip before bare UUID to avoid capture)
     path(
         "recurring/<uuid:rule_id>/confirm",
