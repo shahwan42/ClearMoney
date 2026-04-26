@@ -10,13 +10,12 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('auth_app', '0008_historicalsnapshot'),
+        ("auth_app", "0008_historicalsnapshot"),
     ]
 
     operations = [
         migrations.DeleteModel(
-            name='DailySnapshot',
+            name="DailySnapshot",
         ),
     ]

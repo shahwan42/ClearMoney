@@ -47,15 +47,17 @@
     {# On tablet+, account and category display side-by-side #}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-account-select" id="qe-account-label">{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span></label>
-            <select name="account_id" required
-                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
-                id="qe-account-select">
-                <option value="">{% trans "Select account..." %}</option>
-                {% for acc in accounts %}
-                <option value="{{ acc.id }}" data-currency="{{ acc.currency }}" {% if acc.id == last_account_id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
-                {% endfor %}
-            </select>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-account-picker-input" id="qe-account-label">{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+            <div data-account-combobox
+                 data-accounts='{{ accounts|accounts_json }}'
+                 data-name="account_id"
+                 data-input-id="qe-account-picker-input"
+                 data-labelledby="qe-account-label"
+                 data-selected-id="{{ last_account_id|default:'' }}"
+                 data-placeholder="{% trans "Search accounts..." %}"
+                 data-required="true"
+                 id="qe-account-combobox">
+            </div>
         </div>
 
         <div id="qe-category-container">
@@ -212,26 +214,27 @@ function qeToggleType(mode) {
         if (expanded) qeUpdateDateHint(); else if (qeDateHint) qeDateHint.textContent = '';
     });
 
-    var acctSelect = document.getElementById('qe-account-select');
-    if (acctSelect && acctSelect.value) {
-        var sel = acctSelect.options[acctSelect.selectedIndex];
-        var cur = sel ? sel.getAttribute('data-currency') : 'EGP';
-        document.getElementById('qe-currency-input').value = cur;
+    var acctComboEl = document.getElementById('qe-account-combobox');
+    if (window.AccountCombobox && acctComboEl && !acctComboEl._accountCombobox) {
+        new AccountCombobox(acctComboEl);
     }
 
-    if (acctSelect) {
-        acctSelect.addEventListener('change', function() {
-            var sel = this.options[this.selectedIndex];
-            var cur = sel ? sel.getAttribute('data-currency') : 'EGP';
-            document.getElementById('qe-currency-input').value = cur;
+    var acctInput = document.querySelector('#qe-account-combobox input[name="account_id"]');
+    if (acctInput && acctInput.value) {
+        document.getElementById('qe-currency-input').value = acctInput.dataset.currency || 'EGP';
+    }
+
+    if (acctInput) {
+        acctInput.addEventListener('change', function() {
+            document.getElementById('qe-currency-input').value = this.dataset.currency || 'EGP';
             filterQeVirtualAccounts();
         });
     }
 
     function filterQeVirtualAccounts() {
         var vaSelect = document.getElementById('qe-va-select');
-        if (!acctSelect || !vaSelect || !acctSelect.value) return;
-        var selectedAcct = acctSelect.value;
+        if (!acctInput || !vaSelect || !acctInput.value) return;
+        var selectedAcct = acctInput.value;
         vaSelect.querySelectorAll('option').forEach(function(opt) {
             if (!opt.value) return;
             var vaAcctId = opt.getAttribute('data-account-id');

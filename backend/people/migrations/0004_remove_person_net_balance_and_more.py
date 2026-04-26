@@ -4,22 +4,21 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('people', '0003_personcurrencybalance'),
+        ("people", "0003_personcurrencybalance"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='person',
-            name='net_balance',
+            model_name="person",
+            name="net_balance",
         ),
         migrations.RemoveField(
-            model_name='person',
-            name='net_balance_egp',
+            model_name="person",
+            name="net_balance_egp",
         ),
         migrations.RemoveField(
-            model_name='person',
-            name='net_balance_usd',
+            model_name="person",
+            name="net_balance_usd",
         ),
     ]

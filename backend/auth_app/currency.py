@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from django.db.models import Exists, OuterRef
-
 from auth_app.models import Currency, UserCurrencyPreference
 
 

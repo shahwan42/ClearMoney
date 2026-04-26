@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-24
+Last updated: 2026-04-26
 
 ## In Progress
 
@@ -13,7 +13,6 @@ Last updated: 2026-04-24
 | [158](pending/158-refactor-new-budget-form-to-bottom-sheet.md) | Refactor New budget form to bottom sheet | improvement | medium | 2026-04-24 |
 | [157](pending/157-remove-swipe-to-delete-from-history-page.md) | Remove swipe-to-delete from history page | improvement | medium | 2026-04-24 |
 | [156](pending/156-rank-transaction-account-choices-by-usage-within-selected-transaction-type.md) | Rank transaction account choices by usage within selected transaction type | improvement | medium | 2026-04-24 |
-| [155](pending/155-improve-transaction-account-picker-ux-with-icons-and-search.md) | Improve transaction account picker UX with icons and search | improvement | medium | 2026-04-24 |
 | [153](pending/153-cleanup-compatibility-removal-docs-and-guardrails.md) | Cleanup, compatibility removal, docs, and guardrails | chore | medium | 2026-04-22 |
 | [152](pending/152-currency-formatting-and-template-cleanup.md) | Currency formatting and template cleanup | improvement | medium | 2026-04-22 |
 | [151](pending/151-dashboard-and-historical-sparkline-consumption-rewrite.md) | Dashboard and historical sparkline consumption rewrite | feature | medium | 2026-04-22 |
@@ -44,6 +43,7 @@ Last updated: 2026-04-24
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [155](done/155-improve-transaction-account-picker-ux-with-icons-and-search.md) | Improve transaction account picker UX with icons and search | improvement | medium | 2026-04-26 |
 | [154](done/154-fix-pull-to-refresh-scroll-bug.md) | Fix pull-to-refresh scroll bug | bug | high | 2026-04-24 |
 | [147](done/147-virtual-accounts-inherit-container-currency-everywhere.md) | Virtual accounts inherit container currency everywhere | improvement | medium | 2026-04-23 |
 | [146](done/146-dashboard-selected-currency-behavior.md) | Dashboard selected-currency behavior | feature | high | 2026-04-23 |

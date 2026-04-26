@@ -460,3 +460,46 @@ def categories_json(categories: Any) -> str:
                 }
             )
     return mark_safe(json.dumps(items, ensure_ascii=False))
+
+
+@register.filter
+def accounts_json(accounts: Any) -> str:
+    """Serialize account picker data for searchable account comboboxes."""
+    items = []
+    for account in accounts:
+        if hasattr(account, "id"):
+            items.append(
+                {
+                    "id": str(account.id),
+                    "name": str(getattr(account, "name", "")),
+                    "currency": str(getattr(account, "currency", "")),
+                    "type": str(getattr(account, "type", "")),
+                    "current_balance": float(getattr(account, "current_balance", 0)),
+                    "institution_name": str(
+                        getattr(getattr(account, "institution", None), "name", "") or ""
+                    ),
+                    "institution_icon": str(
+                        getattr(getattr(account, "institution", None), "icon", "") or ""
+                    ),
+                    "institution_color": str(
+                        getattr(getattr(account, "institution", None), "color", "")
+                        or ""
+                    ),
+                }
+            )
+        elif isinstance(account, dict):
+            items.append(
+                {
+                    "id": str(account.get("id", "")),
+                    "name": str(account.get("name", "")),
+                    "currency": str(account.get("currency", "")),
+                    "type": str(account.get("type", "")),
+                    "current_balance": float(account.get("current_balance", 0) or 0),
+                    "institution_name": str(account.get("institution_name", "") or ""),
+                    "institution_icon": str(account.get("institution_icon", "") or ""),
+                    "institution_color": str(
+                        account.get("institution_color", "") or ""
+                    ),
+                }
+            )
+    return json.dumps(items, ensure_ascii=False)

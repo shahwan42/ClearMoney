@@ -36,14 +36,16 @@
 
         <!-- Account -->
         <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="account-select">{% trans "Account" %}</label>
-            <select name="account_id" id="account-select" required data-validate="required"
-                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
-                <option value="">{% trans "Select account..." %}</option>
-                {% for acc in accounts %}
-                <option value="{{ acc.id }}" {% if prefill and prefill.account_id == acc.id|stringformat:"s" %}selected{% endif %}>{{ acc.name }} ({{ acc.current_balance|format_currency:acc.currency }})</option>
-                {% endfor %}
-            </select>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="account-picker-input" id="account-picker-label">{% trans "Account" %}</label>
+            <div data-account-combobox
+                 data-accounts='{{ accounts|accounts_json }}'
+                 data-name="account_id"
+                 data-input-id="account-picker-input"
+                 data-labelledby="account-picker-label"
+                 {% if prefill and prefill.account_id %}data-selected-id="{{ prefill.account_id }}"{% endif %}
+                 data-placeholder="{% trans "Search accounts..." %}"
+                 data-required="true">
+            </div>
         </div>
 
         <!-- Category -->
@@ -198,10 +200,17 @@
         const draft = localStorage.getItem(DRAFT_KEY);
         if (!draft) return;
         const obj = JSON.parse(draft);
+        const accountComboEl = txForm.querySelector('[data-account-combobox]');
+        if (window.AccountCombobox && accountComboEl && !accountComboEl._accountCombobox) {
+            new AccountCombobox(accountComboEl);
+        }
         Object.keys(obj).forEach(key => {
             const el = txForm.querySelector(`[name="${key}"]`);
             if (el && el.type !== 'file') el.value = obj[key];
         });
+        if (accountComboEl && accountComboEl._accountCombobox && obj.account_id) {
+            accountComboEl._accountCombobox.selectById(obj.account_id);
+        }
     }
 
     if (txForm) {

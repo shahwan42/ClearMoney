@@ -11,6 +11,7 @@ import pytest
 
 from accounts.models import Account
 from conftest import SessionFactory, UserFactory
+from core.dates import month_range
 from dashboard.services.forecast import ForecastService
 from recurring.models import RecurringRule
 from tests.factories import AccountFactory, CategoryFactory, InstitutionFactory
@@ -76,6 +77,13 @@ def _make_template(data: dict, **overrides) -> dict:
     return tmpl
 
 
+def _forecast_due_date(days: int = 1) -> date:
+    """Return a due date inside the service's current-month forecast window."""
+    today = date.today()
+    _, month_end = month_range(today)
+    return min(today + timedelta(days=days), month_end)
+
+
 # ---------------------------------------------------------------------------
 # calculate_forecast - basic functionality
 # ---------------------------------------------------------------------------
@@ -106,7 +114,7 @@ class TestCalculateForecast:
                 forecast_data, type="income", amount=5000.0, note="Salary"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -129,7 +137,7 @@ class TestCalculateForecast:
                 forecast_data, type="expense", amount=500.0, note="Netflix"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -187,7 +195,7 @@ class TestCalculateForecast:
                 forecast_data, type="income", amount=3000.0
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -209,7 +217,7 @@ class TestCalculateForecast:
                 forecast_data, type="income", amount=50000.0
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=False,  # Inactive
             auto_confirm=False,
         )
@@ -239,7 +247,7 @@ class TestNegativeBalanceWarning:
                 forecast_data, type="expense", amount=25000.0, note="Big Purchase"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -261,7 +269,7 @@ class TestNegativeBalanceWarning:
                 forecast_data, type="expense", amount=1000.0, note="Small Bill"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -291,7 +299,7 @@ class TestWhatIfScenarios:
                 forecast_data, type="income", amount=5000.0, note="Salary"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -302,7 +310,7 @@ class TestWhatIfScenarios:
                 forecast_data, type="income", amount=3000.0, note="Bonus"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=10),
+            next_due_date=_forecast_due_date(2),
             is_active=True,
             auto_confirm=False,
         )
@@ -324,7 +332,7 @@ class TestWhatIfScenarios:
                 forecast_data, type="expense", amount=500.0, note="Netflix"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -335,7 +343,7 @@ class TestWhatIfScenarios:
                 forecast_data, type="expense", amount=1000.0, note="Gym"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=10),
+            next_due_date=_forecast_due_date(2),
             is_active=True,
             auto_confirm=False,
         )
@@ -358,7 +366,7 @@ class TestDailyBreakdown:
         """Forecast days include events for rule occurrences."""
         svc = _svc(forecast_data["user_id"])
 
-        due_date = date.today() + timedelta(days=7)
+        due_date = _forecast_due_date()
 
         RecurringRule.objects.create(
             user_id=forecast_data["user_id"],
@@ -427,7 +435,7 @@ class TestGetForecastSummary:
                 forecast_data, type="income", amount=2000.0
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -459,7 +467,7 @@ class TestGetForecastSummary:
                 forecast_data, type="income", amount=2000.0
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )
@@ -509,7 +517,7 @@ class TestEdgeCases:
                 forecast_data, amount=0.0, note="Zero amount"
             ),
             frequency="monthly",
-            next_due_date=date.today() + timedelta(days=7),
+            next_due_date=_forecast_due_date(),
             is_active=True,
             auto_confirm=False,
         )

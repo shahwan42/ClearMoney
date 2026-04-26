@@ -3,9 +3,9 @@ id: "155"
 title: "Improve transaction account picker UX with icons and search"
 type: improvement
 priority: medium
-status: pending
+status: done
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-04-26
 ---
 
 ## Description
@@ -19,13 +19,13 @@ Current state:
 
 ## Acceptance Criteria
 
-- [ ] Account picker shows an icon or visual avatar for each account option
-- [ ] Picker supports searching/filtering accounts by name
-- [ ] Full transaction form uses the improved picker
-- [ ] Quick-entry form uses the improved picker
-- [ ] Existing account validation and submission behavior remain intact
-- [ ] Accessibility preserved: keyboard navigation, labels, focus states, and screen-reader compatibility
-- [ ] Tests added or updated for the new picker behavior
+- [x] Account picker shows an icon or visual avatar for each account option
+- [x] Picker supports searching/filtering accounts by name
+- [x] Full transaction form uses the improved picker
+- [x] Quick-entry form uses the improved picker
+- [x] Existing account validation and submission behavior remain intact
+- [x] Accessibility preserved: keyboard navigation, labels, focus states, and screen-reader compatibility
+- [x] Tests added or updated for the new picker behavior
 
 ## Technical Notes
 
@@ -36,3 +36,5 @@ Current state:
 ## Progress Notes
 
 - 2026-04-24: Created from feature triage. Confirmed current transaction account inputs are plain `<select>` elements with no icon rendering and no search behavior.
+- 2026-04-26: Started — Planning account picker implementation for full transaction and quick-entry forms.
+- 2026-04-26: Completed — Added searchable account comboboxes with institution avatars, preserved `account_id` submission, added regression tests, and verified full test suite.

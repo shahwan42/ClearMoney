@@ -5,6 +5,7 @@ Transaction view tests — HTTP-level tests for all /transactions/*, /transfers/
 Uses factory_boy fixtures for test data setup (no raw SQL).
 """
 
+import html
 import json
 import uuid
 from datetime import date
@@ -140,6 +141,30 @@ class TestTransactionNew:
         assert note_pos < toggle_pos, (
             "note should appear before the More options toggle"
         )
+
+    def test_account_picker_in_new_form(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+        assert "data-account-combobox" in content
+        assert "data-accounts" in content
+        assert 'data-name="account_id"' in content
+        assert 'data-required="true"' in content
+        assert '<select name="account_id"' not in content
+
+    def test_account_picker_json_escapes_user_controlled_names(
+        self, client, tx_view_data
+    ):
+        Account.objects.filter(id=tx_view_data["egp_id"]).update(name="Ahmed's <Main>")
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/new")
+        content = response.content.decode()
+        import re
+
+        match = re.search(r"data-accounts='(.+?)'", content)
+        assert match
+        data = json.loads(html.unescape(match.group(1)))
+        assert any(account["name"] == "Ahmed's <Main>" for account in data)
 
     def test_duplicate_date_shown_in_date_picker(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -733,6 +758,16 @@ class TestQuickEntryViews:
         )
         # Toggle and panel present
         assert 'id="qe-more-options"' in content
+
+    def test_account_picker_in_quick_entry(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get("/transactions/quick-form", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert 'id="qe-account-combobox"' in content
+        assert "data-account-combobox" in content
+        assert "data-accounts" in content
+        assert 'data-name="account_id"' in content
+        assert 'id="qe-account-select"' not in content
         assert 'aria-expanded="false"' in content
         # Date picker is inside the panel
         today = date.today().isoformat()

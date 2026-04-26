@@ -69,9 +69,7 @@ def _with_balance_payload(
     return person
 
 
-def _normalize_balance_rows(
-    balances: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
+def _normalize_balance_rows(balances: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Normalize balance rows."""
     return sorted(balances, key=_currency_sort_key)
 

@@ -1670,6 +1670,10 @@ class TestDropdownHelpers:
         svc = _svc(tx_data["user_id"])
         accounts = svc.get_accounts()
         assert len(accounts) >= 1
+        account = next(a for a in accounts if a["id"] == tx_data["egp_id"])
+        assert account["institution_name"] == "Test Bank"
+        assert "institution_icon" in account
+        assert "institution_color" in account
 
     def test_get_virtual_accounts(self, tx_data):
         svc = _svc(tx_data["user_id"])

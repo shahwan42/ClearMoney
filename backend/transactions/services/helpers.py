@@ -257,7 +257,16 @@ class HelperMixin:
                 tx_count=Count("transactions", filter=Q(transactions__user_id=uid))
             )
             .order_by("-tx_count", "display_order", "name")
-            .values("id", "name", "currency", "current_balance", "type")
+            .values(
+                "id",
+                "name",
+                "currency",
+                "current_balance",
+                "type",
+                "institution__name",
+                "institution__icon",
+                "institution__color",
+            )
         )
         return [
             {
@@ -266,6 +275,9 @@ class HelperMixin:
                 "currency": r["currency"],
                 "current_balance": float(r["current_balance"]),
                 "type": r["type"],
+                "institution_name": r["institution__name"] or "",
+                "institution_icon": r["institution__icon"] or "",
+                "institution_color": r["institution__color"] or "",
             }
             for r in rows
         ]
