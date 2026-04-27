@@ -28,7 +28,7 @@
     <div id="people-list" class="space-y-3" aria-live="polite" aria-atomic="true">
         {% if data.persons %}
             {% for card in data.persons %}
-                {% include "people/_person_card.html" with person=card.person accounts=card.accounts %}
+                {% include "people/_person_card.html" with person=card.person accounts=card.accounts currencies=card.currencies %}
             {% endfor %}
         {% else %}
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 text-center">

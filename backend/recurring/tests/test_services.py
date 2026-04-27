@@ -951,6 +951,32 @@ class TestBuildTemplateTransactionExchange:
                 }
             )
 
+    def test_transfer_type_diff_currency_auto_detects_exchange(self, exchange_data):
+        """Submitting type=transfer with different-currency accounts → stored as exchange."""
+        svc = _svc(exchange_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "transfer",
+                "account_id": exchange_data["egp_id"],
+                "counter_account_id": exchange_data["usd_id"],
+                "amount": 3000.0,
+            }
+        )
+        assert tmpl["type"] == "exchange"
+
+    def test_transfer_type_same_currency_stays_transfer(self, transfer_data):
+        """Submitting type=transfer with same-currency accounts → stays transfer."""
+        svc = _svc(transfer_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "transfer",
+                "account_id": transfer_data["source_id"],
+                "counter_account_id": transfer_data["dest_id"],
+                "amount": 1000.0,
+            }
+        )
+        assert tmpl["type"] == "transfer"
+
 
 @pytest.mark.django_db
 class TestBuildTemplateTransactionOptionalFields:

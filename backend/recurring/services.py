@@ -301,6 +301,17 @@ class RecurringService:
             if counter_account_id == account_id:
                 raise ValueError("Source and destination accounts must be different")
 
+            # Auto-detect exchange when currencies differ (like Quick Entry)
+            dest_currency = (
+                Account.objects.for_user(self.user_id)
+                .filter(id=counter_account_id)
+                .values_list("currency", flat=True)
+                .first()
+                or currency
+            )
+            if tx_type == "transfer" and dest_currency != currency:
+                tx_type = "exchange"
+
             template: dict[str, Any] = {
                 "type": tx_type,
                 "amount": amount,

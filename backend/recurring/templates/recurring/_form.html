@@ -46,18 +46,10 @@
             </label>
             <label class="flex-1">
                 <input type="radio" name="type" value="transfer"
-                       {% if editing and selected_type == "transfer" %}checked{% endif %}
+                       {% if editing and selected_type == "transfer" or editing and selected_type == "exchange" %}checked{% endif %}
                        class="peer sr-only" onchange="recToggleType('transfer')">
                 <div class="peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 peer-checked:border-blue-400 peer-checked:text-blue-700 dark:peer-checked:text-blue-400 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
                     {% trans "Transfer" %}
-                </div>
-            </label>
-            <label class="flex-1">
-                <input type="radio" name="type" value="exchange"
-                       {% if editing and selected_type == "exchange" %}checked{% endif %}
-                       class="peer sr-only" onchange="recToggleType('exchange')">
-                <div class="peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/20 peer-checked:border-purple-400 peer-checked:text-purple-700 dark:peer-checked:text-purple-400 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
-                    {% trans "Exchange" %}
                 </div>
             </label>
             {% endwith %}
@@ -275,26 +267,36 @@
 <script>
 (function() {
     var initialType = document.querySelector('#rec-form input[name="type"]:checked')?.value || 'expense';
+    // exchange rules display as transfer tab (auto-detected at save time)
+    if (initialType === 'exchange') initialType = 'transfer';
 
-    function recToggleType(mode) {
-        var isTransferOrExchange = (mode === 'transfer' || mode === 'exchange');
-        var isExchange = (mode === 'exchange');
-
-        document.getElementById('rec-category-container').classList.toggle('hidden', isTransferOrExchange);
-        document.getElementById('rec-tags-container').classList.toggle('hidden', isTransferOrExchange);
-        document.getElementById('rec-dest-account-container').classList.toggle('hidden', !isTransferOrExchange);
-
-        var vaCont = document.getElementById('rec-va-container');
-        if (vaCont) vaCont.classList.toggle('hidden', isTransferOrExchange);
-
+    function recUpdateExchangeState() {
+        // Show exchange rate + disable auto-confirm when currencies differ
+        var acctInput = document.querySelector('#rec-account-combobox input[name="account_id"]');
+        var destSelect = document.getElementById('rec-dest-account-select');
+        var mode = document.querySelector('#rec-form input[name="type"]:checked')?.value || 'expense';
+        if (mode !== 'transfer' || !acctInput || !destSelect) {
+            var exRateCont = document.getElementById('rec-exchange-rate-container');
+            if (exRateCont) exRateCont.classList.add('hidden');
+            recSetAutoConfirmDisabled(false);
+            return;
+        }
+        var srcCurrency = acctInput.dataset.currency || '';
+        var destOpt = destSelect.options[destSelect.selectedIndex];
+        var destText = destOpt ? destOpt.text : '';
+        var destMatch = destText.match(/\(([A-Z]{3})\)$/);
+        var destCurrency = destMatch ? destMatch[1] : '';
+        var isExchange = srcCurrency && destCurrency && srcCurrency !== destCurrency;
         var exRateCont = document.getElementById('rec-exchange-rate-container');
         if (exRateCont) exRateCont.classList.toggle('hidden', !isExchange);
+        recSetAutoConfirmDisabled(!!isExchange);
+    }
 
-        // Disable auto-confirm for exchange (exchange + auto_confirm not allowed)
+    function recSetAutoConfirmDisabled(disabled) {
         var autoConfirmContainer = document.getElementById('rec-auto-confirm-container');
         var autoConfirmToggle = document.getElementById('rec-auto-confirm-toggle');
         var autoConfirmInput = document.getElementById('rec-auto-confirm-input');
-        if (isExchange) {
+        if (disabled) {
             if (autoConfirmContainer) autoConfirmContainer.title = '{% trans "Exchange rules require manual confirmation" %}';
             if (autoConfirmToggle) {
                 autoConfirmToggle.setAttribute('aria-checked', 'false');
@@ -313,18 +315,30 @@
             autoConfirmToggle.style.cursor = '';
             autoConfirmToggle.onclick = function(){ (function(btn){var on=btn.getAttribute('aria-checked')==='true';btn.setAttribute('aria-checked',String(!on));btn.classList.toggle('bg-teal-600',!on);btn.classList.toggle('dark:bg-teal-500',!on);btn.classList.toggle('bg-slate-200',on);btn.classList.toggle('dark:bg-slate-600',on);btn.querySelector('span').style.transform=on?'translateX(0)':'translateX(1.25rem)';document.getElementById('rec-auto-confirm-input').value=(!on)?'true':''})(this); };
         }
+    }
+
+    function recToggleType(mode) {
+        var isTransfer = (mode === 'transfer');
+
+        document.getElementById('rec-category-container').classList.toggle('hidden', isTransfer);
+        document.getElementById('rec-tags-container').classList.toggle('hidden', isTransfer);
+        document.getElementById('rec-dest-account-container').classList.toggle('hidden', !isTransfer);
+
+        var vaCont = document.getElementById('rec-va-container');
+        if (vaCont) vaCont.classList.toggle('hidden', isTransfer);
 
         var destSelect = document.getElementById('rec-dest-account-select');
-        if (destSelect) destSelect.required = isTransferOrExchange;
+        if (destSelect) destSelect.required = isTransfer;
 
         var acctLabel = document.getElementById('rec-account-label');
         if (acctLabel) {
-            acctLabel.innerHTML = isTransferOrExchange
+            acctLabel.innerHTML = isTransfer
                 ? '{% trans "From Account" %} <span class="text-red-500" aria-hidden="true">*</span>'
                 : '{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span>';
         }
 
         recApplyAccountRanking(mode);
+        recUpdateExchangeState();
     }
 
     function recApplyAccountRanking(mode) {
@@ -375,8 +389,14 @@
         });
         if (vaSelect.selectedOptions[0] && vaSelect.selectedOptions[0].hidden) vaSelect.value = '';
     }
-    if (acctInput) acctInput.addEventListener('change', filterRecVAs);
+    if (acctInput) {
+        acctInput.addEventListener('change', filterRecVAs);
+        acctInput.addEventListener('change', recUpdateExchangeState);
+    }
     filterRecVAs();
+
+    var destSelectEl = document.getElementById('rec-dest-account-select');
+    if (destSelectEl) destSelectEl.addEventListener('change', recUpdateExchangeState);
 
     // Apply initial type state
     recToggleType(initialType);
