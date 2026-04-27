@@ -8,7 +8,7 @@ Structured workflow for executing grouped improvements (accessibility fixes, tou
 ```bash
 make test                              # Record baseline test count
 make lint                              # Verify zero errors
-mcp__django-ai-boost__run_check        # Django system check passes
+mcp__django-ai-boost__run_check        # Django system check (Claude Code) or: python manage.py check
 DISABLE_RATE_LIMIT=true make run &     # Start server
 curl http://0.0.0.0:8000               # Verify server responds
 git status                             # Working tree clean, on main
@@ -18,7 +18,7 @@ Store the baseline test count — you'll verify tests don't decrease later.
 
 ### Prepare Batch Context
 - Read batch documentation (e.g., `UX_ACCESSIBILITY_AUDIT.md`)
-- Use `mcp__django-ai-boost__list_models` / `list_urls` to understand current state
+- Use `mcp__django-ai-boost__list_models` / `list_urls` (Claude Code) or read `backend/core/models.py` directly
 - Read affected templates/files to verify current implementation
 - Create TodoWrite checklist with ALL improvements in this batch
 
@@ -57,7 +57,7 @@ All must pass before moving to next improvement:
 
 ```bash
 make format                        # Auto-format code
-mcp__django-ai-boost__run_check   # Django check clean
+mcp__django-ai-boost__run_check   # Django check (Claude Code) or: python manage.py check
 make lint                          # ruff + mypy zero errors
 make test                          # count >= baseline
 make test-e2e                      # all Playwright tests pass
@@ -65,9 +65,9 @@ make test-e2e                      # all Playwright tests pass
 
 ### Phase 4 — Accessibility QA
 
-Follow `.gemini/rules/accessibility-qa-protocol.md` checklist:
+Follow `.ai/rules/accessibility-qa-protocol.md` checklist:
 
-1. **Accessibility tree**: `mcp__playwright__browser_snapshot`
+1. **Accessibility tree**: `mcp__playwright__browser_snapshot` (Claude Code) or browser DevTools accessibility panel
 2. **Keyboard nav**: Tab/Shift-Tab, arrow keys, Escape
 3. **Contrast**: 4.5:1 text, 3:1 non-text
 4. **Screen reader**: aria-label, aria-live, role attributes announced
@@ -81,7 +81,7 @@ git add backend/templates/component.html core/models.py  # Specific files only
 git commit -m "fix: [WCAG/feature] - brief description"
 ```
 
-Use `/commit` skill if you prefer interactive staging.
+Use `/commit` (Claude Code) or `git add <specific files> && git commit -m 'type: description'`.
 
 **Important:** Commit after EACH improvement, not at end of batch. This keeps history clean and allows context compacting.
 
@@ -100,8 +100,8 @@ make lint                   # Zero errors
 
 ### Quality Review
 
-- Run `/qa-review` — check for test gaps across all batch improvements
-- Run `/simplify` — identify over-engineering introduced in batch
+- Run `/qa-review` (Claude Code) or manually review test coverage for gaps across all batch improvements
+- Run `/simplify` (Claude Code) or review changed code for over-engineering
 - Refactor if needed — keep tests green throughout
 
 ### Compact and Reset
@@ -140,8 +140,8 @@ git log --oneline -15        # Verify all batch commits present
 - [ ] make test (count >= baseline)
 - [ ] make test-e2e (all pass)
 - [ ] make lint (zero errors)
-- [ ] /qa-review complete
-- [ ] /simplify run
+- [ ] /qa-review (or manual coverage review) complete
+- [ ] /simplify (or manual over-engineering check) run
 ```
 
 ## Error Recovery (Autonomous)
@@ -155,7 +155,7 @@ git log --oneline -15        # Verify all batch commits present
 6. If still failing, move to next improvement (skip this one, return later)
 
 **If verification gate fails:**
-1. Run `mcp__django-ai-boost__run_check` — identify Django errors
+1. Run `mcp__django-ai-boost__run_check` (Claude Code) or `python manage.py check` — identify Django errors
 2. Run `make lint` — fix linting/typing issues first
 3. Check test count: `make test` — if < baseline, investigate which test broke
 4. Do NOT force-commit — fix the issue first
@@ -186,4 +186,4 @@ git log --oneline -15        # Verify all batch commits present
 ✅ Zero lint/mypy errors
 ✅ All commits follow conventional format
 ✅ Batch final gate passes
-✅ No regressions found by /qa-review
+✅ No regressions found by /qa-review (or manual review)

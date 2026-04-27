@@ -10,14 +10,14 @@ Before writing any code, running any tests, or making any changes:
    - If found: confirm it's up-to-date, update `updated` field to today, continue
    - If not found: proceed to step 2
 
-2. **Create a new ticket** using the protocol in `.gemini/rules/ticketing-workflow.md`:
+2. **Create a new ticket** using the protocol in `.ai/rules/ticketing-workflow.md`:
    - Find next available ID (scan all `.tickets/*/*.md` files, take max ID + 1)
    - Create file at `.tickets/wip/<id>-<slug>.md`
    - Auto-fill frontmatter: `id`, `title`, `type`, `priority`, `status: wip`, `created`, `updated`
-   - Add initial progress note: `- YYYY-MM-DD: Started — [what Gemini is working on]`
+   - Add initial progress note: `- YYYY-MM-DD: Started — [what the agent is working on]`
 
-2.5. **Name affected user journeys**: Walk `.gemini/rules/critical-paths.md`
-   (CP-1..CP-6) and `.gemini/rules/user-journeys.md` (J-1..J-5). Add a
+2.5. **Name affected user journeys**: Walk `.ai/rules/critical-paths.md`
+   (CP-1..CP-6) and `.ai/rules/user-journeys.md` (J-1..J-5). Add a
    `## Affected User Journeys` section to the ticket listing every flow that
    could be touched, and add matching items to `## Acceptance Criteria`
    (e.g. "CP-2 still passes after change"). Skip only with an explicit
@@ -57,10 +57,10 @@ Before writing any code, running any tests, or making any changes:
 
 ## Integration with Other Rules
 
-- **Ticketing workflow** (`.gemini/rules/ticketing-workflow.md`): Defines ticket mechanics (create, move, close, reject). This rule enforces **when** to use them.
-- **Git workflow** (`.gemini/rules/git-workflow.md`): After ticket is created, follow commit practices (show changes, ask approval, use conventional commits).
-- **TDD workflow** (`.gemini/rules/tdd-workflow.md`): After ticket is created, write RED tests first.
-- **Delivery checklist** (`.gemini/rules/delivery-checklist.md`): After ticket is created, follow feature delivery steps.
+- **Ticketing workflow** (`.ai/rules/ticketing-workflow.md`): Defines ticket mechanics (create, move, close, reject). This rule enforces **when** to use them.
+- **Git workflow** (`.ai/rules/git-workflow.md`): After ticket is created, follow commit practices (show changes, ask approval, use conventional commits).
+- **TDD workflow** (`.ai/rules/tdd-workflow.md`): After ticket is created, write RED tests first.
+- **Delivery checklist** (`.ai/rules/delivery-checklist.md`): After ticket is created, follow feature delivery steps.
 
 ---
 
@@ -68,7 +68,7 @@ Before writing any code, running any tests, or making any changes:
 
 - **Traceability**: Every code change is tied to a work item with context, acceptance criteria, and progress notes
 - **Scope control**: Writing a ticket forces thinking about what needs to be done *before* diving into code
-- **Async communication**: Ahmed and Gemini can reference ticket IDs instead of relying on conversation history
+- **Async communication**: Ahmed and the agent can reference ticket IDs instead of relying on conversation history
 - **Recovery**: If context fills or session restarts, ticket ID is the entry point back to in-flight work
 - **Completeness**: Ensures work is not abandoned mid-way or lost in conversation churn
 
@@ -78,7 +78,7 @@ Before writing any code, running any tests, or making any changes:
 
 **User asks:** "Add dark mode toggle to settings"
 
-**Gemini response:**
+**Agent response:**
 
 ```
 Working on Ticket #009: Add dark mode toggle to settings

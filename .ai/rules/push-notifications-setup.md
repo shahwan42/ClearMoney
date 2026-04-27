@@ -179,7 +179,7 @@ If you want **server-initiated push** (server pushes to idle users), you'd need:
 **Benefit:** Notifications even when user is offline or on another app.
 **Trade-off:** More infrastructure complexity.
 
-See: `.gemini/rules/push-notifications-future.md` for detailed plan.
+See: `.ai/rules/push-notifications-future.md` for detailed plan.
 
 ---
 

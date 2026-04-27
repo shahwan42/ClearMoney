@@ -1,20 +1,20 @@
 # Ticketing Workflow — AI-Managed Development Tracking
 
-This rule instructs Gemini to automatically manage tickets for all ClearMoney development tasks. Tickets live in `.tickets/` as markdown files. Ahmed never manually edits tickets — Gemini handles all lifecycle management.
+This rule instructs the agent to automatically manage tickets for all ClearMoney development tasks. Tickets live in `.tickets/` as markdown files. Ahmed never manually edits tickets — the agent handles all lifecycle management.
 
 ## Core Principles
 
-- **Automatic ticket lifecycle**: Gemini creates, moves, closes tickets without user intervention
+- **Automatic ticket lifecycle**: The agent creates, moves, closes tickets without user intervention
 - **File-based**: Markdown in `.tickets/` folder, tracked in git
 - **Frontmatter-driven**: YAML frontmatter (`id`, `title`, `type`, `priority`, `status`, `created`, `updated`) is the source of truth
-- **Progress notes**: Gemini appends dated notes to each ticket's "Progress Notes" section
+- **Progress notes**: The agent appends dated notes to each ticket's "Progress Notes" section
 - **One ticket per dev task**: Feature, bug fix, refactor, or chore gets a ticket
 
 ## Ticket Lifecycle
 
 ### 1. On Task Start (Before Implementation)
 
-When Gemini begins work on a non-trivial task (features, bug fixes, refactors, improvements):
+When the agent begins work on a non-trivial task (features, bug fixes, refactors, improvements):
 
 1. **Check for existing ticket**:
    - Scan `.tickets/wip/` for a matching ticket (same title or related)
@@ -31,10 +31,10 @@ When Gemini begins work on a non-trivial task (features, bug fixes, refactors, i
      - `status`: wip
      - `created`: today's date (2026-03-27 format)
      - `updated`: today's date
-   - Add initial progress note: `- 2026-03-27: Started — [what Gemini is working on]`
+   - Add initial progress note: `- 2026-03-27: Started — [what the agent is working on]`
 
 3. **Identify affected user journeys**: Cross-reference task against
-   `.gemini/rules/critical-paths.md` (CP-1..CP-6) and `.gemini/rules/user-journeys.md`
+   `.ai/rules/critical-paths.md` (CP-1..CP-6) and `.ai/rules/user-journeys.md`
    (J-1..J-5). List every flow the change could touch (UI path, balance update,
    auth, isolation). Record under `## Affected User Journeys` in ticket body and
    reflect as verifiable items in `## Acceptance Criteria` (e.g.
@@ -54,7 +54,7 @@ When Gemini begins work on a non-trivial task (features, bug fixes, refactors, i
 - **Append progress notes** when making significant decisions, hitting blockers, or changing approach
   - Format: `- YYYY-MM-DD: [description]`
   - Example: `- 2026-03-27: Added E2E test for happy path, all 3 criteria passing`
-- Do not update frontmatter fields (`id`, `created`, `status`) — only Gemini updates those
+- Do not update frontmatter fields (`id`, `created`, `status`) — only the agent updates those
 
 ### 3. On Task Completion — Atomic with Commit
 
@@ -160,7 +160,7 @@ duplicate. Every journey listed above must surface here.
 | `title` | Short string | 50 chars max. Can be same as user's task description. |
 | `type` | bug \| feature \| improvement \| chore | Derived from task context. |
 | `priority` | low \| medium \| high | Default to medium. Ask user if ambiguous. |
-| `status` | pending \| wip \| done \| rejected | Updated by Gemini. |
+| `status` | pending \| wip \| done \| rejected | Updated by the agent. |
 | `created` | YYYY-MM-DD | Set on ticket creation. Never changes. |
 | `updated` | YYYY-MM-DD | Updated every time ticket moves or is edited. |
 
@@ -215,7 +215,7 @@ tickets — let them migrate organically.
 
 **Rule of thumb**: If it's "get user approval → implement → commit," create a ticket. If it's "oh wait, that's wrong" → fix → commit, skip the ticket.
 
-## Ticket Operations Gemini Performs
+## Ticket Operations the Agent Performs
 
 ### Create Ticket
 ```
@@ -267,35 +267,35 @@ tickets — let them migrate organically.
 
 **Task**: "Build a ticketing system"
 
-1. Gemini creates `.tickets/wip/001-setup-ticketing-system.md`
+1. The agent creates `.tickets/wip/001-setup-ticketing-system.md`
    - Type: chore
    - Priority: medium
    - Status: wip
    - Initial note: "- 2026-03-27: Started — Setting up folder structure, rule files"
 
-2. Gemini creates folder structure (`.tickets/pending/`, `.tickets/wip/`, etc.)
+2. The agent creates folder structure (`.tickets/pending/`, `.tickets/wip/`, etc.)
 
-3. Gemini creates `.gemini/rules/ticketing-workflow.md` (this file)
+3. The agent creates `.ai/rules/ticketing-workflow.md` (this file)
 
-4. Gemini creates initial `.tickets/INDEX.md`
+4. The agent creates initial `.tickets/INDEX.md`
 
-5. Gemini updates `GEMINI.md` to reference ticketing rule
+5. Claude updates `CLAUDE.md` to reference ticketing rule
 
-6. Gemini tests: reads INDEX.md to verify it loads correctly
+6. The agent tests: reads INDEX.md to verify it loads correctly
 
-7. Gemini moves ticket to done:
+7. The agent moves ticket to done:
    - Renames `.tickets/wip/001-*.md` → `.tickets/done/001-*.md`
    - Updates frontmatter: status → done, updated → 2026-03-27
    - Adds note: "- 2026-03-27: Completed — Ticketing system ready, rule file in place"
 
-8. Gemini regenerates `.tickets/INDEX.md`
+8. The agent regenerates `.tickets/INDEX.md`
 
-## Integration with GEMINI.md
+## Integration with CLAUDE.md
 
-Add to the Rules reference table in `GEMINI.md`:
+Add to the Rules reference table in `CLAUDE.md`:
 
 ```markdown
-| Ticketing Workflow | `.gemini/rules/ticketing-workflow.md` | AI-managed development tickets, auto-created/updated by Gemini |
+| Ticketing Workflow | `.ai/rules/ticketing-workflow.md` | AI-managed development tickets, auto-created/updated by the agent |
 ```
 
 ## No Manual Intervention
@@ -303,7 +303,7 @@ Add to the Rules reference table in `GEMINI.md`:
 This system is designed so Ahmed never:
 - Types a ticket ID manually
 - Updates a ticket's status or date manually
-- Creates ticket files directly (Gemini does it via Write tool)
-- Regenerates INDEX.md (Gemini does it)
+- Creates ticket files directly (agent does it)
+- Regenerates INDEX.md (agent does it)
 
-Gemini handles all of this automatically as part of its dev task execution.
+The agent handles all of this automatically as part of its dev task execution.

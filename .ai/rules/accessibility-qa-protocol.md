@@ -5,7 +5,7 @@ Structured verification protocol for validating accessibility fixes before commi
 ## Verification Gates (Run Before Commit)
 
 ```bash
-mcp__django-ai-boost__run_check   # Django system check
+mcp__django-ai-boost__run_check   # Django check (Claude Code) or: python manage.py check
 make lint                          # ruff + mypy — zero errors required
 make test                          # all tests pass
 make test-e2e                      # Playwright tests pass
@@ -15,7 +15,7 @@ make test-e2e                      # Playwright tests pass
 
 ### 1. Accessibility Tree Inspection
 
-Use `mcp__playwright__browser_snapshot` to inspect ARIA tree:
+Use `mcp__playwright__browser_snapshot` (Claude Code) or browser DevTools accessibility panel to inspect ARIA tree:
 
 - ✓ All form inputs have associated labels (visible `<label>` or `aria-label`)
 - ✓ All interactive elements have semantic roles (button, link, menuitem, etc.)
@@ -25,7 +25,7 @@ Use `mcp__playwright__browser_snapshot` to inspect ARIA tree:
 
 ### 2. Keyboard Navigation Testing
 
-Use `mcp__playwright__browser_press_key` to navigate:
+Use `mcp__playwright__browser_press_key` (Claude Code) or manually tab through the page in browser:
 
 - ✓ Tab key traverses all interactive elements in logical order (left-to-right, top-to-bottom)
 - ✓ Focus indicator visible (2px outline minimum, 3:1+ contrast against background)
@@ -34,7 +34,7 @@ Use `mcp__playwright__browser_press_key` to navigate:
 - ✓ Enter activates buttons/links
 - ✓ Escape closes modals/dropdowns
 - ✓ Modal focus trapped (Tab doesn't escape, Escape closes)
-- ✓ Check `mcp__playwright__browser_console_messages` — zero JS errors
+- ✓ Check `mcp__playwright__browser_console_messages` (Claude Code) or browser DevTools console — zero JS errors
 
 ### 3. Color Contrast Validation
 
@@ -68,7 +68,7 @@ Use accessibility inspector in browser (or simulate with `browser_snapshot`):
 
 ### 5. Visual Confirmation
 
-- ✓ `mcp__playwright__browser_take_screenshot` — capture light mode
+- ✓ `mcp__playwright__browser_take_screenshot` (Claude Code) or capture screenshot manually — light mode
 - ✓ Toggle dark mode: `browser_evaluate(() => document.documentElement.classList.toggle('dark'))`
 - ✓ Screenshot again — verify dark mode contrast
 - ✓ Zoom to 200%: `browser_evaluate(() => document.body.style.zoom = '2.0')`
@@ -89,7 +89,7 @@ git commit -m "fix: [WCAG criterion] - [specific improvement]"
 
 | Criterion | Issue | Verification |
 |-----------|-------|--------------|
-| 1.1.1 Non-text Content | Missing alt/aria-label on images/icons | `mcp__playwright__browser_snapshot` shows alt text |
+| 1.1.1 Non-text Content | Missing alt/aria-label on images/icons | `mcp__playwright__browser_snapshot` (Claude Code) or browser accessibility inspector |
 | 1.3.1 Info and Relationships | Unlabeled form inputs | All inputs have `<label for="">` or `aria-label` |
 | 1.4.3 Contrast (Minimum) | Text/background < 4.5:1 | Contrast checker confirms 4.5:1+ |
 | 1.4.11 Non-text Contrast | Borders/icons < 3:1 | Contrast checker confirms 3:1+ |
@@ -106,7 +106,7 @@ git commit -m "fix: [WCAG criterion] - [specific improvement]"
 - Use `browser_snapshot` to inspect actual ARIA tree
 - Verify HTML structure — ARIA attributes on correct elements
 - Check `WebFetch` for WCAG spec: is aria-labelledby pointing to valid ID?
-- Run `mcp__django-ai-boost__run_check` for Django errors
+- Run `mcp__django-ai-boost__run_check` (Claude Code) or `python manage.py check` for Django errors
 
 **Contrast issues:**
 - Use [WebAIM Contrast Checker](https://webaim.org/resources/contrastchecker/)

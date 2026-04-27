@@ -1,8 +1,8 @@
 # QA Guidelines — ClearMoney
 
 > This rule governs **when** and **how** to test in ClearMoney. It integrates with:
-> `.gemini/rules/tdd-workflow.md` (RED→GREEN), `.gemini/rules/delivery-checklist.md` (gates),
-> `.gemini/rules/accessibility-qa-protocol.md` (WCAG), `.gemini/rules/batch-execution-pattern.md` (batch work),
+> `.ai/rules/tdd-workflow.md` (RED→GREEN), `.ai/rules/delivery-checklist.md` (gates),
+> `.ai/rules/accessibility-qa-protocol.md` (WCAG), `.ai/rules/batch-execution-pattern.md` (batch work),
 > `docs/qa/TEST-FLOWS.md` (detailed scenarios), and `docs/qa/QA-ENGINEER-GUIDE.md` (manual QA setup + make commands).
 >
 > **QA environment setup:** `make qa-reset` → `make qa-login` → paste token URL in browser. Seeds institution, 4 accounts, 4 transactions, 2 budgets. See `docs/qa/QA-ENGINEER-GUIDE.md` for full reference.
@@ -15,7 +15,7 @@
 make test             # count must be >= baseline established at session start
 make lint             # zero ruff + mypy errors
 make test-e2e         # required if feature touches UI, HTMX, or auth
-mcp__django-ai-boost__run_check   # Django system check passes
+mcp__django-ai-boost__run_check   # Django system check (Claude Code) or: python manage.py check
 ```
 
 **The pre-commit gate FAILS if:**
@@ -313,20 +313,22 @@ uv run pytest --cov=<app> --cov-report=term-missing --cov-fail-under=<floor>
 
 ## 9. When to Use MCP Tools vs Make Commands
 
+> **Note:** MCP tool names below (`mcp__django-ai-boost__*`, `mcp__playwright__*`) are available in Claude Code. Other agents should use the fallback commands listed in the Note column.
+
 | Need | Tool | Note |
 |------|------|------|
 | Full test suite | `make test` | Runs all unit tests with coverage |
 | Parallel testing | `make test-fast` | Uses pytest-xdist for speed |
 | E2E suite | `make test-e2e` | Runs Playwright tests (serial, slower) |
 | Lint + mypy | `make lint` | Runs ruff check + mypy (all 3 must pass) |
-| Schema exploration | `mcp__django-ai-boost__list_models` | Faster than reading model files |
-| Migration status | `mcp__django-ai-boost__list_migrations` | Check applied/pending migrations |
-| URL routes | `mcp__django-ai-boost__list_urls` | Verify routes are registered |
-| Django check | `mcp__django-ai-boost__run_check` | FASTER than `make lint` for just checks |
-| Visual QA | `mcp__playwright__browser_snapshot` | Inspect ARIA tree during development |
-| Keyboard nav testing | `mcp__playwright__browser_press_key` | Test Tab order, Escape, arrow keys |
-| Contrast verification | `mcp__playwright__browser_evaluate` | Compute CSS colors for contrast checking |
-| Screen reader sim | `mcp__playwright__browser_snapshot` | Read accessibility tree |
+| Schema exploration | `mcp__django-ai-boost__list_models` | Claude Code: fast schema lookup; fallback: read `backend/core/models.py` |
+| Migration status | `mcp__django-ai-boost__list_migrations` | Claude Code; fallback: `python manage.py showmigrations` |
+| URL routes | `mcp__django-ai-boost__list_urls` | Claude Code; fallback: `python manage.py show_urls` |
+| Django check | `mcp__django-ai-boost__run_check` | Claude Code: faster than `make lint`; fallback: `python manage.py check` |
+| Visual QA | `mcp__playwright__browser_snapshot` | Claude Code: inspect ARIA tree; fallback: browser DevTools accessibility panel |
+| Keyboard nav testing | `mcp__playwright__browser_press_key` | Claude Code; fallback: manual keyboard testing in browser |
+| Contrast verification | `mcp__playwright__browser_evaluate` | Claude Code: compute CSS colors; fallback: browser DevTools computed styles |
+| Screen reader sim | `mcp__playwright__browser_snapshot` | Claude Code: read accessibility tree; fallback: browser accessibility inspector |
 
 **Do NOT use** `mcp__playwright__*` **for running the automated E2E suite** — use `make test-e2e` instead.
 

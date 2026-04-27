@@ -13,15 +13,16 @@
 | Models | `backend/core/models.py` — all models, `db_table` convention |
 | Request type | `backend/core/types.py` — `AuthenticatedRequest` |
 | Template filters | `backend/core/templatetags/money.py` |
-| Rules | `.claude/rules/` — ticket-first, git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA, QA guidelines, critical paths, ticketing workflow, agent-testing, user-journeys |
-| Ticketing | `.tickets/` + `.claude/rules/ticketing-workflow.md` (mechanics) + `.claude/rules/ticket-first-workflow.md` (mandatory pre-code gate) — AI-managed development tickets, auto-created/updated by Claude |
-| Workflows | `.claude/rules/batch-execution-pattern.md` — multi-item batch workflows; `docs/reference/WCAG-AA-QUICK-REFERENCE.md` — WCAG 2.1 AA criteria & fixes |
-| Accessibility | `.claude/rules/accessibility.md` — ARIA standards; `.claude/rules/accessibility-qa-protocol.md` — QA verification gates |
-| QA Guidelines | `.claude/rules/qa-guidelines.md` — test pyramid, financial data integrity, coverage floors, E2E requirements, form validation standards |
-| Critical Paths | `.claude/rules/critical-paths.md` — 6 critical user journeys that must always pass, regression checkpoints |
+| Rules | `.ai/rules/` (canonical, agent-neutral) — ticket-first, git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA, QA guidelines, critical paths, ticketing workflow, agent-testing, user-journeys. Also accessible at `.claude/rules/` (symlink). |
+| Claude-only | `.claude/claude-only/` — slash skills reference, MCP tool cookbook, Claude Code CLI tips |
+| Ticketing | `.tickets/` + `.ai/rules/ticketing-workflow.md` (mechanics) + `.ai/rules/ticket-first-workflow.md` (mandatory pre-code gate) — AI-managed development tickets, auto-created/updated by the agent |
+| Workflows | `.ai/rules/batch-execution-pattern.md` — multi-item batch workflows; `docs/reference/WCAG-AA-QUICK-REFERENCE.md` — WCAG 2.1 AA criteria & fixes |
+| Accessibility | `.ai/rules/accessibility.md` — ARIA standards; `.ai/rules/accessibility-qa-protocol.md` — QA verification gates |
+| QA Guidelines | `.ai/rules/qa-guidelines.md` — test pyramid, financial data integrity, coverage floors, E2E requirements, form validation standards |
+| Critical Paths | `.ai/rules/critical-paths.md` — 6 critical user journeys that must always pass, regression checkpoints |
 | Test Flows | `docs/qa/TEST-FLOWS.md` — detailed test scenarios for all 14 feature areas, known gaps |
 | QA Engineer Guide | `docs/qa/QA-ENGINEER-GUIDE.md` — manual QA setup, make commands, test data baseline, bug filing, known issues |
-| Remote setup | `.claude/rules/remote-environment.md` — remote vs local DB differences, SessionStart hook |
+| Remote setup | `.ai/rules/remote-environment.md` — remote vs local DB differences, SessionStart hook |
 
 ## Architecture
 
@@ -102,7 +103,7 @@ symbols = basedpyright.document_symbols("core/models.py")
 
 ## Git Workflow
 
-See `.claude/rules/git-workflow.md` for:
+See `.ai/rules/git-workflow.md` for:
 
 - Commit practices (never commit without asking, never use `git add .`)
 - Workflow (show changes → ask → wait for approval → commit)
