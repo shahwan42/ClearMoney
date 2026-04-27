@@ -1,0 +1,30 @@
+{% load money %}
+{% load i18n %}
+{% comment %}
+Settle success partial — rendered inside #settle-result after successful settlement.
+Context:
+  tx          — settled transaction dict
+  new_balance — new account balance as string
+{% endcomment %}
+
+<div class="rounded-xl bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 px-4 py-4 space-y-3" role="status" aria-live="polite">
+    <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <p class="text-sm font-bold text-teal-700 dark:text-teal-300">{% trans "Transaction settled" %}</p>
+    </div>
+    <div class="grid grid-cols-2 gap-y-1 text-xs">
+        <span class="text-gray-400 dark:text-slate-500">{% trans "Final amount" %}</span>
+        <span class="text-end font-semibold text-slate-700 dark:text-slate-200">{{ tx.amount|money_format:tx.currency }}</span>
+        {% if tx.original_amount and tx.amount != tx.original_amount %}
+        <span class="text-gray-400 dark:text-slate-500">{% trans "Was estimated" %}</span>
+        <span class="text-end font-semibold text-slate-400 dark:text-slate-500 line-through">{{ tx.original_amount|money_format:tx.currency }}</span>
+        {% endif %}
+    </div>
+    <button type="button"
+            onclick="BottomSheet.close('tx-settle'); BottomSheet.close('tx-detail');"
+            class="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl py-2.5 text-sm font-bold min-h-[44px] transition-colors">
+        {% trans "Done" %}
+    </button>
+</div>

@@ -33,6 +33,26 @@ Context:
         {% endif %}
     </div>
 
+    {# Pending callout — shown immediately when transaction is pending #}
+    {% if tx.is_pending %}
+    <div class="mx-1 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 px-4 py-3 space-y-2">
+        <div class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">{% trans "Pending — estimated amount" %}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-y-1 text-xs">
+            <span class="text-gray-400 dark:text-slate-500">{% trans "Estimated" %}</span>
+            <span class="text-end font-semibold text-slate-700 dark:text-slate-200">{{ tx.original_amount|money_format:tx.currency }}</span>
+            {% if tx.amount != tx.original_amount %}
+            <span class="text-gray-400 dark:text-slate-500">{% trans "Current" %}</span>
+            <span class="text-end font-semibold text-slate-700 dark:text-slate-200">{{ tx.amount|money_format:tx.currency }}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     {# Detail Grid #}
     <div class="grid grid-cols-2 gap-y-4 px-2">
         {% if tx.type == "exchange" and tx.counter_amount and counter_currency %}
@@ -139,6 +159,21 @@ Context:
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
         </div>
+    </div>
+    {% endif %}
+
+    {# Settle button — shown only for pending transactions #}
+    {% if tx.is_pending %}
+    <div class="px-1">
+        <button type="button"
+                onclick="BottomSheet.open('tx-settle', {url: '/transactions/settle/{{ tx.id }}'})"
+                class="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white py-2.5 rounded-xl text-sm font-bold transition-all min-h-[44px]"
+                aria-label="{% trans "Settle this pending transaction" %}">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            {% trans "Settle Transaction" %}
+        </button>
     </div>
     {% endif %}
 

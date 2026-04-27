@@ -29,6 +29,12 @@ Context:
         </div>
         <div class="text-xs text-gray-400 dark:text-slate-500 ms-4 mt-0.5 flex flex-wrap gap-1 items-center">
             {{ tx.date|format_date_short }}{% if not hide_account_name and tx.account_name %} · {% if tx.account_removed %}<span class="text-gray-400 dark:text-slate-600">{{ tx.account_name }} ({% trans "removed" %})</span>{% else %}{{ tx.account_name }}{% endif %}{% endif %}
+            {% if tx.is_pending %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800" aria-label="{% trans "Pending transaction" %}">
+                <svg class="w-2.5 h-2.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                {% trans "Pending" %}
+            </span>
+            {% endif %}
             {% if tx.tags %}
                 {% for tag in tx.tags %}
                     <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0 rounded">#{{ tag }}</span>
@@ -44,8 +50,8 @@ Context:
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                 </svg>
                 {% endif %}
-                <span class="text-sm font-semibold {{ tx.amount_color_class }}">
-                    {% if tx.type == "expense" %}-{% elif tx.type == "income" %}+{% else %}{% if tx.balance_delta < 0 %}-{% else %}+{% endif %}{% endif %}{{ tx.amount|format_currency:tx.currency }}
+                <span class="text-sm font-semibold {{ tx.amount_color_class }} {% if tx.is_pending %}opacity-70{% endif %}">
+                    {% if tx.type == "expense" %}-{% elif tx.type == "income" %}+{% else %}{% if tx.balance_delta < 0 %}-{% else %}+{% endif %}{% endif %}{{ tx.amount|format_currency:tx.currency }}{% if tx.is_pending %}<span class="text-[10px] text-amber-500 dark:text-amber-400 font-normal ml-0.5" aria-hidden="true">~</span>{% endif %}
                 </span>
             </div>
             {% if tx.running_balance is not None %}

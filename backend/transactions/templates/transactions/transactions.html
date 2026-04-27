@@ -94,6 +94,7 @@
 
 {% include "components/bottom_sheet.html" with name="tx-detail" aria_label="Transaction details" %}
 {% include "components/bottom_sheet.html" with name="tx-edit" aria_label="Edit transaction" %}
+{% include "components/bottom_sheet.html" with name="tx-settle" aria_label="Settle transaction" z_overlay="z-[80]" z_sheet="z-[90]" %}
 
 <script>
 document.body.addEventListener('closeEditSheet', function() {

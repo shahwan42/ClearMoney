@@ -88,6 +88,16 @@ urlpatterns = [
         name="transaction-delete-attachment",
     ),
     path(
+        "transactions/settle/<uuid:tx_id>",
+        views.transaction_settle_form,
+        name="transaction-settle-form",
+    ),
+    path(
+        "transactions/<uuid:tx_id>/settle",
+        views.transaction_settle,
+        name="transaction-settle",
+    ),
+    path(
         "transactions/<uuid:tx_id>", views.transaction_detail, name="transaction-detail"
     ),
     # --- JSON API ---

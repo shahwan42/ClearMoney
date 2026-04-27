@@ -1306,3 +1306,43 @@ def api_transaction_detail(
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=404)
     return HttpResponse(status=204)
+
+
+@require_http_methods(["GET"])
+@inject_service(TransactionService)
+def transaction_settle_form(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
+    """GET /transactions/settle/<id> — settle form partial (loaded into bottom sheet)."""
+    tx = svc.get_by_id(str(tx_id))
+    if not tx:
+        return HttpResponse("Not found", status=404)
+    if not tx.get("is_pending"):
+        return HttpResponse("Transaction is not pending", status=400)
+    return render(request, "transactions/_settle_form.html", {"tx": tx})
+
+
+@require_http_methods(["POST"])
+@inject_service(TransactionService)
+def transaction_settle(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
+    """POST /transactions/<id>/settle — settle a pending transaction."""
+    from decimal import Decimal, InvalidOperation
+
+    raw = request.POST.get("settled_amount", "")
+    try:
+        final_amount = Decimal(str(raw))
+    except (InvalidOperation, ValueError):
+        return error_response("Enter a valid amount")
+
+    try:
+        settled, new_balance = svc.settle(str(tx_id), final_amount)
+    except ValueError as e:
+        return error_response(str(e))
+
+    return render(
+        request,
+        "transactions/_settle_success.html",
+        {"tx": settled, "new_balance": new_balance},
+    )

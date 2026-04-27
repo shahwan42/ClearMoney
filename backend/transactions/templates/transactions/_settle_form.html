@@ -1,0 +1,88 @@
+{% load money %}
+{% load i18n %}
+{% comment %}
+Settle form partial — loaded into the tx-settle bottom sheet.
+Context:
+  tx — transaction dict (id, amount, currency, original_amount, type)
+{% endcomment %}
+
+<h3 class="font-bold text-slate-800 dark:text-slate-100 text-base mb-1">{% trans "Settle Transaction" %}</h3>
+<p class="text-xs text-gray-400 dark:text-slate-500 mb-4">{% trans "Enter the real final amount charged to your account." %}</p>
+
+<div id="settle-result" aria-live="assertive"></div>
+
+{# Estimated amount reminder #}
+<div class="rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 mb-4 flex items-center justify-between">
+    <div>
+        <p class="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">{% trans "Estimated" %}</p>
+        <p class="text-xl font-bold text-slate-400 dark:text-slate-500 line-through mt-0.5">
+            {% if tx.type == "expense" %}-{% elif tx.type == "income" %}+{% endif %}{{ tx.original_amount|money_format:tx.currency }}
+        </p>
+    </div>
+    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800">
+        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+        {% trans "Pending" %}
+    </span>
+</div>
+
+<form hx-post="/transactions/{{ tx.id }}/settle"
+      hx-target="#settle-result"
+      hx-swap="innerHTML"
+      hx-disabled-elt="find button[type='submit']"
+      class="space-y-4">
+    {% csrf_token %}
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1.5 font-medium" for="settle-amount">
+            {% trans "Final Amount" %} <span class="text-red-500" aria-hidden="true">*</span>
+        </label>
+        <input type="number"
+               name="settled_amount"
+               id="settle-amount"
+               step="0.01" min="0.01" required
+               autofocus
+               value="{{ tx.amount }}"
+               inputmode="decimal"
+               oninput="settleDiffHint(this, {{ tx.amount }}, '{{ tx.currency }}')"
+               class="w-full text-xl font-bold text-center border-2 border-amber-300 dark:border-amber-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+               aria-describedby="settle-diff-hint">
+        <p id="settle-diff-hint" class="mt-1.5 text-xs text-center text-gray-400 dark:text-slate-500 min-h-[1.25rem]" aria-live="polite" aria-atomic="true"></p>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 pt-1">
+        <button type="button"
+                onclick="BottomSheet.close('tx-settle')"
+                class="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl py-2.5 text-sm font-semibold min-h-[44px] transition-colors">
+            {% trans "Cancel" %}
+        </button>
+        <button type="submit"
+                class="bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white rounded-xl py-2.5 text-sm font-bold min-h-[44px] transition-all flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="btn-label">{% trans "Settle" %}</span>
+            <span class="btn-spinner hidden"><svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></span>
+        </button>
+    </div>
+</form>
+
+<script>
+function settleDiffHint(input, estimated, currency) {
+    var hint = document.getElementById('settle-diff-hint');
+    if (!hint) return;
+    var final = parseFloat(input.value);
+    if (isNaN(final)) { hint.textContent = ''; return; }
+    var diff = final - estimated;
+    var abs = Math.abs(diff).toFixed(2);
+    if (Math.abs(diff) < 0.005) {
+        hint.textContent = '{% trans "Exact match — no difference" %}';
+        hint.className = 'mt-1.5 text-xs text-center text-teal-500 dark:text-teal-400 min-h-[1.25rem]';
+    } else if (diff > 0) {
+        hint.textContent = currency + ' ' + abs + ' {% trans "more than estimated" %}';
+        hint.className = 'mt-1.5 text-xs text-center text-red-500 dark:text-red-400 min-h-[1.25rem]';
+    } else {
+        hint.textContent = currency + ' ' + abs + ' {% trans "less than estimated" %}';
+        hint.className = 'mt-1.5 text-xs text-center text-green-600 dark:text-green-400 min-h-[1.25rem]';
+    }
+}
+</script>

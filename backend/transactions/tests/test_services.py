@@ -2853,3 +2853,149 @@ class TestRoundup:
             ).count()
             == 0
         )
+
+
+# ---------------------------------------------------------------------------
+# Pending transaction tests
+# ---------------------------------------------------------------------------
+
+
+class TestPendingCreate:
+    def test_create_pending_stores_original_amount(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, new_bal = svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "is_pending": True,
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert tx["is_pending"] is True
+        assert Decimal(str(tx["original_amount"])) == Decimal("100.00")
+        # Balance affected immediately
+        assert Decimal(new_bal) == Decimal("9900.00")
+
+    def test_create_non_pending_has_no_original_amount(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 200,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert tx["is_pending"] is False
+        assert tx["original_amount"] is None
+
+    def test_create_pending_affects_balance_immediately(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 300,
+                "account_id": tx_data["egp_id"],
+                "is_pending": True,
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert Decimal(str(Account.objects.get(id=tx_data["egp_id"]).current_balance)) == Decimal("9700.00")
+
+
+class TestSettle:
+    def _create_pending(self, tx_data, amount=100):
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": amount,
+                "account_id": tx_data["egp_id"],
+                "is_pending": True,
+                "date": date(2026, 3, 15),
+            }
+        )
+        return tx["id"]
+
+    def test_settle_same_amount_clears_pending(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx_id = self._create_pending(tx_data, 100)
+        settled, new_bal = svc.settle(tx_id, Decimal("100.00"))
+        assert settled["is_pending"] is False
+        assert Decimal(str(settled["original_amount"])) == Decimal("100.00")
+        assert Decimal(str(settled["amount"])) == Decimal("100.00")
+        assert Decimal(new_bal) == Decimal("9900.00")
+
+    def test_settle_lower_amount_refunds_difference(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx_id = self._create_pending(tx_data, 100)
+        settled, new_bal = svc.settle(tx_id, Decimal("98.50"))
+        assert settled["is_pending"] is False
+        assert Decimal(str(settled["amount"])) == Decimal("98.50")
+        assert Decimal(str(settled["original_amount"])) == Decimal("100.00")
+        # Balance: 10000 - 100 (pending) + 1.50 (refund) = 9901.50
+        assert Decimal(new_bal) == Decimal("9901.50")
+        assert Decimal(str(Account.objects.get(id=tx_data["egp_id"]).current_balance)) == Decimal("9901.50")
+
+    def test_settle_higher_amount_charges_difference(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx_id = self._create_pending(tx_data, 100)
+        settled, new_bal = svc.settle(tx_id, Decimal("102.30"))
+        assert Decimal(str(settled["amount"])) == Decimal("102.30")
+        # Balance: 10000 - 100 (pending) - 2.30 (extra) = 9897.70
+        assert Decimal(new_bal) == Decimal("9897.70")
+        assert Decimal(str(Account.objects.get(id=tx_data["egp_id"]).current_balance)) == Decimal("9897.70")
+
+    def test_settle_preserves_original_amount(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx_id = self._create_pending(tx_data, 100)
+        svc.settle(tx_id, Decimal("95.00"))
+        # original_amount must never change after creation
+        tx_db = Transaction.objects.get(id=tx_id)
+        assert Decimal(str(tx_db.original_amount)) == Decimal("100.00")
+
+    def test_settle_non_pending_raises(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 100,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        from decimal import Decimal
+
+        with pytest.raises(ValueError, match="not pending"):
+            svc.settle(tx["id"], Decimal("100.00"))
+
+    def test_settle_zero_amount_raises(self, tx_data):
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx_id = self._create_pending(tx_data, 100)
+        with pytest.raises(ValueError, match="positive"):
+            svc.settle(tx_id, Decimal("0"))
+
+    def test_settle_other_user_raises(self, tx_data):
+        from decimal import Decimal
+
+        tx_id = self._create_pending(tx_data, 100)
+
+        other_user = UserFactory()
+        other_svc = TransactionService(str(other_user.id), TZ)
+        with pytest.raises(ValueError, match="not found"):
+            other_svc.settle(tx_id, Decimal("100.00"))

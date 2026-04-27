@@ -132,6 +132,10 @@ class Transaction(models.Model):
     )
     is_roundup = models.BooleanField(default=False, db_default=False)
     is_verified = models.BooleanField(default=False, db_default=False)
+    is_pending = models.BooleanField(default=False, db_default=False)
+    original_amount = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True
+    )
     attachment = models.FileField(
         upload_to=transaction_attachment_path, null=True, blank=True
     )

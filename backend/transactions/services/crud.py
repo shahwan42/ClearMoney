@@ -94,6 +94,8 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         ),
         "balance_delta": str(tx.balance_delta),
         "is_verified": tx.is_verified,
+        "is_pending": tx.is_pending,
+        "original_amount": str(tx.original_amount) if tx.original_amount is not None else None,
         "amount_color_class": amount_color,
         "indicator_color": indicator_color,
         "created_at": tx.created_at,
@@ -250,6 +252,10 @@ class TransactionServiceBase:
             tags_list = tags_raw
 
         attachment = data.get("attachment")
+        is_pending = bool(data.get("is_pending", False))
+        if isinstance(is_pending, str):
+            is_pending = is_pending.lower() in ("true", "1", "yes")
+        original_amount = amount if is_pending else None
 
         with transaction.atomic():
             tx_obj = Transaction.objects.create(
@@ -265,6 +271,8 @@ class TransactionServiceBase:
                 balance_delta=delta,
                 recurring_rule_id=recurring_rule_id,
                 attachment=attachment,
+                is_pending=is_pending,
+                original_amount=original_amount,
             )
 
             # Handle M2M tags
@@ -553,7 +561,7 @@ class TransactionServiceBase:
                         t.attachment,
                         t.exchange_rate, t.counter_amount,
                         t.person_id, t.linked_transaction_id,
-                        t.recurring_rule_id, t.balance_delta, t.is_verified, t.created_at, t.updated_at,
+                        t.recurring_rule_id, t.balance_delta, t.is_verified, t.is_pending, t.original_amount, t.created_at, t.updated_at,
                         a.name AS account_name,
                         c.name->>'en' AS category_name,
                         c.icon AS category_icon,
@@ -594,6 +602,8 @@ class TransactionServiceBase:
             "recurring_rule_id",
             "balance_delta",
             "is_verified",
+            "is_pending",
+            "original_amount",
             "created_at",
             "updated_at",
             "account_name",
@@ -628,7 +638,7 @@ class TransactionServiceBase:
                 sub.counter_account_id, sub.category_id, sub.date, sub.time, sub.note,
                 sub.tags, sub.attachment, sub.exchange_rate, sub.counter_amount,
                 sub.person_id, sub.linked_transaction_id,
-                sub.recurring_rule_id, sub.balance_delta, sub.is_verified, sub.created_at, sub.updated_at,
+                sub.recurring_rule_id, sub.balance_delta, sub.is_verified, sub.is_pending, sub.original_amount, sub.created_at, sub.updated_at,
                 sub.account_name, sub.category_name, sub.category_icon, sub.running_balance,
                 sub.account_removed
             FROM (
@@ -640,7 +650,7 @@ class TransactionServiceBase:
                     t.attachment,
                     t.exchange_rate, t.counter_amount,
                     t.person_id, t.linked_transaction_id,
-                    t.recurring_rule_id, t.balance_delta, t.is_verified, t.created_at, t.updated_at,
+                    t.recurring_rule_id, t.balance_delta, t.is_verified, t.is_pending, t.original_amount, t.created_at, t.updated_at,
                     a.name AS account_name,
                     c.name->>'en' AS category_name,
                     c.icon AS category_icon,
@@ -733,6 +743,8 @@ class TransactionServiceBase:
             "recurring_rule_id",
             "balance_delta",
             "is_verified",
+            "is_pending",
+            "original_amount",
             "created_at",
             "updated_at",
             "account_name",
@@ -1057,3 +1069,53 @@ class TransactionServiceBase:
             logger.info(
                 "transaction.attachment_deleted id=%s user=%s", tx_id, self.user_id
             )
+
+    def settle(self, tx_id: str, final_amount: Decimal) -> tuple[dict[str, Any], str]:
+        """Settle a pending transaction with the real final amount.
+
+        Recalculates balance delta using the difference between the pending amount
+        and the final settled amount. Preserves original_amount for audit trail.
+        Returns (settled_tx_dict, new_balance_str).
+        """
+        if final_amount <= 0:
+            raise ValueError(_("Amount must be positive"))
+
+        tx_obj = Transaction.objects.for_user(self.user_id).filter(id=tx_id).first()
+        if not tx_obj:
+            raise ValueError(_("Transaction not found: %(id)s") % {"id": tx_id})
+        if not tx_obj.is_pending:
+            raise ValueError(_("Transaction is not pending: %(id)s") % {"id": tx_id})
+
+        acc = self._get_account(str(tx_obj.account_id))
+
+        old_delta = Decimal(str(tx_obj.balance_delta))
+        new_delta = self._balance_delta(tx_obj.type, final_amount)
+        balance_adjustment = new_delta - old_delta
+
+        now = django_tz.now()
+        with transaction.atomic():
+            tx_obj.amount = final_amount
+            tx_obj.balance_delta = new_delta
+            tx_obj.is_pending = False
+            tx_obj.updated_at = now
+            tx_obj.save(update_fields=["amount", "balance_delta", "is_pending", "updated_at"])
+
+            if balance_adjustment != 0:
+                Account.objects.for_user(self.user_id).filter(
+                    id=str(tx_obj.account_id)
+                ).update(
+                    current_balance=F("current_balance") + balance_adjustment,
+                    updated_at=now,
+                )
+
+        tx_obj.refresh_from_db()
+        settled = _tx_instance_to_dict(tx_obj)
+        new_balance = acc["current_balance"] + balance_adjustment
+
+        logger.info(
+            "transaction.settled id=%s final_amount=%s user=%s",
+            tx_id,
+            final_amount,
+            self.user_id,
+        )
+        return settled, str(new_balance)
