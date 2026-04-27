@@ -178,6 +178,9 @@
 
 <script>
 (function() {
+    // Reset body overflow in case we navigated here from a bottom sheet (hx-boost doesn't call close())
+    document.body.style.overflow = '';
+
     const toggle = document.getElementById('more-options-toggle');
     const moreOptions = document.getElementById('more-options');
     const chevron = document.getElementById('options-chevron');
@@ -227,6 +230,7 @@
     }
 
     function restoreDraft() {
+        if (new URLSearchParams(location.search).get('dup')) return;
         const draft = localStorage.getItem(DRAFT_KEY);
         if (!draft) return;
         const obj = JSON.parse(draft);
