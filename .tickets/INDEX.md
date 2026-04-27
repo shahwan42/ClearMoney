@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-27
+Last updated: 2026-04-27 (localization phase tickets 507–514 added)
 
 ## In Progress
 
@@ -17,6 +17,14 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [514](pending/514-full-arabic-translation-audit-and-po-fill.md) | Full Arabic translation audit + .po fill | improvement | medium | 2026-04-27 |
+| [513](pending/513-category-form-dual-language-fields.md) | Category create/edit form — dual-language name fields | feature | medium | 2026-04-27 |
+| [512](pending/512-currency-bilingual-names.md) | Currency bilingual names (JSONB) | feature | medium | 2026-04-27 |
+| [511](pending/511-institution-edit-system-bank-combobox.md) | Institution edit — system bank combobox | feature | high | 2026-04-27 |
+| [510](pending/510-institution-create-system-bank-combobox.md) | Institution create — system bank combobox | feature | high | 2026-04-27 |
+| [509](pending/509-institution-system-bank-fk.md) | Institution.system_bank FK + display updates | feature | high | 2026-04-27 |
+| [508](pending/508-egypt-bank-seed-data-and-svg-assets.md) | Egypt bank seed data + SVG assets | feature | high | 2026-04-27 |
+| [507](pending/507-system-bank-model-and-migration.md) | SystemBank model + migration | feature | high | 2026-04-27 |
 | [159](pending/159-undo-recurring-confirmation.md) | Add Undo capability for recurring confirmations | improvement | medium | 2026-04-26 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
