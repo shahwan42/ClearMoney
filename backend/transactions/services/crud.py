@@ -23,6 +23,7 @@ from django.utils.translation import gettext as _
 
 from accounts.models import Account
 from categories.models import Category
+from transactions.display import get_tx_amount_color_class, get_tx_indicator_color
 from transactions.models import Tag, Transaction
 
 from .utils import CREDIT_ACCOUNT_TYPES, VALID_TX_TYPES, _parse_tags, _to_str
@@ -48,20 +49,8 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
 
     # UI-specific computed properties
     balance_delta = Decimal(str(tx.balance_delta))
-    if tx.type == "income":
-        amount_color = "text-green-600 dark:text-green-400"
-        indicator_color = "#10b981"  # emerald-500
-    elif tx.type == "expense":
-        amount_color = "text-slate-900 dark:text-white"
-        indicator_color = "#64748b"  # slate-500
-    else:
-        # Transfers/Exchanges
-        if balance_delta < 0:
-            amount_color = "text-slate-900 dark:text-white"
-            indicator_color = "#64748b"
-        else:
-            amount_color = "text-teal-600 dark:text-teal-400"
-            indicator_color = "#0d9488"
+    amount_color = get_tx_amount_color_class(tx.type, balance_delta)
+    indicator_color = get_tx_indicator_color(tx.type)
 
     return {
         "id": str(tx.id),

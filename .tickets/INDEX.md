@@ -40,6 +40,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [176](done/176-fix-transfer-transaction-colors.md) | Fix transfer/exchange transaction colors | bug | medium | 2026-04-27 |
 | [173](done/173-virtual-account-show-containing-account.md) | Virtual account: show containing account in listing and detail | improvement | medium | 2026-04-27 |
 | [172](done/172-exchange-edit-source-destination.md) | Exchange edit: allow changing source and destination accounts | feature | medium | 2026-04-27 |
 | [171](done/171-round-up-savings.md) | Round-up savings on expense transactions | feature | medium | 2026-04-27 |

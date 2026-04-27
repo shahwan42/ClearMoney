@@ -49,14 +49,14 @@ def get_tx_amount_color_class(
         Tailwind CSS class string for amount text coloring:
         - "text-red-600" for expense
         - "text-green-600" for income
-        - "text-blue-600" if transfer/exchange with positive delta
-        - "text-red-600" if transfer/exchange with negative delta
+        - "text-green-600" if transfer/exchange with positive delta (deposited)
+        - "text-red-600" if transfer/exchange with negative delta (withdrawn)
     """
     if tx_type == "expense":
         return "text-red-600"
     if tx_type == "income":
         return "text-green-600"
-    # For transfer/exchange, use balance_delta to determine color
+    # For transfer/exchange: red = withdrawn, green = deposited
     if balance_delta is not None and balance_delta < 0:
         return "text-red-600"
-    return "text-blue-600"
+    return "text-green-600"
