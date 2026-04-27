@@ -89,11 +89,19 @@
         {% for va in accounts %}
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
             <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                    {% if va.icon %}<span class="text-lg">{{ va.icon }}</span>{% endif %}
-                    <a href="{% url 'va-detail' va.id %}" class="font-semibold text-slate-800 dark:text-slate-100 hover:text-teal-600">{{ va.name }}</a>
-                {% if va.exclude_from_net_worth %}<span class="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">{% trans "held" %}</span>{% endif %}
-                {% if not va.currency %}<span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 px-1.5 py-0.5 rounded-full">{% trans "unlinked" %}</span>{% endif %}
+                <div class="flex items-start gap-2">
+                    {% if va.icon %}<span class="text-lg leading-tight">{{ va.icon }}</span>{% endif %}
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <a href="{% url 'va-detail' va.id %}" class="font-semibold text-slate-800 dark:text-slate-100 hover:text-teal-600">{{ va.name }}</a>
+                            {% if va.exclude_from_net_worth %}<span class="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full">{% trans "held" %}</span>{% endif %}
+                        </div>
+                        {% if va.account_name %}
+                        <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{{ va.account_name }}{% if va.currency %} · {{ va.currency }}{% endif %}</p>
+                        {% else %}
+                        <p class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "No account linked" %}</p>
+                        {% endif %}
+                    </div>
                 </div>
                 <form method="POST" action="{% url 'va-archive' va.id %}">
                     {% csrf_token %}

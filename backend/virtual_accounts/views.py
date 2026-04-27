@@ -89,10 +89,13 @@ def virtual_accounts_page(
                 }
             )
 
-    # Attach per-VA over-allocation info for template rendering
+    # Attach per-VA over-allocation info and account display info for template rendering
     for va in accounts:
         va["exceeds_account_balance"] = False
         va["account_balance_display"] = None
+        va["account_name"] = (
+            account_names.get(va["account_id"]) if va["account_id"] else None
+        )
         if va["account_id"] and va["account_id"] in account_balances:
             acct_bal = account_balances[va["account_id"]]
             if va["current_balance"] > acct_bal:

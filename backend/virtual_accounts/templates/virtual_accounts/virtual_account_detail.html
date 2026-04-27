@@ -8,9 +8,16 @@
 <div class="max-w-lg mx-auto space-y-4 py-4">
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2">
-                {% if account.icon %}<span class="text-2xl">{{ account.icon }}</span>{% endif %}
-                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ account.name }}</h2>
+            <div class="flex items-start gap-2">
+                {% if account.icon %}<span class="text-2xl leading-tight">{{ account.icon }}</span>{% endif %}
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ account.name }}</h2>
+                    {% if linked_account %}
+                    <a href="{% url 'account-detail' linked_account.id %}" class="text-xs text-gray-400 dark:text-slate-500 hover:text-teal-600 dark:hover:text-teal-400">{{ linked_account.name }} · {{ linked_account.currency }}</a>
+                    {% else %}
+                    <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "No account linked" %}</p>
+                    {% endif %}
+                </div>
             </div>
             <div class="flex items-center gap-3">
                 <button onclick="openEditVirtualAccount()" class="text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium">{% trans "Edit" %}</button>

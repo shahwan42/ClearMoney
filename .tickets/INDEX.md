@@ -40,6 +40,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [173](done/173-virtual-account-show-containing-account.md) | Virtual account: show containing account in listing and detail | improvement | medium | 2026-04-27 |
 | [172](done/172-exchange-edit-source-destination.md) | Exchange edit: allow changing source and destination accounts | feature | medium | 2026-04-27 |
 | [171](done/171-round-up-savings.md) | Round-up savings on expense transactions | feature | medium | 2026-04-27 |
 | [170](done/170-transfer-edit-source-destination.md) | Transfer edit: allow changing source and destination accounts | feature | medium | 2026-04-27 |
