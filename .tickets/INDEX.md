@@ -36,6 +36,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [167](done/167-dormant-accounts-enforcement.md) | Dormant accounts enforcement | improvement | medium | 2026-04-27 |
 | [166](done/166-transfer-delete-warning.md) | Warn user when deleting a transfer removes both account legs | improvement | medium | 2026-04-27 |
 | [164](done/164-fee-presets-model.md) | Fee presets model + seed | feature | medium | 2026-04-27 |
 | [163](done/163-loan-repayment-fee-option.md) | Loan repayment fee option | feature | medium | 2026-04-27 |

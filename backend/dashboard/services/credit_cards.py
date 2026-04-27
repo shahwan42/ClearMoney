@@ -65,6 +65,8 @@ def compute_credit_card_summaries(
     for acc in all_accounts:
         if acc["type"] not in CREDIT_TYPES:
             continue
+        if acc.get("is_dormant"):
+            continue
 
         balance = acc["current_balance"]
         limit = acc["credit_limit"] or 0.0

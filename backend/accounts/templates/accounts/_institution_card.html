@@ -47,7 +47,7 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
 
         <div class="border-t border-gray-100 dark:border-slate-700">
             {% if accounts %}
-                {% for account in accounts %}
+                {% for account in accounts %}{% if not account.is_dormant %}
                 <a href="/accounts/{{ account.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 border-b border-gray-50 dark:border-slate-700 last:border-0">
                     <div>
                         <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ account.name }}</p>
@@ -62,7 +62,23 @@ Context: institution (dict: id, name, type), accounts (list of account dicts).
                         {% endif %}
                     </div>
                 </a>
-                {% endfor %}
+                {% endif %}{% endfor %}
+                {% for account in accounts %}{% if account.is_dormant %}
+                <a href="/accounts/{{ account.id }}" class="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 border-b border-gray-50 dark:border-slate-700 last:border-0 opacity-50">
+                    <div>
+                        <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
+                            {{ account.name }}
+                            <span class="ms-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">{% trans "Dormant" %}</span>
+                        </p>
+                        <p class="text-xs text-gray-400 dark:text-slate-500">{{ account.type|format_account_type }} &middot; {{ account.currency }}</p>
+                    </div>
+                    <div class="text-end">
+                        <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                            {{ account.current_balance|format_currency:account.currency }}
+                        </p>
+                    </div>
+                </a>
+                {% endif %}{% endfor %}
             {% else %}
                 <p class="px-4 py-3 text-sm text-gray-400 dark:text-slate-500">{% trans "No accounts yet" %}</p>
             {% endif %}

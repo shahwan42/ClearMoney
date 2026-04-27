@@ -1137,12 +1137,16 @@ def load_health_warnings(
     for acc in all_accounts:
         # Support both AccountSummary and dict[str, Any]
         if isinstance(acc, AccountSummary):
+            if acc.is_dormant:
+                continue
             acc_name = acc.name
             acc_id = acc.id
             current_balance = acc.current_balance
             health_config: dict[str, Any] | None = acc.health_config
             acc_created_at = acc.created_at
         else:
+            if acc.get("is_dormant"):
+                continue
             acc_name = acc["name"]
             acc_id = acc["id"]
             current_balance = acc["current_balance"]
@@ -1294,8 +1298,8 @@ def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
                 summary.debt_by_currency.get(currency, 0.0) + abs_bal
             )
 
-        # 3. Credit vs Cash
-        if acc["type"] in CREDIT_ACCOUNT_TYPES:
+        # 3. Credit vs Cash — dormant accounts excluded from credit metrics
+        if acc["type"] in CREDIT_ACCOUNT_TYPES and not acc.get("is_dormant"):
             summary.credit_used += balance  # negative for CCs (display negates)
             summary.credit_used_by_currency[currency] = (
                 summary.credit_used_by_currency.get(currency, 0.0) + balance
@@ -1308,7 +1312,7 @@ def compute_net_worth(all_accounts: list[dict[str, Any]]) -> NetWorthSummary:
                 summary.credit_avail_by_currency[currency] = (
                     summary.credit_avail_by_currency.get(currency, 0.0) + avail
                 )
-        else:
+        elif acc["type"] not in CREDIT_ACCOUNT_TYPES:
             # Liquid cash (positive non-credit balances)
             if balance > 0:
                 summary.cash_by_currency[currency] = (

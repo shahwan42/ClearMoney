@@ -1013,6 +1013,147 @@ class TestLoadHealthWarnings:
 
 
 @pytest.mark.django_db
+class TestLoadHealthWarningsDormant:
+    """Dormant accounts must be skipped by load_health_warnings."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_dormant_account_skipped(self) -> None:
+        from accounts.services import load_health_warnings
+
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            current_balance=500,
+            health_config={"min_balance": 1000},
+            is_dormant=True,
+        )
+
+        all_accounts = [
+            {
+                "id": str(account.id),
+                "name": account.name,
+                "current_balance": 500,
+                "health_config": {"min_balance": 1000},
+                "is_dormant": True,
+            }
+        ]
+
+        warnings = load_health_warnings(str(user.id), all_accounts, self.tz)
+        assert warnings == []
+
+    def test_active_account_still_checked(self) -> None:
+        from accounts.services import load_health_warnings
+
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(
+            user_id=user.id,
+            institution_id=inst.id,
+            current_balance=500,
+            health_config={"min_balance": 1000},
+            is_dormant=False,
+        )
+
+        all_accounts = [
+            {
+                "id": str(account.id),
+                "name": account.name,
+                "current_balance": 500,
+                "health_config": {"min_balance": 1000},
+                "is_dormant": False,
+            }
+        ]
+
+        warnings = load_health_warnings(str(user.id), all_accounts, self.tz)
+        assert len(warnings) == 1
+
+
+class TestComputeNetWorthDormant:
+    """Dormant CCs excluded from credit metrics but included in net worth."""
+
+    def _acc(self, **kwargs: object) -> dict:
+        defaults = {
+            "current_balance": 0.0,
+            "currency": "EGP",
+            "type": "current",
+            "credit_limit": None,
+            "is_dormant": False,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_dormant_cc_excluded_from_credit_used(self) -> None:
+        from accounts.services import compute_net_worth
+
+        accounts = [
+            self._acc(
+                type="credit_card",
+                current_balance=-3000.0,
+                credit_limit=10000.0,
+                is_dormant=True,
+            ),
+        ]
+        summary = compute_net_worth(accounts)
+        assert summary.credit_used == 0.0
+        assert summary.credit_avail == 0.0
+
+    def test_dormant_cc_still_in_net_worth(self) -> None:
+        from accounts.services import compute_net_worth
+
+        accounts = [
+            self._acc(
+                type="credit_card",
+                current_balance=-3000.0,
+                credit_limit=10000.0,
+                is_dormant=True,
+            ),
+        ]
+        summary = compute_net_worth(accounts)
+        assert summary.net_worth == pytest.approx(-3000.0)
+
+    def test_active_cc_still_in_credit_metrics(self) -> None:
+        from accounts.services import compute_net_worth
+
+        accounts = [
+            self._acc(
+                type="credit_card",
+                current_balance=-2000.0,
+                credit_limit=5000.0,
+                is_dormant=False,
+            ),
+        ]
+        summary = compute_net_worth(accounts)
+        assert summary.credit_used == pytest.approx(-2000.0)
+        assert summary.credit_avail == pytest.approx(3000.0)
+
+    def test_dormant_cc_excluded_from_credit_by_currency(self) -> None:
+        from accounts.services import compute_net_worth
+
+        accounts = [
+            self._acc(
+                type="credit_card",
+                current_balance=-1000.0,
+                currency="USD",
+                credit_limit=5000.0,
+                is_dormant=True,
+            ),
+            self._acc(
+                type="credit_card",
+                current_balance=-2000.0,
+                currency="EGP",
+                credit_limit=8000.0,
+                is_dormant=False,
+            ),
+        ]
+        summary = compute_net_worth(accounts)
+        assert "USD" not in summary.credit_used_by_currency
+        assert "EGP" in summary.credit_used_by_currency
+
+
+@pytest.mark.django_db
 class TestInstitutionServiceGetOrCreate:
     """InstitutionService.get_or_create() deduplicates by name+type."""
 

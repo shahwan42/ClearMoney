@@ -13,7 +13,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <a href="{% url 'account-balance-check' data.account.id %}" class="text-sm text-teal-600 hover:text-teal-700 font-medium">{% trans "Balance Check" %}</a>
-                <button onclick="openEditAccount()" class="text-sm text-teal-600 hover:text-teal-700 font-medium">{% trans "Edit" %}</button>
+                {% if not data.account.is_dormant %}<button onclick="openEditAccount()" class="text-sm text-teal-600 hover:text-teal-700 font-medium">{% trans "Edit" %}</button>{% else %}<span class="text-sm text-gray-300 dark:text-slate-600 cursor-not-allowed" title="{% trans "Reactivate account to edit" %}">{% trans "Edit" %}</span>{% endif %}
                 <a href="/accounts" class="text-sm text-teal-600 hover:text-teal-700">{% trans "All Accounts" %}</a>
             </div>
         </div>
@@ -91,14 +91,16 @@
     <div class="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl shadow-sm px-4 py-3">
         <div>
             <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{% trans "Dormant Account" %}</p>
-            <p class="text-xs text-gray-400 dark:text-slate-500">{% trans "Dormant accounts are collapsed on the dashboard" %}</p>
+            <p class="text-xs text-gray-400 dark:text-slate-500">
+                {% if data.account.is_dormant %}{% trans "Hidden from Credit Cards, excluded from credit metrics, edits locked." %}{% else %}{% trans "Dormant accounts are hidden from Credit Cards and excluded from credit metrics." %}{% endif %}
+            </p>
         </div>
-        <button hx-post="/accounts/{{ data.account.id }}/dormant"
+        <button onclick="confirmToggleDormant()"
                 role="switch"
                 aria-checked="{% if data.account.is_dormant %}true{% else %}false{% endif %}"
-                aria-label="{% trans "Mark account as dormant" %}"
+                aria-label="{% if data.account.is_dormant %}{% trans "Reactivate account" %}{% else %}{% trans "Mark account as dormant" %}{% endif %}"
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold {% if data.account.is_dormant %}bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400{% else %}bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300{% endif %}">
-            {% if data.account.is_dormant %}{% trans "Active" %}{% else %}{% trans "Dormant" %}{% endif %}
+            {% if data.account.is_dormant %}{% trans "Activate" %}{% else %}{% trans "Dormant" %}{% endif %}
         </button>
     </div>
 
@@ -189,25 +191,30 @@
     <!-- Account Health Config -->
     <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
         <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-3">{% trans "Health Rules" %}</h3>
+        {% if data.account.is_dormant %}
+        <p class="text-xs text-amber-600 dark:text-amber-400 mb-3" role="note">{% trans "Account is dormant — health rules are preserved but not evaluated. Reactivate to edit." %}</p>
+        {% endif %}
         <form method="POST" action="/accounts/{{ data.account.id }}/health" class="space-y-3">
+            <fieldset {% if data.account.is_dormant %}disabled{% endif %}>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Min Balance" %}</label>
                     <input type="number" name="min_balance" step="0.01" placeholder="{% trans "Not set" %}"
                            {% if data.health_config and data.health_config.min_balance %}value="{{ data.health_config.min_balance }}"{% endif %}
-                           class="w-full border rounded-lg px-3 py-2 text-sm">
+                           class="w-full border rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Min Monthly Deposit" %}</label>
                     <input type="number" name="min_monthly_deposit" step="0.01" placeholder="{% trans "Not set" %}"
                            {% if data.health_config and data.health_config.min_monthly_deposit %}value="{{ data.health_config.min_monthly_deposit }}"{% endif %}
-                           class="w-full border rounded-lg px-3 py-2 text-sm">
+                           class="w-full border rounded-lg px-3 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                 </div>
             </div>
             <button type="submit"
-                    class="w-full bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-slate-600 transition">
+                    class="w-full bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-slate-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
                 {% trans "Save Health Rules" %}
             </button>
+            </fieldset>
         </form>
     </div>
 
@@ -358,5 +365,18 @@ document.body.addEventListener('htmx:afterSwap', function(e) {
         e.detail.target.classList.remove('hidden');
     }
 });
+
+// Dormant toggle confirmation
+function confirmToggleDormant() {
+    var isDormant = {{ data.account.is_dormant|yesno:"true,false" }};
+    var accountName = "{{ data.account.name|escapejs }}";
+    var msg = isDormant
+        ? "{% trans "Reactivate" %} " + accountName + "? {% trans "It will appear in Credit Cards and credit metrics again." %}"
+        : "{% trans "Mark" %} " + accountName + " {% trans "as dormant? It will be hidden from Credit Cards, excluded from credit metrics, and all edits will be locked." %}";
+    if (!confirm(msg)) return;
+    var csrfToken = JSON.parse(document.body.getAttribute('hx-headers') || '{}')['X-CSRFToken'] || '';
+    fetch('/accounts/{{ data.account.id }}/dormant', {method: 'POST', headers: {'X-CSRFToken': csrfToken}})
+        .then(function() { window.location.reload(); });
+}
 </script>
 {% endblock %}

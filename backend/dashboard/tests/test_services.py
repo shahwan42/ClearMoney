@@ -1775,6 +1775,30 @@ def test_compute_credit_card_summaries_metadata(svc_data):
 
 
 @pytest.mark.django_db
+def test_dormant_cc_excluded_from_credit_card_summaries(svc_data):
+    """Dormant credit cards must not appear in credit_cards or due_soon_cards."""
+    Account.objects.filter(id=svc_data["cc_id"]).update(
+        is_dormant=True,
+        metadata={"statement_day": 5, "due_day": 20},
+    )
+    svc = DashboardService(str(svc_data["user_id"]), TZ)
+    from dashboard.services import DashboardData
+
+    data = DashboardData()
+    accounts = svc._load_institutions_with_accounts(data)
+
+    today = date.today()
+    with patch("dashboard.services.credit_cards._compute_due_date") as mock_due_date:
+        mock_due_date.return_value = today + timedelta(days=3)
+        svc._compute_credit_card_summaries(data, accounts)
+
+    dormant_cc_ids = {str(svc_data["cc_id"])}
+    active_cc_ids = {cc.account_id for cc in data.credit_cards}
+    assert dormant_cc_ids.isdisjoint(active_cc_ids)
+    assert all(card.account_name != "CC EGP" for card in data.due_soon_cards)
+
+
+@pytest.mark.django_db
 def test_load_people_summary_usd_and_negative_nb(svc_data):
     """Selected-currency helpers resolve from generalized summary output."""
     CurrencyFactory(code="USD", display_order=1)
