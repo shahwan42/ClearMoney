@@ -58,8 +58,8 @@ class TestRecurringPage:
         c = set_auth_cookie(client, rec_view_data["session_token"])
         response = c.get("/recurring")
         assert response.status_code == 200
-        assert b"Recurring Transactions" in response.content
-        assert b"No recurring rules yet" in response.content
+        assert b"Automations" in response.content
+        assert b"No automations yet" in response.content
 
     def test_200_with_rules(self, client, rec_view_data):
         c = set_auth_cookie(client, rec_view_data["session_token"])
