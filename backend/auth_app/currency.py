@@ -28,10 +28,12 @@ DEFAULT_DISPLAY_CURRENCY = "EGP"
 
 
 def get_supported_currencies() -> list[CurrencyOption]:
-    """Return all enabled currencies in display order."""
+    """Return all enabled currencies in display order with locale-resolved names."""
     rows = Currency.objects.filter(is_enabled=True).order_by("display_order", "code")
     return [
-        CurrencyOption(code=row.code, name=row.name, symbol=row.symbol or "")
+        CurrencyOption(
+            code=row.code, name=row.get_display_name(), symbol=row.symbol or ""
+        )
         for row in rows
     ]
 

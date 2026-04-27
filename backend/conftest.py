@@ -78,21 +78,22 @@ def _disable_rate_limit(settings: Any) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _ensure_system_banks_seeded(django_db_blocker: Any, django_db_setup: Any) -> None:
-    """Re-seed SystemBank rows if a transactional test truncated them.
+def _ensure_seed_data(django_db_blocker: Any, django_db_setup: Any) -> None:
+    """Re-seed global registry tables if a transactional test truncated them.
 
-    Migration `accounts/0011_seed_egypt_system_banks` populates the
-    `system_banks` table at migrate-time, but tests using
-    `@pytest.mark.django_db(transaction=True)` issue TRUNCATE on all tables
-    between tests, wiping the seed. This fixture re-seeds when the table is
-    empty so view/service tests can rely on the 20 Egypt banks.
+    `@pytest.mark.django_db(transaction=True)` issues TRUNCATE between tests,
+    wiping migration-seeded data. This fixture re-seeds when missing so that
+    view/service tests can rely on a stable baseline:
+    - `system_banks` (20 Egypt banks, ticket #508)
+    - `currencies` (6 bilingual currencies, ticket #512)
     """
-    from importlib import import_module
-
     with django_db_blocker.unblock():
         from accounts.models import SystemBank
+        from auth_app.models import Currency
 
         if not SystemBank.objects.filter(country="EG").exists():
+            from importlib import import_module
+
             module = import_module(
                 "accounts.migrations.0011_seed_egypt_system_banks"
             )
@@ -103,6 +104,35 @@ def _ensure_system_banks_seeded(django_db_blocker: Any, django_db_setup: Any) ->
                     return real_apps.get_model(*args, **kwargs)
 
             module.seed_banks(_StubApps(), None)
+
+        egp = Currency.objects.filter(code="EGP").first()
+        needs_reseed = egp is None or not (
+            isinstance(egp.name, dict) and egp.name.get("ar")
+        )
+        if needs_reseed:
+            seed_currencies = [
+                ("EGP", {"en": "Egyptian Pound", "ar": "الجنيه المصري"}, "EGP", 0),
+                ("USD", {"en": "US Dollar", "ar": "الدولار الأمريكي"}, "$", 1),
+                ("EUR", {"en": "Euro", "ar": "اليورو"}, "EUR", 2),
+                (
+                    "GBP",
+                    {"en": "British Pound", "ar": "الجنيه الإسترليني"},
+                    "GBP",
+                    3,
+                ),
+                ("AED", {"en": "UAE Dirham", "ar": "الدرهم الإماراتي"}, "AED", 4),
+                ("SAR", {"en": "Saudi Riyal", "ar": "الريال السعودي"}, "SAR", 5),
+            ]
+            for code, name, symbol, order in seed_currencies:
+                Currency.objects.update_or_create(
+                    code=code,
+                    defaults={
+                        "name": name,
+                        "symbol": symbol,
+                        "is_enabled": True,
+                        "display_order": order,
+                    },
+                )
 
 
 def set_auth_cookie(c: Client, token: str) -> Client:

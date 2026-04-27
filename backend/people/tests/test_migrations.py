@@ -30,8 +30,8 @@ def test_backfill_person_currency_balances_from_legacy_fields():
             """
             INSERT INTO "currencies" ("code", "name", "symbol", "is_enabled", "display_order")
             VALUES
-                ('EGP', 'Egyptian Pound', 'EGP', TRUE, 0),
-                ('USD', 'US Dollar', '$', TRUE, 1)
+                ('EGP', '{"en": "Egyptian Pound"}', 'EGP', TRUE, 0),
+                ('USD', '{"en": "US Dollar"}', '$', TRUE, 1)
             ON CONFLICT ("code") DO NOTHING
             """
         )

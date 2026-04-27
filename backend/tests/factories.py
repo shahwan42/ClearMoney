@@ -300,7 +300,7 @@ class CurrencyFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("code",)
 
     code = factory.Sequence(lambda n: f"X{n:02d}"[-3:])
-    name = factory.Sequence(lambda n: f"Currency {n}")
+    name = factory.Sequence(lambda n: {"en": f"Currency {n}"})
     symbol = ""
     is_enabled = True
     display_order = factory.Sequence(int)

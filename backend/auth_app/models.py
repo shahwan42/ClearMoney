@@ -82,10 +82,14 @@ class UserConfig(models.Model):
 
 
 class Currency(models.Model):
-    """Supported currency registry used by forms and display preferences."""
+    """Supported currency registry used by forms and display preferences.
+
+    `name` is a JSONField holding bilingual values: `{"en": ..., "ar": ...}`.
+    Use `get_display_name(lang)` for resolved per-locale strings.
+    """
 
     code = models.CharField(max_length=3, primary_key=True)
-    name = models.CharField(max_length=50)
+    name = models.JSONField(default=dict)
     symbol = models.CharField(max_length=8, blank=True, default="")
     is_enabled = models.BooleanField(default=True, db_default=True)
     display_order = models.IntegerField(default=0, db_default=0)
@@ -95,6 +99,24 @@ class Currency(models.Model):
     class Meta:
         db_table = "currencies"
         ordering = ["display_order", "code"]
+
+    def get_display_name(self, lang: str | None = None) -> str:
+        """Return name for the requested language. Falls back to en, then code."""
+        from django.utils.translation import get_language
+
+        if not isinstance(self.name, dict):
+            return str(self.name) if self.name else self.code
+        lang = lang or get_language() or "en"
+        lang_code = lang.split("-")[0]
+        if lang_code in self.name and self.name[lang_code]:
+            return str(self.name[lang_code])
+        if "en" in self.name and self.name["en"]:
+            return str(self.name["en"])
+        if self.name:
+            for v in self.name.values():
+                if v:
+                    return str(v)
+        return self.code
 
     def __str__(self) -> str:
         return self.code
