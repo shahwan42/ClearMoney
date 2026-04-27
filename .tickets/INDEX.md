@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-27 (tickets 515–516 added: agent autonomy + rule mirror dedup)
+Last updated: 2026-04-27 (tickets 507–514 closed: localization phase 1 — system banks + bilingual currencies + dual-lang categories + Arabic first pass; #518 added for Arabic long-tail)
 
 ## In Progress
 
@@ -17,15 +17,8 @@ Last updated: 2026-04-27 (tickets 515–516 added: agent autonomy + rule mirror 
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [518](pending/518-arabic-translations-long-tail.md) | Arabic translations long-tail + Playwright smoke test | improvement | medium | 2026-04-27 |
 | [516](pending/516-dedupe-rule-mirrors-claude-gemini.md) | Dedupe rule mirrors between .claude/ and .gemini/ | chore | low | 2026-04-27 |
-| [514](pending/514-full-arabic-translation-audit-and-po-fill.md) | Full Arabic translation audit + .po fill | improvement | medium | 2026-04-27 |
-| [513](pending/513-category-form-dual-language-fields.md) | Category create/edit form — dual-language name fields | feature | medium | 2026-04-27 |
-| [512](pending/512-currency-bilingual-names.md) | Currency bilingual names (JSONB) | feature | medium | 2026-04-27 |
-| [511](pending/511-institution-edit-system-bank-combobox.md) | Institution edit — system bank combobox | feature | high | 2026-04-27 |
-| [510](pending/510-institution-create-system-bank-combobox.md) | Institution create — system bank combobox | feature | high | 2026-04-27 |
-| [509](pending/509-institution-system-bank-fk.md) | Institution.system_bank FK + display updates | feature | high | 2026-04-27 |
-| [508](pending/508-egypt-bank-seed-data-and-svg-assets.md) | Egypt bank seed data + SVG assets | feature | high | 2026-04-27 |
-| [507](pending/507-system-bank-model-and-migration.md) | SystemBank model + migration | feature | high | 2026-04-27 |
 | [159](pending/159-undo-recurring-confirmation.md) | Add Undo capability for recurring confirmations | improvement | medium | 2026-04-26 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
 | [104](pending/104-person-detail-payoff-estimate.md) | Person detail payoff estimate and settle CTA | improvement | low | 2026-03-31 |
@@ -52,6 +45,14 @@ Last updated: 2026-04-27 (tickets 515–516 added: agent autonomy + rule mirror 
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [514](done/514-full-arabic-translation-audit-and-po-fill.md) | Full Arabic translation audit + .po fill (first pass) | improvement | medium | 2026-04-27 |
+| [513](done/513-category-form-dual-language-fields.md) | Category create/edit form — dual-language name fields | feature | medium | 2026-04-27 |
+| [512](done/512-currency-bilingual-names.md) | Currency bilingual names (JSONB) | feature | medium | 2026-04-27 |
+| [511](done/511-institution-edit-system-bank-combobox.md) | Institution edit — system bank combobox | feature | high | 2026-04-27 |
+| [510](done/510-institution-create-system-bank-combobox.md) | Institution create — system bank combobox | feature | high | 2026-04-27 |
+| [509](done/509-institution-system-bank-fk.md) | Institution.system_bank FK + display updates | feature | high | 2026-04-27 |
+| [508](done/508-egypt-bank-seed-data-and-svg-assets.md) | Egypt bank seed data + SVG assets | feature | high | 2026-04-27 |
+| [507](done/507-system-bank-model-and-migration.md) | SystemBank model + migration | feature | high | 2026-04-27 |
 | [517](done/517-agent-native-testing-shortcuts.md) | Agent-native testing shortcuts (dev login, seed, htmx loading, testids) | feature | medium | 2026-04-27 |
 | [515](done/515-agent-autonomy-and-ticket-journey-refs.md) | Agent autonomy guards + ticket user-journey refs | chore | medium | 2026-04-27 |
 | [505](done/505-fix-category-types-and-ux.md) | Fix category types and new category bottom sheet UX | feature | medium | 2026-04-27 |
