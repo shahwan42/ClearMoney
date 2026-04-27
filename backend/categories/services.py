@@ -137,13 +137,14 @@ class CategoryService:
                 .annotate(usage_count=Coalesce(self._usage_subquery(), Value(0)))
             )
             .order_by("-usage_count", "name_en")
-            .values("id", "name", "icon", "is_system", "usage_count")
+            .values("id", "name", "type", "icon", "is_system", "usage_count")
         )
         lang = (get_language() or "en").split("-")[0]
         return [
             {
                 "id": str(r["id"]),
                 "name": resolve_jsonb_name(r["name"], lang),
+                "type": r["type"],
                 "icon": r["icon"],
                 "is_system": r["is_system"],
                 "usage_count": r["usage_count"],
@@ -191,14 +192,12 @@ class CategoryService:
         cat_type: str = "expense",
         icon: str | None = None,
     ) -> dict[str, Any]:
-        """Create a new custom category.
-
-        Validates name (non-empty). Type is ignored — always stored as 'expense'
-        since categories are type-agnostic (any category works with any tx type).
-        """
+        """Create a new custom category."""
         name = name.strip() if name else ""
         if not name:
             raise ValueError(_("category name is required"))
+        if cat_type not in ("expense", "income"):
+            cat_type = "expense"
 
         if (
             _annotate_name_en(self._qs())
@@ -210,7 +209,7 @@ class CategoryService:
         cat = Category.objects.create(
             user_id=self.user_id,
             name=Category.make_name(en=name),
-            type="expense",
+            type=cat_type,
             icon=icon,
             is_system=False,
             display_order=0,

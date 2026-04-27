@@ -53,12 +53,24 @@
         <!-- Category -->
         <div>
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Category" %}</label>
-            <div data-category-combobox
-                 data-categories='{{ categories|categories_json }}'
-                 data-name="category_id"
-                 {% if prefill and prefill.category_id %}data-selected-id="{{ prefill.category_id }}"{% endif %}
-                 data-placeholder="{% trans "Select category..." %}"
-                 data-allow-empty="true">
+            <div class="flex gap-2 items-start">
+                <div class="flex-1" data-category-combobox
+                     data-categories='{{ categories|categories_json }}'
+                     data-name="category_id"
+                     {% if prefill and prefill.category_id %}data-selected-id="{{ prefill.category_id }}"{% endif %}
+                     data-placeholder="{% trans "Select category..." %}"
+                     data-filter-type="{{ prefill.type|default:'expense' }}"
+                     data-allow-empty="true"
+                     id="txnew-category-combobox">
+                </div>
+                <button type="button"
+                        aria-label="{% trans "Add new category" %}"
+                        id="txnew-cat-add-btn"
+                        class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -247,7 +259,25 @@
         }
     }
 
-    if (typeSelect) typeSelect.addEventListener('change', applyAccountRanking);
+    if (typeSelect) {
+        typeSelect.addEventListener('change', function() {
+            applyAccountRanking();
+            var catEl = document.getElementById('txnew-category-combobox');
+            if (catEl && catEl._combobox) {
+                catEl._combobox.setFilterType(typeSelect.value);
+            }
+        });
+    }
+
+    var catAddBtn = document.getElementById('txnew-cat-add-btn');
+    if (catAddBtn) {
+        catAddBtn.addEventListener('click', function() {
+            var type = typeSelect ? typeSelect.value : 'expense';
+            if (window.BottomSheet) {
+                BottomSheet.open('new-category', { url: '/settings/categories/new-form?type=' + type });
+            }
+        });
+    }
 
     if (txForm) {
         ['input', 'change'].forEach(function(event) {

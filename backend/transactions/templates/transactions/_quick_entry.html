@@ -65,13 +65,24 @@
 
         <div id="qe-category-container">
             <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="qe-category-label">{% trans "Category" %}</label>
-            <div data-category-combobox
-                 data-categories='{{ categories|categories_json }}'
-                 data-name="category_id"
-                 data-selected-id="{{ auto_category_id|default:'' }}"
-                 data-placeholder="{% trans "Search categories..." %}"
-                 data-allow-empty="true"
-                 id="qe-category-combobox">
+            <div class="flex gap-2 items-start">
+                <div class="flex-1" data-category-combobox
+                     data-categories='{{ categories|categories_json }}'
+                     data-name="category_id"
+                     data-selected-id="{{ auto_category_id|default:'' }}"
+                     data-placeholder="{% trans "Search categories..." %}"
+                     data-filter-type="expense"
+                     data-allow-empty="true"
+                     id="qe-category-combobox">
+                </div>
+                <button type="button"
+                        aria-label="{% trans "Add new category" %}"
+                        onclick="qeOpenNewCategorySheet()"
+                        class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
@@ -176,12 +187,12 @@
  */
 function qeToggleType(mode) {
     var isTransfer = (mode === 'transfer');
-    
+
     // Toggle containers
     document.getElementById('qe-category-container').classList.toggle('hidden', isTransfer);
     document.getElementById('qe-tags-container').classList.toggle('hidden', isTransfer);
     document.getElementById('qe-dest-account-container').classList.toggle('hidden', !isTransfer);
-    
+
     var vaCont = document.getElementById('qe-va-container');
     if (vaCont) vaCont.classList.toggle('hidden', isTransfer);
 
@@ -192,7 +203,7 @@ function qeToggleType(mode) {
     // Update labels
     var acctLabel = document.getElementById('qe-account-label');
     if (acctLabel) {
-        acctLabel.innerHTML = isTransfer 
+        acctLabel.innerHTML = isTransfer
             ? '{% trans "From Account" %} <span class="text-red-500" aria-hidden="true">*</span>'
             : '{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span>';
     }
@@ -202,7 +213,27 @@ function qeToggleType(mode) {
         submitLabel.textContent = isTransfer ? '{% trans "Transfer" %}' : '{% trans "Save" %}';
     }
 
+    // Switch category filter to match transaction type
+    if (!isTransfer) {
+        var catEl = document.getElementById('qe-category-combobox');
+        if (catEl && catEl._combobox) {
+            catEl._combobox.setFilterType(mode);
+        }
+    }
+
     qeApplyAccountRanking(mode);
+}
+
+function qeOpenNewCategorySheet() {
+    var selectedType = document.querySelector('input[name="type"]:checked');
+    var mode = (selectedType && selectedType.value !== 'transfer') ? selectedType.value : 'expense';
+    var catEl = document.getElementById('qe-category-combobox');
+    if (catEl && catEl._combobox) {
+        window._activeCategoryCombobox = catEl._combobox;
+    }
+    if (window.BottomSheet) {
+        BottomSheet.open('new-category', { url: '/settings/categories/new-form?type=' + mode });
+    }
 }
 
 function qeAccountListForType(mode) {

@@ -116,12 +116,12 @@ class TestCategoryServiceCreate:
         assert cat["is_system"] is False
         assert cat["user_id"] == user_id
 
-    def test_create_with_type_still_works(self, cat_svc):
-        """Backward compat: type param accepted."""
+    def test_create_with_type_stored(self, cat_svc):
+        """Type param is respected: income categories stored as income."""
         svc, _ = cat_svc
         cat = svc.create("Bonus", cat_type="income", icon="💰")
         assert cat["name"] == "Bonus"
-        assert cat["type"] == "expense"  # always stored as expense
+        assert cat["type"] == "income"
 
     def test_create_empty_name(self, cat_svc):
         svc, _ = cat_svc

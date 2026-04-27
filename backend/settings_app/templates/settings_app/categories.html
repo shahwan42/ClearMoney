@@ -7,52 +7,94 @@
 <div class="max-w-lg mx-auto space-y-4 py-4">
     <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold text-slate-800 dark:text-white">{% trans "Categories" %}</h2>
-        <a href="/settings" class="flex items-center min-h-[44px] px-1 text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400">{% trans "Back" %}</a>
+        <div class="flex items-center gap-2">
+            <button type="button"
+                    onclick="BottomSheet.open('new-category', {url: '/settings/categories/new-form?type=' + (document.querySelector('[data-cat-tab].active-tab')?.dataset.catTab || 'expense')})"
+                    aria-label="{% trans "Add new category" %}"
+                    class="flex items-center gap-1 min-h-[44px] px-3 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 rounded-lg">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                {% trans "Category" %}
+            </button>
+            <a href="/settings" class="flex items-center min-h-[44px] px-1 text-sm text-teal-600 hover:text-teal-700 dark:text-teal-400">{% trans "Back" %}</a>
+        </div>
     </div>
 
-    <!-- Add Category Form -->
-    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-        <form method="POST" action="{% url 'category-add' %}" class="flex gap-2">
-            {% csrf_token %}
-            <label for="new-cat-icon" class="sr-only">{% trans "Icon" %}</label>
-            <input type="text" name="icon" id="new-cat-icon" placeholder="{% trans "Icon" %}" maxlength="4"
-                   aria-label="{% trans "Category icon (emoji)" %}"
-                   class="w-14 border border-gray-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <label for="new-cat-name" class="sr-only">{% trans "Category name" %}</label>
-            <input type="text" name="name" id="new-cat-name" placeholder="{% trans "New category name" %}" required
-                   aria-label="{% trans "Category name" %}"
-                   class="flex-1 border border-gray-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <button type="submit"
-                    class="bg-teal-600 text-white px-4 rounded-lg text-sm font-semibold hover:bg-teal-700 whitespace-nowrap min-h-[44px]">
-                {% trans "Add Category" %}
-            </button>
-        </form>
-    </section>
+    <!-- Tabs -->
+    <div class="flex rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden" role="tablist" aria-label="{% trans "Category types" %}">
+        <button type="button" role="tab"
+                id="tab-expense" aria-controls="panel-expense" aria-selected="true"
+                data-cat-tab="expense"
+                class="active-tab flex-1 py-2.5 text-sm font-medium transition-colors
+                       bg-teal-600 text-white
+                       focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-300">
+            {% trans "Expenses" %}
+        </button>
+        <button type="button" role="tab"
+                id="tab-income" aria-controls="panel-income" aria-selected="false"
+                data-cat-tab="income"
+                class="flex-1 py-2.5 text-sm font-medium transition-colors
+                       text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-800
+                       hover:bg-gray-50 dark:hover:bg-slate-700
+                       focus:outline-none focus:ring-2 focus:ring-inset focus:ring-teal-500">
+            {% trans "Income" %}
+        </button>
+    </div>
 
-    <!-- Active Categories -->
-    <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm divide-y divide-gray-100 dark:divide-slate-700" role="list" aria-label="{% trans "Active categories" %}">
-        {% for cat in categories %}
-        <div class="px-4 py-3 flex items-center gap-3" role="listitem" data-category-id="{{ cat.id }}">
-            <span class="text-xl w-8 text-center" aria-hidden="true">{{ cat.icon|default:"" }}</span>
-            <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-slate-800 dark:text-white truncate">{{ cat.name }}</div>
-                <div class="text-xs text-gray-400 dark:text-slate-500">{{ cat.usage_count }} {% trans "txn" %}{{ cat.usage_count|pluralize }}</div>
+    <!-- Expense panel -->
+    <div id="panel-expense" role="tabpanel" aria-labelledby="tab-expense">
+        <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm divide-y divide-gray-100 dark:divide-slate-700" role="list" aria-label="{% trans "Expense categories" %}">
+            {% for cat in expense_categories %}
+            <div class="px-4 py-3 flex items-center gap-3" role="listitem" data-category-id="{{ cat.id }}">
+                <span class="text-xl w-8 text-center" aria-hidden="true">{{ cat.icon|default:"" }}</span>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-slate-800 dark:text-white truncate">{{ cat.name }}</div>
+                    <div class="text-xs text-gray-400 dark:text-slate-500">{{ cat.usage_count }} {% trans "txn" %}{{ cat.usage_count|pluralize }}</div>
+                </div>
+                {% if cat.is_system %}
+                <span class="text-xs bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 px-2 py-0.5 rounded-full">{% trans "System" %}</span>
+                {% else %}
+                <form method="POST" action="{% url 'category-archive' cat.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                            aria-label="{% trans "Archive" %} {{ cat.name }}">{% trans "Archive" %}</button>
+                </form>
+                {% endif %}
             </div>
-            {% if cat.is_system %}
-            <span class="text-xs bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 px-2 py-0.5 rounded-full">{% trans "System" %}</span>
-            {% else %}
-            <form method="POST" action="{% url 'category-archive' cat.id %}" class="inline">
-                {% csrf_token %}
-                <button type="submit"
-                        class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
-                        aria-label="{% trans "Archive" %} {{ cat.name }}">{% trans "Archive" %}</button>
-            </form>
-            {% endif %}
-        </div>
-        {% empty %}
-        <div class="px-4 py-6 text-center text-sm text-gray-400 dark:text-slate-500">{% trans "No categories yet." %}</div>
-        {% endfor %}
-    </section>
+            {% empty %}
+            <div class="px-4 py-6 text-center text-sm text-gray-400 dark:text-slate-500">{% trans "No expense categories yet." %}</div>
+            {% endfor %}
+        </section>
+    </div>
+
+    <!-- Income panel -->
+    <div id="panel-income" role="tabpanel" aria-labelledby="tab-income" class="hidden">
+        <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm divide-y divide-gray-100 dark:divide-slate-700" role="list" aria-label="{% trans "Income categories" %}">
+            {% for cat in income_categories %}
+            <div class="px-4 py-3 flex items-center gap-3" role="listitem" data-category-id="{{ cat.id }}">
+                <span class="text-xl w-8 text-center" aria-hidden="true">{{ cat.icon|default:"" }}</span>
+                <div class="flex-1 min-w-0">
+                    <div class="text-sm font-medium text-slate-800 dark:text-white truncate">{{ cat.name }}</div>
+                    <div class="text-xs text-gray-400 dark:text-slate-500">{{ cat.usage_count }} {% trans "txn" %}{{ cat.usage_count|pluralize }}</div>
+                </div>
+                {% if cat.is_system %}
+                <span class="text-xs bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 px-2 py-0.5 rounded-full">{% trans "System" %}</span>
+                {% else %}
+                <form method="POST" action="{% url 'category-archive' cat.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                            aria-label="{% trans "Archive" %} {{ cat.name }}">{% trans "Archive" %}</button>
+                </form>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="px-4 py-6 text-center text-sm text-gray-400 dark:text-slate-500">{% trans "No income categories yet." %}</div>
+            {% endfor %}
+        </section>
+    </div>
 
     <!-- Archived Categories -->
     {% if archived %}
@@ -80,4 +122,43 @@
     </details>
     {% endif %}
 </div>
+
+<script>
+(function() {
+    var tabs = document.querySelectorAll('[role="tab"]');
+    var panels = {
+        'expense': document.getElementById('panel-expense'),
+        'income': document.getElementById('panel-income')
+    };
+
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var type = tab.dataset.catTab;
+
+            // Update tab styles
+            tabs.forEach(function(t) {
+                var isActive = t.dataset.catTab === type;
+                t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                if (isActive) {
+                    t.classList.add('active-tab', 'bg-teal-600', 'text-white');
+                    t.classList.remove('text-gray-600', 'dark:text-slate-400', 'bg-white', 'dark:bg-slate-800', 'hover:bg-gray-50', 'dark:hover:bg-slate-700');
+                } else {
+                    t.classList.remove('active-tab', 'bg-teal-600', 'text-white');
+                    t.classList.add('text-gray-600', 'dark:text-slate-400', 'bg-white', 'dark:bg-slate-800', 'hover:bg-gray-50', 'dark:hover:bg-slate-700');
+                }
+            });
+
+            // Toggle panels
+            Object.keys(panels).forEach(function(key) {
+                panels[key].classList.toggle('hidden', key !== type);
+            });
+        });
+    });
+
+    // After a category is created, reload to show it (simple approach for settings page)
+    document.addEventListener('category:created', function() {
+        window.location.reload();
+    });
+})();
+</script>
 {% endblock %}

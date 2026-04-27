@@ -302,7 +302,9 @@ def _cat_svc(request: AuthenticatedRequest) -> CategoryService:
 def categories_page(request: AuthenticatedRequest) -> HttpResponse:
     """GET /settings/categories — category management page."""
     svc = _cat_svc(request)
-    categories = svc.get_all_with_usage()
+    all_active = svc.get_all_with_usage()
+    expense_categories = [c for c in all_active if c.get("type") == "expense"]
+    income_categories = [c for c in all_active if c.get("type") == "income"]
     archived = svc.get_archived_with_usage()
 
     logger.info("page viewed: categories, user=%s", request.user_email)
@@ -310,22 +312,38 @@ def categories_page(request: AuthenticatedRequest) -> HttpResponse:
         request,
         "settings_app/categories.html",
         {
-            "categories": categories,
+            "expense_categories": expense_categories,
+            "income_categories": income_categories,
             "archived": archived,
         },
     )
 
 
 @general_rate
+@require_http_methods(["GET"])
+def category_new_form(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /settings/categories/new-form — bottom sheet form partial."""
+    cat_type = request.GET.get("type", "expense")
+    if cat_type not in ("expense", "income"):
+        cat_type = "expense"
+    return render(
+        request,
+        "settings_app/_category_new_form.html",
+        {"cat_type": cat_type},
+    )
+
+
+@general_rate
 @require_http_methods(["POST"])
 def category_add(request: AuthenticatedRequest) -> HttpResponse:
-    """POST /settings/categories/add — create a new custom category."""
+    """POST /settings/categories/add — create a new custom category (form POST fallback)."""
     svc = _cat_svc(request)
     name = request.POST.get("name", "")
     icon = request.POST.get("icon", "")
+    cat_type = request.POST.get("type", "expense")
 
     try:
-        svc.create(name=name, icon=icon or None)
+        svc.create(name=name, cat_type=cat_type, icon=icon or None)
     except ValueError as e:
         return HttpResponse(str(e), status=400)
 

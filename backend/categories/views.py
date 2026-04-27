@@ -44,6 +44,7 @@ def api_category_list_create(
     try:
         category = svc.create(
             name=body.get("name", ""),
+            cat_type=body.get("type", "expense"),
             icon=body.get("icon"),
         )
     except ValueError as e:

@@ -23,6 +23,11 @@ urlpatterns = [
         name="set-display-currency",
     ),
     path("settings/categories", views.categories_page, name="categories"),
+    path(
+        "settings/categories/new-form",
+        views.category_new_form,
+        name="category-new-form",
+    ),
     path("settings/categories/add", views.category_add, name="category-add"),
     path(
         "settings/categories/<uuid:cat_id>/update",

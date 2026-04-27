@@ -443,7 +443,12 @@ def categories_json(categories: Any) -> str:
             else:
                 display_name = str(name_raw)
             items.append(
-                {"id": str(cat.id), "name": display_name, "icon": cat.icon or ""}
+                {
+                    "id": str(cat.id),
+                    "name": display_name,
+                    "icon": cat.icon or "",
+                    "type": str(getattr(cat, "type", "expense")),
+                }
             )
         elif isinstance(cat, dict):
             # Dict
@@ -457,6 +462,7 @@ def categories_json(categories: Any) -> str:
                     "id": str(cat.get("id", "")),
                     "name": resolved,
                     "icon": cat.get("icon", "") or "",
+                    "type": str(cat.get("type", "expense")),
                 }
             )
     return mark_safe(json.dumps(items, ensure_ascii=False))

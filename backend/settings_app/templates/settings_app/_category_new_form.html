@@ -1,0 +1,131 @@
+{% load i18n %}
+<div class="space-y-4">
+    <h2 class="text-base font-semibold text-slate-800 dark:text-white">{% trans "New Category" %}</h2>
+
+    <p id="cat-new-error" role="alert" class="text-sm text-red-600 dark:text-red-400 hidden"></p>
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Type" %}</label>
+        <div class="flex rounded-lg border border-gray-200 dark:border-slate-600 overflow-hidden" role="group" aria-label="{% trans "Category type" %}">
+            <label class="flex-1 text-center">
+                <input type="radio" name="cat_new_type" value="expense" class="sr-only peer"
+                       {% if cat_type == "expense" %}checked{% endif %}>
+                <span class="block py-2 text-sm cursor-pointer
+                             peer-checked:bg-teal-600 peer-checked:text-white
+                             hover:bg-gray-50 dark:hover:bg-slate-700
+                             text-gray-700 dark:text-slate-300 transition-colors">
+                    {% trans "Expense" %}
+                </span>
+            </label>
+            <label class="flex-1 text-center border-s border-gray-200 dark:border-slate-600">
+                <input type="radio" name="cat_new_type" value="income" class="sr-only peer"
+                       {% if cat_type == "income" %}checked{% endif %}>
+                <span class="block py-2 text-sm cursor-pointer
+                             peer-checked:bg-teal-600 peer-checked:text-white
+                             hover:bg-gray-50 dark:hover:bg-slate-700
+                             text-gray-700 dark:text-slate-300 transition-colors">
+                    {% trans "Income" %}
+                </span>
+            </label>
+        </div>
+    </div>
+
+    <div class="flex gap-3">
+        <div>
+            <label for="cat-new-icon" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Icon" %}</label>
+            <input type="text" id="cat-new-icon" maxlength="4" placeholder="😊"
+                   aria-label="{% trans "Category icon (emoji)" %}"
+                   class="w-16 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-2 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+        <div class="flex-1">
+            <label for="cat-new-name" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+            <input type="text" id="cat-new-name" maxlength="100" required
+                   aria-label="{% trans "Category name" %}" aria-required="true"
+                   placeholder="{% trans "e.g. Coffee" %}"
+                   class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+    </div>
+
+    <button type="button" id="cat-new-save"
+            class="w-full bg-teal-600 text-white rounded-xl py-3 text-sm font-semibold hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 min-h-[44px]">
+        {% trans "Save Category" %}
+    </button>
+</div>
+
+<script>
+(function() {
+    function getCsrfToken() {
+        try {
+            var raw = document.body.getAttribute('hx-headers');
+            if (raw) return JSON.parse(raw)['X-CSRFToken'] || '';
+        } catch (e) {}
+        return '';
+    }
+
+    var saveBtn = document.getElementById('cat-new-save');
+    var nameInput = document.getElementById('cat-new-name');
+    var iconInput = document.getElementById('cat-new-icon');
+    var errorEl = document.getElementById('cat-new-error');
+
+    function getSelectedType() {
+        var checked = document.querySelector('input[name="cat_new_type"]:checked');
+        return checked ? checked.value : 'expense';
+    }
+
+    saveBtn.addEventListener('click', function() {
+        var name = nameInput.value.trim();
+        var icon = iconInput.value.trim();
+        var catType = getSelectedType();
+
+        errorEl.classList.add('hidden');
+        nameInput.removeAttribute('aria-invalid');
+
+        if (!name) {
+            errorEl.textContent = '{% trans "Category name is required." %}';
+            errorEl.classList.remove('hidden');
+            nameInput.setAttribute('aria-invalid', 'true');
+            nameInput.focus();
+            return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = '{% trans "Saving…" %}';
+
+        fetch('/api/categories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ name: name, icon: icon || null, type: catType })
+        })
+        .then(function(res) {
+            return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+        })
+        .then(function(result) {
+            if (!result.ok) {
+                var msg = (result.data && result.data.error) ? result.data.error : '{% trans "Failed to save." %}';
+                errorEl.textContent = msg;
+                errorEl.classList.remove('hidden');
+                nameInput.setAttribute('aria-invalid', 'true');
+                saveBtn.disabled = false;
+                saveBtn.textContent = '{% trans "Save Category" %}';
+                return;
+            }
+            var newCat = result.data;
+            document.dispatchEvent(new CustomEvent('category:created', { detail: newCat }));
+            BottomSheet.close('new-category');
+        })
+        .catch(function() {
+            errorEl.textContent = '{% trans "Network error. Please try again." %}';
+            errorEl.classList.remove('hidden');
+            saveBtn.disabled = false;
+            saveBtn.textContent = '{% trans "Save Category" %}';
+        });
+    });
+
+    nameInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); saveBtn.click(); }
+    });
+})();
+</script>
