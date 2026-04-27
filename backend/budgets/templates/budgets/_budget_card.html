@@ -4,13 +4,19 @@
 <div id="budget-card-{{ budget.id }}" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4">
     <div class="flex items-center justify-between mb-2">
         <span class="font-semibold text-slate-800 dark:text-white">{% if budget.category_icon %}{{ budget.category_icon }} {% endif %}{{ budget.category_name }}</span>
-        <button hx-delete="{% url 'budget-delete' budget.id %}"
-                hx-target="#budget-card-{{ budget.id }}"
-                hx-swap="outerHTML"
-                hx-ext="confirm-dialog"
-                hx-confirm="{% blocktrans with name=budget.category_name %}Delete the {{ name }} budget?{% endblocktrans %}"
-                style="min-height: 44px;"
-                class="inline-flex items-center text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400">{% trans "Delete" %}</button>
+        <div class="flex items-center gap-3">
+            <button type="button"
+                    onclick="openEditBudgetSheet('{{ budget.id }}')"
+                    style="min-height: 44px;"
+                    class="inline-flex items-center text-xs text-gray-400 hover:text-teal-600 dark:text-slate-500 dark:hover:text-teal-400">{% trans "Edit" %}</button>
+            <button hx-delete="{% url 'budget-delete' budget.id %}"
+                    hx-target="#budget-card-{{ budget.id }}"
+                    hx-swap="outerHTML"
+                    hx-ext="confirm-dialog"
+                    hx-confirm="{% blocktrans with name=budget.category_name %}Delete the {{ name }} budget?{% endblocktrans %}"
+                    style="min-height: 44px;"
+                    class="inline-flex items-center text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400">{% trans "Delete" %}</button>
+        </div>
     </div>
     <a href="{% url 'budget-detail' budget.id %}" class="block group" aria-label="{% blocktrans with name=budget.category_name %}View {{ name }} budget transactions{% endblocktrans %}">
     <div class="flex justify-between text-sm mb-1.5">
@@ -32,57 +38,4 @@
     </p>
     <p class="text-xs mt-1 text-teal-600 dark:text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity">{% trans "View transactions" %}</p>
     </a>
-    <form method="POST" action="{% url 'budget-edit' budget.id %}" class="mt-3 space-y-2"
-          hx-post="{% url 'budget-edit' budget.id %}" hx-target="#budget-card-{{ budget.id }}" hx-swap="outerHTML">
-        {% csrf_token %}
-        <div class="flex flex-wrap items-center gap-2">
-            <label for="limit-{{ budget.id }}" class="sr-only">{% blocktrans with name=budget.category_name %}Monthly limit for {{ name }}{% endblocktrans %}</label>
-            <input type="number" name="monthly_limit" id="limit-{{ budget.id }}"
-                   step="0.01" min="0.01" required
-                   value="{{ budget.monthly_limit|floatformat:'2' }}"
-                   class="flex-1 min-w-[120px] border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-1.5 text-sm">
-            <button type="submit" style="min-height: 44px;"
-                    class="bg-teal-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-teal-700">
-                {% trans "Update" %}
-            </button>
-            {% if saved %}
-            <span class="text-xs text-emerald-600 dark:text-emerald-400 font-medium animate-fade-out" aria-live="polite">
-                {% trans "Saved" %}
-                <script>
-                    (function(){
-                        var el = document.currentScript.parentElement;
-                        setTimeout(function(){
-                            el.style.transition='opacity 0.3s';
-                            el.style.opacity='0';
-                            setTimeout(function(){el.remove()}, 300);
-                        }, 2000);
-                    })();
-                </script>
-            </span>
-            {% endif %}
-            {% if error %}
-            <span class="text-xs text-red-600 dark:text-red-400 font-medium" aria-live="assertive">
-                {{ error }}. {% trans "Try again." %}
-            </span>
-            {% endif %}
-        </div>
-        <div class="flex items-center gap-4">
-            <label class="flex items-center gap-1.5 cursor-pointer">
-                <input type="checkbox" name="rollover_enabled" class="w-3.5 h-3.5 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
-                       {% if budget.rollover_enabled %}checked{% endif %} 
-                       hx-post="{% url 'budget-edit' budget.id %}" hx-target="#budget-card-{{ budget.id }}" hx-swap="outerHTML">
-                <span class="text-[10px] text-slate-500 dark:text-slate-400">{% trans "Rollover" %}</span>
-            </label>
-            {% if budget.rollover_enabled %}
-            <div class="flex-1 flex items-center gap-1">
-                <span class="text-[10px] text-slate-400">{% trans "Max:" %}</span>
-                <input type="number" name="max_rollover" step="0.01" min="0" 
-                       value="{{ budget.max_rollover|default:'' }}"
-                       placeholder="∞"
-                       hx-post="{% url 'budget-edit' budget.id %}" hx-target="#budget-card-{{ budget.id }}" hx-swap="outerHTML" hx-trigger="change"
-                       class="w-16 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded px-1.5 py-0.5 text-[10px]">
-            </div>
-            {% endif %}
-        </div>
-    </form>
 </div>

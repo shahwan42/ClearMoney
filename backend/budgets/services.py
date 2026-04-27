@@ -29,6 +29,7 @@ from core.status import compute_threshold_status
 from transactions.models import Transaction
 
 logger = logging.getLogger(__name__)
+_UNSET = object()
 
 
 class BudgetService:
@@ -291,7 +292,7 @@ class BudgetService:
         budget_id: str,
         monthly_limit: float | None = None,
         rollover_enabled: bool | None = None,
-        max_rollover: float | None = None,
+        max_rollover: float | None | object = _UNSET,
     ) -> dict[str, Any]:
         """Update a budget's fields."""
         update_data = {}
@@ -303,7 +304,7 @@ class BudgetService:
         if rollover_enabled is not None:
             update_data["rollover_enabled"] = rollover_enabled
 
-        if max_rollover is not None:
+        if max_rollover is not _UNSET:
             update_data["max_rollover"] = max_rollover
 
         if not update_data:
@@ -342,6 +343,26 @@ class BudgetService:
             "max_rollover": float(budget.max_rollover) if budget.max_rollover else None,
             "created_at": budget.created_at,
             "updated_at": budget.updated_at,
+        }
+
+    def get_for_edit(self, budget_id: str) -> dict[str, Any] | None:
+        """Return immutable identity and mutable fields for the edit form."""
+        try:
+            budget = self._qs().select_related("category").get(id=budget_id)
+        except ObjectDoesNotExist:
+            return None
+
+        return {
+            "id": str(budget.id),
+            "category_id": str(budget.category_id),
+            "category_name": budget.category.get_display_name(),
+            "category_icon": budget.category.icon or "",
+            "monthly_limit": float(budget.monthly_limit),
+            "currency": budget.currency,
+            "rollover_enabled": budget.rollover_enabled,
+            "max_rollover": float(budget.max_rollover)
+            if budget.max_rollover is not None
+            else None,
         }
 
     def delete(self, budget_id: str) -> bool:

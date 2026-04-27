@@ -322,6 +322,32 @@ class TestBudgetEdit:
         page = c.get("/budgets")
         assert b"3,000" in page.content
 
+    def test_edit_form_returns_prefilled_bottom_sheet_partial(
+        self, client, budget_view_data
+    ):
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        budget_id = self._create_budget(c, budget_view_data["cat1_id"])
+
+        response = c.get(f"/budgets/{budget_id}/edit-form")
+
+        assert response.status_code == 200
+        assert b"Edit Budget" in response.content
+        assert b'id="edit-budget-monthly-limit"' in response.content
+        assert b"Groceries" in response.content
+
+    def test_htmx_update_redirects_to_budgets(self, client, budget_view_data):
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        budget_id = self._create_budget(c, budget_view_data["cat1_id"])
+
+        response = c.post(
+            f"/budgets/{budget_id}/edit",
+            {"monthly_limit": "3000"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert response.status_code == 200
+        assert response["HX-Redirect"] == "/budgets"
+
     def test_invalid_limit_returns_400(self, client, budget_view_data):
         c = set_auth_cookie(client, budget_view_data["session_token"])
         budget_id = self._create_budget(c, budget_view_data["cat1_id"])
@@ -483,6 +509,20 @@ class TestTotalBudgetViews:
         resp = c.get("/budgets")
         content = resp.content.decode()
         assert 'role="progressbar"' in content
+
+    def test_total_budget_edit_form_returns_prefilled_partial(
+        self, client: Client, budget_view_data: dict
+    ) -> None:
+        c = set_auth_cookie(client, budget_view_data["session_token"])
+        svc = BudgetService(budget_view_data["user_id"], TZ)
+        svc.set_total_budget(Decimal("15000"), "EGP")
+
+        resp = c.get("/budgets/total/EGP/edit-form")
+
+        assert resp.status_code == 200
+        assert b"Edit Total Budget" in resp.content
+        assert b'id="edit-total-budget-monthly-limit"' in resp.content
+        assert b'name="currency" value="EGP"' in resp.content
 
 
 # ---------------------------------------------------------------------------

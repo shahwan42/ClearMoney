@@ -50,10 +50,20 @@
 </div>
 
 {% include "components/bottom_sheet.html" with name="add-budget-sheet" aria_label=_("New Budget") z_overlay="z-[80]" z_sheet="z-[90]" max_height="max-h-[85vh]" %}
+{% include "components/bottom_sheet.html" with name="edit-budget-sheet" aria_label=_("Edit Budget") z_overlay="z-[80]" z_sheet="z-[90]" max_height="max-h-[85vh]" %}
 
 <script>
 function openAddBudgetSheet() {
     BottomSheet.open('add-budget-sheet', {url: '{% url "budget-add-form" %}'});
+}
+function openEditBudgetSheet(id) {
+    BottomSheet.open('edit-budget-sheet', {url: '/budgets/' + id + '/edit-form'});
+}
+function openEditTotalBudgetSheet(currency) {
+    BottomSheet.open('edit-budget-sheet', {url: '/budgets/total/' + encodeURIComponent(currency) + '/edit-form'});
+}
+function closeEditBudgetSheet() {
+    BottomSheet.close('edit-budget-sheet');
 }
 </script>
 {% endblock %}

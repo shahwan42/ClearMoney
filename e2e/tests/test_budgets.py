@@ -10,6 +10,7 @@ UI notes:
 - Remaining text: "X remaining" or "Over budget by X"
 - Empty state: "No budgets set. Create one above!"
 """
+
 import sys
 import os
 
@@ -97,12 +98,13 @@ class TestBudgets:
     def test_update_budget_limit(self, page: Page) -> None:
         _create_budget(page, _category_id, "2000")
         page.goto("/budgets")
-        # The inline edit input shows current value
-        edit_input = page.locator('input[name="monthly_limit"][value="2000.00"]')
-        expect(edit_input).to_be_visible()
-        edit_input.fill("3500")
-        # Click the Update button on the budget card (not the total budget one)
-        edit_input.locator("..").locator('button:has-text("Update")').click()
+        page.locator('[id^="budget-card-"]').first.locator(
+            'button:has-text("Edit")'
+        ).click()
+        edit_sheet = page.locator("#edit-budget-sheet-content")
+        expect(edit_sheet.locator("#edit-budget-monthly-limit")).to_be_visible()
+        edit_sheet.locator("#edit-budget-monthly-limit").fill("3500")
+        edit_sheet.locator('button:has-text("Update")').click()
         page.wait_for_load_state()
         expect(page.locator("main")).to_contain_text("3,500")
 
@@ -138,32 +140,29 @@ class TestBudgets:
         page.wait_for_load_state()
         expect(page.locator("main")).not_to_contain_text("2,000")
 
-    def test_budget_save_feedback(self, page: Page) -> None:
+    def test_budget_edit_opens_bottom_sheet(self, page: Page) -> None:
         _create_budget(page, _category_id, "2000")
         page.goto("/budgets")
-        edit_input = page.locator('input[name="monthly_limit"][value="2000.00"]')
-        edit_input.fill("3500")
-        # The update button is in the same div/flex-wrap as the input now
-        page.locator('button:has-text("Update")').first.click()
-        # Verify "Saved" appears
-        expect(page.locator('text="Saved"')).to_be_visible()
-        # Verify it has aria-live="polite"
-        expect(page.locator('text="Saved"')).to_have_attribute("aria-live", "polite")
-        # Verify it fades (wait a bit)
-        page.wait_for_timeout(2500)
-        expect(page.locator('text="Saved"')).not_to_be_visible()
+        page.locator('[id^="budget-card-"]').first.locator(
+            'button:has-text("Edit")'
+        ).click()
+        edit_sheet = page.locator("#edit-budget-sheet-content")
+        expect(edit_sheet.locator("#edit-budget-monthly-limit")).to_be_visible()
+        expect(edit_sheet).to_contain_text("Enable rollover")
 
-    def test_total_budget_save_feedback(self, page: Page) -> None:
+    def test_total_budget_edit_opens_bottom_sheet(self, page: Page) -> None:
         page.goto("/budgets")
         page.fill("#total-limit-new-EGP", "10000")
         page.click('button:has-text("Set Total Budget")')
-        expect(page.locator('text="Saved"')).to_be_visible()
+        page.wait_for_load_state()
+        expect(page.locator("main")).to_contain_text("10,000")
 
-        # Update it
-        page.fill("#total-limit-edit-EGP", "12000")
-        # Second update button (first one is for individual budget if any, but we cleared DB)
-        page.locator('button:has-text("Update")').click()
-        expect(page.locator('text="Saved"')).to_be_visible()
-
-        page.wait_for_timeout(2500)
-        expect(page.locator('text="Saved"')).not_to_be_visible()
+        page.locator("#total-budget-card-EGP").locator(
+            'button:has-text("Edit")'
+        ).click()
+        edit_sheet = page.locator("#edit-budget-sheet-content")
+        expect(edit_sheet.locator("#edit-total-budget-monthly-limit")).to_be_visible()
+        edit_sheet.locator("#edit-total-budget-monthly-limit").fill("12000")
+        edit_sheet.locator('button:has-text("Update")').click()
+        page.wait_for_load_state()
+        expect(page.locator("main")).to_contain_text("12,000")

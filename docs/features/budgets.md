@@ -163,9 +163,11 @@ The total-budget calculation separately aggregates:
 | `/budgets/add` | POST | Create a per-category budget |
 | `/budgets/copy-last-month` | POST | Create missing budgets from last month’s spending |
 | `/budgets/<id>/` | GET | Budget detail with contributing current-month transactions |
-| `/budgets/<id>/edit` | POST | Update monthly limit and rollover settings |
+| `/budgets/<id>/edit-form` | GET | Render the category budget edit form partial for the bottom sheet |
+| `/budgets/<id>/edit` | POST | Update monthly limit and rollover settings from the edit sheet |
 | `/budgets/<id>/delete` | POST | Delete a category budget |
 | `/budgets/total/set` | POST | Create or update a per-currency total budget |
+| `/budgets/total/<currency>/edit-form` | GET | Render the total budget edit form partial for the bottom sheet |
 | `/budgets/total/delete` | POST | Delete a per-currency total budget |
 
 ### Budgets Page
@@ -179,7 +181,7 @@ The page currently contains:
    - shows spent, limit, remaining, and status for the selected currency’s
      total budget
    - warns when category-budget sum exceeds total budget
-   - supports set, update, and delete
+   - supports set, edit in a bottom sheet, and delete
 3. **Create budget bottom sheet**
    - expense-category selector
    - monthly limit input
@@ -191,6 +193,7 @@ The page currently contains:
    - spent vs limit
    - progress bar
    - remaining / over-budget message
+   - edit opens a bottom sheet for monthly limit and rollover settings
 
 ### Defaults
 
@@ -212,7 +215,10 @@ from `get_all_with_spending()`.
 | `backend/budgets/services.py` | Spending calculation, rollover, copy-last-month, validation, total budget logic |
 | `backend/budgets/views.py` | Budgets page, budget CRUD, total budget handlers |
 | `backend/budgets/templates/budgets/budgets.html` | Main budgets page |
+| `backend/budgets/templates/budgets/_budget_card.html` | Category budget display card |
 | `backend/budgets/templates/budgets/_total_budget_card.html` | Total budget UI |
+| `backend/budgets/templates/budgets/_edit_budget_form.html` | Category budget edit bottom-sheet form |
+| `backend/budgets/templates/budgets/_edit_total_budget_form.html` | Total budget edit bottom-sheet form |
 | `backend/budgets/tests/` | Service and view coverage |
 
 ## Notes for Newcomers

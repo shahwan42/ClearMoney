@@ -571,7 +571,8 @@ budget card for the user's selected display currency.
 **Includes:**
 - Add budget form (category + monthly limit + active currency + rollover)
 - Copy last month button
-- Set/update total budget button
+- Set total budget form for currencies without a total budget
+- Edit buttons that open bottom sheets for category and total budgets
 - Warnings if categories exceed total
 
 ---
@@ -601,6 +602,12 @@ currency.
 
 ---
 
+### GET `/budgets/<id>/edit-form`
+Bottom-sheet partial for editing a category budget's monthly limit and rollover
+settings.
+
+---
+
 ### POST `/budgets/<id>/edit`
 Update a category budget's monthly limit and rollover settings.
 
@@ -618,6 +625,11 @@ Create or update the per-currency total monthly budget.
 
 **Validation:** limit > 0, currency must be active (blank currency resolves to
 selected display currency)
+
+---
+
+### GET `/budgets/total/<currency>/edit-form`
+Bottom-sheet partial for editing an existing total monthly budget.
 
 ---
 

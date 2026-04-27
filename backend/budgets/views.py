@@ -2,10 +2,7 @@
 Budget views — page handlers for /budgets/*.
 
 Like Laravel's BudgetController — handles the budget management page,
-creation form, and deletion.
-
-All three routes use standard POST forms (not HTMX), with 302 redirects
-after mutations.
+bottom-sheet forms, and mutations.
 """
 
 import logging
@@ -23,6 +20,7 @@ from auth_app.currency import get_user_display_currency_context
 from budgets.services import BudgetService
 from categories.models import Category
 from core.decorators import inject_service
+from core.htmx import htmx_redirect, render_htmx_result
 from core.ratelimit import general_rate
 from core.types import AuthenticatedRequest
 from transactions.models import Transaction as TransactionModel
@@ -117,6 +115,20 @@ def budget_detail(
 
 @inject_service(BudgetService)
 @general_rate
+@require_http_methods(["GET"])
+def budget_edit_form(
+    request: AuthenticatedRequest, svc: BudgetService, budget_id: str
+) -> HttpResponse:
+    """GET /budgets/{id}/edit-form — render category budget edit form partial."""
+    budget = svc.get_for_edit(str(budget_id))
+    if not budget:
+        return HttpResponse("Budget not found", status=404)
+
+    return render(request, "budgets/_edit_budget_form.html", {"budget": budget})
+
+
+@inject_service(BudgetService)
+@general_rate
 @require_http_methods(["POST"])
 def budget_copy_last_month(
     request: AuthenticatedRequest, svc: BudgetService
@@ -174,7 +186,7 @@ def budget_add(request: AuthenticatedRequest, svc: BudgetService) -> HttpRespons
 def budget_edit(
     request: AuthenticatedRequest, svc: BudgetService, budget_id: str
 ) -> HttpResponse:
-    """POST /budgets/{id}/edit — update a budget's monthly limit."""
+    """POST /budgets/{id}/edit — update limit and rollover settings from edit sheet."""
     monthly_limit_str = request.POST.get("monthly_limit", "")
     rollover_enabled = request.POST.get("rollover_enabled") == "on"
     max_rollover_str = request.POST.get("max_rollover", "")
@@ -184,15 +196,13 @@ def budget_edit(
         max_rollover = float(max_rollover_str) if max_rollover_str else None
     except ValueError:
         if request.htmx:
-            # We need the budget to re-render the card with error
-            budgets = svc.get_all_with_spending()
-            budget = next((b for b in budgets if b.id == str(budget_id)), None)
-            return render(
-                request,
-                "budgets/_budget_card.html",
-                {"budget": budget, "error": "Invalid amount"},
+            return render_htmx_result(
+                "error", "Invalid monthly limit or max rollover"
             )
         return HttpResponse("Invalid monthly limit or max rollover", status=400)
+
+    if not rollover_enabled:
+        max_rollover = None
 
     try:
         with transaction.atomic():
@@ -204,25 +214,34 @@ def budget_edit(
             )
     except ValueError as e:
         if request.htmx:
-            budgets = svc.get_all_with_spending()
-            budget = next((b for b in budgets if b.id == str(budget_id)), None)
-            return render(
-                request,
-                "budgets/_budget_card.html",
-                {"budget": budget, "error": str(e)},
-            )
+            return render_htmx_result("error", str(e))
         return HttpResponse(str(e), status=400)
     except ObjectDoesNotExist:
         return HttpResponse("Budget not found", status=404)
 
-    if request.htmx:
-        budgets = svc.get_all_with_spending()
-        budget = next((b for b in budgets if b.id == str(budget_id)), None)
-        return render(
-            request, "budgets/_budget_card.html", {"budget": budget, "saved": True}
-        )
+    return htmx_redirect(request, "/budgets")
 
-    return redirect("budgets")
+
+@inject_service(BudgetService)
+@general_rate
+@require_http_methods(["GET"])
+def total_budget_edit_form(
+    request: AuthenticatedRequest, svc: BudgetService, currency: str
+) -> HttpResponse:
+    """GET /budgets/total/{currency}/edit-form — render total budget edit form."""
+    try:
+        total_budget = svc.get_total_budget(currency)
+    except ValueError as e:
+        return HttpResponse(str(e), status=400)
+
+    if not total_budget:
+        return HttpResponse("Total budget not found", status=404)
+
+    return render(
+        request,
+        "budgets/_edit_total_budget_form.html",
+        {"total_budget": total_budget},
+    )
 
 
 @inject_service(BudgetService)
@@ -232,6 +251,7 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
     """POST /budgets/total/set — create or update the total monthly budget."""
     monthly_limit_str = request.POST.get("monthly_limit", "")
     currency_raw = request.POST.get("currency", "")
+    form_source = request.POST.get("form_source", "")
 
     from auth_app.currency import resolve_user_currency_choice
 
@@ -246,6 +266,8 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
         monthly_limit = Decimal(monthly_limit_str) if monthly_limit_str else Decimal(0)
     except (ValueError, InvalidOperation):
         if request.htmx:
+            if form_source == "edit-total-budget":
+                return render_htmx_result("error", "Invalid monthly limit")
             total_budget = svc.get_total_budget(currency)
             return render(
                 request,
@@ -262,6 +284,8 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
         svc.set_total_budget(monthly_limit, currency)
     except ValueError as e:
         if request.htmx:
+            if form_source == "edit-total-budget":
+                return render_htmx_result("error", str(e))
             total_budget = svc.get_total_budget(currency)
             return render(
                 request,
@@ -274,19 +298,7 @@ def total_budget_set(request: AuthenticatedRequest, svc: BudgetService) -> HttpR
             )
         return HttpResponse(str(e), status=400)
 
-    if request.htmx:
-        total_budget = svc.get_total_budget(currency)
-        return render(
-            request,
-            "budgets/_total_budget_card.html",
-            {
-                "total_budget": total_budget,
-                "total_budget_currency": currency,
-                "saved": True,
-            },
-        )
-
-    return redirect("budgets")
+    return htmx_redirect(request, "/budgets")
 
 
 @inject_service(BudgetService)

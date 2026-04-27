@@ -258,6 +258,31 @@ class TestBudgetUpdate:
         with pytest.raises(ValueError, match="Monthly limit must be positive"):
             svc.update(budget["id"], -500.0)
 
+    def test_can_clear_max_rollover(self, budget_data):
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(
+            budget_data["cat1_id"],
+            1000.0,
+            "EGP",
+            rollover_enabled=True,
+            max_rollover=250.0,
+        )
+
+        result = svc.update(budget["id"], rollover_enabled=False, max_rollover=None)
+
+        assert result["rollover_enabled"] is False
+        assert result["max_rollover"] is None
+
+    def test_get_for_edit_scopes_budget(self, budget_data):
+        svc = _svc(budget_data["user_id"])
+        budget = svc.create(budget_data["cat1_id"], 1000.0, "EGP")
+
+        result = svc.get_for_edit(budget["id"])
+
+        assert result is not None
+        assert result["category_name"] == "Groceries"
+        assert result["monthly_limit"] == 1000.0
+
     def test_nonexistent_budget_raises(self, budget_data):
         svc = _svc(budget_data["user_id"])
         from django.core.exceptions import ObjectDoesNotExist
