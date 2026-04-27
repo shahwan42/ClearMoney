@@ -260,6 +260,8 @@ def transaction_edit_form(
     request: AuthenticatedRequest, svc: TransactionService, tx_id: str
 ) -> HttpResponse:
     """GET /transactions/edit/<id> — inline edit form partial (HTMX)."""
+    from decimal import Decimal as _Decimal
+
     tx = svc.get_by_id(str(tx_id))
     if not tx:
         return HttpResponse("Not found", status=404)
@@ -277,6 +279,37 @@ def transaction_edit_form(
         )
         .first()
     )
+
+    # For transfers: normalize to debit leg to determine source/dest account IDs
+    transfer_source_id = None
+    transfer_dest_id = None
+    transfer_accounts: list[dict] = []
+    if tx.get("type") == "transfer":
+        linked_id = tx.get("linked_transaction_id")
+        linked_tx = svc.get_by_id(str(linked_id)) if linked_id else None
+        if linked_tx:
+            balance_delta = tx.get("balance_delta") or 0
+            if _Decimal(str(balance_delta)) < 0:
+                # tx is the debit (source) leg
+                transfer_source_id = str(tx["account_id"])
+                transfer_dest_id = str(linked_tx["account_id"])
+                debit_leg_id = str(tx_id)
+            else:
+                # tx is the credit (dest) leg; linked_tx is debit
+                transfer_source_id = str(linked_tx["account_id"])
+                transfer_dest_id = str(tx["account_id"])
+                debit_leg_id = str(linked_id)
+            # Fee is always linked to the debit leg
+            if not fee_tx:
+                fee_tx = (
+                    Transaction.objects.for_user(request.user_id)
+                    .filter(
+                        linked_transaction_id=debit_leg_id,
+                        note="Transfer fee",
+                    )
+                    .first()
+                )
+        transfer_accounts = svc.get_accounts()
 
     # For exchanges, also fetch counter account info
     counter_account = None
@@ -310,6 +343,9 @@ def transaction_edit_form(
             "tag_names": tag_names,
             "today": date.today(),
             "counter_account": counter_account,
+            "transfer_source_id": transfer_source_id or "",
+            "transfer_dest_id": transfer_dest_id or "",
+            "transfer_accounts": transfer_accounts,
         },
     )
 
@@ -441,12 +477,16 @@ def transaction_update(
             if not amount:
                 return error_response("Amount is required")
             fee_amount = parse_float_or_none(data_source.get("fee_amount", ""))
+            source_id = data_source.get("source_id") or None
+            dest_id = data_source.get("dest_id") or None
             debit, credit = svc.update_transfer(
                 str(tx_id),
                 amount=amount,
                 note=note,
                 tx_date=tx_date,
                 fee_amount=fee_amount,
+                source_id=source_id,
+                dest_id=dest_id,
             )
             linked_id = debit.get("linked_transaction_id") or credit.get(
                 "linked_transaction_id"

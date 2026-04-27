@@ -11,10 +11,36 @@
     {% csrf_token %}
 
     {% if tx.type == "transfer" %}
-    <!-- Transfer edit: amount + fee + note + date. Both legs updated atomically. -->
+    <!-- Transfer edit: source, dest, amount, fee, note, date. All changes atomic. -->
 
     <div class="text-xs text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 rounded-lg px-3 py-2">
         {% trans "Transfer" %} · {{ tx.currency }}
+    </div>
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-source">{% trans "From account" %}</label>
+        <select name="source_id" id="edit-tx-source" required
+                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                aria-label="{% trans "Source account" %}">
+            {% for acc in transfer_accounts %}
+            <option value="{{ acc.id }}" {% if acc.id|stringformat:"s" == transfer_source_id %}selected{% endif %}>
+                {{ acc.name }} ({{ acc.currency }})
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-dest">{% trans "To account" %}</label>
+        <select name="dest_id" id="edit-tx-dest" required
+                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                aria-label="{% trans "Destination account" %}">
+            {% for acc in transfer_accounts %}
+            <option value="{{ acc.id }}" {% if acc.id|stringformat:"s" == transfer_dest_id %}selected{% endif %}>
+                {{ acc.name }} ({{ acc.currency }})
+            </option>
+            {% endfor %}
+        </select>
     </div>
 
     <div>

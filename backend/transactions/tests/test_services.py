@@ -2019,6 +2019,178 @@ class TestUpdateTransfer:
         assert _get_balance(tx_data["egp_id"]) == src_balance_before
         assert _get_balance(dest_id) == dest_balance_before
 
+    def test_update_source_adjusts_all_balances(self, tx_data):
+        """Changing source restores old source balance, debits new source."""
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        # old_src=8000, dest=7000
+        new_src = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="New Source EGP",
+            currency="EGP",
+            current_balance=3000,
+            initial_balance=3000,
+        )
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+            source_id=str(new_src.id),
+            dest_id=dest_id,
+        )
+        assert _get_balance(tx_data["egp_id"]) == 10000  # old source restored
+        assert _get_balance(str(new_src.id)) == 1000  # new source debited
+        assert _get_balance(dest_id) == 7000  # dest unchanged
+
+    def test_update_dest_adjusts_all_balances(self, tx_data):
+        """Changing dest restores old dest balance, credits new dest."""
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        # src=8000, old_dest=7000
+        new_dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="New Dest EGP",
+            currency="EGP",
+            current_balance=6000,
+            initial_balance=6000,
+        )
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+            source_id=tx_data["egp_id"],
+            dest_id=str(new_dest.id),
+        )
+        assert _get_balance(tx_data["egp_id"]) == 8000  # source unchanged
+        assert _get_balance(dest_id) == 5000  # old dest restored
+        assert _get_balance(str(new_dest.id)) == 8000  # new dest credited
+
+    def test_update_both_accounts_adjusts_all_balances(self, tx_data):
+        """Changing both source and dest updates all four accounts."""
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        new_src = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="New Source EGP",
+            currency="EGP",
+            current_balance=4000,
+            initial_balance=4000,
+        )
+        new_dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="New Dest EGP",
+            currency="EGP",
+            current_balance=1000,
+            initial_balance=1000,
+        )
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+            source_id=str(new_src.id),
+            dest_id=str(new_dest.id),
+        )
+        assert _get_balance(tx_data["egp_id"]) == 10000  # old src restored
+        assert _get_balance(dest_id) == 5000  # old dest restored
+        assert _get_balance(str(new_src.id)) == 2000  # new src debited
+        assert _get_balance(str(new_dest.id)) == 3000  # new dest credited
+
+    def test_update_source_updates_leg_account_ids(self, tx_data):
+        """account_id and counter_account_id on both legs reflect new source."""
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        new_src = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="New Source EGP",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+            source_id=str(new_src.id),
+            dest_id=dest_id,
+        )
+        debit_obj = Transaction.objects.get(id=debit["id"])
+        credit_obj = Transaction.objects.get(id=credit["id"])
+        assert str(debit_obj.account_id) == str(new_src.id)
+        assert str(debit_obj.counter_account_id) == dest_id
+        assert str(credit_obj.account_id) == dest_id
+        assert str(credit_obj.counter_account_id) == str(new_src.id)
+
+    def test_update_source_moves_fee_to_new_source(self, tx_data):
+        """Fee transaction moves to new source account when source changes."""
+        from decimal import Decimal
+
+        svc, debit, credit, dest_id = self._make_transfer(
+            tx_data, amount=2000, fee_amount=50.0
+        )
+        # old_src=7950 (10000-2000-50), dest=7000
+        new_src = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="New Source EGP",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=50.0,
+            source_id=str(new_src.id),
+            dest_id=dest_id,
+        )
+        assert _get_balance(tx_data["egp_id"]) == 10000  # old src fully restored
+        assert _get_balance(str(new_src.id)) == 2950  # 5000 - 2000 - 50
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"], note="Transfer fee"
+        ).first()
+        assert fee_tx is not None
+        assert str(fee_tx.account_id) == str(new_src.id)
+        assert Decimal(str(fee_tx.amount)) == Decimal("50")
+
+    def test_update_currency_mismatch_raises(self, tx_data):
+        """New source and dest with different currencies raises ValueError."""
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        with pytest.raises(ValueError, match="same currency"):
+            svc.update_transfer(
+                debit["id"],
+                amount=2000,
+                note=None,
+                tx_date=date(2026, 3, 15),
+                fee_amount=None,
+                source_id=tx_data["usd_id"],  # USD
+                dest_id=dest_id,  # EGP — mismatch
+            )
+
+    def test_update_same_source_dest_raises(self, tx_data):
+        """Setting source == dest raises ValueError."""
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        with pytest.raises(ValueError, match="same account"):
+            svc.update_transfer(
+                debit["id"],
+                amount=2000,
+                note=None,
+                tx_date=date(2026, 3, 15),
+                fee_amount=None,
+                source_id=tx_data["egp_id"],
+                dest_id=tx_data["egp_id"],
+            )
+
 
 # ---------------------------------------------------------------------------
 # update_exchange tests (RED — method does not exist yet)

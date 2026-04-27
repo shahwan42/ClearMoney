@@ -40,6 +40,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [170](done/170-transfer-edit-source-destination.md) | Transfer edit: allow changing source and destination accounts | feature | medium | 2026-04-27 |
 | [169](done/169-atomic-transfer-exchange-update.md) | Atomic transfer/exchange update (both legs + fee) | feature | high | 2026-04-27 |
 | [168](done/168-account-soft-delete.md) | Account soft-delete (remove without losing history) | feature | high | 2026-04-27 |
 | [167](done/167-dormant-accounts-enforcement.md) | Dormant accounts enforcement | improvement | medium | 2026-04-27 |

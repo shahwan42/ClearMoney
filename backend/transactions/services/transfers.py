@@ -290,8 +290,13 @@ class TransferMixin:
         note: str | None,
         tx_date: date,
         fee_amount: float | None,
+        source_id: str | None = None,
+        dest_id: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Update both legs of a transfer atomically, including optional fee.
+
+        source_id / dest_id: pass new account IDs to reassign the transfer.
+        If omitted, the existing accounts are kept.
 
         Returns (debit_leg, credit_leg) dicts after update.
         """
@@ -311,42 +316,116 @@ class TransferMixin:
         if not linked_tx:
             raise ValueError(f"Linked leg not found: {linked_id}")
 
+        # Normalize: always work in terms of debit (source) and credit (dest) legs
+        if Decimal(str(tx["balance_delta"])) < 0:
+            debit_tx, credit_tx = tx, linked_tx
+            debit_id, credit_id = tx_id, str(linked_id)
+        else:
+            debit_tx, credit_tx = linked_tx, tx
+            debit_id, credit_id = str(linked_id), tx_id
+
+        old_source_id = str(debit_tx["account_id"])
+        old_dest_id = str(credit_tx["account_id"])
+        new_source_id = source_id or old_source_id
+        new_dest_id = dest_id or old_dest_id
+
+        if new_source_id == new_dest_id:
+            raise ValueError("Cannot transfer to the same account")
+
+        source_changing = new_source_id != old_source_id
+        dest_changing = new_dest_id != old_dest_id
+
+        if source_changing or dest_changing:
+            src_acc = self._get_account(new_source_id)  # type: ignore[attr-defined]
+            dest_acc = self._get_account(new_dest_id)  # type: ignore[attr-defined]
+            if src_acc["currency"] != dest_acc["currency"]:
+                raise ValueError(
+                    "Transfer requires same currency; use exchange for cross-currency"
+                )
+
         new_amount = Decimal(str(amount))
-        old_amount = Decimal(str(tx["amount"]))
+        old_amount = Decimal(str(debit_tx["amount"]))
         amount_delta = new_amount - old_amount
 
         now = django_tz.now()
 
         with transaction.atomic():
-            Transaction.objects.filter(user_id=uid, id=tx_id).update(
+            Transaction.objects.filter(user_id=uid, id=debit_id).update(
                 amount=new_amount,
                 balance_delta=-new_amount,
+                account_id=new_source_id,
+                counter_account_id=new_dest_id,
                 note=note,
                 date=tx_date,
                 updated_at=now,
             )
-            Transaction.objects.filter(user_id=uid, id=linked_id).update(
+            Transaction.objects.filter(user_id=uid, id=credit_id).update(
                 amount=new_amount,
                 balance_delta=new_amount,
+                account_id=new_dest_id,
+                counter_account_id=new_source_id,
                 note=note,
                 date=tx_date,
                 updated_at=now,
             )
-            if amount_delta != 0:
-                Account.objects.filter(user_id=uid, id=tx["account_id"]).update(
-                    current_balance=F("current_balance") - amount_delta,
-                    updated_at=now,
-                )
-                Account.objects.filter(user_id=uid, id=linked_tx["account_id"]).update(
-                    current_balance=F("current_balance") + amount_delta,
-                    updated_at=now,
-                )
-            self._update_fee_in_atomic(
-                uid, tx_id, tx["account_id"], fee_amount, tx_date, now
-            )
 
-        debit = self.get_by_id(tx_id)  # type: ignore[attr-defined]
-        credit = self.get_by_id(linked_id)  # type: ignore[attr-defined]
+            if source_changing or dest_changing:
+                # "Undo old state, apply new state" — handles all combinations
+                existing_fee_tx = Transaction.objects.filter(
+                    user_id=uid,
+                    linked_transaction_id=debit_id,  # type: ignore[misc]
+                    note="Transfer fee",
+                ).first()
+                old_fee = (
+                    Decimal(str(existing_fee_tx.amount))
+                    if existing_fee_tx
+                    else Decimal("0")
+                )
+
+                # Restore old source (transfer amount + fee that sat there)
+                Account.objects.filter(user_id=uid, id=old_source_id).update(
+                    current_balance=F("current_balance") + old_amount + old_fee,
+                    updated_at=now,
+                )
+                # Restore old dest
+                Account.objects.filter(user_id=uid, id=old_dest_id).update(
+                    current_balance=F("current_balance") - old_amount,
+                    updated_at=now,
+                )
+                # Delete old fee (balance already restored above)
+                if existing_fee_tx:
+                    existing_fee_tx.delete()
+
+                # Debit new source
+                Account.objects.filter(user_id=uid, id=new_source_id).update(
+                    current_balance=F("current_balance") - new_amount,
+                    updated_at=now,
+                )
+                # Credit new dest
+                Account.objects.filter(user_id=uid, id=new_dest_id).update(
+                    current_balance=F("current_balance") + new_amount,
+                    updated_at=now,
+                )
+                # Recreate fee on new source
+                self._update_fee_in_atomic(
+                    uid, debit_id, new_source_id, fee_amount, tx_date, now
+                )
+            else:
+                if amount_delta != 0:
+                    Account.objects.filter(user_id=uid, id=old_source_id).update(
+                        current_balance=F("current_balance") - amount_delta,
+                        updated_at=now,
+                    )
+                    Account.objects.filter(user_id=uid, id=old_dest_id).update(
+                        current_balance=F("current_balance") + amount_delta,
+                        updated_at=now,
+                    )
+                self._update_fee_in_atomic(
+                    uid, debit_id, old_source_id, fee_amount, tx_date, now
+                )
+
+        debit = self.get_by_id(debit_id)  # type: ignore[attr-defined]
+        credit = self.get_by_id(credit_id)  # type: ignore[attr-defined]
         logger.info("transfer.updated id=%s user=%s", tx_id, uid)
         return debit or {}, credit or {}
 

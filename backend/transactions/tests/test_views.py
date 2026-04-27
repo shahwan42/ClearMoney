@@ -673,6 +673,102 @@ class TestTransferViews:
 
 
 # ---------------------------------------------------------------------------
+# Transfer edit (source/destination account changes)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestTransferEditAccountChange:
+    def _make_transfer(self, tx_view_data, amount=2000):
+        from zoneinfo import ZoneInfo
+
+        from transactions.services import TransactionService
+
+        svc = TransactionService(tx_view_data["user_id"], ZoneInfo("Africa/Cairo"))
+        dest = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="Dest EGP",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        debit, credit = svc.create_transfer(
+            tx_view_data["egp_id"],
+            str(dest.id),
+            amount,
+            None,
+            "original note",
+            date(2026, 3, 15),
+        )
+        return debit, credit, str(dest.id)
+
+    def test_edit_form_shows_source_dest_dropdowns(self, client, tx_view_data):
+        """Transfer edit form renders From/To account selects."""
+        debit, credit, dest_id = self._make_transfer(tx_view_data)
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{debit['id']}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert 'name="source_id"' in content
+        assert 'name="dest_id"' in content
+
+    def test_edit_form_source_preselected(self, client, tx_view_data):
+        """Source account is pre-selected in the From dropdown."""
+        debit, credit, dest_id = self._make_transfer(tx_view_data)
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{debit['id']}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert tx_view_data["egp_id"] in content
+
+    def test_edit_transfer_change_source_updates_balances(self, client, tx_view_data):
+        """PUT with new source_id updates balances on old source, new source, and dest."""
+        from decimal import Decimal
+
+        debit, credit, dest_id = self._make_transfer(tx_view_data, amount=2000)
+        new_src = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="New Source",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            f"/transactions/{debit['id']}",
+            data=f"amount=2000&date=2026-03-15&source_id={new_src.id}&dest_id={dest_id}",
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        old_src_bal = Account.objects.get(id=tx_view_data["egp_id"]).current_balance
+        new_src_bal = Account.objects.get(id=new_src.id).current_balance
+        assert Decimal(str(old_src_bal)) == Decimal("10000")  # fully restored
+        assert Decimal(str(new_src_bal)) == Decimal("3000")  # 5000 - 2000
+
+    def test_edit_transfer_currency_mismatch_returns_error(self, client, tx_view_data):
+        """Switching source to a different-currency account returns 400."""
+        debit, credit, dest_id = self._make_transfer(tx_view_data)
+        usd_acc = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="USD Account",
+            currency="USD",
+            current_balance=500,
+            initial_balance=500,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            f"/transactions/{debit['id']}",
+            data=f"amount=2000&date=2026-03-15&source_id={usd_acc.id}&dest_id={dest_id}",
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
 # Exchange
 # ---------------------------------------------------------------------------
 
