@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-27 (tickets 507–514 closed: localization phase 1 — system banks + bilingual currencies + dual-lang categories + Arabic first pass; #518 added for Arabic long-tail)
+Last updated: 2026-04-27 (tickets 507–514 + 518 closed: localization phase 1 complete — system banks, bilingual currencies, dual-lang categories, full Arabic translations + Playwright smoke test)
 
 ## In Progress
 
@@ -17,7 +17,6 @@ Last updated: 2026-04-27 (tickets 507–514 closed: localization phase 1 — sys
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
-| [518](pending/518-arabic-translations-long-tail.md) | Arabic translations long-tail + Playwright smoke test | improvement | medium | 2026-04-27 |
 | [516](pending/516-dedupe-rule-mirrors-claude-gemini.md) | Dedupe rule mirrors between .claude/ and .gemini/ | chore | low | 2026-04-27 |
 | [159](pending/159-undo-recurring-confirmation.md) | Add Undo capability for recurring confirmations | improvement | medium | 2026-04-26 |
 | [117](pending/117-qa-comprehensive-test-plan.md) | QA Comprehensive Test Plan for Implemented Features | feature | high | 2026-04-17 |
@@ -45,6 +44,7 @@ Last updated: 2026-04-27 (tickets 507–514 closed: localization phase 1 — sys
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [518](done/518-arabic-translations-long-tail.md) | Arabic translations long-tail + Playwright smoke test | improvement | medium | 2026-04-27 |
 | [514](done/514-full-arabic-translation-audit-and-po-fill.md) | Full Arabic translation audit + .po fill (first pass) | improvement | medium | 2026-04-27 |
 | [513](done/513-category-form-dual-language-fields.md) | Category create/edit form — dual-language name fields | feature | medium | 2026-04-27 |
 | [512](done/512-currency-bilingual-names.md) | Currency bilingual names (JSONB) | feature | medium | 2026-04-27 |
