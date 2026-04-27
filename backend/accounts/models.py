@@ -3,6 +3,7 @@
 Institution moved in batch 4. Account (depends on Institution) moved in batch 10.
 AccountSnapshot moved from jobs app (Phase 3 Cleanup) — per-account snapshot data
 belongs in the accounts domain.
+SystemBank added in ticket #507 — admin-curated registry of banks/fintechs/wallets.
 """
 
 import uuid
@@ -10,11 +11,58 @@ import uuid
 from django.db import models
 from django.db.models import Func
 from django.db.models.functions import Now
+from django.utils.translation import get_language
 
 from core.managers import UserScopedManager
 
 # SQL-level default for UUID primary keys (gen_random_uuid())
 GEN_UUID = Func(function="gen_random_uuid")
+
+
+class SystemBank(models.Model):
+    """Admin-curated registry of banks/fintechs/wallets with bilingual names."""
+
+    BANK_TYPE_CHOICES = [
+        ("bank", "Bank"),
+        ("fintech", "Fintech"),
+        ("wallet", "Wallet"),
+    ]
+
+    name = models.JSONField(default=dict)
+    short_name = models.CharField(max_length=20)
+    svg_path = models.CharField(max_length=200, blank=True, default="")
+    brand_color = models.CharField(max_length=7, blank=True, default="")
+    country = models.CharField(max_length=2, default="EG")
+    bank_type = models.CharField(
+        max_length=20, choices=BANK_TYPE_CHOICES, default="bank"
+    )
+    is_active = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
+    updated_at = models.DateTimeField(auto_now=True, db_default=Now())
+
+    class Meta:
+        db_table = "system_banks"
+        ordering = ["display_order", "short_name"]
+
+    def get_display_name(self, lang: str | None = None) -> str:
+        """Return bilingual name. Falls back to en, then short_name."""
+        if not isinstance(self.name, dict):
+            return str(self.name) if self.name else self.short_name
+        lang = lang or get_language() or "en"
+        lang_code = lang.split("-")[0]
+        if lang_code in self.name and self.name[lang_code]:
+            return str(self.name[lang_code])
+        if "en" in self.name and self.name["en"]:
+            return str(self.name["en"])
+        if self.name:
+            for v in self.name.values():
+                if v:
+                    return str(v)
+        return self.short_name
+
+    def __str__(self) -> str:
+        return f"{self.short_name} ({self.country})"
 
 
 class Institution(models.Model):

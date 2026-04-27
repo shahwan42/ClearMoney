@@ -1,6 +1,21 @@
 from django.contrib import admin
 
-from accounts.models import Account, AccountSnapshot, Institution
+from accounts.models import Account, AccountSnapshot, Institution, SystemBank
+
+
+@admin.register(SystemBank)
+class SystemBankAdmin(admin.ModelAdmin):
+    list_display = [
+        "short_name",
+        "country",
+        "bank_type",
+        "is_active",
+        "display_order",
+    ]
+    list_filter = ["country", "bank_type", "is_active"]
+    search_fields = ["short_name"]
+    readonly_fields = ["created_at", "updated_at"]
+    ordering = ["display_order", "short_name"]
 
 
 @admin.register(Institution)

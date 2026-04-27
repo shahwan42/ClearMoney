@@ -3,7 +3,7 @@ id: "507"
 title: "SystemBank model + migration"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-27
 updated: 2026-04-27
 ---
@@ -35,15 +35,19 @@ class SystemBank(models.Model):
         ...
 ```
 
+## Affected User Journeys
+
+- None — internal-only model addition, no UI/behavior change yet (rendered in #509+).
+
 ## Acceptance Criteria
 
-- [ ] `SystemBank` model created in `core/models.py` with all fields above
-- [ ] Migration generated and applied cleanly
-- [ ] `get_display_name(lang)` method follows same pattern as `Category.get_display_name()`
-- [ ] `django.contrib.admin` registered for `SystemBank` (for future admin management)
-- [ ] `mcp__django-ai-boost__run_check` passes
-- [ ] Unit tests: model creation, `get_display_name` with en/ar/None/missing-key cases
-- [ ] `make test && make lint` both pass
+- [x] `SystemBank` model created in `accounts/models.py` (core/models.py is empty post Phase 3 — accounts owns Institution so SystemBank lives alongside)
+- [x] Migration `accounts/0010_systembank.py` generated and applied cleanly
+- [x] `get_display_name(lang)` method follows same pattern as `Category.get_display_name()`
+- [x] `django.contrib.admin` registered for `SystemBank`
+- [x] Django system check passes
+- [x] Unit tests: 9 cases covering create, en/ar/missing/empty/locale-region, str, admin registration
+- [x] `make test && make lint` pass — 1784 tests green, ruff + mypy clean
 
 ## Dependencies
 
@@ -52,3 +56,4 @@ None — this is the base ticket for Phase 1.
 ## Progress Notes
 
 - 2026-04-27: Created — Phase 1 foundation ticket
+- 2026-04-27: Completed — Model added to accounts/models.py (not core/, which is empty post Phase 3), migration applied, 9 unit tests, admin registered. 1784 tests passing.
