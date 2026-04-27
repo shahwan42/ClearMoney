@@ -406,6 +406,65 @@ class TestRecordRepayment:
         # Account: 10000 - 1000 + 500 = 9500 (no fee deduction)
         assert _get_balance(people_data["egp_id"]) == 9500
 
+    def test_repayment_assigns_debt_payment_category(self, people_data):
+        """Repayment tx gets Debt Payment system category when it exists."""
+        from categories.models import Category
+        from transactions.models import Transaction
+
+        user_id = people_data["user_id"]
+        cat = Category.objects.create(
+            user_id=user_id,
+            name={"en": "Debt Payment", "ar": "سداد دين"},
+            type="expense",
+            icon="💰",
+            is_system=True,
+            display_order=17,
+        )
+
+        svc = _svc(user_id)
+        person = svc.create("CatDebtor")
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
+        tx = svc.record_repayment(person["id"], people_data["egp_id"], 500)
+
+        db_tx = Transaction.objects.get(id=tx["id"])
+        assert db_tx.category_id == cat.id
+
+    def test_memo_repayment_assigns_debt_payment_category(self, people_data):
+        """Memo (single-entry) repayment also gets Debt Payment category."""
+        from categories.models import Category
+        from transactions.models import Transaction
+
+        user_id = people_data["user_id"]
+        cat = Category.objects.create(
+            user_id=user_id,
+            name={"en": "Debt Payment", "ar": "سداد دين"},
+            type="expense",
+            icon="💰",
+            is_system=True,
+            display_order=17,
+        )
+
+        svc = _svc(user_id)
+        person = svc.create("MemoCatDebtor")
+        tx = svc.record_repayment(
+            person["id"], account_id=None, amount=200, currency="EGP"
+        )
+
+        db_tx = Transaction.objects.get(id=tx["id"])
+        assert db_tx.category_id == cat.id
+
+    def test_repayment_category_null_when_no_debt_payment_category(self, people_data):
+        """category_id stays None when user has no Debt Payment system category."""
+        from transactions.models import Transaction
+
+        svc = _svc(people_data["user_id"])
+        person = svc.create("NoCatDebtor")
+        svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
+        tx = svc.record_repayment(person["id"], people_data["egp_id"], 500)
+
+        db_tx = Transaction.objects.get(id=tx["id"])
+        assert db_tx.category_id is None
+
 
 # ---------------------------------------------------------------------------
 # Debt Summary Tests

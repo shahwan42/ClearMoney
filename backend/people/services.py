@@ -25,6 +25,7 @@ from django.utils import timezone as django_tz
 
 from accounts.models import Account
 from auth_app.currency import get_supported_currencies
+from categories.models import Category
 from core.serializers import serialize_instance, serialize_row
 from people.models import Person, PersonCurrencyBalance
 from transactions.models import Transaction
@@ -226,6 +227,18 @@ class PersonService:
     # Loan / Repayment (atomic balance updates)
     # -----------------------------------------------------------------------
 
+    def _get_debt_payment_category_id(self) -> str | None:
+        row = (
+            Category.objects.filter(
+                user_id=self.user_id,
+                is_system=True,
+                name__en="Debt Payment",
+            )
+            .values_list("id", flat=True)
+            .first()
+        )
+        return str(row) if row else None
+
     def _get_account(self, account_id: str) -> dict[str, Any]:
         """Fetch account record. Raises ValueError if not found."""
         row = (
@@ -425,6 +438,7 @@ class PersonService:
         tx_id = uuid.uuid4()
         person_delta_decimal = Decimal(str(person_delta))
         now = django_tz.now()
+        debt_payment_category_id = self._get_debt_payment_category_id()
 
         with transaction.atomic():
             tx = Transaction.objects.create(
@@ -438,6 +452,7 @@ class PersonService:
                 note=note,
                 date=tx_date,
                 balance_delta=account_delta if account_id else 0,
+                category_id=debt_payment_category_id,
             )
 
             if account_id:
