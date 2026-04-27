@@ -208,6 +208,63 @@ class TestRecordLoan:
         assert str(tx["date"]) == "2026-04-01"
 
 
+class TestSingleEntryLoan:
+    """Memo loans: account_id=None, no account balance change."""
+
+    def test_memo_loan_out_updates_person_balance(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Memo Person")
+        svc.record_loan(person["id"], None, 500, "loan_out", currency="EGP")
+        balances = _get_person_balance(person["id"])
+        assert balances["balances"]["EGP"] == 500
+
+    def test_memo_loan_in_updates_person_balance(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Memo Borrower")
+        svc.record_loan(person["id"], None, 300, "loan_in", currency="USD")
+        balances = _get_person_balance(person["id"])
+        assert balances["balances"]["USD"] == -300
+
+    def test_memo_loan_does_not_affect_account_balance(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Memo No Account")
+        balance_before = _get_balance(people_data["egp_id"])
+        svc.record_loan(person["id"], None, 1000, "loan_out", currency="EGP")
+        assert _get_balance(people_data["egp_id"]) == balance_before
+
+    def test_memo_loan_has_null_account_and_zero_balance_delta(self, people_data):
+        from transactions.models import Transaction
+
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Memo Check")
+        tx = svc.record_loan(person["id"], None, 200, "loan_out", currency="EGP")
+        db_tx = Transaction.objects.get(id=tx["id"])
+        assert db_tx.account_id is None
+        assert db_tx.balance_delta == 0
+
+    def test_memo_loan_missing_currency_raises(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("No Currency")
+        with pytest.raises(ValueError, match="either account_id or currency"):
+            svc.record_loan(person["id"], None, 100, "loan_out")
+
+    def test_memo_repayment_updates_person_balance(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Memo Repay")
+        svc.record_loan(person["id"], None, 1000, "loan_out", currency="EGP")
+        svc.record_repayment(person["id"], None, 400, currency="EGP")
+        balances = _get_person_balance(person["id"])
+        assert balances["balances"]["EGP"] == 600
+
+    def test_memo_repayment_does_not_affect_account_balance(self, people_data):
+        svc = _svc(people_data["user_id"])
+        person = svc.create("Memo Repay No Account")
+        svc.record_loan(person["id"], None, 1000, "loan_out", currency="EGP")
+        balance_before = _get_balance(people_data["egp_id"])
+        svc.record_repayment(person["id"], None, 500, currency="EGP")
+        assert _get_balance(people_data["egp_id"]) == balance_before
+
+
 # ---------------------------------------------------------------------------
 # Repayment Tests
 # ---------------------------------------------------------------------------

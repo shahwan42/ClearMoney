@@ -12,6 +12,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 
 from accounts.services import AccountService
+from auth_app.currency import get_user_active_currencies
 from core.decorators import inject_service
 from core.htmx import error_response
 from core.ratelimit import api_rate, general_rate
@@ -36,6 +37,7 @@ def _render_people_list(
     accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
         include_balance=True
     )
+    currencies = get_user_active_currencies(request.user_id)
 
     if not persons:
         return HttpResponse(
@@ -49,7 +51,7 @@ def _render_people_list(
         html_parts.append(
             render_to_string(
                 "people/_person_card.html",
-                {"person": person, "accounts": accounts},
+                {"person": person, "accounts": accounts, "currencies": currencies},
                 request=request,
             )
         )
@@ -71,8 +73,11 @@ def people_page(request: AuthenticatedRequest, svc: PersonService) -> HttpRespon
     accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
         include_balance=True
     )
+    currencies = get_user_active_currencies(request.user_id)
 
-    cards = [{"person": p, "accounts": accounts} for p in persons]
+    cards = [
+        {"person": p, "accounts": accounts, "currencies": currencies} for p in persons
+    ]
 
     return render(
         request,
@@ -116,13 +121,18 @@ def person_detail(
     accounts = AccountService(request.user_id, request.tz).get_for_dropdown(
         include_balance=True
     )
+    currencies = get_user_active_currencies(request.user_id)
 
     return render(
         request,
         "people/person_detail.html",
         {
             "active_tab": "more",
-            "data": {"summary": summary, "accounts": accounts},
+            "data": {
+                "summary": summary,
+                "accounts": accounts,
+                "currencies": currencies,
+            },
         },
     )
 
@@ -135,12 +145,24 @@ def people_loan(
 ) -> HttpResponse:
     """POST /people/{id}/loan — record loan via HTMX form."""
     amount = parse_float_or_none(request.POST.get("amount"))
-    account_id = request.POST.get("account_id", "")
     loan_type = request.POST.get("loan_type", "loan_out")
     note = request.POST.get("note", "").strip() or None
+    no_account = request.POST.get("no_account") == "1"
 
     if not amount or amount <= 0:
         return error_response("Amount is required", field="amount")
+
+    account_id: str | None = None
+    currency: str | None = None
+
+    if no_account:
+        currency = request.POST.get("currency", "").strip() or None
+        if not currency:
+            return error_response("Currency is required", field="currency")
+    else:
+        account_id = request.POST.get("account_id", "").strip() or None
+        if not account_id:
+            return error_response("Account is required", field="account_id")
 
     try:
         svc.record_loan(
@@ -148,6 +170,7 @@ def people_loan(
             account_id=account_id,
             amount=amount,
             loan_type=loan_type,
+            currency=currency,
             note=note,
         )
     except ValueError as e:
@@ -164,18 +187,31 @@ def people_repay(
 ) -> HttpResponse:
     """POST /people/{id}/repay — record repayment via HTMX form."""
     amount = parse_float_or_none(request.POST.get("amount"))
-    account_id = request.POST.get("account_id", "")
     note = request.POST.get("note", "").strip() or None
     fee_amount = parse_float_or_none(request.POST.get("fee_amount", ""))
+    no_account = request.POST.get("no_account") == "1"
 
     if not amount or amount <= 0:
         return error_response("Amount is required", field="amount")
+
+    account_id: str | None = None
+    currency: str | None = None
+
+    if no_account:
+        currency = request.POST.get("currency", "").strip() or None
+        if not currency:
+            return error_response("Currency is required", field="currency")
+    else:
+        account_id = request.POST.get("account_id", "").strip() or None
+        if not account_id:
+            return error_response("Account is required", field="account_id")
 
     try:
         svc.record_repayment(
             person_id=str(person_id),
             account_id=account_id,
             amount=amount,
+            currency=currency,
             note=note,
             fee_amount=fee_amount if fee_amount and fee_amount > 0 else None,
         )

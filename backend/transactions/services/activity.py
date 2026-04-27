@@ -51,7 +51,7 @@ def load_recent_transactions(user_id: str, limit: int = 10) -> list[TransactionR
     from the account's current_balance. No post-window filtering — just ORDER + LIMIT.
     """
     qs = (
-        Transaction.objects.filter(user_id=user_id)
+        Transaction.objects.filter(user_id=user_id, account__isnull=False)
         .select_related("account", "category")
         .annotate(
             account_name=F("account__name"),

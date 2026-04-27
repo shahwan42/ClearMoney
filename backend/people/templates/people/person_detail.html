@@ -75,11 +75,12 @@
             {% for tx in data.summary.transactions %}
             <div class="flex items-center justify-between py-2 border-b border-gray-50 dark:border-slate-700 last:border-0">
                 <div>
-                    <p class="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                         {% if tx.type == "loan_out" %}{% trans "Lent" %}
                         {% elif tx.type == "loan_in" %}{% trans "Borrowed" %}
                         {% elif tx.type == "loan_repayment" %}{% trans "Repayment" %}
                         {% else %}{{ tx.type }}{% endif %}
+                        {% if not tx.account_id %}<span class="text-xs font-normal bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded">{% trans "memo" %}</span>{% endif %}
                     </p>
                     <p class="text-xs text-gray-400 dark:text-slate-500">{{ tx.date|format_date_short }}</p>
                     {% if tx.note %}<p class="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{{ tx.note }}</p>{% endif %}

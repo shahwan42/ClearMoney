@@ -56,6 +56,8 @@ class Transaction(models.Model):
         on_delete=models.CASCADE,
         db_column="account_id",
         db_index=True,
+        null=True,
+        blank=True,
         related_name="transactions",
     )
     counter_account = models.ForeignKey(

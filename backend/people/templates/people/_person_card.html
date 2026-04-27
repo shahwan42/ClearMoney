@@ -60,13 +60,29 @@
             </fieldset>
             <input type="number" name="amount" step="0.01" min="0.01" required placeholder="{% trans "Amount" %}"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-            <select name="account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                <option value="">{% trans "Select account..." %}</option>
-                {% for acc in accounts %}
-                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
-                {% endfor %}
-            </select>
-            <input type="text" name="note" placeholder="{% trans "Note (optional)" %}"
+            <div id="loan-account-row-{{ person.id }}">
+                <select name="account_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="">{% trans "Select account..." %}</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="loan-currency-row-{{ person.id }}" class="hidden">
+                <select name="currency" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="">{% trans "Select currency..." %}</option>
+                    {% for cur in currencies %}
+                    <option value="{{ cur.code }}">{{ cur.code }}{% if cur.name %} — {{ cur.name }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 cursor-pointer select-none">
+                <input type="checkbox" name="no_account" value="1"
+                       onchange="toggleMemoLoan('{{ person.id }}', this.checked)"
+                       class="rounded border-gray-300 text-teal-600 focus:ring-teal-500">
+                {% trans "Don't affect account balance (memo)" %}
+            </label>
+            <input type="text" name="note" placeholder="{% trans "Note (optional)" %}" maxlength="500"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
             <button type="submit" class="w-full bg-teal-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-teal-700">
                 {% trans "Save" %}
@@ -78,16 +94,34 @@
         <form hx-post="/people/{{ person.id }}/repay" hx-target="#people-list" hx-swap="innerHTML" class="space-y-2">
             <input type="number" name="amount" step="0.01" min="0.01" required placeholder="{% trans "Repayment amount" %}"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-            <select name="account_id" required class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-                <option value="">{% trans "Select account..." %}</option>
-                {% for acc in accounts %}
-                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
-                {% endfor %}
-            </select>
-            <input type="text" name="note" placeholder="{% trans "Note (optional)" %}"
+            <div id="repay-account-row-{{ person.id }}">
+                <select name="account_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="">{% trans "Select account..." %}</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div id="repay-currency-row-{{ person.id }}" class="hidden">
+                <select name="currency" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="">{% trans "Select currency..." %}</option>
+                    {% for cur in currencies %}
+                    <option value="{{ cur.code }}">{{ cur.code }}{% if cur.name %} — {{ cur.name }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 cursor-pointer select-none">
+                <input type="checkbox" name="no_account" value="1"
+                       onchange="toggleMemoRepay('{{ person.id }}', this.checked)"
+                       class="rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                {% trans "Don't affect account balance (memo)" %}
+            </label>
+            <input type="text" name="note" placeholder="{% trans "Note (optional)" %}" maxlength="500"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
-            <input type="number" name="fee_amount" step="0.01" min="0.01" placeholder="{% trans "Fee (optional)" %}"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            <div id="repay-fee-row-{{ person.id }}">
+                <input type="number" name="fee_amount" step="0.01" min="0.01" placeholder="{% trans "Fee (optional)" %}"
+                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            </div>
             <button type="submit" class="w-full bg-amber-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-amber-700">
                 {% trans "Record Repayment" %}
             </button>
@@ -106,5 +140,15 @@ function toggleRepayForm(id) {
     var el = document.getElementById('repay-form-' + id);
     el.classList.toggle('hidden');
     document.getElementById('loan-form-' + id).classList.add('hidden');
+}
+function toggleMemoLoan(id, isMemo) {
+    document.getElementById('loan-account-row-' + id).classList.toggle('hidden', isMemo);
+    document.getElementById('loan-currency-row-' + id).classList.toggle('hidden', !isMemo);
+}
+function toggleMemoRepay(id, isMemo) {
+    document.getElementById('repay-account-row-' + id).classList.toggle('hidden', isMemo);
+    document.getElementById('repay-currency-row-' + id).classList.toggle('hidden', !isMemo);
+    var feeRow = document.getElementById('repay-fee-row-' + id);
+    if (feeRow) feeRow.classList.toggle('hidden', isMemo);
 }
 </script>

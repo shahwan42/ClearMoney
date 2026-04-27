@@ -297,23 +297,33 @@ class PersonService:
     def record_loan(
         self,
         person_id: str,
-        account_id: str,
+        account_id: str | None,
         amount: float,
         loan_type: str,
+        currency: str | None = None,
         note: str | None = None,
         tx_date: date | None = None,
     ) -> dict[str, Any]:
-        """Record a loan (lend or borrow) and atomically update balances."""
+        """Record a loan (lend or borrow) and atomically update balances.
+
+        Pass account_id for a double-entry loan (affects account balance).
+        Pass account_id=None + currency for a single-entry/memo loan.
+        """
         if amount <= 0:
             raise ValueError("amount must be positive")
-        if not person_id or not account_id:
-            raise ValueError("person_id and account_id are required")
+        if not person_id:
+            raise ValueError("person_id is required")
         if loan_type not in ("loan_out", "loan_in"):
             raise ValueError("type must be loan_out or loan_in")
+        if not account_id and not currency:
+            raise ValueError("either account_id or currency is required")
 
-        # Currency override from account (never trust form input)
-        acc = self._get_account(account_id)
-        currency = acc["currency"]
+        if account_id:
+            # Double-entry: currency comes from account (never trust form input)
+            acc = self._get_account(account_id)
+            currency = acc["currency"]
+
+        assert currency is not None  # guaranteed by earlier validation
 
         if loan_type == "loan_out":
             account_delta = -amount
@@ -328,29 +338,28 @@ class PersonService:
 
         tx_id = uuid.uuid4()
         person_delta_decimal = Decimal(str(person_delta))
-        account_delta_decimal = Decimal(str(account_delta))
         now = django_tz.now()
 
         with transaction.atomic():
-            # 1. Create transaction
             tx = Transaction.objects.create(
                 id=tx_id,
                 user_id=self.user_id,
                 type=loan_type,
                 amount=amount,
                 currency=currency,
-                account_id=account_id,
+                account_id=account_id,  # None for single-entry
                 person_id=person_id,
                 note=note,
                 date=tx_date,
-                balance_delta=account_delta,
+                balance_delta=account_delta if account_id else 0,
             )
 
-            # 2. Atomic F() update
-            Account.objects.for_user(self.user_id).filter(id=account_id).update(
-                current_balance=F("current_balance") + account_delta_decimal,
-                updated_at=now,
-            )
+            if account_id:
+                account_delta_decimal = Decimal(str(account_delta))
+                Account.objects.for_user(self.user_id).filter(id=account_id).update(
+                    current_balance=F("current_balance") + account_delta_decimal,
+                    updated_at=now,
+                )
 
             self._update_person_balance(
                 person_id,
@@ -360,9 +369,10 @@ class PersonService:
             )
 
         logger.info(
-            "person.loan_recorded type=%s currency=%s user=%s",
+            "person.loan_recorded type=%s currency=%s memo=%s user=%s",
             loan_type,
             currency,
+            account_id is None,
             self.user_id,
         )
         return _tx_instance_to_dict(tx)
@@ -370,23 +380,31 @@ class PersonService:
     def record_repayment(
         self,
         person_id: str,
-        account_id: str,
+        account_id: str | None,
         amount: float,
+        currency: str | None = None,
         note: str | None = None,
         tx_date: date | None = None,
         fee_amount: float | None = None,
     ) -> dict[str, Any]:
-        """Record a loan repayment and atomically update balances."""
+        """Record a loan repayment and atomically update balances.
+
+        Pass account_id for a double-entry repayment (affects account balance).
+        Pass account_id=None + currency for a single-entry/memo repayment.
+        """
         if amount <= 0:
             raise ValueError("amount must be positive")
-        if not person_id or not account_id:
-            raise ValueError("person_id and account_id are required")
+        if not person_id:
+            raise ValueError("person_id is required")
+        if not account_id and not currency:
+            raise ValueError("either account_id or currency is required")
 
-        # Currency override from account
-        acc = self._get_account(account_id)
-        currency = acc["currency"]
+        if account_id:
+            acc = self._get_account(account_id)
+            currency = acc["currency"]
 
-        # Fetch current person balance to determine repayment direction
+        assert currency is not None  # guaranteed by earlier validation
+
         person = self.get_by_id(person_id)
         if not person:
             raise ValueError(f"Person not found: {person_id}")
@@ -394,11 +412,9 @@ class PersonService:
         relevant_balance = self._get_person_balance_value(person_id, currency)
 
         if relevant_balance > 0:
-            # They owe me -> they're paying back -> money enters my account
             account_delta = amount
             person_delta = -amount
         else:
-            # I owe them -> I'm paying back -> money leaves my account
             account_delta = -amount
             person_delta = amount
 
@@ -408,29 +424,28 @@ class PersonService:
 
         tx_id = uuid.uuid4()
         person_delta_decimal = Decimal(str(person_delta))
-        account_delta_decimal = Decimal(str(account_delta))
         now = django_tz.now()
 
         with transaction.atomic():
-            # 1. Create loan_repayment transaction
             tx = Transaction.objects.create(
                 id=tx_id,
                 user_id=self.user_id,
                 type="loan_repayment",
                 amount=amount,
                 currency=currency,
-                account_id=account_id,
+                account_id=account_id,  # None for single-entry
                 person_id=person_id,
                 note=note,
                 date=tx_date,
-                balance_delta=account_delta,
+                balance_delta=account_delta if account_id else 0,
             )
 
-            # 2. Atomic F() update
-            Account.objects.for_user(self.user_id).filter(id=account_id).update(
-                current_balance=F("current_balance") + account_delta_decimal,
-                updated_at=now,
-            )
+            if account_id:
+                account_delta_decimal = Decimal(str(account_delta))
+                Account.objects.for_user(self.user_id).filter(id=account_id).update(
+                    current_balance=F("current_balance") + account_delta_decimal,
+                    updated_at=now,
+                )
 
             self._update_person_balance(
                 person_id,
@@ -439,7 +454,7 @@ class PersonService:
                 now=now,
             )
 
-        if fee_amount and fee_amount > 0:
+        if fee_amount and fee_amount > 0 and account_id:
             from transactions.services import TransactionService
 
             TransactionService(self.user_id, self.tz).create_fee_for_transaction(
@@ -449,8 +464,9 @@ class PersonService:
             )
 
         logger.info(
-            "person.repayment_recorded currency=%s user=%s",
+            "person.repayment_recorded currency=%s memo=%s user=%s",
             currency,
+            account_id is None,
             self.user_id,
         )
         return _tx_instance_to_dict(tx)

@@ -193,6 +193,36 @@ class TestPeopleLoan:
         assert b"125" in response.content
         assert b"EUR" in response.content
 
+    def test_memo_loan_no_account_uses_currency(self, client, people_view_data):
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        c.post("/people/add", {"name": "MemoLender"})
+        persons = json.loads(c.get("/api/persons").content)
+        person_id = persons[0]["id"]
+
+        response = c.post(
+            f"/people/{person_id}/loan",
+            {
+                "amount": "750",
+                "no_account": "1",
+                "currency": "EGP",
+                "loan_type": "loan_out",
+            },
+        )
+        assert response.status_code == 200
+        assert b"750" in response.content
+
+    def test_memo_loan_missing_currency_returns_error(self, client, people_view_data):
+        c = set_auth_cookie(client, people_view_data["session_token"])
+        c.post("/people/add", {"name": "BadMemo"})
+        persons = json.loads(c.get("/api/persons").content)
+        person_id = persons[0]["id"]
+
+        response = c.post(
+            f"/people/{person_id}/loan",
+            {"amount": "100", "no_account": "1", "loan_type": "loan_out"},
+        )
+        assert response.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # Repayment
