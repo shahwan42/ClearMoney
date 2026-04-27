@@ -1826,3 +1826,311 @@ class TestApplyPostCreateLogic:
 
         # Test explicit deallocation
         svc.apply_post_create_logic(tx, fee_amount=None, va_id="", tx_date=None)
+
+
+# ---------------------------------------------------------------------------
+# update_transfer tests (RED — method does not exist yet)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestUpdateTransfer:
+    def _make_transfer(self, tx_data, amount=2000, fee_amount=None):
+        svc = _svc(tx_data["user_id"])
+        dest = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Dest EGP",
+            currency="EGP",
+            current_balance=5000,
+            initial_balance=5000,
+        )
+        debit, credit = svc.create_transfer(
+            tx_data["egp_id"],
+            str(dest.id),
+            amount,
+            None,
+            "original note",
+            date(2026, 3, 15),
+            fee_amount=fee_amount,
+        )
+        return svc, debit, credit, str(dest.id)
+
+    def test_update_amount_adjusts_both_balances(self, tx_data):
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        # source: 10000-2000=8000, dest: 5000+2000=7000
+        assert _get_balance(tx_data["egp_id"]) == 8000
+        assert _get_balance(dest_id) == 7000
+
+        svc.update_transfer(
+            debit["id"],
+            amount=3000,
+            note="updated",
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+        )
+
+        # source: 8000 - (3000-2000) = 7000, dest: 7000 + (3000-2000) = 8000
+        assert _get_balance(tx_data["egp_id"]) == 7000
+        assert _get_balance(dest_id) == 8000
+
+    def test_update_amount_syncs_both_leg_records(self, tx_data):
+        from decimal import Decimal
+
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        svc.update_transfer(
+            debit["id"],
+            amount=500,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+        )
+
+        debit_obj = Transaction.objects.get(id=debit["id"])
+        credit_obj = Transaction.objects.get(id=credit["id"])
+        assert Decimal(str(debit_obj.amount)) == Decimal("500")
+        assert Decimal(str(debit_obj.balance_delta)) == Decimal("-500")
+        assert Decimal(str(credit_obj.amount)) == Decimal("500")
+        assert Decimal(str(credit_obj.balance_delta)) == Decimal("500")
+
+    def test_update_note_syncs_both_legs(self, tx_data):
+        svc, debit, credit, dest_id = self._make_transfer(tx_data)
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note="new note",
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+        )
+
+        debit_obj = Transaction.objects.get(id=debit["id"])
+        credit_obj = Transaction.objects.get(id=credit["id"])
+        assert debit_obj.note == "new note"
+        assert credit_obj.note == "new note"
+
+    def test_update_date_syncs_both_legs(self, tx_data):
+        svc, debit, credit, dest_id = self._make_transfer(tx_data)
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 4, 1),
+            fee_amount=None,
+        )
+
+        debit_obj = Transaction.objects.get(id=debit["id"])
+        credit_obj = Transaction.objects.get(id=credit["id"])
+        assert debit_obj.date == date(2026, 4, 1)
+        assert credit_obj.date == date(2026, 4, 1)
+
+    def test_update_fee_added_atomically(self, tx_data):
+        from decimal import Decimal
+
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=50.0,
+        )
+
+        # source: 8000 - 50 = 7950
+        assert _get_balance(tx_data["egp_id"]) == 7950
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"], note="Transfer fee"
+        ).first()
+        assert fee_tx is not None
+        assert Decimal(str(fee_tx.amount)) == Decimal("50")
+
+    def test_update_fee_changed_adjusts_balance(self, tx_data):
+        svc, debit, credit, dest_id = self._make_transfer(
+            tx_data, amount=2000, fee_amount=50.0
+        )
+        # source: 10000 - 2000 - 50 = 7950
+        assert _get_balance(tx_data["egp_id"]) == 7950
+
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=100.0,
+        )
+        # source: 7950 + 50 - 100 = 7900
+        assert _get_balance(tx_data["egp_id"]) == 7900
+
+    def test_update_fee_removed_restores_balance(self, tx_data):
+        svc, debit, credit, dest_id = self._make_transfer(
+            tx_data, amount=2000, fee_amount=50.0
+        )
+        assert _get_balance(tx_data["egp_id"]) == 7950
+
+        svc.update_transfer(
+            debit["id"],
+            amount=2000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            fee_amount=None,
+        )
+        # fee reversed: 7950 + 50 = 8000
+        assert _get_balance(tx_data["egp_id"]) == 8000
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], note="Transfer fee"
+            ).count()
+            == 0
+        )
+
+    def test_not_found_raises(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="not found"):
+            svc.update_transfer(
+                str(uuid.uuid4()),
+                amount=100,
+                note=None,
+                tx_date=date(2026, 3, 15),
+                fee_amount=None,
+            )
+
+    def test_all_changes_atomic_on_error(self, tx_data):
+        """If fee update fails inside the atomic block, no partial state committed."""
+        from unittest.mock import patch
+
+        svc, debit, credit, dest_id = self._make_transfer(tx_data, amount=2000)
+        src_balance_before = _get_balance(tx_data["egp_id"])
+        dest_balance_before = _get_balance(dest_id)
+
+        with patch.object(
+            type(svc),
+            "_update_fee_in_atomic",
+            side_effect=Exception("simulated failure"),
+        ):
+            with pytest.raises(Exception, match="simulated failure"):
+                svc.update_transfer(
+                    debit["id"],
+                    amount=3000,
+                    note=None,
+                    tx_date=date(2026, 3, 15),
+                    fee_amount=50.0,
+                )
+
+        # Balances must be unchanged (atomic rollback)
+        assert _get_balance(tx_data["egp_id"]) == src_balance_before
+        assert _get_balance(dest_id) == dest_balance_before
+
+
+# ---------------------------------------------------------------------------
+# update_exchange tests (RED — method does not exist yet)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestUpdateExchange:
+    def _make_exchange(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        # USD→EGP: sell 100 USD at rate 50 → get 5000 EGP
+        debit, credit = svc.create_exchange(
+            tx_data["usd_id"],
+            tx_data["egp_id"],
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note="original note",
+            tx_date=date(2026, 3, 15),
+        )
+        return svc, debit, credit
+
+    def test_update_amount_adjusts_both_balances(self, tx_data):
+        svc, debit, credit = self._make_exchange(tx_data)
+        # usd: 500-100=400, egp: 10000+5000=15000
+        assert _get_balance(tx_data["usd_id"]) == 400
+        assert _get_balance(tx_data["egp_id"]) == 15000
+
+        # Update: sell 200 USD at rate 50 → get 10000 EGP
+        svc.update_exchange(
+            debit["id"],
+            amount=200,
+            rate=50.0,
+            counter_amount=None,
+            note="updated",
+            tx_date=date(2026, 3, 15),
+        )
+        # usd: 400 - (200-100) = 300, egp: 15000 + (10000-5000) = 20000
+        assert _get_balance(tx_data["usd_id"]) == 300
+        assert _get_balance(tx_data["egp_id"]) == 20000
+
+    def test_update_rate_syncs_both_legs(self, tx_data):
+        from decimal import Decimal
+
+        svc, debit, credit = self._make_exchange(tx_data)
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=60.0,
+            counter_amount=None,
+            note=None,
+            tx_date=date(2026, 3, 15),
+        )
+        debit_obj = Transaction.objects.get(id=debit["id"])
+        credit_obj = Transaction.objects.get(id=credit["id"])
+        assert Decimal(str(debit_obj.exchange_rate)) == Decimal("60")
+        assert Decimal(str(credit_obj.exchange_rate)) == Decimal("60")
+
+    def test_update_counter_amount_syncs_credit_leg(self, tx_data):
+        from decimal import Decimal
+
+        svc, debit, credit = self._make_exchange(tx_data)
+        # Change: sell 100 USD, get 6000 EGP (rate=60)
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=None,
+            counter_amount=6000,
+            note=None,
+            tx_date=date(2026, 3, 15),
+        )
+        credit_obj = Transaction.objects.get(id=credit["id"])
+        assert Decimal(str(credit_obj.amount)) == Decimal("6000")
+        assert Decimal(str(credit_obj.balance_delta)) == Decimal("6000")
+
+    def test_update_note_syncs_both_legs(self, tx_data):
+        svc, debit, credit = self._make_exchange(tx_data)
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note="wire fee",
+            tx_date=date(2026, 3, 15),
+        )
+        assert Transaction.objects.get(id=debit["id"]).note == "wire fee"
+        assert Transaction.objects.get(id=credit["id"]).note == "wire fee"
+
+    def test_update_logs_new_rate(self, tx_data):
+        svc, debit, credit = self._make_exchange(tx_data)
+        count_before = ExchangeRateLog.objects.count()
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=55.0,
+            counter_amount=None,
+            note=None,
+            tx_date=date(2026, 3, 15),
+        )
+        assert ExchangeRateLog.objects.count() == count_before + 1
+        log = ExchangeRateLog.objects.order_by("-created_at").first()
+        assert log is not None
+        assert float(log.rate) == 55.0
+
+    def test_not_found_raises(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        with pytest.raises(ValueError, match="not found"):
+            svc.update_exchange(
+                str(uuid.uuid4()),
+                amount=100,
+                rate=50.0,
+                counter_amount=None,
+                note=None,
+                tx_date=date(2026, 3, 15),
+            )

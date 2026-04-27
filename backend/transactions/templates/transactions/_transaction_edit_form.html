@@ -9,14 +9,96 @@
       hx-encoding="multipart/form-data"
       class="space-y-4">
     {% csrf_token %}
-    {# Use _method override for PUT if needed, but we changed view to handle POST for updates with files #}
-    
-    <!-- Type Selector (Fieldset for accessibility) -->
+
+    {% if tx.type == "transfer" %}
+    <!-- Transfer edit: amount + fee + note + date. Both legs updated atomically. -->
+
+    <div class="text-xs text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 rounded-lg px-3 py-2">
+        {% trans "Transfer" %} · {{ tx.currency }}
+    </div>
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-amount">{% trans "Amount" %}</label>
+        <input type="number" name="amount" id="edit-tx-amount" value="{{ tx.amount }}" step="0.01" min="0.01" required
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-date">{% trans "Date" %}</label>
+            <input type="date" name="date" id="edit-tx-date" value="{{ tx.date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-fee">{% trans "Fee (optional)" %}</label>
+            <input type="number" name="fee_amount" id="edit-tx-fee" value="{{ existing_fee_amount }}" step="0.01" min="0" placeholder="0.00"
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+    </div>
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-note">{% trans "Note (optional)" %}</label>
+        <input type="text" name="note" id="edit-tx-note" value="{{ tx.note|default:'' }}"
+               maxlength="500" placeholder="{% trans "What was this for?" %}"
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    {% elif tx.type == "exchange" %}
+    <!-- Exchange edit: amount + rate/counter_amount + note + date. Both legs updated atomically. -->
+
+    <div class="text-xs text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 rounded-lg px-3 py-2">
+        {% trans "Exchange" %} · {{ tx.currency }}{% if counter_account %} → {{ counter_account.currency }}{% endif %}
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-amount">
+                {% trans "Amount" %} ({{ tx.currency }})
+            </label>
+            <input type="number" name="amount" id="edit-tx-amount" value="{{ tx.amount }}" step="0.01" min="0.01" required
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-counter">
+                {% trans "Received" %}{% if counter_account %} ({{ counter_account.currency }}){% endif %}
+            </label>
+            <input type="number" name="counter_amount" id="edit-tx-counter" value="{{ tx.counter_amount }}" step="0.01" min="0.01"
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-rate">
+                {% trans "Rate (EGP per 1 USD)" %}
+            </label>
+            <input type="number" name="rate" id="edit-tx-rate" value="{{ tx.exchange_rate }}" step="0.000001" min="0"
+                   placeholder="e.g. 50.5"
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-date">{% trans "Date" %}</label>
+            <input type="date" name="date" id="edit-tx-date" value="{{ tx.date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+    </div>
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-note">{% trans "Note (optional)" %}</label>
+        <input type="text" name="note" id="edit-tx-note" value="{{ tx.note|default:'' }}"
+               maxlength="500" placeholder="{% trans "What was this for?" %}"
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    {% else %}
+    <!-- Regular expense/income edit -->
+
+    <!-- Type Selector -->
     <fieldset class="space-y-1">
         <legend class="text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Transaction Type" %}</legend>
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <select name="type" id="edit-tx-type" 
+                <select name="type" id="edit-tx-type"
                         class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
                     <option value="expense" {% if tx.type == "expense" %}selected{% endif %}>{% trans "Expense" %}</option>
                     <option value="income" {% if tx.type == "income" %}selected{% endif %}>{% trans "Income" %}</option>
@@ -65,22 +147,22 @@
             </select>
         </div>
         {% endif %}
-        </div>
+    </div>
 
-        <!-- More options toggle -->
-        <button type="button" onclick="openEditMore()" id="edit-more-options-toggle"
-            aria-expanded="false"
-            class="text-xs font-semibold text-gray-500 hover:text-teal-600 transition-colors">
-        {% trans "More options" %}
-        </button>
+    <!-- More options toggle -->
+    <button type="button" onclick="openEditMore()" id="edit-more-options-toggle"
+        aria-expanded="false"
+        class="text-xs font-semibold text-gray-500 hover:text-teal-600 transition-colors">
+    {% trans "More options" %}
+    </button>
 
-        <script>
-        function openEditMore() {
-        document.getElementById('edit-more-options').classList.remove('hidden');
-        const toggle = document.getElementById('edit-more-options-toggle');
-        toggle.classList.add('hidden');
-        toggle.setAttribute('aria-expanded', 'true');
-        }
+    <script>
+    function openEditMore() {
+    document.getElementById('edit-more-options').classList.remove('hidden');
+    const toggle = document.getElementById('edit-more-options-toggle');
+    toggle.classList.add('hidden');
+    toggle.setAttribute('aria-expanded', 'true');
+    }
 
     {% if selected_va_id or existing_fee_amount %}
     openEditMore();
@@ -113,6 +195,8 @@
         <input type="file" name="attachment" id="edit-tx-attachment" accept="image/*,application/pdf"
                class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100">
     </div>
+
+    {% endif %}
 
     <div class="grid grid-cols-2 gap-3 pt-2">
         <button type="submit"

@@ -8,6 +8,8 @@ Last updated: 2026-04-27
 | --- | --- | --- | --- | --- |
 | [165](wip/165-single-entry-loans.md) | Single-entry loans | feature | medium | 2026-04-27 |
 
+
+
 ## Pending
 
 | ID | Title | Type | Priority | Updated |
@@ -38,6 +40,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [169](done/169-atomic-transfer-exchange-update.md) | Atomic transfer/exchange update (both legs + fee) | feature | high | 2026-04-27 |
 | [168](done/168-account-soft-delete.md) | Account soft-delete (remove without losing history) | feature | high | 2026-04-27 |
 | [167](done/167-dormant-accounts-enforcement.md) | Dormant accounts enforcement | improvement | medium | 2026-04-27 |
 | [166](done/166-transfer-delete-warning.md) | Warn user when deleting a transfer removes both account legs | improvement | medium | 2026-04-27 |

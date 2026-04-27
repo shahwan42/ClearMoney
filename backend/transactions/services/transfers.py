@@ -278,3 +278,233 @@ class TransferMixin:
         debit_tx = self.get_by_id(debit_id)  # type: ignore[attr-defined]
         credit_tx = self.get_by_id(credit_id)  # type: ignore[attr-defined]
         return debit_tx or {}, credit_tx or {}
+
+    # -------------------------------------------------------------------
+    # Update
+    # -------------------------------------------------------------------
+
+    def update_transfer(
+        self,
+        tx_id: str,
+        amount: float | int | Decimal,
+        note: str | None,
+        tx_date: date,
+        fee_amount: float | None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Update both legs of a transfer atomically, including optional fee.
+
+        Returns (debit_leg, credit_leg) dicts after update.
+        """
+        uid = self.user_id  # type: ignore[attr-defined]
+
+        tx = self.get_by_id(tx_id)  # type: ignore[attr-defined]
+        if not tx:
+            raise ValueError(f"Transaction not found: {tx_id}")
+        if tx.get("type") != "transfer":
+            raise ValueError(f"Transaction {tx_id} is not a transfer")
+
+        linked_id = tx.get("linked_transaction_id")
+        if not linked_id:
+            raise ValueError(f"Transfer {tx_id} has no linked leg")
+
+        linked_tx = self.get_by_id(linked_id)  # type: ignore[attr-defined]
+        if not linked_tx:
+            raise ValueError(f"Linked leg not found: {linked_id}")
+
+        new_amount = Decimal(str(amount))
+        old_amount = Decimal(str(tx["amount"]))
+        amount_delta = new_amount - old_amount
+
+        now = django_tz.now()
+
+        with transaction.atomic():
+            Transaction.objects.filter(user_id=uid, id=tx_id).update(
+                amount=new_amount,
+                balance_delta=-new_amount,
+                note=note,
+                date=tx_date,
+                updated_at=now,
+            )
+            Transaction.objects.filter(user_id=uid, id=linked_id).update(
+                amount=new_amount,
+                balance_delta=new_amount,
+                note=note,
+                date=tx_date,
+                updated_at=now,
+            )
+            if amount_delta != 0:
+                Account.objects.filter(user_id=uid, id=tx["account_id"]).update(
+                    current_balance=F("current_balance") - amount_delta,
+                    updated_at=now,
+                )
+                Account.objects.filter(user_id=uid, id=linked_tx["account_id"]).update(
+                    current_balance=F("current_balance") + amount_delta,
+                    updated_at=now,
+                )
+            self._update_fee_in_atomic(
+                uid, tx_id, tx["account_id"], fee_amount, tx_date, now
+            )
+
+        debit = self.get_by_id(tx_id)  # type: ignore[attr-defined]
+        credit = self.get_by_id(linked_id)  # type: ignore[attr-defined]
+        logger.info("transfer.updated id=%s user=%s", tx_id, uid)
+        return debit or {}, credit or {}
+
+    def update_exchange(
+        self,
+        tx_id: str,
+        amount: float | None,
+        rate: float | None,
+        counter_amount: float | None,
+        note: str | None,
+        tx_date: date,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Update both legs of an exchange atomically.
+
+        Accepts same (amount, rate, counter_amount) triplet as create_exchange.
+        Returns (debit_leg, credit_leg) dicts after update.
+        """
+        uid = self.user_id  # type: ignore[attr-defined]
+
+        tx = self.get_by_id(tx_id)  # type: ignore[attr-defined]
+        if not tx:
+            raise ValueError(f"Transaction not found: {tx_id}")
+        if tx.get("type") != "exchange":
+            raise ValueError(f"Transaction {tx_id} is not an exchange")
+
+        linked_id = tx.get("linked_transaction_id")
+        if not linked_id:
+            raise ValueError(f"Exchange {tx_id} has no linked leg")
+
+        linked_tx = self.get_by_id(linked_id)  # type: ignore[attr-defined]
+        if not linked_tx:
+            raise ValueError(f"Linked leg not found: {linked_id}")
+
+        src_acc = self._get_account(tx["account_id"])  # type: ignore[attr-defined]
+        dest_acc = self._get_account(linked_tx["account_id"])  # type: ignore[attr-defined]
+
+        source_is_egp = src_acc["currency"] == "EGP"
+        adj_rate = rate
+        if source_is_egp and adj_rate is not None and adj_rate > 0:
+            adj_rate = 1.0 / adj_rate
+
+        resolved_amount, formula_rate, resolved_counter = resolve_exchange_fields(
+            amount, adj_rate, counter_amount
+        )
+
+        display_rate = formula_rate
+        if source_is_egp:
+            display_rate = 1.0 / formula_rate
+
+        old_debit_delta = Decimal(str(tx["balance_delta"]))
+        old_credit_delta = Decimal(str(linked_tx["balance_delta"]))
+
+        new_debit_delta = -Decimal(str(resolved_amount))
+        new_credit_delta = Decimal(str(resolved_counter))
+
+        now = django_tz.now()
+
+        with transaction.atomic():
+            Transaction.objects.filter(user_id=uid, id=tx_id).update(
+                amount=Decimal(str(resolved_amount)),
+                balance_delta=new_debit_delta,
+                exchange_rate=round(display_rate, 6),
+                counter_amount=round(resolved_counter, 2),
+                note=note,
+                date=tx_date,
+                updated_at=now,
+            )
+            Transaction.objects.filter(user_id=uid, id=linked_id).update(
+                amount=Decimal(str(resolved_counter)),
+                balance_delta=new_credit_delta,
+                exchange_rate=round(display_rate, 6),
+                counter_amount=round(resolved_amount, 2),
+                note=note,
+                date=tx_date,
+                updated_at=now,
+            )
+            debit_adjustment = new_debit_delta - old_debit_delta
+            if debit_adjustment != 0:
+                Account.objects.filter(user_id=uid, id=tx["account_id"]).update(
+                    current_balance=F("current_balance") + debit_adjustment,
+                    updated_at=now,
+                )
+            credit_adjustment = new_credit_delta - old_credit_delta
+            if credit_adjustment != 0:
+                Account.objects.filter(user_id=uid, id=linked_tx["account_id"]).update(
+                    current_balance=F("current_balance") + credit_adjustment,
+                    updated_at=now,
+                )
+
+        # Log rate (non-critical)
+        try:
+            source_label = f"{src_acc['currency']}/{dest_acc['currency']}"
+            ExchangeRateLog.objects.create(
+                date=tx_date,
+                rate=round(display_rate, 6),
+                source=source_label,
+                note=note,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to log exchange rate on update (non-critical)", exc_info=True
+            )
+
+        debit = self.get_by_id(tx_id)  # type: ignore[attr-defined]
+        credit = self.get_by_id(linked_id)  # type: ignore[attr-defined]
+        logger.info("exchange.updated id=%s user=%s", tx_id, uid)
+        return debit or {}, credit or {}
+
+    def _update_fee_in_atomic(
+        self,
+        uid: str,
+        tx_id: str,
+        account_id: str,
+        fee_amount: float | None,
+        tx_date: date,
+        now: Any,
+    ) -> None:
+        """Add, change, or remove fee inside an already-open atomic block."""
+        existing_fee = Transaction.objects.filter(
+            user_id=uid,
+            linked_transaction_id=tx_id,
+            note="Transfer fee",  # type: ignore[misc]
+        ).first()
+        new_fee = Decimal(str(fee_amount)) if fee_amount and fee_amount > 0 else None
+        old_fee = Decimal(str(existing_fee.amount)) if existing_fee else None
+
+        if old_fee == new_fee:
+            return
+
+        if existing_fee:
+            Account.objects.filter(user_id=uid, id=account_id).update(
+                current_balance=F("current_balance")
+                + Decimal(str(existing_fee.amount)),
+                updated_at=now,
+            )
+            existing_fee.delete()
+
+        if new_fee:
+            fees_cat = (
+                Category.objects.filter(user_id=uid, name__en__icontains="fee")
+                .order_by("name")
+                .first()
+            )
+            acc = Account.objects.get(id=account_id)
+            Transaction.objects.create(
+                id=str(uuid.uuid4()),
+                user_id=uid,
+                type="expense",
+                amount=new_fee,
+                currency=acc.currency,
+                account_id=account_id,
+                linked_transaction_id=tx_id,
+                category_id=fees_cat.id if fees_cat else None,
+                note="Transfer fee",
+                date=tx_date,
+                balance_delta=-new_fee,
+            )
+            Account.objects.filter(user_id=uid, id=account_id).update(
+                current_balance=F("current_balance") - new_fee,
+                updated_at=now,
+            )

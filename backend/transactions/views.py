@@ -268,12 +268,27 @@ def transaction_edit_form(
     virtual_accounts = svc.get_virtual_accounts()
     selected_va_id = svc.get_allocation_for_tx(str(tx_id))
 
-    # Look up existing linked fee transaction
+    # Look up existing linked fee transaction (covers both "Transaction fee" and "Transfer fee")
     fee_tx = (
         Transaction.objects.for_user(request.user_id)
-        .filter(linked_transaction_id=str(tx_id), note="Transaction fee")
+        .filter(
+            linked_transaction_id=str(tx_id),
+            note__in=["Transaction fee", "Transfer fee"],
+        )
         .first()
     )
+
+    # For exchanges, also fetch counter account info
+    counter_account = None
+    if tx.get("type") == "exchange" and tx.get("counter_account_id"):
+        from accounts.models import Account as _Acc
+
+        counter_account = (
+            _Acc.objects.for_user(request.user_id)
+            .filter(id=tx["counter_account_id"])
+            .values("name", "currency")
+            .first()
+        )
 
     from transactions.services import TagService
 
@@ -294,6 +309,7 @@ def transaction_edit_form(
             "existing_fee_amount": fee_tx.amount if fee_tx else "",
             "tag_names": tag_names,
             "today": date.today(),
+            "counter_account": counter_account,
         },
     )
 
@@ -409,34 +425,123 @@ def transaction_update(
         att_err = _validate_attachment(attachment)
         if att_err:
             return error_response(att_err)
-        data = {
-            "type": data_source.get("type", ""),
-            "amount": data_source.get("amount", "0"),
-            "category_id": data_source.get("category_id", ""),
-            "note": data_source.get("note", ""),
-            "date": data_source.get("date", ""),
-            "tags": data_source.get("tags", ""),
-            "attachment": attachment,
-        }
-        tx, _ = svc.update(str(tx_id), data)
 
-        # Handle fee and VA reallocation via service helper
-        svc.apply_post_create_logic(
-            tx,
-            fee_amount=parse_float_or_none(data_source.get("fee_amount", "")),
-            va_id=data_source.get("virtual_account_id"),
-            tx_date=data.get("date"),
-        )
+        # Fetch existing tx to determine type before branching
+        existing = svc.get_by_id(str(tx_id))
+        if not existing:
+            return HttpResponse("Not found", status=404)
 
-        # Return updated row with retarget headers
-        enriched = svc.get_by_id_enriched(str(tx_id))
-        response = render(
-            request, "transactions/_transaction_row.html", {"tx": enriched}
-        )
-        response["HX-Retarget"] = f"#tx-{tx_id}"
-        response["HX-Reswap"] = "outerHTML"
-        response["HX-Trigger"] = "closeEditSheet"
-        return response
+        tx_type = existing["type"]
+        tx_date_raw = data_source.get("date", "")
+        tx_date = date.fromisoformat(tx_date_raw) if tx_date_raw else date.today()
+        note = data_source.get("note", "") or None
+
+        if tx_type == "transfer":
+            amount = parse_float_or_none(data_source.get("amount", ""))
+            if not amount:
+                return error_response("Amount is required")
+            fee_amount = parse_float_or_none(data_source.get("fee_amount", ""))
+            debit, credit = svc.update_transfer(
+                str(tx_id),
+                amount=amount,
+                note=note,
+                tx_date=tx_date,
+                fee_amount=fee_amount,
+            )
+            linked_id = debit.get("linked_transaction_id") or credit.get(
+                "linked_transaction_id"
+            )
+            enriched_primary = svc.get_by_id_enriched(str(tx_id))
+            response = render(
+                request, "transactions/_transaction_row.html", {"tx": enriched_primary}
+            )
+            response["HX-Retarget"] = f"#tx-{tx_id}"
+            response["HX-Reswap"] = "outerHTML"
+            response["HX-Trigger"] = "closeEditSheet"
+            if linked_id:
+                enriched_linked = svc.get_by_id_enriched(str(linked_id))
+                oob = render(
+                    request,
+                    "transactions/_transaction_row.html",
+                    {"tx": enriched_linked},
+                )
+                oob_html = oob.content.decode()
+                # Inject OOB swap attribute
+                oob_html = oob_html.replace(
+                    f'id="tx-{linked_id}"',
+                    f'id="tx-{linked_id}" hx-swap-oob="outerHTML:#tx-{linked_id}"',
+                    1,
+                )
+                response.content = response.content + oob_html.encode()
+            return response
+
+        elif tx_type == "exchange":
+            amount = parse_float_or_none(data_source.get("amount", ""))
+            rate = parse_float_or_none(data_source.get("rate", ""))
+            counter_amount = parse_float_or_none(data_source.get("counter_amount", ""))
+            debit, credit = svc.update_exchange(
+                str(tx_id),
+                amount=amount,
+                rate=rate,
+                counter_amount=counter_amount,
+                note=note,
+                tx_date=tx_date,
+            )
+            linked_id = debit.get("linked_transaction_id") or credit.get(
+                "linked_transaction_id"
+            )
+            enriched_primary = svc.get_by_id_enriched(str(tx_id))
+            response = render(
+                request, "transactions/_transaction_row.html", {"tx": enriched_primary}
+            )
+            response["HX-Retarget"] = f"#tx-{tx_id}"
+            response["HX-Reswap"] = "outerHTML"
+            response["HX-Trigger"] = "closeEditSheet"
+            if linked_id:
+                enriched_linked = svc.get_by_id_enriched(str(linked_id))
+                oob = render(
+                    request,
+                    "transactions/_transaction_row.html",
+                    {"tx": enriched_linked},
+                )
+                oob_html = oob.content.decode()
+                oob_html = oob_html.replace(
+                    f'id="tx-{linked_id}"',
+                    f'id="tx-{linked_id}" hx-swap-oob="outerHTML:#tx-{linked_id}"',
+                    1,
+                )
+                response.content = response.content + oob_html.encode()
+            return response
+
+        else:
+            data = {
+                "type": data_source.get("type", ""),
+                "amount": data_source.get("amount", "0"),
+                "category_id": data_source.get("category_id", ""),
+                "note": note,
+                "date": tx_date_raw,
+                "tags": data_source.get("tags", ""),
+                "attachment": attachment,
+            }
+            tx, _ = svc.update(str(tx_id), data)
+
+            # Handle fee and VA reallocation via service helper
+            svc.apply_post_create_logic(
+                tx,
+                fee_amount=parse_float_or_none(data_source.get("fee_amount", "")),
+                va_id=data_source.get("virtual_account_id"),
+                tx_date=tx_date_raw,
+            )
+
+            enriched = svc.get_by_id_enriched(str(tx_id))
+            response = render(
+                request, "transactions/_transaction_row.html", {"tx": enriched}
+            )
+            response["HX-Retarget"] = f"#tx-{tx_id}"
+            response["HX-Reswap"] = "outerHTML"
+            response["HX-Trigger"] = "closeEditSheet"
+            return response
+
     except ValueError as e:
         return error_response(str(e))
 
