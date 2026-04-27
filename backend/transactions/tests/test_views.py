@@ -671,6 +671,79 @@ class TestTransferViews:
         assert "instapay-toggle" not in content
         assert "InstaPay" not in content
 
+    def test_dup_transfer_redirects_to_transfer_form(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        dest = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="transfer",
+            amount=1000,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-1000,
+            counter_account_id=str(dest.id),
+        )
+        response = c.get(f"/transactions/new?dup={tx.id}")
+        assert response.status_code == 302
+        assert f"/transfer/new?dup={tx.id}" in response.url  # type: ignore[attr-defined]
+
+    def test_dup_transfer_prefills_accounts_and_amount(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        dest = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="transfer",
+            amount=1000,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-1000,
+            counter_account_id=str(dest.id),
+            note="Moving funds",
+        )
+        response = c.get(f"/transfer/new?dup={tx.id}")
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "selected" in content
+        assert 'value="1000' in content  # matches 1000 or 1000.00
+        assert "Moving funds" in content
+
+    def test_dup_exchange_redirects_to_transfer_form(self, client, tx_view_data):
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        usd_account = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            currency="USD",
+            current_balance=0,
+            initial_balance=0,
+        )
+        tx = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            type="exchange",
+            amount=5000,
+            currency="EGP",
+            date=date(2026, 3, 15),
+            balance_delta=-5000,
+            counter_account_id=str(usd_account.id),
+        )
+        response = c.get(f"/transactions/new?dup={tx.id}")
+        assert response.status_code == 302
+        assert f"/transfer/new?dup={tx.id}" in response.url  # type: ignore[attr-defined]
+
 
 # ---------------------------------------------------------------------------
 # Transfer edit (source/destination account changes)

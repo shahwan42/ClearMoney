@@ -159,6 +159,8 @@ def transaction_new(
     dup_id = request.GET.get("dup")
     if dup_id:
         prefill = svc.get_by_id(dup_id)
+        if prefill and prefill.get("type") in ("transfer", "exchange"):
+            return HttpResponseRedirect(f"/transfer/new?dup={dup_id}")
 
     selected_type = (
         "income" if prefill and prefill.get("type") == "income" else "expense"
@@ -774,7 +776,11 @@ def transaction_row(
 def transfer_new_unified(
     request: AuthenticatedRequest, svc: TransactionService
 ) -> HttpResponse:
-    """GET /transfer/new — unified transfer form page."""
+    """GET /transfer/new — unified transfer form page. Supports ?dup=<id>."""
+    prefill = None
+    dup_id = request.GET.get("dup")
+    if dup_id:
+        prefill = svc.get_by_id(dup_id)
     logger.info("page viewed: transfer-unified, user=%s", request.user_email)
     return render(
         request,
@@ -782,6 +788,7 @@ def transfer_new_unified(
         {
             "accounts": svc.get_accounts(),
             "today": date.today(),
+            "prefill": prefill,
         },
     )
 

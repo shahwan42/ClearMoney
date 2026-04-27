@@ -12,7 +12,8 @@
                     class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
                 <option value="">{% trans "Select source..." %}</option>
                 {% for acc in accounts %}
-                <option value="{{ acc.id }}" data-currency="{{ acc.currency }}">{{ acc.name }} ({{ acc.currency }})</option>
+                <option value="{{ acc.id }}" data-currency="{{ acc.currency }}"
+                    {% if prefill and acc.id == prefill.account_id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
             </select>
         </div>
@@ -24,7 +25,8 @@
                     class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
                 <option value="">{% trans "Select destination..." %}</option>
                 {% for acc in accounts %}
-                <option value="{{ acc.id }}" data-currency="{{ acc.currency }}">{{ acc.name }} ({{ acc.currency }})</option>
+                <option value="{{ acc.id }}" data-currency="{{ acc.currency }}"
+                    {% if prefill and acc.id == prefill.counter_account_id %}selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
             </select>
         </div>
@@ -35,6 +37,7 @@
         <div>
             <label for="transfer-amount" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Amount" %}</label>
             <input type="number" name="amount" id="transfer-amount" step="0.01" min="0.01" required
+                   {% if prefill and prefill.amount %}value="{{ prefill.amount }}"{% endif %}
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
                    oninput="onTransferAmountInput()">
         </div>
@@ -73,6 +76,7 @@
         <div>
             <label for="transfer-note" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Note (optional)" %}</label>
             <input type="text" name="note" id="transfer-note" maxlength="500"
+                   {% if prefill and prefill.note %}value="{{ prefill.note }}"{% endif %}
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm">
         </div>
 
@@ -95,3 +99,16 @@
     </form>
 </div>
 <script src="/static/js/transfer-unified.js"></script>
+{% if prefill %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    updateTransferMode();
+    {% if prefill.exchange_rate %}
+    var rateEl = document.getElementById('transfer-rate');
+    var counterEl = document.getElementById('transfer-counter');
+    if (rateEl) rateEl.value = '{{ prefill.exchange_rate }}';
+    if (counterEl) counterEl.value = '{{ prefill.counter_amount }}';
+    {% endif %}
+});
+</script>
+{% endif %}
