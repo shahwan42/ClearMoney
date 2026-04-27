@@ -3,7 +3,7 @@ id: "513"
 title: "Category create/edit form — dual-language name fields"
 type: feature
 priority: medium
-status: pending
+status: done
 created: 2026-04-27
 updated: 2026-04-27
 ---
@@ -59,6 +59,11 @@ Logic:
 
 - None (standalone Phase 3 ticket; categories are already JSONB)
 
+## Affected User Journeys
+
+- J-2 (Create Expense): category creation form now exposes both EN+AR inputs.
+
 ## Progress Notes
 
 - 2026-04-27: Created — Phase 3 category form bilingual ticket
+- 2026-04-27: Completed — Service accepts name_en/name_ar + legacy name; auto-fills the other side. Form has bilingual inputs. 9 tests, 1833 total passing.
