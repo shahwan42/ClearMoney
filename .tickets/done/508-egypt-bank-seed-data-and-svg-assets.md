@@ -3,7 +3,7 @@ id: "508"
 title: "Egypt bank seed data + SVG assets"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-27
 updated: 2026-04-27
 ---
@@ -68,6 +68,11 @@ Fallback SVG template:
 
 - Ticket #507 (SystemBank model must exist)
 
+## Affected User Journeys
+
+- None — internal seed migration. Surfaces only when #509+ link Institutions to SystemBanks.
+
 ## Progress Notes
 
 - 2026-04-27: Created — Phase 1 bank data ticket
+- 2026-04-27: Completed — Data migration `accounts/0011_seed_egypt_system_banks.py` seeds all 20 banks with bilingual names. Reused 16 existing logos in `static/img/institutions/` (deviation from ticket's `static/banks/` path; matches existing convention). Generated 4 fallback SVGs for Standard Chartered, Blom, InstaPay, Union. Idempotent via `update_or_create((country, short_name))`. 7 unit tests cover count, ordering, bilingual names, SVG presence, types, idempotency, Arabic content.
