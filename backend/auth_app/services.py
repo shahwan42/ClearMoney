@@ -460,51 +460,68 @@ class AuthService:
             logger.warning("auth.logout session not found")
 
     def _seed_default_categories(self, user_id: str) -> None:
-        """Insert default categories for a new user.
-
-        Categories are type-agnostic — all stored as type='expense'.
-        Any category can be used with any transaction type.
-        """
+        """Insert default categories for a new user."""
         defaults = [
-            # (name_dict, icon, display_order)
-            ({"en": "Household", "ar": "منزل"}, "\U0001f3e0", 1),
-            ({"en": "Food & Groceries", "ar": "طعام وبقالة"}, "\U0001f6d2", 2),
-            ({"en": "Transport", "ar": "مواصلات"}, "\U0001f697", 3),
-            ({"en": "Health", "ar": "صحة"}, "\U0001f3e5", 4),
-            ({"en": "Education", "ar": "تعليم"}, "\U0001f4da", 5),
-            ({"en": "Mobile", "ar": "موبايل"}, "\U0001f4f1", 6),
-            ({"en": "Electricity", "ar": "كهرباء"}, "\u26a1", 7),
-            ({"en": "Gas", "ar": "غاز"}, "\U0001f525", 8),
-            ({"en": "Internet", "ar": "إنترنت"}, "\U0001f310", 9),
-            ({"en": "Gifts", "ar": "هدايا"}, "\U0001f381", 10),
-            ({"en": "Entertainment", "ar": "ترفيه"}, "\U0001f3ac", 11),
-            ({"en": "Shopping", "ar": "تسوق"}, "\U0001f6cd\ufe0f", 12),
-            ({"en": "Subscriptions", "ar": "اشتراكات"}, "\U0001f4fa", 13),
-            ({"en": "Virtual Fund", "ar": "صندوق افتراضي"}, "\U0001f3e6", 14),
-            ({"en": "Insurance", "ar": "تأمين"}, "\U0001f6e1\ufe0f", 15),
-            ({"en": "Fees & Charges", "ar": "رسوم ومصاريف"}, "\U0001f4b3", 16),
-            ({"en": "Debt Payment", "ar": "سداد دين"}, "\U0001f4b0", 17),
-            ({"en": "Salary", "ar": "مرتب"}, "\U0001f4b5", 18),
-            ({"en": "Freelance", "ar": "عمل حر"}, "\U0001f4bb", 19),
-            ({"en": "Investment Returns", "ar": "عوائد استثمار"}, "\U0001f4c8", 20),
-            ({"en": "Refund", "ar": "استرداد"}, "\U0001f504", 21),
+            # (name_dict, icon, display_order, type)
+            ({"en": "Household", "ar": "منزل"}, "\U0001f3e0", 1, "expense"),
+            (
+                {"en": "Food & Groceries", "ar": "طعام وبقالة"},
+                "\U0001f6d2",
+                2,
+                "expense",
+            ),
+            ({"en": "Transport", "ar": "مواصلات"}, "\U0001f697", 3, "expense"),
+            ({"en": "Health", "ar": "صحة"}, "\U0001f3e5", 4, "expense"),
+            ({"en": "Education", "ar": "تعليم"}, "\U0001f4da", 5, "expense"),
+            ({"en": "Mobile", "ar": "موبايل"}, "\U0001f4f1", 6, "expense"),
+            ({"en": "Electricity", "ar": "كهرباء"}, "\u26a1", 7, "expense"),
+            ({"en": "Fuel", "ar": "وقود"}, "⛽", 8, "expense"),
+            ({"en": "Internet", "ar": "إنترنت"}, "\U0001f310", 9, "expense"),
+            ({"en": "Gifts", "ar": "هدايا"}, "\U0001f381", 10, "expense"),
+            ({"en": "Entertainment", "ar": "ترفيه"}, "\U0001f3ac", 11, "expense"),
+            ({"en": "Shopping", "ar": "تسوق"}, "\U0001f6cd\ufe0f", 12, "expense"),
+            ({"en": "Subscriptions", "ar": "اشتراكات"}, "\U0001f4fa", 13, "expense"),
+            (
+                {"en": "Virtual Fund", "ar": "صندوق افتراضي"},
+                "\U0001f3e6",
+                14,
+                "expense",
+            ),
+            ({"en": "Insurance", "ar": "تأمين"}, "\U0001f6e1\ufe0f", 15, "expense"),
+            (
+                {"en": "Fees & Charges", "ar": "رسوم ومصاريف"},
+                "\U0001f4b3",
+                16,
+                "expense",
+            ),
+            ({"en": "Debt Payment", "ar": "سداد دين"}, "\U0001f4b0", 17, "expense"),
+            ({"en": "Salary", "ar": "مرتب"}, "\U0001f4b5", 18, "income"),
+            ({"en": "Freelance", "ar": "عمل حر"}, "\U0001f4bb", 19, "income"),
+            (
+                {"en": "Investment Returns", "ar": "عوائد استثمار"},
+                "\U0001f4c8",
+                20,
+                "income",
+            ),
+            ({"en": "Refund", "ar": "استرداد"}, "\U0001f504", 21, "income"),
             (
                 {"en": "Loan Repayment Received", "ar": "سداد قرض مستلم"},
                 "\U0001f91d",
                 22,
+                "income",
             ),
-            ({"en": "Other", "ar": "أخرى"}, "\U0001f516", 23),
-            ({"en": "Travel", "ar": "سفر"}, "\u2708\ufe0f", 24),
-            ({"en": "Cafe", "ar": "مقهى"}, "\u2615", 25),
-            ({"en": "Restaurant", "ar": "مطعم"}, "\U0001f37d\ufe0f", 26),
-            ({"en": "Car", "ar": "سيارة"}, "\U0001f699", 27),
+            ({"en": "Other", "ar": "أخرى"}, "\U0001f516", 23, "expense"),
+            ({"en": "Travel", "ar": "سفر"}, "\u2708\ufe0f", 24, "expense"),
+            ({"en": "Cafe", "ar": "مقهى"}, "\u2615", 25, "expense"),
+            ({"en": "Restaurant", "ar": "مطعم"}, "\U0001f37d\ufe0f", 26, "expense"),
+            ({"en": "Car", "ar": "سيارة"}, "\U0001f699", 27, "expense"),
         ]
         try:
-            for name_dict, icon, order in defaults:
+            for name_dict, icon, order, cat_type in defaults:
                 Category.objects.create(
                     user_id=user_id,
                     name=name_dict,
-                    type="expense",
+                    type=cat_type,
                     icon=icon,
                     is_system=True,
                     display_order=order,

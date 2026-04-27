@@ -41,6 +41,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [506](done/506-rename-gas-category-to-fuel.md) | Rename Gas category to Fuel | improvement | medium | 2026-04-27 |
 | [176](done/176-fix-transfer-transaction-colors.md) | Fix transfer/exchange transaction colors | bug | medium | 2026-04-27 |
 | [173](done/173-virtual-account-show-containing-account.md) | Virtual account: show containing account in listing and detail | improvement | medium | 2026-04-27 |
 | [172](done/172-exchange-edit-source-destination.md) | Exchange edit: allow changing source and destination accounts | feature | medium | 2026-04-27 |
