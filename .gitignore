@@ -48,3 +48,6 @@ venv
 
 # media files
 backend/mediae2e/screenshots/
+
+# ai-ouput
+.ai-output/
