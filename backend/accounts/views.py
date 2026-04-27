@@ -276,8 +276,13 @@ def account_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     if not account:
         return HttpResponse("Account not found", status=404)
 
+    roundup_targets = acc_svc.get_roundup_targets(str(id), account.currency)
     logger.info("partial loaded: account-edit-form, user=%s", request.user_email)
-    return render(request, "accounts/_account_edit_form.html", {"account": account})
+    return render(
+        request,
+        "accounts/_account_edit_form.html",
+        {"account": account, "roundup_targets": roundup_targets},
+    )
 
 
 @general_rate
@@ -578,11 +583,19 @@ def account_add(request: AuthenticatedRequest) -> HttpResponse:
 @require_http_methods(["POST"])
 def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     """POST /accounts/{id}/edit - update account fields."""
+    roundup_increment_raw = request.POST.get("roundup_increment", "")
+    roundup_target_id = (
+        request.POST.get("roundup_target_account_id", "").strip() or None
+    )
     data = {
         "name": request.POST.get("name", ""),
         "type": request.POST.get("type", "current"),
         "currency": request.POST.get("currency", "EGP"),
         "credit_limit": parse_float_or_none(request.POST.get("credit_limit", "")),
+        "roundup_increment": int(roundup_increment_raw)
+        if roundup_increment_raw
+        else None,
+        "roundup_target_account_id": roundup_target_id,
     }
 
     acc_svc = AccountService(request.user_id, request.tz)

@@ -79,6 +79,19 @@ class Account(models.Model):
     is_dormant = models.BooleanField(default=False, db_default=False)
     display_order = models.IntegerField(default=0, db_default=0)
 
+    ROUNDUP_CHOICES = [(5, "5"), (10, "10"), (20, "20"), (50, "50"), (100, "100")]
+    roundup_increment = models.SmallIntegerField(
+        null=True, blank=True, choices=ROUNDUP_CHOICES
+    )
+    roundup_target_account = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="roundup_target_account_id",
+        related_name="roundup_sources",
+    )
+
     metadata = models.JSONField(null=True, blank=True)  # JSONB: billing cycle, etc.
     health_config = models.JSONField(
         null=True, blank=True

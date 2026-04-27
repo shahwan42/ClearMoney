@@ -293,7 +293,117 @@ class TransactionServiceBase:
             account_id,
             self.user_id,
         )
+
+        # Apply round-up savings for manual expenses only
+        if tx_type == "expense" and not recurring_rule_id:
+            self._apply_roundup(tx_dict, acc)
+
         return tx_dict, str(new_balance)
+
+    def _apply_roundup(self, expense_tx: dict[str, Any], acc: dict[str, Any]) -> None:
+        """Create a round-up transfer after an expense if the account is configured for it.
+
+        Skips silently if: no increment configured, amount already round, or insufficient balance.
+        """
+        import math
+
+        from accounts.models import Account as AccountModel
+
+        account_obj = (
+            AccountModel.objects.filter(id=acc["id"])
+            .values(
+                "roundup_increment",
+                "roundup_target_account_id",
+                "current_balance",
+            )
+            .first()
+        )
+        if not account_obj or not account_obj["roundup_increment"]:
+            return
+        target_id = account_obj["roundup_target_account_id"]
+        if not target_id:
+            return
+
+        increment = account_obj["roundup_increment"]
+        amount = Decimal(str(expense_tx["amount"]))
+        roundup = (
+            Decimal(str(math.ceil(float(amount) / increment) * increment)) - amount
+        )
+        if roundup <= Decimal("0"):
+            return
+
+        current_balance = Decimal(str(account_obj["current_balance"]))
+        if current_balance < roundup:
+            logger.warning(
+                "roundup.skipped insufficient_balance account=%s roundup=%s balance=%s",
+                acc["id"],
+                roundup,
+                current_balance,
+            )
+            return
+
+        uid = self.user_id
+        expense_id = expense_tx["id"]
+        tx_date = expense_tx.get("date") or date.today()
+        if isinstance(tx_date, str):
+            tx_date = datetime.strptime(tx_date.split("T")[0], "%Y-%m-%d").date()
+
+        debit_id = str(uuid.uuid4())
+        credit_id = str(uuid.uuid4())
+        now = django_tz.now()
+
+        with transaction.atomic():
+            Transaction.objects.create(
+                id=debit_id,
+                user_id=uid,
+                type="transfer",
+                amount=roundup,
+                currency=acc["currency"],
+                account_id=acc["id"],
+                counter_account_id=str(target_id),
+                note="Round-up",
+                date=tx_date,
+                balance_delta=-roundup,
+                is_roundup=True,
+                parent_transaction_id=expense_id,
+            )
+            Transaction.objects.create(
+                id=credit_id,
+                user_id=uid,
+                type="transfer",
+                amount=roundup,
+                currency=acc["currency"],
+                account_id=str(target_id),
+                counter_account_id=acc["id"],
+                note="Round-up",
+                date=tx_date,
+                balance_delta=roundup,
+                is_roundup=True,
+                parent_transaction_id=expense_id,
+            )
+            Transaction.objects.filter(id=debit_id).update(
+                linked_transaction_id=credit_id
+            )
+            Transaction.objects.filter(id=credit_id).update(
+                linked_transaction_id=debit_id
+            )
+            AccountModel.objects.filter(id=acc["id"]).update(
+                current_balance=F("current_balance") - roundup,
+                updated_at=now,
+            )
+            AccountModel.objects.filter(id=str(target_id)).update(
+                current_balance=F("current_balance") + roundup,
+                updated_at=now,
+            )
+
+        logger.info(
+            "roundup.created expense=%s amount=%s account=%s target=%s user=%s",
+            expense_id,
+            roundup,
+            acc["id"],
+            target_id,
+            uid,
+        )
 
     def create_fee_for_transaction(
         self,
@@ -833,6 +943,13 @@ class TransactionServiceBase:
             .values("id", "amount", "account_id")
         )
 
+        # Collect round-up children BEFORE any deletions (parent FK will SET_NULL on delete)
+        roundup_children = list(
+            Transaction.objects.filter(parent_transaction__id=tx_id).values(
+                "id", "balance_delta", "account_id", "linked_transaction_id"
+            )
+        )
+
         with transaction.atomic():
             # Delete this transaction
             Transaction.objects.for_user(self.user_id).filter(id=tx_id).delete()
@@ -898,6 +1015,20 @@ class TransactionServiceBase:
                     id__in=[f["id"] for f in fee_txs]
                 ).delete()
 
+            # Cascade-delete round-up transfer children and reverse their balance impact.
+            # Both debit and credit legs of the round-up transfer store parent_transaction_id,
+            # so roundup_children already contains all legs — no need to chase linked_transaction.
+            for child in roundup_children:
+                child_delta = Decimal(str(child["balance_delta"]))
+                Account.objects.filter(id=child["account_id"]).update(
+                    current_balance=F("current_balance") - child_delta,
+                    updated_at=now,
+                )
+            if roundup_children:
+                Transaction.objects.filter(
+                    id__in=[c["id"] for c in roundup_children]
+                ).delete()
+
         logger.info("transaction.deleted id=%s user=%s", tx_id, self.user_id)
 
         # Return IDs of additional transactions that were deleted
@@ -905,6 +1036,7 @@ class TransactionServiceBase:
         if is_linked and tx.get("linked_transaction_id"):
             related_ids.append(str(tx["linked_transaction_id"]))
         related_ids.extend(str(f["id"]) for f in fee_txs)
+        related_ids.extend(str(c["id"]) for c in roundup_children)
         return related_ids
 
     def delete_attachment(self, tx_id: str) -> None:

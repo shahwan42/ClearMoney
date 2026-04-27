@@ -283,6 +283,8 @@ class AccountService:
         "last_checked_balance",
         "last_balance_check_diff",
         "last_balance_check_status",
+        "roundup_increment",
+        "roundup_target_account_id",
         "deleted_at",
         "created_at",
         "updated_at",
@@ -458,6 +460,13 @@ class AccountService:
             type_label = ACCOUNT_TYPE_LABELS.get(acc_type, acc_type)
             name = f"{account.institution.name} - {type_label}"
 
+        roundup_increment = data.get("roundup_increment")
+        roundup_target_account_id = data.get("roundup_target_account_id")
+
+        # Clear target if increment cleared
+        if not roundup_increment:
+            roundup_target_account_id = None
+
         updated = (
             self._qs()
             .filter(id=account_id)
@@ -466,6 +475,8 @@ class AccountService:
                 type=acc_type,
                 currency=currency,
                 credit_limit=credit_limit,
+                roundup_increment=roundup_increment,
+                roundup_target_account_id=roundup_target_account_id,
                 updated_at=now,
             )
         )
@@ -474,6 +485,20 @@ class AccountService:
         logger.info("account.updated id=%s user=%s", account_id, self.user_id)
         row = self._qs().filter(id=account_id).values(*self._FIELDS).first()
         return self._row_to_summary(row) if row else None
+
+    def get_roundup_targets(
+        self, account_id: str, currency: str
+    ) -> list[dict[str, str]]:
+        """Same-currency, non-credit, non-dormant, non-deleted accounts excluding self."""
+        rows = (
+            self._qs()
+            .filter(currency=currency, is_dormant=False)
+            .exclude(id=account_id)
+            .exclude(type__in=("credit_card", "credit_limit"))
+            .order_by("display_order", "name")
+            .values("id", "name")
+        )
+        return [{"id": str(r["id"]), "name": r["name"]} for r in rows]
 
     def remove(self, account_id: str) -> None:
         """Soft-delete account (remove from active views, keep transaction history).
@@ -958,6 +983,12 @@ class AccountService:
                 else None
             ),
             last_balance_check_status=row["last_balance_check_status"],
+            roundup_increment=row.get("roundup_increment"),
+            roundup_target_account_id=(
+                str(row["roundup_target_account_id"])
+                if row.get("roundup_target_account_id")
+                else None
+            ),
             deleted_at=row["deleted_at"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],

@@ -119,9 +119,18 @@ class Transaction(models.Model):
         db_column="fee_preset_id",
         related_name="+",
     )
+    parent_transaction = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="parent_transaction_id",
+        related_name="roundup_children",
+    )
     balance_delta = models.DecimalField(
         max_digits=15, decimal_places=2, default=0, db_default=0
     )
+    is_roundup = models.BooleanField(default=False, db_default=False)
     is_verified = models.BooleanField(default=False, db_default=False)
     attachment = models.FileField(
         upload_to=transaction_attachment_path, null=True, blank=True

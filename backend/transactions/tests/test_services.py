@@ -2306,3 +2306,213 @@ class TestUpdateExchange:
                 note=None,
                 tx_date=date(2026, 3, 15),
             )
+
+
+# ---------------------------------------------------------------------------
+# Round-up tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestRoundup:
+    """Tests for automatic round-up savings on expense transactions."""
+
+    def _setup_roundup(self, tx_data: dict, increment: int) -> str:
+        """Create a savings account, configure source account with round-up, return savings_id."""
+        savings = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=tx_data["inst_id"],
+            name="Savings",
+            currency="EGP",
+            current_balance=0,
+            initial_balance=0,
+        )
+        savings_id = str(savings.id)
+        Account.objects.filter(id=tx_data["egp_id"]).update(
+            roundup_increment=increment,
+            roundup_target_account_id=savings_id,
+        )
+        return savings_id
+
+    def test_roundup_creates_transfer_and_updates_both_balances(self, tx_data):
+        savings_id = self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        # Expense: 10000 - 47 = 9953. Roundup: ceil(47/10)*10 - 47 = 50 - 47 = 3.
+        # After roundup transfer: source = 9953 - 3 = 9950, savings = 0 + 3 = 3.
+        assert _get_balance(tx_data["egp_id"]) == 9950
+        assert _get_balance(savings_id) == 3
+
+    def test_roundup_transfer_marked_is_roundup(self, tx_data):
+        from decimal import Decimal
+
+        self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        roundup_txs = list(
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], is_roundup=True
+            ).values("id", "type", "balance_delta")
+        )
+        assert len(roundup_txs) == 2  # debit + credit legs
+        deltas = {Decimal(str(t["balance_delta"])) for t in roundup_txs}
+        assert Decimal("-3") in deltas
+        assert Decimal("3") in deltas
+
+    def test_roundup_transfer_linked_to_expense_via_parent(self, tx_data):
+        self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        children = Transaction.objects.filter(parent_transaction_id=tx["id"]).values(
+            "id"
+        )
+        assert children.count() == 2
+
+    def test_already_round_amount_skips_roundup(self, tx_data):
+        savings_id = self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 50,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert _get_balance(tx_data["egp_id"]) == 9950
+        assert _get_balance(savings_id) == 0
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], is_roundup=True
+            ).count()
+            == 0
+        )
+
+    def test_insufficient_balance_skips_roundup_but_expense_goes_through(self, tx_data):
+        # Set balance to exactly the expense amount — no room for round-up
+        Account.objects.filter(id=tx_data["egp_id"]).update(current_balance=47)
+        savings_id = self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert tx["type"] == "expense"
+        assert _get_balance(tx_data["egp_id"]) == 0
+        assert _get_balance(savings_id) == 0
+
+    def test_income_does_not_trigger_roundup(self, tx_data):
+        savings_id = self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "income",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert _get_balance(savings_id) == 0
+
+    def test_delete_expense_cascades_to_roundup_transfer(self, tx_data):
+        savings_id = self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {
+                "type": "expense",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert _get_balance(tx_data["egp_id"]) == 9950
+        assert _get_balance(savings_id) == 3
+
+        svc.delete(tx["id"])
+
+        assert _get_balance(tx_data["egp_id"]) == 10000
+        assert _get_balance(savings_id) == 0
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], is_roundup=True
+            ).count()
+            == 0
+        )
+
+    def test_fractional_roundup(self, tx_data):
+        """47.50 with increment 10 → round to 50 → save 2.50"""
+        savings_id = self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": "47.50",
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert _get_balance(savings_id) == 2.5
+
+    def test_no_roundup_when_no_increment_configured(self, tx_data):
+        svc = _svc(tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+            }
+        )
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], is_roundup=True
+            ).count()
+            == 0
+        )
+
+    def test_recurring_expense_does_not_trigger_roundup(self, tx_data):
+        from tests.factories import RecurringRuleFactory
+
+        self._setup_roundup(tx_data, 10)
+        svc = _svc(tx_data["user_id"])
+        rule = RecurringRuleFactory(user_id=tx_data["user_id"])
+        svc.create(
+            {
+                "type": "expense",
+                "amount": 47,
+                "account_id": tx_data["egp_id"],
+                "date": date(2026, 3, 15),
+                "recurring_rule_id": str(rule.id),
+            }
+        )
+        assert (
+            Transaction.objects.filter(
+                user_id=tx_data["user_id"], is_roundup=True
+            ).count()
+            == 0
+        )

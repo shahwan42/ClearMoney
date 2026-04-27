@@ -52,6 +52,40 @@ Context: account (dict with id, name, type, currency, is_credit_type, credit_lim
             class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
     </div>
 
+    {% if roundup_targets %}
+    <details class="border border-gray-200 dark:border-slate-600 rounded-lg">
+        <summary class="px-3 py-2 text-xs font-medium text-gray-600 dark:text-slate-300 cursor-pointer select-none list-none flex items-center justify-between">
+            <span>{% trans "Round-up Savings" %}</span>
+            <span class="text-gray-400 dark:text-slate-500 text-xs">{% if account.roundup_increment %}{% trans "On" %}{% else %}{% trans "Off" %}{% endif %}</span>
+        </summary>
+        <div class="px-3 pb-3 pt-2 space-y-3">
+            <p class="text-xs text-gray-500 dark:text-slate-400">{% trans "Round up each expense to the nearest amount and save the difference." %}</p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-roundup-increment">{% trans "Round up to nearest" %}</label>
+                    <select name="roundup_increment" id="edit-roundup-increment"
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                        <option value="">{% trans "Off" %}</option>
+                        {% for val in "5,10,20,50,100"|split:"," %}
+                        <option value="{{ val }}" {% if account.roundup_increment|stringformat:"s" == val %}selected{% endif %}>{{ val }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-roundup-target">{% trans "Save to" %}</label>
+                    <select name="roundup_target_account_id" id="edit-roundup-target"
+                        class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                        <option value="">—</option>
+                        {% for target in roundup_targets %}
+                        <option value="{{ target.id }}" {% if account.roundup_target_account_id == target.id %}selected{% endif %}>{{ target.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </details>
+    {% endif %}
+
     <div class="flex gap-2 pt-1">
         <button type="submit"
             class="flex-1 bg-teal-600 text-white py-2.5 min-h-[44px] rounded-lg text-sm font-medium hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center">
