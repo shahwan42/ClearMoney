@@ -132,6 +132,9 @@ class TestBudgets:
         page.goto("/budgets")
         # Use text selector — the create form says "Create Budget", delete says "Delete"
         page.click('button:has-text("Delete")')
+        # Wait for custom confirm dialog and click the confirm button
+        expect(page.locator("#confirm-dialog-confirm")).to_be_visible(timeout=5000)
+        page.click("#confirm-dialog-confirm")
         page.wait_for_load_state()
         expect(page.locator("main")).not_to_contain_text("2,000")
 

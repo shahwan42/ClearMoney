@@ -5,7 +5,12 @@
     {% if total_budget %}
     <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% blocktrans with curr=total_budget.currency %}Total Monthly Budget ({{ curr }}){% endblocktrans %}</h3>
-        <form method="POST" action="{% url 'total-budget-delete' %}" hx-post="{% url 'total-budget-delete' %}" hx-target="#total-budget-card-{{ total_budget.currency }}" hx-swap="outerHTML">
+        <form method="POST" action="{% url 'total-budget-delete' %}"
+              hx-post="{% url 'total-budget-delete' %}"
+              hx-target="#total-budget-section"
+              hx-swap="outerHTML"
+              hx-ext="confirm-dialog"
+              hx-confirm="{% trans "Delete the total budget?" %}">
             {% csrf_token %}
             <input type="hidden" name="currency" value="{{ total_budget.currency }}">
             <button type="submit" style="min-height: 44px;" class="inline-flex items-center text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400" aria-label="{% trans "Remove total budget" %}">{% trans "Remove" %}</button>

@@ -320,13 +320,14 @@ def total_budget_delete(
 
 @inject_service(BudgetService)
 @general_rate
-@require_http_methods(["POST"])
+@require_http_methods(["POST", "DELETE"])
 def budget_delete(
     request: AuthenticatedRequest, svc: BudgetService, budget_id: str
 ) -> HttpResponse:
-    """POST /budgets/{id}/delete — delete a budget.
+    """POST|DELETE /budgets/{id}/delete — delete a budget.
 
-    Deletes the budget and redirects back to /budgets.
+    Deletes the budget and redirects back to /budgets (POST),
+    or returns empty response for HTMX to remove the card (DELETE).
     """
     if not svc.delete(str(budget_id)):
         logger.warning(
@@ -334,4 +335,8 @@ def budget_delete(
             budget_id,
             request.user_id,
         )
+
+    if request.htmx:
+        return HttpResponse("")
+
     return redirect("budgets")

@@ -4,10 +4,13 @@
 <div id="budget-card-{{ budget.id }}" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm p-4">
     <div class="flex items-center justify-between mb-2">
         <span class="font-semibold text-slate-800 dark:text-white">{% if budget.category_icon %}{{ budget.category_icon }} {% endif %}{{ budget.category_name }}</span>
-        <form method="POST" action="{% url 'budget-delete' budget.id %}">
-            {% csrf_token %}
-            <button type="submit" style="min-height: 44px;" class="inline-flex items-center text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400">{% trans "Delete" %}</button>
-        </form>
+        <button hx-delete="{% url 'budget-delete' budget.id %}"
+                hx-target="#budget-card-{{ budget.id }}"
+                hx-swap="outerHTML"
+                hx-ext="confirm-dialog"
+                hx-confirm="{% blocktrans with name=budget.category_name %}Delete the {{ name }} budget?{% endblocktrans %}"
+                style="min-height: 44px;"
+                class="inline-flex items-center text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400">{% trans "Delete" %}</button>
     </div>
     <a href="{% url 'budget-detail' budget.id %}" class="block group" aria-label="{% blocktrans with name=budget.category_name %}View {{ name }} budget transactions{% endblocktrans %}">
     <div class="flex justify-between text-sm mb-1.5">
