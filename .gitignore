@@ -47,7 +47,10 @@ temporary_artifacts/
 venv
 
 # media files
-backend/mediae2e/screenshots/
+backend/media/
+
+# e2e screenshots
+e2e/screenshots/
 
 # ai-ouput
 .ai-output/
