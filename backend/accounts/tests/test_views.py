@@ -356,19 +356,33 @@ class TestInstitutionUpdate:
 
 @pytest.mark.django_db
 class TestInstitutionDelete:
-    def test_cascades(self, client, accounts_data):
+    def test_blocked_when_active_accounts_exist(self, client, accounts_data):
         c = set_auth_cookie(client, accounts_data["session_token"])
         response = c.delete(f"/institutions/{accounts_data['institution_id']}/delete")
         assert response.status_code == 200
-        assert b"Institution deleted!" in response.content
+        assert b"Remove all accounts" in response.content
 
-        # Verify accounts were cascade-deleted
-        assert (
-            Account.objects.filter(
-                institution_id=accounts_data["institution_id"]
-            ).count()
-            == 0
+    def test_succeeds_when_no_active_accounts(self, client, accounts_data, db):
+        from zoneinfo import ZoneInfo
+
+        from accounts.services import AccountService
+
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        tz = ZoneInfo("Africa/Cairo")
+        acc_svc = AccountService(accounts_data["user_id"], tz)
+
+        # Zero out and remove all accounts first
+        Account.objects.filter(institution_id=accounts_data["institution_id"]).update(
+            current_balance=0
         )
+        for acc in Account.objects.filter(
+            institution_id=accounts_data["institution_id"]
+        ):
+            acc_svc.remove(str(acc.id))
+
+        response = c.delete(f"/institutions/{accounts_data['institution_id']}/delete")
+        assert response.status_code == 200
+        assert b"Institution deleted!" in response.content
 
 
 @pytest.mark.django_db
@@ -454,8 +468,20 @@ class TestAccountUpdate:
 class TestAccountDelete:
     def test_success(self, client, accounts_data):
         c = set_auth_cookie(client, accounts_data["session_token"])
+        # Zero balance required before removal
+        Account.objects.filter(id=accounts_data["savings_id"]).update(current_balance=0)
         response = c.delete(f"/accounts/{accounts_data['savings_id']}/delete")
         assert response.status_code == 302
+
+    def test_non_zero_balance_rejected(self, client, accounts_data):
+        c = set_auth_cookie(client, accounts_data["session_token"])
+        # savings_id has current_balance=15000 — removal must fail
+        response = c.delete(f"/accounts/{accounts_data['savings_id']}/delete")
+        assert response.status_code == 200
+        assert (
+            b"balance must be zero" in response.content.lower()
+            or b"balance" in response.content
+        )
 
 
 @pytest.mark.django_db

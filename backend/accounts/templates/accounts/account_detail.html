@@ -285,7 +285,7 @@ document.body.addEventListener('closeEditSheet', function() {
             </div>
             <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">{% trans "Delete Account" %}</h3>
             <p class="text-sm text-gray-500 dark:text-slate-400 mt-1">
-                {% blocktrans with name=data.account.name %}This will permanently delete <strong class="text-slate-700 dark:text-slate-200">{{ name }}</strong> and all its transactions. This action cannot be undone.{% endblocktrans %}
+                {% blocktrans with name=data.account.name %}Remove <strong class="text-slate-700 dark:text-slate-200">{{ name }}</strong> from your accounts. Balance must be zero. Transactions are kept for history. This cannot be undone.{% endblocktrans %}
             </p>
         </div>
         <!-- Error display area (for FK constraint errors) -->

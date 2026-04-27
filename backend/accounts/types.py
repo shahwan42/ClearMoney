@@ -51,6 +51,7 @@ class AccountSummary:
     last_checked_balance: float | None = None
     last_balance_check_diff: float | None = None
     last_balance_check_status: str | None = None
+    deleted_at: object | None = None  # datetime; set when account is removed
     created_at: object | None = None  # datetime
     updated_at: object | None = None  # datetime
 

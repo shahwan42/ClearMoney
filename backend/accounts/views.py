@@ -477,7 +477,10 @@ def institution_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     Returns toast + close script + OOB list refresh.
     """
     inst_svc = InstitutionService(request.user_id, request.tz)
-    deleted = inst_svc.delete(str(id))
+    try:
+        deleted = inst_svc.delete(str(id))
+    except ValueError as e:
+        return render_htmx_result("error", str(e), "")
     if not deleted:
         return render_htmx_result("error", "Failed to delete institution", "")
 
@@ -597,12 +600,14 @@ def account_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
 @general_rate
 @require_http_methods(["DELETE", "POST"])
 def account_delete(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
-    """DELETE /accounts/{id}/delete - delete account."""
+    """DELETE /accounts/{id}/delete - soft-delete (remove) account."""
     acc_svc = AccountService(request.user_id, request.tz)
     try:
-        acc_svc.delete(str(id))
+        acc_svc.remove(str(id))
     except ObjectDoesNotExist:
         return HttpResponse("Account not found", status=404)
+    except ValueError as e:
+        return render_htmx_result("error", str(e), "")
     except Exception:
         return render_htmx_result("error", "Failed to delete account", "")
 
@@ -814,9 +819,11 @@ def api_account_detail(request: AuthenticatedRequest, account_id: str) -> HttpRe
 
     # DELETE
     try:
-        acc_svc.delete(aid)
+        acc_svc.remove(aid)
     except ObjectDoesNotExist:
         return JsonResponse({"error": "Account not found"}, status=404)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
     except Exception:
         return JsonResponse({"error": "Failed to delete account"}, status=400)
     return HttpResponse(status=204)

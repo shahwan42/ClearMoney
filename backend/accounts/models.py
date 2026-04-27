@@ -94,6 +94,7 @@ class Account(models.Model):
     last_balance_check_status = models.CharField(
         max_length=20, null=True, blank=True
     )  # 'matched' | 'mismatch'
+    deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
     updated_at = models.DateTimeField(auto_now=True, db_default=Now())
 

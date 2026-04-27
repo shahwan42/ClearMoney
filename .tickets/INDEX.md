@@ -4,7 +4,9 @@ Last updated: 2026-04-27
 
 ## In Progress
 
-(none)
+| ID | Title | Type | Priority | Updated |
+| --- | --- | --- | --- | --- |
+| [165](wip/165-single-entry-loans.md) | Single-entry loans | feature | medium | 2026-04-27 |
 
 ## Pending
 
@@ -36,6 +38,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [168](done/168-account-soft-delete.md) | Account soft-delete (remove without losing history) | feature | high | 2026-04-27 |
 | [167](done/167-dormant-accounts-enforcement.md) | Dormant accounts enforcement | improvement | medium | 2026-04-27 |
 | [166](done/166-transfer-delete-warning.md) | Warn user when deleting a transfer removes both account legs | improvement | medium | 2026-04-27 |
 | [164](done/164-fee-presets-model.md) | Fee presets model + seed | feature | medium | 2026-04-27 |

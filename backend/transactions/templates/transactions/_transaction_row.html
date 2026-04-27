@@ -28,7 +28,7 @@ Context:
             </span>
         </div>
         <div class="text-xs text-gray-400 dark:text-slate-500 ms-4 mt-0.5 flex flex-wrap gap-1 items-center">
-            {{ tx.date|format_date_short }}{% if not hide_account_name and tx.account_name %} · {{ tx.account_name }}{% endif %}
+            {{ tx.date|format_date_short }}{% if not hide_account_name and tx.account_name %} · {% if tx.account_removed %}<span class="text-gray-400 dark:text-slate-600">{{ tx.account_name }} ({% trans "removed" %})</span>{% else %}{{ tx.account_name }}{% endif %}{% endif %}
             {% if tx.tags %}
                 {% for tag in tx.tags %}
                     <span class="text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0 rounded">#{{ tag }}</span>

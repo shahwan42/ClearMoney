@@ -1211,3 +1211,120 @@ class TestInstitutionServiceGetOrCreate:
         svc_b = InstitutionService(str(user_b.id), self.tz)
         svc_b.get_or_create("CIB", "bank")
         assert Institution.objects.filter(name="CIB").count() == 2
+
+
+@pytest.mark.django_db
+class TestAccountRemove:
+    """AccountService.remove() — soft-delete with zero-balance enforcement."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_remove_sets_deleted_at(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        acc = AccountFactory(user_id=user.id, institution_id=inst.id, current_balance=0)
+        svc = AccountService(str(user.id), self.tz)
+        svc.remove(str(acc.id))
+        acc.refresh_from_db()
+        assert acc.deleted_at is not None
+
+    def test_remove_non_zero_balance_raises(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        acc = AccountFactory(
+            user_id=user.id, institution_id=inst.id, current_balance=100
+        )
+        svc = AccountService(str(user.id), self.tz)
+        with pytest.raises(ValueError, match="balance must be zero"):
+            svc.remove(str(acc.id))
+
+    def test_remove_negative_balance_raises(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        acc = AccountFactory(
+            user_id=user.id, institution_id=inst.id, current_balance=-500
+        )
+        svc = AccountService(str(user.id), self.tz)
+        with pytest.raises(ValueError):
+            svc.remove(str(acc.id))
+
+    def test_removed_account_excluded_from_get_all(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        acc = AccountFactory(user_id=user.id, institution_id=inst.id, current_balance=0)
+        svc = AccountService(str(user.id), self.tz)
+        svc.remove(str(acc.id))
+        all_accounts = svc.get_all()
+        assert not any(a.id == str(acc.id) for a in all_accounts)
+
+    def test_removed_account_excluded_from_dropdown(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        acc = AccountFactory(user_id=user.id, institution_id=inst.id, current_balance=0)
+        svc = AccountService(str(user.id), self.tz)
+        svc.remove(str(acc.id))
+        dropdown = svc.get_for_dropdown()
+        assert not any(a.id == str(acc.id) for a in dropdown)
+
+    def test_remove_archives_virtual_accounts(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        acc = AccountFactory(user_id=user.id, institution_id=inst.id, current_balance=0)
+        va = VirtualAccountFactory(user_id=user.id, account=acc, is_archived=False)
+        svc = AccountService(str(user.id), self.tz)
+        svc.remove(str(acc.id))
+        va.refresh_from_db()
+        assert va.is_archived is True
+
+    def test_remove_not_found_raises(self) -> None:
+        from django.core.exceptions import ObjectDoesNotExist
+
+        user = UserFactory()
+        svc = AccountService(str(user.id), self.tz)
+        with pytest.raises(ObjectDoesNotExist):
+            svc.remove("00000000-0000-0000-0000-000000000000")
+
+    def test_cannot_remove_other_users_account(self) -> None:
+        from django.core.exceptions import ObjectDoesNotExist
+
+        user_a = UserFactory()
+        user_b = UserFactory()
+        inst = InstitutionFactory(user_id=user_b.id)
+        acc = AccountFactory(
+            user_id=user_b.id, institution_id=inst.id, current_balance=0
+        )
+        svc_a = AccountService(str(user_a.id), self.tz)
+        with pytest.raises(ObjectDoesNotExist):
+            svc_a.remove(str(acc.id))
+
+
+@pytest.mark.django_db
+class TestInstitutionDeleteWithAccounts:
+    """InstitutionService.delete() blocked when active accounts exist."""
+
+    tz = ZoneInfo("Africa/Cairo")
+
+    def test_delete_blocked_when_active_accounts_exist(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        AccountFactory(user_id=user.id, institution_id=inst.id, current_balance=0)
+        svc = InstitutionService(str(user.id), self.tz)
+        with pytest.raises(ValueError, match="Remove all accounts"):
+            svc.delete(str(inst.id))
+
+    def test_delete_allowed_when_all_accounts_removed(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        acc = AccountFactory(user_id=user.id, institution_id=inst.id, current_balance=0)
+        acc_svc = AccountService(str(user.id), self.tz)
+        acc_svc.remove(str(acc.id))
+        inst_svc = InstitutionService(str(user.id), self.tz)
+        result = inst_svc.delete(str(inst.id))
+        assert result is True
+
+    def test_delete_allowed_when_no_accounts(self) -> None:
+        user = UserFactory()
+        inst = InstitutionFactory(user_id=user.id)
+        svc = InstitutionService(str(user.id), self.tz)
+        result = svc.delete(str(inst.id))
+        assert result is True

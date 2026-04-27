@@ -144,7 +144,7 @@ class TestAccountAPI:
     def test_crud_lifecycle(self, client, api_data):
         c = set_auth_cookie(client, api_data["session_token"])
 
-        # Create
+        # Create with zero balance (removal requires zero balance)
         resp = c.post(
             "/api/accounts",
             data=json.dumps(
@@ -153,8 +153,8 @@ class TestAccountAPI:
                     "name": "New Account",
                     "type": "savings",
                     "currency": "EGP",
-                    "current_balance": 5000,
-                    "initial_balance": 5000,
+                    "current_balance": 0,
+                    "initial_balance": 0,
                 }
             ),
             content_type="application/json",
@@ -179,11 +179,11 @@ class TestAccountAPI:
         assert resp.status_code == 200
         assert json.loads(resp.content)["name"] == "Updated Account"
 
-        # Delete
+        # Delete (soft-remove — balance is zero so allowed)
         resp = c.delete(f"/api/accounts/{aid}")
         assert resp.status_code == 204
 
-        # Verify gone
+        # Verify gone from active views (returns 404 for removed accounts)
         resp = c.get(f"/api/accounts/{aid}")
         assert resp.status_code == 404
 

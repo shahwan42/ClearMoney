@@ -517,7 +517,8 @@ class TransactionServiceBase:
                 sub.tags, sub.attachment, sub.exchange_rate, sub.counter_amount,
                 sub.person_id, sub.linked_transaction_id,
                 sub.recurring_rule_id, sub.balance_delta, sub.is_verified, sub.created_at, sub.updated_at,
-                sub.account_name, sub.category_name, sub.category_icon, sub.running_balance
+                sub.account_name, sub.category_name, sub.category_icon, sub.running_balance,
+                sub.account_removed
             FROM (
                 SELECT t.id, t.type, t.amount, t.currency, t.account_id,
                     t.counter_account_id, t.category_id, t.date, t.time, t.note,
@@ -531,6 +532,7 @@ class TransactionServiceBase:
                     a.name AS account_name,
                     c.name->>'en' AS category_name,
                     c.icon AS category_icon,
+                    (a.deleted_at IS NOT NULL) AS account_removed,
                     a.current_balance - COALESCE(
                         SUM(t.balance_delta) OVER (
                             PARTITION BY t.account_id
@@ -625,6 +627,7 @@ class TransactionServiceBase:
             "category_name",
             "category_icon",
             "running_balance",
+            "account_removed",
         ]
 
         has_more = len(rows) > limit

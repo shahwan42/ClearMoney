@@ -52,21 +52,30 @@ class TestInstitutionDeleteTwoStepConfirm:
     """Institution delete uses two-step button confirmation (no typing needed)."""
 
     def test_institution_delete_confirm_has_two_step_button(self) -> None:
-        """Delete button exists and is not disabled."""
+        """Delete button disabled when active accounts exist; enabled when no accounts."""
         user = UserFactory()
         session = SessionFactory(user=user)
         client = Client()
         set_auth_cookie(client, session.token)
         inst = InstitutionFactory(user_id=str(user.id), name="Test Bank")
+
+        # With an active account — button must be disabled
         AccountFactory(user_id=str(user.id), institution_id=inst.id)
         response = client.get(f"/institutions/{inst.id}/delete-confirm")
         content = response.content.decode()
         assert 'id="delete-confirm-btn"' in content
+        assert "disabled" in content.split('id="delete-confirm-btn"')[1].split(">")[0]
+
+        # With no accounts (institution is empty) — button must be enabled
+        inst2 = InstitutionFactory(user_id=str(user.id), name="Empty Bank")
+        response2 = client.get(f"/institutions/{inst2.id}/delete-confirm")
+        content2 = response2.content.decode()
+        assert 'id="delete-confirm-btn"' in content2
         assert (
-            "disabled" not in content.split('id="delete-confirm-btn"')[1].split(">")[0]
+            "disabled" not in content2.split('id="delete-confirm-btn"')[1].split(">")[0]
         )
-        assert "Tap again to confirm" in content
-        assert "instDeleteArmed" in content
+        assert "Tap again to confirm" in content2
+        assert "instDeleteArmed" in content2
 
     def test_institution_delete_confirm_has_no_text_input(self) -> None:
         """No text input for typing institution name."""

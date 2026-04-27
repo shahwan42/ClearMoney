@@ -195,7 +195,24 @@ class InstitutionService:
         return self._row_to_dict(row) if row else None
 
     def delete(self, inst_id: str) -> bool:
-        """Delete institution (cascades to accounts). Returns True if deleted."""
+        """Delete institution. Returns True if deleted.
+
+        Raises ValueError if any active (non-removed) accounts still exist under
+        this institution — caller must remove all accounts first.
+        """
+        active_count = (
+            Account.objects.for_user(self.user_id)
+            .filter(institution_id=inst_id, deleted_at__isnull=True)
+            .count()
+        )
+        if active_count > 0:
+            raise ValueError(
+                gettext(
+                    "Remove all accounts under this institution before deleting it. "
+                    "%(count)s account(s) still active."
+                )
+                % {"count": active_count}
+            )
         count, _ = self._qs().filter(id=inst_id).delete()
         deleted = bool(count > 0)
         if deleted:
@@ -266,6 +283,7 @@ class AccountService:
         "last_checked_balance",
         "last_balance_check_diff",
         "last_balance_check_status",
+        "deleted_at",
         "created_at",
         "updated_at",
     )
@@ -275,8 +293,8 @@ class AccountService:
         self.tz = tz
 
     def _qs(self) -> Any:
-        """Base queryset scoped to the current user."""
-        return Account.objects.for_user(self.user_id)
+        """Base queryset scoped to the current user — excludes removed accounts."""
+        return Account.objects.for_user(self.user_id).filter(deleted_at__isnull=True)
 
     # --- Read operations ---
 
@@ -457,19 +475,35 @@ class AccountService:
         row = self._qs().filter(id=account_id).values(*self._FIELDS).first()
         return self._row_to_summary(row) if row else None
 
-    def delete(self, account_id: str) -> None:
-        """Delete account.
+    def remove(self, account_id: str) -> None:
+        """Soft-delete account (remove from active views, keep transaction history).
 
-        Cleans up recurring rules referencing this account (BUG-012).
-        Raises ObjectDoesNotExist if account not found.
+        Enforces zero balance. Archives linked virtual accounts. Deletes recurring
+        rules. Sets deleted_at — account becomes invisible everywhere except the
+        global transaction list.
+        Raises ObjectDoesNotExist if not found, ValueError if balance non-zero.
         """
-        RecurringRule.objects.for_user(self.user_id).filter(
-            template_transaction__account_id=account_id
-        ).delete()
-        count, _ = self._qs().filter(id=account_id).delete()
-        if count == 0:
+        account = self._qs().filter(id=account_id).first()
+        if account is None:
             raise ObjectDoesNotExist(f"Account not found: {account_id}")
-        logger.info("account.deleted id=%s user=%s", account_id, self.user_id)
+        if Decimal(str(account.current_balance)) != Decimal("0.00"):
+            raise ValueError(
+                gettext(
+                    "Account balance must be zero before removal. "
+                    "Current balance: %(balance)s %(currency)s"
+                )
+                % {"balance": account.current_balance, "currency": account.currency}
+            )
+        now = django_tz.now()
+        with transaction.atomic():
+            RecurringRule.objects.for_user(self.user_id).filter(
+                template_transaction__account_id=account_id
+            ).delete()
+            VirtualAccount.objects.for_user(self.user_id).filter(
+                account_id=account_id, is_archived=False
+            ).update(is_archived=True, updated_at=now)
+            Account.objects.filter(id=account_id).update(deleted_at=now, updated_at=now)
+        logger.info("account.removed id=%s user=%s", account_id, self.user_id)
 
     def toggle_dormant(self, account_id: str) -> bool:
         """Toggle dormant flag. Returns True if account found."""
@@ -924,6 +958,7 @@ class AccountService:
                 else None
             ),
             last_balance_check_status=row["last_balance_check_status"],
+            deleted_at=row["deleted_at"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             is_credit_type=is_credit,
