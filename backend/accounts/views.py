@@ -18,6 +18,7 @@ from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from accounts.models import SystemBank
 from core.billing import get_credit_card_utilization
 from core.htmx import (
     htmx_redirect,
@@ -307,16 +308,49 @@ def institution_presets(request: AuthenticatedRequest) -> JsonResponse:
     return JsonResponse(presets, safe=False)
 
 
+def _system_bank_presets_by_type(
+    country: str = "EG",
+) -> dict[str, list[dict[str, Any]]]:
+    """Group active SystemBanks by bank_type into preset-shaped dicts.
+
+    Returned shape matches the JS combobox preset format (name/value/icon/color)
+    with an extra `id` field so the form can submit `system_bank_id`. Used by
+    the form partial (embedded JSON) and the `/api/system-banks` JSON endpoint.
+    """
+    out: dict[str, list[dict[str, Any]]] = {"bank": [], "fintech": [], "wallet": []}
+    qs = SystemBank.objects.filter(country=country, is_active=True).order_by(
+        "display_order", "short_name"
+    )
+    for sb in qs:
+        bucket = out.setdefault(sb.bank_type, [])
+        # Keep `value` empty so existing JS uses preset.name as the displayed text.
+        # The icon stored in JSON is the basename so /static/img/institutions/{icon}
+        # matches the existing combobox path-prefixing convention.
+        icon_basename = sb.svg_path.rsplit("/", 1)[-1] if sb.svg_path else ""
+        bucket.append(
+            {
+                "id": sb.pk,
+                "name": sb.get_display_name(),
+                "value": sb.short_name,
+                "icon": icon_basename,
+                "color": sb.brand_color,
+                "short_name": sb.short_name,
+            }
+        )
+    return out
+
+
 @general_rate
 @require_http_methods(["GET"])
 def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
     """GET /accounts/institution-form - institution creation form partial."""
     logger.info("partial loaded: institution-form, user=%s", request.user_email)
+    sb_presets = _system_bank_presets_by_type()
     presets_json = json.dumps(
         {
-            "bank": EGYPTIAN_BANKS,
-            "fintech": EGYPTIAN_FINTECHS,
-            "wallet": list(WALLET_EXAMPLES),
+            "bank": sb_presets["bank"] + EGYPTIAN_BANKS,
+            "fintech": sb_presets["fintech"] + EGYPTIAN_FINTECHS,
+            "wallet": sb_presets["wallet"] + list(WALLET_EXAMPLES),
         }
     )
     return render(
@@ -324,6 +358,37 @@ def institution_form_partial(request: AuthenticatedRequest) -> HttpResponse:
         "accounts/_institution_form.html",
         {"presets_json": presets_json},
     )
+
+
+@general_rate
+@require_http_methods(["GET"])
+def api_system_banks(request: AuthenticatedRequest) -> JsonResponse:
+    """GET /api/system-banks?q=&country=EG - JSON list of active SystemBanks.
+
+    Authenticated. Returns banks grouped flat with bilingual name resolved
+    for the current locale.
+    """
+    country = request.GET.get("country", "EG")
+    q = request.GET.get("q", "").strip().lower()
+    qs = SystemBank.objects.filter(country=country, is_active=True).order_by(
+        "display_order", "short_name"
+    )
+    rows: list[dict[str, Any]] = []
+    for sb in qs:
+        name = sb.get_display_name()
+        if q and q not in name.lower() and q not in sb.short_name.lower():
+            continue
+        rows.append(
+            {
+                "id": sb.pk,
+                "name": name,
+                "short_name": sb.short_name,
+                "svg_path": sb.svg_path,
+                "brand_color": sb.brand_color,
+                "bank_type": sb.bank_type,
+            }
+        )
+    return JsonResponse(rows, safe=False)
 
 
 @general_rate
@@ -411,10 +476,17 @@ def institution_add(request: AuthenticatedRequest) -> HttpResponse:
     inst_type = request.POST.get("type", "bank")
     icon = request.POST.get("icon", "") or None
     color = request.POST.get("color", "") or None
+    system_bank_id = request.POST.get("system_bank_id", "") or None
 
     inst_svc = InstitutionService(request.user_id, request.tz)
     try:
-        inst_svc.create(name, inst_type, icon=icon, color=color)
+        inst_svc.create(
+            name,
+            inst_type,
+            icon=icon,
+            color=color,
+            system_bank_id=system_bank_id,
+        )
     except ValueError as e:
         return render(
             request,

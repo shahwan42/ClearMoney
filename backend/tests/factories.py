@@ -34,12 +34,12 @@ from auth_app.models import (
 from budgets.models import Budget
 from categories.models import Category
 from exchange_rates.models import ExchangeRateLog
+from fee_presets.models import FeePreset
 from investments.models import Investment
 from people.models import Person, PersonCurrencyBalance
 from recurring.models import RecurringRule
 from transactions.models import Transaction, VirtualAccountAllocation
 from virtual_accounts.models import VirtualAccount
-from fee_presets.models import FeePreset
 
 
 class UserFactory(factory.django.DjangoModelFactory):

@@ -99,6 +99,7 @@ urlpatterns = [
         views.api_institution_detail,
         name="api-institution-detail",
     ),
+    path("api/system-banks", views.api_system_banks, name="api-system-banks"),
     path("api/accounts", views.api_account_list_create, name="api-accounts"),
     path(
         "api/accounts/<uuid:account_id>",

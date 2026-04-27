@@ -60,6 +60,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
             <input type="hidden" name="name" id="inst-name">
             <input type="hidden" name="icon" id="inst-icon">
             <input type="hidden" name="color" id="inst-color">
+            <input type="hidden" name="system_bank_id" id="inst-system-bank-id">
         </div>
 
         <div class="flex gap-2 mt-4">
@@ -87,6 +88,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
     const nameInput   = document.getElementById('inst-name');
     const iconInput   = document.getElementById('inst-icon');
     const colorInput  = document.getElementById('inst-color');
+    const sysBankInput = document.getElementById('inst-system-bank-id');
 
     let currentPresets = []; // active preset list for the selected type
     let isCustom = false;    // true when user typed a custom name (Other selected)
@@ -199,10 +201,11 @@ All preset data is embedded once as JSON — no extra network requests needed fo
     // -----------------------------------------------------------------------
     function selectPreset(preset) {
         isCustom = false;
-        searchInput.value = preset.value || preset.name;
+        searchInput.value = preset.name || preset.value;
         nameInput.value   = preset.value || preset.name;  // store short abbrev when available
         iconInput.value   = preset.icon  || '';
         colorInput.value  = preset.color || '';
+        sysBankInput.value = preset.id ? String(preset.id) : '';
         closeList();
     }
 
@@ -213,6 +216,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
         nameInput.value  = typed;
         iconInput.value  = '';
         colorInput.value = '';
+        sysBankInput.value = '';
         closeList();
         searchInput.placeholder = 'Type institution name…';
         searchInput.focus();
@@ -227,7 +231,10 @@ All preset data is embedded once as JSON — no extra network requests needed fo
             nameInput.value  = searchInput.value.trim();
             iconInput.value  = '';
             colorInput.value = '';
+            sysBankInput.value = '';
         } else {
+            // User is typing — drop any stale system-bank link until they re-pick a preset
+            sysBankInput.value = '';
             renderList(searchInput.value);
         }
     });
@@ -256,6 +263,7 @@ All preset data is embedded once as JSON — no extra network requests needed fo
         nameInput.value  = '';
         iconInput.value  = '';
         colorInput.value = '';
+        sysBankInput.value = '';
         closeList();
     });
 
