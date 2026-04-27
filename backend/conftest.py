@@ -77,6 +77,34 @@ def _disable_rate_limit(settings: Any) -> None:
     settings.RATELIMIT_ENABLE = False
 
 
+@pytest.fixture(autouse=True)
+def _ensure_system_banks_seeded(django_db_blocker: Any, django_db_setup: Any) -> None:
+    """Re-seed SystemBank rows if a transactional test truncated them.
+
+    Migration `accounts/0011_seed_egypt_system_banks` populates the
+    `system_banks` table at migrate-time, but tests using
+    `@pytest.mark.django_db(transaction=True)` issue TRUNCATE on all tables
+    between tests, wiping the seed. This fixture re-seeds when the table is
+    empty so view/service tests can rely on the 20 Egypt banks.
+    """
+    from importlib import import_module
+
+    with django_db_blocker.unblock():
+        from accounts.models import SystemBank
+
+        if not SystemBank.objects.filter(country="EG").exists():
+            module = import_module(
+                "accounts.migrations.0011_seed_egypt_system_banks"
+            )
+            from django.apps import apps as real_apps
+
+            class _StubApps:
+                def get_model(self, *args: Any, **kwargs: Any) -> Any:
+                    return real_apps.get_model(*args, **kwargs)
+
+            module.seed_banks(_StubApps(), None)
+
+
 def set_auth_cookie(c: Client, token: str) -> Client:
     """Set session cookie on a Django test client. Import in test files.
 

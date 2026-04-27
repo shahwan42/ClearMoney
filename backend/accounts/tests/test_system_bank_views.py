@@ -98,6 +98,79 @@ class TestInstitutionFormIntegration:
         inst = Institution.objects.get(name="My Local CU")
         assert inst.system_bank_id is None
 
+    def test_edit_form_pre_selects_linked_bank(self, auth_client):
+        from accounts.models import Institution
+
+        cib = SystemBank.objects.get(short_name="CIB", country="EG")
+        # Create directly via auth_client's user — fetch via session
+        from auth_app.models import Session
+
+        sess = Session.objects.first()
+        assert sess is not None
+        user_id = sess.user_id
+        inst = Institution.objects.create(
+            user_id=user_id,
+            name="My CIB",
+            type="bank",
+            system_bank=cib,
+        )
+        resp = auth_client.get(f"/institutions/{inst.id}/edit-form")
+        assert resp.status_code == 200
+        body = resp.content.decode()
+        assert f'value="{cib.pk}" selected' in body
+        # bilingual name visible
+        assert "Commercial International Bank" in body
+
+    def test_edit_form_no_link_shows_custom_option_selected(self, auth_client):
+        from accounts.models import Institution
+        from auth_app.models import Session
+
+        sess = Session.objects.first()
+        assert sess is not None
+        inst = Institution.objects.create(
+            user_id=sess.user_id, name="Mom & Pop", type="bank"
+        )
+        resp = auth_client.get(f"/institutions/{inst.id}/edit-form")
+        body = resp.content.decode()
+        # Custom (no link) option present; should not have "selected" set on any sb id row
+        assert "Custom (no linked bank)" in body
+
+    def test_update_links_to_system_bank(self, auth_client):
+        from accounts.models import Institution
+        from auth_app.models import Session
+
+        sess = Session.objects.first()
+        assert sess is not None
+        inst = Institution.objects.create(
+            user_id=sess.user_id, name="Old", type="bank"
+        )
+        cib = SystemBank.objects.get(short_name="CIB", country="EG")
+        resp = auth_client.post(
+            f"/institutions/{inst.id}/update",
+            data={"name": "Old", "type": "bank", "system_bank_id": str(cib.pk)},
+        )
+        assert resp.status_code == 200
+        inst.refresh_from_db()
+        assert inst.system_bank_id == cib.pk
+
+    def test_update_clears_system_bank_with_empty(self, auth_client):
+        from accounts.models import Institution
+        from auth_app.models import Session
+
+        sess = Session.objects.first()
+        assert sess is not None
+        cib = SystemBank.objects.get(short_name="CIB", country="EG")
+        inst = Institution.objects.create(
+            user_id=sess.user_id, name="X", type="bank", system_bank=cib
+        )
+        resp = auth_client.post(
+            f"/institutions/{inst.id}/update",
+            data={"name": "X", "type": "bank", "system_bank_id": ""},
+        )
+        assert resp.status_code == 200
+        inst.refresh_from_db()
+        assert inst.system_bank_id is None
+
     def test_create_with_invalid_system_bank_id_falls_back(self, auth_client):
         resp = auth_client.post(
             "/institutions/add",

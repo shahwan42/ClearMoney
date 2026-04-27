@@ -422,8 +422,22 @@ def institution_edit_form(request: AuthenticatedRequest, id: UUID) -> HttpRespon
         return HttpResponse("Institution not found", status=404)
 
     logger.info("partial loaded: institution-edit-form, user=%s", request.user_email)
+    system_banks: list[dict[str, Any]] = []
+    for sb_obj in SystemBank.objects.filter(is_active=True, country="EG").order_by(
+        "display_order", "short_name"
+    ):
+        system_banks.append(
+            {
+                "id": sb_obj.pk,
+                "short_name": sb_obj.short_name,
+                "bank_type": sb_obj.bank_type,
+                "display_name": sb_obj.get_display_name(),
+            }
+        )
     return render(
-        request, "accounts/_institution_edit_form.html", {"institution": inst}
+        request,
+        "accounts/_institution_edit_form.html",
+        {"institution": inst, "system_banks": system_banks},
     )
 
 
@@ -513,10 +527,15 @@ def institution_update(request: AuthenticatedRequest, id: UUID) -> HttpResponse:
     data = request.POST if request.method == "POST" else QueryDict(request.body)
     name = data.get("name", "")
     inst_type = data.get("type", "bank")
+    # Field present (even empty) = explicit; absent = leave FK alone
+    sb_kwargs: dict[str, Any] = {}
+    if "system_bank_id" in data:
+        raw = data.get("system_bank_id", "")
+        sb_kwargs["system_bank_id"] = raw or None
 
     inst_svc = InstitutionService(request.user_id, request.tz)
     try:
-        updated = inst_svc.update(str(id), name, inst_type)
+        updated = inst_svc.update(str(id), name, inst_type, **sb_kwargs)
     except ValueError as e:
         return render(
             request,
