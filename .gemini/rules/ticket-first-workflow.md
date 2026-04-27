@@ -16,6 +16,13 @@ Before writing any code, running any tests, or making any changes:
    - Auto-fill frontmatter: `id`, `title`, `type`, `priority`, `status: wip`, `created`, `updated`
    - Add initial progress note: `- YYYY-MM-DD: Started — [what Gemini is working on]`
 
+2.5. **Name affected user journeys**: Walk `.gemini/rules/critical-paths.md`
+   (CP-1..CP-6) and `.gemini/rules/user-journeys.md` (J-1..J-5). Add a
+   `## Affected User Journeys` section to the ticket listing every flow that
+   could be touched, and add matching items to `## Acceptance Criteria`
+   (e.g. "CP-2 still passes after change"). Skip only with an explicit
+   "None — internal-only change" justification.
+
 3. **Reference the ticket ID** in your first response:
    ```
    Working on Ticket #XXX: [title]

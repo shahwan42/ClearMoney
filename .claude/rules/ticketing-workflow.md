@@ -33,7 +33,21 @@ When Claude begins work on a non-trivial task (features, bug fixes, refactors, i
      - `updated`: today's date
    - Add initial progress note: `- 2026-03-27: Started — [what Claude is working on]`
 
-3. **Reference the ticket**: In responses, mention the ticket ID (e.g., "Ticket #001: Unified transaction form")
+3. **Identify affected user journeys**: Cross-reference task against
+   `.claude/rules/critical-paths.md` (CP-1..CP-6) and `.claude/rules/user-journeys.md`
+   (J-1..J-5). List every flow the change could touch (UI path, balance update,
+   auth, isolation). Record under `## Affected User Journeys` in ticket body and
+   reflect as verifiable items in `## Acceptance Criteria` (e.g.
+   "CP-2 still passes: account create → expense → balance updated").
+
+   **"None — internal-only change"** allowed only when zero behavioral surface
+   is touched. Qualifies: comment-only edits, type annotation tightening,
+   docstring fixes, dead-code removal, dev tooling/Makefile, .gitignore. Does
+   NOT qualify: any service method body change, ORM query change, view return
+   change, template change, migration, dependency upgrade. When in doubt, list
+   the journeys.
+
+4. **Reference the ticket**: In responses, mention the ticket ID (e.g., "Ticket #001: Unified transaction form")
 
 ### 2. During Work
 
@@ -46,7 +60,18 @@ When Claude begins work on a non-trivial task (features, bug fixes, refactors, i
 
 **CRITICAL: Ticket closure MUST be part of the same commit as the feature/fix.** Never defer ticket closure to a separate step — if context fills or the session ends between the commit and ticket cleanup, WIP goes stale.
 
-**Workflow: close ticket → stage ticket files → stage code → commit together.**
+**Workflow: re-run affected journeys → close ticket → stage ticket files → stage code → commit together.**
+
+0. **Verify affected journeys still pass** before closing:
+   - **All CP-x**: run `make test-e2e` once — covers CP-1..CP-5 via the full E2E
+     suite. CP-6 (isolation) is covered by `make test`. No need to invoke each
+     E2E file separately unless a specific CP fails and needs isolation.
+   - **UI-touching J-x**: walk each manually via Playwright MCP after a
+     liveness check (Server Liveness Protocol). Skip if change has no UI surface
+     (pure service refactor with passing E2E suite is sufficient).
+   - If any flow regresses, ticket stays in `wip/` until fixed — do not close.
+   - Record verification in progress note:
+     `- YYYY-MM-DD: Verified — make test-e2e green; J-2, J-3 walked manually`.
 
 1. **Move ticket to `done/`** (whether from `wip/` or `pending/`):
    - **From `wip/`**: Rename file: `.tickets/wip/<id>-<slug>.md` → `.tickets/done/<id>-<slug>.md`
@@ -103,10 +128,23 @@ updated: 2026-03-27
 
 What needs to be done and why (derived from user's request).
 
+## Affected User Journeys
+
+List every CP-x (from `critical-paths.md`) and J-x (from `user-journeys.md`)
+this change could touch. One line per entry: identifier + why affected.
+Use `None — internal-only change` only when scope rules above allow.
+
+- CP-2 (Core Financial Loop): balance recalculation path changes here.
+- J-2 (Create Expense): submit handler swaps target.
+
 ## Acceptance Criteria
 
-- [ ] First acceptance criterion
-- [ ] Second acceptance criterion
+Mix functional criteria with journey-verification criteria — no need to
+duplicate. Every journey listed above must surface here.
+
+- [ ] Functional: new field accepts decimal up to 2 places, rejects negative.
+- [ ] CP-2 passes post-change (`make test-e2e -k test_transactions`).
+- [ ] J-2 walkthrough end-to-end via Playwright MCP after liveness check.
 
 ## Progress Notes
 
@@ -158,6 +196,14 @@ Last updated: 2026-03-27
 - Sorted by `updated` within each group (most recent first)
 - IDs are links to the ticket file
 - Use "(none)" placeholder if group is empty
+
+## Migration Note — Existing Tickets
+
+The `## Affected User Journeys` requirement applies to **tickets created on or
+after 2026-04-27**. Pre-existing tickets in `wip/` and `pending/` without this
+section are grandfathered: backfill the section the next time you touch the
+ticket (status change, progress note, or close). Don't bulk-edit historical
+tickets — let them migrate organically.
 
 ## When NOT to Create a Ticket
 

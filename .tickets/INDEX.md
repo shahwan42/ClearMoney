@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-27 (localization phase tickets 507–514 added)
+Last updated: 2026-04-27 (tickets 515–516 added: agent autonomy + rule mirror dedup)
 
 ## In Progress
 
@@ -17,6 +17,7 @@ Last updated: 2026-04-27 (localization phase tickets 507–514 added)
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [516](pending/516-dedupe-rule-mirrors-claude-gemini.md) | Dedupe rule mirrors between .claude/ and .gemini/ | chore | low | 2026-04-27 |
 | [514](pending/514-full-arabic-translation-audit-and-po-fill.md) | Full Arabic translation audit + .po fill | improvement | medium | 2026-04-27 |
 | [513](pending/513-category-form-dual-language-fields.md) | Category create/edit form — dual-language name fields | feature | medium | 2026-04-27 |
 | [512](pending/512-currency-bilingual-names.md) | Currency bilingual names (JSONB) | feature | medium | 2026-04-27 |
@@ -51,6 +52,7 @@ Last updated: 2026-04-27 (localization phase tickets 507–514 added)
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [515](done/515-agent-autonomy-and-ticket-journey-refs.md) | Agent autonomy guards + ticket user-journey refs | chore | medium | 2026-04-27 |
 | [505](done/505-fix-category-types-and-ux.md) | Fix category types and new category bottom sheet UX | feature | medium | 2026-04-27 |
 | [506](done/506-rename-gas-category-to-fuel.md) | Rename Gas category to Fuel | improvement | medium | 2026-04-27 |
 | [176](done/176-fix-transfer-transaction-colors.md) | Fix transfer/exchange transaction colors | bug | medium | 2026-04-27 |
