@@ -1,3 +1,4 @@
+{% load money %}
 {% load i18n %}
 <div class="flex flex-col items-center py-8 space-y-4" role="status" aria-live="polite">
     <div class="animate-success">
@@ -7,7 +8,17 @@
                   stroke-linecap="round" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
         </svg>
     </div>
-    <p class="text-lg font-semibold text-gray-900 dark:text-slate-100">{{ message }}</p>
+    <div class="text-center space-y-1">
+        <p class="text-base font-semibold text-gray-900 dark:text-slate-100">
+            {{ dest_amount|format_currency:dest_currency }} {% trans "added to" %} {{ dest_name }}.
+            {{ src_amount|format_currency:src_currency }} {% trans "deducted from" %} {{ src_name }}.
+        </p>
+        <p class="text-sm text-gray-500 dark:text-slate-400">
+            {{ dest_name }}: <span class="font-semibold text-gray-700 dark:text-slate-200">{{ dest_balance|format_currency:dest_currency }}</span>
+            &middot;
+            {{ src_name }}: <span class="font-semibold text-gray-700 dark:text-slate-200">{{ src_balance|format_currency:src_currency }}</span>
+        </p>
+    </div>
     <div class="flex gap-3 w-full">
         <a href="/transfer/new"
            class="flex-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-200 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-200 dark:hover:bg-slate-600 transition text-center">

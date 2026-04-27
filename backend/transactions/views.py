@@ -828,19 +828,38 @@ def transfer_create(
         if not amount:
             return error_response("Amount is required", field="amount")
         fee = parse_float_or_none(request.POST.get("fee_amount", ""))
+        source_id = request.POST.get("source_account_id", "")
+        dest_id = request.POST.get("dest_account_id", "")
         svc.create_transfer(
-            source_id=request.POST.get("source_account_id", ""),
-            dest_id=request.POST.get("dest_account_id", ""),
+            source_id=source_id,
+            dest_id=dest_id,
             amount=amount,
             currency=request.POST.get("currency"),
             note=request.POST.get("note") or None,
             tx_date=request.POST.get("date") or None,
             fee_amount=fee,
         )
+        accs = {
+            str(a["id"]): a
+            for a in Account.objects.for_user(request.user_id)
+            .filter(id__in=[source_id, dest_id])
+            .values("id", "name", "current_balance", "currency")
+        }
+        src = accs.get(source_id, {})
+        dst = accs.get(dest_id, {})
         return render(
             request,
             "transactions/_transfer_success.html",
-            {"message": "Transfer completed!"},
+            {
+                "src_name": src.get("name", ""),
+                "src_balance": str(src.get("current_balance", "")),
+                "src_currency": src.get("currency", ""),
+                "src_amount": str(amount),
+                "dest_name": dst.get("name", ""),
+                "dest_balance": str(dst.get("current_balance", "")),
+                "dest_currency": dst.get("currency", ""),
+                "dest_amount": str(amount),
+            },
         )
     except ValueError as e:
         return error_response(str(e))
@@ -866,19 +885,42 @@ def exchange_create(
 ) -> HttpResponse:
     """POST /transactions/exchange-submit — currency exchange (HTMX)."""
     try:
-        svc.create_exchange(
-            source_id=request.POST.get("source_account_id", ""),
-            dest_id=request.POST.get("dest_account_id", ""),
-            amount=parse_float_or_none(request.POST.get("amount", "")),
+        source_id = request.POST.get("source_account_id", "")
+        dest_id = request.POST.get("dest_account_id", "")
+        src_amount = parse_float_or_none(request.POST.get("amount", ""))
+        dest_amount = parse_float_or_none(request.POST.get("counter_amount", ""))
+        debit, credit = svc.create_exchange(
+            source_id=source_id,
+            dest_id=dest_id,
+            amount=src_amount,
             rate=parse_float_or_none(request.POST.get("rate", "")),
-            counter_amount=parse_float_or_none(request.POST.get("counter_amount", "")),
+            counter_amount=dest_amount,
             note=request.POST.get("note") or None,
             tx_date=request.POST.get("date") or None,
         )
+        resolved_src = debit.get("amount", str(src_amount or ""))
+        resolved_dest = credit.get("amount", str(dest_amount or ""))
+        accs = {
+            str(a["id"]): a
+            for a in Account.objects.for_user(request.user_id)
+            .filter(id__in=[source_id, dest_id])
+            .values("id", "name", "current_balance", "currency")
+        }
+        src = accs.get(source_id, {})
+        dst = accs.get(dest_id, {})
         return render(
             request,
             "transactions/_transfer_success.html",
-            {"message": "Exchange completed!"},
+            {
+                "src_name": src.get("name", ""),
+                "src_balance": str(src.get("current_balance", "")),
+                "src_currency": src.get("currency", ""),
+                "src_amount": resolved_src,
+                "dest_name": dst.get("name", ""),
+                "dest_balance": str(dst.get("current_balance", "")),
+                "dest_currency": dst.get("currency", ""),
+                "dest_amount": resolved_dest,
+            },
         )
     except ValueError as e:
         return error_response(str(e))
@@ -1067,18 +1109,40 @@ def quick_entry_create(
         amount_str = request.POST.get("amount", "0")
         amount = parse_float_or_none(amount_str)
 
+        success_ctx: dict[str, object] = {}
         if tx_type == "transfer":
             if not amount:
                 return error_response("Amount is required", field="amount")
+            source_id = request.POST.get("account_id", "")
+            dest_id = request.POST.get("dest_account_id", "")
             svc.create_transfer(
-                source_id=request.POST.get("account_id", ""),
-                dest_id=request.POST.get("dest_account_id", ""),
+                source_id=source_id,
+                dest_id=dest_id,
                 amount=amount,
                 currency=request.POST.get("currency"),
                 note=request.POST.get("note") or None,
                 tx_date=request.POST.get("date") or None,
                 fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
             )
+            accs = {
+                str(a["id"]): a
+                for a in Account.objects.for_user(request.user_id)
+                .filter(id__in=[source_id, dest_id])
+                .values("id", "name", "current_balance", "currency")
+            }
+            src = accs.get(source_id, {})
+            dst = accs.get(dest_id, {})
+            success_ctx = {
+                "is_transfer": True,
+                "src_name": src.get("name", ""),
+                "src_balance": str(src.get("current_balance", "")),
+                "src_currency": src.get("currency", ""),
+                "src_amount": str(amount),
+                "dest_name": dst.get("name", ""),
+                "dest_balance": str(dst.get("current_balance", "")),
+                "dest_currency": dst.get("currency", ""),
+                "dest_amount": str(amount),
+            }
         else:
             data = {
                 "type": tx_type,
@@ -1090,7 +1154,7 @@ def quick_entry_create(
                 "tags": request.POST.get("tags", ""),
                 "attachment": attachment,
             }
-            tx, _ = svc.create(data)
+            tx, new_balance = svc.create(data)
 
             # Handle fee and VA allocation via service helper
             svc.apply_post_create_logic(
@@ -1099,9 +1163,17 @@ def quick_entry_create(
                 va_id=request.POST.get("virtual_account_id"),
                 tx_date=data.get("date"),
             )
+            success_ctx = {
+                "is_transfer": False,
+                "tx": tx,
+                "new_balance": new_balance,
+                "currency": tx["currency"],
+            }
 
         # Render success screen with Done/Add Another buttons
-        response = render(request, "transactions/_quick_entry_success.html")
+        response = render(
+            request, "transactions/_quick_entry_success.html", success_ctx
+        )
 
         # OOB swaps: refresh dashboard balances with skeleton placeholders
         nw_skeleton = (

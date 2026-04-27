@@ -2,9 +2,13 @@
 {% load i18n %}
 <div id="transaction-result" class="bg-teal-50 border border-teal-200 dark:border-teal-800 rounded-xl p-5 text-center space-y-2 animate-fade-in">
     <div class="text-3xl">&#10003;</div>
-    <p class="text-teal-800 dark:text-teal-300 font-semibold">{% trans "Transaction saved!" %}</p>
-    <p class="text-sm text-teal-600">
-        {% trans "New balance:" %} <span class="font-bold">{{ new_balance|format_currency:currency }}</span>
+    <p class="text-teal-800 dark:text-teal-300 font-semibold">
+        {{ tx.amount|format_currency:tx.currency }}
+        {% if tx.type == "income" %}{% trans "added to" %}{% else %}{% trans "deducted from" %}{% endif %}
+        {{ tx.account_name }}.
+    </p>
+    <p class="text-sm text-teal-600 dark:text-teal-400">
+        {% trans "Balance:" %} <span class="font-bold">{{ new_balance|format_currency:currency }}</span>
     </p>
     <div class="flex gap-2 mt-3 justify-center">
         <a href="/transactions/new"

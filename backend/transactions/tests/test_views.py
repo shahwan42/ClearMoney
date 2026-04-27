@@ -289,7 +289,7 @@ class TestTransactionCRUD:
             HTTP_HX_REQUEST="true",
         )
         assert response.status_code == 200
-        assert b"Transaction saved!" in response.content
+        assert b"deducted from" in response.content
 
     def test_create_validation_error(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -325,7 +325,7 @@ class TestTransactionCRUD:
             HTTP_HX_REQUEST="true",
         )
         assert response.status_code == 200
-        assert b"Transaction saved!" in response.content
+        assert b"deducted from" in response.content
         # Verify fee transaction was created
         fee_tx = Transaction.objects.filter(
             user_id=tx_view_data["user_id"], note="Transaction fee"
@@ -631,7 +631,7 @@ class TestTransferViews:
             HTTP_HX_REQUEST="true",
         )
         assert response.status_code == 200
-        assert b"Transfer completed!" in response.content
+        assert b"added to" in response.content
 
     def test_transfer_with_fee_via_form(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -656,7 +656,7 @@ class TestTransferViews:
             HTTP_HX_REQUEST="true",
         )
         assert response.status_code == 200
-        assert b"Transfer completed!" in response.content
+        assert b"added to" in response.content
 
     def test_transfer_unified_form_has_fee_field(self, client, tx_view_data):
         c = set_auth_cookie(client, tx_view_data["session_token"])
@@ -1158,7 +1158,7 @@ class TestQuickEntryViews:
             HTTP_HX_REQUEST="true",
         )
         assert resp.status_code == 200
-        assert b"Transaction saved!" in resp.content
+        assert b"added to" in resp.content
 
         # Verify both legs created
         txs = Transaction.objects.filter(note="Quick transfer test")
@@ -1456,7 +1456,7 @@ class TestQuickEntryOOBSwaps:
             HTTP_HX_REQUEST="true",
         )
         content = resp.content.decode()
-        assert "Transaction saved!" in content
+        assert "deducted from" in content
 
 
 # ---------------------------------------------------------------------------
@@ -2556,7 +2556,7 @@ class TestTransactionSubmitUX:
             },
         )
         content = resp.content.decode()
-        assert "Transaction saved!" in content
+        assert "deducted from" in content
         assert "Add Another" in content
         assert "Done" in content
 
