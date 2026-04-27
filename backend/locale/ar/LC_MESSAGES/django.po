@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-14 22:37+0200\n"
+"POT-Creation-Date: 2026-04-27 19:35+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,341 +16,430 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
-"&& n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
 
-#: accounts/services.py:58
-#: accounts/templates/accounts/_account_edit_form.html:29
+#: accounts/services.py:62
+#: accounts/templates/accounts/_account_edit_form.html:30
 #: accounts/templates/accounts/_account_form.html:36
 #: accounts/templates/accounts/_add_account_form.html:91
-#: core/templatetags/money.py:191
+#: core/templatetags/money.py:258
 msgid "Savings"
 msgstr "ادخار"
 
-#: accounts/services.py:59
-#: accounts/templates/accounts/_account_edit_form.html:28
+#: accounts/services.py:63
+#: accounts/templates/accounts/_account_edit_form.html:29
 #: accounts/templates/accounts/_account_form.html:35
 #: accounts/templates/accounts/_add_account_form.html:90
-#: core/templatetags/money.py:192
+#: core/templatetags/money.py:259
+#: reports/templates/reports/partials/insights.html:86
+#: transactions/templates/transactions/_transaction_detail_sheet.html:49
 msgid "Current"
 msgstr "حساب جاري"
 
-#: accounts/services.py:60
-#: accounts/templates/accounts/_account_edit_form.html:30
+#: accounts/services.py:64
+#: accounts/templates/accounts/_account_edit_form.html:31
 #: accounts/templates/accounts/_account_form.html:37
 #: accounts/templates/accounts/_add_account_form.html:92
-#: core/templatetags/money.py:193
+#: core/templatetags/money.py:260
 msgid "Prepaid"
 msgstr "مسبقة الدفع"
 
-#: accounts/services.py:61
-#: accounts/templates/accounts/_account_edit_form.html:31
+#: accounts/services.py:65
+#: accounts/templates/accounts/_account_edit_form.html:32
 #: accounts/templates/accounts/_account_form.html:38
 #: accounts/templates/accounts/_add_account_form.html:93
-#: core/templatetags/money.py:196
+#: core/templatetags/money.py:263
 msgid "Cash"
 msgstr "نقدي"
 
-#: accounts/services.py:62
-#: accounts/templates/accounts/_account_edit_form.html:32
+#: accounts/services.py:66
+#: accounts/templates/accounts/_account_edit_form.html:33
 #: accounts/templates/accounts/_account_form.html:39
 #: accounts/templates/accounts/_add_account_form.html:94
-#: core/templatetags/money.py:194
-#: transactions/templates/transactions/_fawry_cashout_form.html:9
+#: core/templatetags/money.py:261
 msgid "Credit Card"
 msgstr "بطاقة ائتمانية"
 
-#: accounts/services.py:63
-#: accounts/templates/accounts/_account_edit_form.html:33
-#: accounts/templates/accounts/_account_edit_form.html:47
+#: accounts/services.py:67
+#: accounts/templates/accounts/_account_edit_form.html:34
+#: accounts/templates/accounts/_account_edit_form.html:49
 #: accounts/templates/accounts/_account_form.html:40
-#: accounts/templates/accounts/_account_form.html:75
+#: accounts/templates/accounts/_account_form.html:72
 #: accounts/templates/accounts/_add_account_form.html:95
-#: accounts/templates/accounts/_add_account_form.html:125
-#: core/templatetags/money.py:195
+#: accounts/templates/accounts/_add_account_form.html:128
+#: core/templatetags/money.py:262
 msgid "Credit Limit"
 msgstr "حد ائتماني"
 
-#: accounts/services.py:90
+#: accounts/services.py:85
 #, python-format
 msgid "%(field_name)s is required"
 msgstr "%(field_name)s مطلوب"
 
-#: accounts/services.py:163 accounts/services.py:228
+#: accounts/services.py:199 accounts/services.py:303
 #, python-format
 msgid "invalid institution type: %(type)s"
 msgstr "نوع المؤسسة غير صالح: %(type)s"
 
-#: accounts/services.py:343
+#: accounts/services.py:277
+#, python-format
+msgid "Remove all accounts under this institution before deleting it. %(count)s account(s) still active."
+msgstr "احذف كل الحسابات تحت هذا البنك قبل حذفه. لا يزال هناك %(count)s حساب نشط."
+
+#: accounts/services.py:434
 msgid "institution_id is required"
 msgstr "معرف المؤسسة مطلوب"
 
-#: accounts/services.py:347
+#: accounts/services.py:438
 msgid "Please select an account type"
 msgstr "يرجى اختيار نوع الحساب"
 
-#: accounts/services.py:349
+#: accounts/services.py:441
 #, python-format
 msgid "Invalid account type: %(type)s"
 msgstr "نوع حساب غير صالح: %(type)s"
 
-#: accounts/services.py:362
+#: accounts/services.py:456 accounts/services.py:512
 #, python-format
 msgid "invalid currency: %(currency)s"
 msgstr "عملة غير صالحة: %(currency)s"
 
-#: accounts/services.py:368
+#: accounts/services.py:462
 #, python-format
 msgid "credit_limit is required for %(type)s accounts"
 msgstr "الحد الائتماني مطلوب لحسابات %(type)s"
 
-#: accounts/services.py:372
+#: accounts/services.py:466
 msgid "cash accounts cannot have a credit limit"
 msgstr "لا يمكن أن تحتوي حسابات النقد على حد ائتماني"
 
-#: accounts/services.py:449
-msgid "account not found"
-msgstr "الحساب غير موجود"
+#: accounts/services.py:583
+#, python-format
+msgid "Account balance must be zero before removal. Current balance: %(balance)s %(currency)s"
+msgstr "يجب أن يكون رصيد الحساب صفرًا قبل الحذف. الرصيد الحالي: %(balance)s %(currency)s"
 
-#: accounts/services.py:834
+#: accounts/services.py:760 accounts/services.py:797
+#: transactions/services/crud.py:131
+#, python-format
+msgid "Account not found: %(id)s"
+msgstr "الحساب غير موجود: %(id)s"
+
+#: accounts/services.py:810
+msgid "Balance correction"
+msgstr "تصحيح الرصيد"
+
+#: accounts/services.py:1301
 #, python-format
 msgid "%(name)s balance (%(balance)s) is below minimum (%(min)s)"
 msgstr "رصيد %(name)s (%(balance)s) أقل من الحد الأدنى (%(min)s)"
 
-#: accounts/services.py:866
+#: accounts/services.py:1332
 #, python-format
 msgid "%(name)s is missing required monthly deposit (%(min)s)"
 msgstr "%(name)s يفتقر إلى الإيداع الشهري المطلوب (%(min)s)"
 
+#: accounts/services.py:1373
+#, fuzzy, python-format
+#| msgid "%(name)s has never been reconciled"
+msgid "%(name)s hasn't been checked yet"
+msgstr "لم يتم تسوية %(name)s أبداً"
+
+#: accounts/services.py:1391
+#, python-format
+msgid "%(name)s hasn't been checked in %(days)d days"
+msgstr "لم تتم مراجعة %(name)s منذ %(days)d يومًا"
+
 #: accounts/templates/accounts/_account_edit_form.html:7
 msgid "Edit Account"
-msgstr ""
+msgstr "تعديل الحساب"
 
 #: accounts/templates/accounts/_account_edit_form.html:17
-msgid "Account Name"
-msgstr ""
+#: accounts/templates/accounts/_account_form.html:55
+#: accounts/templates/accounts/_add_account_form.html:110
+msgid "Display Name"
+msgstr "الاسم الظاهر"
 
-#: accounts/templates/accounts/_account_edit_form.html:24
+#: accounts/templates/accounts/_account_edit_form.html:17
+#: accounts/templates/accounts/_account_form.html:55
+#: accounts/templates/accounts/_add_account_form.html:110
+#: budgets/templates/budgets/_edit_budget_form.html:38
+#: settings_app/templates/settings_app/_category_new_form.html:50
+msgid "(optional)"
+msgstr "(اختياري)"
+
+#: accounts/templates/accounts/_account_edit_form.html:19
+#: accounts/templates/accounts/_account_form.html:58
+#: accounts/templates/accounts/_add_account_form.html:113
+msgid "e.g., Main Savings"
+msgstr "مثال: مدخرات أساسية"
+
+#: accounts/templates/accounts/_account_edit_form.html:25
 #: accounts/templates/accounts/_account_form.html:31
 #: accounts/templates/accounts/_add_account_form.html:87
 #: accounts/templates/accounts/_institution_edit_form.html:28
 #: accounts/templates/accounts/_institution_form.html:28
-#: transactions/templates/transactions/_transaction_edit_form.html:13
+#: settings_app/templates/settings_app/_category_new_form.html:8
 #: transactions/templates/transactions/batch_entry.html:16
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:63
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:90
 msgid "Type"
-msgstr ""
+msgstr "النوع"
 
-#: accounts/templates/accounts/_account_edit_form.html:37
+#: accounts/templates/accounts/_account_edit_form.html:38
 #: accounts/templates/accounts/_account_form.html:44
 #: accounts/templates/accounts/_add_account_form.html:99
-#: budgets/templates/budgets/budgets.html:93
-#: transactions/templates/transactions/_fawry_cashout_form.html:50
+#: budgets/templates/budgets/_add_budget_form.html:22
+#: budgets/templates/budgets/_edit_total_budget_form.html:17
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:20
+#: investments/templates/investments/investments.html:46
 msgid "Currency"
 msgstr "العملة"
 
-#: accounts/templates/accounts/_account_edit_form.html:48
-#: accounts/templates/accounts/_account_form.html:76
-#: accounts/templates/accounts/_add_account_form.html:126
+#: accounts/templates/accounts/_account_edit_form.html:50
+#: accounts/templates/accounts/_account_form.html:73
+#: accounts/templates/accounts/_add_account_form.html:129
 msgid "e.g., 500000"
-msgstr ""
+msgstr "مثال: 500000"
 
-#: accounts/templates/accounts/_account_edit_form.html:56
-#: accounts/templates/accounts/_institution_edit_form.html:41
-#: budgets/templates/budgets/budgets.html:53
-#: budgets/templates/budgets/budgets.html:141
-#: investments/templates/investments/investments.html:74
-#: virtual_accounts/templates/virtual_accounts/_edit_form.html:58
+#: accounts/templates/accounts/_account_edit_form.html:58
+#, fuzzy
+#| msgid "Savings"
+msgid "Round-up Savings"
+msgstr "ادخار"
+
+#: accounts/templates/accounts/_account_edit_form.html:59
+msgid "On"
+msgstr "تشغيل"
+
+#: accounts/templates/accounts/_account_edit_form.html:59
+#: accounts/templates/accounts/_account_edit_form.html:68
+msgid "Off"
+msgstr "إيقاف"
+
+#: accounts/templates/accounts/_account_edit_form.html:62
+msgid "Round up each expense to the nearest amount and save the difference."
+msgstr "قرِّب كل مصروف لأقرب قيمة واحفظ الفرق."
+
+#: accounts/templates/accounts/_account_edit_form.html:65
+msgid "Round up to nearest"
+msgstr "قرّب لأقرب"
+
+#: accounts/templates/accounts/_account_edit_form.html:75
+#, fuzzy
+#| msgid "Save"
+msgid "Save to"
+msgstr "حفظ"
+
+#: accounts/templates/accounts/_account_edit_form.html:92
+#: accounts/templates/accounts/_institution_edit_form.html:53
+#: budgets/templates/budgets/_edit_budget_form.html:48
+#: budgets/templates/budgets/_edit_total_budget_form.html:33
+#: investments/templates/investments/investments.html:82
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:70
 msgid "Update"
 msgstr "تحديث"
 
-#: accounts/templates/accounts/_account_edit_form.html:61
-#: accounts/templates/accounts/_account_form.html:88
-#: accounts/templates/accounts/_add_account_form.html:144
-#: accounts/templates/accounts/_institution_delete_confirm.html:44
-#: accounts/templates/accounts/_institution_edit_form.html:45
-#: accounts/templates/accounts/_institution_form.html:72
-#: accounts/templates/accounts/account_detail.html:271
-#: settings_app/templates/settings_app/settings.html:118
-#: transactions/templates/transactions/_transaction_edit_form.html:121
-#: virtual_accounts/templates/virtual_accounts/_edit_form.html:63
+#: accounts/templates/accounts/_account_edit_form.html:97
+#: accounts/templates/accounts/_account_form.html:86
+#: accounts/templates/accounts/_add_account_form.html:148
+#: accounts/templates/accounts/_institution_delete_confirm.html:45
+#: accounts/templates/accounts/_institution_edit_form.html:57
+#: accounts/templates/accounts/_institution_form.html:73
+#: accounts/templates/accounts/account_detail.html:308
+#: budgets/templates/budgets/_edit_budget_form.html:53
+#: budgets/templates/budgets/_edit_total_budget_form.html:38
+#: recurring/templates/recurring/_confirm_form.html:181
+#: settings_app/templates/settings_app/import/preview.html:86
+#: settings_app/templates/settings_app/import/upload.html:29
+#: settings_app/templates/settings_app/settings.html:234
+#: settings_app/templates/settings_app/tags.html:125
+#: transactions/templates/transactions/_settle_form.html:56
+#: transactions/templates/transactions/_transaction_edit_form.html:248
+#: transactions/templates/transactions/transaction_new.html:184
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:75
 msgid "Cancel"
-msgstr ""
+msgstr "إلغاء"
 
 #: accounts/templates/accounts/_account_form.html:19
-#: accounts/templates/accounts/_account_form.html:84
+#: accounts/templates/accounts/_account_form.html:82
 #: accounts/templates/accounts/_add_account_form.html:21
-#: accounts/templates/accounts/_add_account_form.html:134
+#: accounts/templates/accounts/_add_account_form.html:138
 msgid "Add Account"
-msgstr ""
+msgstr "إضافة حساب"
 
 #: accounts/templates/accounts/_account_form.html:21
 #, python-format
 msgid "to %(name)s"
-msgstr ""
+msgstr "إلى %(name)s"
 
 #: accounts/templates/accounts/_account_form.html:57
-#: accounts/templates/accounts/_add_account_form.html:109
-msgid "Custom name"
-msgstr ""
-
-#: accounts/templates/accounts/_account_form.html:61
-#: accounts/templates/accounts/_add_account_form.html:111
-msgid "Account name"
-msgstr ""
-
-#: accounts/templates/accounts/_account_form.html:62
 #: accounts/templates/accounts/_add_account_form.html:112
-msgid "e.g., My Savings"
-msgstr ""
+msgid "Account name"
+msgstr "اسم الحساب"
 
-#: accounts/templates/accounts/_account_form.html:68
-#: accounts/templates/accounts/_add_account_form.html:119
+#: accounts/templates/accounts/_account_form.html:64
+#: accounts/templates/accounts/_add_account_form.html:121
 msgid "Initial Balance"
-msgstr ""
+msgstr "الرصيد الافتتاحي"
 
 #: accounts/templates/accounts/_add_account_form.html:40
 #: accounts/templates/accounts/_institution_edit_form.html:31
 #: accounts/templates/accounts/_institution_form.html:31
 msgid "Bank"
-msgstr ""
+msgstr "بنك"
 
 #: accounts/templates/accounts/_add_account_form.html:46
 msgid "Finance App"
-msgstr ""
+msgstr "تطبيق مالي"
 
 #: accounts/templates/accounts/_add_account_form.html:52
 #: accounts/templates/accounts/_institution_edit_form.html:33
 #: accounts/templates/accounts/_institution_form.html:33
 msgid "Wallet"
-msgstr ""
+msgstr "محفظة"
 
 #: accounts/templates/accounts/_add_account_form.html:59
 msgid "Institution Name"
-msgstr ""
+msgstr "اسم البنك"
 
 #: accounts/templates/accounts/_add_account_form.html:63
 msgid "Search or type name..."
-msgstr ""
+msgstr "ابحث أو اكتب الاسم..."
 
 #: accounts/templates/accounts/_add_account_form.html:69
 #: accounts/templates/accounts/_institution_form.html:49
 msgid "Institution name"
-msgstr ""
-
-#: accounts/templates/accounts/_add_account_form.html:109
-msgid "(optional)"
-msgstr ""
+msgstr "اسم البنك"
 
 #: accounts/templates/accounts/_credit_card_info.html:9
 msgid "Billing Cycle"
-msgstr ""
+msgstr "دورة الفوترة"
 
 #: accounts/templates/accounts/_credit_card_info.html:12
 msgid "Statement closes"
-msgstr ""
+msgstr "إغلاق الكشف"
 
 #: accounts/templates/accounts/_credit_card_info.html:13
 #, python-format
 msgid "Day %(day)s"
-msgstr ""
+msgstr "اليوم %(day)s"
 
 #: accounts/templates/accounts/_credit_card_info.html:17
 msgid "Current period"
-msgstr ""
+msgstr "الفترة الحالية"
 
 #: accounts/templates/accounts/_credit_card_info.html:22
 msgid "Due date"
-msgstr ""
+msgstr "تاريخ الاستحقاق"
 
 #: accounts/templates/accounts/_credit_card_info.html:26
 #, python-format
 msgid "%(days)s days"
-msgstr ""
+msgstr "%(days)s يومًا"
 
 #: accounts/templates/accounts/_institution_card.html:22
 #: accounts/templates/accounts/_institution_card.html:23
 #, python-format
 msgid "Add account to %(name)s"
-msgstr ""
+msgstr "إضافة حساب إلى %(name)s"
 
 #: accounts/templates/accounts/_institution_card.html:24
 #: accounts/templates/accounts/accounts.html:12
 msgid "+ Account"
-msgstr ""
+msgstr "+ حساب"
 
 #: accounts/templates/accounts/_institution_card.html:28
 #: accounts/templates/accounts/_institution_card.html:29
 msgid "Edit institution"
-msgstr ""
+msgstr "تعديل البنك"
 
 #: accounts/templates/accounts/_institution_card.html:38
 #: accounts/templates/accounts/_institution_card.html:39
 msgid "Delete institution"
-msgstr ""
+msgstr "حذف البنك"
 
 #: accounts/templates/accounts/_institution_card.html:61
 msgid "avail:"
-msgstr ""
+msgstr "متاح:"
 
-#: accounts/templates/accounts/_institution_card.html:67
+#: accounts/templates/accounts/_institution_card.html:71
+#: accounts/templates/accounts/account_detail.html:103
+msgid "Dormant"
+msgstr "خامل"
+
+#: accounts/templates/accounts/_institution_card.html:83
 msgid "No accounts yet"
-msgstr ""
+msgstr "لا توجد حسابات بعد"
 
 #: accounts/templates/accounts/_institution_delete_confirm.html:15
-#: accounts/templates/accounts/_institution_delete_confirm.html:31
-#: accounts/templates/accounts/_institution_delete_confirm.html:37
+#: accounts/templates/accounts/_institution_delete_confirm.html:32
+#: accounts/templates/accounts/_institution_delete_confirm.html:38
 msgid "Delete Institution"
-msgstr ""
+msgstr "حذف البنك"
 
 #: accounts/templates/accounts/_institution_delete_confirm.html:21
 #, python-format
-msgid ""
-"This will permanently delete <strong>%(name)s</strong> and its "
-"<strong>%(count)s</strong> account including all their transactions. This "
-"action cannot be undone."
-msgid_plural ""
-"This will permanently delete <strong>%(name)s</strong> and its "
-"<strong>%(count)s</strong> accounts including all their transactions. This "
-"action cannot be undone."
+msgid "Cannot delete <strong>%(name)s</strong> — it has <strong>%(count)s</strong> active account. Remove all accounts first."
+msgid_plural "Cannot delete <strong>%(name)s</strong> — it has <strong>%(count)s</strong> active accounts. Remove all accounts first."
 msgstr[0] ""
 msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 #: accounts/templates/accounts/_institution_delete_confirm.html:21
 #, python-format
-msgid ""
-"This will permanently delete <strong>%(name)s</strong>. This action cannot "
-"be undone."
-msgstr ""
+msgid "This will permanently delete <strong>%(name)s</strong>. This action cannot be undone."
+msgstr "سيتم حذف <strong>%(name)s</strong> نهائيًا. لا يمكن التراجع عن هذه العملية."
 
-#: accounts/templates/accounts/_institution_delete_confirm.html:32
-#: accounts/templates/accounts/account_detail.html:262
+#: accounts/templates/accounts/_institution_delete_confirm.html:33
+#: accounts/templates/accounts/account_detail.html:299
 msgid "Tap again to confirm"
-msgstr ""
+msgstr "اضغط مرة أخرى للتأكيد"
+
+#: accounts/templates/accounts/_institution_delete_confirm.html:38
+msgid "Remove accounts first"
+msgstr "احذف الحسابات أولًا"
 
 #: accounts/templates/accounts/_institution_edit_form.html:17
 msgid "Edit Institution"
-msgstr ""
+msgstr "تعديل البنك"
 
 #: accounts/templates/accounts/_institution_edit_form.html:21
 #: accounts/templates/accounts/_institution_form.html:39
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:10
+#: settings_app/templates/settings_app/tags.html:111
 #: virtual_accounts/templates/virtual_accounts/_edit_form.html:13
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:19
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:23
 msgid "Name"
 msgstr "الاسم"
 
 #: accounts/templates/accounts/_institution_edit_form.html:23
 msgid "e.g., HSBC, CIB, Telda"
-msgstr ""
+msgstr "مثال: HSBC، CIB، تيلدا"
 
 #: accounts/templates/accounts/_institution_edit_form.html:32
 msgid "Fintech"
+msgstr "تطبيق مالي"
+
+#: accounts/templates/accounts/_institution_edit_form.html:38
+#, fuzzy
+#| msgid "Note (optional)"
+msgid "Linked Bank (optional)"
+msgstr "ملاحظة (اختياري)"
+
+#: accounts/templates/accounts/_institution_edit_form.html:41
+msgid "— Custom (no linked bank) —"
 msgstr ""
 
+#: accounts/templates/accounts/_institution_edit_form.html:46
+msgid "Linking shows the bank's bilingual name and official logo."
+msgstr "الربط يعرض اسم البنك ثنائي اللغة وشعاره الرسمي."
+
 #: accounts/templates/accounts/_institution_form.html:23
-#: accounts/templates/accounts/_institution_form.html:68
+#: accounts/templates/accounts/_institution_form.html:69
 msgid "Add Institution"
-msgstr ""
+msgstr "إضافة بنك"
 
 #: accounts/templates/accounts/_institution_form.html:32
 msgid "Finance App (ValU, Fawry…)"
@@ -362,233 +451,351 @@ msgstr ""
 
 #: accounts/templates/accounts/_institution_list.html:13
 msgid "No institutions yet. Tap + Institution above to get started."
-msgstr ""
+msgstr "لا توجد بنوك بعد. اضغط + بنك لإضافة أول بنك."
 
 #: accounts/templates/accounts/account_detail.html:3
 msgid "ClearMoney - Account Detail"
-msgstr ""
+msgstr "ClearMoney - تفاصيل الحساب"
 
 #: accounts/templates/accounts/account_detail.html:15
-#: transactions/templates/transactions/_transaction_detail_sheet.html:116
-#: transactions/templates/transactions/_transaction_row.html:79
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:16
+#: accounts/templates/accounts/balance_check.html:5
+#: accounts/templates/accounts/balance_check.html:16
+msgid "Balance Check"
+msgstr "مراجعة الرصيد"
+
+#: accounts/templates/accounts/account_detail.html:16
+#: budgets/templates/budgets/_budget_card.html:11
+#: budgets/templates/budgets/_total_budget_card.html:12
+#: settings_app/templates/settings_app/tags.html:52
+#: transactions/templates/transactions/_transaction_detail_sheet.html:185
+#: transactions/templates/transactions/_transaction_row.html:86
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:23
 msgid "Edit"
 msgstr "تعديل"
 
 #: accounts/templates/accounts/account_detail.html:16
+msgid "Reactivate account to edit"
+msgstr "أعِد تفعيل الحساب للتعديل"
+
+#: accounts/templates/accounts/account_detail.html:17
 #: transactions/templates/transactions/transactions.html:25
 msgid "All Accounts"
-msgstr ""
+msgstr "كل الحسابات"
 
-#: accounts/templates/accounts/account_detail.html:22
+#: accounts/templates/accounts/account_detail.html:23
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:30
 msgid "Current Balance"
-msgstr ""
+msgstr "الرصيد الحالي"
 
-#: accounts/templates/accounts/account_detail.html:29
+#: accounts/templates/accounts/account_detail.html:30
 msgid "Available Credit"
-msgstr ""
+msgstr "الرصيد المتاح للاقتراض"
 
-#: accounts/templates/accounts/account_detail.html:40
+#: accounts/templates/accounts/account_detail.html:41
 msgid "Holding for others"
-msgstr ""
+msgstr "محفوظ لآخرين"
 
-#: accounts/templates/accounts/account_detail.html:44
+#: accounts/templates/accounts/account_detail.html:45
 msgid "Your money"
-msgstr ""
+msgstr "أموالك"
 
-#: accounts/templates/accounts/account_detail.html:55
+#: accounts/templates/accounts/account_detail.html:56
 msgid "30-day trend"
-msgstr ""
+msgstr "اتجاه 30 يومًا"
 
-#: accounts/templates/accounts/account_detail.html:64
+#: accounts/templates/accounts/account_detail.html:67
+msgid "Balance check needs attention"
+msgstr "مراجعة الرصيد تحتاج إلى انتباه"
+
+#: accounts/templates/accounts/account_detail.html:69
+#, python-format
+msgid "Checked %(checked)s with a remaining difference of %(diff)s."
+msgstr "تمت المراجعة في %(checked)s بفرق متبقٍ قدره %(diff)s."
+
+#: accounts/templates/accounts/account_detail.html:72
+msgid "Review"
+msgstr "مراجعة"
+
+#: accounts/templates/accounts/account_detail.html:77
+#, python-format
+msgid "Last checked %(checked)s"
+msgstr "آخر مراجعة في %(checked)s"
+
+#: accounts/templates/accounts/account_detail.html:78
+msgid "Check Again"
+msgstr "إعادة التحقق"
+
+#: accounts/templates/accounts/account_detail.html:83
+msgid "No balance check saved yet."
+msgstr "لا توجد مراجعة رصيد محفوظة حتى الآن."
+
+#: accounts/templates/accounts/account_detail.html:84
+msgid "Check Now"
+msgstr "تحقق الآن"
+
+#: accounts/templates/accounts/account_detail.html:93
 msgid "Dormant Account"
-msgstr ""
+msgstr "حساب خامل"
 
-#: accounts/templates/accounts/account_detail.html:65
-msgid "Dormant accounts are collapsed on the dashboard"
-msgstr ""
+#: accounts/templates/accounts/account_detail.html:95
+msgid "Hidden from Credit Cards, excluded from credit metrics, edits locked."
+msgstr "مُخفي من البطاقات الائتمانية، ومستثنى من مقاييس الائتمان، والتعديلات مغلقة."
 
-#: accounts/templates/accounts/account_detail.html:70
+#: accounts/templates/accounts/account_detail.html:95
+msgid "Dormant accounts are hidden from Credit Cards and excluded from credit metrics."
+msgstr "الحسابات الخاملة مُخفية من البطاقات الائتمانية ومستثناة من مقاييس الائتمان."
+
+#: accounts/templates/accounts/account_detail.html:101
+#, fuzzy
+#| msgid "Select account..."
+msgid "Reactivate account"
+msgstr "اختر الحساب..."
+
+#: accounts/templates/accounts/account_detail.html:101
 msgid "Mark account as dormant"
-msgstr ""
+msgstr "تحديد الحساب كخامل"
 
-#: accounts/templates/accounts/account_detail.html:72
-msgid "Active"
-msgstr ""
+#: accounts/templates/accounts/account_detail.html:103
+msgid "Activate"
+msgstr "تفعيل"
 
-#: accounts/templates/accounts/account_detail.html:72
-msgid "Dormant"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:80
+#: accounts/templates/accounts/account_detail.html:111
 #: accounts/templates/accounts/credit_card_statement.html:45
 msgid "Credit Utilization"
-msgstr ""
+msgstr "نسبة استخدام الائتمان"
 
-#: accounts/templates/accounts/account_detail.html:96
+#: accounts/templates/accounts/account_detail.html:127
 #, python-format
 msgid "%(balance)s used"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:98
-#, python-format
-msgid "of %(limit)s limit"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:105
-msgid "Utilization trend (30 days)"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:120
-msgid "View Statement"
-msgstr ""
+msgstr "%(balance)s مُستخدم"
 
 #: accounts/templates/accounts/account_detail.html:129
-#: dashboard/templates/dashboard/_virtual_accounts.html:6
-#: settings_app/templates/settings_app/settings.html:89
-#: templates/components/bottom-nav.html:113
+#, python-format
+msgid "of %(limit)s limit"
+msgstr "من حد %(limit)s"
+
+#: accounts/templates/accounts/account_detail.html:136
+msgid "Utilization trend (30 days)"
+msgstr "اتجاه الاستخدام (30 يومًا)"
+
+#: accounts/templates/accounts/account_detail.html:151
+msgid "View Statement"
+msgstr "عرض الكشف"
+
+#: accounts/templates/accounts/account_detail.html:160
+#: dashboard/templates/dashboard/_virtual_accounts.html:10
+#: settings_app/templates/settings_app/settings.html:207
+#: templates/components/bottom-nav.html:102
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:5
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:10
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:14
 msgid "Pots"
 msgstr "المدخرات"
 
-#: accounts/templates/accounts/account_detail.html:130
-#: dashboard/templates/dashboard/home.html:54
+#: accounts/templates/accounts/account_detail.html:161
+#: dashboard/templates/dashboard/_recent_transactions.html:15
 msgid "View All"
-msgstr ""
+msgstr "عرض الكل"
 
-#: accounts/templates/accounts/account_detail.html:143
+#: accounts/templates/accounts/account_detail.html:174
 #, python-format
 msgid "of %(target)s"
-msgstr ""
+msgstr "من %(target)s"
 
-#: accounts/templates/accounts/account_detail.html:162
+#: accounts/templates/accounts/account_detail.html:193
 msgid "Health Rules"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:166
-msgid "Min Balance"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:167
-#: accounts/templates/accounts/account_detail.html:173
-msgid "Not set"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:172
-msgid "Min Monthly Deposit"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:180
-msgid "Save Health Rules"
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:189
-#: accounts/templates/accounts/account_detail.html:250
-#: accounts/templates/accounts/account_detail.html:261
-#: accounts/templates/accounts/account_detail.html:266
-msgid "Delete Account"
-msgstr ""
+msgstr "قواعد الصحة المالية"
 
 #: accounts/templates/accounts/account_detail.html:195
-#: people/templates/people/person_detail.html:77
+msgid "Account is dormant — health rules are preserved but not evaluated. Reactivate to edit."
+msgstr ""
+
+#: accounts/templates/accounts/account_detail.html:201
+msgid "Min Balance"
+msgstr "الحد الأدنى للرصيد"
+
+#: accounts/templates/accounts/account_detail.html:202
+#: accounts/templates/accounts/account_detail.html:208
+msgid "Not set"
+msgstr "غير محدد"
+
+#: accounts/templates/accounts/account_detail.html:207
+msgid "Min Monthly Deposit"
+msgstr "الحد الأدنى للإيداع الشهري"
+
+#: accounts/templates/accounts/account_detail.html:215
+msgid "Save Health Rules"
+msgstr "حفظ قواعد الصحة"
+
+#: accounts/templates/accounts/account_detail.html:225
+#: accounts/templates/accounts/account_detail.html:287
+#: accounts/templates/accounts/account_detail.html:298
+#: accounts/templates/accounts/account_detail.html:303
+msgid "Delete Account"
+msgstr "حذف الحساب"
+
+#: accounts/templates/accounts/account_detail.html:231
+#: people/templates/people/person_detail.html:72
 msgid "Transaction History"
 msgstr "سجل المعاملات"
 
-#: accounts/templates/accounts/account_detail.html:210
+#: accounts/templates/accounts/account_detail.html:246
 #: transactions/templates/transactions/_transaction_list.html:14
 msgid "Load more..."
-msgstr ""
-
-#: accounts/templates/accounts/account_detail.html:216
-#: transactions/templates/transactions/_transaction_list.html:23
-msgid "No transactions found"
-msgstr ""
+msgstr "تحميل المزيد..."
 
 #: accounts/templates/accounts/account_detail.html:252
+#: transactions/templates/transactions/_search_results.html:27
+#: transactions/templates/transactions/_transaction_list.html:23
+msgid "No transactions found"
+msgstr "لا توجد معاملات"
+
+#: accounts/templates/accounts/account_detail.html:289
 #, python-format
-msgid ""
-"This will permanently delete <strong class=\"text-slate-700 dark:text-"
-"slate-200\">%(name)s</strong> and all its transactions. This action cannot "
-"be undone."
+msgid "Remove <strong class=\"text-slate-700 dark:text-slate-200\">%(name)s</strong> from your accounts. Balance must be zero. Transactions are kept for history. This cannot be undone."
 msgstr ""
+
+#: accounts/templates/accounts/account_detail.html:375
+msgid "Reactivate"
+msgstr "إعادة التفعيل"
+
+#: accounts/templates/accounts/account_detail.html:375
+msgid "It will appear in Credit Cards and credit metrics again."
+msgstr "سيظهر مرة أخرى في البطاقات الائتمانية ومقاييس الائتمان."
+
+#: accounts/templates/accounts/account_detail.html:376
+msgid "Mark"
+msgstr "تحديد"
+
+#: accounts/templates/accounts/account_detail.html:376
+msgid "as dormant? It will be hidden from Credit Cards, excluded from credit metrics, and all edits will be locked."
+msgstr "كخامل؟ سيتم إخفاؤه من البطاقات الائتمانية، واستثناؤه من مقاييس الائتمان، وقفل كل التعديلات."
 
 #: accounts/templates/accounts/accounts.html:3
 msgid "ClearMoney - Accounts"
-msgstr ""
+msgstr "ClearMoney - الحسابات"
 
 #: accounts/templates/accounts/accounts.html:9
-#: dashboard/templates/dashboard/_accounts.html:5
+#: dashboard/templates/dashboard/_accounts.html:10
 #: templates/components/bottom-nav.html:29
 msgid "Accounts"
-msgstr ""
+msgstr "الحسابات"
 
 #: accounts/templates/accounts/accounts.html:24
 msgid "No accounts yet. Tap + Account above to get started."
-msgstr ""
+msgstr "لا توجد حسابات بعد. اضغط + حساب لإضافة أول حساب."
+
+#: accounts/templates/accounts/balance_check.html:10
+#: dashboard/templates/dashboard/calendar.html:11
+#: fee_presets/templates/fee_presets/fee_presets.html:20
+#: settings_app/templates/settings_app/categories.html:20
+#: settings_app/templates/settings_app/import/mapping.html:69
+msgid "Back"
+msgstr "رجوع"
+
+#: accounts/templates/accounts/balance_check.html:24
+msgid "Current App Balance"
+msgstr "الرصيد الحالي في التطبيق"
+
+#: accounts/templates/accounts/balance_check.html:29
+msgid "Last Checked"
+msgstr "آخر مراجعة"
+
+#: accounts/templates/accounts/balance_check.html:35
+msgid "Enter the balance shown by your bank right now."
+msgstr "أدخل الرصيد الذي يعرضه البنك الآن."
+
+#: accounts/templates/accounts/balance_check.html:40
+msgid "Balance Shown By Your Bank"
+msgstr "الرصيد المعروض من البنك"
+
+#: accounts/templates/accounts/balance_check.html:54
+#: accounts/templates/accounts/balance_check.html:100
+msgid "Difference"
+msgstr "الفرق"
+
+#: accounts/templates/accounts/balance_check.html:60
+msgid "Save Balance Check"
+msgstr "حفظ مراجعة الرصيد"
+
+#: accounts/templates/accounts/balance_check.html:68
+msgid "Difference Found"
+msgstr "تم العثور على فرق"
+
+#: accounts/templates/accounts/balance_check.html:69
+msgid "Create a clear adjustment entry to match your bank balance right away."
+msgstr "أنشئ قيد تسوية واضح لمطابقة رصيد البنك فورًا."
+
+#: accounts/templates/accounts/balance_check.html:76
+msgid "Create Balance Correction"
+msgstr "إنشاء تسوية الرصيد"
+
+#: accounts/templates/accounts/balance_check.html:97
+msgid "Looks Good"
+msgstr "يبدو جيدًا"
 
 #: accounts/templates/accounts/credit_card_statement.html:3
 #, python-format
 msgid "Statement - %(name)s"
-msgstr ""
+msgstr "كشف - %(name)s"
 
 #: accounts/templates/accounts/credit_card_statement.html:11
 #: accounts/templates/accounts/credit_card_statement_error.html:11
 #, python-format
 msgid "Back to %(name)s"
-msgstr ""
+msgstr "العودة إلى %(name)s"
 
 #: accounts/templates/accounts/credit_card_statement.html:16
 msgid "Credit Card Statement"
-msgstr ""
+msgstr "كشف حساب البطاقة"
 
 #: accounts/templates/accounts/credit_card_statement.html:24
 msgid "Opening Balance"
-msgstr ""
+msgstr "الرصيد الافتتاحي"
 
 #: accounts/templates/accounts/credit_card_statement.html:28
 msgid "Closing Balance"
-msgstr ""
+msgstr "الرصيد الختامي"
 
 #: accounts/templates/accounts/credit_card_statement.html:32
 msgid "Total Spending"
-msgstr ""
+msgstr "إجمالي الإنفاق"
 
 #: accounts/templates/accounts/credit_card_statement.html:36
 msgid "Total Payments"
-msgstr ""
+msgstr "إجمالي المدفوعات"
 
 #: accounts/templates/accounts/credit_card_statement.html:58
 msgid "of credit limit used"
-msgstr ""
+msgstr "من حد الائتمان مُستخدم"
 
 #: accounts/templates/accounts/credit_card_statement.html:61
 #, python-format
 msgid "Limit: %(limit)s"
-msgstr ""
+msgstr "الحد: %(limit)s"
 
 #: accounts/templates/accounts/credit_card_statement.html:72
 msgid "Interest-Free Period"
-msgstr ""
+msgstr "فترة بدون فوائد"
 
 #: accounts/templates/accounts/credit_card_statement.html:75
 #, python-format
 msgid "%(days)s days from statement date"
-msgstr ""
+msgstr "%(days)s يومًا من تاريخ الكشف"
 
 #: accounts/templates/accounts/credit_card_statement.html:78
 #, python-format
 msgid "%(remain)s days remaining"
-msgstr ""
+msgstr "%(remain)s يومًا متبقية"
 
 #: accounts/templates/accounts/credit_card_statement.html:81
 msgid "Expired"
-msgstr ""
+msgstr "منتهية"
 
 #: accounts/templates/accounts/credit_card_statement.html:97
 #, python-format
 msgid "Pay %(amount)s by %(due)s to avoid interest charges."
-msgstr ""
+msgstr "ادفع %(amount)s قبل %(due)s لتجنّب فوائد التأخير."
 
 #: accounts/templates/accounts/credit_card_statement.html:100
 #, python-format
@@ -598,7 +805,7 @@ msgstr ""
 #: accounts/templates/accounts/credit_card_statement.html:107
 #: transactions/templates/transactions/transactions.html:10
 msgid "Transactions"
-msgstr ""
+msgstr "المعاملات"
 
 #: accounts/templates/accounts/credit_card_statement.html:125
 msgid "No transactions in this period."
@@ -630,8 +837,7 @@ msgid "Please wait a few minutes before requesting another link."
 msgstr "يرجى الانتظار بضع دقائق قبل طلب رابط آخر."
 
 #: auth_app/services.py:56
-msgid ""
-"You've reached the daily limit for sign-in links. Please try again tomorrow."
+msgid "You've reached the daily limit for sign-in links. Please try again tomorrow."
 msgstr "لقد وصلت إلى الحد اليومي لروابط تسجيل الدخول. يرجى المحاولة غدًا."
 
 #: auth_app/services.py:60
@@ -653,11 +859,8 @@ msgid "ClearMoney"
 msgstr "ClearMoney"
 
 #: auth_app/services.py:138
-msgid ""
-"Click the button below to sign in to your account. This link expires in 15 "
-"minutes."
-msgstr ""
-"انقر على الزر أدناه لتسجيل الدخول إلى حسابك. ينتهي هذا الرابط خلال 15 دقيقة."
+msgid "Click the button below to sign in to your account. This link expires in 15 minutes."
+msgstr "انقر على الزر أدناه لتسجيل الدخول إلى حسابك. ينتهي هذا الرابط خلال 15 دقيقة."
 
 #: auth_app/services.py:143
 msgid "If you didn't request this link, you can safely ignore this email."
@@ -667,31 +870,35 @@ msgstr "إذا لم تطلب هذا الرابط، يمكنك تجاهل هذه 
 msgid "If the button doesn't work, copy and paste this URL into your browser:"
 msgstr "إذا لم يعمل الزر، انسخ والصق هذا الرابط في متصفحك:"
 
-#: auth_app/services.py:222
+#: auth_app/services.py:222 auth_app/services.py:240
 msgid "Email is required"
 msgstr "البريد الإلكتروني مطلوب"
 
-#: auth_app/services.py:370
+#: auth_app/services.py:244
+msgid "User already exists"
+msgstr ""
+
+#: auth_app/services.py:386
 msgid "Token is required"
 msgstr "الرمز مطلوب"
 
-#: auth_app/services.py:376
+#: auth_app/services.py:392
 msgid "Invalid or expired link"
 msgstr "رابط غير صالح أو منتهي الصلاحية"
 
-#: auth_app/services.py:380
+#: auth_app/services.py:396
 msgid "This link has already been used"
 msgstr "تم استخدام هذا الرابط مسبقًا"
 
-#: auth_app/services.py:384
+#: auth_app/services.py:400
 msgid "This link has expired"
 msgstr "انتهت صلاحية هذا الرابط"
 
-#: auth_app/services.py:396
+#: auth_app/services.py:412
 msgid "User not found"
 msgstr "المستخدم غير موجود"
 
-#: auth_app/services.py:410
+#: auth_app/services.py:433
 #, python-format
 msgid "Unknown token purpose: %(purpose)s"
 msgstr "غرض رمز غير معروف: %(purpose)s"
@@ -700,17 +907,21 @@ msgstr "غرض رمز غير معروف: %(purpose)s"
 msgid "Enter your email to sign in or create an account"
 msgstr ""
 
-#: auth_app/templates/auth_app/auth.html:29
-#: auth_app/templates/auth_app/auth.html:34
+#: auth_app/templates/auth_app/auth.html:30
+#: auth_app/templates/auth_app/auth.html:36
 msgid "Email address"
 msgstr ""
 
-#: auth_app/templates/auth_app/auth.html:33
+#: auth_app/templates/auth_app/auth.html:35
 msgid "you@example.com"
 msgstr ""
 
-#: auth_app/templates/auth_app/auth.html:43
+#: auth_app/templates/auth_app/auth.html:46
 msgid "Continue with email"
+msgstr ""
+
+#: auth_app/templates/auth_app/auth.html:54
+msgid "Dev Quick Login"
 msgstr ""
 
 #: auth_app/templates/auth_app/check_email.html:4
@@ -741,14 +952,11 @@ msgid "We sent a sign-in link to %(user_email)s. Click the link to sign in."
 msgstr ""
 
 #: auth_app/templates/auth_app/check_email.html:29
-msgid ""
-"The link expires in 15 minutes. Check your spam folder if you don't see it."
+msgid "The link expires in 15 minutes. Check your spam folder if you don't see it."
 msgstr ""
 
 #: auth_app/templates/auth_app/check_email.html:33
-msgid ""
-"Already requested a link? Check your inbox — a previously sent link may "
-"still be valid."
+msgid "Already requested a link? Check your inbox — a previously sent link may still be valid."
 msgstr ""
 
 #: auth_app/templates/auth_app/check_email.html:39
@@ -764,13 +972,165 @@ msgid "Link expired"
 msgstr ""
 
 #: auth_app/templates/auth_app/link_expired.html:16
-msgid ""
-"This sign-in link is no longer valid. It may have expired or already been "
-"used."
+msgid "This sign-in link is no longer valid. It may have expired or already been used."
 msgstr ""
 
 #: auth_app/templates/auth_app/link_expired.html:22
 msgid "Request a new link"
+msgstr ""
+
+#: budgets/templates/budgets/_add_budget_form.html:7
+#: budgets/templates/budgets/_edit_budget_form.html:15
+#: recurring/templates/recurring/_confirm_form.html:84
+#: recurring/templates/recurring/_form.html:94
+#: reports/templates/reports/partials/insights.html:84
+#: settings_app/templates/settings_app/categories.html:18
+#: transactions/templates/transactions/_quick_entry.html:67
+#: transactions/templates/transactions/_transaction_detail_sheet.html:82
+#: transactions/templates/transactions/_transaction_edit_form.html:143
+#: transactions/templates/transactions/batch_entry.html:29
+#: transactions/templates/transactions/transaction_new.html:55
+msgid "Category"
+msgstr "الفئة"
+
+#: budgets/templates/budgets/_add_budget_form.html:11
+#: transactions/templates/transactions/_transaction_edit_form.html:149
+#: transactions/templates/transactions/transaction_new.html:61
+msgid "Select category..."
+msgstr "اختر الفئة..."
+
+#: budgets/templates/budgets/_add_budget_form.html:17
+#: budgets/templates/budgets/_edit_budget_form.html:22
+#: budgets/templates/budgets/_edit_total_budget_form.html:22
+msgid "Monthly Limit"
+msgstr "الحد الشهري"
+
+#: budgets/templates/budgets/_add_budget_form.html:33
+#: budgets/templates/budgets/_edit_budget_form.html:34
+msgid "Enable rollover"
+msgstr ""
+
+#: budgets/templates/budgets/_add_budget_form.html:36
+#: budgets/templates/budgets/_edit_budget_form.html:38
+msgid "Max carryover"
+msgstr ""
+
+#: budgets/templates/budgets/_add_budget_form.html:43
+msgid "Create Budget"
+msgstr "إنشاء ميزانية"
+
+#: budgets/templates/budgets/_budget_card.html:16
+#, python-format
+msgid "Delete the %(name)s budget?"
+msgstr ""
+
+#: budgets/templates/budgets/_budget_card.html:18
+#: settings_app/templates/settings_app/tags.html:57
+#: transactions/templates/transactions/_transaction_row.html:95
+msgid "Delete"
+msgstr "حذف"
+
+#: budgets/templates/budgets/_budget_card.html:21
+#, python-format
+msgid "View %(name)s budget transactions"
+msgstr "عرض معاملات ميزانية %(name)s"
+
+#: budgets/templates/budgets/_budget_card.html:23
+#: budgets/templates/budgets/_total_budget_card.html:26
+#: budgets/templates/budgets/budget_detail.html:20
+#, python-format
+msgid "%(spent)s spent"
+msgstr "%(spent)s مستهلك"
+
+#: budgets/templates/budgets/_budget_card.html:26
+#, python-format
+msgid "%(limit)s of total (%(original)s + %(rollover)s rollover)"
+msgstr ""
+
+#: budgets/templates/budgets/_budget_card.html:28
+#: budgets/templates/budgets/_total_budget_card.html:27
+#: budgets/templates/budgets/budget_detail.html:21
+#, python-format
+msgid "%(limit)s of total"
+msgstr "%(limit)s من الإجمالي"
+
+#: budgets/templates/budgets/_budget_card.html:37
+#: budgets/templates/budgets/_total_budget_card.html:38
+#: budgets/templates/budgets/budget_detail.html:31
+#, python-format
+msgid "Over budget by %(amount)s"
+msgstr "تجاوز الميزانية بـ %(amount)s"
+
+#: budgets/templates/budgets/_budget_card.html:37
+#: budgets/templates/budgets/_total_budget_card.html:38
+#: budgets/templates/budgets/budget_detail.html:31
+#, python-format
+msgid "%(amount)s remaining"
+msgstr "%(amount)s متبقي"
+
+#: budgets/templates/budgets/_budget_card.html:39
+msgid "View transactions"
+msgstr "عرض المعاملات"
+
+#: budgets/templates/budgets/_edit_budget_form.html:4
+#: budgets/templates/budgets/budgets.html:53
+#, fuzzy
+#| msgid "Budget"
+msgid "Edit Budget"
+msgstr "ميزانية"
+
+#: budgets/templates/budgets/_edit_total_budget_form.html:4
+#, fuzzy
+#| msgid "Set Total Budget"
+msgid "Edit Total Budget"
+msgstr "تعيين إجمالي الميزانية"
+
+#: budgets/templates/budgets/_total_budget_card.html:7
+#, fuzzy, python-format
+#| msgid "Total Monthly Budget"
+msgid "Total Monthly Budget (%(curr)s)"
+msgstr "إجمالي الميزانية الشهرية"
+
+#: budgets/templates/budgets/_total_budget_card.html:18
+#, fuzzy
+#| msgid "Remove total budget"
+msgid "Delete the total budget?"
+msgstr "إزالة إجمالي الميزانية"
+
+#: budgets/templates/budgets/_total_budget_card.html:21
+msgid "Remove total budget"
+msgstr "إزالة إجمالي الميزانية"
+
+#: budgets/templates/budgets/_total_budget_card.html:21
+msgid "Remove"
+msgstr "إزالة"
+
+#: budgets/templates/budgets/_total_budget_card.html:32
+#, python-format
+msgid "%(pct)s%% spent of total budget"
+msgstr "%(pct)s%% مستهلك من الميزانية الكلية"
+
+#: budgets/templates/budgets/_total_budget_card.html:42
+#, python-format
+msgid "Your category budgets total %(cat_sum)s, which exceeds your total budget of %(total)s."
+msgstr ""
+
+#: budgets/templates/budgets/_total_budget_card.html:46
+#, fuzzy, python-format
+#| msgid "Set Total Budget"
+msgid "Set Total Budget (%(curr)s)"
+msgstr "تعيين إجمالي الميزانية"
+
+#: budgets/templates/budgets/_total_budget_card.html:52
+msgid "Monthly total limit"
+msgstr "الحد الشهري الإجمالي"
+
+#: budgets/templates/budgets/_total_budget_card.html:59
+msgid "Set Total Budget"
+msgstr "تعيين إجمالي الميزانية"
+
+#: budgets/templates/budgets/_total_budget_card.html:63
+msgid "Try again."
 msgstr ""
 
 #: budgets/templates/budgets/budget_detail.html:5
@@ -781,38 +1141,10 @@ msgstr "ميزانية"
 msgid "Back to budgets"
 msgstr "العودة للميزانيات"
 
-#: budgets/templates/budgets/budget_detail.html:20
-#: budgets/templates/budgets/budgets.html:25
-#: budgets/templates/budgets/budgets.html:120
-#, python-format
-msgid "%(spent)s spent"
-msgstr "%(spent)s مستهلك"
-
-#: budgets/templates/budgets/budget_detail.html:21
-#: budgets/templates/budgets/budgets.html:26
-#: budgets/templates/budgets/budgets.html:121
-#, python-format
-msgid "%(limit)s of total"
-msgstr "%(limit)s من الإجمالي"
-
 #: budgets/templates/budgets/budget_detail.html:26
 #, python-format
 msgid "%(pct)s%% spent"
 msgstr "%(pct)s%% مستهلك"
-
-#: budgets/templates/budgets/budget_detail.html:31
-#: budgets/templates/budgets/budgets.html:37
-#: budgets/templates/budgets/budgets.html:128
-#, python-format
-msgid "Over budget by %(amount)s"
-msgstr "تجاوز الميزانية بـ %(amount)s"
-
-#: budgets/templates/budgets/budget_detail.html:31
-#: budgets/templates/budgets/budgets.html:37
-#: budgets/templates/budgets/budgets.html:128
-#, python-format
-msgid "%(amount)s remaining"
-msgstr "%(amount)s متبقي"
 
 #: budgets/templates/budgets/budget_detail.html:36
 msgid "Transactions this month"
@@ -828,212 +1160,241 @@ msgstr "لا توجد معاملات هذا الشهر"
 
 #: budgets/templates/budgets/budgets.html:5
 #: budgets/templates/budgets/budgets.html:10
-#: dashboard/templates/dashboard/_budgets.html:6
-#: settings_app/templates/settings_app/settings.html:86
-#: templates/components/bottom-nav.html:104
+#: budgets/templates/budgets/budgets.html:14
+#: dashboard/templates/dashboard/_budgets.html:10
+#: settings_app/templates/settings_app/settings.html:204
+#: templates/components/bottom-nav.html:93
 msgid "Budgets"
 msgstr "الميزانيات"
 
-#: budgets/templates/budgets/budgets.html:11
-#: settings_app/templates/settings_app/settings.html:8
-#: templates/components/bottom-nav.html:164 templates/components/header.html:12
-msgid "Settings"
-msgstr "الإعدادات"
-
-#: budgets/templates/budgets/budgets.html:17
-msgid "Total Monthly Budget"
-msgstr "إجمالي الميزانية الشهرية"
-
-#: budgets/templates/budgets/budgets.html:21
-msgid "Remove total budget"
-msgstr "إزالة إجمالي الميزانية"
-
-#: budgets/templates/budgets/budgets.html:21
-msgid "Remove"
-msgstr "إزالة"
-
-#: budgets/templates/budgets/budgets.html:31
-#, python-format
-msgid "%(pct)s%% spent of total budget"
-msgstr "%(pct)s%% مستهلك من الميزانية الكلية"
-
-#: budgets/templates/budgets/budgets.html:41
-#, python-format
-msgid ""
-"Your category budgets total %(cat_sum)s, which exceeds your total budget of "
-"%(total)s."
+#: budgets/templates/budgets/budgets.html:10
+msgid "Set spending limits per category to stay on track"
 msgstr ""
 
+#: budgets/templates/budgets/budgets.html:10
+#: people/templates/people/people.html:10
+#: recurring/templates/recurring/recurring.html:10
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:10
+msgid "Got it"
+msgstr ""
+
+#: budgets/templates/budgets/budgets.html:19
+msgid "Copy last month"
+msgstr ""
+
+#: budgets/templates/budgets/budgets.html:24
+#, fuzzy
+#| msgid "Budget"
+msgid "+ Budget"
+msgstr "ميزانية"
+
 #: budgets/templates/budgets/budgets.html:47
-msgid "New total limit"
-msgstr "حد الإجمالي الجديد"
+#, fuzzy
+#| msgid "No budgets set. Create one above!"
+msgid "No budgets set. Tap + Budget above to get started!"
+msgstr "لا توجد ميزانيات محددة. أنشئ واحدة أعلاه!"
 
-#: budgets/templates/budgets/budgets.html:57
-#: budgets/templates/budgets/budgets.html:67
-msgid "Set Total Budget"
-msgstr "تعيين إجمالي الميزانية"
-
-#: budgets/templates/budgets/budgets.html:61
-msgid "Monthly total limit"
-msgstr "الحد الشهري الإجمالي"
-
-#: budgets/templates/budgets/budgets.html:74
+#: budgets/templates/budgets/budgets.html:52
 msgid "New Budget"
 msgstr "ميزانية جديدة"
 
-#: budgets/templates/budgets/budgets.html:78
-#: recurring/templates/recurring/_form.html:81
-#: transactions/templates/transactions/_quick_entry.html:56
-#: transactions/templates/transactions/_transaction_detail_sheet.html:29
-#: transactions/templates/transactions/batch_entry.html:29
-#: transactions/templates/transactions/transaction_new.html:68
-msgid "Category"
-msgstr "الفئة"
-
-#: budgets/templates/budgets/budgets.html:82
-msgid "Select category..."
-msgstr "اختر الفئة..."
-
-#: budgets/templates/budgets/budgets.html:88
-msgid "Monthly Limit"
-msgstr "الحد الشهري"
-
-#: budgets/templates/budgets/budgets.html:102
-msgid "Create Budget"
-msgstr "إنشاء ميزانية"
-
-#: budgets/templates/budgets/budgets.html:115
-#: transactions/templates/transactions/_transaction_detail_sheet.html:123
-#: transactions/templates/transactions/_transaction_row.html:88
-msgid "Delete"
-msgstr "حذف"
-
-#: budgets/templates/budgets/budgets.html:118
-#, python-format
-msgid "View %(name)s budget transactions"
-msgstr "عرض معاملات ميزانية %(name)s"
-
-#: budgets/templates/budgets/budgets.html:130
-msgid "View transactions"
-msgstr "عرض المعاملات"
-
-#: budgets/templates/budgets/budgets.html:134
-#, python-format
-msgid "Monthly limit for %(name)s"
-msgstr "الحد الشهري لـ %(name)s"
-
-#: budgets/templates/budgets/budgets.html:149
-msgid "No budgets set. Create one above!"
-msgstr "لا توجد ميزانيات محددة. أنشئ واحدة أعلاه!"
-
-#: categories/services.py:189 categories/services.py:218
-msgid "category name is required"
-msgstr "اسم الفئة مطلوب"
-
-#: categories/services.py:193
+#: categories/services.py:212
 msgid "A category with this name already exists"
 msgstr "فئة بهذا الاسم موجودة بالفعل"
 
-#: categories/services.py:214
+#: categories/services.py:238
 msgid "system categories cannot be modified"
 msgstr "لا يمكن تعديل فئات النظام"
 
-#: categories/services.py:237
-msgid "category not found"
-msgstr "الفئة غير موجودة"
+#: categories/services.py:267
+msgid "category name is required"
+msgstr "اسم الفئة مطلوب"
 
-#: categories/services.py:239
+#: categories/services.py:287
 msgid "system categories cannot be archived"
 msgstr "لا يمكن أرشفة فئات النظام"
 
-#: core/templatetags/money.py:208 recurring/templates/recurring/_form.html:18
+#: core/templatetags/money.py:273 recurring/templates/recurring/_form.html:36
+#: recurring/templates/recurring/calendar.html:31
+#: settings_app/templates/settings_app/_category_new_form.html:17
 #: transactions/templates/transactions/_quick_entry.html:21
-#: transactions/templates/transactions/_transaction_edit_form.html:16
+#: transactions/templates/transactions/_transaction_edit_form.html:131
 #: transactions/templates/transactions/batch_entry.html:17
-#: transactions/templates/transactions/transaction_new.html:29
+#: transactions/templates/transactions/transaction_new.html:22
 #: transactions/templates/transactions/transactions.html:36
 msgid "Expense"
 msgstr "مصروف"
 
-#: core/templatetags/money.py:209 recurring/templates/recurring/_form.html:26
+#: core/templatetags/money.py:274 recurring/templates/recurring/_form.html:44
+#: recurring/templates/recurring/calendar.html:32
 #: reports/templates/reports/partials/income-vs-expense.html:17
 #: reports/templates/reports/partials/income-vs-expense.html:34
+#: settings_app/templates/settings_app/_category_new_form.html:27
+#: settings_app/templates/settings_app/categories.html:41
 #: transactions/templates/transactions/_quick_entry.html:27
-#: transactions/templates/transactions/_transaction_edit_form.html:17
+#: transactions/templates/transactions/_transaction_edit_form.html:132
 #: transactions/templates/transactions/batch_entry.html:18
-#: transactions/templates/transactions/transaction_new.html:36
+#: transactions/templates/transactions/transaction_new.html:23
 #: transactions/templates/transactions/transactions.html:37
 msgid "Income"
 msgstr "دخل"
 
-#: core/templatetags/money.py:210 recurring/templates/recurring/_form.html:34
-#: transactions/templates/transactions/_transfer_form.html:62
+#: core/templatetags/money.py:275 recurring/templates/recurring/_form.html:52
+#: recurring/templates/recurring/calendar.html:33
+#: transactions/templates/transactions/_quick_entry.html:33
+#: transactions/templates/transactions/_quick_entry.html:212
+#: transactions/templates/transactions/_quick_transfer_unified.html:3
+#: transactions/templates/transactions/_transaction_edit_form.html:17
+#: transactions/templates/transactions/_transfer_form.html:66
+#: transactions/templates/transactions/_transfer_unified_form.html:4
+#: transactions/templates/transactions/_transfer_unified_form.html:89
+#: transactions/templates/transactions/transactions.html:38
 msgid "Transfer"
 msgstr "تحويل"
 
-#: core/templatetags/money.py:211
+#: core/templatetags/money.py:276
 #: transactions/templates/transactions/_exchange_form.html:65
+#: transactions/templates/transactions/_transaction_edit_form.html:76
+#: transactions/templates/transactions/transactions.html:39
 msgid "Exchange"
 msgstr "صرف"
 
-#: core/templatetags/money.py:212
+#: core/templatetags/money.py:277
 msgid "Loan Given"
 msgstr "قرض مقدم"
 
-#: core/templatetags/money.py:213
+#: core/templatetags/money.py:278
 msgid "Loan Received"
 msgstr "قرض مستلم"
 
-#: core/templatetags/money.py:214
+#: core/templatetags/money.py:279
 msgid "Loan Repayment"
 msgstr "سداد قرض"
 
-#: dashboard/templates/dashboard/_accounts.html:6
-#: dashboard/templates/dashboard/_budgets.html:7
-#: dashboard/templates/dashboard/_people_summary.html:6
-#: dashboard/templates/dashboard/_virtual_accounts.html:7
+#: dashboard/templates/dashboard/_accounts.html:12
+msgid "groups"
+msgstr ""
+
+#: dashboard/templates/dashboard/_accounts.html:16
+#: dashboard/templates/dashboard/_budgets.html:16
+#: dashboard/templates/dashboard/_investments.html:16
+#: dashboard/templates/dashboard/_people_summary.html:16
+#: dashboard/templates/dashboard/_virtual_accounts.html:16
 msgid "Manage"
 msgstr "إدارة"
 
-#: dashboard/templates/dashboard/_accounts.html:49
-msgid ""
-"No accounts yet. <a href=\"/accounts\" class=\"text-teal-600 underline\">Add "
-"your first account</a>"
+#: dashboard/templates/dashboard/_accounts.html:64
+msgid "No accounts yet. <a href=\"/accounts\" class=\"text-teal-600 underline\" onclick=\"event.stopPropagation()\">Add your first account</a>"
 msgstr ""
 
-#: dashboard/templates/dashboard/_credit_cards.html:5
+#: dashboard/templates/dashboard/_budgets.html:12
+msgid "active"
+msgstr ""
+
+#: dashboard/templates/dashboard/_budgets.html:47
+#, fuzzy, python-format
+#| msgid "Payoff Progress (%(currency)s)"
+msgid "No budgets for %(currency)s."
+msgstr "تقدم السداد (%(currency)s)"
+
+#: dashboard/templates/dashboard/_budgets.html:49
+#, fuzzy
+#| msgid "Set Total Budget"
+msgid "Set up budgets"
+msgstr "تعيين إجمالي الميزانية"
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:11
+msgid "Cash Flow Forecast"
+msgstr ""
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:17
+msgid "Details"
+msgstr ""
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:36
+msgid "Projected (Month End)"
+msgstr ""
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:45
+#, fuzzy
+#| msgid "Exchange"
+msgid "Expected Change"
+msgstr "صرف"
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:54
+msgid "Expected Income"
+msgstr ""
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:58
+msgid "Expected Expenses"
+msgstr ""
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:67
+#, python-format
+msgid ""
+"\n"
+"                            Warning: Your balance is projected to go negative on %(counter)s day.\n"
+"                        "
+msgid_plural ""
+"\n"
+"                            Warning: Your balance is projected to go negative on %(counter)s days.\n"
+"                        "
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
+
+#: dashboard/templates/dashboard/_cash_flow_forecast.html:79
+#, python-format
+msgid "No forecast data for %(currency)s."
+msgstr ""
+
+#: dashboard/templates/dashboard/_credit_cards.html:10
 msgid "Credit Cards"
 msgstr "بطاقات الائتمان"
 
-#: dashboard/templates/dashboard/_credit_cards.html:28
-#: dashboard/templates/dashboard/_due_date_warning.html:13
-#: recurring/templates/recurring/recurring.html:21
+#: dashboard/templates/dashboard/_credit_cards.html:12
+msgid "cards"
+msgstr ""
+
+#: dashboard/templates/dashboard/_credit_cards.html:47
+#: dashboard/templates/dashboard/_due_date_warning.html:14
+#: recurring/templates/recurring/recurring.html:37
 msgid "Due"
 msgstr ""
 
-#: dashboard/templates/dashboard/_credit_cards.html:29
+#: dashboard/templates/dashboard/_credit_cards.html:48
 msgid "d"
 msgstr ""
 
-#: dashboard/templates/dashboard/_credit_cards.html:43
+#: dashboard/templates/dashboard/_credit_cards.html:62
 #, python-format
 msgid "Record payment for %(name)s"
 msgstr ""
 
-#: dashboard/templates/dashboard/_credit_cards.html:44
+#: dashboard/templates/dashboard/_credit_cards.html:63
 msgid "Pay"
 msgstr ""
 
-#: dashboard/templates/dashboard/_credit_cards.html:48
+#: dashboard/templates/dashboard/_credit_cards.html:67
 msgid "Statement"
 msgstr ""
 
-#: dashboard/templates/dashboard/_due_date_warning.html:12
+#: dashboard/templates/dashboard/_credit_cards.html:77
+#, python-format
+msgid "No credit cards for %(currency)s."
+msgstr ""
+
+#: dashboard/templates/dashboard/_due_date_warning.html:13
 #, python-format
 msgid "%(name)s due in %(days)s days"
 msgstr ""
 
-#: dashboard/templates/dashboard/_due_date_warning.html:13
+#: dashboard/templates/dashboard/_due_date_warning.html:14
+#: transactions/templates/transactions/_quick_entry_success.html:31
+#: transactions/templates/transactions/_transaction_success.html:11
 msgid "Balance:"
 msgstr ""
 
@@ -1049,29 +1410,39 @@ msgstr ""
 msgid "Add Your First Account"
 msgstr ""
 
-#: dashboard/templates/dashboard/_investments.html:5
-#: settings_app/templates/settings_app/settings.html:87
-#: templates/components/bottom-nav.html:122
+#: dashboard/templates/dashboard/_investments.html:10
+#: settings_app/templates/settings_app/settings.html:205
+#: templates/components/bottom-nav.html:111
 msgid "Investments"
 msgstr ""
 
-#: dashboard/templates/dashboard/_net_worth.html:4
+#: dashboard/templates/dashboard/_investments.html:26
+msgid "Portfolio Value"
+msgstr ""
+
+#: dashboard/templates/dashboard/_investments.html:32
+#, fuzzy, python-format
+#| msgid "No transactions yet."
+msgid "No investments in %(currency)s."
+msgstr "لا توجد معاملات بعد."
+
+#: dashboard/templates/dashboard/_net_worth.html:10
 msgid "Net Worth"
 msgstr "صافي الثروة"
 
-#: dashboard/templates/dashboard/_net_worth.html:45
+#: dashboard/templates/dashboard/_net_worth.html:55
 msgid "Liquid Cash"
 msgstr ""
 
-#: dashboard/templates/dashboard/_net_worth.html:52
+#: dashboard/templates/dashboard/_net_worth.html:66
 msgid "Credit Used"
 msgstr ""
 
-#: dashboard/templates/dashboard/_net_worth.html:61
+#: dashboard/templates/dashboard/_net_worth.html:77
 msgid "Credit Available"
 msgstr ""
 
-#: dashboard/templates/dashboard/_net_worth.html:68
+#: dashboard/templates/dashboard/_net_worth.html:88
 msgid "Debt"
 msgstr ""
 
@@ -1079,85 +1450,182 @@ msgstr ""
 msgid "No accounts contribute to this total."
 msgstr ""
 
-#: dashboard/templates/dashboard/_people_summary.html:5
-#: people/templates/people/people.html:5 people/templates/people/people.html:11
-#: templates/components/bottom-nav.html:95
+#: dashboard/templates/dashboard/_people_summary.html:10
+#: people/templates/people/people.html:5 people/templates/people/people.html:14
+#: templates/components/bottom-nav.html:84
 msgid "People"
 msgstr "الأشخاص"
 
-#: dashboard/templates/dashboard/_people_summary.html:12
+#: dashboard/templates/dashboard/_people_summary.html:27
+#: dashboard/templates/dashboard/_people_summary.html:38
 #, python-format
 msgid "Owed to me (%(currency)s)"
 msgstr ""
 
-#: dashboard/templates/dashboard/_people_summary.html:16
+#: dashboard/templates/dashboard/_people_summary.html:31
+#: dashboard/templates/dashboard/_people_summary.html:42
 #, python-format
 msgid "I owe (%(currency)s)"
 msgstr ""
 
-#: dashboard/templates/dashboard/_people_summary.html:24
-msgid "Owed to me"
+#: dashboard/templates/dashboard/_recent_transactions.html:9
+msgid "Recent Transactions"
 msgstr ""
 
-#: dashboard/templates/dashboard/_people_summary.html:28
-msgid "I owe"
+#: dashboard/templates/dashboard/_recent_transactions.html:11
+msgid "recent"
 msgstr ""
 
-#: dashboard/templates/dashboard/_recent_transactions.html:13
-#: people/templates/people/person_detail.html:99
+#: dashboard/templates/dashboard/_recent_transactions.html:34
+#: people/templates/people/person_detail.html:95
 msgid "No transactions yet."
 msgstr "لا توجد معاملات بعد."
 
-#: dashboard/templates/dashboard/_recent_transactions.html:14
+#: dashboard/templates/dashboard/_recent_transactions.html:35
 msgid "Tap + to record your first transaction."
 msgstr ""
 
-#: dashboard/templates/dashboard/_spending.html:6
+#: dashboard/templates/dashboard/_spending.html:10
 msgid "This Month vs Last"
 msgstr "هذا الشهر مقابل الماضي"
 
-#: dashboard/templates/dashboard/_spending.html:22
+#: dashboard/templates/dashboard/_spending.html:29
+#: reports/templates/reports/partials/fee-analytics.html:15
 msgid "This month"
 msgstr ""
 
-#: dashboard/templates/dashboard/_spending.html:31
+#: dashboard/templates/dashboard/_spending.html:38
 msgid "Last month"
 msgstr ""
 
-#: dashboard/templates/dashboard/_spending.html:58
+#: dashboard/templates/dashboard/_spending.html:65
 msgid "Spending Pace"
 msgstr "وتيرة الإنفاق"
 
-#: dashboard/templates/dashboard/_spending.html:60
+#: dashboard/templates/dashboard/_spending.html:67
 msgid "of last month"
 msgstr ""
 
-#: dashboard/templates/dashboard/_spending.html:61
+#: dashboard/templates/dashboard/_spending.html:68
 #, python-format
-msgid "%(days)s d left"
+msgid "%(days)s days left"
 msgstr "متبقي %(days)s يوم"
 
-#: dashboard/templates/dashboard/_streak.html:6
+#: dashboard/templates/dashboard/_spending.html:97
 #, python-format
-msgid "%(days)s-day streak"
+msgid "Daily budget: %(amount)s/day for %(days)s days"
 msgstr ""
 
-#: dashboard/templates/dashboard/_streak.html:8
+#: dashboard/templates/dashboard/_spending.html:101
+msgid "Budget already exceeded this month"
+msgstr ""
+
+#: dashboard/templates/dashboard/_spending.html:108
+#, python-format
+msgid "At this pace, you'll spend %(projected)s vs %(budget)s last month"
+msgstr ""
+
+#: dashboard/templates/dashboard/_spending.html:120
+msgid "On Track"
+msgstr ""
+
+#: dashboard/templates/dashboard/_spending.html:120
+msgid "At Risk"
+msgstr ""
+
+#: dashboard/templates/dashboard/_spending.html:120
+msgid "Overspending"
+msgstr ""
+
+#: dashboard/templates/dashboard/_spending.html:130
+#, python-format
+msgid "Reduce by %(amount)s/day to stay on track"
+msgstr ""
+
+#: dashboard/templates/dashboard/_spending.html:139
+msgid "By Category"
+msgstr "حسب الفئة"
+
+#: dashboard/templates/dashboard/_spending.html:155
+msgid "Over"
+msgstr ""
+
+#: dashboard/templates/dashboard/_spending.html:171
+#, python-format
+msgid "No spending data for %(currency)s this month."
+msgstr ""
+
+#: dashboard/templates/dashboard/_streak.html:9
+msgid "Recording Streak"
+msgstr ""
+
+#: dashboard/templates/dashboard/_streak.html:11
+msgid "day streak"
+msgstr ""
+
+#: dashboard/templates/dashboard/_streak.html:26
+#, fuzzy, python-format
+#| msgid "%(days)s days left"
+msgid "%(days)s Day Streak"
+msgstr "متبقي %(days)s يوم"
+
+#: dashboard/templates/dashboard/_streak.html:31
+msgid "You've recorded today! Keep it up."
+msgstr ""
+
+#: dashboard/templates/dashboard/_streak.html:33
+msgid "Record a transaction today to maintain your streak."
+msgstr ""
+
+#: dashboard/templates/dashboard/_streak.html:38
 #, python-format
 msgid "%(count)s this week"
 msgstr ""
 
-#: dashboard/templates/dashboard/_streak.html:11
-msgid "Log today to keep it!"
+#: dashboard/templates/dashboard/_virtual_accounts.html:12
+msgid "pots"
 msgstr ""
+
+#: dashboard/templates/dashboard/_virtual_accounts.html:43
+#, fuzzy, python-format
+#| msgid "Payoff Progress (%(currency)s)"
+msgid "No pots for %(currency)s."
+msgstr "تقدم السداد (%(currency)s)"
+
+#: dashboard/templates/dashboard/calendar.html:5
+msgid "Financial Calendar"
+msgstr ""
+
+#: dashboard/templates/dashboard/calendar.html:20
+#: recurring/templates/recurring/calendar.html:20
+msgid "Previous Month"
+msgstr ""
+
+#: dashboard/templates/dashboard/calendar.html:23
+#: recurring/templates/recurring/calendar.html:23
+msgid "Next Month"
+msgstr ""
+
+#: dashboard/templates/dashboard/calendar.html:75
+#, fuzzy
+#| msgid "No transactions this month"
+msgid "Events This Month"
+msgstr "لا توجد معاملات هذا الشهر"
+
+#: dashboard/templates/dashboard/calendar.html:88
+#: recurring/templates/recurring/calendar.html:80
+msgid "Upcoming"
+msgstr ""
+
+#: dashboard/templates/dashboard/calendar.html:102
+#, fuzzy
+#| msgid "No transactions this month"
+msgid "No events scheduled for this month."
+msgstr "لا توجد معاملات هذا الشهر"
 
 #: dashboard/templates/dashboard/home.html:5
 msgid "ClearMoney - Dashboard"
 msgstr "ClearMoney - لوحة التحكم"
-
-#: dashboard/templates/dashboard/home.html:53
-msgid "Recent Transactions"
-msgstr ""
 
 #: exchange_rates/templates/exchange_rates/exchange_rates.html:5
 msgid "ClearMoney - Exchange Rate History"
@@ -1170,9 +1638,175 @@ msgid "Exchange Rate History"
 msgstr "سجل المعاملات"
 
 #: exchange_rates/templates/exchange_rates/exchange_rates.html:32
-msgid ""
-"No exchange rates recorded yet. Rates are logged when you create an exchange "
-"transaction or salary distribution."
+msgid "No exchange rates recorded yet. Rates are logged when you create an exchange transaction."
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:2
+msgid "New Fee Preset"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:13
+msgid "e.g., InstaPay, ATM Fee"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:24
+#: people/templates/people/_person_card.html:73
+#: people/templates/people/_person_card.html:107
+#, fuzzy
+#| msgid "Select account..."
+msgid "Select currency..."
+msgstr "اختر الحساب..."
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:34
+#, fuzzy
+#| msgid "No allocations yet."
+msgid "Calculation Type"
+msgstr "لا توجد تخصيصات بعد."
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:42
+#, fuzzy
+#| msgid "Amount"
+msgid "Flat Amount"
+msgstr "المبلغ"
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:44
+msgid "Fixed fee"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:52
+msgid "Percentage"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:54
+#, fuzzy
+#| msgid "No transactions this month"
+msgid "Of transaction amount"
+msgstr "لا توجد معاملات هذا الشهر"
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:63
+#, fuzzy
+#| msgid "Amount"
+msgid "Fee Amount"
+msgstr "المبلغ"
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:64
+msgid "Percentage (as decimal)"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:68
+msgid "e.g., 5.00"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:71
+#, python-format
+msgid "Enter as decimal: 0.001 = 0.1%%, 0.01 = 1%%"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:79
+#, fuzzy
+#| msgid "Note (optional)"
+msgid "Min Fee (optional)"
+msgstr "ملاحظة (اختياري)"
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:87
+#, fuzzy
+#| msgid "Note (optional)"
+msgid "Max Fee (optional)"
+msgstr "ملاحظة (اختياري)"
+
+#: fee_presets/templates/fee_presets/_fee_preset_new_form.html:99
+#, fuzzy
+#| msgid "Create Budget"
+msgid "Create Preset"
+msgstr "إنشاء ميزانية"
+
+#: fee_presets/templates/fee_presets/fee_presets.html:4
+#, fuzzy
+#| msgid "ClearMoney - Settings"
+msgid "ClearMoney - Fee Presets"
+msgstr "ClearMoney - الإعدادات"
+
+#: fee_presets/templates/fee_presets/fee_presets.html:9
+#: settings_app/templates/settings_app/settings.html:194
+msgid "Fee Presets"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:13
+msgid "Add new fee preset"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:18
+msgid "Preset"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:26
+#: settings_app/templates/settings_app/settings.html:52
+#, fuzzy
+#| msgid "Currency"
+msgid "Currencies"
+msgstr "العملة"
+
+#: fee_presets/templates/fee_presets/fee_presets.html:43
+msgid "Active fee presets"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:57
+#: fee_presets/templates/fee_presets/fee_presets.html:102
+msgid "Flat"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:59
+#: fee_presets/templates/fee_presets/fee_presets.html:104
+msgid "Percent"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:61
+msgid "min"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:62
+msgid "max"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:71
+#: settings_app/templates/settings_app/categories.html:62
+#: settings_app/templates/settings_app/categories.html:89
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:108
+msgid "Archive"
+msgstr "أرشفة"
+
+#: fee_presets/templates/fee_presets/fee_presets.html:78
+msgid "No active presets for this currency."
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:86
+#: settings_app/templates/settings_app/categories.html:103
+#, fuzzy
+#| msgid "Archive"
+msgid "Archived"
+msgstr "أرشفة"
+
+#: fee_presets/templates/fee_presets/fee_presets.html:88
+msgid "Archived fee presets"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:112
+#: settings_app/templates/settings_app/categories.html:117
+msgid "Restore"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:129
+#, fuzzy
+#| msgid "No transactions yet."
+msgid "No fee presets yet"
+msgstr "لا توجد معاملات بعد."
+
+#: fee_presets/templates/fee_presets/fee_presets.html:130
+msgid "Create presets for common fees like InstaPay or ATM withdrawals"
+msgstr ""
+
+#: fee_presets/templates/fee_presets/fee_presets.html:137
+msgid "Create your first preset"
 msgstr ""
 
 #: investments/templates/investments/investments.html:5
@@ -1188,7 +1822,7 @@ msgid "Total Portfolio Value"
 msgstr ""
 
 #: investments/templates/investments/investments.html:19
-#: investments/templates/investments/investments.html:47
+#: investments/templates/investments/investments.html:55
 msgid "Add Investment"
 msgstr ""
 
@@ -1214,40 +1848,40 @@ msgstr ""
 msgid "Unit Price"
 msgstr ""
 
-#: investments/templates/investments/investments.html:54
+#: investments/templates/investments/investments.html:62
 msgid "Holdings"
 msgstr ""
 
-#: investments/templates/investments/investments.html:62
+#: investments/templates/investments/investments.html:70
 msgid "units"
 msgstr ""
 
-#: investments/templates/investments/investments.html:66
+#: investments/templates/investments/investments.html:74
 msgid "unit"
 msgstr ""
 
-#: investments/templates/investments/investments.html:71
+#: investments/templates/investments/investments.html:79
 msgid "New price"
 msgstr ""
 
-#: investments/templates/investments/investments.html:77
+#: investments/templates/investments/investments.html:85
 msgid "Delete this investment?"
 msgstr ""
 
-#: investments/templates/investments/investments.html:78
-#: recurring/templates/recurring/_rule_list.html:22
+#: investments/templates/investments/investments.html:86
+#: recurring/templates/recurring/_rule_list.html:27
 #, fuzzy
 #| msgid "Delete"
 msgid "Del"
 msgstr "حذف"
 
-#: investments/templates/investments/investments.html:80
+#: investments/templates/investments/investments.html:88
 #, fuzzy
 #| msgid "Update"
 msgid "Updated"
 msgstr "تحديث"
 
-#: investments/templates/investments/investments.html:85
+#: investments/templates/investments/investments.html:93
 #, fuzzy
 #| msgid "No transactions yet."
 msgid "No investments yet."
@@ -1263,89 +1897,117 @@ msgstr "%(pct)s%% تم سداده"
 msgid "%(repaid)s of %(total)s"
 msgstr "%(repaid)s من %(total)s"
 
-#: people/templates/people/_person_card.html:28
+#: people/templates/people/_person_card.html:23
 msgid "Settled"
 msgstr "تم التسوية"
 
-#: people/templates/people/_person_card.html:36
+#: people/templates/people/_person_card.html:31
 msgid "Record Loan"
 msgstr "تسجيل قرض"
 
-#: people/templates/people/_person_card.html:41
-#: people/templates/people/person_detail.html:86
+#: people/templates/people/_person_card.html:36
+#: people/templates/people/person_detail.html:81
 msgid "Repayment"
 msgstr "سداد"
 
-#: people/templates/people/_person_card.html:50
+#: people/templates/people/_person_card.html:45
 msgid "Loan type"
 msgstr "نوع القرض"
 
-#: people/templates/people/_person_card.html:55
+#: people/templates/people/_person_card.html:50
 msgid "I Lent"
 msgstr "أقرضت"
 
-#: people/templates/people/_person_card.html:61
+#: people/templates/people/_person_card.html:56
 msgid "I Borrowed"
 msgstr "اقترضت"
 
-#: people/templates/people/_person_card.html:66
-#: recurring/templates/recurring/_form.html:42
+#: people/templates/people/_person_card.html:61
+#: recurring/templates/recurring/_confirm_form.html:22
+#: recurring/templates/recurring/_form.html:62
 #: transactions/templates/transactions/_exchange_form.html:32
-#: transactions/templates/transactions/_transfer_unified_form.html:36
-#: transactions/templates/transactions/_quick_entry.html:34
-#: transactions/templates/transactions/_transaction_edit_form.html:21
+#: transactions/templates/transactions/_quick_entry.html:40
+#: transactions/templates/transactions/_transaction_edit_form.html:47
+#: transactions/templates/transactions/_transaction_edit_form.html:98
 #: transactions/templates/transactions/_transfer_form.html:31
+#: transactions/templates/transactions/_transfer_unified_form.html:38
 #: transactions/templates/transactions/batch_entry.html:20
-#: transactions/templates/transactions/transaction_new.html:44
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:70
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:97
 msgid "Amount"
 msgstr "المبلغ"
 
-#: people/templates/people/_person_card.html:69
-#: people/templates/people/_person_card.html:87
-#: transactions/templates/transactions/_quick_entry.html:48
-#: transactions/templates/transactions/transaction_new.html:57
-#: virtual_accounts/templates/virtual_accounts/_edit_form.html:36
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:38
+#: people/templates/people/_person_card.html:65
+#: people/templates/people/_person_card.html:99
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:42
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:52
 msgid "Select account..."
 msgstr "اختر الحساب..."
 
-#: people/templates/people/_person_card.html:74
-#: people/templates/people/_person_card.html:92
+#: people/templates/people/_person_card.html:83
+#: people/templates/people/_person_card.html:117
+msgid "Don't affect account balance (memo)"
+msgstr ""
+
+#: people/templates/people/_person_card.html:85
+#: people/templates/people/_person_card.html:119
+#: recurring/templates/recurring/_form.html:125
 #: transactions/templates/transactions/_exchange_form.html:52
-#: transactions/templates/transactions/_fawry_cashout_form.html:63
-#: transactions/templates/transactions/_transfer_unified_form.html:74
-#: transactions/templates/transactions/_quick_entry.html:74
-#: transactions/templates/transactions/_transaction_edit_form.html:36
-#: transactions/templates/transactions/_transfer_form.html:49
-#: transactions/templates/transactions/transaction_new.html:81
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:76
+#: transactions/templates/transactions/_quick_entry.html:107
+#: transactions/templates/transactions/_transaction_edit_form.html:66
+#: transactions/templates/transactions/_transaction_edit_form.html:115
+#: transactions/templates/transactions/_transaction_edit_form.html:213
+#: transactions/templates/transactions/_transfer_form.html:51
+#: transactions/templates/transactions/_transfer_unified_form.html:75
+#: transactions/templates/transactions/transaction_new.html:79
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:103
 msgid "Note (optional)"
 msgstr "ملاحظة (اختياري)"
 
-#: people/templates/people/_person_card.html:77
-#: transactions/templates/transactions/_quick_entry.html:120
-#: transactions/templates/transactions/_transaction_edit_form.html:111
+#: people/templates/people/_person_card.html:88
+#: transactions/templates/transactions/_quick_entry.html:173
+#: transactions/templates/transactions/_quick_entry.html:212
+#: transactions/templates/transactions/_transaction_edit_form.html:244
 msgid "Save"
 msgstr "حفظ"
 
-#: people/templates/people/_person_card.html:84
+#: people/templates/people/_person_card.html:95
 msgid "Repayment amount"
 msgstr "مبلغ السداد"
 
-#: people/templates/people/_person_card.html:95
+#: people/templates/people/_person_card.html:122
+#: recurring/templates/recurring/_confirm_form.html:130
+#: recurring/templates/recurring/_form.html:213
+#: transactions/templates/transactions/_quick_entry.html:138
+#: transactions/templates/transactions/_transaction_edit_form.html:59
+#: transactions/templates/transactions/_transaction_edit_form.html:173
+#: transactions/templates/transactions/_transfer_form.html:39
+#: transactions/templates/transactions/_transfer_unified_form.html:48
+#: transactions/templates/transactions/transaction_new.html:124
+msgid "Fee (optional)"
+msgstr ""
+
+#: people/templates/people/_person_card.html:126
 msgid "Record Repayment"
 msgstr "تسجيل السداد"
 
-#: people/templates/people/people.html:16
+#: people/templates/people/people.html:10
+msgid "People Tracking"
+msgstr ""
+
+#: people/templates/people/people.html:10
+msgid "Track loans and debts with friends and family"
+msgstr ""
+
+#: people/templates/people/people.html:19
 msgid "Person name..."
 msgstr "اسم الشخص..."
 
-#: people/templates/people/people.html:20
+#: people/templates/people/people.html:24
+#: settings_app/templates/settings_app/tags.html:28
 msgid "Add"
 msgstr "إضافة"
 
-#: people/templates/people/people.html:31
+#: people/templates/people/people.html:35
 msgid "No people yet. Add someone above."
 msgstr "لا يوجد أشخاص بعد. أضف شخصاً أعلاه."
 
@@ -1354,203 +2016,506 @@ msgid "Back to People"
 msgstr "العودة للأشخاص"
 
 #: people/templates/people/person_detail.html:25
-#: people/templates/people/person_detail.html:30
 #, python-format
 msgid "They owe you %(amount)s"
 msgstr "يدينون لك بـ %(amount)s"
 
 #: people/templates/people/person_detail.html:25
-#: people/templates/people/person_detail.html:30
 #, python-format
 msgid "You owe them %(amount)s"
 msgstr "أنت مدين لهم بـ %(amount)s"
 
-#: people/templates/people/person_detail.html:34
+#: people/templates/people/person_detail.html:29
 msgid "Settled up"
 msgstr "تم التسوية"
 
-#: people/templates/people/person_detail.html:46
-#: people/templates/people/person_detail.html:84
+#: people/templates/people/person_detail.html:41
+#: people/templates/people/person_detail.html:79
 msgid "Lent"
 msgstr "مُقرض"
 
-#: people/templates/people/person_detail.html:52
-#: people/templates/people/person_detail.html:85
+#: people/templates/people/person_detail.html:47
+#: people/templates/people/person_detail.html:80
 msgid "Borrowed"
 msgstr "مقترض"
 
-#: people/templates/people/person_detail.html:58
+#: people/templates/people/person_detail.html:53
 msgid "Repaid"
 msgstr "تم السداد"
 
-#: people/templates/people/person_detail.html:70
+#: people/templates/people/person_detail.html:65
 #, python-format
 msgid "Payoff Progress (%(currency)s)"
 msgstr "تقدم السداد (%(currency)s)"
 
-#: push/services.py:68
+#: people/templates/people/person_detail.html:83
+msgid "memo"
+msgstr ""
+
+#: push/services.py:81
 msgid "Credit Card Due Soon"
 msgstr "بطاقة الائتمان مستحقة قريباً"
 
-#: push/services.py:82
+#: push/services.py:95
 msgid "Account Health Warning"
 msgstr "تحذير صحة الحساب"
 
-#: push/services.py:98
+#: push/services.py:114
 msgid "Budget Exceeded"
 msgstr "تم تجاوز الميزانية"
 
-#: push/services.py:112
+#: push/services.py:127
 msgid "Budget Warning"
 msgstr "تحذير الميزانية"
 
-#: push/services.py:134
+#: push/services.py:169
+msgid "Unusual Spending Detected"
+msgstr ""
+
+#: push/services.py:171
+#, python-format
+msgid "%(amount).0f %(currency)s on %(cat)s is 3x your average"
+msgstr ""
+
+#: push/services.py:200
 msgid "Recurring Transaction Due"
 msgstr "معاملة متكررة مستحقة"
 
-#: recurring/templates/recurring/_form.html:4
-msgid "New Recurring Rule"
+#: push/templates/push/notifications.html:4
+#: push/templates/push/notifications.html:10
+#: templates/components/header.html:38 templates/components/header.html:39
+#, fuzzy
+#| msgid "Push Notifications"
+msgid "Notifications"
+msgstr "إشعارات الدفع"
+
+#: push/templates/push/notifications.html:16
+msgid "Mark all notifications as read"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:11
-#: transactions/templates/transactions/_quick_entry.html:16
-#: transactions/templates/transactions/transaction_new.html:23
-msgid "Transaction type"
+#: push/templates/push/notifications.html:17
+msgid "Mark All as Read"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:51
-#: recurring/templates/recurring/_form.html:53
-#: transactions/templates/transactions/_quick_entry.html:44
-#: transactions/templates/transactions/_transaction_detail_sheet.html:37
-#: transactions/templates/transactions/batch_entry.html:24
-#: transactions/templates/transactions/transaction_new.html:54
-msgid "Account"
+#: push/templates/push/notifications.html:25
+#, fuzzy
+#| msgid "Push Notifications"
+msgid "No notifications"
+msgstr "إشعارات الدفع"
+
+#: push/templates/push/notifications.html:29
+#, fuzzy
+#| msgid "No allocations yet."
+msgid "No notifications yet"
+msgstr "لا توجد تخصيصات بعد."
+
+#: push/templates/push/notifications.html:30
+msgid "We'll alert you about budgets, credit cards, and recurring transactions."
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:52
-#: transactions/templates/transactions/_transfer_unified_form.html:9
+#: push/templates/push/notifications.html:37
+#, fuzzy
+#| msgid "New Pot"
+msgid "New"
+msgstr "مدخرة جديدة"
+
+#: push/templates/push/notifications.html:39
+#, fuzzy
+#| msgid "Push Notifications"
+msgid "Unread notifications"
+msgstr "إشعارات الدفع"
+
+#: push/templates/push/notifications.html:46
+#, python-format
+msgid "Open notification: %(title)s"
+msgstr ""
+
+#: push/templates/push/notifications.html:49
+#: push/templates/push/notifications.html:71
+msgid "ago"
+msgstr ""
+
+#: push/templates/push/notifications.html:61
+msgid "Earlier"
+msgstr ""
+
+#: push/templates/push/notifications.html:63
+#, fuzzy
+#| msgid "Push Notifications"
+msgid "Read notifications"
+msgstr "إشعارات الدفع"
+
+#: push/templates/push/notifications.html:68
+#, python-format
+msgid "View notification: %(title)s"
+msgstr ""
+
+#: recurring/templates/recurring/_confirm_form.html:6
+#, fuzzy
+#| msgid "View transactions"
+msgid "Confirm Transaction"
+msgstr "تصدير المعاملات"
+
+#: recurring/templates/recurring/_confirm_form.html:7
+#: templates/components/bottom-nav.html:118
+msgid "Automation"
+msgstr ""
+
+#: recurring/templates/recurring/_confirm_form.html:33
+#: recurring/templates/recurring/_form.html:336
+#: transactions/templates/transactions/_quick_entry.html:206
 #: transactions/templates/transactions/_transfer_form.html:9
+#: transactions/templates/transactions/_transfer_unified_form.html:9
 msgid "From Account"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:63
-#: transactions/templates/transactions/_transfer_unified_form.html:21
+#: recurring/templates/recurring/_confirm_form.html:33
+#: recurring/templates/recurring/_form.html:75
+#: recurring/templates/recurring/_form.html:337
+#: transactions/templates/transactions/_quick_entry.html:50
+#: transactions/templates/transactions/_quick_entry.html:207
+#: transactions/templates/transactions/_transaction_detail_sheet.html:76
+#: transactions/templates/transactions/batch_entry.html:24
+#: transactions/templates/transactions/transaction_new.html:39
+msgid "Account"
+msgstr ""
+
+#: recurring/templates/recurring/_confirm_form.html:44
+#: recurring/templates/recurring/_form.html:86
+#: transactions/templates/transactions/_quick_entry.html:60
+#: transactions/templates/transactions/transaction_new.html:48
+#, fuzzy
+#| msgid "Select account..."
+msgid "Search accounts..."
+msgstr "اختر الحساب..."
+
+#: recurring/templates/recurring/_confirm_form.html:54
+#: recurring/templates/recurring/_form.html:108
+#: transactions/templates/transactions/_quick_entry.html:90
+#: transactions/templates/transactions/_transaction_detail_sheet.html:93
 #: transactions/templates/transactions/_transfer_form.html:20
+#: transactions/templates/transactions/_transfer_unified_form.html:22
 msgid "To Account"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:65
+#: recurring/templates/recurring/_confirm_form.html:58
+#: recurring/templates/recurring/_form.html:112
 #: transactions/templates/transactions/_exchange_form.html:23
-#: transactions/templates/transactions/_transfer_unified_form.html:25
+#: transactions/templates/transactions/_quick_entry.html:93
 #: transactions/templates/transactions/_transfer_form.html:23
+#: transactions/templates/transactions/_transfer_unified_form.html:26
 msgid "Select destination..."
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:74
-#: transactions/templates/transactions/_transfer_unified_form.html:45
-#: transactions/templates/transactions/_quick_entry.html:99
-#: transactions/templates/transactions/_transaction_edit_form.html:59
-#: transactions/templates/transactions/_transfer_form.html:38
-#: transactions/templates/transactions/transaction_new.html:113
-msgid "Fee (optional)"
+#: recurring/templates/recurring/_confirm_form.html:72
+#, fuzzy
+#| msgid "Transaction History"
+msgid "Exchange Rate"
+msgstr "سجل المعاملات"
+
+#: recurring/templates/recurring/_confirm_form.html:76
+#: recurring/templates/recurring/_form.html:247
+msgid "e.g., 50.25"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:85
-#: transactions/templates/transactions/_quick_entry.html:61
-#: transactions/templates/transactions/_transaction_edit_form.html:31
-#: transactions/templates/transactions/transaction_new.html:73
+#: recurring/templates/recurring/_confirm_form.html:89
+#: recurring/templates/recurring/_form.html:100
+#: transactions/templates/transactions/_quick_entry.html:73
 msgid "Search categories..."
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:92
-#: transactions/templates/transactions/_transaction_detail_sheet.html:50
+#: recurring/templates/recurring/_confirm_form.html:98
+#, fuzzy
+#| msgid "Transaction History"
+msgid "Transaction Date"
+msgstr "سجل المعاملات"
+
+#: recurring/templates/recurring/_confirm_form.html:108
+#: transactions/templates/transactions/_transaction_detail_sheet.html:133
 #: transactions/templates/transactions/batch_entry.html:38
 msgid "Note"
+msgstr "ملاحظة"
+
+#: recurring/templates/recurring/_confirm_form.html:119
+#: recurring/templates/recurring/_form.html:137
+#: transactions/templates/transactions/_quick_entry.html:113
+#: transactions/templates/transactions/_transaction_edit_form.html:220
+#: transactions/templates/transactions/transaction_new.html:88
+msgid "Tags (comma-separated)"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:93
+#: recurring/templates/recurring/_confirm_form.html:123
+#: recurring/templates/recurring/_form.html:141
+#: transactions/templates/transactions/_quick_entry.html:114
+#: transactions/templates/transactions/_transaction_edit_form.html:222
+#: transactions/templates/transactions/transaction_new.html:89
+msgid "vacation, wedding..."
+msgstr ""
+
+#: recurring/templates/recurring/_confirm_form.html:142
+#: recurring/templates/recurring/_form.html:225
+#: transactions/templates/transactions/_quick_entry.html:159
+msgid "Pot (optional)"
+msgstr "مدخرة (اختياري)"
+
+#: recurring/templates/recurring/_confirm_form.html:146
+#: recurring/templates/recurring/_form.html:229
+#: transactions/templates/transactions/_quick_entry.html:162
+msgid "None"
+msgstr ""
+
+#: recurring/templates/recurring/_confirm_form.html:163
+#, fuzzy
+#| msgid "View transactions"
+msgid "Confirm & Create Transaction"
+msgstr "تصدير المعاملات"
+
+#: recurring/templates/recurring/_confirm_form.html:172
+msgid "Skip this transaction? This will advance the due date without creating a record."
+msgstr ""
+
+#: recurring/templates/recurring/_confirm_form.html:175
+msgid "Skip Instance"
+msgstr ""
+
+#: recurring/templates/recurring/_create_success.html:9
+msgid "Rule created"
+msgstr ""
+
+#: recurring/templates/recurring/_create_success.html:16
+#, python-format
+msgid "Will auto-post %(amount)s on %(date)s."
+msgstr ""
+
+#: recurring/templates/recurring/_create_success.html:18
+#, python-format
+msgid "Next reminder: %(date)s."
+msgstr ""
+
+#: recurring/templates/recurring/_create_success.html:26
+#: transactions/templates/transactions/_quick_entry_success.html:44
+#: transactions/templates/transactions/_settle_success.html:28
+#: transactions/templates/transactions/_transfer_success.html:29
+msgid "Done"
+msgstr ""
+
+#: recurring/templates/recurring/_create_success.html:33
+#, fuzzy
+#| msgid "Category"
+msgid "Add another"
+msgstr "الفئة"
+
+#: recurring/templates/recurring/_form.html:5
+#: recurring/templates/recurring/recurring.html:74
+#, fuzzy
+#| msgid "Edit Pot"
+msgid "Edit Automation"
+msgstr "تعديل المدخرة"
+
+#: recurring/templates/recurring/_form.html:5
+#: recurring/templates/recurring/recurring.html:73
+msgid "New Automation"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:28
+#: transactions/templates/transactions/_quick_entry.html:16
+msgid "Transaction type"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:130
 msgid "e.g., Monthly insurance"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:100
+#: recurring/templates/recurring/_form.html:147
+msgid "Schedule"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:152
 msgid "Frequency"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:102
+#: recurring/templates/recurring/_form.html:156
+msgid "Weekly"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:157
+msgid "Bi-weekly"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:158
 #, fuzzy
 #| msgid "Monthly Limit"
 msgid "Monthly"
 msgstr "الحد الشهري"
 
-#: recurring/templates/recurring/_form.html:103
-msgid "Weekly"
+#: recurring/templates/recurring/_form.html:159
+msgid "Quarterly"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:107
+#: recurring/templates/recurring/_form.html:160
+msgid "Yearly"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:165
 msgid "Next Due"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:117
-msgid "Auto-create (no confirmation needed)"
+#: recurring/templates/recurring/_form.html:178
+msgid "Auto-create"
 msgstr ""
 
-#: recurring/templates/recurring/_form.html:123
+#: recurring/templates/recurring/_form.html:181
+msgid "Create automatically without confirmation"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:189
+msgid "Auto-create without confirmation"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:206
+#: transactions/templates/transactions/_quick_entry.html:125
+#: transactions/templates/transactions/_transaction_edit_form.html:196
+#: transactions/templates/transactions/transaction_new.html:168
+msgid "More options"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:243
+msgid "Exchange Rate (optional — enter at confirmation)"
+msgstr ""
+
+#: recurring/templates/recurring/_form.html:255
+#: settings_app/templates/settings_app/tags.html:122
+msgid "Save Changes"
+msgstr "حفظ التغييرات"
+
+#: recurring/templates/recurring/_form.html:255
 #, fuzzy
 #| msgid "Create Budget"
 msgid "Create Rule"
 msgstr "إنشاء ميزانية"
 
-#: recurring/templates/recurring/_rule_list.html:11
-#: recurring/templates/recurring/recurring.html:24
-#: transactions/templates/transactions/_fawry_cashout_form.html:37
-#: transactions/templates/transactions/_transaction_detail_sheet.html:91
+#: recurring/templates/recurring/_form.html:300
+msgid "Exchange rules require manual confirmation"
+msgstr ""
+
+#: recurring/templates/recurring/_rule_list.html:13
+#: recurring/templates/recurring/recurring.html:40
+#: transactions/templates/transactions/_transaction_detail_sheet.html:126
 msgid "Fee"
 msgstr ""
 
-#: recurring/templates/recurring/_rule_list.html:14
-#: reports/templates/reports/reports.html:18
+#: recurring/templates/recurring/_rule_list.html:18
+#: reports/templates/reports/reports.html:36
+#: settings_app/templates/settings_app/import/upload.html:32
 msgid "Next"
 msgstr ""
 
-#: recurring/templates/recurring/_rule_list.html:15
+#: recurring/templates/recurring/_rule_list.html:19
 msgid "auto"
 msgstr ""
 
-#: recurring/templates/recurring/_rule_list.html:21
-msgid "Delete this rule?"
+#: recurring/templates/recurring/_rule_list.html:25
+msgid "Delete this automation?"
 msgstr ""
 
-#: recurring/templates/recurring/_rule_list.html:28
+#: recurring/templates/recurring/_rule_list.html:26
 #, fuzzy
-#| msgid "No transactions yet."
-msgid "No recurring rules yet."
-msgstr "لا توجد معاملات بعد."
+#| msgid "Direct allocation"
+msgid "Delete automation"
+msgstr "تخصيص مباشر"
 
-#: recurring/templates/recurring/recurring.html:5
-msgid "ClearMoney - Recurring Rules"
+#: recurring/templates/recurring/_rule_list.html:33
+msgid "No automations yet. Tap + Automation to create one."
 msgstr ""
 
-#: recurring/templates/recurring/recurring.html:9
+#: recurring/templates/recurring/calendar.html:5
 #, fuzzy
 #| msgid "View transactions"
-msgid "Recurring Transactions"
+msgid "Recurring Calendar"
 msgstr "عرض المعاملات"
 
+#: recurring/templates/recurring/calendar.html:11
+#, fuzzy
+#| msgid "Back to budgets"
+msgid "Back to Automations"
+msgstr "العودة للميزانيات"
+
+#: recurring/templates/recurring/calendar.html:86
+#, fuzzy
+#| msgid "No transactions this month"
+msgid "Confirm all pending transactions for this month?"
+msgstr "لا توجد معاملات هذا الشهر"
+
+#: recurring/templates/recurring/calendar.html:88
+msgid "Confirm All"
+msgstr ""
+
+#: recurring/templates/recurring/calendar.html:97
+#: transactions/templates/transactions/transaction_new.html:115
+msgid "Today"
+msgstr ""
+
+#: recurring/templates/recurring/calendar.html:136
+#, python-format
+msgid "Quick Confirm %(note)s"
+msgstr ""
+
+#: recurring/templates/recurring/calendar.html:137
+#: recurring/templates/recurring/recurring.html:51
+msgid "Confirm"
+msgstr "تأكيد"
+
+#: recurring/templates/recurring/calendar.html:149
+#, fuzzy
+#| msgid "No transactions this month"
+msgid "No recurring transactions due this month."
+msgstr "لا توجد معاملات هذا الشهر"
+
+#: recurring/templates/recurring/calendar.html:150
+msgid "Manage automations"
+msgstr ""
+
+#: recurring/templates/recurring/recurring.html:5
+#, fuzzy
+#| msgid "ClearMoney - Settings"
+msgid "ClearMoney - Automations"
+msgstr "ClearMoney - الإعدادات"
+
+#: recurring/templates/recurring/recurring.html:10
 #: recurring/templates/recurring/recurring.html:14
+#: templates/components/bottom-nav.html:125
+msgid "Automations"
+msgstr ""
+
+#: recurring/templates/recurring/recurring.html:10
+msgid "Automate subscriptions and regular payments"
+msgstr ""
+
+#: recurring/templates/recurring/recurring.html:18
+msgid "Calendar"
+msgstr ""
+
+#: recurring/templates/recurring/recurring.html:22
+msgid "+ Automation"
+msgstr ""
+
+#: recurring/templates/recurring/recurring.html:30
 msgid "Pending Confirmation"
 msgstr ""
 
-#: recurring/templates/recurring/recurring.html:33
-msgid "Confirm"
-msgstr ""
-
-#: recurring/templates/recurring/recurring.html:37
+#: recurring/templates/recurring/recurring.html:55
 msgid "Skip"
 msgstr ""
 
-#: recurring/templates/recurring/recurring.html:50
-msgid "Active Rules"
+#: recurring/templates/recurring/recurring.html:65
+msgid "Active Automations"
 msgstr ""
+
+#: recurring/templates/recurring/recurring.html:75
+#, fuzzy
+#| msgid "Create Budget"
+msgid "Confirm Rule"
+msgstr "إنشاء ميزانية"
 
 #: reports/templates/reports/partials/chart-bar.html:4
 msgid "Monthly income vs expenses bar chart — last 6 months"
@@ -1574,14 +2539,122 @@ msgstr "الفئة"
 msgid "total"
 msgstr ""
 
+#: reports/templates/reports/partials/fee-analytics.html:6
+msgid "Fee Analytics"
+msgstr ""
+
+#: reports/templates/reports/partials/fee-analytics.html:11
+msgid "Fees Paid This Year"
+msgstr ""
+
+#: reports/templates/reports/partials/fee-analytics.html:25
+msgid "6-Month Trend"
+msgstr ""
+
+#: reports/templates/reports/partials/fee-analytics.html:33
+msgid "By Type (This Month)"
+msgstr ""
+
+#: reports/templates/reports/partials/fee-analytics.html:46
+#, fuzzy
+#| msgid "No transactions this month"
+msgid "No fee breakdown for this month"
+msgstr "لا توجد معاملات هذا الشهر"
+
+#: reports/templates/reports/partials/fee-analytics.html:54
+msgid "Costliest Accounts (Yearly)"
+msgstr ""
+
+#: reports/templates/reports/partials/fee-analytics.html:65
+msgid "No fee data available"
+msgstr ""
+
 #: reports/templates/reports/partials/income-vs-expense.html:21
 #: reports/templates/reports/partials/income-vs-expense.html:38
+#: settings_app/templates/settings_app/categories.html:32
 msgid "Expenses"
 msgstr ""
 
 #: reports/templates/reports/partials/income-vs-expense.html:25
 #: reports/templates/reports/partials/income-vs-expense.html:42
 msgid "Net"
+msgstr ""
+
+#: reports/templates/reports/partials/insights.html:7
+#, fuzzy
+#| msgid "Spending Pace"
+msgid "Spending Insights"
+msgstr "وتيرة الإنفاق"
+
+#: reports/templates/reports/partials/insights.html:21
+#, fuzzy
+#| msgid "Savings"
+msgid "Savings Rate"
+msgstr "ادخار"
+
+#: reports/templates/reports/partials/insights.html:27
+#, fuzzy
+#| msgid "Savings"
+msgid "Savings Trend"
+msgstr "ادخار"
+
+#: reports/templates/reports/partials/insights.html:37
+msgid "Unusual Spending"
+msgstr ""
+
+#: reports/templates/reports/partials/insights.html:46
+#, python-format
+msgid "Spent %(pct)s%% more than 3-month average"
+msgstr ""
+
+#: reports/templates/reports/partials/insights.html:61
+#, fuzzy
+#| msgid "Expense"
+msgid "Growing Expenses"
+msgstr "مصروف"
+
+#: reports/templates/reports/partials/insights.html:79
+#, fuzzy
+#| msgid "Category"
+msgid "Category Trends"
+msgstr "الفئات"
+
+#: reports/templates/reports/partials/insights.html:85
+msgid "Trend"
+msgstr ""
+
+#: reports/templates/reports/partials/net_worth_projection.html:6
+#, fuzzy
+#| msgid "Net Worth"
+msgid "Net Worth Projection"
+msgstr "صافي الثروة"
+
+#: reports/templates/reports/partials/net_worth_projection.html:7
+msgid "Based on past 3m discretionary spending"
+msgstr ""
+
+#: reports/templates/reports/partials/net_worth_projection.html:12
+#, fuzzy
+#| msgid "Expense"
+msgid "Expected"
+msgstr "مصروف"
+
+#: reports/templates/reports/partials/net_worth_projection.html:13
+#, python-format
+msgid "Optimistic (-20%% spending)"
+msgstr ""
+
+#: reports/templates/reports/partials/net_worth_projection.html:14
+#, python-format
+msgid "Pessimistic (+20%% spending)"
+msgstr ""
+
+#: reports/templates/reports/partials/net_worth_projection.html:19
+msgid "Net worth projection chart showing expected, optimistic, and pessimistic scenarios"
+msgstr ""
+
+#: reports/templates/reports/partials/net_worth_projection.html:61
+msgid "Milestone Reached"
 msgstr ""
 
 #: reports/templates/reports/partials/spending-by-category.html:26
@@ -1604,123 +2677,360 @@ msgstr ""
 msgid "Add a transaction"
 msgstr "عرض المعاملات"
 
+#: reports/templates/reports/partials/spending-by-tag.html:5
+#, fuzzy
+#| msgid "Spending Pace"
+msgid "Spending by Tag"
+msgstr "وتيرة الإنفاق"
+
+#: reports/templates/reports/partials/spending-by-tag.html:24
+#, fuzzy
+#| msgid "No transactions this month"
+msgid "No tags used this month."
+msgstr "لا توجد معاملات هذا الشهر"
+
 #: reports/templates/reports/reports.html:5
 msgid "ClearMoney - Reports"
 msgstr ""
 
-#: reports/templates/reports/reports.html:9
-#: templates/components/bottom-nav.html:157 templates/components/header.html:7
-msgid "Reports"
+#: reports/templates/reports/reports.html:10
+msgid "Financial Reports"
 msgstr ""
 
 #: reports/templates/reports/reports.html:15
+#: reports/templates/reports/reports.html:23
+msgid "Download PDF"
+msgstr ""
+
+#: reports/templates/reports/reports.html:18
+msgid "PDF export requires additional server setup"
+msgstr ""
+
+#: reports/templates/reports/reports.html:21
+msgid "Download PDF — unavailable"
+msgstr ""
+
+#: reports/templates/reports/reports.html:33
 msgid "Prev"
 msgstr ""
 
-#: reports/templates/reports/reports.html:25
-msgid "All currencies"
-msgstr ""
-
-#: reports/templates/reports/reports.html:29
+#: reports/templates/reports/reports.html:47
 #, fuzzy
 #| msgid "Transaction History"
 msgid "Rate History"
 msgstr "سجل المعاملات"
 
-#: reports/templates/reports/reports.html:34
+#: reports/templates/reports/reports.html:52
 msgid "Spending by Category"
 msgstr ""
 
-#: reports/templates/reports/reports.html:45
+#: reports/templates/reports/reports.html:68
 msgid "Income vs Expenses"
 msgstr ""
 
-#: reports/templates/reports/reports.html:51
+#: reports/templates/reports/reports.html:84
 msgid "No data available."
 msgstr ""
+
+#: settings_app/templates/settings_app/_category_new_form.html:3
+#, fuzzy
+#| msgid "Category"
+msgid "New Category"
+msgstr "الفئة"
+
+#: settings_app/templates/settings_app/_category_new_form.html:9
+#, fuzzy
+#| msgid "Category"
+msgid "Category type"
+msgstr "الفئة"
+
+#: settings_app/templates/settings_app/_category_new_form.html:35
+msgid "Icon"
+msgstr ""
+
+#: settings_app/templates/settings_app/_category_new_form.html:37
+msgid "Category icon (emoji)"
+msgstr ""
+
+#: settings_app/templates/settings_app/_category_new_form.html:41
+msgid "Name (English)"
+msgstr "الاسم (إنجليزي)"
+
+#: settings_app/templates/settings_app/_category_new_form.html:43
+#, fuzzy
+#| msgid "Category"
+msgid "Category name (English)"
+msgstr "الفئة"
+
+#: settings_app/templates/settings_app/_category_new_form.html:44
+msgid "e.g. Coffee"
+msgstr ""
+
+#: settings_app/templates/settings_app/_category_new_form.html:50
+msgid "Name (Arabic)"
+msgstr "الاسم (عربي)"
+
+#: settings_app/templates/settings_app/_category_new_form.html:52
+#, fuzzy
+#| msgid "Category"
+msgid "Category name (Arabic)"
+msgstr "الفئة"
+
+#: settings_app/templates/settings_app/_category_new_form.html:53
+msgid "مثال: قهوة"
+msgstr ""
+
+#: settings_app/templates/settings_app/_category_new_form.html:59
+#: settings_app/templates/settings_app/_category_new_form.html:123
+#: settings_app/templates/settings_app/_category_new_form.html:134
+#, fuzzy
+#| msgid "Category"
+msgid "Save Category"
+msgstr "الفئة"
+
+#: settings_app/templates/settings_app/_category_new_form.html:95
+#, fuzzy
+#| msgid "category name is required"
+msgid "Category name is required."
+msgstr "اسم الفئة مطلوب"
+
+#: settings_app/templates/settings_app/_category_new_form.html:103
+#, fuzzy
+#| msgid "Savings"
+msgid "Saving…"
+msgstr "ادخار"
+
+#: settings_app/templates/settings_app/_category_new_form.html:118
+msgid "Failed to save."
+msgstr ""
+
+#: settings_app/templates/settings_app/_category_new_form.html:131
+#, fuzzy
+#| msgid "Please try again later."
+msgid "Network error. Please try again."
+msgstr "يرجى المحاولة لاحقًا."
 
 #: settings_app/templates/settings_app/categories.html:4
 msgid "ClearMoney - Categories"
 msgstr ""
 
 #: settings_app/templates/settings_app/categories.html:9
-#: settings_app/templates/settings_app/settings.html:76
+#: settings_app/templates/settings_app/settings.html:172
 #, fuzzy
 #| msgid "Category"
 msgid "Categories"
 msgstr "الفئات"
 
-#: settings_app/templates/settings_app/categories.html:10
-msgid "Back"
-msgstr ""
-
-#: settings_app/templates/settings_app/categories.html:17
-#: settings_app/templates/settings_app/categories.html:18
-msgid "Icon"
-msgstr ""
-
-#: settings_app/templates/settings_app/categories.html:19
-msgid "Category icon (emoji)"
-msgstr ""
-
-#: settings_app/templates/settings_app/categories.html:21
-#: settings_app/templates/settings_app/categories.html:23
+#: settings_app/templates/settings_app/categories.html:13
+#: transactions/templates/transactions/_quick_entry.html:79
+#: transactions/templates/transactions/_transaction_edit_form.html:155
+#: transactions/templates/transactions/transaction_new.html:67
 #, fuzzy
 #| msgid "Category"
-msgid "Category name"
+msgid "Add new category"
 msgstr "الفئة"
 
-#: settings_app/templates/settings_app/categories.html:22
-msgid "New category name"
-msgstr ""
-
-#: settings_app/templates/settings_app/categories.html:27
+#: settings_app/templates/settings_app/categories.html:25
 #, fuzzy
 #| msgid "Category"
-msgid "Add Category"
+msgid "Category types"
+msgstr "الفئات"
+
+#: settings_app/templates/settings_app/categories.html:47
+#, fuzzy
+#| msgid "Category"
+msgid "Expense categories"
 msgstr "الفئة"
 
-#: settings_app/templates/settings_app/categories.html:33
-msgid "Active categories"
-msgstr ""
-
-#: settings_app/templates/settings_app/categories.html:39
-#: settings_app/templates/settings_app/categories.html:69
+#: settings_app/templates/settings_app/categories.html:53
+#: settings_app/templates/settings_app/categories.html:80
+#: settings_app/templates/settings_app/categories.html:111
 msgid "txn"
 msgstr ""
 
-#: settings_app/templates/settings_app/categories.html:42
+#: settings_app/templates/settings_app/categories.html:56
+#: settings_app/templates/settings_app/categories.html:83
 msgid "System"
 msgstr ""
 
-#: settings_app/templates/settings_app/categories.html:48
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:78
-msgid "Archive"
-msgstr "أرشفة"
-
-#: settings_app/templates/settings_app/categories.html:53
+#: settings_app/templates/settings_app/categories.html:67
 #, fuzzy
 #| msgid "No allocations yet."
-msgid "No categories yet."
+msgid "No expense categories yet."
 msgstr "لا توجد تخصيصات بعد."
 
-#: settings_app/templates/settings_app/categories.html:61
+#: settings_app/templates/settings_app/categories.html:74
 #, fuzzy
-#| msgid "Archive"
-msgid "Archived"
-msgstr "أرشفة"
+#| msgid "Category"
+msgid "Income categories"
+msgstr "الفئة"
 
-#: settings_app/templates/settings_app/categories.html:63
+#: settings_app/templates/settings_app/categories.html:94
+#, fuzzy
+#| msgid "No allocations yet."
+msgid "No income categories yet."
+msgstr "لا توجد تخصيصات بعد."
+
+#: settings_app/templates/settings_app/categories.html:105
 msgid "Archived categories"
 msgstr ""
 
-#: settings_app/templates/settings_app/categories.html:75
-msgid "Restore"
+#: settings_app/templates/settings_app/import/mapping.html:4
+msgid "Map Columns"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/mapping.html:8
+msgid "Map CSV Columns"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/mapping.html:15
+#, fuzzy
+#| msgid "Linked Account"
+msgid "Target Account"
+msgstr "الحساب المرتبط"
+
+#: settings_app/templates/settings_app/import/mapping.html:17
+#, fuzzy
+#| msgid "Select account..."
+msgid "-- Select Account --"
+msgstr "اختر الحساب..."
+
+#: settings_app/templates/settings_app/import/mapping.html:26
+msgid "Date Column"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/mapping.html:28
+#: settings_app/templates/settings_app/import/mapping.html:38
+#: settings_app/templates/settings_app/import/mapping.html:48
+#: settings_app/templates/settings_app/import/mapping.html:59
+#, fuzzy
+#| msgid "Select account..."
+msgid "Select Column"
+msgstr "اختر الحساب..."
+
+#: settings_app/templates/settings_app/import/mapping.html:36
+#, fuzzy
+#| msgid "Amount"
+msgid "Amount Column"
+msgstr "المبلغ"
+
+#: settings_app/templates/settings_app/import/mapping.html:46
+#, fuzzy
+#| msgid "Target Amount (optional)"
+msgid "Type Column (Optional)"
+msgstr "المبلغ المستهدف (اختياري)"
+
+#: settings_app/templates/settings_app/import/mapping.html:53
+msgid "If empty, positive amounts are Income and negative are Expense."
+msgstr ""
+
+#: settings_app/templates/settings_app/import/mapping.html:57
+msgid "Note/Description Column (Optional)"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/mapping.html:72
+msgid "Preview"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:4
+#: settings_app/templates/settings_app/import/preview.html:8
+msgid "Preview Import"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:9
+msgid "Found"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:9
+msgid "valid rows"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:9
+msgid "Showing up to 50 preview rows."
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:13
+msgid "Validation Errors (Skipped)"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:25
+msgid "Possible Duplicates"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:28
+msgid "These transactions appear to already exist in your account. They will still be imported if you proceed."
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:63
+msgid "Matched"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:70
+#: transactions/templates/transactions/_transaction_detail_sheet.html:190
+#: transactions/templates/transactions/_transaction_row.html:79
+msgid "Duplicate"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:72
+msgid "Ready"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/preview.html:89
+msgid "Confirm Import"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/summary.html:4
+msgid "Import Summary"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/summary.html:16
+msgid "Import Complete"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/summary.html:17
+msgid "Your bank statement has been processed."
+msgstr ""
+
+#: settings_app/templates/settings_app/import/summary.html:21
+msgid "Successfully Created"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/summary.html:26
+msgid "Failed/Skipped"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/summary.html:36
+msgid "imported transactions were flagged as possible duplicates."
+msgstr ""
+
+#: settings_app/templates/settings_app/import/summary.html:42
+#: templates/404.html:12 templates/429.html:12 templates/500.html:18
+#: transactions/templates/transactions/_transaction_success.html:20
+msgid "Go to Dashboard"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/upload.html:4
+#: settings_app/templates/settings_app/settings.html:129
+msgid "Import Transactions"
+msgstr "استيراد المعاملات"
+
+#: settings_app/templates/settings_app/import/upload.html:8
+#: settings_app/templates/settings_app/settings.html:133
+msgid "Upload CSV"
+msgstr ""
+
+#: settings_app/templates/settings_app/import/upload.html:16
+msgid "Select CSV file"
 msgstr ""
 
 #: settings_app/templates/settings_app/settings.html:4
 msgid "ClearMoney - Settings"
 msgstr "ClearMoney - الإعدادات"
+
+#: settings_app/templates/settings_app/settings.html:8
+#: templates/components/bottom-nav.html:153 templates/components/header.html:57
+msgid "Settings"
+msgstr "الإعدادات"
 
 #: settings_app/templates/settings_app/settings.html:14
 msgid "Dark Mode"
@@ -1731,7 +3041,7 @@ msgid "Toggle between light and dark theme"
 msgstr ""
 
 #: settings_app/templates/settings_app/settings.html:21
-#: templates/components/header.html:6
+#: templates/components/header.html:34
 msgid "Toggle dark mode"
 msgstr ""
 
@@ -1739,77 +3049,205 @@ msgstr ""
 msgid "Enable Dark Mode"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:30
+#: settings_app/templates/settings_app/settings.html:32
+msgid "Language"
+msgstr "اللغة"
+
+#: settings_app/templates/settings_app/settings.html:33
+msgid "Switch between English and Arabic"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:53
+msgid "Choose the currencies you actively use and the default display currency."
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:71
+msgid "Save Active Currencies"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:79
+#, fuzzy
+#| msgid "Currency"
+msgid "Display Currency"
+msgstr "العملة"
+
+#: settings_app/templates/settings_app/settings.html:89
+msgid "Save Display Currency"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:96
 #, fuzzy
 #| msgid "View transactions"
 msgid "Export Transactions"
 msgstr "تصدير المعاملات"
 
-#: settings_app/templates/settings_app/settings.html:34
+#: settings_app/templates/settings_app/settings.html:100
 msgid "From"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:38
+#: settings_app/templates/settings_app/settings.html:104
 msgid "To"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:43
+#: settings_app/templates/settings_app/settings.html:109
 msgid "Download CSV"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:63
+#: settings_app/templates/settings_app/settings.html:130
+msgid "Bulk import from a CSV file"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:142
 msgid "Push Notifications"
 msgstr "إشعارات الدفع"
 
-#: settings_app/templates/settings_app/settings.html:64
+#: settings_app/templates/settings_app/settings.html:143
 msgid "Get reminders for due dates and recurring transactions"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:67
+#: settings_app/templates/settings_app/settings.html:146
 msgid "Enable"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:77
+#: settings_app/templates/settings_app/settings.html:156
+msgid "Dev Tools"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:157
+msgid "Internal tools for testing and development"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:162
+msgid "Seed Test Data"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:173
 msgid "Add, edit, or archive your categories"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:85
+#: settings_app/templates/settings_app/settings.html:183
+#: transactions/templates/transactions/_transaction_detail_sheet.html:115
+msgid "Tags"
+msgstr "الوسوم"
+
+#: settings_app/templates/settings_app/settings.html:184
+msgid "Manage labels for your transactions"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:195
+msgid "Manage fee templates for transfers and transactions"
+msgstr ""
+
+#: settings_app/templates/settings_app/settings.html:203
 msgid "Quick Links"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:88
-#: templates/components/bottom-nav.html:136
+#: settings_app/templates/settings_app/settings.html:206
 msgid "Recurring Rules"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:90
-#: templates/components/bottom-nav.html:145
+#: settings_app/templates/settings_app/settings.html:208
+#: templates/components/bottom-nav.html:134
 #: transactions/templates/transactions/batch_entry.html:9
-#: transactions/templates/transactions/transactions.html:74
+#: transactions/templates/transactions/transactions.html:84
 msgid "Batch Entry"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:91
-msgid "Salary Distribution"
-msgstr ""
-
-#: settings_app/templates/settings_app/settings.html:92
-#: transactions/templates/transactions/_fawry_cashout_form.html:4
-msgid "Fawry Cash-Out"
-msgstr ""
-
-#: settings_app/templates/settings_app/settings.html:100
-#: settings_app/templates/settings_app/settings.html:123
+#: settings_app/templates/settings_app/settings.html:216
+#: settings_app/templates/settings_app/settings.html:239
 msgid "Log Out"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:112
+#: settings_app/templates/settings_app/settings.html:228
 msgid "Log out?"
 msgstr ""
 
-#: settings_app/templates/settings_app/settings.html:113
+#: settings_app/templates/settings_app/settings.html:229
 msgid "You'll need your magic link to sign back in."
 msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:4
+#, fuzzy
+#| msgid "ClearMoney - Settings"
+msgid "ClearMoney - Manage Tags"
+msgstr "ClearMoney - الإعدادات"
+
+#: settings_app/templates/settings_app/tags.html:9
+#, fuzzy
+#| msgid "Back to budgets"
+msgid "Back to Settings"
+msgstr "العودة للميزانيات"
+
+#: settings_app/templates/settings_app/tags.html:14
+#, fuzzy
+#| msgid "Manage"
+msgid "Manage Tags"
+msgstr "إدارة"
+
+#: settings_app/templates/settings_app/tags.html:19
+#, fuzzy
+#| msgid "Create Budget"
+msgid "Create New Tag"
+msgstr "إنشاء ميزانية"
+
+#: settings_app/templates/settings_app/tags.html:23
+msgid "Tag name (e.g. vacation)"
+msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:35
+#, fuzzy
+#| msgid "Tags"
+msgid "Your Tags"
+msgstr "الوسوم"
+
+#: settings_app/templates/settings_app/tags.html:45
+#, fuzzy, python-format
+#| msgid "%(amount)s remaining"
+msgid "%(count)s transaction"
+msgid_plural "%(count)s transactions"
+msgstr[0] "%(amount)s متبقي"
+msgstr[1] "%(amount)s متبقي"
+msgstr[2] "%(amount)s متبقي"
+msgstr[3] "%(amount)s متبقي"
+msgstr[4] "%(amount)s متبقي"
+msgstr[5] "%(amount)s متبقي"
+
+#: settings_app/templates/settings_app/tags.html:55
+msgid "Delete this tag? It will be removed from all transactions."
+msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:65
+msgid "You haven't created any tags yet."
+msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:74
+#: settings_app/templates/settings_app/tags.html:97
+msgid "Merge Tags"
+msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:75
+msgid "Merge all transactions from one tag into another."
+msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:80
+msgid "Source (will be deleted)"
+msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:88
+msgid "Target (will remain)"
+msgstr ""
+
+#: settings_app/templates/settings_app/tags.html:107
+#, fuzzy
+#| msgid "Edit"
+msgid "Edit Tag"
+msgstr "تعديل"
+
+#: settings_app/templates/settings_app/tags.html:116
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:32
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:44
+msgid "Color"
+msgstr "اللون"
 
 #: templates/404.html:3
 msgid "Page Not Found"
@@ -1821,11 +3259,6 @@ msgstr ""
 
 #: templates/404.html:9
 msgid "The page you're looking for doesn't exist or has been moved."
-msgstr ""
-
-#: templates/404.html:12 templates/429.html:12 templates/500.html:18
-#: transactions/templates/transactions/_transaction_success.html:16
-msgid "Go to Dashboard"
 msgstr ""
 
 #: templates/429.html:3
@@ -1853,8 +3286,7 @@ msgid "Failed to save changes. Check your connection and try again."
 msgstr ""
 
 #: templates/base.html:3
-msgid ""
-"Network error. Unable to send request. Check your connection and try again."
+msgid "Network error. Unable to send request. Check your connection and try again."
 msgstr ""
 
 #: templates/base.html:4
@@ -1863,6 +3295,10 @@ msgstr ""
 
 #: templates/base.html:5
 msgid "Retry"
+msgstr ""
+
+#: templates/components/_feature_hint.html:29
+msgid "Dismiss"
 msgstr ""
 
 #: templates/components/bottom-nav.html:3
@@ -1874,7 +3310,7 @@ msgid "Home"
 msgstr ""
 
 #: templates/components/bottom-nav.html:15
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:88
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:115
 msgid "History"
 msgstr ""
 
@@ -1884,12 +3320,12 @@ msgid "Add transaction"
 msgstr ""
 
 #: templates/components/bottom-nav.html:33
-#: templates/components/bottom-nav.html:82
+#: templates/components/bottom-nav.html:66
 msgid "More menu"
 msgstr ""
 
 #: templates/components/bottom-nav.html:42
-#: transactions/templates/transactions/transactions.html:74
+#: transactions/templates/transactions/transactions.html:84
 msgid "More"
 msgstr ""
 
@@ -1897,40 +3333,36 @@ msgstr ""
 msgid "Quick entry"
 msgstr ""
 
-#: templates/components/bottom-nav.html:62
-msgid "Transaction"
-msgstr ""
-
-#: templates/components/bottom-nav.html:88
+#: templates/components/bottom-nav.html:77
 msgid "Money Management"
 msgstr ""
 
-#: templates/components/bottom-nav.html:96
+#: templates/components/bottom-nav.html:85
 msgid "Track loans and debts"
 msgstr ""
 
-#: templates/components/bottom-nav.html:105
+#: templates/components/bottom-nav.html:94
 msgid "Monthly spending limits"
 msgstr ""
 
-#: templates/components/bottom-nav.html:114
-msgid "Envelope budgeting"
+#: templates/components/bottom-nav.html:103
+msgid "Set money aside for goals"
 msgstr ""
 
-#: templates/components/bottom-nav.html:123
+#: templates/components/bottom-nav.html:112
 msgid "Track portfolio value"
 msgstr ""
 
-#: templates/components/bottom-nav.html:129
-msgid "Automation"
-msgstr ""
-
-#: templates/components/bottom-nav.html:137
+#: templates/components/bottom-nav.html:126
 msgid "Auto-create transactions"
 msgstr ""
 
-#: templates/components/bottom-nav.html:146
+#: templates/components/bottom-nav.html:135
 msgid "Add multiple transactions"
+msgstr ""
+
+#: templates/components/bottom-nav.html:146 templates/components/header.html:52
+msgid "Reports"
 msgstr ""
 
 #: templates/components/chart_sparkline.html:3
@@ -1938,46 +3370,93 @@ msgstr ""
 msgid "Balance trend"
 msgstr ""
 
-#: transactions/services/crud.py:109
-#, python-format
-msgid "Account not found: %(id)s"
-msgstr "الحساب غير موجود: %(id)s"
+#: templates/components/header.html:10
+msgid "Display currency"
+msgstr ""
 
-#: transactions/services/crud.py:124
+#: templates/components/header.html:25 templates/components/header.html:26
+#: templates/components/header.html:75 templates/components/header.html:97
+#, fuzzy
+#| msgid "View transactions"
+msgid "Search transactions"
+msgstr "عرض المعاملات"
+
+#: templates/components/header.html:96
+msgid "Search by note, amount, or category…"
+msgstr ""
+
+#: templates/components/header.html:109
+msgid "Close search"
+msgstr ""
+
+#: templates/components/header.html:120
+#: transactions/templates/transactions/_search_results.html:13
+msgid "Search results"
+msgstr ""
+
+#: transactions/services/crud.py:146 transactions/services/crud.py:1077
 msgid "Amount must be positive"
 msgstr "يجب أن يكون المبلغ موجبًا"
 
-#: transactions/services/crud.py:126
+#: transactions/services/crud.py:148
 msgid "account_id is required"
 msgstr "معرف الحساب مطلوب"
 
-#: transactions/services/crud.py:129
+#: transactions/services/crud.py:151
 #, python-format
 msgid "Invalid transaction type: %(type)s"
 msgstr "نوع معاملة غير صالح: %(type)s"
 
-#: transactions/services/crud.py:203
+#: transactions/services/crud.py:223
 #, python-format
 msgid "Would exceed credit limit (available: %(available)s)"
 msgstr "سيتجاوز الحد الائتماني (المتاح: %(available)s)"
 
-#: transactions/services/crud.py:214 transactions/services/crud.py:675
+#: transactions/services/crud.py:234 transactions/services/crud.py:868
 msgid "Transaction date cannot be in the future"
 msgstr "لا يمكن أن يكون تاريخ المعاملة في المستقبل"
 
-#: transactions/services/crud.py:271
+#: transactions/services/crud.py:423
 msgid "Fee must be greater than zero"
 msgstr "يجب أن تكون الرسوم أكبر من صفر"
 
-#: transactions/services/crud.py:371
+#: transactions/services/crud.py:525
 msgid "Parent transaction not found"
 msgstr "المعاملة الأصل غير موجودة"
 
-#: transactions/services/crud.py:646 transactions/services/crud.py:696
-#: transactions/services/crud.py:724
+#: transactions/services/crud.py:839 transactions/services/crud.py:887
+#: transactions/services/crud.py:937 transactions/services/crud.py:1081
 #, python-format
 msgid "Transaction not found: %(id)s"
 msgstr "المعاملة غير موجودة: %(id)s"
+
+#: transactions/services/crud.py:1083
+#, fuzzy, python-format
+#| msgid "Transaction not found: %(id)s"
+msgid "Transaction is not pending: %(id)s"
+msgstr "المعاملة غير موجودة: %(id)s"
+
+#: transactions/templates/transactions/_exchange_dest_partial.html:3
+#: transactions/templates/transactions/_transaction_edit_form.html:34
+msgid "To account"
+msgstr ""
+
+#: transactions/templates/transactions/_exchange_dest_partial.html:6
+#: transactions/templates/transactions/_transaction_edit_form.html:37
+msgid "Destination account"
+msgstr ""
+
+#: transactions/templates/transactions/_exchange_dest_partial.html:18
+#, fuzzy
+#| msgid "Loan Received"
+msgid "Received"
+msgstr "قرض مستلم"
+
+#: transactions/templates/transactions/_exchange_dest_partial.html:27
+#: transactions/templates/transactions/_exchange_form.html:38
+#: transactions/templates/transactions/_transfer_unified_form.html:60
+msgid "Rate"
+msgstr ""
 
 #: transactions/templates/transactions/_exchange_form.html:4
 msgid "Currency Exchange"
@@ -1988,8 +3467,8 @@ msgid "From Account (source currency)"
 msgstr ""
 
 #: transactions/templates/transactions/_exchange_form.html:12
-#: transactions/templates/transactions/_transfer_unified_form.html:13
 #: transactions/templates/transactions/_transfer_form.html:12
+#: transactions/templates/transactions/_transfer_unified_form.html:13
 msgid "Select source..."
 msgstr ""
 
@@ -1997,104 +3476,87 @@ msgstr ""
 msgid "To Account (destination currency)"
 msgstr ""
 
-#: transactions/templates/transactions/_exchange_form.html:38
-#: transactions/templates/transactions/_transfer_unified_form.html:59
-msgid "Rate"
-msgstr ""
-
 #: transactions/templates/transactions/_exchange_form.html:44
-#: transactions/templates/transactions/_transfer_unified_form.html:65
+#: transactions/templates/transactions/_transfer_unified_form.html:66
 msgid "Result"
 msgstr ""
 
 #: transactions/templates/transactions/_exchange_form.html:58
-#: transactions/templates/transactions/_fawry_cashout_form.html:58
-#: transactions/templates/transactions/_transfer_unified_form.html:80
-#: transactions/templates/transactions/_quick_entry.html:92
-#: transactions/templates/transactions/_transaction_detail_sheet.html:42
-#: transactions/templates/transactions/_transaction_edit_form.html:43
-#: transactions/templates/transactions/_transfer_form.html:55
+#: transactions/templates/transactions/_quick_entry.html:131
+#: transactions/templates/transactions/_transaction_edit_form.html:54
+#: transactions/templates/transactions/_transaction_edit_form.html:109
+#: transactions/templates/transactions/_transaction_edit_form.html:168
+#: transactions/templates/transactions/_transfer_form.html:58
+#: transactions/templates/transactions/_transfer_unified_form.html:82
 #: transactions/templates/transactions/batch_entry.html:37
-#: transactions/templates/transactions/transaction_new.html:105
+#: transactions/templates/transactions/transaction_new.html:113
 msgid "Date"
+msgstr "التاريخ"
+
+#: transactions/templates/transactions/_fee_preset_selector.html:26
+#, fuzzy
+#| msgid "ClearMoney"
+msgid "Clear"
+msgstr "ClearMoney"
+
+#: transactions/templates/transactions/_fee_preset_selector.html:50
+msgid "Loading..."
+msgstr "جارٍ التحميل..."
+
+#: transactions/templates/transactions/_fee_preset_selector.html:107
+msgid "Enter amount to calculate fee"
 msgstr ""
 
-#: transactions/templates/transactions/_fawry_cashout_form.html:5
-msgid "Charge your credit card and load funds to a Fawry prepaid account."
-msgstr ""
-
-#: transactions/templates/transactions/_fawry_cashout_form.html:11
-msgid "Select credit card..."
-msgstr ""
-
-#: transactions/templates/transactions/_fawry_cashout_form.html:19
-msgid "Prepaid / Fawry Account"
-msgstr ""
-
-#: transactions/templates/transactions/_fawry_cashout_form.html:21
-msgid "Select prepaid account..."
-msgstr ""
-
-#: transactions/templates/transactions/_fawry_cashout_form.html:29
-msgid "Amount (net, what you receive)"
-msgstr ""
-
-#: transactions/templates/transactions/_fawry_cashout_form.html:45
-msgid "Total charged to card"
-msgstr ""
-
-#: transactions/templates/transactions/_fawry_cashout_form.html:64
-msgid "e.g., Cash withdrawal"
-msgstr ""
-
-#: transactions/templates/transactions/_fawry_cashout_form.html:70
-msgid "Process Cash-Out"
-msgstr ""
-
-#: transactions/templates/transactions/_transfer_unified_form.html:51
-#: transactions/templates/transactions/_transfer_form.html:45
-msgid "Total from source:"
+#: transactions/templates/transactions/_fee_preset_selector.html:126
+msgid "Using preset:"
 msgstr ""
 
 #: transactions/templates/transactions/_quick_entry.html:3
 msgid "Quick Entry"
 msgstr ""
 
-#: transactions/templates/transactions/_quick_entry.html:75
-#: transactions/templates/transactions/_transaction_edit_form.html:38
-#: transactions/templates/transactions/transaction_new.html:82
+#: transactions/templates/transactions/_quick_entry.html:108
+#: transactions/templates/transactions/_transaction_edit_form.html:68
+#: transactions/templates/transactions/_transaction_edit_form.html:117
+#: transactions/templates/transactions/_transaction_edit_form.html:215
+#: transactions/templates/transactions/transaction_new.html:80
 msgid "What was this for?"
 msgstr ""
 
-#: transactions/templates/transactions/_quick_entry.html:86
-#: transactions/templates/transactions/_transaction_edit_form.html:53
-#: transactions/templates/transactions/transaction_new.html:97
-msgid "More options"
+#: transactions/templates/transactions/_quick_entry.html:145
+#: transactions/templates/transactions/transaction_new.html:131
+msgid "Mark as pending"
 msgstr ""
 
-#: transactions/templates/transactions/_quick_entry.html:106
-#: transactions/templates/transactions/transaction_new.html:121
-msgid "Pot (optional)"
-msgstr "مدخرة (اختياري)"
-
-#: transactions/templates/transactions/_quick_entry.html:109
-#: transactions/templates/transactions/transaction_new.html:124
-msgid "None"
+#: transactions/templates/transactions/_quick_entry.html:146
+#: transactions/templates/transactions/transaction_new.html:132
+msgid "Estimated amount — settle later with the real total"
 msgstr ""
 
-#: transactions/templates/transactions/_quick_entry_success.html:10
-#: transactions/templates/transactions/_transaction_success.html:5
-msgid "Transaction saved!"
+#: transactions/templates/transactions/_quick_entry.html:151
+#: transactions/templates/transactions/transaction_new.html:137
+#, fuzzy
+#| msgid "Parent transaction not found"
+msgid "Mark transaction as pending"
+msgstr "المعاملة الأصل غير موجودة"
+
+#: transactions/templates/transactions/_quick_entry_success.html:14
+#: transactions/templates/transactions/_quick_entry_success.html:27
+#: transactions/templates/transactions/_transaction_success.html:7
+#: transactions/templates/transactions/_transfer_success.html:13
+msgid "added to"
 msgstr ""
 
 #: transactions/templates/transactions/_quick_entry_success.html:15
-#: transactions/templates/transactions/_transaction_success.html:12
-msgid "Add Another"
+#: transactions/templates/transactions/_quick_entry_success.html:27
+#: transactions/templates/transactions/_transaction_success.html:7
+#: transactions/templates/transactions/_transfer_success.html:14
+msgid "deducted from"
 msgstr ""
 
-#: transactions/templates/transactions/_quick_entry_success.html:20
-#: transactions/templates/transactions/_transfer_success.html:18
-msgid "Done"
+#: transactions/templates/transactions/_quick_entry_success.html:39
+#: transactions/templates/transactions/_transaction_success.html:16
+msgid "Add Another"
 msgstr ""
 
 #: transactions/templates/transactions/_quick_exchange.html:3
@@ -2105,44 +3567,152 @@ msgstr ""
 msgid "Quick Transfer"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:57
-msgid "Tags"
-msgstr "الوسوم"
+#: transactions/templates/transactions/_settle_form.html:9
+#: transactions/templates/transactions/_transaction_detail_sheet.html:175
+#, fuzzy
+#| msgid "View transactions"
+msgid "Settle Transaction"
+msgstr "تصدير المعاملات"
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:69
-msgid "Transfer to"
+#: transactions/templates/transactions/_settle_form.html:10
+msgid "Enter the real final amount charged to your account."
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:69
-msgid "Transfer from"
+#: transactions/templates/transactions/_settle_form.html:17
+#: transactions/templates/transactions/_transaction_detail_sheet.html:46
+msgid "Estimated"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:77
-msgid "Exchange rate"
+#: transactions/templates/transactions/_settle_form.html:24
+#: transactions/templates/transactions/_transaction_row.html:35
+#, fuzzy
+#| msgid "Spending Pace"
+msgid "Pending"
+msgstr "وتيرة الإنفاق"
+
+#: transactions/templates/transactions/_settle_form.html:37
+#, fuzzy
+#| msgid "Amount"
+msgid "Final Amount"
+msgstr "المبلغ"
+
+#: transactions/templates/transactions/_settle_form.html:63
+#, fuzzy
+#| msgid "Settled"
+msgid "Settle"
+msgstr "تم التسوية"
+
+#: transactions/templates/transactions/_settle_form.html:78
+msgid "Exact match — no difference"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:84
+#: transactions/templates/transactions/_settle_form.html:81
+msgid "more than estimated"
+msgstr ""
+
+#: transactions/templates/transactions/_settle_form.html:84
+msgid "less than estimated"
+msgstr ""
+
+#: transactions/templates/transactions/_settle_success.html:15
+#, fuzzy
+#| msgid "Transaction History"
+msgid "Transaction settled"
+msgstr "سجل المعاملات"
+
+#: transactions/templates/transactions/_settle_success.html:18
+msgid "Final amount"
+msgstr ""
+
+#: transactions/templates/transactions/_settle_success.html:21
+msgid "Was estimated"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:30
+msgid "Recurring"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:43
+msgid "Pending — estimated amount"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:60
 msgid "Counter amount"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:98
+#: transactions/templates/transactions/_transaction_detail_sheet.html:67
+msgid "Transfer from"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:72
+msgid "Date & Time"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:93
+#, fuzzy
+#| msgid "Exchange"
+msgid "Exchange To"
+msgstr "صرف"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:101
 msgid "Person"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:105
-msgid "Virtual account"
+#: transactions/templates/transactions/_transaction_detail_sheet.html:108
+#, fuzzy
+#| msgid "Linked Account"
+msgid "Linked Goal"
+msgstr "الحساب المرتبط"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:142
+msgid "Attachment"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:115
+#: transactions/templates/transactions/_transaction_detail_sheet.html:148
+msgid "View PDF Receipt"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:151
+msgid "Receipt"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:157
+msgid "Remove this attachment?"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:171
+msgid "Settle this pending transaction"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:184
 msgid "Edit transaction"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:119
-#: transactions/templates/transactions/_transaction_row.html:83
-msgid "Delete this transaction?"
+#: transactions/templates/transactions/_transaction_detail_sheet.html:189
+#, fuzzy
+#| msgid "View transactions"
+msgid "Duplicate transaction"
+msgstr "عرض المعاملات"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:194
+#: transactions/templates/transactions/_transaction_detail_sheet.html:200
+#: transactions/templates/transactions/_transaction_detail_sheet.html:217
+#, fuzzy
+#| msgid "View transactions"
+msgid "Delete Transaction"
+msgstr "تصدير المعاملات"
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:195
+#: transactions/templates/transactions/_transaction_row.html:90
+msgid "This will remove the transfer from both accounts. Tap again to delete."
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_detail_sheet.html:122
+#: transactions/templates/transactions/_transaction_detail_sheet.html:195
+#: transactions/templates/transactions/_transaction_detail_sheet.html:238
+msgid "Tap again to confirm delete"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_detail_sheet.html:199
 msgid "Delete transaction"
 msgstr ""
 
@@ -2150,31 +3720,75 @@ msgstr ""
 msgid "Edit Transaction"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_edit_form.html:66
-msgid "Virtual Account"
+#: transactions/templates/transactions/_transaction_edit_form.html:21
+#: transactions/templates/transactions/_transaction_edit_form.html:80
+msgid "From account"
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_edit_form.html:69
-msgid "No virtual account"
+#: transactions/templates/transactions/_transaction_edit_form.html:24
+#: transactions/templates/transactions/_transaction_edit_form.html:83
+#, fuzzy
+#| msgid "Select account..."
+msgid "Source account"
+msgstr "اختر الحساب..."
+
+#: transactions/templates/transactions/_transaction_edit_form.html:126
+#: transactions/templates/transactions/transaction_new.html:17
+#, fuzzy
+#| msgid "Transaction History"
+msgid "Transaction Type"
+msgstr "سجل المعاملات"
+
+#: transactions/templates/transactions/_transaction_edit_form.html:181
+#: transactions/templates/transactions/transaction_new.html:146
+msgid "Link to Goal"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_edit_form.html:183
+#: transactions/templates/transactions/transaction_new.html:149
+msgid "No goal"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_edit_form.html:185
+#: transactions/templates/transactions/transaction_new.html:151
+msgid "Unlinked"
+msgstr ""
+
+#: transactions/templates/transactions/_transaction_edit_form.html:234
+#: transactions/templates/transactions/transaction_new.html:103
+msgid "Receipt / Attachment"
 msgstr ""
 
 #: transactions/templates/transactions/_transaction_list.html:24
 msgid "Try adjusting your filters or add a new transaction."
 msgstr ""
 
-#: transactions/templates/transactions/_transaction_row.html:72
-msgid "Duplicate"
-msgstr ""
+#: transactions/templates/transactions/_transaction_row.html:31
+#, fuzzy
+#| msgid "Remove"
+msgid "removed"
+msgstr "إزالة"
 
-#: transactions/templates/transactions/_transaction_success.html:7
-msgid "New balance:"
+#: transactions/templates/transactions/_transaction_row.html:33
+#, fuzzy
+#| msgid "View transactions"
+msgid "Pending transaction"
+msgstr "عرض المعاملات"
+
+#: transactions/templates/transactions/_transaction_row.html:90
+msgid "Delete this transaction?"
 msgstr ""
 
 #: transactions/templates/transactions/_transfer_form.html:4
 msgid "Transfer Between Accounts"
 msgstr ""
 
-#: transactions/templates/transactions/_transfer_success.html:14
+#: transactions/templates/transactions/_transfer_form.html:47
+#: transactions/templates/transactions/_transfer_unified_form.html:52
+msgid "Total from source:"
+msgstr ""
+
+#: transactions/templates/transactions/_transfer_success.html:25
 msgid "Make Another"
 msgstr ""
 
@@ -2183,8 +3797,7 @@ msgid "ClearMoney - Batch Entry"
 msgstr ""
 
 #: transactions/templates/transactions/batch_entry.html:10
-msgid ""
-"Add multiple transactions at once — useful for catching up on missed days."
+msgid "Add multiple transactions at once — useful for catching up on missed days."
 msgstr ""
 
 #: transactions/templates/transactions/batch_entry.html:30
@@ -2203,23 +3816,15 @@ msgstr ""
 msgid "ClearMoney - Currency Exchange"
 msgstr ""
 
-#: transactions/templates/transactions/fawry_cashout.html:3
-msgid "ClearMoney - Fawry Cash-Out"
-msgstr ""
-
-#: transactions/templates/transactions/transfer_unified.html:3
-msgid "ClearMoney - Transfer"
-msgstr "ClearMoney - تحويل"
-
 #: transactions/templates/transactions/transaction_new.html:5
 msgid "ClearMoney - New Transaction"
-msgstr ""
+msgstr "ClearMoney - معاملة جديدة"
 
 #: transactions/templates/transactions/transaction_new.html:10
 msgid "New Transaction"
-msgstr ""
+msgstr "معاملة جديدة"
 
-#: transactions/templates/transactions/transaction_new.html:137
+#: transactions/templates/transactions/transaction_new.html:180
 msgid "Save Transaction"
 msgstr ""
 
@@ -2250,181 +3855,231 @@ msgstr ""
 msgid "All Types"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:44
+#: transactions/templates/transactions/transactions.html:45
+#: transactions/templates/transactions/transactions.html:48
+msgid "Filter by tag"
+msgstr ""
+
 #: transactions/templates/transactions/transactions.html:46
+msgid "Filter by tag..."
+msgstr ""
+
+#: transactions/templates/transactions/transactions.html:54
+#: transactions/templates/transactions/transactions.html:56
 msgid "From date"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:50
-#: transactions/templates/transactions/transactions.html:52
+#: transactions/templates/transactions/transactions.html:60
+#: transactions/templates/transactions/transactions.html:62
 msgid "To date"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:61
+#: transactions/templates/transactions/transactions.html:71
 msgid "All Categories"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:74
+#: transactions/templates/transactions/transactions.html:84
 msgid "Tip:"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:74
+#: transactions/templates/transactions/transactions.html:84
 msgid "Use"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:74
+#: transactions/templates/transactions/transactions.html:84
 msgid "to add multiple transactions at once — find it in the"
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:74
+#: transactions/templates/transactions/transactions.html:84
 msgid "menu."
 msgstr ""
 
-#: transactions/templates/transactions/transactions.html:77
+#: transactions/templates/transactions/transactions.html:87
 msgid "Dismiss tip"
 msgstr ""
 
 #: transactions/templates/transactions/transfer.html:3
+#: transactions/templates/transactions/transfer_unified.html:3
 msgid "ClearMoney - Transfer"
-msgstr ""
+msgstr "ClearMoney - تحويل"
 
 #: virtual_accounts/templates/virtual_accounts/_edit_form.html:2
 msgid "Edit Pot"
 msgstr "تعديل المدخرة"
 
 #: virtual_accounts/templates/virtual_accounts/_edit_form.html:20
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:25
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:30
 msgid "Target Amount (optional)"
 msgstr "المبلغ المستهدف (اختياري)"
 
 #: virtual_accounts/templates/virtual_accounts/_edit_form.html:26
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:30
-msgid "Color"
-msgstr "اللون"
-
-#: virtual_accounts/templates/virtual_accounts/_edit_form.html:33
 #: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:36
+#, fuzzy
+#| msgid "Note (optional)"
+msgid "Monthly Target (optional)"
+msgstr "ملاحظة (اختياري)"
+
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:39
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:50
 msgid "Linked Account"
 msgstr "الحساب المرتبط"
 
-#: virtual_accounts/templates/virtual_accounts/_edit_form.html:44
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:45
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:50
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:59
 msgid "Icon (emoji)"
 msgstr ""
 
-#: virtual_accounts/templates/virtual_accounts/_edit_form.html:52
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:51
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:58
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:66
 msgid "Not my money (exclude from net worth)"
 msgstr "ليس مالي (استثناؤه من صافي الثروة)"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:17
+#: virtual_accounts/templates/virtual_accounts/_edit_form.html:64
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:70
+msgid "Auto-allocate from recurring income"
+msgstr ""
+
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:18
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:102
+msgid "No account linked"
+msgstr ""
+
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:24
 msgid "All Pots"
 msgstr "جميع المدخرات"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:26
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:35
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:117
+msgid "Link an account to inherit currency."
+msgstr ""
+
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:40
 msgid "Progress"
 msgstr "التقدم"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:27
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:42
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:44
 #, python-format
 msgid "%(pct)s%% of %(target)s"
 msgstr "%(pct)s%% من %(target)s"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:37
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:53
+msgid "Goal reached!"
+msgstr ""
+
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:55
+#, python-format
+msgid "Projected completion in %(months)s months"
+msgstr ""
+
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:64
 msgid "Not my money"
 msgstr "ليس مالي"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:37
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:64
 msgid "Excluded from net worth"
 msgstr "مستثنى من صافي الثروة"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:46
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:73
 #, python-format
-msgid ""
-"This pot's balance (%(va_balance)s) exceeds the linked account "
-"balance (%(linked_balance)s)."
+msgid "This pot's balance (%(va_balance)s) exceeds the linked account balance (%(linked_balance)s)."
 msgstr ""
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:52
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:79
 #, python-format
-msgid ""
-"Total pot allocations (%(total_va)s) exceed the linked account "
-"balance (%(linked_balance)s)."
+msgid "Total pot allocations (%(total_va)s) exceed the linked account balance (%(linked_balance)s)."
 msgstr ""
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:58
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:85
 msgid "Allocate Funds"
 msgstr "تخصيص Funds"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:65
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:92
 msgid "Contribution"
 msgstr "إيداع"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:66
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:93
 msgid "Withdrawal"
 msgstr "سحب"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:77
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:104
 msgid "Optional note"
 msgstr "ملاحظة اختيارية"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:82
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:109
 msgid "Allocate"
 msgstr "تخصيص"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:95
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:122
 msgid "Direct allocation"
 msgstr "تخصيص مباشر"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:117
+#: virtual_accounts/templates/virtual_accounts/virtual_account_detail.html:144
 msgid "No allocations yet."
 msgstr "لا توجد تخصيصات بعد."
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:11
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:10
+msgid "Set money aside for your goals"
+msgstr ""
+
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:15
 msgid "Dashboard"
 msgstr "لوحة التحكم"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:15
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:19
 msgid "New Pot"
 msgstr "مدخرة جديدة"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:20
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:24
 msgid "e.g. Emergency Fund"
 msgstr "مثال: صندوق الطوارئ"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:55
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:74
 msgid "Create"
 msgstr "إنشاء"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:74
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:82
+#, python-format
+msgid "Total pot allocations (%(total_va)s) exceed %(account_name)s balance (%(linked_balance)s)."
+msgstr ""
+
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:97
 msgid "held"
 msgstr "محجوز"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:85
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:121
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:123
 #, python-format
 msgid "of %(target)s target"
 msgstr "من الهدف %(target)s"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:88
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:127
 #, python-format
 msgid "Exceeds account balance (%(va_balance)s)"
 msgstr "يتجاوز رصيد الحساب (%(va_balance)s)"
 
-#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:105
+#: virtual_accounts/templates/virtual_accounts/virtual_accounts.html:144
 msgid "No pots yet. Create one above!"
 msgstr "لا توجد مدخرات بعد. أنشئ واحدة أعلاه!"
 
-msgid "By Category"
-msgstr "حسب الفئة"
+#~ msgid "account not found"
+#~ msgstr "الحساب غير موجود"
 
-msgid "%(name)s has never been reconciled"
-msgstr "لم يتم تسوية %(name)s أبداً"
+#~ msgid "New total limit"
+#~ msgstr "حد الإجمالي الجديد"
 
-msgid "Language"
-msgstr "اللغة"
+#, python-format
+#~ msgid "Monthly limit for %(name)s"
+#~ msgstr "الحد الشهري لـ %(name)s"
 
-msgid "Import Transactions"
-msgstr "استيراد المعاملات"
+#~ msgid "category not found"
+#~ msgstr "الفئة غير موجودة"
 
-msgid "%(days)s days left"
-msgstr "متبقي %(days)s يوم"
+#, python-format
+#~ msgid "%(days)s d left"
+#~ msgstr "متبقي %(days)s يوم"
+
+#, fuzzy
+#~| msgid "No transactions yet."
+#~ msgid "No recurring rules yet."
+#~ msgstr "لا توجد معاملات بعد."
