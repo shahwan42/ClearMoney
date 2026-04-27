@@ -3,7 +3,7 @@ id: "509"
 title: "Institution.system_bank FK + display updates"
 type: feature
 priority: high
-status: pending
+status: done
 created: 2026-04-27
 updated: 2026-04-27
 ---
@@ -47,14 +47,19 @@ def get_icon(institution):
 
 ## Acceptance Criteria
 
-- [ ] Migration adds `system_bank_id` nullable FK to `institutions` table
-- [ ] `on_delete=SET_NULL` — no cascade delete
-- [ ] `_institution_icon.html` renders `<img src="{% static svg_path %}">` when system bank SVG present
-- [ ] Institution list/detail shows bilingual name from system bank when FK set
-- [ ] Existing institutions with `system_bank=null` render identically to before (no regression)
-- [ ] Service helper `get_institution_display()` returns correct name for current user language
-- [ ] Unit tests: linked institution shows system bank name; unlinked shows own name; SVG renders; emoji fallback
-- [ ] `make test && make lint` pass
+- [x] Migration `0012_institution_system_bank` adds nullable FK to `institutions` table
+- [x] `on_delete=SET_NULL` — verified via test (deleting system bank leaves institution with null FK)
+- [x] `_institution_icon.html` renders SVG via existing `is_image_icon` filter — service strips `img/institutions/` prefix from `svg_path` and stores basename in `icon` field, so existing template path works transparently
+- [x] Institution list/detail shows bilingual name from system bank when FK set (via service `_row_to_dict` overriding name field)
+- [x] Existing institutions with `system_bank=null` render identically to before — covered by `test_unlinked_institution_uses_own_fields`
+- [x] Service helper resolves correct name for current language via `SystemBank.get_display_name()`
+- [x] Unit tests: 11 cases — linked, unlinked, invalid id, name resolution, icon resolution, color resolution, update link/unlink/preserve, SET_NULL cascade
+- [x] `make test && make lint` pass — 1802 tests, ruff clean, mypy clean
+
+## Affected User Journeys
+
+- J-3 (Account Management): institution display name/icon resolves via `system_bank` when linked. Unlinked path unchanged.
+- CP-2 (Core Financial Loop): institution-creation accepts optional `system_bank_id`; null path unchanged.
 
 ## Dependencies
 
@@ -64,3 +69,4 @@ def get_icon(institution):
 ## Progress Notes
 
 - 2026-04-27: Created — Phase 1 FK + display ticket
+- 2026-04-27: Completed — Migration adds nullable FK, service-layer dict-resolution overrides display fields when linked, 11 unit tests, 1802 total tests passing.

@@ -21,7 +21,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone as django_tz
 from django.utils.translation import gettext, gettext_lazy
 
-from accounts.models import Account, AccountSnapshot, Institution
+from accounts.models import Account, AccountSnapshot, Institution, SystemBank
 from accounts.types import (
     AccountDropdownItem,
     AccountSummary,
@@ -73,6 +73,10 @@ ACCOUNT_TYPE_LABELS: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 
 
+# Sentinel for "argument not provided" — distinguishes from explicit None/clear
+_UNSET: Any = object()
+
+
 def _require_trimmed_name(value: str, field_name: str) -> str:
     """Trim whitespace, raise ValueError if empty."""
     trimmed = value.strip() if value else ""
@@ -100,6 +104,12 @@ class InstitutionService:
         "type",
         "color",
         "icon",
+        "system_bank_id",
+        "system_bank__name",
+        "system_bank__short_name",
+        "system_bank__svg_path",
+        "system_bank__brand_color",
+        "system_bank__bank_type",
         "display_order",
         "created_at",
         "updated_at",
@@ -114,13 +124,44 @@ class InstitutionService:
         return Institution.objects.for_user(self.user_id)
 
     def _row_to_dict(self, row: dict[str, Any]) -> dict[str, Any]:
-        """Convert a .values() row to an institution dict with stringified UUID."""
+        """Convert a .values() row to an institution dict with stringified UUID.
+
+        When `system_bank_id` is set, override `name`, `icon`, and `color`
+        with system-bank-derived values so display sites work uniformly.
+        Templates expect `icon` to be a bare filename (e.g. "cib.svg"); the
+        SystemBank stores the full static path, so we strip the prefix.
+        """
+        sb_id = row.get("system_bank_id")
+        if sb_id:
+            sb_name = row.get("system_bank__name") or {}
+            sb_short = row.get("system_bank__short_name") or ""
+            sb_svg = row.get("system_bank__svg_path") or ""
+            sb_color = row.get("system_bank__brand_color") or ""
+            sb_type = row.get("system_bank__bank_type") or row["type"]
+            display_name = SystemBank(
+                name=sb_name, short_name=sb_short
+            ).get_display_name()
+            icon = sb_svg.rsplit("/", 1)[-1] if sb_svg else None
+            return {
+                "id": str(row["id"]),
+                "name": display_name,
+                "type": sb_type,
+                "color": sb_color or row["color"],
+                "icon": icon or row["icon"],
+                "system_bank_id": sb_id,
+                "system_bank_short_name": sb_short,
+                "display_order": row["display_order"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
         return {
             "id": str(row["id"]),
             "name": row["name"],
             "type": row["type"],
             "color": row["color"],
             "icon": row["icon"],
+            "system_bank_id": None,
+            "system_bank_short_name": None,
             "display_order": row["display_order"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
@@ -142,10 +183,13 @@ class InstitutionService:
         inst_type: str,
         icon: str | None = None,
         color: str | None = None,
+        system_bank_id: int | str | None = None,
     ) -> dict[str, Any]:
         """Create institution. Validates name and type.
 
         icon and color may be supplied from preset selection (e.g. "cib.svg", "#003DA5").
+        When `system_bank_id` is provided and resolves to an active SystemBank, the
+        institution links to it and derives bilingual name/icon/color at read time.
         """
         name = _require_trimmed_name(name, "institution name")
         if not inst_type:
@@ -155,44 +199,66 @@ class InstitutionService:
                 gettext("invalid institution type: %(type)s") % {"type": inst_type}
             )
 
+        sb = self._resolve_system_bank(system_bank_id)
+
         inst = Institution.objects.create(
             user_id=self.user_id,
             name=name,
             type=inst_type,
             color=color or None,
             icon=icon or None,
+            system_bank=sb,
             display_order=0,
         )
         logger.info("institution.created type=%s user=%s", inst_type, self.user_id)
-        return {
-            "id": str(inst.id),
-            "name": inst.name,
-            "type": inst.type,
-            "color": inst.color,
-            "icon": inst.icon,
-            "display_order": inst.display_order,
-            "created_at": inst.created_at,
-            "updated_at": inst.updated_at,
-        }
+        row = self._qs().filter(id=inst.id).values(*self._FIELDS).first()
+        assert row is not None
+        return self._row_to_dict(row)
 
-    def update(self, inst_id: str, name: str, inst_type: str) -> dict[str, Any] | None:
-        """Update institution name and type. Returns updated record or None."""
+    def update(
+        self,
+        inst_id: str,
+        name: str,
+        inst_type: str,
+        system_bank_id: int | str | None | object = _UNSET,
+    ) -> dict[str, Any] | None:
+        """Update institution name and type. Returns updated record or None.
+
+        `system_bank_id`: pass the sentinel default (omit) to leave FK untouched;
+        pass `None` or `""` to clear the link; pass an int/str id to set/replace.
+        """
         name = _require_trimmed_name(name, "institution name")
         now = django_tz.now()
-        updated = (
-            self._qs()
-            .filter(id=inst_id)
-            .update(
-                name=name,
-                type=inst_type,
-                updated_at=now,
-            )
-        )
+        update_kwargs: dict[str, Any] = {
+            "name": name,
+            "type": inst_type,
+            "updated_at": now,
+        }
+        if system_bank_id is not _UNSET:
+            sb = self._resolve_system_bank(system_bank_id)  # type: ignore[arg-type]
+            update_kwargs["system_bank_id"] = sb.pk if sb else None
+        updated = self._qs().filter(id=inst_id).update(**update_kwargs)
         if not updated:
             return None
         logger.info("institution.updated id=%s user=%s", inst_id, self.user_id)
         row = self._qs().filter(id=inst_id).values(*self._FIELDS).first()
         return self._row_to_dict(row) if row else None
+
+    @staticmethod
+    def _resolve_system_bank(
+        system_bank_id: int | str | None,
+    ) -> SystemBank | None:
+        """Resolve a system_bank_id (int/str/None/empty) to a SystemBank or None."""
+        if system_bank_id in (None, "", 0, "0"):
+            return None
+        try:
+            pk_int = int(system_bank_id)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+        try:
+            return SystemBank.objects.get(pk=pk_int, is_active=True)
+        except SystemBank.DoesNotExist:
+            return None
 
     def delete(self, inst_id: str) -> bool:
         """Delete institution. Returns True if deleted.

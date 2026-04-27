@@ -4,12 +4,11 @@ Migration runs at test DB setup, so all rows already exist when tests run.
 We verify count, ordering, SVG file presence, and idempotency.
 """
 
+from importlib import import_module
 from pathlib import Path
 
 import pytest
 from django.conf import settings
-
-from importlib import import_module
 
 from accounts.models import SystemBank
 

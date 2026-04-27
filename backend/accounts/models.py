@@ -80,6 +80,14 @@ class Institution(models.Model):
     )  # 'bank', 'fintech', 'wallet'
     color = models.CharField(max_length=20, null=True, blank=True)
     icon = models.CharField(max_length=255, null=True, blank=True)
+    system_bank = models.ForeignKey(
+        SystemBank,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="institutions",
+        db_column="system_bank_id",
+    )
     display_order = models.IntegerField(default=0, db_default=0)
     created_at = models.DateTimeField(auto_now_add=True, db_default=Now())
     updated_at = models.DateTimeField(auto_now=True, db_default=Now())
