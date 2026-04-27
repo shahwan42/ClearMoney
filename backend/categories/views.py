@@ -46,6 +46,8 @@ def api_category_list_create(
             name=body.get("name", ""),
             cat_type=body.get("type", "expense"),
             icon=body.get("icon"),
+            name_en=body.get("name_en", ""),
+            name_ar=body.get("name_ar", ""),
         )
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
@@ -72,7 +74,13 @@ def api_category_detail(
             return JsonResponse({"error": "Invalid JSON"}, status=400)
 
         try:
-            category = svc.update(cid, name=body.get("name", ""), icon=body.get("icon"))
+            category = svc.update(
+                cid,
+                name=body.get("name", ""),
+                icon=body.get("icon"),
+                name_en=body.get("name_en", ""),
+                name_ar=body.get("name_ar", ""),
+            )
         except ValueError as e:
             return JsonResponse({"error": str(e)}, status=400)
         if not category:

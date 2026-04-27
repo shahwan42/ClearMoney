@@ -38,12 +38,20 @@
                    class="w-16 border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-2 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
         <div class="flex-1">
-            <label for="cat-new-name" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+            <label for="cat-new-name" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name (English)" %} <span class="text-red-500" aria-hidden="true">*</span></label>
             <input type="text" id="cat-new-name" maxlength="100" required
-                   aria-label="{% trans "Category name" %}" aria-required="true"
+                   aria-label="{% trans "Category name (English)" %}" aria-required="true"
                    placeholder="{% trans "e.g. Coffee" %}"
                    class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
+    </div>
+
+    <div>
+        <label for="cat-new-name-ar" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Name (Arabic)" %} <span class="text-gray-400">{% trans "(optional)" %}</span></label>
+        <input type="text" id="cat-new-name-ar" maxlength="100" dir="rtl"
+               aria-label="{% trans "Category name (Arabic)" %}"
+               placeholder="{% trans "مثال: قهوة" %}"
+               class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
 
     <button type="button" id="cat-new-save"
@@ -64,6 +72,7 @@
 
     var saveBtn = document.getElementById('cat-new-save');
     var nameInput = document.getElementById('cat-new-name');
+    var nameArInput = document.getElementById('cat-new-name-ar');
     var iconInput = document.getElementById('cat-new-icon');
     var errorEl = document.getElementById('cat-new-error');
 
@@ -73,14 +82,16 @@
     }
 
     saveBtn.addEventListener('click', function() {
-        var name = nameInput.value.trim();
+        var nameEn = nameInput.value.trim();
+        var nameAr = nameArInput.value.trim();
         var icon = iconInput.value.trim();
         var catType = getSelectedType();
 
         errorEl.classList.add('hidden');
         nameInput.removeAttribute('aria-invalid');
+        nameArInput.removeAttribute('aria-invalid');
 
-        if (!name) {
+        if (!nameEn && !nameAr) {
             errorEl.textContent = '{% trans "Category name is required." %}';
             errorEl.classList.remove('hidden');
             nameInput.setAttribute('aria-invalid', 'true');
@@ -97,7 +108,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCsrfToken()
             },
-            body: JSON.stringify({ name: name, icon: icon || null, type: catType })
+            body: JSON.stringify({ name_en: nameEn, name_ar: nameAr, icon: icon || null, type: catType })
         })
         .then(function(res) {
             return res.json().then(function(data) { return { ok: res.ok, data: data }; });

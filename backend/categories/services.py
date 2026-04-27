@@ -188,27 +188,32 @@ class CategoryService:
 
     def create(
         self,
-        name: str,
+        name: str = "",
         cat_type: str = "expense",
         icon: str | None = None,
+        name_en: str = "",
+        name_ar: str = "",
     ) -> dict[str, Any]:
-        """Create a new custom category."""
-        name = name.strip() if name else ""
-        if not name:
-            raise ValueError(_("category name is required"))
+        """Create a new custom category.
+
+        Accepts either legacy `name` (single string) or bilingual
+        `name_en`/`name_ar`. At least one of the three must be non-blank.
+        Blank language keys auto-fill from the populated one.
+        """
+        en, ar = self._resolve_bilingual_names(name, name_en, name_ar)
         if cat_type not in ("expense", "income"):
             cat_type = "expense"
 
         if (
             _annotate_name_en(self._qs())
-            .filter(name_en__iexact=name, is_archived=False)
+            .filter(name_en__iexact=en, is_archived=False)
             .exists()
         ):
             raise ValueError(_("A category with this name already exists"))
 
         cat = Category.objects.create(
             user_id=self.user_id,
-            name=Category.make_name(en=name),
+            name=Category.make_name(en=en, ar=ar or None),
             type=cat_type,
             icon=icon,
             is_system=False,
@@ -218,7 +223,12 @@ class CategoryService:
         return _instance_to_dict(cat)
 
     def update(
-        self, cat_id: str, name: str, icon: str | None = None
+        self,
+        cat_id: str,
+        name: str = "",
+        icon: str | None = None,
+        name_en: str = "",
+        name_ar: str = "",
     ) -> dict[str, Any] | None:
         """Update a custom category. System categories cannot be modified."""
         existing = self.get_by_id(cat_id)
@@ -227,15 +237,13 @@ class CategoryService:
         if existing["is_system"]:
             raise ValueError(_("system categories cannot be modified"))
 
-        name = name.strip() if name else ""
-        if not name:
-            raise ValueError(_("category name is required"))
+        en, ar = self._resolve_bilingual_names(name, name_en, name_ar)
 
         updated = (
             self._qs()
             .filter(id=cat_id)
             .update(
-                name=Category.make_name(en=name),
+                name=Category.make_name(en=en, ar=ar or None),
                 icon=icon,
                 updated_at=django_tz.now(),
             )
@@ -244,6 +252,24 @@ class CategoryService:
             return None
         logger.info("category.updated id=%s user=%s", cat_id, self.user_id)
         return self.get_by_id(cat_id)
+
+    @staticmethod
+    def _resolve_bilingual_names(
+        name: str, name_en: str, name_ar: str
+    ) -> tuple[str, str]:
+        """Resolve legacy `name` + bilingual fields into (en, ar) pair.
+
+        Empty language fields auto-fill from the other; raises if all blank.
+        """
+        en = (name_en or name or "").strip()
+        ar = (name_ar or "").strip()
+        if not en and not ar:
+            raise ValueError(_("category name is required"))
+        if not en:
+            en = ar
+        if not ar:
+            ar = en
+        return en, ar
 
     def archive(self, cat_id: str) -> bool:
         """Soft-delete a category (sets is_archived=true). System categories cannot be archived.
