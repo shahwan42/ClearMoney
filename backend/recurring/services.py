@@ -342,9 +342,17 @@ class RecurringService:
 
         # Fields with overrides
         account_id = overrides.get("account_id") or tmpl.get("account_id", "")
-        amount = overrides.get("amount") if overrides.get("amount") is not None else tmpl.get("amount", 0)
+        amount = (
+            overrides.get("amount")
+            if overrides.get("amount") is not None
+            else tmpl.get("amount", 0)
+        )
         tx_date = overrides.get("date") or rule.next_due_date
-        note = overrides.get("note") if overrides.get("note") is not None else tmpl.get("note")
+        note = (
+            overrides.get("note")
+            if overrides.get("note") is not None
+            else tmpl.get("note")
+        )
 
         if not account_id:
             raise ValueError(
@@ -355,7 +363,9 @@ class RecurringService:
         tx_svc = TransactionService(self.user_id, self.tz)
 
         if tmpl.get("type") == "transfer":
-            counter_account_id = overrides.get("counter_account_id") or tmpl.get("counter_account_id", "")
+            counter_account_id = overrides.get("counter_account_id") or tmpl.get(
+                "counter_account_id", ""
+            )
             if not counter_account_id:
                 raise ValueError(
                     f"Recurring rule {rule.id} has no counter_account_id "
@@ -364,7 +374,7 @@ class RecurringService:
             tx_svc.create_transfer(
                 source_id=account_id,
                 dest_id=counter_account_id,
-                amount=amount,
+                amount=float(amount or 0),
                 currency=None,
                 note=note,
                 tx_date=tx_date,
@@ -588,7 +598,9 @@ class RecurringService:
         source_name = "Unknown"
         if account_id:
             source_name = (
-                Account.objects.filter(id=account_id).values_list("name", flat=True).first()
+                Account.objects.filter(id=account_id)
+                .values_list("name", flat=True)
+                .first()
                 or "Unknown"
             )
 
@@ -633,11 +645,15 @@ class RecurringService:
 
         if category_id:
             category_name = (
-                Category.objects.filter(id=category_id).values_list("name", flat=True).first()
+                Category.objects.filter(id=category_id)
+                .values_list("name", flat=True)
+                .first()
             )
             if category_name:
                 if isinstance(category_name, dict):
-                    result["category_name"] = category_name.get("en", str(category_name))
+                    result["category_name"] = category_name.get(
+                        "en", str(category_name)
+                    )
                 else:
                     result["category_name"] = str(category_name)
 
