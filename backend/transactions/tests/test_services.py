@@ -581,6 +581,38 @@ class TestDelete:
         assert str(credit["id"]) in related_ids
         assert len(related_ids) == 2  # linked tx + fee
 
+    def test_delete_reverses_fee_va_allocation(self, tx_data):
+        """Deleting a tx whose fee is allocated to a VA reverses the VA balance."""
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        va = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["egp_id"], current_balance=0
+        )
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 500, "account_id": tx_data["egp_id"]}
+        )
+        fee_tx = svc.create_fee_for_transaction(
+            parent_tx=tx, fee_amount=25.0, tx_date=None
+        )
+        # Allocate fee tx to VA
+        svc.allocate_to_virtual_account(fee_tx["id"], str(va.id), -25.0)
+        assert Decimal(
+            str(VirtualAccount.objects.get(id=va.id).current_balance)
+        ) == Decimal("-25")
+
+        svc.delete(tx["id"])
+
+        # VA balance should be reversed back to 0
+        assert Decimal(
+            str(VirtualAccount.objects.get(id=va.id).current_balance)
+        ) == Decimal("0")
+        # Allocation row gone
+        assert (
+            VirtualAccountAllocation.objects.filter(transaction_id=fee_tx["id"]).count()
+            == 0
+        )
+
 
 @pytest.mark.django_db
 class TestUpdateFee:
@@ -683,6 +715,38 @@ class TestUpdateFee:
             ).count()
             == 0
         )
+
+    def test_update_fee_returns_fee_tx_when_created(self, tx_data):
+        """update_fee_for_transaction returns the fee tx dict when fee is created."""
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 500, "account_id": tx_data["egp_id"]}
+        )
+        result = svc.update_fee_for_transaction(tx["id"], 25.0, tx_date=None)
+        assert result is not None
+        assert result["note"] == "Transaction fee"
+        assert Decimal(str(result["amount"])) == Decimal("25")
+
+    def test_update_fee_returns_none_when_removed(self, tx_data):
+        """update_fee_for_transaction returns None when fee is removed."""
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 500, "account_id": tx_data["egp_id"]}
+        )
+        svc.create_fee_for_transaction(parent_tx=tx, fee_amount=25.0, tx_date=None)
+        result = svc.update_fee_for_transaction(tx["id"], None, tx_date=None)
+        assert result is None
+
+    def test_update_fee_returns_none_on_noop(self, tx_data):
+        """update_fee_for_transaction returns None when no-op (no fee, none requested)."""
+        svc = _svc(tx_data["user_id"])
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 500, "account_id": tx_data["egp_id"]}
+        )
+        result = svc.update_fee_for_transaction(tx["id"], None, tx_date=None)
+        assert result is None
 
 
 @pytest.mark.django_db
@@ -1826,6 +1890,105 @@ class TestApplyPostCreateLogic:
 
         # Test explicit deallocation
         svc.apply_post_create_logic(tx, fee_amount=None, va_id="", tx_date=None)
+
+    def test_fee_allocated_to_va_when_both_present(self, tx_data):
+        """When fee + VA both provided, fee tx is allocated to same VA."""
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        va = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["egp_id"], current_balance=0
+        )
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
+        )
+        svc.apply_post_create_logic(tx, fee_amount=25.0, va_id=str(va.id), tx_date=None)
+
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"], note="Transaction fee"
+        ).first()
+        assert fee_tx is not None
+        alloc = VirtualAccountAllocation.objects.filter(
+            transaction_id=fee_tx.id, virtual_account_id=va.id
+        ).first()
+        assert alloc is not None
+        assert Decimal(str(alloc.amount)) == Decimal("-25")
+        # VA balance = parent allocation (-100) + fee allocation (-25) = -125
+        va.refresh_from_db()
+        assert Decimal(str(va.current_balance)) == Decimal("-125")
+
+    def test_fee_deallocated_when_va_removed(self, tx_data):
+        """When VA removed on edit, fee tx VA allocation is also removed."""
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        va = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["egp_id"], current_balance=0
+        )
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
+        )
+        svc.apply_post_create_logic(tx, fee_amount=25.0, va_id=str(va.id), tx_date=None)
+
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"], note="Transaction fee"
+        ).first()
+
+        # Remove VA
+        svc.apply_post_create_logic(tx, fee_amount=25.0, va_id="", tx_date=None)
+
+        assert fee_tx is not None
+        assert (
+            VirtualAccountAllocation.objects.filter(transaction_id=fee_tx.id).count()
+            == 0
+        )
+        va.refresh_from_db()
+        assert Decimal(str(va.current_balance)) == Decimal("0")
+
+    def test_fee_reallocated_when_va_changed(self, tx_data):
+        """When VA changes on edit, fee tx moves to new VA."""
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        va1 = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["egp_id"], current_balance=0
+        )
+        va2 = VirtualAccountFactory(
+            user_id=tx_data["user_id"], account_id=tx_data["egp_id"], current_balance=0
+        )
+        tx, _ = svc.create(
+            {"type": "expense", "amount": 100, "account_id": tx_data["egp_id"]}
+        )
+        svc.apply_post_create_logic(
+            tx, fee_amount=25.0, va_id=str(va1.id), tx_date=None
+        )
+
+        fee_tx = Transaction.objects.filter(
+            user_id=tx_data["user_id"], note="Transaction fee"
+        ).first()
+        assert fee_tx is not None
+
+        # Change VA
+        svc.apply_post_create_logic(
+            tx, fee_amount=25.0, va_id=str(va2.id), tx_date=None
+        )
+
+        assert (
+            VirtualAccountAllocation.objects.filter(
+                transaction_id=fee_tx.id, virtual_account_id=va1.id
+            ).count()
+            == 0
+        )
+        assert (
+            VirtualAccountAllocation.objects.filter(
+                transaction_id=fee_tx.id, virtual_account_id=va2.id
+            ).count()
+            == 1
+        )
+        va1.refresh_from_db()
+        va2.refresh_from_db()
+        assert Decimal(str(va1.current_balance)) == Decimal("0")  # all moved out
+        assert Decimal(str(va2.current_balance)) == Decimal("-125")  # parent + fee
 
 
 # ---------------------------------------------------------------------------

@@ -211,37 +211,76 @@ class HelperMixin:
     ) -> None:
         """Centralized logic for post-transaction creation tasks:
         1. Create or update optional linked fee transaction.
-        2. Allocate/Reallocate to virtual account.
+        2. Allocate/Reallocate parent tx to virtual account.
+        3. Allocate/Reallocate fee tx to same virtual account.
         """
-        # 1. Linked Fee (handles add, update, and remove)
-        self.update_fee_for_transaction(  # type: ignore[attr-defined]
+        # Snapshot existing fee tx before any mutation
+        existing_fee = (
+            Transaction.objects.for_user(self.user_id)  # type: ignore[attr-defined]
+            .filter(linked_transaction_id=tx["id"], note="Transaction fee")
+            .first()
+        )
+        new_fee_decimal = (
+            Decimal(str(fee_amount)) if fee_amount and float(fee_amount) > 0 else None
+        )
+        old_fee_decimal = Decimal(str(existing_fee.amount)) if existing_fee else None
+        fee_is_changing = old_fee_decimal != new_fee_decimal
+
+        # Deallocate old fee from VA before it is deleted (CASCADE would remove
+        # the allocation row but would not reverse the VA current_balance)
+        if fee_is_changing and existing_fee:
+            self.deallocate_from_virtual_accounts(str(existing_fee.id))
+
+        # Create/update/remove fee tx; returns new fee tx dict or None
+        new_fee_tx: dict[str, Any] | None = self.update_fee_for_transaction(  # type: ignore[attr-defined]
             tx_id=tx["id"],
             fee_amount=fee_amount,
             tx_date=tx_date,
         )
 
-        # 2. Virtual Account Allocation
+        # Handle parent tx VA allocation
         if va_id:
             alloc_amount = float(tx["amount"])
             if tx["type"] == "expense":
                 alloc_amount = -alloc_amount
 
-            # If this is an update, we might need to deallocate first
-            # (But this method is designed for 'post-create' or 'unified update')
             old_va_id = self.get_allocation_for_tx(tx["id"])
             if old_va_id != va_id:
                 if old_va_id:
                     self.deallocate_from_virtual_accounts(tx["id"])
-                if va_id:
-                    try:
-                        self.allocate_to_virtual_account(tx["id"], va_id, alloc_amount)
-                    except ValueError:
-                        pass
+                try:
+                    self.allocate_to_virtual_account(tx["id"], va_id, alloc_amount)
+                except ValueError:
+                    pass
         elif va_id == "" or va_id is None:
-            # Handle explicit deallocation if va_id was provided as empty string
             old_va_id = self.get_allocation_for_tx(tx["id"])
             if old_va_id:
                 self.deallocate_from_virtual_accounts(tx["id"])
+
+        # Handle fee tx VA allocation
+        if va_id:
+            # fee just created → use new_fee_tx; fee unchanged → use existing_fee
+            fee_id: str | None = None
+            fee_amt: float | None = None
+            if new_fee_tx:
+                fee_id = new_fee_tx["id"]
+                fee_amt = float(new_fee_tx["amount"])
+            elif existing_fee and not fee_is_changing:
+                fee_id = str(existing_fee.id)
+                fee_amt = float(existing_fee.amount)
+
+            if fee_id and fee_amt is not None:
+                old_fee_va = self.get_allocation_for_tx(fee_id)
+                if old_fee_va != va_id:
+                    if old_fee_va:
+                        self.deallocate_from_virtual_accounts(fee_id)
+                    try:
+                        self.allocate_to_virtual_account(fee_id, va_id, -fee_amt)
+                    except ValueError:
+                        pass
+        elif (va_id == "" or va_id is None) and existing_fee and not fee_is_changing:
+            # VA removed but fee unchanged → deallocate fee tx from its VA
+            self.deallocate_from_virtual_accounts(str(existing_fee.id))
 
     # -------------------------------------------------------------------
     # Helpers for views

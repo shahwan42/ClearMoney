@@ -220,10 +220,11 @@ def transaction_create(
 
         # Optional fee → separate linked expense transaction
         fee_raw = request.POST.get("fee_amount", "")
+        fee_tx = None
         if fee_raw:
             fee = parse_float_or_none(fee_raw)
             if fee and fee > 0:
-                svc.create_fee_for_transaction(
+                fee_tx = svc.create_fee_for_transaction(
                     parent_tx=tx,
                     fee_amount=fee,
                     tx_date=request.POST.get("date") or None,
@@ -239,6 +240,14 @@ def transaction_create(
                 svc.allocate_to_virtual_account(tx["id"], va_id, alloc_amount)
             except ValueError as e:
                 logger.warning("VA allocation failed: %s", e)
+            # Also allocate fee tx to same VA
+            if fee_tx:
+                try:
+                    svc.allocate_to_virtual_account(
+                        fee_tx["id"], va_id, -float(fee_tx["amount"])
+                    )
+                except ValueError as e:
+                    logger.warning("VA fee allocation failed: %s", e)
 
         return render(
             request,

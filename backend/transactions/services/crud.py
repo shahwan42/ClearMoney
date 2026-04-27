@@ -468,15 +468,15 @@ class TransactionServiceBase:
         tx_id: str,
         fee_amount: float | None,
         tx_date: date | str | None,
-    ) -> None:
+    ) -> dict[str, Any] | None:
         """Add, change, or remove the fee linked to a transaction.
 
         Logic:
-        - No old fee + no new fee → no-op
-        - No old fee + new fee > 0 → create fee
-        - Old fee + new fee is None/0 → delete old fee, reverse balance
-        - Old fee + new fee > 0 and different → delete old, create new
-        - Old fee + same amount → no-op
+        - No old fee + no new fee → no-op, returns None
+        - No old fee + new fee > 0 → create fee, returns fee tx dict
+        - Old fee + new fee is None/0 → delete old fee, reverse balance, returns None
+        - Old fee + new fee > 0 and different → delete old, create new, returns new fee tx dict
+        - Old fee + same amount → no-op, returns None
         """
         existing_fee = (
             Transaction.objects.for_user(self.user_id)
@@ -492,9 +492,9 @@ class TransactionServiceBase:
 
         # No-op cases
         if old_fee is None and new_fee is None:
-            return
+            return None
         if old_fee == new_fee:
-            return
+            return None
 
         # Remove old fee if it exists
         if existing_fee:
@@ -520,11 +520,13 @@ class TransactionServiceBase:
             parent_tx = self.get_by_id(tx_id)
             if not parent_tx:
                 raise ValueError(_("Parent transaction not found"))
-            self.create_fee_for_transaction(
+            return self.create_fee_for_transaction(
                 parent_tx=parent_tx,
                 fee_amount=new_fee,
                 tx_date=tx_date,
             )
+
+        return None
 
     def get_by_id(self, tx_id: str) -> dict[str, Any] | None:
         """Fetch a single transaction by ID via ORM."""
@@ -1000,6 +1002,12 @@ class TransactionServiceBase:
                     current_balance=F("current_balance") + reverse_delta,
                     updated_at=now,
                 )
+
+            # Deallocate fee txs from virtual accounts (reverses VA balance)
+            # before deletion — CASCADE would remove allocation rows but not
+            # reverse the VA current_balance.
+            for fee in fee_txs:
+                self.deallocate_from_virtual_accounts(str(fee["id"]))  # type: ignore[attr-defined]
 
             # Delete fee transactions and reverse their balance impact
             for fee in fee_txs:
