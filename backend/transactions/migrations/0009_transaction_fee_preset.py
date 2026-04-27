@@ -5,16 +5,22 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('fee_presets', '0001_initial'),
-        ('transactions', '0008_remove_fee_amount_fee_account_from_transaction'),
+        ("fee_presets", "0001_initial"),
+        ("transactions", "0008_remove_fee_amount_fee_account_from_transaction"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='transaction',
-            name='fee_preset',
-            field=models.ForeignKey(blank=True, db_column='fee_preset_id', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='fee_presets.feepreset'),
+            model_name="transaction",
+            name="fee_preset",
+            field=models.ForeignKey(
+                blank=True,
+                db_column="fee_preset_id",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="+",
+                to="fee_presets.feepreset",
+            ),
         ),
     ]

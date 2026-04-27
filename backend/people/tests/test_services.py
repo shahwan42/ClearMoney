@@ -309,7 +309,9 @@ class TestRecordRepayment:
         svc = _svc(people_data["user_id"])
         person = svc.create("FeeDebtor")
         svc.record_loan(person["id"], people_data["egp_id"], 1000, "loan_out")
-        tx = svc.record_repayment(person["id"], people_data["egp_id"], 500, fee_amount=25)
+        tx = svc.record_repayment(
+            person["id"], people_data["egp_id"], 500, fee_amount=25
+        )
 
         fee_tx = Transaction.objects.get(linked_transaction_id=tx["id"])
         assert fee_tx.type == "expense"
