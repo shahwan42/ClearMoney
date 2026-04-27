@@ -68,7 +68,7 @@ def test_recurring_hint(page: Page):
     # Verify hint is visible
     hint = page.locator("#recurring-hint")
     expect(hint).to_be_visible()
-    expect(hint).to_contain_text("Automate salary, subscriptions")
+    expect(hint).to_contain_text("Automate subscriptions")
     
     # Dismiss hint
     page.locator("#recurring-hint").get_by_role("button", name="Dismiss").click()

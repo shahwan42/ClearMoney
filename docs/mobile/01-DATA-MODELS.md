@@ -201,7 +201,7 @@ Complete specification of all 18 models with fields, types, constraints, relatio
 
 ## 8. RecurringRule
 **Table:** `recurring_rules`
-**Purpose:** Schedule recurring transactions (salary, subscriptions)
+**Purpose:** Schedule recurring transactions (subscriptions)
 
 | Field | Type | Constraints | Notes |
 |-------|------|-------------|-------|

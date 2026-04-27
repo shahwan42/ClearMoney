@@ -13,7 +13,7 @@ GEN_UUID = Func(function="gen_random_uuid")
 
 
 class RecurringRule(models.Model):
-    """Schedules recurring transactions (salary, Netflix, etc.).
+    """Schedules recurring transactions (Netflix, etc.).
 
     template_transaction is a JSONB blob parsed into a TransactionTemplate on demand.
     """

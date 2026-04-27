@@ -85,7 +85,6 @@ Events use `entity.action` naming convention. Only IDs, types, and currencies ar
 | `recurring.skipped` | RecurringService | id |
 | `recurring.deleted` | RecurringService | id |
 | `recurring.auto_processed` | RecurringService | id |
-| `salary.distributed` | SalaryService | allocation_count |
 | `export.csv_downloaded` | ExportService | row_count |
 | `auth.magic_link_sent` | AuthService | purpose |
 | `auth.user_registered` | AuthService | — |
@@ -97,7 +96,7 @@ Events use `entity.action` naming convention. Only IDs, types, and currencies ar
 Enabled with `LOG_LEVEL=debug`. Invisible at the default Info level.
 
 - **Dashboard source timing** — each data source (institutions, exchange rate, people, virtual accounts, investments, streak, transactions, snapshots, health, budgets, spending comparison) logs its load duration in milliseconds, plus a total dashboard load time
-- **Complex service methods** — entry logging for `Create`, `CreateTransfer`, `CreateExchange`, `DistributeSalary`, `RecordLoan`, `RecordRepayment`
+- **Complex service methods** — entry logging for `Create`, `CreateTransfer`, `CreateExchange`, `RecordLoan`, `RecordRepayment`
 
 ## Key Files
 

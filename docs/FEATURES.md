@@ -52,7 +52,6 @@ Banks and fintechs (HSBC, CIB, EGBank, Banque Misr, Telda, Fawry, TRU, etc.) ser
 - **Standard form** — amount, account, category, date, note
 - **Quick entry** — bottom sheet with smart category suggestion based on note text
 - **Batch entry** — enter multiple transactions at once
-- **Salary wizard** — multi-step distribution from income account to multiple destinations
 - **Quick exchange** — exchange tab in the quick-entry bottom sheet for fast currency swaps
 
 ### Other Features
