@@ -222,6 +222,7 @@ def transaction_create(
 
         # Optional fee → separate linked expense transaction
         fee_raw = request.POST.get("fee_amount", "")
+        fee_preset_id = request.POST.get("fee_preset_id", "")
         fee_tx = None
         if fee_raw:
             fee = parse_float_or_none(fee_raw)
@@ -230,6 +231,7 @@ def transaction_create(
                     parent_tx=tx,
                     fee_amount=fee,
                     tx_date=request.POST.get("date") or None,
+                    fee_preset_id=fee_preset_id if fee_preset_id else None,
                 )
 
         # Virtual account allocation
@@ -703,6 +705,7 @@ def transaction_update(
                 fee_amount=parse_float_or_none(data_source.get("fee_amount", "")),
                 va_id=data_source.get("virtual_account_id"),
                 tx_date=tx_date_raw,
+                fee_preset_id=data_source.get("fee_preset_id", "") or None,
             )
 
             enriched = svc.get_by_id_enriched(str(tx_id))
@@ -1169,6 +1172,7 @@ def quick_entry_create(
                 fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
                 va_id=request.POST.get("virtual_account_id"),
                 tx_date=data.get("date"),
+                fee_preset_id=request.POST.get("fee_preset_id", "") or None,
             )
             success_ctx = {
                 "is_transfer": False,

@@ -410,6 +410,7 @@ class TransactionServiceBase:
         parent_tx: dict[str, Any],
         fee_amount: Decimal | float,
         tx_date: date | str | None,
+        fee_preset_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a linked fee transaction (expense) for a regular transaction.
 
@@ -449,6 +450,7 @@ class TransactionServiceBase:
                 date=resolved_date,
                 balance_delta=-fee,
                 linked_transaction_id=parent_tx["id"],
+                fee_preset_id=fee_preset_id,
             )
             Account.objects.for_user(self.user_id).filter(id=account_id).update(
                 current_balance=F("current_balance") - fee,
@@ -468,6 +470,7 @@ class TransactionServiceBase:
         tx_id: str,
         fee_amount: float | None,
         tx_date: date | str | None,
+        fee_preset_id: str | None = None,
     ) -> dict[str, Any] | None:
         """Add, change, or remove the fee linked to a transaction.
 
@@ -524,6 +527,7 @@ class TransactionServiceBase:
                 parent_tx=parent_tx,
                 fee_amount=new_fee,
                 tx_date=tx_date,
+                fee_preset_id=fee_preset_id,
             )
 
         return None

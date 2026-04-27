@@ -1,0 +1,205 @@
+{% load i18n %}
+{% load money %}
+<div class="fee-preset-selector space-y-2" data-currency="{{ currency|default:'EGP' }}" data-input-id="{{ input_id|default:'fee-input' }}">
+    <!-- Preset pills -->
+    <div class="flex flex-wrap gap-2 min-h-[32px]" id="fee-preset-pills-{{ input_id|default:'fee-input' }}">
+        <!-- Pills loaded via JS -->
+    </div>
+
+    <!-- Fee amount input (synced with preset selection) -->
+    <div class="flex items-center gap-2">
+        <input type="number"
+               name="fee_amount"
+               id="{{ input_id|default:'fee-input' }}"
+               step="0.01"
+               min="0"
+               placeholder="0.00"
+               value="{{ value|default:'' }}"
+               class="flex-1 text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        <!-- Hidden field to store selected preset ID -->
+        <input type="hidden" name="fee_preset_id" id="fee-preset-id-{{ input_id|default:'fee-input' }}" value="{{ preset_id|default:'' }}">
+
+        <button type="button"
+                id="fee-preset-clear-{{ input_id|default:'fee-input' }}"
+                class="hidden text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 px-2 py-1"
+                onclick="clearFeePreset('{{ input_id|default:'fee-input' }}')">
+            {% trans "Clear" %}
+    </button>
+    </div>
+
+    <!-- Selected preset info -->
+    <div id="fee-preset-info-{{ input_id|default:'fee-input' }}" class="hidden text-xs text-teal-600 dark:text-teal-400"></div>
+</div>
+
+<script>
+(function() {
+    var inputId = '{{ input_id|default:"fee-input" }}';
+    var container = document.querySelector('[data-input-id="' + inputId + '"]');
+    if (!container) return;
+
+    var currency = container.dataset.currency || 'EGP';
+    var pillsContainer = document.getElementById('fee-preset-pills-' + inputId);
+    var amountInput = document.getElementById(inputId);
+    var presetIdInput = document.getElementById('fee-preset-id-' + inputId);
+    var presetInfo = document.getElementById('fee-preset-info-' + inputId);
+    var clearBtn = document.getElementById('fee-preset-clear-' + inputId);
+
+    // Load presets for currency
+    function loadPresets() {
+        if (!pillsContainer) return;
+        pillsContainer.innerHTML = '<span class="text-xs text-gray-400">{% trans "Loading..." %}</span>';
+
+        fetch('/api/fee-presets?currency=' + encodeURIComponent(currency))
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderPills(data.presets || []); })
+            .catch(function() {
+                if (pillsContainer) {
+                    pillsContainer.innerHTML = '';
+                }
+            });
+    }
+
+    function renderPills(presets) {
+        if (!pillsContainer) return;
+        if (!presets || presets.length === 0) {
+            pillsContainer.innerHTML = '';
+            return;
+        }
+
+        pillsContainer.innerHTML = presets.map(function(p) {
+            var selectedClass = presetIdInput && presetIdInput.value === p.id
+                ? 'bg-teal-100 text-teal-700 border-teal-300'
+                : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600';
+            return '<button type="button" ' +
+                'class="fee-preset-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors border border-transparent ' + selectedClass + '" ' +
+                'data-preset-id="' + p.id + '" ' +
+                'data-calc-type="' + p.calc_type + '" ' +
+                'data-value="' + p.value + '" ' +
+                'data-min-fee="' + (p.min_fee || '') + '" ' +
+                'data-max-fee="' + (p.max_fee || '') + '" ' +
+                'onclick="selectFeePreset(this, \'' + inputId + '\')">' +
+                escapeHtml(p.name) +
+                '</button>';
+        }).join('');
+    }
+
+    window.selectFeePreset = function(btn, targetInputId) {
+        var presetId = btn.dataset.presetId;
+        var calcType = btn.dataset.calcType;
+        var targetContainer = document.querySelector('[data-input-id="' + targetInputId + '"]');
+        if (!targetContainer) return;
+
+        var targetAmountInput = document.getElementById(targetInputId);
+        var targetPresetIdInput = document.getElementById('fee-preset-id-' + targetInputId);
+        var targetPillsContainer = document.getElementById('fee-preset-pills-' + targetInputId);
+        var targetPresetInfo = document.getElementById('fee-preset-info-' + targetInputId);
+        var targetClearBtn = document.getElementById('fee-preset-clear-' + targetInputId);
+
+        // Get the main transaction amount
+        var txAmountInput = document.getElementById('amount-input') || document.getElementById('qe-amount');
+        var txAmount = txAmountInput ? parseFloat(txAmountInput.value) : 0;
+
+        if (!txAmount || txAmount <= 0) {
+            // Just select the preset visually, wait for amount to calculate
+            updatePillSelection(targetPillsContainer, btn);
+            if (targetPresetIdInput) targetPresetIdInput.value = presetId;
+            if (targetPresetInfo) {
+                targetPresetInfo.textContent = '{% trans "Enter amount to calculate fee" %}';
+                targetPresetInfo.classList.remove('hidden');
+            }
+            if (targetClearBtn) targetClearBtn.classList.remove('hidden');
+            return;
+        }
+
+        // Calculate fee via API
+        fetch('/api/fee-presets/calculate?preset_id=' + encodeURIComponent(presetId) + '&amount=' + txAmount)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.fee && targetAmountInput) {
+                    targetAmountInput.value = data.fee;
+                }
+                if (targetPresetIdInput) {
+                    targetPresetIdInput.value = presetId;
+                }
+                updatePillSelection(targetPillsContainer, btn);
+                if (targetPresetInfo) {
+                    targetPresetInfo.textContent = '{% trans "Using preset:" %} ' + escapeHtml(btn.textContent || '');
+                    targetPresetInfo.classList.remove('hidden');
+                }
+                if (targetClearBtn) {
+                    targetClearBtn.classList.remove('hidden');
+                }
+            })
+            .catch(function() {
+                // Silent fail - just select visually
+                updatePillSelection(targetPillsContainer, btn);
+                if (targetPresetIdInput) targetPresetIdInput.value = presetId;
+            });
+    };
+
+    function updatePillSelection(container, selectedBtn) {
+        if (!container) return;
+        var pills = container.querySelectorAll('.fee-preset-pill');
+        pills.forEach(function(p) {
+            p.classList.remove('bg-teal-100', 'text-teal-700', 'border-teal-300');
+            p.classList.add('bg-gray-100', 'dark:bg-slate-700', 'text-gray-700', 'dark:text-slate-300');
+        });
+        selectedBtn.classList.remove('bg-gray-100', 'dark:bg-slate-700', 'text-gray-700', 'dark:text-slate-300');
+        selectedBtn.classList.add('bg-teal-100', 'text-teal-700', 'border-teal-300');
+    }
+
+    window.clearFeePreset = function(targetInputId) {
+        var targetPresetIdInput = document.getElementById('fee-preset-id-' + targetInputId);
+        var targetPillsContainer = document.getElementById('fee-preset-pills-' + targetInputId);
+        var targetPresetInfo = document.getElementById('fee-preset-info-' + targetInputId);
+        var targetClearBtn = document.getElementById('fee-preset-clear-' + targetInputId);
+
+        if (targetPresetIdInput) targetPresetIdInput.value = '';
+        if (targetPillsContainer) {
+            var pills = targetPillsContainer.querySelectorAll('.fee-preset-pill');
+            pills.forEach(function(p) {
+                p.classList.remove('bg-teal-100', 'text-teal-700', 'border-teal-300');
+                p.classList.add('bg-gray-100', 'dark:bg-slate-700', 'text-gray-700', 'dark:text-slate-300');
+            });
+        }
+        if (targetPresetInfo) targetPresetInfo.classList.add('hidden');
+        if (targetClearBtn) targetClearBtn.classList.add('hidden');
+    };
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Watch for amount changes to recalculate fee if preset is selected
+    var txAmountInput = document.getElementById('amount-input') || document.getElementById('qe-amount');
+    if (txAmountInput && amountInput) {
+        txAmountInput.addEventListener('input', debounce(function() {
+            var presetId = presetIdInput ? presetIdInput.value : '';
+            if (!presetId) return;
+
+            var amount = parseFloat(txAmountInput.value) || 0;
+            if (!amount) return;
+
+            fetch('/api/fee-presets/calculate?preset_id=' + encodeURIComponent(presetId) + '&amount=' + amount)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.fee) amountInput.value = data.fee;
+                });
+        }, 300));
+    }
+
+    function debounce(fn, delay) {
+        var timer = null;
+        return function() {
+            var args = arguments;
+            clearTimeout(timer);
+            timer = setTimeout(function() { fn.apply(null, args); }, delay);
+        };
+    }
+
+    // Initialize
+    loadPresets();
+})();
+</script>

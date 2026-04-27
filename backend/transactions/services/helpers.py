@@ -208,6 +208,7 @@ class HelperMixin:
         fee_amount: float | None = None,
         va_id: str | None = None,
         tx_date: Any = None,
+        fee_preset_id: str | None = None,
     ) -> None:
         """Centralized logic for post-transaction creation tasks:
         1. Create or update optional linked fee transaction.
@@ -236,6 +237,7 @@ class HelperMixin:
             tx_id=tx["id"],
             fee_amount=fee_amount,
             tx_date=tx_date,
+            fee_preset_id=fee_preset_id,
         )
 
         # Handle parent tx VA allocation

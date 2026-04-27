@@ -39,6 +39,7 @@ from people.models import Person, PersonCurrencyBalance
 from recurring.models import RecurringRule
 from transactions.models import Transaction, VirtualAccountAllocation
 from virtual_accounts.models import VirtualAccount
+from fee_presets.models import FeePreset
 
 
 class UserFactory(factory.django.DjangoModelFactory):
@@ -369,3 +370,24 @@ class ExchangeRateLogFactory(factory.django.DjangoModelFactory):
     )
     source = "test"
     note = ""
+
+
+class FeePresetFactory(factory.django.DjangoModelFactory):
+    """Factory for fee_presets table.
+
+    user_id must be passed in: FeePresetFactory(user_id=user.id)
+    """
+
+    class Meta:
+        model = FeePreset
+
+    id = factory.LazyFunction(uuid.uuid4)
+    user_id = factory.LazyFunction(uuid.uuid4)  # override with real user_id in tests
+    name = factory.Sequence(lambda n: f"Fee Preset {n}")
+    currency = "EGP"
+    calc_type = "flat"
+    value = Decimal("5.00")
+    min_fee = None
+    max_fee = None
+    archived = False
+    sort_order = 0

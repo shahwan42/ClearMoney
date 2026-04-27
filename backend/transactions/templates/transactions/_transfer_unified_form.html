@@ -45,10 +45,8 @@
         {# Transfer-only fields: fee #}
         <div id="transfer-transfer-fields" class="hidden space-y-3" aria-hidden="true">
             <div>
-                <label for="transfer-fee" class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Fee (optional)" %}</label>
-                <input type="number" name="fee_amount" id="transfer-fee" step="0.01" min="0" placeholder="0.00" disabled
-                       class="w-full border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl px-3 py-2.5 text-sm"
-                       oninput="updateTransferTotal()">
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1">{% trans "Fee (optional)" %}</label>
+                {% include "transactions/_fee_preset_selector.html" with input_id="transfer-fee" currency=prefill.currency|default:accounts.0.currency|default:"EGP" %}
             </div>
             <div id="transfer-total-display" class="hidden bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg p-2 text-xs text-slate-600 dark:text-slate-300">
                 {% trans "Total from source:" %} <span id="transfer-total-value" class="font-semibold">0.00</span>

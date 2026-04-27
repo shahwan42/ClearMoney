@@ -1,0 +1,129 @@
+{% load i18n %}
+<h3 class="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-4">{% trans "New Fee Preset" %}</h3>
+
+<form method="POST" action="{% url 'fee-preset-add' %}" class="space-y-4" id="fee-preset-form">
+    {% csrf_token %}
+
+    <!-- Name -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="preset-name">
+            {% trans "Name" %} <span class="text-red-500" aria-hidden="true">*</span>
+        </label>
+        <input type="text" name="name" id="preset-name" required maxlength="50"
+               placeholder="{% trans "e.g., InstaPay, ATM Fee" %}"
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    <!-- Currency -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="preset-currency">
+            {% trans "Currency" %} <span class="text-red-500" aria-hidden="true">*</span>
+        </label>
+        <select name="currency" id="preset-currency" required
+                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">{% trans "Select currency..." %}</option>
+            {% for curr in supported_currencies %}
+            <option value="{{ curr.code }}">{{ curr.code }} — {{ curr.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Calculation Type -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-2">
+            {% trans "Calculation Type" %} <span class="text-red-500" aria-hidden="true">*</span>
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+            <label class="relative">
+                <input type="radio" name="calc_type" value="flat" checked class="peer sr-only" onchange="toggleCalcType('flat')">
+                <div class="text-center py-3 border-2 border-gray-200 dark:border-slate-600 rounded-xl cursor-pointer
+                            peer-checked:border-teal-500 peer-checked:bg-teal-50 dark:peer-checked:bg-teal-900/30">
+                    <div class="text-sm font-medium text-gray-700 dark:text-slate-300 peer-checked:text-teal-700 dark:peer-checked:text-teal-400">
+                        {% trans "Flat Amount" %}
+                    </div>
+                    <div class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Fixed fee" %}</div>
+                </div>
+            </label>
+            <label class="relative">
+                <input type="radio" name="calc_type" value="percent" class="peer sr-only" onchange="toggleCalcType('percent')">
+                <div class="text-center py-3 border-2 border-gray-200 dark:border-slate-600 rounded-xl cursor-pointer
+                            peer-checked:border-teal-500 peer-checked:bg-teal-50 dark:peer-checked:bg-teal-900/30">
+                    <div class="text-sm font-medium text-gray-700 dark:text-slate-300 peer-checked:text-teal-700 dark:peer-checked:text-teal-400">
+                        {% trans "Percentage" %}
+                    </div>
+                    <div class="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{% trans "Of transaction amount" %}</div>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <!-- Value -->
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="preset-value">
+            <span id="value-label-flat">{% trans "Fee Amount" %}</span>
+            <span id="value-label-percent" class="hidden">{% trans "Percentage (as decimal)" %}</span>
+            <span class="text-red-500" aria-hidden="true">*</span>
+        </label>
+        <input type="number" name="value" id="preset-value" required step="0.0001" min="0.0001"
+               placeholder="{% trans "e.g., 5.00" %}"
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        <p id="value-help-percent" class="hidden text-xs text-gray-400 dark:text-slate-500 mt-1">
+            {% trans "Enter as decimal: 0.001 = 0.1%, 0.01 = 1%" %}
+        </p>
+    </div>
+
+    <!-- Min/Max (only for percent) -->
+    <div id="min-max-fields" class="hidden grid grid-cols-2 gap-3">
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="preset-min-fee">
+                {% trans "Min Fee (optional)" %}
+            </label>
+            <input type="number" name="min_fee" id="preset-min-fee" step="0.01" min="0"
+                   placeholder="0.00"
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="preset-max-fee">
+                {% trans "Max Fee (optional)" %}
+            </label>
+            <input type="number" name="max_fee" id="preset-max-fee" step="0.01" min="0"
+                   placeholder="0.00"
+                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="pt-2">
+        <button type="submit" 
+                class="w-full bg-teal-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all">
+            {% trans "Create Preset" %}
+        </button>
+    </div>
+</form>
+
+<script>
+function toggleCalcType(type) {
+    var isPercent = type === 'percent';
+    
+    // Toggle value label
+    document.getElementById('value-label-flat').classList.toggle('hidden', isPercent);
+    document.getElementById('value-label-percent').classList.toggle('hidden', !isPercent);
+    document.getElementById('value-help-percent').classList.toggle('hidden', !isPercent);
+    
+    // Toggle min/max fields
+    document.getElementById('min-max-fields').classList.toggle('hidden', !isPercent);
+    
+    // Update value input step and placeholder
+    var valueInput = document.getElementById('preset-value');
+    if (isPercent) {
+        valueInput.step = '0.0001';
+        valueInput.placeholder = '0.001';
+    } else {
+        valueInput.step = '0.01';
+        valueInput.placeholder = '5.00';
+    }
+}
+
+// Initialize
+toggleCalcType('flat');
+</script>
