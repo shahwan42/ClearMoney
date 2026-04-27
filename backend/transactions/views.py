@@ -311,17 +311,48 @@ def transaction_edit_form(
                 )
         transfer_accounts = svc.get_accounts()
 
-    # For exchanges, also fetch counter account info
+    # For exchanges: resolve source/dest accounts and build dropdown lists
     counter_account = None
-    if tx.get("type") == "exchange" and tx.get("counter_account_id"):
-        from accounts.models import Account as _Acc
-
-        counter_account = (
-            _Acc.objects.for_user(request.user_id)
-            .filter(id=tx["counter_account_id"])
-            .values("name", "currency")
-            .first()
+    exchange_source_id = ""
+    exchange_dest_id = ""
+    exchange_accounts: list[dict] = []
+    exchange_dest_accounts: list[dict] = []
+    exchange_rate_label = ""
+    if tx.get("type") == "exchange":
+        all_exchange_accounts = svc.get_accounts()
+        # Normalize to debit/credit legs
+        linked_id = tx.get("linked_transaction_id")
+        linked_ex = svc.get_by_id(str(linked_id)) if linked_id else None
+        if linked_ex:
+            balance_delta = tx.get("balance_delta") or 0
+            if _Decimal(str(balance_delta)) < 0:
+                ex_debit, ex_credit = tx, linked_ex
+            else:
+                ex_debit, ex_credit = linked_ex, tx
+            exchange_source_id = str(ex_debit["account_id"])
+            exchange_dest_id = str(ex_credit["account_id"])
+        src_currency = ex_debit["currency"] if linked_ex else tx.get("currency", "")
+        dest_currency = ex_credit["currency"] if linked_ex else ""
+        exchange_rate_label = (
+            f"{dest_currency} per 1 {src_currency}" if dest_currency else ""
         )
+        exchange_accounts = all_exchange_accounts
+        exchange_dest_accounts = [
+            a for a in all_exchange_accounts if a["currency"] != src_currency
+        ]
+        # Normalize tx to debit leg so form shows debit-leg amount/currency
+        if linked_ex:
+            tx = ex_debit
+        # Legacy counter_account for backward compat
+        if tx.get("counter_account_id"):
+            from accounts.models import Account as _Acc
+
+            counter_account = (
+                _Acc.objects.for_user(request.user_id)
+                .filter(id=tx["counter_account_id"])
+                .values("name", "currency")
+                .first()
+            )
 
     from transactions.services import TagService
 
@@ -346,6 +377,92 @@ def transaction_edit_form(
             "transfer_source_id": transfer_source_id or "",
             "transfer_dest_id": transfer_dest_id or "",
             "transfer_accounts": transfer_accounts,
+            "exchange_source_id": exchange_source_id,
+            "exchange_dest_id": exchange_dest_id,
+            "exchange_accounts": exchange_accounts,
+            "exchange_dest_accounts": exchange_dest_accounts,
+            "exchange_rate_label": exchange_rate_label,
+        },
+    )
+
+
+@inject_service(TransactionService)
+@general_rate
+@require_http_methods(["GET"])
+def exchange_edit_dest_partial(
+    request: AuthenticatedRequest, svc: TransactionService, tx_id: str
+) -> HttpResponse:
+    """GET /transactions/edit/<id>/exchange-dest — HTMX partial.
+
+    Re-renders dest dropdown + rate section when source account changes.
+    Query params: source_id (new source), current_dest_id (optional, for pre-selection).
+    """
+    from decimal import Decimal as _D
+
+    source_id = request.GET.get("exchange_source_id", "")
+    current_dest_id = request.GET.get("exchange_dest_id", "")
+
+    all_accounts = svc.get_accounts()
+    src_currency = ""
+    if source_id:
+        src_acc = next((a for a in all_accounts if str(a["id"]) == source_id), None)
+        src_currency = src_acc["currency"] if src_acc else ""
+
+    dest_accounts = (
+        [a for a in all_accounts if a["currency"] != src_currency]
+        if src_currency
+        else all_accounts
+    )
+
+    # Detect if currency pair changed relative to original tx
+    tx = svc.get_by_id(str(tx_id))
+    pair_changed = False
+    if tx and source_id:
+        linked_id = tx.get("linked_transaction_id")
+        linked_ex = svc.get_by_id(str(linked_id)) if linked_id else None
+        if linked_ex:
+            bal = tx.get("balance_delta") or 0
+            orig_debit = tx if _D(str(bal)) < 0 else linked_ex
+            orig_credit = linked_ex if _D(str(bal)) < 0 else tx
+            orig_src_currency = orig_debit["currency"]
+            orig_dest_id = str(orig_credit["account_id"])
+            # pair changed if new source has different currency
+            pair_changed = src_currency != orig_src_currency
+            # pre-select current dest if compatible, else first dest account
+            if not current_dest_id:
+                current_dest_id = orig_dest_id
+
+    dest_currency = ""
+    if current_dest_id:
+        dest_acc = next(
+            (a for a in dest_accounts if str(a["id"]) == current_dest_id), None
+        )
+        dest_currency = (
+            dest_acc["currency"]
+            if dest_acc
+            else (dest_accounts[0]["currency"] if dest_accounts else "")
+        )
+
+    if not dest_currency and dest_accounts:
+        dest_currency = dest_accounts[0]["currency"]
+
+    rate_label = (
+        f"{dest_currency} per 1 {src_currency}"
+        if src_currency and dest_currency
+        else ""
+    )
+
+    return render(
+        request,
+        "transactions/_exchange_dest_partial.html",
+        {
+            "dest_accounts": dest_accounts,
+            "exchange_dest_id": current_dest_id,
+            "rate_label": rate_label,
+            "pair_changed": pair_changed,
+            "src_currency": src_currency,
+            "dest_currency": dest_currency,
+            "tx": tx,
         },
     )
 
@@ -519,6 +636,8 @@ def transaction_update(
             amount = parse_float_or_none(data_source.get("amount", ""))
             rate = parse_float_or_none(data_source.get("rate", ""))
             counter_amount = parse_float_or_none(data_source.get("counter_amount", ""))
+            exchange_source_id = data_source.get("exchange_source_id") or None
+            exchange_dest_id = data_source.get("exchange_dest_id") or None
             debit, credit = svc.update_exchange(
                 str(tx_id),
                 amount=amount,
@@ -526,6 +645,8 @@ def transaction_update(
                 counter_amount=counter_amount,
                 note=note,
                 tx_date=tx_date,
+                source_id=exchange_source_id,
+                dest_id=exchange_dest_id,
             )
             linked_id = debit.get("linked_transaction_id") or credit.get(
                 "linked_transaction_id"

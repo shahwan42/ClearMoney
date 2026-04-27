@@ -70,43 +70,45 @@
     </div>
 
     {% elif tx.type == "exchange" %}
-    <!-- Exchange edit: amount + rate/counter_amount + note + date. Both legs updated atomically. -->
+    <!-- Exchange edit: source, dest, amount, rate, note, date. Both legs updated atomically. -->
 
     <div class="text-xs text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 rounded-lg px-3 py-2">
-        {% trans "Exchange" %} · {{ tx.currency }}{% if counter_account %} → {{ counter_account.currency }}{% endif %}
+        {% trans "Exchange" %}
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
-        <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-amount">
-                {% trans "Amount" %} ({{ tx.currency }})
-            </label>
-            <input type="number" name="amount" id="edit-tx-amount" value="{{ tx.amount }}" step="0.01" min="0.01" required
-                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
-        </div>
-        <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-counter">
-                {% trans "Received" %}{% if counter_account %} ({{ counter_account.currency }}){% endif %}
-            </label>
-            <input type="number" name="counter_amount" id="edit-tx-counter" value="{{ tx.counter_amount }}" step="0.01" min="0.01"
-                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
-        </div>
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-ex-source">{% trans "From account" %}</label>
+        <select name="exchange_source_id" id="edit-ex-source" required
+                class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                aria-label="{% trans "Source account" %}"
+                hx-get="/transactions/edit/{{ tx.id }}/exchange-dest"
+                hx-trigger="change"
+                hx-target="#edit-ex-dynamic-section"
+                hx-include="[name='exchange_source_id'],[name='exchange_dest_id']">
+            {% for acc in exchange_accounts %}
+            <option value="{{ acc.id }}" {% if acc.id|stringformat:"s" == exchange_source_id %}selected{% endif %}>
+                {{ acc.name }} ({{ acc.currency }})
+            </option>
+            {% endfor %}
+        </select>
     </div>
 
-    <div class="grid grid-cols-2 gap-3">
-        <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-rate">
-                {% trans "Rate (EGP per 1 USD)" %}
-            </label>
-            <input type="number" name="rate" id="edit-tx-rate" value="{{ tx.exchange_rate }}" step="0.000001" min="0"
-                   placeholder="e.g. 50.5"
-                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
-        </div>
-        <div>
-            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-date">{% trans "Date" %}</label>
-            <input type="date" name="date" id="edit-tx-date" value="{{ tx.date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required
-                   class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
-        </div>
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-ex-amount">
+            {% trans "Amount" %} ({{ tx.currency }})
+        </label>
+        <input type="number" name="amount" id="edit-ex-amount" value="{{ tx.amount }}" step="0.01" min="0.01" required
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+
+    <div id="edit-ex-dynamic-section" class="space-y-3" aria-live="polite">
+        {% include "transactions/_exchange_dest_partial.html" with dest_accounts=exchange_dest_accounts exchange_dest_id=exchange_dest_id rate_label=exchange_rate_label pair_changed=False src_currency=tx.currency dest_currency=counter_account.currency %}
+    </div>
+
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="edit-tx-date">{% trans "Date" %}</label>
+        <input type="date" name="date" id="edit-tx-date" value="{{ tx.date|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" required
+               class="w-full text-sm border border-gray-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
 
     <div>

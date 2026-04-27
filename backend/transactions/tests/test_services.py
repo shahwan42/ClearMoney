@@ -2307,6 +2307,180 @@ class TestUpdateExchange:
                 tx_date=date(2026, 3, 15),
             )
 
+    # ------------------------------------------------------------------
+    # Account reassignment (Ticket #172)
+    # ------------------------------------------------------------------
+
+    def test_update_via_credit_leg_id_does_not_corrupt_balances(self, tx_data):
+        """Regression: calling update_exchange with the credit leg ID must not
+        corrupt balances — normalize debit/credit before applying deltas."""
+        svc, debit, credit = self._make_exchange(tx_data)
+        # After create: usd=400, egp=15000
+        assert _get_balance(tx_data["usd_id"]) == 400
+        assert _get_balance(tx_data["egp_id"]) == 15000
+
+        # Pass credit leg ID with identical params — no-op semantically
+        svc.update_exchange(
+            credit["id"],  # credit (EGP) leg, not debit (USD) leg
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note="via credit leg",
+            tx_date=date(2026, 3, 15),
+        )
+        # Balances must not be corrupted
+        assert _get_balance(tx_data["usd_id"]) == 400
+        assert _get_balance(tx_data["egp_id"]) == 15000
+
+    def test_update_source_account_changes_balances(self, tx_data):
+        """Source account reassignment: old source restored, new source debited."""
+        institution = Account.objects.get(id=tx_data["egp_id"]).institution_id
+        usd2 = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=institution,
+            name="USD Savings 2",
+            currency="USD",
+            current_balance=200,
+            initial_balance=200,
+        )
+        svc, debit, credit = self._make_exchange(tx_data)
+        # After create: usd=400, egp=15000, usd2=200
+
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            source_id=str(usd2.id),
+        )
+        # Old USD source restored: 400 + 100 = 500
+        assert _get_balance(tx_data["usd_id"]) == 500
+        # New USD source debited: 200 - 100 = 100
+        assert _get_balance(str(usd2.id)) == 100
+        # EGP dest unchanged: still 15000
+        assert _get_balance(tx_data["egp_id"]) == 15000
+
+    def test_update_source_account_updates_transaction_currency(self, tx_data):
+        """When source account changes, debit leg currency must update."""
+        institution = Account.objects.get(id=tx_data["egp_id"]).institution_id
+        eur = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=institution,
+            name="EUR Account",
+            currency="EUR",
+            current_balance=300,
+            initial_balance=300,
+        )
+        svc, debit, credit = self._make_exchange(tx_data)
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            source_id=str(eur.id),
+        )
+        debit_obj = Transaction.objects.get(id=debit["id"])
+        assert debit_obj.currency == "EUR"
+        assert str(debit_obj.account_id) == str(eur.id)
+
+    def test_update_dest_account_changes_balances(self, tx_data):
+        """Dest account reassignment: old dest restored, new dest credited."""
+        institution = Account.objects.get(id=tx_data["egp_id"]).institution_id
+        egp2 = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=institution,
+            name="EGP Account 2",
+            currency="EGP",
+            current_balance=2000,
+            initial_balance=2000,
+        )
+        svc, debit, credit = self._make_exchange(tx_data)
+        # After create: usd=400, egp=15000, egp2=2000
+
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            dest_id=str(egp2.id),
+        )
+        # Old EGP dest restored: 15000 - 5000 = 10000
+        assert _get_balance(tx_data["egp_id"]) == 10000
+        # New EGP dest credited: 2000 + 5000 = 7000
+        assert _get_balance(str(egp2.id)) == 7000
+        # USD source unchanged: still 400
+        assert _get_balance(tx_data["usd_id"]) == 400
+
+    def test_update_same_currency_raises(self, tx_data):
+        """Changing source to same currency as dest must raise ValueError."""
+        institution = Account.objects.get(id=tx_data["egp_id"]).institution_id
+        egp2 = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=institution,
+            name="EGP Account 2",
+            currency="EGP",
+            current_balance=2000,
+            initial_balance=2000,
+        )
+        svc, debit, credit = self._make_exchange(tx_data)
+        with pytest.raises(ValueError, match="same currency"):
+            svc.update_exchange(
+                debit["id"],
+                amount=100,
+                rate=50.0,
+                counter_amount=None,
+                note=None,
+                tx_date=date(2026, 3, 15),
+                source_id=str(egp2.id),  # EGP source + EGP dest → invalid
+            )
+
+    def test_update_both_accounts_changes_all_balances(self, tx_data):
+        """Both source and dest change: full undo/redo balance reconciliation."""
+        institution = Account.objects.get(id=tx_data["egp_id"]).institution_id
+        usd2 = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=institution,
+            name="USD Account 2",
+            currency="USD",
+            current_balance=200,
+            initial_balance=200,
+        )
+        egp2 = AccountFactory(
+            user_id=tx_data["user_id"],
+            institution_id=institution,
+            name="EGP Account 2",
+            currency="EGP",
+            current_balance=3000,
+            initial_balance=3000,
+        )
+        svc, debit, credit = self._make_exchange(tx_data)
+        # After create: usd=400, egp=15000, usd2=200, egp2=3000
+
+        svc.update_exchange(
+            debit["id"],
+            amount=100,
+            rate=50.0,
+            counter_amount=None,
+            note=None,
+            tx_date=date(2026, 3, 15),
+            source_id=str(usd2.id),
+            dest_id=str(egp2.id),
+        )
+        # Old USD restored: 400 + 100 = 500
+        assert _get_balance(tx_data["usd_id"]) == 500
+        # Old EGP restored: 15000 - 5000 = 10000
+        assert _get_balance(tx_data["egp_id"]) == 10000
+        # New USD debited: 200 - 100 = 100
+        assert _get_balance(str(usd2.id)) == 100
+        # New EGP credited: 3000 + 5000 = 8000
+        assert _get_balance(str(egp2.id)) == 8000
+
 
 # ---------------------------------------------------------------------------
 # Round-up tests

@@ -70,6 +70,11 @@ urlpatterns = [
         name="transaction-edit-form",
     ),
     path(
+        "transactions/edit/<uuid:tx_id>/exchange-dest",
+        views.exchange_edit_dest_partial,
+        name="transaction-exchange-edit-dest",
+    ),
+    path(
         "transactions/detail/<uuid:tx_id>",
         views.transaction_detail_sheet,
         name="transaction-detail-sheet",

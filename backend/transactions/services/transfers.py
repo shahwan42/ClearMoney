@@ -437,10 +437,14 @@ class TransferMixin:
         counter_amount: float | None,
         note: str | None,
         tx_date: date,
+        source_id: str | None = None,
+        dest_id: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Update both legs of an exchange atomically.
 
-        Accepts same (amount, rate, counter_amount) triplet as create_exchange.
+        source_id / dest_id: pass new account IDs to reassign the exchange.
+        If omitted, the existing accounts are kept.
+        Performs undo/redo balance reconciliation when accounts change.
         Returns (debit_leg, credit_leg) dicts after update.
         """
         uid = self.user_id  # type: ignore[attr-defined]
@@ -459,10 +463,36 @@ class TransferMixin:
         if not linked_tx:
             raise ValueError(f"Linked leg not found: {linked_id}")
 
-        src_acc = self._get_account(tx["account_id"])  # type: ignore[attr-defined]
-        dest_acc = self._get_account(linked_tx["account_id"])  # type: ignore[attr-defined]
+        # Normalize: always work in terms of debit (source) and credit (dest) legs
+        if Decimal(str(tx["balance_delta"])) < 0:
+            debit_tx, credit_tx = tx, linked_tx
+            debit_id, credit_id = tx_id, str(linked_id)
+        else:
+            debit_tx, credit_tx = linked_tx, tx
+            debit_id, credit_id = str(linked_id), tx_id
 
-        source_is_egp = src_acc["currency"] == "EGP"
+        old_source_id = str(debit_tx["account_id"])
+        old_dest_id = str(credit_tx["account_id"])
+        new_source_id = source_id or old_source_id
+        new_dest_id = dest_id or old_dest_id
+
+        source_changing = new_source_id != old_source_id
+        dest_changing = new_dest_id != old_dest_id
+
+        if source_changing or dest_changing:
+            new_src_acc = self._get_account(new_source_id)  # type: ignore[attr-defined]
+            new_dest_acc = self._get_account(new_dest_id)  # type: ignore[attr-defined]
+            if new_src_acc["currency"] == new_dest_acc["currency"]:
+                raise ValueError(
+                    "Exchange requires different currencies; accounts have the same currency"
+                )
+            src_currency = new_src_acc["currency"]
+            dest_currency = new_dest_acc["currency"]
+        else:
+            src_currency = debit_tx["currency"]
+            dest_currency = credit_tx["currency"]
+
+        source_is_egp = src_currency == "EGP"
         adj_rate = rate
         if source_is_egp and adj_rate is not None and adj_rate > 0:
             adj_rate = 1.0 / adj_rate
@@ -475,8 +505,8 @@ class TransferMixin:
         if source_is_egp:
             display_rate = 1.0 / formula_rate
 
-        old_debit_delta = Decimal(str(tx["balance_delta"]))
-        old_credit_delta = Decimal(str(linked_tx["balance_delta"]))
+        old_debit_delta = Decimal(str(debit_tx["balance_delta"]))
+        old_credit_delta = Decimal(str(credit_tx["balance_delta"]))
 
         new_debit_delta = -Decimal(str(resolved_amount))
         new_credit_delta = Decimal(str(resolved_counter))
@@ -484,8 +514,11 @@ class TransferMixin:
         now = django_tz.now()
 
         with transaction.atomic():
-            Transaction.objects.filter(user_id=uid, id=tx_id).update(
+            Transaction.objects.filter(user_id=uid, id=debit_id).update(
                 amount=Decimal(str(resolved_amount)),
+                currency=src_currency,
+                account_id=new_source_id,
+                counter_account_id=new_dest_id,
                 balance_delta=new_debit_delta,
                 exchange_rate=round(display_rate, 6),
                 counter_amount=round(resolved_counter, 2),
@@ -493,8 +526,11 @@ class TransferMixin:
                 date=tx_date,
                 updated_at=now,
             )
-            Transaction.objects.filter(user_id=uid, id=linked_id).update(
+            Transaction.objects.filter(user_id=uid, id=credit_id).update(
                 amount=Decimal(str(resolved_counter)),
+                currency=dest_currency,
+                account_id=new_dest_id,
+                counter_account_id=new_source_id,
                 balance_delta=new_credit_delta,
                 exchange_rate=round(display_rate, 6),
                 counter_amount=round(resolved_amount, 2),
@@ -502,22 +538,43 @@ class TransferMixin:
                 date=tx_date,
                 updated_at=now,
             )
-            debit_adjustment = new_debit_delta - old_debit_delta
-            if debit_adjustment != 0:
-                Account.objects.filter(user_id=uid, id=tx["account_id"]).update(
-                    current_balance=F("current_balance") + debit_adjustment,
+
+            if source_changing or dest_changing:
+                # Undo old state: restore old account balances
+                Account.objects.filter(user_id=uid, id=old_source_id).update(
+                    current_balance=F("current_balance") - old_debit_delta,
                     updated_at=now,
                 )
-            credit_adjustment = new_credit_delta - old_credit_delta
-            if credit_adjustment != 0:
-                Account.objects.filter(user_id=uid, id=linked_tx["account_id"]).update(
-                    current_balance=F("current_balance") + credit_adjustment,
+                Account.objects.filter(user_id=uid, id=old_dest_id).update(
+                    current_balance=F("current_balance") - old_credit_delta,
                     updated_at=now,
                 )
+                # Apply new state: debit/credit new accounts
+                Account.objects.filter(user_id=uid, id=new_source_id).update(
+                    current_balance=F("current_balance") + new_debit_delta,
+                    updated_at=now,
+                )
+                Account.objects.filter(user_id=uid, id=new_dest_id).update(
+                    current_balance=F("current_balance") + new_credit_delta,
+                    updated_at=now,
+                )
+            else:
+                debit_adjustment = new_debit_delta - old_debit_delta
+                if debit_adjustment != 0:
+                    Account.objects.filter(user_id=uid, id=old_source_id).update(
+                        current_balance=F("current_balance") + debit_adjustment,
+                        updated_at=now,
+                    )
+                credit_adjustment = new_credit_delta - old_credit_delta
+                if credit_adjustment != 0:
+                    Account.objects.filter(user_id=uid, id=old_dest_id).update(
+                        current_balance=F("current_balance") + credit_adjustment,
+                        updated_at=now,
+                    )
 
         # Log rate (non-critical)
         try:
-            source_label = f"{src_acc['currency']}/{dest_acc['currency']}"
+            source_label = f"{src_currency}/{dest_currency}"
             ExchangeRateLog.objects.create(
                 date=tx_date,
                 rate=round(display_rate, 6),
@@ -529,8 +586,8 @@ class TransferMixin:
                 "Failed to log exchange rate on update (non-critical)", exc_info=True
             )
 
-        debit = self.get_by_id(tx_id)  # type: ignore[attr-defined]
-        credit = self.get_by_id(linked_id)  # type: ignore[attr-defined]
+        debit = self.get_by_id(debit_id)  # type: ignore[attr-defined]
+        credit = self.get_by_id(credit_id)  # type: ignore[attr-defined]
         logger.info("exchange.updated id=%s user=%s", tx_id, uid)
         return debit or {}, credit or {}
 

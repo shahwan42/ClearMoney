@@ -503,3 +503,9 @@ def accounts_json(accounts: Any) -> str:
                 }
             )
     return json.dumps(items, ensure_ascii=False)
+
+
+@register.simple_tag
+def exchange_rate_label(src_currency: str, dest_currency: str) -> str:
+    """Return the rate label for an exchange: '{dest} per 1 {src}'."""
+    return f"{dest_currency} per 1 {src_currency}"

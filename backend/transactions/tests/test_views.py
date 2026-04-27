@@ -781,6 +781,206 @@ class TestExchangeViews:
         assert response.status_code == 302
         assert "/transfer/new" in response.url  # type: ignore[attr-defined]
 
+    def _make_exchange_pair(self, tx_view_data):
+        """Create a USD→EGP exchange pair; returns (usd_account, debit_tx, credit_tx)."""
+        usd_acc = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="USD Account",
+            currency="USD",
+            current_balance=500,
+            initial_balance=500,
+        )
+        debit = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=usd_acc.id,
+            counter_account_id=tx_view_data["egp_id"],
+            type="exchange",
+            amount=100,
+            currency="USD",
+            balance_delta=-100,
+            exchange_rate=50.0,
+            counter_amount=5000,
+            date=date(2026, 3, 15),
+        )
+        credit = TransactionFactory(
+            user_id=tx_view_data["user_id"],
+            account_id=tx_view_data["egp_id"],
+            counter_account_id=usd_acc.id,
+            type="exchange",
+            amount=5000,
+            currency="EGP",
+            balance_delta=5000,
+            exchange_rate=50.0,
+            counter_amount=100,
+            date=date(2026, 3, 15),
+            linked_transaction_id=debit.id,
+        )
+        Transaction.objects.filter(id=debit.id).update(linked_transaction_id=credit.id)
+        return usd_acc, debit, credit
+
+    def test_edit_form_shows_exchange_account_dropdowns(self, client, tx_view_data):
+        """Exchange edit form renders source and destination account selects."""
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{debit.id}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert response.status_code == 200
+        assert 'name="exchange_source_id"' in content
+        assert 'name="exchange_dest_id"' in content
+
+    def test_edit_form_exchange_source_preselected(self, client, tx_view_data):
+        """Source account is pre-selected as the USD debit account."""
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{debit.id}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert str(usd_acc.id) in content
+
+    def test_edit_form_exchange_dynamic_rate_label(self, client, tx_view_data):
+        """Rate label reflects dest/src currencies: 'EGP per 1 USD' for USD→EGP."""
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(f"/transactions/edit/{debit.id}", HTTP_HX_REQUEST="true")
+        content = response.content.decode()
+        assert "EGP per 1 USD" in content
+
+    def test_edit_form_via_credit_leg_shows_debit_amounts(self, client, tx_view_data):
+        """Opening edit form via credit leg ID must render debit-leg amount/currency."""
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        # Open edit via CREDIT leg ID
+        response = c.get(f"/transactions/edit/{credit.id}", HTTP_HX_REQUEST="true")
+        assert response.status_code == 200
+        content = response.content.decode()
+        # Debit leg: 100 USD. Credit leg: 5000 EGP.
+        # Form must show debit amount (100) and debit currency (USD), not EGP/5000.
+        assert "USD" in content
+        assert "100" in content
+
+    def test_exchange_dest_partial_clears_fields_when_pair_changed(
+        self, client, tx_view_data
+    ):
+        """When source changes currency, counter_amount and rate fields must be empty."""
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        eur_acc = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="EUR Account",
+            currency="EUR",
+            current_balance=500,
+            initial_balance=500,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        # Request dest partial with a NEW source (EUR) different from original (USD)
+        response = c.get(
+            f"/transactions/edit/{debit.id}/exchange-dest",
+            data={
+                "exchange_source_id": str(eur_acc.id),
+                "exchange_dest_id": str(tx_view_data["egp_id"]),
+            },
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        content = response.content.decode()
+        # pair_changed=True → counter_amount and rate inputs must have no value
+        assert 'value="5000' not in content  # old counter_amount absent
+        assert 'value="50' not in content  # old rate absent
+
+    def test_exchange_dest_partial_returns_filtered_accounts(
+        self, client, tx_view_data
+    ):
+        """HTMX dest partial filters dest accounts to different currency from source."""
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        # Add another EGP account (should appear in dest)
+        AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="EGP Account 2",
+            currency="EGP",
+            current_balance=2000,
+            initial_balance=2000,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.get(
+            f"/transactions/edit/{debit.id}/exchange-dest",
+            data={"exchange_source_id": str(usd_acc.id)},
+            HTTP_HX_REQUEST="true",
+        )
+        content = response.content.decode()
+        assert response.status_code == 200
+        # USD account (same as source) must NOT appear
+        assert str(usd_acc.id) not in content
+        # EGP accounts must appear
+        assert "EGP" in content
+
+    def test_edit_exchange_change_source_updates_balances(self, client, tx_view_data):
+        """POST with new exchange_source_id updates old source, new source, and dest."""
+        from decimal import Decimal
+
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        Account.objects.filter(id=usd_acc.id).update(
+            current_balance=400
+        )  # after exchange
+        Account.objects.filter(id=tx_view_data["egp_id"]).update(current_balance=15000)
+
+        usd2 = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="USD Account 2",
+            currency="USD",
+            current_balance=200,
+            initial_balance=200,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            f"/transactions/{debit.id}",
+            data=(
+                f"amount=100&rate=50.0&date=2026-03-15"
+                f"&exchange_source_id={usd2.id}"
+                f"&exchange_dest_id={tx_view_data['egp_id']}"
+            ),
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 200
+        # Old USD restored: 400 + 100 = 500
+        assert Decimal(
+            str(Account.objects.get(id=usd_acc.id).current_balance)
+        ) == Decimal("500")
+        # New USD debited: 200 - 100 = 100
+        assert Decimal(str(Account.objects.get(id=usd2.id).current_balance)) == Decimal(
+            "100"
+        )
+        # EGP dest unchanged: still 15000
+        assert Decimal(
+            str(Account.objects.get(id=tx_view_data["egp_id"]).current_balance)
+        ) == Decimal("15000")
+
+    def test_edit_exchange_same_currency_returns_error(self, client, tx_view_data):
+        """POST with source and dest having same currency returns 400."""
+        usd_acc, debit, credit = self._make_exchange_pair(tx_view_data)
+        egp2 = AccountFactory(
+            user_id=tx_view_data["user_id"],
+            institution_id=tx_view_data["inst_id"],
+            name="EGP Account 2",
+            currency="EGP",
+            current_balance=2000,
+            initial_balance=2000,
+        )
+        c = set_auth_cookie(client, tx_view_data["session_token"])
+        response = c.post(
+            f"/transactions/{debit.id}",
+            data=(
+                f"amount=100&rate=50.0&date=2026-03-15"
+                f"&exchange_source_id={egp2.id}"
+                f"&exchange_dest_id={tx_view_data['egp_id']}"
+            ),
+            content_type="application/x-www-form-urlencoded",
+            HTTP_HX_REQUEST="true",
+        )
+        assert response.status_code == 400
+
 
 # ---------------------------------------------------------------------------
 # Transfer (unified transfer/exchange)
