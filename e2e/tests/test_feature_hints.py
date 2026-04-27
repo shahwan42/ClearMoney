@@ -51,7 +51,7 @@ def test_va_hint(page: Page):
     # Verify hint is visible
     hint = page.locator("#va-hint")
     expect(hint).to_be_visible()
-    expect(hint).to_contain_text("Create savings envelopes")
+    expect(hint).to_contain_text("Pots")
     
     # Dismiss hint
     page.locator("#va-hint").get_by_role("button", name="Dismiss").click()

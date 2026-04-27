@@ -135,7 +135,7 @@ class TestQuickEntry:
 
         # Verify success message
         expect(page.locator("#quick-entry-result")).to_contain_text(
-            "Transaction saved!", timeout=10000
+            "Balance:", timeout=10000
         )
 
         # Navigate to dashboard to verify updated balance
@@ -157,7 +157,7 @@ class TestQuickEntry:
 
         # Verify success message
         expect(page.locator("#quick-entry-result")).to_contain_text(
-            "Transaction saved!", timeout=10000
+            "Balance:", timeout=10000
         )
 
         # Navigate to dashboard to verify updated balance

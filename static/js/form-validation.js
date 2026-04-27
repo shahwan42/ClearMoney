@@ -237,6 +237,22 @@ var FormValidation = (function() {
         }
     }
 
+    // Re-initialize when HTMX swaps in new content (e.g. BottomSheet forms)
+    document.addEventListener('htmx:afterSettle', function(e) {
+        var target = e.detail && e.detail.target;
+        if (!target) return;
+        var forms = target.querySelectorAll ? target.querySelectorAll('form') : [];
+        for (var i = 0; i < forms.length; i++) {
+            if (forms[i].querySelector('[data-validate]')) {
+                initForm(forms[i]);
+            }
+        }
+        // Also handle if the target itself is a form
+        if (target.tagName === 'FORM' && target.querySelector('[data-validate]')) {
+            initForm(target);
+        }
+    });
+
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

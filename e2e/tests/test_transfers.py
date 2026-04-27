@@ -88,9 +88,7 @@ class TestTransfers:
             lambda r: "/transactions/transfer" in r.url and r.request.method == "POST"
         ):
             page.click('button[type="submit"]')
-        expect(page.locator("#transfer-unified-content")).to_contain_text(
-            "Transfer completed!"
-        )
+        expect(page.locator("#transfer-unified-content")).to_contain_text("deducted from")
         page.goto("/")
         expect(page.locator("main")).to_contain_text("20,000")
 
@@ -115,9 +113,7 @@ class TestTransfers:
             lambda r: "/transactions/transfer" in r.url and r.request.method == "POST"
         ):
             page.click('button[type="submit"]')
-        expect(page.locator("#transfer-unified-content")).to_contain_text(
-            "Transfer completed!"
-        )
+        expect(page.locator("#transfer-unified-content")).to_contain_text("deducted from")
         page.goto("/transactions")
         expect(page.locator("main")).to_contain_text("Rent share")
 
@@ -178,9 +174,7 @@ class TestExchange:
         expect(page.locator("#transfer-counter")).to_have_value("100.00")
         with page.expect_response(lambda r: "/transactions/exchange-submit" in r.url):
             page.click('button[type="submit"]')
-        expect(page.locator("#transfer-unified-content")).to_contain_text(
-            "Exchange completed!"
-        )
+        expect(page.locator("#transfer-unified-content")).to_contain_text("deducted from")
         page.goto(f"/accounts/{_usd_account}")
         expect(page.locator("main")).to_contain_text("100")
 

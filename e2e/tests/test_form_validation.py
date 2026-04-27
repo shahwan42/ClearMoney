@@ -174,6 +174,11 @@ class TestBudgetFormValidation:
     def test_budget_limit_shows_error_on_zero(self, page: Page) -> None:
         """Budget monthly limit shows error on zero."""
         page.goto("/budgets")
+        # Form loads in a BottomSheet — open it first
+        page.get_by_role("button", name="+ Budget").click()
+        page.wait_for_selector("#cat-monthly-limit", timeout=5000)
+        # Wait for htmx:afterSettle to fire and initForm to attach blur listeners
+        page.wait_for_timeout(500)
         limit_input = page.locator("#cat-monthly-limit")
 
         # Fill with invalid value and blur

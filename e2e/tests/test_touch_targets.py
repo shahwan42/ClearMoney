@@ -105,11 +105,9 @@ class TestQuickEntryTabTouchTargets:
 
     def test_quick_entry_tabs_min_44px_height(self, page: Page) -> None:
         page.goto("/")
-        # Open the quick entry sheet
+        # Open the quick entry sheet and wait for HTMX content to load
         page.click('button[aria-label="Add transaction"]')
-        page.wait_for_selector(
-            "#quick-entry-sheet:not(.translate-y-full)", timeout=3000
-        )
+        page.wait_for_selector("#tab-transaction", timeout=5000)
 
         for tab_id in ("tab-transaction", "tab-transfer"):
             size = _measure(page, f"#{tab_id}")
@@ -327,10 +325,11 @@ class TestSecondaryPageTouchTargets:
 
     def test_budgets_create_button_min_44px(self, page: Page) -> None:
         page.goto("/budgets")
-        size = _measure(page, 'button[type="submit"]')
-        assert size is not None, "Budgets Create Budget button not found"
+        # The add button uses onclick, not type="submit"
+        size = _measure(page, 'button[onclick*="AddBudgetSheet"]')
+        assert size is not None, "Budgets + Budget button not found"
         assert size["h"] >= MIN_TARGET, (
-            f"Budgets Create Budget button height {size['h']}px < {MIN_TARGET}px"
+            f"Budgets + Budget button height {size['h']}px < {MIN_TARGET}px"
         )
 
     def test_people_add_button_min_44px(self, page: Page) -> None:

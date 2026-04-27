@@ -91,7 +91,7 @@ def _post_transaction_with_attachment(page: Page, cat_id: str, amount: str, note
         headers={"X-CSRFToken": csrf},
     )
     assert resp.ok, f"Transaction create failed: {resp.status} {resp.text()}"
-    assert "Transaction saved!" in resp.text(), f"Unexpected response: {resp.text()[:200]}"
+    assert "deducted from" in resp.text(), f"Unexpected response: {resp.text()[:200]}"
 
     with _conn() as conn:
         with conn.cursor() as cur:
@@ -127,7 +127,7 @@ class TestAttachments:
             headers={"X-CSRFToken": csrf},
         )
         assert resp.ok
-        assert "Transaction saved!" in resp.text()
+        assert "deducted from" in resp.text()
 
     def test_attachment_stored_in_database(self, page: Page) -> None:
         """A transaction created with an attachment has a non-null attachment path in DB."""
@@ -196,4 +196,4 @@ class TestAttachments:
         )
         # Server returns error HTML (swap target with error message)
         assert "JPEG, PNG" in resp.text() or "image" in resp.text().lower()
-        assert "Transaction saved!" not in resp.text()
+        assert "deducted from" not in resp.text()

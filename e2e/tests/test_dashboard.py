@@ -332,9 +332,17 @@ class TestCashFlowForecast:
 
     def test_forecast_shows_negative_warning(self, page: Page) -> None:
         """Forecast displays warning when balance goes negative."""
+        import calendar
+
         global _user_id
         _, account_id = seed_basic_data(page)
-        next_due_date = date.today() + timedelta(days=5)
+        # Must land within the current month so the forecast window picks it up.
+        today = date.today()
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        month_end = date(today.year, today.month, last_day)
+        days_left = (month_end - today).days
+        # If at month end, use today; otherwise pick 1 day before end.
+        next_due_date = today + timedelta(days=min(max(days_left - 1, 0), days_left))
 
         # Create a large recurring expense that exceeds balance
         with _conn() as conn:

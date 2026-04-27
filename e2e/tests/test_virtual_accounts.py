@@ -10,7 +10,7 @@ UI notes:
 - Allocate: select[name="type"] with values "contribution"/"withdrawal"
 - Edit button on detail page: onclick="openEditVirtualAccount()" → loads form into
   bottom sheet #edit-virtual-account-content via HTMX
-- Empty state: "No virtual accounts yet. Create one above!"
+- Empty state: "No pots yet. Create one above!"
 """
 import sys
 import os
@@ -73,7 +73,7 @@ def auth(db: None, page: Page) -> None:
 class TestVirtualAccounts:
     def test_empty_state(self, page: Page) -> None:
         page.goto("/virtual-accounts")
-        expect(page.locator("main")).to_contain_text("No virtual accounts yet")
+        expect(page.locator("main")).to_contain_text("No pots yet")
 
     def test_create_virtual_account(self, page: Page) -> None:
         page.goto("/virtual-accounts")
@@ -159,7 +159,7 @@ class TestVirtualAccounts:
             lambda r: "archive" in r.url and r.request.method == "POST"
         ):
             page.click('button:has-text("Archive")')
-        expect(page.locator("main")).to_contain_text("No virtual accounts yet")
+        expect(page.locator("main")).to_contain_text("No pots yet")
 
     def test_auto_allocate_from_recurring_income(self, page: Page) -> None:
         """E2E test for enabling auto-allocate → confirming recurring → VA balance updated."""

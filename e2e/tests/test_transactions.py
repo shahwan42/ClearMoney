@@ -7,7 +7,7 @@ Balance flow: initial 10,000 → expense -150 → income +5,000 = 14,850
 UI notes:
 - Transaction type: radio buttons (input[name="type"]), NOT a select
 - Form: HTMX-based, posts to /transactions, result rendered in #transaction-result
-- Success template: shows "Transaction saved!" in bg-teal-50 div
+- Success template: shows balance info ("Balance:") in bg-teal-50 div
 - Search input: name="search" (id="search-input"), 300ms debounce via keyup/change
 - Type filter: select[name="type"] triggers HTMX immediately (no debounce)
 """
@@ -92,9 +92,7 @@ class TestTransactionCRUD:
         ):
             page.click('button[type="submit"]')
 
-        expect(page.locator("#transaction-result")).to_contain_text(
-            "Transaction saved!"
-        )
+        expect(page.locator("#transaction-result")).to_contain_text("Balance:")
         # 10,000 - 150 = 9,850
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("9,850")
@@ -116,9 +114,7 @@ class TestTransactionCRUD:
         ):
             page.click('button[type="submit"]')
 
-        expect(page.locator("#transaction-result")).to_contain_text(
-            "Transaction saved!"
-        )
+        expect(page.locator("#transaction-result")).to_contain_text("Balance:")
         # 10,000 + 5,000 = 15,000 (each test has a fresh account)
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("15,000")
@@ -390,9 +386,7 @@ class TestTransactionCRUD:
         ):
             page.click('button[type="submit"]')
 
-        expect(page.locator("#transaction-result")).to_contain_text(
-            "Transaction saved!"
-        )
+        expect(page.locator("#transaction-result")).to_contain_text("Balance:")
         # 10,000 - 500 (expense) - 25 (fee) = 9,475
         page.goto(f"/accounts/{_account_id}")
         expect(page.locator("main")).to_contain_text("9,475")
