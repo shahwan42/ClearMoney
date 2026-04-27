@@ -13,7 +13,7 @@
 | Models | `backend/core/models.py` — all models, `db_table` convention |
 | Request type | `backend/core/types.py` — `AuthenticatedRequest` |
 | Template filters | `backend/core/templatetags/money.py` |
-| Rules | `.gemini/rules/` — ticket-first, git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA, QA guidelines, critical paths, ticketing workflow |
+| Rules | `.gemini/rules/` — ticket-first, git workflow, production safety, coding conventions, TDD, delivery checklist, accessibility, pitfalls, auth flow, batch execution, accessibility QA, QA guidelines, critical paths, ticketing workflow, agent-testing, user-journeys |
 | Ticketing | `.tickets/` + `.gemini/rules/ticketing-workflow.md` (mechanics) + `.gemini/rules/ticket-first-workflow.md` (mandatory pre-code gate) — AI-managed development tickets, auto-created/updated by Gemini |
 | Workflows | `.gemini/rules/batch-execution-pattern.md` — multi-item batch workflows; `docs/reference/WCAG-AA-QUICK-REFERENCE.md` — WCAG 2.1 AA criteria & fixes |
 | Accessibility | `.gemini/rules/accessibility.md` — ARIA standards; `.gemini/rules/accessibility-qa-protocol.md` — QA verification gates |

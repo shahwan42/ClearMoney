@@ -62,6 +62,7 @@ var CategoryCombobox = (function() {
 
         this.textInput = document.createElement('input');
         this.textInput.type         = 'text';
+        this.textInput.setAttribute('data-testid', (this.container.id || 'category') + '-input');
         this.textInput.placeholder  = this.placeholder;
         this.textInput.autocomplete = 'off';
         this.textInput.maxLength    = 100;

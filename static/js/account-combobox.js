@@ -63,6 +63,7 @@ var AccountCombobox = (function() {
         this.textInput = document.createElement('input');
         this.textInput.type = 'text';
         if (this.inputId) this.textInput.id = this.inputId;
+        this.textInput.setAttribute('data-testid', (this.container.id || 'account') + '-input');
         this.textInput.placeholder = this.placeholder;
         this.textInput.autocomplete = 'off';
         this.textInput.spellcheck = false;

@@ -370,6 +370,20 @@ def test_cannot_access_other_users_transaction
 
 ---
 
+## 11. Agent-Ready QA Standards
+
+To ensure the app is easily testable by AI agents (manual or automated):
+
+1.  **Stable Selectors:** ALWAYS use `data-testid` for navigation and form controls. Never rely solely on localized text (e.g., "Save" vs "حفظ").
+2.  **HTMX Observability:** When writing Playwright tests or performing manual verification, utilize the `data-htmx-loading` body attribute. 
+    *   *Rule:* Never click or assert after an HTMX action until `body:not([data-htmx-loading])`.
+3.  **Bypass Barriers:** Utilize the `?dev=1` auth bypass and `/dev/seed` data shortcut for rapid environment setup.
+4.  **Custom Widgets:** Ensure all custom JS widgets (Comboboxes, etc.) expose their internal inputs via `data-testid`.
+
+See [Agent Testing Guide](./agent-testing.md) for full technical details.
+
+---
+
 ## Integration with Other Rules
 
 - **TDD workflow** (tdd-workflow.md): Always write RED test first, then GREEN implementation. This guideline is the **what to test**.

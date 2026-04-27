@@ -5,10 +5,15 @@ Uses DashboardService to aggregate all data, then renders templates.
 Like Laravel's DashboardController or Django's TemplateView.
 """
 
+import io
 import logging
+from contextlib import redirect_stdout
 from datetime import datetime
 
-from django.http import HttpResponse
+from django.conf import settings
+from django.contrib import messages
+from django.core.management import call_command
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
@@ -20,6 +25,28 @@ from .services.accounts import get_net_worth_breakdown
 from .services.calendar import CalendarService
 
 logger = logging.getLogger(__name__)
+
+
+@general_rate
+@require_http_methods(["GET"])
+def dev_seed(request: AuthenticatedRequest) -> HttpResponse:
+    """GET /dev/seed — Seed the DB with standard QA data for the current user.
+
+    Only available when DEBUG=True.
+    """
+    if not settings.DEBUG:
+        return HttpResponse("Forbidden", status=403)
+
+    out = io.StringIO()
+    with redirect_stdout(out):
+        try:
+            call_command("qa_seed", email=request.user_email)
+            messages.success(request, "Database seeded successfully!")
+        except Exception as e:
+            messages.error(request, f"Seeding failed: {e!s}")
+            logger.exception("dev_seed failed")
+
+    return HttpResponseRedirect("/")
 
 
 @general_rate

@@ -8,6 +8,7 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("dev/seed", views.dev_seed, name="dev-seed"),
     path("calendar", views.calendar_page, name="calendar"),
     path(
         "partials/recent-transactions",

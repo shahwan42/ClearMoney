@@ -52,6 +52,7 @@ Last updated: 2026-04-27 (tickets 515–516 added: agent autonomy + rule mirror 
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [517](done/517-agent-native-testing-shortcuts.md) | Agent-native testing shortcuts (dev login, seed, htmx loading, testids) | feature | medium | 2026-04-27 |
 | [515](done/515-agent-autonomy-and-ticket-journey-refs.md) | Agent autonomy guards + ticket user-journey refs | chore | medium | 2026-04-27 |
 | [505](done/505-fix-category-types-and-ux.md) | Fix category types and new category bottom sheet UX | feature | medium | 2026-04-27 |
 | [506](done/506-rename-gas-category-to-fuel.md) | Rename Gas category to Fuel | improvement | medium | 2026-04-27 |

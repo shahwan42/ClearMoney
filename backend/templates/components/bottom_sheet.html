@@ -13,7 +13,7 @@ Usage:
      data-bottom-sheet="{{ name }}"{% if persist %} data-bottom-sheet-persist{% endif %} role="dialog" aria-modal="true" aria-label="{{ aria_label|default:name }}" aria-hidden="true">
     <div id="{{ name }}-handle" class="flex justify-center items-center pt-3 pb-1 cursor-grab relative">
         <div class="w-10 h-1 bg-gray-300 dark:bg-slate-600 rounded-full"></div>
-        <button type="button" onclick="BottomSheet.close('{{ name }}')" aria-label="Close" class="absolute top-1 right-2 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
+        <button type="button" onclick="BottomSheet.close('{{ name }}')" data-testid="{{ name }}-close" aria-label="Close" class="absolute top-1 right-2 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900">
             <svg class="w-5 h-5 text-gray-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>

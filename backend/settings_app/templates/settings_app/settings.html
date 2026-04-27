@@ -148,6 +148,23 @@
         </div>
     </section>
 
+    {% if debug %}
+    {# Dev Tools — visible only in DEBUG=True #}
+    <section class="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-2xl shadow-sm p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <h3 class="text-sm font-medium text-amber-600 dark:text-amber-500 uppercase tracking-wide">{% trans "Dev Tools" %}</h3>
+                <p class="text-xs text-amber-500/70 dark:text-amber-600/70 mt-0.5">{% trans "Internal tools for testing and development" %}</p>
+            </div>
+            <a href="/dev/seed"
+               data-testid="dev-seed-button"
+               class="flex items-center gap-2 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-4 py-2 rounded-lg text-sm font-semibold min-h-[44px] transition-colors border border-amber-200 dark:border-amber-800">
+                🌱 {% trans "Seed Test Data" %}
+            </a>
+        </div>
+    </section>
+    {% endif %}
+
     {# Manage Categories #}
     <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <a href="/settings/categories" class="flex items-center justify-between min-h-[44px]">

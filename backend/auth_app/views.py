@@ -10,18 +10,22 @@ Auth pages use bare layout (no header/nav) and standard form POST
 """
 
 import logging
+import secrets
 import time
+from datetime import timedelta
 
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.utils import timezone as django_tz
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from auth_app.models import Session
+from auth_app.models import AuthToken, Session, User
 from auth_app.services import (
     SESSION_COOKIE_NAME,
     SESSION_MAX_AGE_SECONDS,
+    TOKEN_TTL_MINUTES,
     SendResult,
     auth_service,
 )
@@ -40,6 +44,22 @@ logger = logging.getLogger(__name__)
 @require_http_methods(["GET", "POST"])
 def auth_view(request: HttpRequest) -> HttpResponse:
     """GET /login — render unified auth page. POST /login — request magic link."""
+    # Development shortcut: skip magic link entirely if ?dev=1 is passed
+    if settings.DEBUG and request.GET.get("dev") == "1":
+        test_email = "test@clearmoney.app"
+        # Ensure test user exists
+        User.objects.get_or_create(email=test_email)
+        # Create a login token
+        token = secrets.token_urlsafe(32)
+        AuthToken.objects.create(
+            email=test_email,
+            token=token,
+            purpose="login",
+            expires_at=django_tz.now() + timedelta(minutes=TOKEN_TTL_MINUTES),
+        )
+        logger.info("auth: dev shortcut triggered for %s", test_email)
+        return HttpResponseRedirect(f"/auth/verify?token={token}")
+
     if request.method == "POST":
         return _auth_submit(request)
 
@@ -47,7 +67,10 @@ def auth_view(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "auth_app/auth.html",
-        {"render_time": int(time.time())},
+        {
+            "render_time": int(time.time()),
+            "dev_mode": settings.DEBUG,
+        },
     )
 
 

@@ -248,3 +248,15 @@ If a critical path fails:
    - Check browser console for JS errors
    - Verify DB state with SQL query
 8. **Once fixed, re-run that CP** before merging
+
+---
+
+## Agent Shortcuts (Dev Only)
+
+To speed up manual verification and testing, use these internal tools (only active when `DEBUG=True`):
+
+*   **Bypass Auth:** Navigate to `/login?dev=1` to instantly log in as `test@clearmoney.app`.
+*   **Seed Data:** Navigate to `/dev/seed` to populate the DB with a full QA dataset (accounts, transactions, budgets).
+*   **Observe HTMX:** Wait for `body:not([data-htmx-loading])` in Playwright scripts to ensure page stability.
+
+See [Agent Testing Guide](./agent-testing.md) for full details.

@@ -76,6 +76,7 @@
 
       // Global skeleton loading handler
       document.addEventListener('htmx:beforeRequest', function(evt) {
+        document.body.setAttribute('data-htmx-loading', 'true');
         var target = evt.detail.target;
         if (!target || !target.id) return;
 
@@ -102,6 +103,7 @@
       });
 
       document.addEventListener('htmx:afterSettle', function(evt) {
+        document.body.removeAttribute('data-htmx-loading');
         var target = evt.detail.target;
         if (target && target.hasAttribute('aria-busy')) {
           target.setAttribute('aria-busy', 'false');
