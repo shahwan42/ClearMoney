@@ -2905,7 +2905,9 @@ class TestPendingCreate:
                 "date": date(2026, 3, 15),
             }
         )
-        assert Decimal(str(Account.objects.get(id=tx_data["egp_id"]).current_balance)) == Decimal("9700.00")
+        assert Decimal(
+            str(Account.objects.get(id=tx_data["egp_id"]).current_balance)
+        ) == Decimal("9700.00")
 
 
 class TestSettle:
@@ -2944,7 +2946,9 @@ class TestSettle:
         assert Decimal(str(settled["original_amount"])) == Decimal("100.00")
         # Balance: 10000 - 100 (pending) + 1.50 (refund) = 9901.50
         assert Decimal(new_bal) == Decimal("9901.50")
-        assert Decimal(str(Account.objects.get(id=tx_data["egp_id"]).current_balance)) == Decimal("9901.50")
+        assert Decimal(
+            str(Account.objects.get(id=tx_data["egp_id"]).current_balance)
+        ) == Decimal("9901.50")
 
     def test_settle_higher_amount_charges_difference(self, tx_data):
         from decimal import Decimal
@@ -2955,7 +2959,9 @@ class TestSettle:
         assert Decimal(str(settled["amount"])) == Decimal("102.30")
         # Balance: 10000 - 100 (pending) - 2.30 (extra) = 9897.70
         assert Decimal(new_bal) == Decimal("9897.70")
-        assert Decimal(str(Account.objects.get(id=tx_data["egp_id"]).current_balance)) == Decimal("9897.70")
+        assert Decimal(
+            str(Account.objects.get(id=tx_data["egp_id"]).current_balance)
+        ) == Decimal("9897.70")
 
     def test_settle_preserves_original_amount(self, tx_data):
         from decimal import Decimal

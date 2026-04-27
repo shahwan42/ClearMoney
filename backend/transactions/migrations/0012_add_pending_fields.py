@@ -4,20 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('transactions', '0011_transaction_is_roundup_and_more'),
+        ("transactions", "0011_transaction_is_roundup_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='transaction',
-            name='is_pending',
+            model_name="transaction",
+            name="is_pending",
             field=models.BooleanField(db_default=False, default=False),
         ),
         migrations.AddField(
-            model_name='transaction',
-            name='original_amount',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=15, null=True),
+            model_name="transaction",
+            name="original_amount",
+            field=models.DecimalField(
+                blank=True, decimal_places=2, max_digits=15, null=True
+            ),
         ),
     ]

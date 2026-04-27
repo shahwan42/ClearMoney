@@ -84,7 +84,9 @@ def _tx_instance_to_dict(tx: Transaction) -> dict[str, Any]:
         "balance_delta": str(tx.balance_delta),
         "is_verified": tx.is_verified,
         "is_pending": tx.is_pending,
-        "original_amount": str(tx.original_amount) if tx.original_amount is not None else None,
+        "original_amount": str(tx.original_amount)
+        if tx.original_amount is not None
+        else None,
         "amount_color_class": amount_color,
         "indicator_color": indicator_color,
         "created_at": tx.created_at,
@@ -281,6 +283,7 @@ class TransactionServiceBase:
             )
 
         tx_dict = _tx_instance_to_dict(tx_obj)
+        tx_dict["account_name"] = acc["name"]
         new_balance = acc["current_balance"] + delta
 
         logger.info(
@@ -1087,7 +1090,9 @@ class TransactionServiceBase:
             tx_obj.balance_delta = new_delta
             tx_obj.is_pending = False
             tx_obj.updated_at = now
-            tx_obj.save(update_fields=["amount", "balance_delta", "is_pending", "updated_at"])
+            tx_obj.save(
+                update_fields=["amount", "balance_delta", "is_pending", "updated_at"]
+            )
 
             if balance_adjustment != 0:
                 Account.objects.for_user(self.user_id).filter(
