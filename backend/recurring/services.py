@@ -143,6 +143,10 @@ class RecurringService:
         if not next_due_date:
             raise ValueError("next_due_date is required")
         auto_confirm = bool(data.get("auto_confirm", False))
+        if auto_confirm and tmpl.get("type") == "exchange":
+            raise ValueError(
+                "Exchange rules cannot use auto_confirm — rate must be confirmed manually"
+            )
 
         rule = RecurringRule.objects.create(
             user_id=self.user_id,
@@ -156,11 +160,48 @@ class RecurringService:
         logger.info("recurring.created frequency=%s user=%s", frequency, self.user_id)
         return _instance_to_rule(rule)
 
+    def update(self, rule_id: str, data: dict[str, Any]) -> RecurringRulePending:
+        """Update an existing recurring rule.
+
+        Supports partial updates — only provided keys are changed.
+        Raises ValueError if rule not found or validation fails.
+        """
+        rule = self._qs().filter(id=rule_id).first()
+        if not rule:
+            raise ValueError(f"Recurring rule not found: {rule_id}")
+
+        if "template_transaction" in data:
+            rule.template_transaction = data["template_transaction"]
+        if "frequency" in data:
+            rule.frequency = data["frequency"]
+        if "next_due_date" in data:
+            rule.next_due_date = data["next_due_date"]
+        if "auto_confirm" in data:
+            auto_confirm = bool(data["auto_confirm"])
+            if auto_confirm and rule.template_transaction.get("type") == "exchange":
+                raise ValueError(
+                    "Exchange rules cannot use auto_confirm — rate must be confirmed manually"
+                )
+            rule.auto_confirm = auto_confirm
+
+        rule.save(
+            update_fields=[
+                "template_transaction",
+                "frequency",
+                "next_due_date",
+                "auto_confirm",
+                "updated_at",
+            ]
+        )
+        logger.info("recurring.updated id=%s user=%s", rule_id, self.user_id)
+        return _instance_to_rule(rule)
+
     def confirm(self, rule_id: str, overrides: dict[str, Any] | None = None) -> None:
         """Execute a pending rule — create transaction + advance due date.
 
         If overrides are provided, they take precedence over the template transaction.
-        Supported overrides: amount, account_id, category_id, note, date, counter_account_id.
+        Supported overrides: amount, account_id, category_id, note, date,
+        counter_account_id, exchange_rate, tags, va_id, fee_amount.
         """
         rule = self.get_by_id(rule_id)
         if not rule:
@@ -251,30 +292,43 @@ class RecurringService:
             or "EGP"
         )
 
-        if tx_type == "transfer":
+        if tx_type in ("transfer", "exchange"):
             counter_account_id = data.get("counter_account_id", "")
             if not counter_account_id:
-                raise ValueError("Destination account is required for transfers")
+                raise ValueError(
+                    "Destination account is required for transfers/exchanges"
+                )
             if counter_account_id == account_id:
                 raise ValueError("Source and destination accounts must be different")
 
             template: dict[str, Any] = {
-                "type": "transfer",
+                "type": tx_type,
                 "amount": amount,
                 "currency": currency,
                 "account_id": account_id,
                 "counter_account_id": counter_account_id,
             }
 
-            # Parse optional fee
+            # Parse optional fee (transfers only)
             fee_str = data.get("fee_amount", "")
             if fee_str:
                 try:
-                    fee_amount = float(fee_str)
-                    if fee_amount > 0:
-                        template["fee_amount"] = fee_amount
+                    fee_val = float(fee_str)
+                    if fee_val > 0:
+                        template["fee_amount"] = fee_val
                 except (ValueError, TypeError):
                     pass
+
+            # Exchange rate — optional at rule creation
+            if tx_type == "exchange":
+                rate_str = data.get("exchange_rate", "")
+                if rate_str:
+                    try:
+                        rate_val = float(rate_str)
+                        if rate_val > 0:
+                            template["exchange_rate"] = rate_val
+                    except (ValueError, TypeError):
+                        pass
         else:
             template = {
                 "type": tx_type,
@@ -285,6 +339,22 @@ class RecurringService:
             category_id = data.get("category_id")
             if category_id:
                 template["category_id"] = category_id
+
+            # Optional fields for expense/income
+            tags = data.get("tags", "")
+            if tags:
+                template["tags"] = tags
+            va_id = data.get("va_id", "")
+            if va_id:
+                template["va_id"] = va_id
+            fee_str = data.get("fee_amount", "")
+            if fee_str:
+                try:
+                    fee_val = float(fee_str)
+                    if fee_val > 0:
+                        template["fee_amount"] = fee_val
+                except (ValueError, TypeError):
+                    pass
 
         note = data.get("note")
         if note:
@@ -362,7 +432,9 @@ class RecurringService:
 
         tx_svc = TransactionService(self.user_id, self.tz)
 
-        if tmpl.get("type") == "transfer":
+        tx_type = tmpl.get("type", "expense")
+
+        if tx_type in ("transfer", "exchange"):
             counter_account_id = overrides.get("counter_account_id") or tmpl.get(
                 "counter_account_id", ""
             )
@@ -371,19 +443,47 @@ class RecurringService:
                     f"Recurring rule {rule.id} has no counter_account_id "
                     "— destination account may have been deleted"
                 )
-            tx_svc.create_transfer(
-                source_id=account_id,
-                dest_id=counter_account_id,
-                amount=float(amount or 0),
-                currency=None,
-                note=note,
-                tx_date=tx_date,
-                fee_amount=tmpl.get("fee_amount"),
-            )
+
+            if tx_type == "exchange":
+                exchange_rate = overrides.get("exchange_rate") or tmpl.get(
+                    "exchange_rate"
+                )
+                if not exchange_rate:
+                    raise ValueError(
+                        "Exchange rate is required to confirm an exchange rule"
+                    )
+                tx_svc.create_exchange(
+                    source_id=account_id,
+                    dest_id=counter_account_id,
+                    amount=float(amount or 0),
+                    rate=float(exchange_rate),
+                    counter_amount=None,
+                    note=note,
+                    tx_date=tx_date,
+                )
+            else:
+                tx_svc.create_transfer(
+                    source_id=account_id,
+                    dest_id=counter_account_id,
+                    amount=float(amount or 0),
+                    currency=None,
+                    note=note,
+                    tx_date=tx_date,
+                    fee_amount=tmpl.get("fee_amount"),
+                )
         else:
             category_id = overrides.get("category_id") or tmpl.get("category_id")
+            tags = overrides.get("tags") if "tags" in overrides else tmpl.get("tags")
+            va_id = (
+                overrides.get("va_id") if "va_id" in overrides else tmpl.get("va_id")
+            )
+            fee_amount = (
+                overrides.get("fee_amount")
+                if "fee_amount" in overrides
+                else tmpl.get("fee_amount")
+            )
             tx_data: dict[str, Any] = {
-                "type": tmpl.get("type", "expense"),
+                "type": tx_type,
                 "amount": amount,
                 "account_id": account_id,
                 "date": tx_date,
@@ -393,7 +493,16 @@ class RecurringService:
                 tx_data["category_id"] = category_id
             if note:
                 tx_data["note"] = note
-            tx_svc.create(tx_data)
+            if tags:
+                tx_data["tags"] = tags
+            created_tx, _ = tx_svc.create(tx_data)
+            if fee_amount or va_id:
+                tx_svc.apply_post_create_logic(
+                    created_tx,
+                    fee_amount=float(fee_amount) if fee_amount else None,
+                    va_id=va_id,
+                    tx_date=tx_date,
+                )
 
         next_date = self._advance_due_date(rule)
         self._update_next_due_date(rule.id, next_date)

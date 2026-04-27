@@ -36,6 +36,16 @@ urlpatterns = [
         name="recurring-skip",
     ),
     path(
+        "recurring/<uuid:rule_id>/edit",
+        views.recurring_edit_form,
+        name="recurring-edit-form",
+    ),
+    path(
+        "recurring/<uuid:rule_id>/update",
+        views.recurring_update,
+        name="recurring-update",
+    ),
+    path(
         "recurring/<uuid:rule_id>",
         views.recurring_delete,
         name="recurring-delete",

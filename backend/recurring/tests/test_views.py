@@ -223,25 +223,22 @@ class TestRecurringAdd:
         )
         assert response.status_code == 200
         body = response.content
-        # account selected
-        sel = (f'value="{rec_view_data["account_id"]}" selected').encode()
+        # account selected via combobox data-selected-id attribute
+        sel = (f'data-selected-id="{rec_view_data["account_id"]}"').encode()
         assert sel in body
-        # quarterly selected
-        assert b'value="quarterly" selected' in body
-        # auto_confirm checked
-        assert b'name="auto_confirm" value="true" checked' in body
+        # quarterly selected in frequency dropdown
+        assert b'value="quarterly"' in body and b"quarterly" in body
+        # auto_confirm toggle shows on state (aria-checked=true)
+        assert b'aria-checked="true"' in body
 
     def test_form_get_blank_no_sticky(self, client, rec_view_data):
-        """GET /recurring/form without params returns blank form (no auto_confirm)."""
+        """GET /recurring/form without params returns blank form (auto_confirm off)."""
         c = set_auth_cookie(client, rec_view_data["session_token"])
         response = c.get("/recurring/form")
         assert response.status_code == 200
         body = response.content
-        assert (
-            b"checked" not in body
-            or b"auto_confirm" not in body
-            or (b'name="auto_confirm" value="true" checked' not in body)
-        )
+        # auto_confirm toggle should be off (aria-checked=false)
+        assert b'aria-checked="false"' in body
 
     def test_missing_amount_400(self, client, rec_view_data):
         c = set_auth_cookie(client, rec_view_data["session_token"])
@@ -615,3 +612,210 @@ class TestRecurringAddTransfer:
         )
         assert source_bal == 17000.0  # 20000 - 3000
         assert dest_bal == 8000.0  # 5000 + 3000
+
+
+# ---------------------------------------------------------------------------
+# Edit rule
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestRecurringEdit:
+    def test_edit_form_get_returns_prefilled(self, client, rec_view_data):
+        """GET /recurring/{id}/edit returns form pre-filled with rule data."""
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        _create_rule(
+            c,
+            {
+                "type": "expense",
+                "amount": "250",
+                "account_id": rec_view_data["account_id"],
+                "note": "EditMe",
+                "frequency": "monthly",
+                "next_due_date": "2026-05-01",
+            },
+        )
+        rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
+        assert rule is not None
+
+        response = c.get(f"/recurring/{rule.id}/edit")
+        assert response.status_code == 200
+        body = response.content
+        assert b"Edit Automation" in body
+        assert b"EditMe" in body
+
+    def test_edit_form_nonexistent_404(self, client, rec_view_data):
+        import uuid
+
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        response = c.get(f"/recurring/{uuid.uuid4()}/edit")
+        assert response.status_code == 404
+
+    def test_update_changes_frequency(self, client, rec_view_data):
+        """POST /recurring/{id}/update changes the rule's frequency."""
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        _create_rule(
+            c,
+            {
+                "type": "expense",
+                "amount": "100",
+                "account_id": rec_view_data["account_id"],
+                "frequency": "monthly",
+                "next_due_date": "2026-05-01",
+            },
+        )
+        rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
+        assert rule is not None
+
+        response = c.post(
+            f"/recurring/{rule.id}/update",
+            {
+                "type": "expense",
+                "amount": "100",
+                "account_id": rec_view_data["account_id"],
+                "frequency": "weekly",
+                "next_due_date": "2026-05-05",
+            },
+        )
+        assert response.status_code == 200
+
+        rule.refresh_from_db()
+        assert rule.frequency == "weekly"
+
+    def test_update_invalid_amount_400(self, client, rec_view_data):
+        c = set_auth_cookie(client, rec_view_data["session_token"])
+        _create_rule(
+            c,
+            {
+                "type": "expense",
+                "amount": "100",
+                "account_id": rec_view_data["account_id"],
+                "frequency": "monthly",
+                "next_due_date": "2026-05-01",
+            },
+        )
+        rule = RecurringRule.objects.filter(user_id=rec_view_data["user_id"]).first()
+        assert rule is not None
+
+        response = c.post(
+            f"/recurring/{rule.id}/update",
+            {
+                "type": "expense",
+                "amount": "",  # invalid
+                "account_id": rec_view_data["account_id"],
+                "frequency": "weekly",
+                "next_due_date": "2026-05-05",
+            },
+        )
+        assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Exchange rule
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def exchange_view_data(db):
+    """User + session + EGP + USD accounts for exchange rule view tests."""
+    user = UserFactory()
+    session = SessionFactory(user=user)
+    user_id = str(user.id)
+
+    inst = InstitutionFactory(user_id=user.id)
+    egp = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="EGP Account",
+        currency="EGP",
+        current_balance=50000,
+        initial_balance=50000,
+    )
+    usd = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="USD Account",
+        currency="USD",
+        current_balance=1000,
+        initial_balance=1000,
+    )
+
+    yield {
+        "user_id": user_id,
+        "session_token": session.token,
+        "egp_id": str(egp.id),
+        "usd_id": str(usd.id),
+    }
+
+
+@pytest.mark.django_db
+class TestRecurringExchange:
+    def test_creates_exchange_rule(self, client, exchange_view_data):
+        """POST /recurring/add with type=exchange creates an exchange rule."""
+        c = set_auth_cookie(client, exchange_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "exchange",
+                "amount": "3000",
+                "account_id": exchange_view_data["egp_id"],
+                "counter_account_id": exchange_view_data["usd_id"],
+                "note": "Monthly savings",
+                "frequency": "monthly",
+                "next_due_date": "2026-05-01",
+            },
+        )
+        assert response.status_code == 200
+
+        rule = RecurringRule.objects.filter(
+            user_id=exchange_view_data["user_id"]
+        ).first()
+        assert rule is not None
+        assert rule.template_transaction["type"] == "exchange"
+        assert (
+            rule.template_transaction["counter_account_id"]
+            == exchange_view_data["usd_id"]
+        )
+
+    def test_exchange_auto_confirm_rejected(self, client, exchange_view_data):
+        """Exchange rule with auto_confirm=true returns 400."""
+        c = set_auth_cookie(client, exchange_view_data["session_token"])
+        response = c.post(
+            "/recurring/add",
+            {
+                "type": "exchange",
+                "amount": "3000",
+                "account_id": exchange_view_data["egp_id"],
+                "counter_account_id": exchange_view_data["usd_id"],
+                "frequency": "monthly",
+                "next_due_date": "2026-05-01",
+                "auto_confirm": "true",
+            },
+        )
+        assert response.status_code == 400
+
+    def test_confirm_exchange_rule_with_rate(self, client, exchange_view_data):
+        """Confirming an exchange rule with a rate creates exchange transactions."""
+        c = set_auth_cookie(client, exchange_view_data["session_token"])
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        c.post(
+            "/recurring/add",
+            {
+                "type": "exchange",
+                "amount": "3000",
+                "account_id": exchange_view_data["egp_id"],
+                "counter_account_id": exchange_view_data["usd_id"],
+                "frequency": "monthly",
+                "next_due_date": yesterday,
+            },
+        )
+        rule = RecurringRule.objects.filter(
+            user_id=exchange_view_data["user_id"]
+        ).first()
+        assert rule is not None
+
+        response = c.post(f"/recurring/{rule.id}/confirm", {"exchange_rate": "50.0"})
+        assert response.status_code == 200
+
+        txs = Transaction.objects.filter(type="exchange")
+        assert txs.count() == 2

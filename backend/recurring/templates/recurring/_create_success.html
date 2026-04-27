@@ -21,15 +21,13 @@
 
     <div class="flex gap-2">
         <button type="button"
-                hx-get="/recurring/form"
-                hx-target="#recurring-form-container"
-                hx-swap="innerHTML"
+                onclick="BottomSheet.close('new-automation-sheet')"
                 class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 py-2 rounded-xl text-sm font-semibold">
             {% trans "Done" %}
         </button>
         <button type="button"
                 hx-get="/recurring/form?account_id={{ sticky.account_id }}&frequency={{ sticky.frequency }}{% if sticky.auto_confirm %}&auto_confirm=true{% endif %}"
-                hx-target="#recurring-form-container"
+                hx-target="#new-automation-sheet-content"
                 hx-swap="innerHTML"
                 class="flex-1 bg-teal-600 text-white py-2 rounded-xl text-sm font-semibold hover:bg-teal-700">
             {% trans "Add another" %}

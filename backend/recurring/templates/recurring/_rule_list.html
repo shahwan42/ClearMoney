@@ -3,7 +3,9 @@
 <div class="divide-y divide-gray-100 dark:divide-gray-700">
     {% for rule in rules %}
     <div class="flex items-center justify-between py-2">
-        <div>
+        <button type="button"
+                onclick="openEditAutomationSheet('{{ rule.id }}')"
+                class="flex-1 text-left min-h-[44px] flex flex-col justify-center pr-2">
             <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{{ rule.note }}</p>
             <p class="text-xs text-gray-400">
                 {% if rule.is_transfer %}
@@ -14,18 +16,19 @@
                     {{ rule.account_name }}{% if rule.category_name %} &middot; {{ rule.category_name }}{% endif %} &middot;
                 {% endif %}
                 {% trans rule.frequency %} &middot; {% trans "Next" %}: {{ rule.next_due_date|date:"M j, Y" }}
-                {% if rule.auto_confirm %}<span class="text-teal-600 dark:text-teal-400">{% trans "auto" %}</span>{% endif %}
+                {% if rule.auto_confirm %}<span class="text-teal-600 dark:text-teal-400"> · {% trans "auto" %}</span>{% endif %}
             </p>
-        </div>
-        <div class="flex items-center gap-2">
+        </button>
+        <div class="flex items-center gap-2 shrink-0">
             <span class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ rule.amount_display }}</span>
             <button hx-delete="/recurring/{{ rule.id }}" hx-target="#recurring-list" hx-swap="innerHTML"
                     hx-ext="confirm-dialog" hx-confirm="{% trans 'Delete this automation?' %}"
-                    class="text-red-400 hover:text-red-600 text-xs">{% trans "Del" %}</button>
+                    aria-label="{% trans "Delete automation" %}"
+                    class="text-red-400 hover:text-red-600 text-xs min-h-[44px] px-1">{% trans "Del" %}</button>
         </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
-<p class="text-sm text-gray-400 text-center">{% trans "No automations yet." %}</p>
+<p class="text-sm text-gray-400 text-center py-4">{% trans "No automations yet. Tap + Automation to create one." %}</p>
 {% endif %}

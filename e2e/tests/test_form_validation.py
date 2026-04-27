@@ -240,12 +240,17 @@ class TestPeopleFormValidation:
 
 
 class TestRecurringFormValidation:
-    """Test inline validation on recurring rule form."""
+    """Test inline validation on recurring rule form (lives in bottom sheet)."""
+
+    def _open_sheet(self, page: Page) -> None:
+        page.goto("/recurring")
+        page.click('button:has-text("+ Automation")')
+        page.wait_for_selector("#rec-form", timeout=5000)
 
     def test_recurring_amount_validates_minimum(self, page: Page) -> None:
         """Recurring amount validates minimum value."""
-        page.goto("/recurring")
-        amount_input = page.locator('input[name="amount"]')
+        self._open_sheet(page)
+        amount_input = page.locator("#rec-amount")
 
         # Fill with invalid value and blur
         amount_input.fill("0")
@@ -254,25 +259,25 @@ class TestRecurringFormValidation:
         # Should show error
         expect(amount_input).to_have_attribute("aria-invalid", "true")
         expect(
-            page.locator('input[name="amount"] + div[role="alert"]')
+            page.locator("#rec-amount + div[role='alert']")
         ).to_contain_text("Amount must be greater than 0")
 
     def test_recurring_note_character_count(self, page: Page) -> None:
         """Recurring note shows character count."""
-        page.goto("/recurring")
-        note_input = page.locator("#recurring-note-input")
+        self._open_sheet(page)
+        note_input = page.locator("#rec-note-input")
 
         # Type some characters
         note_input.fill("Monthly payment")
 
         # Should show character count
-        expect(page.locator("#recurring-note-input-count")).to_be_visible()
-        expect(page.locator("#recurring-note-input-count")).to_contain_text("15/200")
+        expect(page.locator("#rec-note-input-count")).to_be_visible()
+        expect(page.locator("#rec-note-input-count")).to_contain_text("15/200")
 
     def test_recurring_date_rejects_future(self, page: Page) -> None:
         """Recurring next due date rejects future dates."""
-        page.goto("/recurring")
-        date_input = page.locator("#recurring-next-due")
+        self._open_sheet(page)
+        date_input = page.locator("#rec-next-due")
 
         # Set a future date directly and dispatch blur to trigger validation
         date_input.evaluate("""el => {
@@ -282,7 +287,7 @@ class TestRecurringFormValidation:
 
         # Should show error
         expect(date_input).to_have_attribute("aria-invalid", "true")
-        expect(page.locator("#recurring-next-due-error")).to_contain_text(
+        expect(page.locator("#rec-next-due-error")).to_contain_text(
             "Date cannot be in the future"
         )
 

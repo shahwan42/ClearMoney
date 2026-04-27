@@ -161,6 +161,7 @@ class TestVirtualAccounts:
             page.click('button:has-text("Archive")')
         expect(page.locator("main")).to_contain_text("No pots yet")
 
+    @pytest.mark.timeout(90)
     def test_auto_allocate_from_recurring_income(self, page: Page) -> None:
         """E2E test for enabling auto-allocate → confirming recurring → VA balance updated."""
         from conftest import get_category_id
@@ -178,29 +179,34 @@ class TestVirtualAccounts:
         ):
             page.click('button[type="submit"]')
             
-        # 2. Go to recurring and create income rule
+        # 2. Go to recurring and create income rule (form is in bottom sheet)
         page.goto("/recurring")
+        page.click('button:has-text("+ Automation")')
+        page.wait_for_selector("#rec-form", timeout=5000)
         page.click('input[name="type"][value="income"]', force=True)
-        page.fill('input[name="amount"]', "2000")
-        page.select_option('select[name="account_id"]', _account_id)
+        page.fill("#rec-amount", "2000")
         page.evaluate(
-            f"document.querySelector('[data-category-combobox]')._combobox.selectById('{category_id}')"
+            f"document.getElementById('rec-account-combobox')._accountCombobox.selectById('{_account_id}')"
         )
-        page.fill('input[name="note"]', "Salary")
-        page.select_option('select[name="frequency"]', "monthly")
-        page.fill('input[name="next_due_date"]', "2026-04-01")
+        page.evaluate(
+            f"document.getElementById('rec-category-combobox')._combobox.selectById('{category_id}')"
+        )
+        page.fill("#rec-note-input", "Salary")
+        page.select_option("#rec-frequency", "monthly")
+        page.fill("#rec-next-due", "2026-04-01")
         with page.expect_response(
             lambda r: "/recurring/add" in r.url and r.request.method == "POST"
         ):
-            page.click('button[type="submit"]')
-        
-        # 3. Navigate back to recurring page to see the pending rule section
-        # (HTMX form submission only updates #recurring-list, not the pending section)
+            page.click('button:has-text("Create Rule")')
+
+        # 3. Navigate to recurring page fresh (sheet closed) to see the pending rule section
         page.goto("/recurring")
 
-        # Confirm the pending rule
+        # Open the confirm form sheet and submit it
+        page.click('button:has-text("Confirm")')
+        page.wait_for_selector("#recurring-confirm-form", timeout=5000)
         with page.expect_response(lambda r: "confirm" in r.url and r.request.method == "POST"):
-            page.click('button:has-text("Confirm")')
+            page.click('#recurring-confirm-form button[type="submit"]')
             
         # 4. Check VA balance updated
         page.goto("/virtual-accounts")

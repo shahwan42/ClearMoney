@@ -846,3 +846,470 @@ class TestRuleToViewTransfer:
 
         view = svc.rule_to_view(rule)
         assert view["is_transfer"] is False
+
+
+# ---------------------------------------------------------------------------
+# build_template_transaction — exchange support + tags/va_id/fee for all types
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def exchange_data(db):
+    """User + two different-currency accounts for exchange rule tests."""
+    user = UserFactory()
+    SessionFactory(user=user)
+    user_id = str(user.id)
+
+    inst = InstitutionFactory(user_id=user.id)
+    egp_acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="EGP Account",
+        currency="EGP",
+        current_balance=50000,
+        initial_balance=50000,
+    )
+    usd_acct = AccountFactory(
+        user_id=user.id,
+        institution_id=inst.id,
+        name="USD Account",
+        currency="USD",
+        current_balance=1000,
+        initial_balance=1000,
+    )
+
+    yield {
+        "user_id": user_id,
+        "egp_id": str(egp_acct.id),
+        "usd_id": str(usd_acct.id),
+    }
+
+
+@pytest.mark.django_db
+class TestBuildTemplateTransactionExchange:
+    def test_exchange_type_stored(self, exchange_data):
+        svc = _svc(exchange_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "exchange",
+                "account_id": exchange_data["egp_id"],
+                "counter_account_id": exchange_data["usd_id"],
+                "amount": 3000.0,
+            }
+        )
+        assert tmpl["type"] == "exchange"
+        assert tmpl["account_id"] == exchange_data["egp_id"]
+        assert tmpl["counter_account_id"] == exchange_data["usd_id"]
+        assert tmpl["amount"] == 3000.0
+
+    def test_exchange_optional_rate_stored(self, exchange_data):
+        svc = _svc(exchange_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "exchange",
+                "account_id": exchange_data["egp_id"],
+                "counter_account_id": exchange_data["usd_id"],
+                "amount": 3000.0,
+                "exchange_rate": 50.5,
+            }
+        )
+        assert tmpl["exchange_rate"] == 50.5
+
+    def test_exchange_without_rate_ok(self, exchange_data):
+        """Rate is optional at rule creation."""
+        svc = _svc(exchange_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "exchange",
+                "account_id": exchange_data["egp_id"],
+                "counter_account_id": exchange_data["usd_id"],
+                "amount": 3000.0,
+            }
+        )
+        assert "exchange_rate" not in tmpl
+
+    def test_exchange_missing_dest_raises(self, exchange_data):
+        svc = _svc(exchange_data["user_id"])
+        with pytest.raises(ValueError, match="[Dd]estination"):
+            svc.build_template_transaction(
+                {
+                    "type": "exchange",
+                    "account_id": exchange_data["egp_id"],
+                    "amount": 3000.0,
+                }
+            )
+
+    def test_exchange_same_account_raises(self, exchange_data):
+        svc = _svc(exchange_data["user_id"])
+        with pytest.raises(ValueError, match="[Dd]ifferent"):
+            svc.build_template_transaction(
+                {
+                    "type": "exchange",
+                    "account_id": exchange_data["egp_id"],
+                    "counter_account_id": exchange_data["egp_id"],
+                    "amount": 3000.0,
+                }
+            )
+
+
+@pytest.mark.django_db
+class TestBuildTemplateTransactionOptionalFields:
+    def test_expense_stores_tags(self, rec_data):
+        svc = _svc(rec_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "expense",
+                "account_id": rec_data["account_id"],
+                "amount": 100.0,
+                "tags": "food,dining",
+            }
+        )
+        assert tmpl["tags"] == "food,dining"
+
+    def test_expense_stores_va_id(self, rec_data):
+        svc = _svc(rec_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "expense",
+                "account_id": rec_data["account_id"],
+                "amount": 100.0,
+                "va_id": "some-va-uuid",
+            }
+        )
+        assert tmpl["va_id"] == "some-va-uuid"
+
+    def test_expense_stores_fee(self, rec_data):
+        svc = _svc(rec_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "expense",
+                "account_id": rec_data["account_id"],
+                "amount": 100.0,
+                "fee_amount": 5.0,
+            }
+        )
+        assert tmpl["fee_amount"] == 5.0
+
+    def test_income_stores_tags_and_va_id(self, rec_data):
+        svc = _svc(rec_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "income",
+                "account_id": rec_data["account_id"],
+                "amount": 5000.0,
+                "tags": "salary",
+                "va_id": "va-123",
+            }
+        )
+        assert tmpl["tags"] == "salary"
+        assert tmpl["va_id"] == "va-123"
+
+    def test_missing_optional_fields_not_stored(self, rec_data):
+        svc = _svc(rec_data["user_id"])
+        tmpl = svc.build_template_transaction(
+            {
+                "type": "expense",
+                "account_id": rec_data["account_id"],
+                "amount": 100.0,
+            }
+        )
+        assert "tags" not in tmpl
+        assert "va_id" not in tmpl
+        assert "fee_amount" not in tmpl
+
+
+# ---------------------------------------------------------------------------
+# create — exchange + auto_confirm validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestCreateExchangeAutoConfirm:
+    def test_exchange_with_auto_confirm_raises(self, exchange_data):
+        """Exchange rules cannot have auto_confirm=True (rate changes daily)."""
+        svc = _svc(exchange_data["user_id"])
+        with pytest.raises(
+            ValueError, match="[Ee]xchange.*auto.confirm|auto.confirm.*[Ee]xchange"
+        ):
+            svc.create(
+                {
+                    "template_transaction": {
+                        "type": "exchange",
+                        "amount": 3000.0,
+                        "currency": "EGP",
+                        "account_id": exchange_data["egp_id"],
+                        "counter_account_id": exchange_data["usd_id"],
+                    },
+                    "frequency": "monthly",
+                    "next_due_date": date.today(),
+                    "auto_confirm": True,
+                }
+            )
+
+    def test_exchange_with_auto_confirm_false_ok(self, exchange_data):
+        svc = _svc(exchange_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": {
+                    "type": "exchange",
+                    "amount": 3000.0,
+                    "currency": "EGP",
+                    "account_id": exchange_data["egp_id"],
+                    "counter_account_id": exchange_data["usd_id"],
+                },
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+        assert rule.id
+        assert rule.auto_confirm is False
+
+
+# ---------------------------------------------------------------------------
+# update — new method
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestUpdate:
+    def test_update_changes_frequency_and_due_date(self, rec_data):
+        svc = _svc(rec_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": _make_template(rec_data),
+                "frequency": "monthly",
+                "next_due_date": date(2026, 5, 1),
+                "auto_confirm": False,
+            }
+        )
+
+        updated = svc.update(
+            rule.id,
+            {
+                "template_transaction": _make_template(rec_data, amount=200.0),
+                "frequency": "weekly",
+                "next_due_date": date(2026, 5, 15),
+                "auto_confirm": True,
+            },
+        )
+        assert updated.frequency == "weekly"
+        assert updated.next_due_date == date(2026, 5, 15)
+        assert updated.auto_confirm is True
+        assert updated.template_transaction["amount"] == 200.0
+
+    def test_update_nonexistent_raises(self, rec_data):
+        import uuid
+
+        svc = _svc(rec_data["user_id"])
+        with pytest.raises(ValueError, match="[Nn]ot found"):
+            svc.update(str(uuid.uuid4()), {"frequency": "weekly"})
+
+    def test_update_exchange_auto_confirm_raises(self, exchange_data):
+        svc = _svc(exchange_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": {
+                    "type": "exchange",
+                    "amount": 3000.0,
+                    "currency": "EGP",
+                    "account_id": exchange_data["egp_id"],
+                    "counter_account_id": exchange_data["usd_id"],
+                },
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+        with pytest.raises(
+            ValueError, match="[Ee]xchange.*auto.confirm|auto.confirm.*[Ee]xchange"
+        ):
+            svc.update(rule.id, {"auto_confirm": True})
+
+
+# ---------------------------------------------------------------------------
+# _execute_rule — exchange execution + tags/va_id/fee passthrough
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestExecuteExchangeRule:
+    def test_confirm_exchange_creates_transaction(self, exchange_data):
+        """Confirming exchange rule with rate creates exchange transactions."""
+        svc = _svc(exchange_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": {
+                    "type": "exchange",
+                    "amount": 3000.0,
+                    "currency": "EGP",
+                    "account_id": exchange_data["egp_id"],
+                    "counter_account_id": exchange_data["usd_id"],
+                },
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        # Rate required at confirm time
+        svc.confirm(rule.id, overrides={"exchange_rate": 50.0})
+
+        txs = list(
+            Transaction.objects.filter(type="exchange").order_by("balance_delta")
+        )
+        assert len(txs) == 2
+
+    def test_confirm_exchange_without_rate_raises(self, exchange_data):
+        """Confirming exchange rule without rate raises ValueError."""
+        svc = _svc(exchange_data["user_id"])
+        rule = svc.create(
+            {
+                "template_transaction": {
+                    "type": "exchange",
+                    "amount": 3000.0,
+                    "currency": "EGP",
+                    "account_id": exchange_data["egp_id"],
+                    "counter_account_id": exchange_data["usd_id"],
+                },
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        with pytest.raises(ValueError, match="[Rr]ate.*required|[Ee]xchange.*rate"):
+            svc.confirm(rule.id)
+
+    def test_confirm_exchange_advances_due_date(self, exchange_data):
+        svc = _svc(exchange_data["user_id"])
+        today = date.today()
+        rule = svc.create(
+            {
+                "template_transaction": {
+                    "type": "exchange",
+                    "amount": 3000.0,
+                    "currency": "EGP",
+                    "account_id": exchange_data["egp_id"],
+                    "counter_account_id": exchange_data["usd_id"],
+                },
+                "frequency": "weekly",
+                "next_due_date": today,
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id, overrides={"exchange_rate": 50.0})
+
+        updated = svc.get_by_id(rule.id)
+        assert updated is not None
+        assert updated.next_due_date == today + timedelta(days=7)
+
+
+@pytest.mark.django_db
+class TestExecuteRuleTagsAndFee:
+    def test_confirm_expense_with_tags_applies_tags(self, rec_data):
+        """Tags stored in template are applied to created transaction."""
+        svc = _svc(rec_data["user_id"])
+        tmpl = _make_template(rec_data, tags="food,dining")
+        rule = svc.create(
+            {
+                "template_transaction": tmpl,
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id)
+
+        tx = Transaction.objects.prefetch_related("tags").get(
+            recurring_rule_id=UUID(rule.id)
+        )
+        tag_names = {t.name for t in tx.tags.all()}
+        assert "food" in tag_names
+        assert "dining" in tag_names
+
+    def test_confirm_with_tags_override(self, rec_data):
+        """Tags override at confirm time replaces template tags."""
+        svc = _svc(rec_data["user_id"])
+        tmpl = _make_template(rec_data, tags="old-tag")
+        rule = svc.create(
+            {
+                "template_transaction": tmpl,
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id, overrides={"tags": "new-tag"})
+
+        tx = Transaction.objects.prefetch_related("tags").get(
+            recurring_rule_id=UUID(rule.id)
+        )
+        tag_names = {t.name for t in tx.tags.all()}
+        assert "new-tag" in tag_names
+        assert "old-tag" not in tag_names
+
+    def test_confirm_expense_with_fee_creates_fee_tx(self, rec_data):
+        """Fee stored in template is applied via apply_post_create_logic."""
+        from tests.factories import CategoryFactory
+
+        CategoryFactory(
+            user_id=rec_data["user_id"],
+            name={"en": "Fees & Charges"},
+            type="expense",
+        )
+
+        svc = _svc(rec_data["user_id"])
+        tmpl = _make_template(rec_data, fee_amount=10.0)
+        rule = svc.create(
+            {
+                "template_transaction": tmpl,
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id)
+
+        # Should have main tx + fee tx
+        fee_txs = Transaction.objects.filter(
+            note="Transaction fee",
+            linked_transaction__recurring_rule_id=UUID(rule.id),
+        )
+        assert fee_txs.exists()
+
+    def test_confirm_with_fee_override(self, rec_data):
+        """Fee override at confirm overrides template fee."""
+        from tests.factories import CategoryFactory
+
+        CategoryFactory(
+            user_id=rec_data["user_id"],
+            name={"en": "Fees & Charges"},
+            type="expense",
+        )
+
+        svc = _svc(rec_data["user_id"])
+        tmpl = _make_template(rec_data)
+        rule = svc.create(
+            {
+                "template_transaction": tmpl,
+                "frequency": "monthly",
+                "next_due_date": date.today(),
+                "auto_confirm": False,
+            }
+        )
+
+        svc.confirm(rule.id, overrides={"fee_amount": 15.0})
+
+        fee_txs = Transaction.objects.filter(
+            note="Transaction fee",
+            linked_transaction__recurring_rule_id=UUID(rule.id),
+        )
+        assert fee_txs.exists()
+        fee_tx = fee_txs.first()
+        assert fee_tx is not None
+        assert float(fee_tx.amount) == 15.0

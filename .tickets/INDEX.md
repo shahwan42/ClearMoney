@@ -6,6 +6,7 @@ Last updated: 2026-04-27
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [503](wip/503-automation-unified-form-redesign.md) | Automation unified form redesign | improvement | high | 2026-04-27 |
 | [165](wip/165-single-entry-loans.md) | Single-entry loans | feature | medium | 2026-04-27 |
 
 

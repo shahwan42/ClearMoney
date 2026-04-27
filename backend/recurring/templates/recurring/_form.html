@@ -1,153 +1,397 @@
 {% load money %}
 {% load i18n %}
-<div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 space-y-3">
-    <h3 class="text-base font-bold text-slate-800 dark:text-slate-200">{% trans "New Automation" %}</h3>
+{% with tmpl=rule.template_transaction|default_if_none:None %}
+<h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">
+    {% if editing %}{% trans "Edit Automation" %}{% else %}{% trans "New Automation" %}{% endif %}
+</h3>
 
-    <form hx-post="/recurring/add" hx-target="#recurring-form-container" hx-swap="innerHTML" class="space-y-3">
-        {% csrf_token %}
+<div id="rec-form-result" aria-live="polite"></div>
 
-        {# Transaction type radio #}
-        <fieldset class="border-0 p-0 m-0">
-            <legend class="sr-only">{% trans "Transaction type" %}</legend>
-            <div class="flex gap-2">
-                <label class="flex-1">
-                    <input type="radio" name="type" value="expense" class="sr-only peer" checked
-                           onchange="toggleRecurringType()">
-                    <div class="text-center py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
-                                peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-300 dark:peer-checked:border-red-700 peer-checked:text-red-700 dark:peer-checked:text-red-400">
-                        {% trans "Expense" %}
-                    </div>
-                </label>
-                <label class="flex-1">
-                    <input type="radio" name="type" value="income" class="sr-only peer"
-                           onchange="toggleRecurringType()">
-                    <div class="text-center py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
-                                peer-checked:bg-green-50 dark:peer-checked:bg-green-900/20 peer-checked:border-green-300 dark:peer-checked:border-green-700 peer-checked:text-green-700 dark:peer-checked:text-green-400">
-                        {% trans "Income" %}
-                    </div>
-                </label>
-                <label class="flex-1">
-                    <input type="radio" name="type" value="transfer" class="sr-only peer"
-                           onchange="toggleRecurringType()">
-                    <div class="text-center py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm cursor-pointer
-                                peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 peer-checked:border-blue-300 dark:peer-checked:border-blue-700 peer-checked:text-blue-700 dark:peer-checked:text-blue-400">
-                        {% trans "Transfer" %}
-                    </div>
-                </label>
+<form
+    {% if editing %}
+    hx-post="/recurring/{{ rule.id }}/update"
+    hx-target="#recurring-list"
+    hx-swap="innerHTML"
+    {% else %}
+    hx-post="/recurring/add"
+    hx-target="#rec-form-result"
+    hx-swap="innerHTML"
+    {% endif %}
+    hx-disabled-elt="find button[type='submit']"
+    class="space-y-4 overflow-hidden"
+    id="rec-form"
+>
+    {% csrf_token %}
+
+    {# Type radio — expense / income / transfer / exchange #}
+    <fieldset class="border-0 p-0 m-0">
+        <legend class="sr-only">{% trans "Transaction type" %}</legend>
+        <div class="flex gap-2">
+            {% with selected_type=tmpl.type|default:"expense" %}
+            <label class="flex-1">
+                <input type="radio" name="type" value="expense"
+                       {% if not editing or selected_type == "expense" %}checked{% endif %}
+                       class="peer sr-only" onchange="recToggleType('expense')">
+                <div class="peer-checked:bg-red-50 dark:peer-checked:bg-red-900/20 peer-checked:border-red-400 peer-checked:text-red-700 dark:peer-checked:text-red-400 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
+                    {% trans "Expense" %}
+                </div>
+            </label>
+            <label class="flex-1">
+                <input type="radio" name="type" value="income"
+                       {% if editing and selected_type == "income" %}checked{% endif %}
+                       class="peer sr-only" onchange="recToggleType('income')">
+                <div class="peer-checked:bg-teal-50 dark:peer-checked:bg-teal-900/20 peer-checked:border-teal-400 peer-checked:text-teal-700 dark:peer-checked:text-teal-400 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
+                    {% trans "Income" %}
+                </div>
+            </label>
+            <label class="flex-1">
+                <input type="radio" name="type" value="transfer"
+                       {% if editing and selected_type == "transfer" %}checked{% endif %}
+                       class="peer sr-only" onchange="recToggleType('transfer')">
+                <div class="peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 peer-checked:border-blue-400 peer-checked:text-blue-700 dark:peer-checked:text-blue-400 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
+                    {% trans "Transfer" %}
+                </div>
+            </label>
+            <label class="flex-1">
+                <input type="radio" name="type" value="exchange"
+                       {% if editing and selected_type == "exchange" %}checked{% endif %}
+                       class="peer sr-only" onchange="recToggleType('exchange')">
+                <div class="peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/20 peer-checked:border-purple-400 peer-checked:text-purple-700 dark:peer-checked:text-purple-400 border-2 border-gray-100 dark:border-slate-700 rounded-2xl py-3 min-h-[48px] text-center text-sm font-semibold cursor-pointer transition-all flex items-center justify-center">
+                    {% trans "Exchange" %}
+                </div>
+            </label>
+            {% endwith %}
+        </div>
+    </fieldset>
+
+    {# Amount #}
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-amount">
+            {% trans "Amount" %} <span class="text-red-500" aria-hidden="true">*</span>
+        </label>
+        <input type="number" name="amount" id="rec-amount" step="0.01" min="0.01" required
+               data-validate="required,min:0.01"
+               value="{{ tmpl.amount|default:'' }}"
+               placeholder="0.00" inputmode="decimal"
+               class="w-full text-3xl font-bold text-center border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+    </div>
+
+    {# Account combobox + category #}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="rec-account-label">
+                {% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <div data-account-combobox
+                 data-accounts='{{ expense_accounts|accounts_json }}'
+                 data-expense-accounts='{{ expense_accounts|accounts_json }}'
+                 data-income-accounts='{{ income_accounts|accounts_json }}'
+                 data-transfer-accounts='{{ transfer_accounts|accounts_json }}'
+                 data-name="account_id"
+                 data-input-id="rec-account-picker-input"
+                 data-labelledby="rec-account-label"
+                 data-selected-id="{% if tmpl %}{{ tmpl.account_id }}{% else %}{{ sticky.account_id }}{% endif %}"
+                 data-placeholder="{% trans "Search accounts..." %}"
+                 data-required="true"
+                 id="rec-account-combobox">
             </div>
-        </fieldset>
-
-        {# Amount #}
-        <div>
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Amount" %}</label>
-            <input type="number" name="amount" step="0.01" min="0.01" required
-                   placeholder="0.00" inputmode="decimal"
-                   data-validate="required,min:0.01"
-                    class="w-full text-lg font-bold text-center border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400 bg-white dark:bg-gray-700 dark:text-white">
         </div>
 
-        {# Account (source for transfers) #}
-        <div>
-            <label id="recurring-account-label"
-                   data-account-label="{% trans "Account" %}"
-                   data-from-account-label="{% trans "From Account" %}"
-                   class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Account" %}</label>
-            <select name="account_id" id="recurring-account-select" required data-validate="required" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
-                {% for acc in accounts %}
-                <option value="{{ acc.id }}"{% if sticky.account_id == acc.id %} selected{% endif %}>{{ acc.name }} ({{ acc.currency }})</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        {# Destination account (transfer only) #}
-        <div id="recurring-dest-account" class="hidden">
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "To Account" %}</label>
-            <select name="counter_account_id" class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
-                <option value="">{% trans "Select destination..." %}</option>
-                {% for acc in accounts %}
-                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
-                {% endfor %}
-            </select>
-        </div>
-
-        {# Fee (transfer only) #}
-        <div id="recurring-fee" class="hidden">
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Fee (optional)" %}</label>
-            <input type="number" name="fee_amount" step="0.01" min="0" placeholder="0.00" inputmode="decimal"
-                   data-validate="min:0"
-                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
-        </div>
-
-        {# Category (expense/income only) #}
-        <div id="recurring-category">
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Category" %}</label>
+        <div id="rec-category-container">
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" id="rec-category-label">
+                {% trans "Category" %}
+            </label>
             <div data-category-combobox
                  data-categories='{{ categories|categories_json }}'
                  data-name="category_id"
+                 data-selected-id="{{ tmpl.category_id|default:'' }}"
                  data-placeholder="{% trans "Search categories..." %}"
-                 data-allow-empty="true">
+                 data-allow-empty="true"
+                 id="rec-category-combobox">
             </div>
         </div>
 
-        {# Note #}
-        <div>
-            <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Note" %}</label>
-            <input type="text" name="note" id="recurring-note-input" placeholder="{% trans "e.g., Monthly insurance" %}" maxlength="200"
-                   data-validate="maxlength:200"
-                   class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white">
+        <div id="rec-dest-account-container" class="hidden">
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-dest-account-select">
+                {% trans "To Account" %} <span class="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <select name="counter_account_id" id="rec-dest-account-select"
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                <option value="">{% trans "Select destination..." %}</option>
+                {% for acc in transfer_accounts %}
+                <option value="{{ acc.id }}"{% if tmpl.counter_account_id == acc.id %} selected{% endif %}>
+                    {{ acc.name }} ({{ acc.currency }})
+                </option>
+                {% endfor %}
+            </select>
         </div>
+    </div>
 
-        {# Frequency + Next Due Date #}
-        <div class="grid grid-cols-2 gap-2">
+    {# Note #}
+    <div>
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-note-input">
+            {% trans "Note (optional)" %}
+        </label>
+        <input type="text" name="note" id="rec-note-input" maxlength="200"
+               data-validate="maxlength:200"
+               value="{{ tmpl.note|default:'' }}"
+               placeholder="{% trans "e.g., Monthly insurance" %}"
+               class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+    </div>
+
+    {# Tags (always visible, hidden for transfer/exchange) #}
+    <div id="rec-tags-container">
+        <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-tags-input">
+            {% trans "Tags (comma-separated)" %}
+        </label>
+        <input type="text" name="tags" id="rec-tags-input" maxlength="500"
+               value="{{ tmpl.tags|default:'' }}"
+               placeholder="{% trans "vacation, wedding..." %}"
+               class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+    </div>
+
+    {# Scheduling section — always visible #}
+    <div class="border-t border-gray-100 dark:border-slate-700 pt-4 space-y-3">
+        <p class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wide">{% trans "Schedule" %}</p>
+
+        <div class="grid grid-cols-2 gap-3">
             <div>
-                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Frequency" %}</label>
-                <select name="frequency" required class="w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
-                    <option value="weekly"{% if sticky.frequency == "weekly" %} selected{% endif %}>{% trans "Weekly" %}</option>
-                    <option value="biweekly"{% if sticky.frequency == "biweekly" %} selected{% endif %}>{% trans "Bi-weekly" %}</option>
-                    <option value="monthly"{% if sticky.frequency == "monthly" %} selected{% endif %}>{% trans "Monthly" %}</option>
-                    <option value="quarterly"{% if sticky.frequency == "quarterly" %} selected{% endif %}>{% trans "Quarterly" %}</option>
-                    <option value="yearly"{% if sticky.frequency == "yearly" %} selected{% endif %}>{% trans "Yearly" %}</option>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-frequency">
+                    {% trans "Frequency" %}
+                </label>
+                <select name="frequency" id="rec-frequency" required
+                    class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                    <option value="weekly"{% if rule.frequency == "weekly" or sticky.frequency == "weekly" %} selected{% endif %}>{% trans "Weekly" %}</option>
+                    <option value="biweekly"{% if rule.frequency == "biweekly" or sticky.frequency == "biweekly" %} selected{% endif %}>{% trans "Bi-weekly" %}</option>
+                    <option value="monthly"{% if rule.frequency == "monthly" or sticky.frequency == "monthly" or not rule.frequency and not sticky.frequency %} selected{% endif %}>{% trans "Monthly" %}</option>
+                    <option value="quarterly"{% if rule.frequency == "quarterly" or sticky.frequency == "quarterly" %} selected{% endif %}>{% trans "Quarterly" %}</option>
+                    <option value="yearly"{% if rule.frequency == "yearly" or sticky.frequency == "yearly" %} selected{% endif %}>{% trans "Yearly" %}</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Next Due" %}</label>
-                <input type="date" name="next_due_date" id="recurring-next-due" value="{{ today|date:'Y-m-d' }}" required
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-next-due">
+                    {% trans "Next Due" %}
+                </label>
+                <input type="date" name="next_due_date" id="rec-next-due" required
                        data-validate="required,date:not-future"
-                       class="w-full min-w-0 max-w-full border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white">
+                       value="{{ rule.next_due_date|date:'Y-m-d'|default:today|date:'Y-m-d' }}"
+                       class="w-full min-w-0 max-w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
             </div>
         </div>
 
-        {# Auto-confirm checkbox #}
+        {# Auto-confirm toggle — disabled for exchange type #}
+        <div id="rec-auto-confirm-container" class="flex items-center justify-between py-1">
+            <div>
+                <label for="rec-auto-confirm-toggle" class="text-xs text-gray-500 dark:text-slate-400 font-medium cursor-pointer select-none">
+                    {% trans "Auto-create" %}
+                </label>
+                <p id="rec-auto-confirm-desc" class="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">
+                    {% trans "Create automatically without confirmation" %}
+                </p>
+            </div>
+            {% with is_on=rule.auto_confirm|default:sticky.auto_confirm %}
+            <button type="button" id="rec-auto-confirm-toggle" role="switch"
+                    aria-checked="{{ is_on|yesno:'true,false' }}"
+                    onclick="(function(btn){var on=btn.getAttribute('aria-checked')==='true';btn.setAttribute('aria-checked',String(!on));btn.classList.toggle('bg-teal-600',!on);btn.classList.toggle('dark:bg-teal-500',!on);btn.classList.toggle('bg-slate-200',on);btn.classList.toggle('dark:bg-slate-600',on);btn.querySelector('span').style.transform=on?'translateX(0)':'translateX(1.25rem)';document.getElementById('rec-auto-confirm-input').value=(!on)?'true':''})(this)"
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent {% if is_on %}bg-teal-600 dark:bg-teal-500{% else %}bg-slate-200 dark:bg-slate-600{% endif %} transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                    aria-label="{% trans "Auto-create without confirmation" %}">
+                <span aria-hidden="true"
+                      class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200"
+                      style="transform:{{ is_on|yesno:'translateX(1.25rem),translateX(0)' }}"></span>
+            </button>
+            <input type="hidden" name="auto_confirm" id="rec-auto-confirm-input" value="{{ is_on|yesno:'true,' }}">
+            {% endwith %}
+        </div>
+    </div>
+
+    {# More options toggle #}
+    <button type="button" id="rec-more-options-toggle"
+        aria-expanded="false" aria-controls="rec-more-options"
+        class="text-sm text-teal-600 hover:text-teal-800 font-medium flex items-center gap-1 transition-colors min-h-[44px]">
+        <svg id="rec-more-options-chevron" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+        </svg>
+        {% trans "More options" %}
+    </button>
+
+    <div id="rec-more-options" class="hidden space-y-4 overflow-hidden">
+        {# Fee (all types) #}
         <div>
-            <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                <input type="checkbox" name="auto_confirm" value="true"{% if sticky.auto_confirm %} checked{% endif %} class="rounded">
-                {% trans "Auto-create (no confirmation needed)" %}
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-fee-input">
+                {% trans "Fee (optional)" %}
             </label>
+            <input type="number" name="fee_amount" id="rec-fee-input" step="0.01" min="0"
+                   value="{{ tmpl.fee_amount|default:'' }}"
+                   placeholder="0.00" inputmode="decimal"
+                   class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
         </div>
 
-        <button type="submit"
-                class="w-full bg-teal-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-teal-700">
-            {% trans "Create Rule" %}
-        </button>
-    </form>
-</div>
+        {# Pot / virtual account (expense/income only) #}
+        {% if virtual_accounts %}
+        <div id="rec-va-container">
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-va-select">
+                {% trans "Pot (optional)" %}
+            </label>
+            <select name="va_id" id="rec-va-select"
+                class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+                <option value="">{% trans "None" %}</option>
+                {% for va in virtual_accounts %}
+                <option value="{{ va.id }}" data-account-id="{{ va.account_id|default:'' }}"
+                    {% if tmpl.va_id == va.id|stringformat:"s" %}selected{% endif %}>
+                    {{ va.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        {# Exchange rate (exchange type only) #}
+        <div id="rec-exchange-rate-container" class="hidden">
+            <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="rec-exchange-rate">
+                {% trans "Exchange Rate (optional — enter at confirmation)" %}
+            </label>
+            <input type="number" name="exchange_rate" id="rec-exchange-rate" step="0.0001" min="0"
+                   value="{{ tmpl.exchange_rate|default:'' }}"
+                   placeholder="{% trans "e.g., 50.25" %}" inputmode="decimal"
+                   class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
+        </div>
+    </div>
+
+    <button type="submit"
+        class="relative w-full bg-teal-600 text-white py-3 min-h-[44px] rounded-xl text-base font-semibold hover:bg-teal-700 active:scale-[0.98] transition-all flex items-center justify-center overflow-hidden">
+        <span class="btn-label" id="rec-submit-label">
+            {% if editing %}{% trans "Save Changes" %}{% else %}{% trans "Create Rule" %}{% endif %}
+        </span>
+        <span class="btn-spinner hidden">
+            <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </span>
+    </button>
+</form>
+{% endwith %}
 
 <script>
-function toggleRecurringType() {
-    const type = document.querySelector('input[name="type"]:checked')?.value;
-    const isTransfer = type === 'transfer';
+(function() {
+    var initialType = document.querySelector('#rec-form input[name="type"]:checked')?.value || 'expense';
 
-    const destSection = document.getElementById('recurring-dest-account');
-    const feeSection = document.getElementById('recurring-fee');
-    const categorySection = document.getElementById('recurring-category');
-    const accountLabel = document.getElementById('recurring-account-label');
+    function recToggleType(mode) {
+        var isTransferOrExchange = (mode === 'transfer' || mode === 'exchange');
+        var isExchange = (mode === 'exchange');
 
-    if (destSection) destSection.classList.toggle('hidden', !isTransfer);
-    if (feeSection) feeSection.classList.toggle('hidden', !isTransfer);
-    if (categorySection) categorySection.classList.toggle('hidden', isTransfer);
-    if (accountLabel) {
-        const label = isTransfer ? accountLabel.dataset.fromAccountLabel : accountLabel.dataset.accountLabel;
-        if (label) accountLabel.textContent = label;
+        document.getElementById('rec-category-container').classList.toggle('hidden', isTransferOrExchange);
+        document.getElementById('rec-tags-container').classList.toggle('hidden', isTransferOrExchange);
+        document.getElementById('rec-dest-account-container').classList.toggle('hidden', !isTransferOrExchange);
+
+        var vaCont = document.getElementById('rec-va-container');
+        if (vaCont) vaCont.classList.toggle('hidden', isTransferOrExchange);
+
+        var exRateCont = document.getElementById('rec-exchange-rate-container');
+        if (exRateCont) exRateCont.classList.toggle('hidden', !isExchange);
+
+        // Disable auto-confirm for exchange (exchange + auto_confirm not allowed)
+        var autoConfirmContainer = document.getElementById('rec-auto-confirm-container');
+        var autoConfirmToggle = document.getElementById('rec-auto-confirm-toggle');
+        var autoConfirmInput = document.getElementById('rec-auto-confirm-input');
+        if (isExchange) {
+            if (autoConfirmContainer) autoConfirmContainer.title = '{% trans "Exchange rules require manual confirmation" %}';
+            if (autoConfirmToggle) {
+                autoConfirmToggle.setAttribute('aria-checked', 'false');
+                autoConfirmToggle.setAttribute('disabled', 'true');
+                autoConfirmToggle.style.opacity = '0.4';
+                autoConfirmToggle.style.cursor = 'not-allowed';
+                autoConfirmToggle.onclick = null;
+                autoConfirmToggle.classList.remove('bg-teal-600', 'dark:bg-teal-500');
+                autoConfirmToggle.classList.add('bg-slate-200', 'dark:bg-slate-600');
+                autoConfirmToggle.querySelector('span').style.transform = 'translateX(0)';
+            }
+            if (autoConfirmInput) autoConfirmInput.value = '';
+        } else if (autoConfirmToggle && autoConfirmToggle.hasAttribute('disabled')) {
+            autoConfirmToggle.removeAttribute('disabled');
+            autoConfirmToggle.style.opacity = '';
+            autoConfirmToggle.style.cursor = '';
+            autoConfirmToggle.onclick = function(){ (function(btn){var on=btn.getAttribute('aria-checked')==='true';btn.setAttribute('aria-checked',String(!on));btn.classList.toggle('bg-teal-600',!on);btn.classList.toggle('dark:bg-teal-500',!on);btn.classList.toggle('bg-slate-200',on);btn.classList.toggle('dark:bg-slate-600',on);btn.querySelector('span').style.transform=on?'translateX(0)':'translateX(1.25rem)';document.getElementById('rec-auto-confirm-input').value=(!on)?'true':''})(this); };
+        }
+
+        var destSelect = document.getElementById('rec-dest-account-select');
+        if (destSelect) destSelect.required = isTransferOrExchange;
+
+        var acctLabel = document.getElementById('rec-account-label');
+        if (acctLabel) {
+            acctLabel.innerHTML = isTransferOrExchange
+                ? '{% trans "From Account" %} <span class="text-red-500" aria-hidden="true">*</span>'
+                : '{% trans "Account" %} <span class="text-red-500" aria-hidden="true">*</span>';
+        }
+
+        recApplyAccountRanking(mode);
     }
-}
+
+    function recApplyAccountRanking(mode) {
+        var comboEl = document.getElementById('rec-account-combobox');
+        if (!window.AccountCombobox || !comboEl) return;
+        if (!comboEl._accountCombobox) new AccountCombobox(comboEl);
+        var attr = 'data-expense-accounts';
+        if (mode === 'income') attr = 'data-income-accounts';
+        if (mode === 'transfer' || mode === 'exchange') attr = 'data-transfer-accounts';
+        var accounts = JSON.parse(comboEl.getAttribute(attr) || '[]');
+        comboEl._accountCombobox.setAccounts(accounts);
+    }
+
+    // Expose for inline onchange handlers
+    window.recToggleType = recToggleType;
+
+    // More options toggle
+    var recMoreToggle = document.getElementById('rec-more-options-toggle');
+    var recMorePanel = document.getElementById('rec-more-options');
+    var recMoreChevron = document.getElementById('rec-more-options-chevron');
+    if (recMoreToggle) {
+        recMoreToggle.addEventListener('click', function() {
+            var expanded = recMoreToggle.getAttribute('aria-expanded') === 'true';
+            recMorePanel.classList.toggle('hidden', expanded);
+            recMoreToggle.setAttribute('aria-expanded', String(!expanded));
+            if (recMoreChevron) recMoreChevron.style.transform = expanded ? '' : 'rotate(180deg)';
+        });
+    }
+
+    // Init combobox
+    var acctComboEl = document.getElementById('rec-account-combobox');
+    if (window.AccountCombobox && acctComboEl && !acctComboEl._accountCombobox) {
+        new AccountCombobox(acctComboEl);
+    }
+
+    // Filter virtual accounts by selected account
+    var acctInput = document.querySelector('#rec-account-combobox input[name="account_id"]');
+    function filterRecVAs() {
+        var vaSelect = document.getElementById('rec-va-select');
+        if (!acctInput || !vaSelect || !acctInput.value) return;
+        var selectedAcct = acctInput.value;
+        vaSelect.querySelectorAll('option').forEach(function(opt) {
+            if (!opt.value) return;
+            var vaAcctId = opt.getAttribute('data-account-id');
+            var hide = vaAcctId && vaAcctId !== selectedAcct;
+            opt.hidden = hide;
+            opt.disabled = hide;
+        });
+        if (vaSelect.selectedOptions[0] && vaSelect.selectedOptions[0].hidden) vaSelect.value = '';
+    }
+    if (acctInput) acctInput.addEventListener('change', filterRecVAs);
+    filterRecVAs();
+
+    // Apply initial type state
+    recToggleType(initialType);
+    recApplyAccountRanking(initialType);
+
+    // Open more options if editing and fee/va/rate have values
+    {% if editing %}
+    var hasFee = document.getElementById('rec-fee-input')?.value;
+    var hasRate = document.getElementById('rec-exchange-rate')?.value;
+    var hasVa = document.getElementById('rec-va-select')?.value;
+    if (hasFee || hasRate || hasVa) {
+        recMorePanel.classList.remove('hidden');
+        recMoreToggle.setAttribute('aria-expanded', 'true');
+        if (recMoreChevron) recMoreChevron.style.transform = 'rotate(180deg)';
+    }
+    {% endif %}
+})();
 </script>

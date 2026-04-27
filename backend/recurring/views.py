@@ -21,7 +21,6 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from accounts.services import AccountService
 from categories.models import Category
 from core.decorators import inject_service
 from core.htmx import success_html
@@ -30,6 +29,7 @@ from core.types import AuthenticatedRequest
 from core.utils import parse_float_or_none
 from recurring.services import RecurringService
 from transactions.models import Transaction
+from transactions.services import TransactionService
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,32 @@ def _render_rule_list(
 # ---------------------------------------------------------------------------
 # Page view
 # ---------------------------------------------------------------------------
+
+
+def _get_form_context(
+    request: AuthenticatedRequest, sticky: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Build context for the automation form (new and edit)."""
+    tx_svc = TransactionService(request.user_id, request.tz)
+    expense_accounts = tx_svc.get_accounts("expense")
+    income_accounts = tx_svc.get_accounts("income")
+    transfer_accounts = tx_svc.get_accounts()
+    virtual_accounts = tx_svc.get_virtual_accounts()
+    categories = _get_categories(request)
+    s = sticky or {}
+    return {
+        "expense_accounts": expense_accounts,
+        "income_accounts": income_accounts,
+        "transfer_accounts": transfer_accounts,
+        "virtual_accounts": virtual_accounts,
+        "categories": categories,
+        "today": datetime.now(request.tz).date(),
+        "sticky": {
+            "account_id": s.get("account_id", ""),
+            "frequency": s.get("frequency", ""),
+            "auto_confirm": s.get("auto_confirm", False),
+        },
+    }
 
 
 @inject_service(RecurringService)
@@ -172,21 +198,15 @@ def recurring_page(
     rule_views = [svc.rule_to_view(r) for r in rules]
     pending_views = [svc.rule_to_view(r) for r in pending]
 
-    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
-    categories = _get_categories(request)
-
-    return render(
-        request,
-        "recurring/recurring.html",
+    ctx = _get_form_context(request)
+    ctx.update(
         {
             "rules": rule_views,
             "pending_rules": pending_views,
-            "accounts": accounts,
-            "categories": categories,
-            "today": datetime.now(request.tz).date(),
             "active_tab": "more",
-        },
+        }
     )
+    return render(request, "recurring/recurring.html", ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -303,23 +323,13 @@ def recurring_form(
     Used by the success sheet's "Done" (no params → blank form) and
     "Add another" (params → sticky prefill) buttons.
     """
-    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
-    categories = _get_categories(request)
     sticky = {
         "account_id": request.GET.get("account_id", ""),
         "frequency": request.GET.get("frequency", ""),
         "auto_confirm": request.GET.get("auto_confirm") == "true",
     }
-    return render(
-        request,
-        "recurring/_form.html",
-        {
-            "accounts": accounts,
-            "categories": categories,
-            "today": datetime.now(request.tz).date(),
-            "sticky": sticky,
-        },
-    )
+    ctx = _get_form_context(request, sticky=sticky)
+    return render(request, "recurring/_form.html", ctx)
 
 
 # ---------------------------------------------------------------------------
@@ -339,19 +349,18 @@ def recurring_confirm_form(
         return HttpResponse("Not found", status=404)
 
     rule_view = svc.rule_to_view(rule)
-    accounts = AccountService(request.user_id, request.tz).get_for_dropdown()
-    categories = _get_categories(request)
-
-    return render(
-        request,
-        "recurring/_confirm_form.html",
-        {
-            "rule": rule_view,
-            "accounts": accounts,
-            "categories": categories,
-            "today": datetime.now(request.tz).date(),
-        },
-    )
+    ctx = _get_form_context(request)
+    ctx["rule"] = rule_view
+    # from=recurring → targets #recurring-list, closes confirm-rule-sheet
+    # default (calendar) → targets #recurring-calendar-list, closes tx-detail
+    from_page = request.GET.get("from", "")
+    if from_page == "recurring":
+        ctx["hx_target"] = "#recurring-list"
+        ctx["sheet_name"] = "confirm-rule-sheet"
+    else:
+        ctx["hx_target"] = "#recurring-calendar-list"
+        ctx["sheet_name"] = "tx-detail"
+    return render(request, "recurring/_confirm_form.html", ctx)
 
 
 @inject_service(RecurringService)
@@ -385,6 +394,18 @@ def recurring_confirm(
         overrides["date"] = request.POST.get("date")
     if "counter_account_id" in request.POST:
         overrides["counter_account_id"] = request.POST.get("counter_account_id")
+    if "exchange_rate" in request.POST:
+        rate = parse_float_or_none(request.POST.get("exchange_rate", ""))
+        if rate is not None:
+            overrides["exchange_rate"] = rate
+    if "tags" in request.POST:
+        overrides["tags"] = request.POST.get("tags")
+    if "va_id" in request.POST:
+        overrides["va_id"] = request.POST.get("va_id")
+    if "fee_amount" in request.POST:
+        fee = parse_float_or_none(request.POST.get("fee_amount", ""))
+        if fee is not None:
+            overrides["fee_amount"] = fee
 
     try:
         svc.confirm(str(rule_id), overrides=overrides)
@@ -441,4 +462,61 @@ def recurring_delete(
 ) -> HttpResponse:
     """DELETE /recurring/{id} — delete recurring rule."""
     svc.delete(str(rule_id))
+    return _render_rule_list(request)
+
+
+# ---------------------------------------------------------------------------
+# Edit
+# ---------------------------------------------------------------------------
+
+
+@inject_service(RecurringService)
+@general_rate
+@require_http_methods(["GET"])
+def recurring_edit_form(
+    request: AuthenticatedRequest, svc: RecurringService, rule_id: UUID
+) -> HttpResponse:
+    """GET /recurring/{id}/edit — load edit-rule form partial (bottom sheet)."""
+    rule = svc.get_by_id(str(rule_id))
+    if not rule:
+        return HttpResponse("Not found", status=404)
+
+    rule_view = svc.rule_to_view(rule)
+    ctx = _get_form_context(request)
+    ctx["rule"] = rule_view
+    ctx["editing"] = True
+    return render(request, "recurring/_form.html", ctx)
+
+
+@inject_service(RecurringService)
+@general_rate
+@require_http_methods(["POST"])
+def recurring_update(
+    request: AuthenticatedRequest, svc: RecurringService, rule_id: UUID
+) -> HttpResponse:
+    """POST /recurring/{id}/edit — update existing recurring rule."""
+    next_due_str = request.POST.get("next_due_date", "")
+    next_due = None
+    if next_due_str:
+        try:
+            next_due = datetime.strptime(next_due_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    try:
+        template = svc.build_template_transaction(request.POST)
+        data: dict[str, Any] = {
+            "template_transaction": template,
+            "frequency": request.POST.get("frequency", ""),
+            "auto_confirm": request.POST.get("auto_confirm") == "true",
+        }
+        if next_due:
+            data["next_due_date"] = next_due
+        svc.update(str(rule_id), data)
+    except ValueError as e:
+        return HttpResponse(
+            f'<div class="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{e}</div>',
+            status=400,
+        )
+
     return _render_rule_list(request)
