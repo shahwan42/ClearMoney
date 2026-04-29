@@ -209,27 +209,6 @@ var CategoryCombobox = (function() {
             self.listbox.appendChild(optEl);
         });
 
-        // "+ Add new category" — opens bottom sheet
-        var addBtn = document.createElement('div');
-        addBtn.setAttribute('role', 'option');
-        addBtn.setAttribute('aria-selected', 'false');
-        addBtn.id = this.optionIdPrefix + 'add-new';
-        addBtn.className = [
-            'px-3 py-2 text-sm text-teal-600 dark:text-teal-400 cursor-pointer',
-            'hover:bg-gray-50 dark:hover:bg-slate-700',
-            'border-t border-gray-100 dark:border-slate-700 flex items-center gap-1'
-        ].join(' ');
-        addBtn.innerHTML = '<span aria-hidden="true">+</span> Add new category';
-        addBtn.addEventListener('mousedown', function(e) {
-            e.preventDefault();
-            self._closeDropdown();
-            activeCombobox = self;
-            var type = self.filterType || 'expense';
-            if (window.BottomSheet) {
-                BottomSheet.open('new-category', { url: '/settings/categories/new-form?type=' + type });
-            }
-        });
-        this.listbox.appendChild(addBtn);
     };
 
     CategoryCombobox.prototype._makeOptionEl = function(id, name, icon, isSelected) {
