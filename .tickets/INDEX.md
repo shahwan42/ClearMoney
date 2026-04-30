@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-29 (ticket 521 closed: remove "+Add new category" from combobox dropdown)
+Last updated: 2026-04-30 (ticket 522 closed: record transaction reminders — twice-daily smart nudge)
 
 ## In Progress
 
@@ -47,6 +47,7 @@ Last updated: 2026-04-29 (ticket 521 closed: remove "+Add new category" from com
 | --- | --- | --- | --- | --- |
 | [521](done/521-remove-add-category-from-combobox-dropdown.md) | Remove add-category option from combobox dropdown | improvement | medium | 2026-04-29 |
 | [516](done/516-dedupe-rule-mirrors-claude-gemini.md) | Dedupe rule mirrors between .claude/ and .gemini/ | chore | low | 2026-04-27 |
+| [522](done/522-record-transaction-reminders.md) | Record transaction reminders — twice-daily smart nudge | feature | medium | 2026-04-30 |
 | [518](done/518-arabic-translations-long-tail.md) | Arabic translations long-tail + Playwright smoke test | improvement | medium | 2026-04-27 |
 | [514](done/514-full-arabic-translation-audit-and-po-fill.md) | Full Arabic translation audit + .po fill (first pass) | improvement | medium | 2026-04-27 |
 | [513](done/513-category-form-dual-language-fields.md) | Category create/edit form — dual-language name fields | feature | medium | 2026-04-27 |

@@ -210,7 +210,84 @@ class NotificationService:
         except Exception:
             logger.exception("push: failed to load recurring notifications")
 
+        # 6. Twice-daily record-transaction reminders
+        try:
+            notifications.extend(self._get_record_reminders())
+        except Exception:
+            logger.exception("push: failed to load record reminders")
+
         return notifications
+
+    def _get_record_reminders(self) -> list[dict[str, str]]:
+        """Smart twice-daily reminders to log transactions.
+
+        Morning (8am+): fires if no tx recorded since yesterday 9pm.
+        Evening (9pm+): fires if no tx recorded since today 8am.
+        Auto-resolves when the user records any transaction.
+        """
+        MORNING_HOUR = 8
+        EVENING_HOUR = 21
+
+        now = datetime.now(self.tz)
+        today = now.date()
+        yesterday = today - timedelta(days=1)
+        reminders: list[dict[str, str]] = []
+
+        if now.hour >= MORNING_HOUR:
+            morning_window_start = datetime(
+                yesterday.year,
+                yesterday.month,
+                yesterday.day,
+                EVENING_HOUR,
+                0,
+                0,
+                tzinfo=self.tz,
+            )
+            if (
+                not Transaction.objects.for_user(self.user_id)
+                .filter(created_at__gte=morning_window_start)
+                .exists()
+            ):
+                reminders.append(
+                    {
+                        "title": _("Record Today's Transactions"),
+                        "body": _(
+                            "You haven't logged anything since last night."
+                            " Take a minute to record your spending."
+                        ),
+                        "url": "/transactions/new",
+                        "tag": f"record-reminder-morning-{today.isoformat()}",
+                    }
+                )
+
+        if now.hour >= EVENING_HOUR:
+            evening_window_start = datetime(
+                today.year,
+                today.month,
+                today.day,
+                MORNING_HOUR,
+                0,
+                0,
+                tzinfo=self.tz,
+            )
+            if (
+                not Transaction.objects.for_user(self.user_id)
+                .filter(created_at__gte=evening_window_start)
+                .exists()
+            ):
+                reminders.append(
+                    {
+                        "title": _("End-of-Day Check-In"),
+                        "body": _(
+                            "No transactions recorded today."
+                            " Log what you spent before you forget."
+                        ),
+                        "url": "/transactions/new",
+                        "tag": f"record-reminder-evening-{today.isoformat()}",
+                    }
+                )
+
+        return reminders
 
     def generate_and_persist(self) -> PersistStats:
         """Generate notifications and persist them to the database.

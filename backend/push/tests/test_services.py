@@ -6,7 +6,9 @@ leaf services (AccountService, BudgetService, load_health_warnings, RecurringSer
 Unit tests, no DB needed.
 """
 
-from datetime import date, datetime
+import uuid
+from datetime import UTC, date, datetime
+from typing import Any
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
@@ -616,3 +618,229 @@ class TestGenerateAndPersist:
         # Read notification should NOT be deleted even if tag not in current set
         assert stats["resolved"] == 0
         assert Notification.objects.filter(user_id=user_id, tag="old-read-tag").exists()
+
+
+# ---------------------------------------------------------------------------
+# Record transaction reminders (twice-daily, smart)
+# ---------------------------------------------------------------------------
+
+# Fixed reference times in UTC (Africa/Cairo = UTC+3 in April 2026)
+_MORNING_8_30_UTC = "2026-04-30 05:30:00"  # 8:30am Cairo (UTC+3)
+_EVENING_9_30_UTC = "2026-04-30 18:30:00"  # 9:30pm Cairo (UTC+3)
+_BEFORE_MORNING_UTC = "2026-04-30 04:59:00"  # 7:59am Cairo (UTC+3)
+_BEFORE_EVENING_UTC = "2026-04-30 17:59:00"  # 8:59pm Cairo (UTC+3)
+
+
+@pytest.mark.django_db
+class TestRecordReminders:
+    """Twice-daily reminder fires if no transaction recorded in each window."""
+
+    TZ = ZoneInfo("Africa/Cairo")
+
+    def _make_user_and_account(self) -> tuple[str, Any]:
+        from tests.factories import AccountFactory, InstitutionFactory, UserFactory
+
+        user = UserFactory()
+        institution = InstitutionFactory(user_id=user.id)
+        account = AccountFactory(user_id=user.id, institution_id=institution.id)
+        return str(user.id), account
+
+    def _svc_with_mocked_other_triggers(
+        self, user_id: str, mocker: MockerFixture
+    ) -> NotificationService:
+        """Return a service where all non-record triggers return empty."""
+        mocker.patch(
+            "push.services.AccountService"
+        ).return_value.get_all.return_value = []
+        mocker.patch("push.services.load_health_warnings").return_value = []
+        mocker.patch(
+            "push.services.BudgetService"
+        ).return_value.get_all_with_spending.return_value = []
+        mocker.patch(
+            "push.services.RecurringService"
+        ).return_value.get_due_pending.return_value = []
+        return NotificationService(user_id, self.TZ)
+
+    def _make_tx_at(
+        self, user_id: str, account_id: uuid.UUID | str, created_at: datetime
+    ) -> None:
+        """Create a transaction and force its created_at to a specific UTC time."""
+
+        from tests.factories import TransactionFactory
+        from transactions.models import Transaction
+
+        tx = TransactionFactory(user_id=user_id, account_id=account_id)
+        aware = (
+            created_at.replace(tzinfo=UTC) if created_at.tzinfo is None else created_at
+        )
+        Transaction.objects.filter(id=tx.id).update(created_at=aware)
+
+    def _tags(self, svc: NotificationService) -> list[str]:
+        return [n["tag"] for n in svc.get_pending_notifications()]
+
+    # ------------------------------------------------------------------
+    # Morning window tests
+    # ------------------------------------------------------------------
+
+    def test_morning_reminder_fires_when_no_tx_since_yesterday_evening(
+        self, mocker: MockerFixture
+    ) -> None:
+        import freezegun
+
+        user_id, _ = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        with freezegun.freeze_time(_MORNING_8_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-morning-2026-04-30" in tags
+
+    def test_morning_reminder_suppressed_when_tx_after_yesterday_9pm(
+        self, mocker: MockerFixture
+    ) -> None:
+        from datetime import datetime as dt
+
+        import freezegun
+
+        user_id, account = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        # tx at yesterday 9:30pm Cairo (19:30 UTC)
+        self._make_tx_at(user_id, account.id, dt(2026, 4, 29, 19, 30, tzinfo=UTC))
+        with freezegun.freeze_time(_MORNING_8_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-morning-2026-04-30" not in tags
+
+    def test_morning_reminder_not_suppressed_when_tx_before_yesterday_9pm(
+        self, mocker: MockerFixture
+    ) -> None:
+        from datetime import datetime as dt
+
+        import freezegun
+
+        user_id, account = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        # tx at yesterday 8:30pm Cairo (17:30 UTC, UTC+3) — before window start (yesterday 9pm = 18:00 UTC)
+        self._make_tx_at(user_id, account.id, dt(2026, 4, 29, 17, 30, tzinfo=UTC))
+        with freezegun.freeze_time(_MORNING_8_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-morning-2026-04-30" in tags
+
+    # ------------------------------------------------------------------
+    # Evening window tests
+    # ------------------------------------------------------------------
+
+    def test_evening_reminder_fires_when_no_tx_since_morning(
+        self, mocker: MockerFixture
+    ) -> None:
+        import freezegun
+
+        user_id, _ = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        with freezegun.freeze_time(_EVENING_9_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-evening-2026-04-30" in tags
+
+    def test_evening_reminder_suppressed_when_tx_recorded_this_afternoon(
+        self, mocker: MockerFixture
+    ) -> None:
+        from datetime import datetime as dt
+
+        import freezegun
+
+        user_id, account = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        # tx at today 3pm Cairo (13:00 UTC)
+        self._make_tx_at(user_id, account.id, dt(2026, 4, 30, 13, 0, tzinfo=UTC))
+        with freezegun.freeze_time(_EVENING_9_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-evening-2026-04-30" not in tags
+
+    # ------------------------------------------------------------------
+    # Before-window tests (no trigger)
+    # ------------------------------------------------------------------
+
+    def test_no_reminder_before_morning_window(self, mocker: MockerFixture) -> None:
+        import freezegun
+
+        user_id, _ = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        with freezegun.freeze_time(_BEFORE_MORNING_UTC):
+            tags = self._tags(svc)
+        assert not any(t.startswith("record-reminder-") for t in tags)
+
+    def test_no_evening_reminder_before_evening_window(
+        self, mocker: MockerFixture
+    ) -> None:
+        import freezegun
+
+        user_id, _ = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        with freezegun.freeze_time(_BEFORE_EVENING_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-evening-2026-04-30" not in tags
+
+    # ------------------------------------------------------------------
+    # Combined / edge cases
+    # ------------------------------------------------------------------
+
+    def test_both_reminders_fire_when_no_tx_all_day(
+        self, mocker: MockerFixture
+    ) -> None:
+        import freezegun
+
+        user_id, _ = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        with freezegun.freeze_time(_EVENING_9_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-morning-2026-04-30" in tags
+        assert "record-reminder-evening-2026-04-30" in tags
+
+    def test_reminder_tag_includes_today_date(self, mocker: MockerFixture) -> None:
+        import freezegun
+
+        user_id, _ = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        with freezegun.freeze_time(_MORNING_8_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-morning-2026-04-30" in tags
+
+    def test_transfer_type_tx_suppresses_reminder(self, mocker: MockerFixture) -> None:
+        from datetime import datetime as dt
+
+        import freezegun
+
+        from tests.factories import TransactionFactory
+        from transactions.models import Transaction
+
+        user_id, account = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+        tx = TransactionFactory(user_id=user_id, account_id=account.id, type="transfer")
+        Transaction.objects.filter(id=tx.id).update(
+            created_at=dt(2026, 4, 29, 19, 30, tzinfo=UTC)
+        )
+        with freezegun.freeze_time(_MORNING_8_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-morning-2026-04-30" not in tags
+
+    def test_other_user_tx_does_not_suppress_reminder(
+        self, mocker: MockerFixture
+    ) -> None:
+        from datetime import datetime as dt
+
+        import freezegun
+
+        from tests.factories import TransactionFactory
+        from transactions.models import Transaction
+
+        user_id, _ = self._make_user_and_account()
+        svc = self._svc_with_mocked_other_triggers(user_id, mocker)
+
+        # tx belongs to a different real user
+        _, other_account = self._make_user_and_account()
+        tx = TransactionFactory(
+            user_id=other_account.user_id, account_id=other_account.id
+        )
+        Transaction.objects.filter(id=tx.id).update(
+            created_at=dt(2026, 4, 29, 19, 30, tzinfo=UTC)
+        )
+        with freezegun.freeze_time(_MORNING_8_30_UTC):
+            tags = self._tags(svc)
+        assert "record-reminder-morning-2026-04-30" in tags
