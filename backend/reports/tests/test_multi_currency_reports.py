@@ -20,8 +20,16 @@ class TestMultiCurrencyReports:
     """Tests for multi-currency report isolation and exact-currency reporting."""
 
     def test_report_isolation_by_currency(self):
+        import datetime as dt
+
         user = UserFactory()
         inst = InstitutionFactory(user_id=user.id)
+
+        # Use a 4-year-old month so it's never in the "last 3 months" lookback
+        # that the projection service uses for discretionary averaging.
+        today = dt.date.today()
+        old_month = dt.date(today.year - 4, today.month, 1)
+        report_year, report_month = old_month.year, old_month.month
 
         # EGP Account
         egp_acc = AccountFactory(
@@ -45,7 +53,7 @@ class TestMultiCurrencyReports:
             type="expense",
             amount=500,
             currency="EGP",
-            date=datetime.date(2026, 4, 15),
+            date=old_month.replace(day=15),
         )
 
         # Transaction in EUR
@@ -56,22 +64,20 @@ class TestMultiCurrencyReports:
             type="expense",
             amount=20,
             currency="EUR",
-            date=datetime.date(2026, 4, 16),
+            date=old_month.replace(day=16),
         )
 
         # EUR Report
-        report = get_monthly_report(str(user.id), 2026, 4, currency="EUR")
+        report = get_monthly_report(str(user.id), report_year, report_month, currency="EUR")
 
         assert report["filter_currency"] == "EUR"
         assert report["total_spending"] == 20.0
         assert len(report["spending_by_category"]) == 1
         assert report["spending_by_category"][0]["amount"] == 20.0
 
-        # Net worth projection should only consider EUR account
-        # Current NW = 100 EUR.
-        # Discretionary = (avg of last 3 months).
-        # Since we have no history, discretionary = 0.
-        # No recurring rules, so projection should stay at 100 EUR.
+        # Net worth projection should only consider EUR account.
+        # Current NW = 100 EUR. Report month is 4 years ago so no discretionary
+        # history in the lookback window — projection stays at 100 EUR.
         assert report["projection"]["points"][0]["value"] == 100.0
 
     def test_pdf_export_filters_budgets_by_currency(

@@ -115,7 +115,9 @@ class TestBudgetCopy:
         )
 
         # Spending last month for cat1 and cat2
-        last_month_mid = datetime.date(2026, 3, 15)
+        today = datetime.date.today()
+        last_month = today.replace(day=1) - datetime.timedelta(days=1)
+        last_month_mid = last_month.replace(day=15)
         TransactionFactory(
             user_id=user.id,
             category_id=cat1.id,

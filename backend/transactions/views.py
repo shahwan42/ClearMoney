@@ -1125,34 +1125,67 @@ def quick_entry_create(
                 return error_response("Amount is required", field="amount")
             source_id = request.POST.get("account_id", "")
             dest_id = request.POST.get("dest_account_id", "")
-            svc.create_transfer(
-                source_id=source_id,
-                dest_id=dest_id,
-                amount=amount,
-                currency=request.POST.get("currency"),
-                note=request.POST.get("note") or None,
-                tx_date=request.POST.get("date") or None,
-                fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
-            )
-            accs = {
-                str(a["id"]): a
-                for a in Account.objects.for_user(request.user_id)
-                .filter(id__in=[source_id, dest_id])
-                .values("id", "name", "current_balance", "currency")
-            }
-            src = accs.get(source_id, {})
-            dst = accs.get(dest_id, {})
-            success_ctx = {
-                "is_transfer": True,
-                "src_name": src.get("name", ""),
-                "src_balance": str(src.get("current_balance", "")),
-                "src_currency": src.get("currency", ""),
-                "src_amount": str(amount),
-                "dest_name": dst.get("name", ""),
-                "dest_balance": str(dst.get("current_balance", "")),
-                "dest_currency": dst.get("currency", ""),
-                "dest_amount": str(amount),
-            }
+            rate = parse_float_or_none(request.POST.get("rate", ""))
+            if rate:
+                # Cross-currency — route to exchange
+                counter_amount = parse_float_or_none(request.POST.get("counter_amount", ""))
+                debit, credit = svc.create_exchange(
+                    source_id=source_id,
+                    dest_id=dest_id,
+                    amount=amount,
+                    rate=rate,
+                    counter_amount=counter_amount,
+                    note=request.POST.get("note") or None,
+                    tx_date=request.POST.get("date") or None,
+                )
+                accs = {
+                    str(a["id"]): a
+                    for a in Account.objects.for_user(request.user_id)
+                    .filter(id__in=[source_id, dest_id])
+                    .values("id", "name", "current_balance", "currency")
+                }
+                src = accs.get(source_id, {})
+                dst = accs.get(dest_id, {})
+                success_ctx = {
+                    "is_transfer": True,
+                    "src_name": src.get("name", ""),
+                    "src_balance": str(src.get("current_balance", "")),
+                    "src_currency": src.get("currency", ""),
+                    "src_amount": str(debit.get("amount", amount)),
+                    "dest_name": dst.get("name", ""),
+                    "dest_balance": str(dst.get("current_balance", "")),
+                    "dest_currency": dst.get("currency", ""),
+                    "dest_amount": str(credit.get("amount", counter_amount or "")),
+                }
+            else:
+                svc.create_transfer(
+                    source_id=source_id,
+                    dest_id=dest_id,
+                    amount=amount,
+                    currency=request.POST.get("currency"),
+                    note=request.POST.get("note") or None,
+                    tx_date=request.POST.get("date") or None,
+                    fee_amount=parse_float_or_none(request.POST.get("fee_amount", "")),
+                )
+                accs = {
+                    str(a["id"]): a
+                    for a in Account.objects.for_user(request.user_id)
+                    .filter(id__in=[source_id, dest_id])
+                    .values("id", "name", "current_balance", "currency")
+                }
+                src = accs.get(source_id, {})
+                dst = accs.get(dest_id, {})
+                success_ctx = {
+                    "is_transfer": True,
+                    "src_name": src.get("name", ""),
+                    "src_balance": str(src.get("current_balance", "")),
+                    "src_currency": src.get("currency", ""),
+                    "src_amount": str(amount),
+                    "dest_name": dst.get("name", ""),
+                    "dest_balance": str(dst.get("current_balance", "")),
+                    "dest_currency": dst.get("currency", ""),
+                    "dest_amount": str(amount),
+                }
         else:
             data = {
                 "type": tx_type,

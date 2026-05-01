@@ -92,9 +92,32 @@
                 class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400">
                 <option value="">{% trans "Select destination..." %}</option>
                 {% for acc in transfer_accounts %}
-                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.currency }})</option>
+                <option value="{{ acc.id }}" data-currency="{{ acc.currency }}">{{ acc.name }} ({{ acc.currency }})</option>
                 {% endfor %}
             </select>
+        </div>
+    </div>
+
+    {# Exchange rate fields — shown only when source and dest have different currencies #}
+    <div id="qe-exchange-fields" class="hidden space-y-2">
+        <p id="qe-exchange-indicator" class="text-xs font-medium px-3 py-1.5 rounded-lg text-center bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" aria-live="polite">
+            {% trans "Different currencies — exchange mode" %}
+        </p>
+        <div class="grid grid-cols-2 gap-2">
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-rate-input">{% trans "Rate" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+                <input type="number" name="rate" id="qe-rate-input" step="0.0001" min="0.0001" disabled
+                       placeholder="0.0000"
+                       class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
+                       oninput="qeCalcExchange('rate')">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-500 dark:text-slate-400 mb-1" for="qe-counter-input">{% trans "Result" %} <span class="text-red-500" aria-hidden="true">*</span></label>
+                <input type="number" name="counter_amount" id="qe-counter-input" step="0.01" min="0.01" disabled
+                       placeholder="0.00"
+                       class="w-full border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:focus:ring-teal-400"
+                       oninput="qeCalcExchange('counter')">
+            </div>
         </div>
     </div>
 
@@ -191,6 +214,15 @@ function qeToggleType(mode) {
     document.getElementById('qe-category-container').classList.toggle('hidden', isTransfer);
     document.getElementById('qe-tags-container').classList.toggle('hidden', isTransfer);
     document.getElementById('qe-dest-account-container').classList.toggle('hidden', !isTransfer);
+    if (!isTransfer) {
+        document.getElementById('qe-exchange-fields').classList.add('hidden');
+        var rateInput = document.getElementById('qe-rate-input');
+        var counterInput = document.getElementById('qe-counter-input');
+        if (rateInput) { rateInput.disabled = true; rateInput.value = ''; }
+        if (counterInput) { counterInput.disabled = true; counterInput.value = ''; }
+    } else {
+        qeDetectTransferMode();
+    }
 
     var vaCont = document.getElementById('qe-va-container');
     if (vaCont) vaCont.classList.toggle('hidden', isTransfer);
@@ -221,6 +253,52 @@ function qeToggleType(mode) {
     }
 
     qeApplyAccountRanking(mode);
+}
+
+function qeGetSourceCurrency() {
+    var inp = document.querySelector('#qe-account-combobox input[name="account_id"]');
+    return inp ? (inp.dataset.currency || '') : '';
+}
+
+function qeGetDestCurrency() {
+    var sel = document.getElementById('qe-dest-account-select');
+    if (!sel || !sel.value) return '';
+    var opt = sel.selectedOptions[0];
+    return opt ? (opt.getAttribute('data-currency') || '') : '';
+}
+
+function qeDetectTransferMode() {
+    var selectedType = document.querySelector('input[name="type"]:checked');
+    if (!selectedType || selectedType.value !== 'transfer') return;
+    var src = qeGetSourceCurrency();
+    var dst = qeGetDestCurrency();
+    var isExchange = src && dst && src !== dst;
+    var exFields = document.getElementById('qe-exchange-fields');
+    var rateInput = document.getElementById('qe-rate-input');
+    var counterInput = document.getElementById('qe-counter-input');
+    if (exFields) exFields.classList.toggle('hidden', !isExchange);
+    if (rateInput) { rateInput.disabled = !isExchange; if (!isExchange) rateInput.value = ''; }
+    if (counterInput) { counterInput.disabled = !isExchange; if (!isExchange) counterInput.value = ''; }
+}
+
+function qeCalcExchange(changed) {
+    var amount = parseFloat(document.getElementById('qe-amount').value) || 0;
+    var rate = parseFloat(document.getElementById('qe-rate-input').value) || 0;
+    var counter = parseFloat(document.getElementById('qe-counter-input').value) || 0;
+    var srcIsEGP = (qeGetSourceCurrency() === 'EGP' && qeGetDestCurrency() !== 'EGP');
+    if (changed === 'rate') {
+        if (amount > 0 && rate > 0) {
+            document.getElementById('qe-counter-input').value = srcIsEGP
+                ? (amount / rate).toFixed(2)
+                : (amount * rate).toFixed(2);
+        }
+    } else if (changed === 'counter') {
+        if (amount > 0 && counter > 0) {
+            document.getElementById('qe-rate-input').value = srcIsEGP
+                ? (amount / counter).toFixed(4)
+                : (counter / amount).toFixed(4);
+        }
+    }
 }
 
 function qeOpenNewCategorySheet() {
@@ -296,7 +374,13 @@ function qeApplyAccountRanking(mode) {
         acctInput.addEventListener('change', function() {
             document.getElementById('qe-currency-input').value = this.dataset.currency || 'EGP';
             filterQeVirtualAccounts();
+            qeDetectTransferMode();
         });
+    }
+
+    var destSelect = document.getElementById('qe-dest-account-select');
+    if (destSelect) {
+        destSelect.addEventListener('change', qeDetectTransferMode);
     }
 
     function filterQeVirtualAccounts() {

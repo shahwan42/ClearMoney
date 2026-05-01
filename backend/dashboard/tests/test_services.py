@@ -1852,15 +1852,15 @@ def test_velocity_projection_green_daily_remaining(svc_data):
         balance_delta=-3000,
     )
 
-    # This month: only 100 EGP spent (well under pace)
+    # This month: only 10 EGP spent (well under pace even on day 1 of month)
     TransactionFactory(
         user_id=svc_data["user"].id,
         account_id=svc_data["savings"].id,
         type="expense",
-        amount=100,
+        amount=10,
         currency="EGP",
         date=this_month_start,
-        balance_delta=-100,
+        balance_delta=-10,
     )
 
     svc = DashboardService(svc_data["user_id"], TZ)
@@ -2076,15 +2076,16 @@ def test_compute_category_velocities_basic(svc_data):
         monthly_limit=1000,
         currency="EGP",
     )
+    # Use a small amount so pct (1%) stays under day_progress even on day 1 of month
     TransactionFactory(
         user_id=svc_data["user"].id,
         account_id=svc_data["savings"].id,
         category_id=svc_data["cat_id"],
         type="expense",
-        amount=400,
+        amount=10,
         currency="EGP",
         date=this_month_start,
-        balance_delta=-400,
+        balance_delta=-10,
     )
 
     svc = DashboardService(svc_data["user_id"], TZ)
@@ -2094,12 +2095,12 @@ def test_compute_category_velocities_basic(svc_data):
     cv = cvs[0]
     assert isinstance(cv, CategoryVelocity)
     assert cv.category_name == "Food"
-    assert cv.spent == pytest.approx(400.0)
+    assert cv.spent == pytest.approx(10.0)
     assert cv.monthly_limit == pytest.approx(1000.0)
-    assert cv.percentage == pytest.approx(40.0)
+    assert cv.percentage == pytest.approx(1.0)
     assert cv.status == "green"
     if days_left > 0:
-        expected_dr = (1000.0 - 400.0) / days_left
+        expected_dr = (1000.0 - 10.0) / days_left
         assert cv.daily_remaining == pytest.approx(expected_dr, rel=0.01)
     assert cv.reduce_by == pytest.approx(0.0)  # on track
 
