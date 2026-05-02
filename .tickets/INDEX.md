@@ -1,6 +1,6 @@
 # ClearMoney Tickets
 
-Last updated: 2026-04-30 (ticket 522 closed: record transaction reminders — twice-daily smart nudge)
+Last updated: 2026-05-02 (ticket 523 closed: fix loan repayment delete/update leaving stale account balance)
 
 ## In Progress
 
@@ -45,6 +45,7 @@ Last updated: 2026-04-30 (ticket 522 closed: record transaction reminders — tw
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [523](done/523-fix-loan-repayment-delete-balance-bug.md) | Fix loan repayment delete/update leaving stale account balance | bug | high | 2026-05-02 |
 | [521](done/521-remove-add-category-from-combobox-dropdown.md) | Remove add-category option from combobox dropdown | improvement | medium | 2026-04-29 |
 | [516](done/516-dedupe-rule-mirrors-claude-gemini.md) | Dedupe rule mirrors between .claude/ and .gemini/ | chore | low | 2026-04-27 |
 | [522](done/522-record-transaction-reminders.md) | Record transaction reminders — twice-daily smart nudge | feature | medium | 2026-04-30 |

@@ -849,8 +849,16 @@ class TransactionServiceBase:
         acc = self._get_account(old["account_id"])
         currency = acc["currency"]
 
-        old_delta = self._balance_delta(old["type"], Decimal(str(old["amount"])))
-        new_delta = self._balance_delta(tx_type, amount)
+        _loan_types = ("loan_repayment", "loan_in", "loan_out")
+        if old["type"] in _loan_types:
+            # Loan types have direction baked into stored balance_delta.
+            # _balance_delta() returns 0 for these, so use the stored value.
+            old_delta = Decimal(str(old["balance_delta"]))
+            sign = Decimal("1") if old_delta >= 0 else Decimal("-1")
+            new_delta = sign * amount
+        else:
+            old_delta = self._balance_delta(old["type"], Decimal(str(old["amount"])))
+            new_delta = self._balance_delta(tx_type, amount)
         balance_adjustment = new_delta - old_delta
 
         category_id = data.get("category_id", old["category_id"])
@@ -1000,10 +1008,10 @@ class TransactionServiceBase:
                         updated_at=now,
                     )
             else:
-                # Simple expense/income: F() atomically reverses balance delta
-                reverse_delta = -self._balance_delta(
-                    tx["type"], Decimal(str(tx["amount"]))
-                )
+                # Reverse by negating stored balance_delta — handles expense,
+                # income, loan_repayment, loan_in, loan_out correctly.
+                # _balance_delta() returns 0 for loan types so must not be used here.
+                reverse_delta = -Decimal(str(tx["balance_delta"]))
                 Account.objects.for_user(self.user_id).filter(
                     id=tx["account_id"]
                 ).update(

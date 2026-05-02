@@ -426,6 +426,38 @@ class TestUpdate:
                 },
             )
 
+    def test_update_loan_repayment_amount_adjusts_balance_correctly(self, tx_data):
+        """Updating a loan_repayment amount must correctly adjust the balance.
+
+        Regression: _balance_delta() returns 0 for loan types, making old_delta=0
+        and thus balance_adjustment = new_delta - 0 = new_delta, which applies
+        a full new charge instead of only the difference.
+        """
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        # Create loan_repayment (outgoing: user repays debt) balance_delta=-500
+        tx_obj = Transaction.objects.create(
+            user_id=tx_data["user_id"],
+            type="loan_repayment",
+            amount=Decimal("500"),
+            currency="EGP",
+            account_id=tx_data["egp_id"],
+            date=date(2026, 5, 1),
+            balance_delta=Decimal("-500"),
+        )
+        from accounts.models import Account
+        Account.objects.filter(id=tx_data["egp_id"]).update(
+            current_balance=10000 - 500
+        )
+        assert _get_balance(tx_data["egp_id"]) == 9500
+
+        # Update amount from 500 → 800; adjustment should be -300 (not -800)
+        updated, new_bal = svc.update(str(tx_obj.id), {"amount": 800})
+
+        assert Decimal(updated["balance_delta"]) == Decimal("-800")
+        assert _get_balance(tx_data["egp_id"]) == 9200  # 9500 - 300
+
 
 @pytest.mark.django_db
 class TestDelete:
@@ -612,6 +644,60 @@ class TestDelete:
             VirtualAccountAllocation.objects.filter(transaction_id=fee_tx["id"]).count()
             == 0
         )
+
+    def test_delete_loan_repayment_restores_balance(self, tx_data):
+        """Deleting a loan_repayment must restore the account balance.
+
+        Regression: _balance_delta() returns 0 for loan types, so delete()
+        previously silently left the balance permanently reduced.
+        """
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        # Simulate a loan_repayment created by PersonService.record_repayment()
+        # (money going out — user repays a debt). balance_delta = -500.
+        tx_obj = Transaction.objects.create(
+            user_id=tx_data["user_id"],
+            type="loan_repayment",
+            amount=Decimal("500"),
+            currency="EGP",
+            account_id=tx_data["egp_id"],
+            date=date(2026, 5, 1),
+            balance_delta=Decimal("-500"),
+        )
+        from accounts.models import Account
+        Account.objects.filter(id=tx_data["egp_id"]).update(
+            current_balance=10000 - 500
+        )
+        assert _get_balance(tx_data["egp_id"]) == 9500
+
+        svc.delete(str(tx_obj.id))
+
+        assert _get_balance(tx_data["egp_id"]) == 10000
+
+    def test_delete_loan_in_restores_balance(self, tx_data):
+        """Deleting a loan_in (money received) must restore account balance."""
+        from decimal import Decimal
+
+        svc = _svc(tx_data["user_id"])
+        tx_obj = Transaction.objects.create(
+            user_id=tx_data["user_id"],
+            type="loan_in",
+            amount=Decimal("2000"),
+            currency="EGP",
+            account_id=tx_data["egp_id"],
+            date=date(2026, 5, 1),
+            balance_delta=Decimal("2000"),
+        )
+        from accounts.models import Account
+        Account.objects.filter(id=tx_data["egp_id"]).update(
+            current_balance=10000 + 2000
+        )
+        assert _get_balance(tx_data["egp_id"]) == 12000
+
+        svc.delete(str(tx_obj.id))
+
+        assert _get_balance(tx_data["egp_id"]) == 10000
 
 
 @pytest.mark.django_db
