@@ -81,40 +81,42 @@
 </div>
 
 <script>
-const currentBalance = {{ account.current_balance|stringformat:"g" }};
-const initialBalance = {% if entered_balance is not None %}{{ entered_balance|stringformat:"g" }}{% else %}null{% endif %};
+(function () {
+    const currentBalance = {{ account.current_balance|stringformat:"g" }};
+    const initialBalance = {% if entered_balance is not None %}{{ entered_balance|stringformat:"g" }}{% else %}null{% endif %};
 
-function updateDiffDisplay(diff) {
-    const container = document.getElementById('diff-container');
-    const valueEl = document.getElementById('diff-value');
-    const labelEl = document.getElementById('diff-label');
+    function updateDiffDisplay(diff) {
+        const container = document.getElementById('diff-container');
+        const valueEl = document.getElementById('diff-value');
+        const labelEl = document.getElementById('diff-label');
 
-    container.classList.remove('hidden');
-    valueEl.textContent = (diff > 0 ? '+' : '') + diff.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        container.classList.remove('hidden');
+        valueEl.textContent = (diff > 0 ? '+' : '') + diff.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-    if (Math.abs(diff) < 0.01) {
-        container.className = 'p-3 rounded-xl flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30';
-        labelEl.textContent = "{% trans "Looks Good" %}";
-    } else {
-        container.className = 'p-3 rounded-xl flex items-center justify-between bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/30';
-        labelEl.textContent = "{% trans "Difference" %}";
-    }
-}
-
-function calculateDiff() {
-    const bankVal = parseFloat(document.getElementById('bank-balance').value);
-    const container = document.getElementById('diff-container');
-
-    if (isNaN(bankVal)) {
-        container.classList.add('hidden');
-        return;
+        if (Math.abs(diff) < 0.01) {
+            container.className = 'p-3 rounded-xl flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30';
+            labelEl.textContent = "{% trans "Looks Good" %}";
+        } else {
+            container.className = 'p-3 rounded-xl flex items-center justify-between bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/30';
+            labelEl.textContent = "{% trans "Difference" %}";
+        }
     }
 
-    updateDiffDisplay(bankVal - currentBalance);
-}
+    window.calculateDiff = function () {
+        const bankVal = parseFloat(document.getElementById('bank-balance').value);
+        const container = document.getElementById('diff-container');
 
-if (initialBalance !== null && !Number.isNaN(initialBalance)) {
-    updateDiffDisplay(initialBalance - currentBalance);
-}
+        if (isNaN(bankVal)) {
+            container.classList.add('hidden');
+            return;
+        }
+
+        updateDiffDisplay(bankVal - currentBalance);
+    };
+
+    if (initialBalance !== null && !Number.isNaN(initialBalance)) {
+        updateDiffDisplay(initialBalance - currentBalance);
+    }
+}());
 </script>
 {% endblock %}
