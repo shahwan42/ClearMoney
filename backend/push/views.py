@@ -2,21 +2,24 @@
 Push notification views — JSON API endpoints and notification center HTML views.
 
 API endpoints (JSON):
-1. GET  /api/push/vapid-key  — return VAPID public key for Push API subscription
-2. POST /api/push/subscribe  — accept browser push subscription (acknowledged only)
-3. GET  /api/push/check      — poll for pending notifications
+1. GET  /api/push/vapid-key     — return VAPID public key for Push API subscription
+2. POST /api/push/subscribe     — accept browser push subscription (acknowledged only)
+3. GET  /api/push/check         — poll for pending notifications (DB-backed, priority-sorted)
+4. POST /api/push/dismiss/<id>  — mark a notification as read (cross-device dismiss)
 
 HTML endpoints:
-4. GET  /notifications/badge    — HTMX badge fragment (unread count)
-5. GET  /notifications           — notifications list page
-6. POST /notifications/<id>/read — mark single notification as read
-7. POST /notifications/mark-all-read — mark all notifications as read
+5. GET  /notifications/badge    — HTMX badge fragment (unread count)
+6. GET  /notifications           — notifications list page
+7. POST /notifications/<id>/read — mark single notification as read
+8. POST /notifications/mark-all-read — mark all notifications as read
 """
 
 import json
 import logging
 import os
+import re
 import uuid
+from datetime import date, datetime
 
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -63,23 +66,75 @@ def subscribe(request: AuthenticatedRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
 
 
+def _tag_priority(tag: str, today: date) -> int:
+    """Return sort priority for a notification tag (lower = higher priority)."""
+    if tag.startswith("cc-due-"):
+        m = re.search(r"(\d{4}-\d{2}-\d{2})$", tag)
+        if m:
+            try:
+                days = (date.fromisoformat(m.group(1)) - today).days
+                return 0 if days <= 1 else 1
+            except ValueError:
+                pass
+        return 0
+    if tag.startswith("health-"):
+        return 2
+    if tag.startswith("budget-exceeded-"):
+        return 3
+    if tag.startswith("budget-warning-"):
+        return 4
+    if tag.startswith("recurring-"):
+        return 5
+    return 6
+
+
 @general_rate
 def check_notifications(request: AuthenticatedRequest) -> JsonResponse:
     """Poll for pending notifications.
 
     GET /api/push/check
 
-    Returns a JSON array of notification objects, each with:
-    title, body, url, tag (dedup key).
-
-    The browser's push.js displays these as in-app banners and/or
-    browser notifications via the Push API.
+    Syncs notification state to DB via generate_and_persist(), then returns
+    unread notifications sorted by priority. Each object includes an `id` field
+    so the browser can POST to /api/push/dismiss/<id> to mark as read.
     """
     svc = NotificationService(request.user_id, request.tz)
-    notifications = svc.get_pending_notifications()
+    svc.generate_and_persist()
 
-    # safe=False because top-level JSON is an array, not a dict
-    return JsonResponse(notifications, safe=False)
+    today = datetime.now(request.tz).date()
+    unread = list(
+        Notification.objects.for_user(request.user_id)
+        .filter(is_read=False)
+        .values("id", "title", "body", "url", "tag")
+    )
+    unread.sort(key=lambda n: _tag_priority(n["tag"], today))
+    for n in unread:
+        n["id"] = str(n["id"])
+
+    return JsonResponse(unread, safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@general_rate
+def dismiss_notification(
+    request: AuthenticatedRequest, notification_id: str
+) -> JsonResponse:
+    """Mark a notification as read (cross-device banner dismiss).
+
+    POST /api/push/dismiss/<uuid>
+
+    Returns {"status": "ok"} on success.
+    """
+    try:
+        uuid.UUID(notification_id)
+    except ValueError:
+        raise Http404
+
+    notif = get_object_or_404(Notification, id=notification_id, user_id=request.user_id)
+    notif.is_read = True
+    notif.save(update_fields=["is_read", "updated_at"])
+    return JsonResponse({"status": "ok"})
 
 
 def notification_badge(request: AuthenticatedRequest) -> HttpResponse:

@@ -1,11 +1,12 @@
 # ClearMoney Tickets
 
-Last updated: 2026-05-02 (ticket 523 closed: fix loan repayment delete/update leaving stale account balance)
+Last updated: 2026-05-03 (ticket 524 opened: fix alerts cross-device dismiss and stacking)
 
 ## In Progress
 
 | ID | Title | Type | Priority | Updated |
 | --- | --- | --- | --- | --- |
+| [524](wip/524-fix-alerts-cross-device-dismiss-stacking.md) | Fix alerts: cross-device dismiss, stacking, won't-close | bug | high | 2026-05-03 |
 | [503](wip/503-automation-unified-form-redesign.md) | Automation unified form redesign | improvement | high | 2026-04-27 |
 | [165](wip/165-single-entry-loans.md) | Single-entry loans | feature | medium | 2026-04-27 |
 

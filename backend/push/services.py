@@ -325,10 +325,11 @@ class NotificationService:
                 notif.save(update_fields=["title", "body", "url", "updated_at"])
                 updated += 1
 
-        # Auto-resolve: remove unread notifications that are no longer active
+        # Auto-resolve: remove ALL notifications for conditions that are no longer
+        # active. This includes read (dismissed) ones so that if a condition resolves
+        # then recurs, the user sees a fresh alert rather than a stale dismissed one.
         resolved_qs = Notification.objects.filter(
             user_id=self.user_id,
-            is_read=False,
         ).exclude(tag__in=current_tags)
         resolved = resolved_qs.count()
         resolved_qs.delete()

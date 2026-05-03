@@ -14,6 +14,11 @@ urlpatterns = [
     path("api/push/vapid-key", views.vapid_key, name="push-vapid-key"),
     path("api/push/subscribe", views.subscribe, name="push-subscribe"),
     path("api/push/check", views.check_notifications, name="push-check"),
+    path(
+        "api/push/dismiss/<str:notification_id>",
+        views.dismiss_notification,
+        name="push-dismiss",
+    ),
     # Notification center HTML
     path("notifications/badge", views.notification_badge, name="notifications-badge"),
     path("notifications", views.notifications_page, name="notifications-list"),

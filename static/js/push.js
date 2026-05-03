@@ -42,116 +42,98 @@ async function requestNotificationPermission() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(subscription),
     });
-
-    console.log('Push: Subscribed successfully');
   } catch (err) {
     console.error('Push: Subscription failed', err);
   }
 }
 
-// Check for pending notifications via polling (works without VAPID).
+// Check for pending notifications via polling.
+// Dismiss state is stored in the DB (is_read=True) so it syncs across devices.
 async function checkNotifications() {
   try {
     const response = await fetch('/api/push/check');
     if (!response.ok) return;
 
     const notifications = await response.json();
-    if (!notifications || notifications.length === 0) {
-      // No active notifications — clear banner
-      const container = document.getElementById('notification-banner');
-      if (container) container.replaceChildren();
-      return;
-    }
-
-    // Load dismissed tags from localStorage
-    let dismissedTags = JSON.parse(localStorage.getItem('push_dismissed') || '{}');
-
-    // Auto-reset: remove dismissed tags that are no longer returned by server
-    // (condition resolved — allow re-firing if it recurs)
-    const currentTags = new Set(notifications.map(n => n.tag));
-    let changed = false;
-    for (const tag in dismissedTags) {
-      if (!currentTags.has(tag)) {
-        delete dismissedTags[tag];
-        changed = true;
-      }
-    }
-    if (changed) {
-        localStorage.setItem('push_dismissed', JSON.stringify(dismissedTags));
-    }
-
-    // Filter out dismissed notifications
-    const visibleNotifications = notifications.filter(n => !(n.tag in dismissedTags));
-
     const container = document.getElementById('notification-banner');
     if (!container) return;
 
-    if (visibleNotifications.length === 0) {
-      container.replaceChildren();
-      return;
-    }
-
-    // Load seen tags for browser notification dedup
-    let seenTags = JSON.parse(localStorage.getItem('push_seen') || '{}');
-
-    // Auto-reset seen tags for resolved conditions
-    for (const tag in seenTags) {
-      if (!currentTags.has(tag)) {
-        delete seenTags[tag];
-      }
-    }
-
-    // Render all visible notifications in the banner
     container.replaceChildren();
-    for (const n of visibleNotifications) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'relative';
 
-      const link = document.createElement('a');
-      link.href = n.url;
-      link.className = 'block bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 pr-8 mb-2';
+    if (!notifications || notifications.length === 0) return;
 
-      const title = document.createElement('p');
-      title.className = 'text-sm font-medium text-amber-800 dark:text-amber-300';
-      title.textContent = n.title;
+    // Show top notification (already priority-sorted by server)
+    container.appendChild(buildBanner(notifications[0], container));
 
-      const body = document.createElement('p');
-      body.className = 'text-xs text-amber-600 dark:text-amber-400';
-      body.textContent = n.body;
+    // Collapse pill for additional alerts
+    if (notifications.length > 1) {
+      const extras = notifications.length - 1;
+      const pill = document.createElement('a');
+      pill.href = '/notifications';
+      pill.className = 'block text-center text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 rounded-full px-3 py-1 mt-1 hover:bg-amber-200 dark:hover:bg-amber-800/60';
+      pill.textContent = `${extras} more alert${extras > 1 ? 's' : ''} →`;
+      container.appendChild(pill);
+    }
 
-      link.appendChild(title);
-      link.appendChild(body);
-
-      // Dismiss button
-      const dismissBtn = document.createElement('button');
-      dismissBtn.type = 'button';
-      dismissBtn.className = 'absolute top-2 right-2 p-1 text-amber-400 hover:text-amber-600 dark:text-amber-500 dark:hover:text-amber-300';
-      dismissBtn.setAttribute('aria-label', 'Dismiss notification');
-      dismissBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
-      dismissBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        wrapper.remove();
-        const dismissed = JSON.parse(localStorage.getItem('push_dismissed') || '{}');
-        dismissed[n.tag] = Date.now();
-        localStorage.setItem('push_dismissed', JSON.stringify(dismissed));
-      });
-
-      wrapper.appendChild(link);
-      wrapper.appendChild(dismissBtn);
-      container.appendChild(wrapper);
-
-      // Show browser notification for unseen items
-      if (!(n.tag in seenTags) && Notification.permission === 'granted') {
+    // Show browser notifications for unseen tags (deduped via localStorage)
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem('push_seen') || '{}'); } catch (_) {}
+    for (const n of notifications) {
+      if (!(n.tag in seen) && Notification.permission === 'granted') {
         new Notification(n.title, { body: n.body, tag: n.tag });
       }
-      seenTags[n.tag] = Date.now();
+      seen[n.tag] = Date.now();
     }
-
-    localStorage.setItem('push_seen', JSON.stringify(seenTags));
-  } catch (err) {
+    try { localStorage.setItem('push_seen', JSON.stringify(seen)); } catch (_) {}
+  } catch (_) {
     // Silently fail — might be offline
   }
+}
+
+// Build a single notification banner element.
+function buildBanner(n, container) {
+  const csrf = container.dataset.csrf || '';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'relative';
+
+  const link = document.createElement('a');
+  link.href = n.url;
+  link.className = 'block bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-3 pr-8';
+
+  const title = document.createElement('p');
+  title.className = 'text-sm font-medium text-amber-800 dark:text-amber-300';
+  title.textContent = n.title;
+
+  const body = document.createElement('p');
+  body.className = 'text-xs text-amber-600 dark:text-amber-400';
+  body.textContent = n.body;
+
+  link.appendChild(title);
+  link.appendChild(body);
+
+  const dismissBtn = document.createElement('button');
+  dismissBtn.type = 'button';
+  dismissBtn.className = 'absolute top-2 right-2 p-1 text-amber-400 hover:text-amber-600 dark:text-amber-500 dark:hover:text-amber-300';
+  dismissBtn.setAttribute('aria-label', 'Dismiss notification');
+  dismissBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+  dismissBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    wrapper.remove();
+    try {
+      await fetch(`/api/push/dismiss/${n.id}`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf },
+      });
+      // Re-check so collapse pill updates
+      checkNotifications();
+    } catch (_) {}
+  });
+
+  wrapper.appendChild(link);
+  wrapper.appendChild(dismissBtn);
+  return wrapper;
 }
 
 // Convert URL-safe base64 to Uint8Array (required by Push API).

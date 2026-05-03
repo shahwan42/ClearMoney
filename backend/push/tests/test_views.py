@@ -99,31 +99,42 @@ class TestSubscribe:
 
 @pytest.mark.django_db
 class TestCheckNotifications:
-    def test_returns_json_array(
+    def _mock_svc(self, mocker: MockerFixture) -> None:
+        mock_svc = mocker.patch("push.views.NotificationService")
+        mock_svc.return_value.generate_and_persist.return_value = {
+            "created": 0,
+            "updated": 0,
+            "resolved": 0,
+        }
+
+    def test_returns_empty_when_no_unread(
         self, auth_client: Client, mocker: MockerFixture
     ) -> None:
-        """With no triggers, returns an empty JSON array."""
-        mock_svc = mocker.patch("push.views.NotificationService")
-        mock_svc.return_value.get_pending_notifications.return_value = []
-
+        self._mock_svc(mocker)
         response = auth_client.get("/api/push/check")
-
         assert response.status_code == 200
-        data = response.json()
-        assert data == []
+        assert response.json() == []
 
-    def test_returns_notifications(
-        self, auth_client: Client, mocker: MockerFixture
+    def test_returns_unread_notifications_with_id(
+        self,
+        auth_client: Client,
+        auth_user: tuple[str, str, str],
+        mocker: MockerFixture,
     ) -> None:
-        mock_svc = mocker.patch("push.views.NotificationService")
-        mock_svc.return_value.get_pending_notifications.return_value = [
-            {
-                "title": "Budget Warning",
-                "body": "Food: 85% used",
-                "url": "/budgets",
-                "tag": "budget-warning-cat-1",
-            },
-        ]
+        from auth_app.models import User
+        from push.models import Notification
+
+        self._mock_svc(mocker)
+        user_id, _, _ = auth_user
+        user = User.objects.get(id=user_id)
+        notif = Notification.objects.create(
+            user=user,
+            title="Budget Warning",
+            body="Food: 85% used",
+            url="/budgets",
+            tag="budget-warning-cat-1",
+            is_read=False,
+        )
 
         response = auth_client.get("/api/push/check")
 
@@ -132,11 +143,137 @@ class TestCheckNotifications:
         assert len(data) == 1
         assert data[0]["title"] == "Budget Warning"
         assert data[0]["tag"] == "budget-warning-cat-1"
+        assert data[0]["id"] == str(notif.id)
+
+    def test_excludes_read_notifications(
+        self,
+        auth_client: Client,
+        auth_user: tuple[str, str, str],
+        mocker: MockerFixture,
+    ) -> None:
+        from auth_app.models import User
+        from push.models import Notification
+
+        self._mock_svc(mocker)
+        user_id, _, _ = auth_user
+        user = User.objects.get(id=user_id)
+        Notification.objects.create(
+            user=user,
+            title="Dismissed",
+            body="Already read",
+            url="/budgets",
+            tag="budget-warning-cat-2",
+            is_read=True,
+        )
+
+        response = auth_client.get("/api/push/check")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_priority_order(
+        self,
+        auth_client: Client,
+        auth_user: tuple[str, str, str],
+        mocker: MockerFixture,
+    ) -> None:
+        """CC due appears before budget warning regardless of creation order."""
+        from auth_app.models import User
+        from push.models import Notification
+
+        self._mock_svc(mocker)
+        user_id, _, _ = auth_user
+        user = User.objects.get(id=user_id)
+        Notification.objects.create(
+            user=user,
+            title="Budget Warning",
+            body="Food: 85% used",
+            url="/budgets",
+            tag="budget-warning-cat-1",
+            is_read=False,
+        )
+        Notification.objects.create(
+            user=user,
+            title="CC Due",
+            body="Card due tomorrow",
+            url="/accounts",
+            tag="cc-due-MyCard-2026-05-03",
+            is_read=False,
+        )
+
+        response = auth_client.get("/api/push/check")
+
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]["tag"].startswith("cc-due-")
+        assert data[1]["tag"].startswith("budget-warning-")
 
     def test_requires_auth(self, client: Client) -> None:
         response = client.get("/api/push/check")
         assert response.status_code == 302
         assert "/login" in response["Location"]
+
+
+# ---------------------------------------------------------------------------
+# POST /api/push/dismiss/<id>
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestDismissNotification:
+    def test_marks_notification_as_read(
+        self, auth_client: Client, auth_user: tuple[str, str, str]
+    ) -> None:
+        from auth_app.models import User
+        from push.models import Notification
+
+        user_id, _, _ = auth_user
+        user = User.objects.get(id=user_id)
+        notif = Notification.objects.create(
+            user=user,
+            title="Alert",
+            body="Body",
+            url="/budgets",
+            tag="budget-exceeded-1",
+            is_read=False,
+        )
+
+        response = auth_client.post(f"/api/push/dismiss/{notif.id}")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+        notif.refresh_from_db()
+        assert notif.is_read is True
+
+    def test_returns_404_for_other_users_notification(
+        self, auth_client: Client, auth_user: tuple[str, str, str]
+    ) -> None:
+        from push.models import Notification
+        from tests.factories import UserFactory
+
+        other_user = UserFactory()
+        notif = Notification.objects.create(
+            user=other_user,
+            title="Other",
+            body="Body",
+            url="/",
+            tag="budget-exceeded-other",
+            is_read=False,
+        )
+
+        response = auth_client.post(f"/api/push/dismiss/{notif.id}")
+
+        assert response.status_code == 404
+
+    def test_returns_404_for_invalid_uuid(self, auth_client: Client) -> None:
+        response = auth_client.post("/api/push/dismiss/not-a-uuid")
+        assert response.status_code == 404
+
+    def test_requires_auth(self, client: Client) -> None:
+        import uuid
+
+        response = client.post(f"/api/push/dismiss/{uuid.uuid4()}")
+        assert response.status_code == 302
 
 
 # ---------------------------------------------------------------------------

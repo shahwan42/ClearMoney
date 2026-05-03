@@ -603,9 +603,11 @@ class TestGenerateAndPersist:
             user_id=user_id, tag="stale-tag"
         ).exists()
 
-    def test_preserve_read_notifications_for_history(
+    def test_delete_read_notifications_for_resolved_conditions(
         self, mocker: MockerFixture
     ) -> None:
+        """Resolved conditions delete ALL notifications (read+unread) so that
+        if the condition recurs the user sees a fresh alert."""
         from push.models import Notification
 
         user_id, user = self._make_user()
@@ -615,9 +617,11 @@ class TestGenerateAndPersist:
         svc = self._svc(user_id, mocker)
         stats = svc.generate_and_persist()
 
-        # Read notification should NOT be deleted even if tag not in current set
-        assert stats["resolved"] == 0
-        assert Notification.objects.filter(user_id=user_id, tag="old-read-tag").exists()
+        # Read notification for a resolved condition must be deleted
+        assert stats["resolved"] == 1
+        assert not Notification.objects.filter(
+            user_id=user_id, tag="old-read-tag"
+        ).exists()
 
 
 # ---------------------------------------------------------------------------

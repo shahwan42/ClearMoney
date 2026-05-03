@@ -149,7 +149,7 @@
     {% include "components/header.html" %}
 
     <!-- Notification banner -->
-    <div id="notification-banner" class="fixed top-14 start-0 end-0 z-40 px-4" aria-live="polite" aria-atomic="true"></div>
+    <div id="notification-banner" class="fixed top-14 start-0 end-0 z-40 px-4" aria-live="polite" aria-atomic="true" data-csrf="{{ csrf_token }}"></div>
 
     <main id="main-content" class="flex-1 overflow-y-auto pt-14 pb-20 px-4">
         {% block content %}{% endblock %}
