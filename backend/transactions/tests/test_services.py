@@ -447,9 +447,8 @@ class TestUpdate:
             balance_delta=Decimal("-500"),
         )
         from accounts.models import Account
-        Account.objects.filter(id=tx_data["egp_id"]).update(
-            current_balance=10000 - 500
-        )
+
+        Account.objects.filter(id=tx_data["egp_id"]).update(current_balance=10000 - 500)
         assert _get_balance(tx_data["egp_id"]) == 9500
 
         # Update amount from 500 → 800; adjustment should be -300 (not -800)
@@ -666,9 +665,8 @@ class TestDelete:
             balance_delta=Decimal("-500"),
         )
         from accounts.models import Account
-        Account.objects.filter(id=tx_data["egp_id"]).update(
-            current_balance=10000 - 500
-        )
+
+        Account.objects.filter(id=tx_data["egp_id"]).update(current_balance=10000 - 500)
         assert _get_balance(tx_data["egp_id"]) == 9500
 
         svc.delete(str(tx_obj.id))
@@ -690,6 +688,7 @@ class TestDelete:
             balance_delta=Decimal("2000"),
         )
         from accounts.models import Account
+
         Account.objects.filter(id=tx_data["egp_id"]).update(
             current_balance=10000 + 2000
         )

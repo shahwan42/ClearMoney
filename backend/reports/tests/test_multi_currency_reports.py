@@ -1,5 +1,3 @@
-import datetime
-
 import pytest
 from django.test import Client
 
@@ -68,7 +66,9 @@ class TestMultiCurrencyReports:
         )
 
         # EUR Report
-        report = get_monthly_report(str(user.id), report_year, report_month, currency="EUR")
+        report = get_monthly_report(
+            str(user.id), report_year, report_month, currency="EUR"
+        )
 
         assert report["filter_currency"] == "EUR"
         assert report["total_spending"] == 20.0

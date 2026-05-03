@@ -21,8 +21,8 @@ def db() -> None:
     with _conn() as conn:
         with conn.cursor() as cur:
             # Create currencies
-            cur.execute("INSERT INTO currencies (code, name, symbol, is_enabled, display_order) VALUES ('EGP', 'Egyptian Pound', 'EGP', true, 0) ON CONFLICT (code) DO NOTHING")
-            cur.execute("INSERT INTO currencies (code, name, symbol, is_enabled, display_order) VALUES ('EUR', 'Euro', '€', true, 1) ON CONFLICT (code) DO NOTHING")
+            cur.execute("INSERT INTO currencies (code, name, symbol, is_enabled, display_order) VALUES ('EGP', '{\"en\": \"Egyptian Pound\"}', 'EGP', true, 0) ON CONFLICT (code) DO NOTHING")
+            cur.execute("INSERT INTO currencies (code, name, symbol, is_enabled, display_order) VALUES ('EUR', '{\"en\": \"Euro\"}', '€', true, 1) ON CONFLICT (code) DO NOTHING")
             
             # Update user preferences (already created by reset_database)
             cur.execute(

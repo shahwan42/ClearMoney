@@ -58,7 +58,7 @@
                 <form method="POST" action="{% url 'category-archive' cat.id %}" class="inline">
                     {% csrf_token %}
                     <button type="submit"
-                            class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                            class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 min-h-[44px] px-2"
                             aria-label="{% trans "Archive" %} {{ cat.name }}">{% trans "Archive" %}</button>
                 </form>
                 {% endif %}
@@ -85,7 +85,7 @@
                 <form method="POST" action="{% url 'category-archive' cat.id %}" class="inline">
                     {% csrf_token %}
                     <button type="submit"
-                            class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+                            class="text-xs text-gray-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 min-h-[44px] px-2"
                             aria-label="{% trans "Archive" %} {{ cat.name }}">{% trans "Archive" %}</button>
                 </form>
                 {% endif %}
@@ -113,7 +113,7 @@
                 <form method="POST" action="{% url 'category-unarchive' cat.id %}" class="inline">
                     {% csrf_token %}
                     <button type="submit"
-                            class="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400"
+                            class="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 min-h-[44px] px-2"
                             aria-label="{% trans "Restore" %} {{ cat.name }}">{% trans "Restore" %}</button>
                 </form>
             </div>

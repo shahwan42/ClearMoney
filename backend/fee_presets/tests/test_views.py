@@ -33,11 +33,15 @@ class TestFeePresetsPage:
         assert b"EGP" in response.content
         assert b"USD" in response.content
 
-    def test_only_shows_own_presets(self, auth_client: Client, auth_user: tuple) -> None:
+    def test_only_shows_own_presets(
+        self, auth_client: Client, auth_user: tuple
+    ) -> None:
         user_id, _, _ = auth_user
         other_user = UserFactory()
         FeePresetFactory(user_id=user_id, name="My Preset", currency="EGP")
-        FeePresetFactory(user_id=str(other_user.id), name="Other Preset", currency="EGP")
+        FeePresetFactory(
+            user_id=str(other_user.id), name="Other Preset", currency="EGP"
+        )
 
         response = auth_client.get("/settings/fee-presets")
         assert response.status_code == 200
@@ -112,7 +116,9 @@ class TestFeePresetArchive:
 
     def test_can_unarchive_preset(self, auth_client: Client, auth_user: tuple) -> None:
         user_id, _, _ = auth_user
-        preset = FeePresetFactory(user_id=user_id, name="To Unarchive", currency="EGP", archived=True)
+        preset = FeePresetFactory(
+            user_id=user_id, name="To Unarchive", currency="EGP", archived=True
+        )
 
         response = auth_client.post(f"/settings/fee-presets/{preset.id}/unarchive")
         assert response.status_code == 302
@@ -123,7 +129,9 @@ class TestFeePresetArchive:
 
 @pytest.mark.django_db
 class TestApiFeePresets:
-    def test_api_returns_presets_for_currency(self, auth_client: Client, auth_user: tuple) -> None:
+    def test_api_returns_presets_for_currency(
+        self, auth_client: Client, auth_user: tuple
+    ) -> None:
         user_id, _, _ = auth_user
         FeePresetFactory(user_id=user_id, name="EGP Fee", currency="EGP")
         FeePresetFactory(user_id=user_id, name="USD Fee", currency="USD")
@@ -135,10 +143,14 @@ class TestApiFeePresets:
         assert len(data["presets"]) == 1
         assert data["presets"][0]["name"] == "EGP Fee"
 
-    def test_api_only_returns_active_presets(self, auth_client: Client, auth_user: tuple) -> None:
+    def test_api_only_returns_active_presets(
+        self, auth_client: Client, auth_user: tuple
+    ) -> None:
         user_id, _, _ = auth_user
         FeePresetFactory(user_id=user_id, name="Active", currency="EGP", archived=False)
-        FeePresetFactory(user_id=user_id, name="Archived", currency="EGP", archived=True)
+        FeePresetFactory(
+            user_id=user_id, name="Archived", currency="EGP", archived=True
+        )
 
         response = auth_client.get("/api/fee-presets?currency=EGP")
         data = response.json()
@@ -152,15 +164,21 @@ class TestApiFeePresets:
 class TestApiFeePresetCalculate:
     def test_calculates_flat_fee(self, auth_client: Client, auth_user: tuple) -> None:
         user_id, _, _ = auth_user
-        preset = FeePresetFactory(user_id=user_id, name="Flat", currency="EGP", calc_type="flat", value="5")
+        preset = FeePresetFactory(
+            user_id=user_id, name="Flat", currency="EGP", calc_type="flat", value="5"
+        )
 
-        response = auth_client.get(f"/api/fee-presets/calculate?preset_id={preset.id}&amount=1000")
+        response = auth_client.get(
+            f"/api/fee-presets/calculate?preset_id={preset.id}&amount=1000"
+        )
         assert response.status_code == 200
 
         data = response.json()
         assert data["fee"] == "5.00"
 
-    def test_calculates_percent_fee(self, auth_client: Client, auth_user: tuple) -> None:
+    def test_calculates_percent_fee(
+        self, auth_client: Client, auth_user: tuple
+    ) -> None:
         user_id, _, _ = auth_user
         preset = FeePresetFactory(
             user_id=user_id,
@@ -172,7 +190,9 @@ class TestApiFeePresetCalculate:
             max_fee="20.00",
         )
 
-        response = auth_client.get(f"/api/fee-presets/calculate?preset_id={preset.id}&amount=5000")
+        response = auth_client.get(
+            f"/api/fee-presets/calculate?preset_id={preset.id}&amount=5000"
+        )
         assert response.status_code == 200
 
         data = response.json()

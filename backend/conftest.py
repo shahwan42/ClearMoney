@@ -94,9 +94,7 @@ def _ensure_seed_data(django_db_blocker: Any, django_db_setup: Any) -> None:
         if not SystemBank.objects.filter(country="EG").exists():
             from importlib import import_module
 
-            module = import_module(
-                "accounts.migrations.0011_seed_egypt_system_banks"
-            )
+            module = import_module("accounts.migrations.0011_seed_egypt_system_banks")
             from django.apps import apps as real_apps
 
             class _StubApps:

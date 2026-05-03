@@ -196,9 +196,7 @@ def budget_edit(
         max_rollover = float(max_rollover_str) if max_rollover_str else None
     except ValueError:
         if request.htmx:
-            return render_htmx_result(
-                "error", "Invalid monthly limit or max rollover"
-            )
+            return render_htmx_result("error", "Invalid monthly limit or max rollover")
         return HttpResponse("Invalid monthly limit or max rollover", status=400)
 
     if not rollover_enabled:

@@ -75,6 +75,24 @@ def _disable_animations(page: Page) -> None:
     page.add_init_script(_DISABLE_ANIMATIONS_SCRIPT)
 
 
+@pytest.fixture(autouse=True)
+def _suppress_push_notifications(page: Page) -> None:
+    """Mock /api/push/check to return no notifications.
+
+    The notification banner intercepts pointer events and blocks button clicks
+    in tests. Tests that specifically verify notification behaviour should
+    unroute this mock by calling page.unroute('/api/push/check*').
+    """
+    page.route(
+        "**/api/push/check*",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body='{"notifications": []}',
+        ),
+    )
+
+
 # ── Django dev server (replaces playwright.config.ts webServer) ───────────────
 
 

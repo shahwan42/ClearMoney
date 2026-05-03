@@ -1128,7 +1128,9 @@ def quick_entry_create(
             rate = parse_float_or_none(request.POST.get("rate", ""))
             if rate:
                 # Cross-currency — route to exchange
-                counter_amount = parse_float_or_none(request.POST.get("counter_amount", ""))
+                counter_amount = parse_float_or_none(
+                    request.POST.get("counter_amount", "")
+                )
                 debit, credit = svc.create_exchange(
                     source_id=source_id,
                     dest_id=dest_id,

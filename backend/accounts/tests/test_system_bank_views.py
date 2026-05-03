@@ -141,9 +141,7 @@ class TestInstitutionFormIntegration:
 
         sess = Session.objects.first()
         assert sess is not None
-        inst = Institution.objects.create(
-            user_id=sess.user_id, name="Old", type="bank"
-        )
+        inst = Institution.objects.create(user_id=sess.user_id, name="Old", type="bank")
         cib = SystemBank.objects.get(short_name="CIB", country="EG")
         resp = auth_client.post(
             f"/institutions/{inst.id}/update",

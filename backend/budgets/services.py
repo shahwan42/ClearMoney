@@ -12,7 +12,7 @@ transactions filtered by type='expense' and matching currency.
 import logging
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
@@ -295,7 +295,7 @@ class BudgetService:
         max_rollover: float | None | object = _UNSET,
     ) -> dict[str, Any]:
         """Update a budget's fields."""
-        update_data = {}
+        update_data: dict[str, Any] = {}
         if monthly_limit is not None:
             if monthly_limit <= 0:
                 raise ValueError("Monthly limit must be positive")
@@ -305,7 +305,7 @@ class BudgetService:
             update_data["rollover_enabled"] = rollover_enabled
 
         if max_rollover is not _UNSET:
-            update_data["max_rollover"] = max_rollover
+            update_data["max_rollover"] = cast(float | None, max_rollover)
 
         if not update_data:
             budget = self._qs().get(id=budget_id)

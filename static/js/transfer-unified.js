@@ -156,3 +156,16 @@ function _clearFields(container) {
         inputs[i].value = '';
     }
 }
+
+// Wire fee input to updateTransferTotal when the fee preset selector renders
+// the input (it doesn't carry an oninput attribute itself).
+document.addEventListener('DOMContentLoaded', function() {
+    var feeInput = document.getElementById('transfer-fee');
+    if (feeInput) {
+        feeInput.addEventListener('input', function() {
+            if (detectTransferMode() === 'transfer') {
+                updateTransferTotal();
+            }
+        });
+    }
+});

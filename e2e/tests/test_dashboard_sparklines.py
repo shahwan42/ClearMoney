@@ -30,7 +30,7 @@ def db() -> None:
             cur.execute("INSERT INTO accounts (user_id, institution_id, name, type, currency, current_balance, initial_balance, display_order) VALUES (%s, %s, %s, %s, %s, %s, %s, 1)", (_user_id, inst_id, 'Current EUR', 'current', 'EUR', 1000, 1000))
             
             # Enable EUR
-            cur.execute("INSERT INTO currencies (code, name, symbol, is_enabled, display_order) VALUES ('EUR', 'Euro', '€', true, 1) ON CONFLICT (code) DO NOTHING")
+            cur.execute("INSERT INTO currencies (code, name, symbol, is_enabled, display_order) VALUES ('EUR', '{\"en\": \"Euro\"}', '€', true, 1) ON CONFLICT (code) DO NOTHING")
             cur.execute(
                 "UPDATE user_currency_preferences SET active_currency_codes = '[\"EGP\", \"EUR\"]' WHERE user_id = %s",
                 (_user_id,)
